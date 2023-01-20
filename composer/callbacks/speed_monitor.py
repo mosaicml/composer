@@ -118,11 +118,11 @@ class SpeedMonitor(Callback):
 
             # Estimate remaining time
             batch_wct_avg = sum(self.batch_wct_buffer) / len(self.batch_wct_buffer)
-            elapsed_duration = float(state.get_elapsed_duration())
+            elapsed_duration = state.get_elapsed_duration()
             if elapsed_duration is None:
                 warnings.warn('`max_duration` is not set. Cannot estimate remaining time.')
             else:
-                remaining_time = batch_wct_avg * (1 - elapsed_duration)
+                remaining_time = batch_wct_avg * (1 - float(elapsed_duration))
                 # Add remaining time from each evaluator
                 for dataloader_label, eval_wcts in self.eval_wct_per_label.items():
                     eval_wct_avg = sum(eval_wcts) / len(eval_wcts)
@@ -146,11 +146,11 @@ class SpeedMonitor(Callback):
         if state.dataloader_label not in self.eval_wct_per_label:
             self.eval_wct_per_label[state.dataloader_label] = []
         self.eval_wct_per_label[state.dataloader_label].append(state.eval_timestamp.total_wct.total_seconds())
-        max_dur = float(state.get_elapsed_duration())
+        max_dur = state.get_elapsed_duration()
         if max_dur is None:
             warnings.warn(
                 'Attempting to estimate remaining time but `max_duration` is not set. Skipping adjustment for evaluation time.'
             )
         else:
-            self.eval_rate_per_label[state.dataloader_label] = max_dur / len(
+            self.eval_rate_per_label[state.dataloader_label] = float(max_dur) / len(
                 self.eval_wct_per_label[state.dataloader_label])
