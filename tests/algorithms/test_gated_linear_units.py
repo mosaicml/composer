@@ -67,7 +67,7 @@ def assert_is_glu_instance(model):
     ), 'composer.algorithms.gated_linear_units.gated_linear_unit_layers.BERTGatedFFOutput is not found in the post-surgery model.'
 
 
-@pytest.mark.parametrize('synthetic_state_family', [
+@pytest.mark.parametrize('model,dataloader', [
     (configure_tiny_bert_hf_model, dummy_bert_lm_dataloader),
     (pytest.param(
         SimpleTransformerClassifier,
@@ -90,7 +90,7 @@ def test_gated_linear_units_functional(model, dataloader):
     assert_is_glu_instance(state.model.model)
 
 
-@pytest.mark.parametrize('synthetic_state_family', [
+@pytest.mark.parametrize('model,dataloader', [
     (configure_tiny_bert_hf_model, dummy_bert_lm_dataloader),
     (pytest.param(
         SimpleTransformerClassifier,

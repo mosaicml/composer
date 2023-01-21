@@ -38,7 +38,7 @@ def assert_is_lpln_instance(model):
 
 
 @device('gpu')
-@pytest.mark.parametrize('synthetic_state_family', [
+@pytest.mark.parametrize('model,dataloader', [
     (configure_tiny_bert_hf_model, dummy_bert_lm_dataloader),
     (SimpleTransformerClassifier, dummy_text_classification_dataloader),
 ])
@@ -63,7 +63,7 @@ def test_low_precision_layernorm_functional(model, dataloader, device: str):
 
 
 @device('gpu')
-@pytest.mark.parametrize('synthetic_state_family', [
+@pytest.mark.parametrize('model,dataloader', [
     (configure_tiny_bert_hf_model, dummy_bert_lm_dataloader),
     (SimpleTransformerClassifier, dummy_text_classification_dataloader),
 ])

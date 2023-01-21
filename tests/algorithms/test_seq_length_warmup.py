@@ -75,7 +75,7 @@ def check_forward_backward(model, batch):
     output['loss'].backward()
 
 
-@pytest.mark.parametrize('synthetic_state_family', [
+@pytest.mark.parametrize('model, dataloader', [
     (configure_tiny_bert_hf_model, dummy_bert_lm_dataloader),
     (configure_tiny_gpt_hf_model, dummy_gpt_lm_dataloader),
     (pytest.param(
@@ -87,8 +87,7 @@ def check_forward_backward(model, batch):
 class TestSeqLengthWarmup:
 
     @pytest.mark.parametrize('curr_seq_length', [8, 64])
-    def test_functional(self, model, dataloader, curr_seq_length: int, truncate: bool, preserve_end_of_sequence: bool,
-                        request: pytest.FixtureRequest):
+    def test_functional(self, model, dataloader, curr_seq_length: int, truncate: bool, preserve_end_of_sequence: bool):
         model = model()
         dataloader = dataloader()
         state = State(
@@ -107,8 +106,7 @@ class TestSeqLengthWarmup:
         check_batch(batch_before, batch_after, curr_seq_length, truncate, preserve_end_of_sequence)
         check_forward_backward(state.model, batch_after)
 
-    def test_algorithm(self, model, dataloader, empty_logger: Logger, truncate: bool, preserve_end_of_sequence: bool,
-                       request: pytest.FixtureRequest):
+    def test_algorithm(self, model, dataloader, empty_logger: Logger, truncate: bool, preserve_end_of_sequence: bool):
         model = model()
         dataloader = dataloader()
         state = State(
