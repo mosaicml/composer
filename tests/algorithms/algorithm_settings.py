@@ -30,13 +30,17 @@ from tests.common.models import (SimpleConvModel, SimpleModelWithDropout, config
 
 simple_bert_settings = {
     'model': configure_tiny_bert_hf_model,
-    'dataloader': dummy_bert_lm_dataloader,
+    'dataloader': (dummy_bert_lm_dataloader, {
+        'size': 8
+    }),
     'kwargs': {},
 }
 
 simple_gpt2_settings = {
     'model': configure_tiny_gpt_hf_model,
-    'dataloader': dummy_gpt_lm_dataloader,
+    'dataloader': (dummy_gpt_lm_dataloader, {
+        'size': 8
+    }),
     'kwargs': {},
 }
 
@@ -76,7 +80,9 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     },
     Alibi: {
         'model': configure_tiny_bert_hf_model,
-        'dataloader': dummy_bert_lm_dataloader,
+        'dataloader': (dummy_bert_lm_dataloader, {
+            'size': 8
+        }),
         'kwargs': {
             'max_sequence_length': 256
         },
@@ -130,7 +136,9 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     SelectiveBackprop: simple_vision_settings,
     SeqLengthWarmup: {
         'model': configure_tiny_bert_hf_model,
-        'dataloader': dummy_bert_lm_dataloader,
+        'dataloader': (dummy_bert_lm_dataloader, {
+            'size': 8
+        }),
         'kwargs': {
             'duration': 0.5,
             'min_seq_length': 8,

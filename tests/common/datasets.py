@@ -270,8 +270,7 @@ def dummy_tiny_bert_lm_batch():
     return batch
 
 
-def dummy_hf_lm_dataloader(vocab_size: int, sequence_length: int, collate_fn=None):
-    size = 4
+def dummy_hf_lm_dataloader(size: int, vocab_size: int, sequence_length: int, collate_fn=None):
     batch_size = 2
 
     dataset = RandomTextLMDataset(size=size, vocab_size=vocab_size, sequence_length=sequence_length, use_keys=True)
@@ -280,20 +279,20 @@ def dummy_hf_lm_dataloader(vocab_size: int, sequence_length: int, collate_fn=Non
     return dataloader
 
 
-def dummy_bert_lm_dataloader(sequence_length=4):
+def dummy_bert_lm_dataloader(sequence_length=4, size=4):
     transformers = pytest.importorskip('transformers')
     tokenizer = configure_tiny_bert_tokenizer()
     collate_fn = transformers.data.data_collator.DataCollatorForLanguageModeling(tokenizer=tokenizer,
                                                                                  mlm=True,
                                                                                  mlm_probability=0.15)
-    return dummy_hf_lm_dataloader(vocab_size=30522, sequence_length=sequence_length, collate_fn=collate_fn)
+    return dummy_hf_lm_dataloader(vocab_size=30522, sequence_length=sequence_length, size=size, collate_fn=collate_fn)
 
 
-def dummy_gpt_lm_dataloader(sequence_length=4):
+def dummy_gpt_lm_dataloader(sequence_length=4, size=4):
     transformers = pytest.importorskip('transformers')
     tokenizer = configure_tiny_gpt_tokenizer()
     collate_fn = transformers.data.data_collator.DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
-    return dummy_hf_lm_dataloader(vocab_size=50257, sequence_length=sequence_length, collate_fn=collate_fn)
+    return dummy_hf_lm_dataloader(vocab_size=50257, sequence_length=sequence_length, size=size, collate_fn=collate_fn)
 
 
 def dummy_text_classification_dataloader():
