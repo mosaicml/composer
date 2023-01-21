@@ -21,7 +21,6 @@ reproducibility.configure_deterministic_mode()
 pytest_plugins = [
     'tests.fixtures.autouse_fixtures',
     'tests.fixtures.fixtures',
-    'tests.fixtures.synthetic_hf_state',
 ]
 
 

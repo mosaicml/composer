@@ -74,6 +74,8 @@ class FusedLayerNorm(Algorithm):
 
     Example:
         .. testsetup::
+           from tests.common.models import configure_tiny_bert_hf_model
+           from tests.common.datasets import dummy_bert_lm_dataloader
 
            def no_op(self, *args): pass
 
@@ -83,7 +85,7 @@ class FusedLayerNorm(Algorithm):
 
            FusedLayerNorm.apply = no_op
 
-           model, train_dataloader, optimizer = _make_synthetic_bert_state()
+           model, train_dataloader = configure_tiny_bert_hf_model(), dummy_bert_lm_dataloader()
 
         .. testcode::
 
@@ -95,7 +97,6 @@ class FusedLayerNorm(Algorithm):
                train_dataloader=train_dataloader,
                max_duration="1ep",
                algorithms=[algorithm],
-               optimizers=[optimizer]
            )
     """
 

@@ -1,14 +1,15 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 from typing import Sequence
 
+import pytest
 import torch
 from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from torchvision.datasets import VisionDataset
 
 from composer.utils import dist
+from tests.common.models import configure_tiny_bert_tokenizer
 
 
 class RandomClassificationDataset(Dataset):
@@ -267,3 +268,33 @@ def dummy_tiny_bert_lm_batch():
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=dist.get_sampler(train_dataset))
     batch = next(iter(train_dataloader))
     return batch
+
+
+def dummy_hf_lm_dataloader(vocab_size: int, collate_fn=None):
+    sequence_length = 4
+    size = 4
+    batch_size = 2
+
+    dataset = RandomTextLMDataset(size=size, vocab_size=vocab_size, sequence_length=sequence_length, use_keys=True)
+
+    dataloader = DataLoader(dataset, batch_size=batch_size, sampler=dist.get_sampler(dataset), collate_fn=collate_fn)
+    return dataloader
+
+
+def dummy_bert_lm_dataloader():
+    transformers = pytest.importorskip('transformers')
+    tokenizer = configure_tiny_bert_tokenizer()
+    collate_fn = transformers.data.data_collator.DataCollatorForLanguageModeling(tokenizer=tokenizer,
+                                                                                 mlm=True,
+                                                                                 mlm_probability=0.15)
+    return dummy_hf_lm_dataloader(vocab_size=30522, collate_fn=collate_fn)
+
+
+def dummy_gpt_lm_dataloader():
+    return dummy_hf_lm_dataloader(vocab_size=50257)
+
+
+def dummy_text_classification_dataloader():
+    dataset = RandomTextClassificationDataset(size=8)
+    dataloader = DataLoader(dataset, batch_size=4, sampler=dist.get_sampler(dataset))
+    return dataloader

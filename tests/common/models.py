@@ -258,7 +258,7 @@ class SimpleTransformerMaskedLM(ComposerClassifier):
 class SimpleTransformerClassifier(ComposerClassifier):
     """Transformer model for testing"""
 
-    def __init__(self, vocab_size: int = 100, num_classes: int = 2):
+    def __init__(self, vocab_size: int = 10, num_classes: int = 2):
         transformer_base = SimpleTransformerBase(vocab_size=vocab_size, d_model=16)
         pooler = Mean()
         dropout = torch.nn.Dropout(0.3)
@@ -367,3 +367,15 @@ def configure_tiny_bert_config():
 
 def configure_tiny_bert_hf_model(use_logits=True):
     return HuggingFaceModel(configure_tiny_bert_model(), configure_tiny_bert_tokenizer(), use_logits)
+
+
+def configure_tiny_gpt_model():
+    return copy.deepcopy(pytest.tiny_gpt_model)
+
+
+def configure_tiny_gpt_tokenizer():
+    return copy.deepcopy(pytest.tiny_gpt_tokenizer)
+
+
+def configure_tiny_gpt_hf_model(use_logits=True):
+    return HuggingFaceModel(configure_tiny_gpt_model(), configure_tiny_gpt_tokenizer(), use_logits)

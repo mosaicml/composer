@@ -40,12 +40,11 @@ def training_loop(model, train_loader):
 <!--pytest.mark.gpu-->
 <!--
 ```python
-from composer.devices import DeviceGPU
-from tests.fixtures.synthetic_hf_state import make_dataset_configs, synthetic_hf_state_maker_with_device
+from tests.common.models import configure_tiny_bert_hf_model
+from tests.common.datasets import dummy_bert_lm_dataloader
 
-synthetic_config = make_dataset_configs(model_family=['bert'])[0]
-_, model, train_dataloader = synthetic_hf_state_maker_with_device(synthetic_config, DeviceGPU())
-_, _, eval_dataloader = synthetic_hf_state_maker_with_device(synthetic_config, DeviceGPU())
+model = configure_tiny_bert_hf_model()
+train_dataloader, eval_dataloader = dummy_bert_lm_dataloader(), dummy_bert_lm_dataloader()
 ```
 -->
 <!--pytest-codeblocks:cont-->
