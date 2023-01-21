@@ -121,7 +121,7 @@ class SpeedMonitor(Callback):
             elapsed_dur = state.get_elapsed_duration()
             if elapsed_dur is None:
                 warnings.warn('`max_duration` is not set. Cannot estimate remaining time.')
-            else:
+            elif elapsed_dur > 0:
                 remaining_time = batch_wct_avg * int(
                     state.timestamp.batch) / float(elapsed_dur) * (1 - float(elapsed_dur))
                 # Add remaining time from each evaluator
