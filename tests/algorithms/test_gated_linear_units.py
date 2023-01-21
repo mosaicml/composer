@@ -71,8 +71,8 @@ def assert_is_glu_instance(model):
     (configure_tiny_bert_hf_model, dummy_bert_lm_dataloader),
     (pytest.param(
         SimpleTransformerClassifier,
-        marks=pytest.mark.xfail(reason='Gated Linear Units does not currently support non-HuggingFace models')),
-     dummy_text_classification_dataloader),
+        dummy_text_classification_dataloader,
+        marks=pytest.mark.xfail(reason='Gated Linear Units does not currently support non-HuggingFace models'))),
 ])
 def test_gated_linear_units_functional(model, dataloader):
     model = model()
@@ -94,8 +94,8 @@ def test_gated_linear_units_functional(model, dataloader):
     (configure_tiny_bert_hf_model, dummy_bert_lm_dataloader),
     (pytest.param(
         SimpleTransformerClassifier,
-        marks=pytest.mark.xfail(reason='Gated Linear Units does not currently support non-HuggingFace models')),
-     dummy_text_classification_dataloader),
+        dummy_text_classification_dataloader,
+        marks=pytest.mark.xfail(reason='Gated Linear Units does not currently support non-HuggingFace models'))),
 ])
 def test_gated_linear_units_algorithm(model, dataloader, empty_logger: Logger):
     pytest.importorskip('transformers')

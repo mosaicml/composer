@@ -80,8 +80,8 @@ def check_forward_backward(model, batch):
     (configure_tiny_gpt_hf_model, dummy_gpt_lm_dataloader),
     (pytest.param(
         SimpleTransformerClassifier,
-        marks=pytest.mark.xfail(reason='Gated Linear Units does not currently support non-HuggingFace models')),
-     dummy_text_classification_dataloader),
+        dummy_text_classification_dataloader,
+        marks=pytest.mark.xfail(reason='Gated Linear Units does not currently support non-HuggingFace models'))),
 ])
 @pytest.mark.parametrize('truncate,preserve_end_of_sequence', [(True, True), (True, False), (False, False)])
 class TestSeqLengthWarmup:

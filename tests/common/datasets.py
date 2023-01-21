@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision.datasets import VisionDataset
 
 from composer.utils import dist
-from tests.common.models import configure_tiny_bert_tokenizer
+from tests.common.models import configure_tiny_bert_tokenizer, configure_tiny_gpt_tokenizer
 
 
 class RandomClassificationDataset(Dataset):
@@ -204,7 +204,7 @@ class RandomTextLMDataset(Dataset):
         x = self.x[index]
 
         if self.use_keys:
-            return {'input_ids': x}
+            return {'input_ids': x, 'token_type_ids': torch.zeros_like(x)}
         else:
             return x
 
@@ -270,8 +270,7 @@ def dummy_tiny_bert_lm_batch():
     return batch
 
 
-def dummy_hf_lm_dataloader(vocab_size: int, collate_fn=None):
-    sequence_length = 4
+def dummy_hf_lm_dataloader(vocab_size: int, sequence_length: int, collate_fn=None):
     size = 4
     batch_size = 2
 
@@ -281,17 +280,20 @@ def dummy_hf_lm_dataloader(vocab_size: int, collate_fn=None):
     return dataloader
 
 
-def dummy_bert_lm_dataloader():
+def dummy_bert_lm_dataloader(sequence_length=4):
     transformers = pytest.importorskip('transformers')
     tokenizer = configure_tiny_bert_tokenizer()
     collate_fn = transformers.data.data_collator.DataCollatorForLanguageModeling(tokenizer=tokenizer,
                                                                                  mlm=True,
                                                                                  mlm_probability=0.15)
-    return dummy_hf_lm_dataloader(vocab_size=30522, collate_fn=collate_fn)
+    return dummy_hf_lm_dataloader(vocab_size=30522, sequence_length=sequence_length, collate_fn=collate_fn)
 
 
-def dummy_gpt_lm_dataloader():
-    return dummy_hf_lm_dataloader(vocab_size=50257)
+def dummy_gpt_lm_dataloader(sequence_length=4):
+    transformers = pytest.importorskip('transformers')
+    tokenizer = configure_tiny_gpt_tokenizer()
+    collate_fn = transformers.data.data_collator.DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+    return dummy_hf_lm_dataloader(vocab_size=50257, sequence_length=sequence_length, collate_fn=collate_fn)
 
 
 def dummy_text_classification_dataloader():

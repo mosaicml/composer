@@ -121,14 +121,14 @@ class TestAlibi:
     ):
         transformers = pytest.importorskip('transformers')
         model = model()
-        dataloader = dataloader()
-        max_sequence_length = model.config.get('n_positions', model.config.max_position_embeddings)
         if isinstance(model.config, transformers.GPT2Config):
             max_sequence_length = model.config.n_positions
         elif isinstance(model.config, transformers.BertConfig):
             max_sequence_length = model.config.max_position_embeddings
         else:
             raise NotImplementedError('Tests not implemented for synthetic_state_family=' + str(type(model.config)))
+
+        dataloader = dataloader(sequence_length=max_sequence_length)
 
         #### With default sequence length ####
 
