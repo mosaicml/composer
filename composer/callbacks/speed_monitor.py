@@ -118,11 +118,12 @@ class SpeedMonitor(Callback):
 
             # Estimate remaining time
             batch_wct_avg = sum(self.batch_wct_buffer) / len(self.batch_wct_buffer)
-            elapsed_duration = state.get_elapsed_duration()
-            if elapsed_duration is None:
+            elapsed_dur = state.get_elapsed_duration()
+            if elapsed_dur is None:
                 warnings.warn('`max_duration` is not set. Cannot estimate remaining time.')
             else:
-                remaining_time = batch_wct_avg * (1 - float(elapsed_duration))
+                remaining_time = batch_wct_avg * int(
+                    state.timestamp.batch) / float(elapsed_dur) * (1 - float(elapsed_dur))
                 # Add remaining time from each evaluator
                 for dataloader_label, eval_wcts in self.eval_wct_per_label.items():
                     eval_wct_avg = sum(eval_wcts) / len(eval_wcts)
