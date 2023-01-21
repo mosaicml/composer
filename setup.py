@@ -100,10 +100,10 @@ extra_deps['dev'] = [
     'junitparser==2.8.0',
     'coverage[toml]==7.0.4',
     'fasteners==0.18',  # object store tests require fasteners
-    'pytest==7.2.0',
+    'pytest==7.2.1',
     'toml==0.10.2',
     'ipython==8.8.0',
-    'ipykernel==6.19.2',
+    'ipykernel==6.20.1',
     'jupyter==1.0.0',
     'yamllint==1.28.0',
     'recommonmark==0.7.1',
@@ -128,7 +128,7 @@ extra_deps['dev'] = [
     'nbsphinx==0.8.10',
     'pandoc==2.3',
     'pypandoc==1.10',
-    'GitPython==3.1.28',
+    'GitPython==3.1.30',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
     'cryptography==38.0.4',
@@ -137,7 +137,7 @@ extra_deps['dev'] = [
 ]
 
 extra_deps['deepspeed'] = [
-    'deepspeed==0.7.6',
+    'deepspeed==0.7.7',
 ]
 
 extra_deps['wandb'] = [

@@ -31,6 +31,7 @@ class Device(Serializable, ABC):
 
     dist_backend: str = ''
     name: str = ''
+    _device = None
 
     @abstractmethod
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
