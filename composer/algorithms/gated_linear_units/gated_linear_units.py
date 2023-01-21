@@ -152,6 +152,7 @@ class GatedLinearUnits(Algorithm):
 
     Example:
         .. testsetup::
+
            from tests.common.models import configure_tiny_bert_hf_model
            from tests.common.datasets import dummy_bert_lm_dataloader
 
@@ -166,7 +167,7 @@ class GatedLinearUnits(Algorithm):
                model=model,
                train_dataloader=train_dataloader,
                max_duration="1ep",
-               algorithms=[algorithm],
+               algorithms=[algorithm]
            )
     """
 
