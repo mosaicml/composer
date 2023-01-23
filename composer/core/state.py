@@ -687,14 +687,13 @@ class State(Serializable):
                     torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state, 'module.')
                 serialized_value = model_state
             elif attribute_name == 'optimizers':
+                optimizer = ensure_tuple(attribute_value)[0] # Let's stop pretending. We don't support more than one optimizer.
                 if self.fsdp_enabled:
-                    with fsdp_state_dict_type_context(attribute_value,
+                    with fsdp_state_dict_type_context(optimizer,
                                                       state_dict_type=self.fsdp_config['state_dict_type']):
-                        optim_state = {obj.state_dict() for obj in ensure_tuple(attribute_value)}
+                        optim_state = {type(optimizer).__qualname__: optimizer.state_dict()}
                 else:
-                    optim_state = {
-                        type(obj).__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)
-                    }
+                    optim_state = {type(optimizer).__qualname__: optimizer.state_dict()}
                 serialized_value = optim_state
             elif attribute_name == 'algorithms':
                 # Store as list to preserve order in which algorithms were applied
