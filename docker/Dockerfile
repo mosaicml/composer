@@ -176,6 +176,8 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
 RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} - && \
     pip${PYTHON_VERSION} install --no-cache-dir --upgrade pip setuptools
 
+RUN ls
+
 #####################
 # Install pillow-simd
 #####################
