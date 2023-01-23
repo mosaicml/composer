@@ -75,6 +75,7 @@ class SpeedMonitor(Callback):
         self.total_eval_wct = 0.0
         self.eval_wct_per_label: Dict[str, List[float]] = {}
         self.eval_rate_per_label: Dict[str, float] = {}
+        self.last_elapsed_duration: float = 0.0
 
     def state_dict(self) -> Dict[str, Any]:
         return {
@@ -121,7 +122,9 @@ class SpeedMonitor(Callback):
             elapsed_dur = state.get_elapsed_duration()
             if elapsed_dur is None:
                 warnings.warn('`max_duration` is not set. Cannot estimate remaining time.')
-            elif elapsed_dur > 0:
+            elif elapsed_dur > 0 and elapsed_dur != self.last_elapsed_duration:
+                # Only update the estimate if the elapsed duration has changed
+                self.last_elapsed_duration = float(elapsed_dur)
                 remaining_time = batch_wct_avg * int(
                     state.timestamp.batch) / float(elapsed_dur) * (1 - float(elapsed_dur))
                 logger.log_metrics({'wall_clock/train_wct_avg': batch_wct_avg})
