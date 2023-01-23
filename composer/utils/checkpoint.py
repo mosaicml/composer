@@ -466,8 +466,10 @@ def save_checkpoint(
     if dirname:
         os.makedirs(dirname, exist_ok=True)
 
+    fsdp_sharded_state_dict_enabled = (state.fsdp_enabled 
+                                       and state.fsdp_config['state_dict_type'] != 'full')
     # only rank 0 saves the state_dict
-    if dist.get_global_rank() == 0:
+    if dist.get_global_rank() == 0 or fsdp_sharded_state_dict_enabled:
         with open(save_filename, 'wb') as f:
             torch.save(state_dict, f)
 
