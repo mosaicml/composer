@@ -119,7 +119,7 @@ class SpeedMonitor(Callback):
 
             # Estimate remaining time
             batch_wct_avg = sum(self.batch_wct_buffer) / len(self.batch_wct_buffer)
-            elapsed_dur = state.get_elapsed_duration()
+            elapsed_dur = state.get_elapsed_duration() # TODO: State rounds down dur based on max dur unit. Instead, we should convert to batch unit for smoother line
             if elapsed_dur is None:
                 warnings.warn('`max_duration` is not set. Cannot estimate remaining time.')
             elif elapsed_dur > 0 and elapsed_dur != self.last_elapsed_duration:
