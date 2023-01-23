@@ -45,7 +45,7 @@ log = logging.getLogger(__name__)
 
 
 @contextmanager
-def get_fsdp_rank0_cpu_save_context(obj: torch.nn.Module, state_dict_type: str = 'full'):
+def fsdp_state_dict_type_context(obj: torch.nn.Module, state_dict_type: str = 'full'):
     if version.parse(torch.__version__) < version.parse('1.13.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
     from torch.distributed.fsdp import FullStateDictConfig, LocalStateDictConfig
@@ -62,7 +62,6 @@ def get_fsdp_rank0_cpu_save_context(obj: torch.nn.Module, state_dict_type: str =
         fsdp_state_dict_type = StateDictType.LOCAL_STATE_DICT
     with FSDP.state_dict_type(obj, state_dict_type=fsdp_state_dict_type, state_dict_config=state_dict_config):
         yield
-
 
 def get_fsdp_sharded_optim_state_dict(full_optim_state_dict: Dict[str, Any], model: torch.nn.Module):
     if version.parse(torch.__version__) < version.parse('1.13.0'):
@@ -679,7 +678,7 @@ class State(Serializable):
             elif attribute_name == 'model':
                 # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
                 # If it is DDP wrapped, do not save the `module.` prefix, as that is an implementation detail
-                with get_fsdp_rank0_cpu_save_context(
+                with fsdp_state_dict_type_context(
                         attribute_value,
                         state_dict_type=self.fsdp_config['state_dict_type']) if self.fsdp_enabled else contextlib.nullcontext():
                     model_state = attribute_value.state_dict()
@@ -689,16 +688,14 @@ class State(Serializable):
                 serialized_value = model_state
             elif attribute_name == 'optimizers':
                 if self.fsdp_enabled:
-                    serialized_value = {}
-                    for obj in ensure_tuple(attribute_value):
-                        serialized_value = {
-                            type(obj).__qualname__:
-                                get_fsdp_full_optim_state_dict(model=self.model, optim=obj, rank0_only=True)
-                        }
+                    with fsdp_state_dict_type_context(attribute_value,
+                                                      state_dict_type=self.fsdp_config['state_dict_type']):
+                        optim_state = {obj.state_dict() for obj in ensure_tuple(attribute_value)}
                 else:
-                    serialized_value = {
+                    optim_state = {
                         type(obj).__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)
                     }
+                serialized_value = optim_state
             elif attribute_name == 'algorithms':
                 # Store as list to preserve order in which algorithms were applied
                 serialized_value = [(type(obj).__qualname__, obj.state_dict()) for obj in ensure_tuple(attribute_value)]
@@ -849,7 +846,7 @@ class State(Serializable):
             # with the `module.` prefix
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
 
-        with get_fsdp_rank0_cpu_save_context(self.model, state_dict_type=self.fsdp_config['state_dict_type']) if self.fsdp_enabled else contextlib.nullcontext():
+        with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_config['state_dict_type']) if self.fsdp_enabled else contextlib.nullcontext():
             missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
         if len(missing_keys) > 0:
             log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
