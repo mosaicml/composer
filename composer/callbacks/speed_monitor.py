@@ -124,6 +124,9 @@ class SpeedMonitor(Callback):
             elif elapsed_dur > 0:
                 remaining_time = batch_wct_avg * int(
                     state.timestamp.batch) / float(elapsed_dur) * (1 - float(elapsed_dur))
+                logger.log_metrics({'wall_clock/train_wct_avg': int(state.timestamp.batch)})
+                logger.log_metrics({'wall_clock/train_elapsed_dur': float(elapsed_dur)})
+                logger.log_metrics({'wall_clock/train_stb': batch_wct_avg})
                 logger.log_metrics({'wall_clock/train_remaining_estimate': remaining_time})
                 # Add remaining time from each evaluator
                 for dataloader_label, eval_wcts in self.eval_wct_per_label.items():
