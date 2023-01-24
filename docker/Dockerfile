@@ -257,6 +257,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         curl -O https://efa-installer.amazonaws.com/aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz && \
         tar -xf /tmp/aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz && \
         cd aws-efa-installer && \
+        apt-get update && \
         ./efa_installer.sh -y -g -d --skip-kmod --skip-limit-conf --no-verify && \
         rm -rf /tmp/aws-efa-installer* ; \
     fi
