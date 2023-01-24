@@ -128,6 +128,7 @@ RUN apt-get update && \
         autoconf \
         autotools-dev \
         automake \
+        libtool \
         # Development tools
         vim \
         tmux \
