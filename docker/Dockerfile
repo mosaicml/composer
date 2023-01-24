@@ -246,20 +246,6 @@ RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_
         torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} \
         torchtext==${TORCHTEXT_VERSION}
 
-###################################
-# Mellanox OFED driver installation
-###################################
-
-ARG MOFED_VERSION
-
-RUN if [ -n "$MOFED_VERSION" ] ; then \
-        mkdir -p /tmp/mofed && \
-        wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz && \
-        tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz -C /tmp/mofed && \
-        /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64/mlnxofedinstall --user-space-only --without-fw-update --force && \
-        rm -rf /tmp/mofed ; \
-    fi
-
 #####################################
 # Install EFA and AWS-OFI-NCCL plugin
 #####################################
@@ -292,6 +278,20 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
             --with-mpi=/opt/amazon/openmpi/ && \
         make && make install && \
         rm -rf /opt/aws-ofi-nccl ; \
+    fi
+
+###################################
+# Mellanox OFED driver installation
+###################################
+
+ARG MOFED_VERSION
+
+RUN if [ -n "$MOFED_VERSION" ] ; then \
+        mkdir -p /tmp/mofed && \
+        wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz && \
+        tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz -C /tmp/mofed && \
+        /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64/mlnxofedinstall --user-space-only --without-fw-update --force && \
+        rm -rf /tmp/mofed ; \
     fi
 
 #####################
