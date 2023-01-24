@@ -705,7 +705,10 @@ class State(Serializable):
             elif attribute_name == 'optimizers':
                 optimizer = ensure_tuple(attribute_value)[0] # Let's stop pretending. We don't support more than one optimizer.
                 if self.fsdp_enabled:
-                    optim_state_dict = {type(optimizer).__qualname__: fsdp_get_optim_state_dict(self.model, optimizer)}
+                    optim_state_dict = {type(optimizer).__qualname__: 
+                                        fsdp_get_optim_state_dict(self.model,
+                                                                  optimizer,
+                                                                  state_dict_type=self.fsdp_config['state_dict_type'])}
                 else:
                     optim_state_dict = {type(optimizer).__qualname__: optimizer.state_dict()}
                 serialized_value = optim_state_dict
