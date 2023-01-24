@@ -41,10 +41,6 @@ ARG PILLOW_SIMD_VERSION=7.0.0.post3
 # Leave blank for no Mellanox Drivers
 ARG MOFED_VERSION=5.5-1.0.3.2
 
-# Version of the HPC-X Drivers to install (for InfiniBand support)
-# Leave blank for no HPC-X Drivers
-ARG HPCX_VERSION=2.13.1
-
 ########################
 # Vision Image Arguments
 ########################
@@ -54,7 +50,6 @@ ARG VISION_BASE=pytorch_stage
 
 # Pip version strings of dependencies to install
 ARG MMCV_VERSION='==1.4.8'
-ARG FFCV_VERSION='==0.0.3'
 ARG OPENCV_VERSION='>=4.5.5.64,<4.6'
 ARG NUMBA_VERSION='>=0.55.0,<0.56'
 ARG MMSEGMENTATION_VERSION='>=0.22.0,<0.23'
@@ -132,8 +127,7 @@ RUN apt-get update && \
         # Development tools
         vim \
         tmux \
-        htop \
-        nvtop && \
+        htop && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -262,26 +256,6 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
         rm -rf /tmp/mofed ; \
     fi
 
-###########################
-# HPC-X driver installation
-###########################
-
-ARG HPCX_VERSION
-
-ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib:
-
-RUN if [ -n "$HPCX_VERSION" ] ; then \
-        mkdir -p /tmp/hpcx && \
-        wget -nv -P /tmp/hpcx https://content.mellanox.com/hpc/hpc-x/v${HPCX_VERSION}/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64.tbz && \
-        tar -xvf /tmp/hpcx/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64.tbz -C /tmp/hpcx && \
-        mv /tmp/hpcx/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64 /opt/hpcx && \
-        rm -rf /tmp/hpcx && \
-        # Set appropriate env vars to use SHARP
-        echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/profile && \
-        echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/bash.bashrc && \
-        echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/zshenv ; \
-    fi
-
 #####################################
 # Install EFA and AWS-OFI-NCCL plugin
 #####################################
@@ -400,7 +374,6 @@ RUN sudo apt-get update && \
     sudo rm -rf /var/lib/apt/lists/*
 
 ARG MMCV_VERSION
-ARG FFCV_VERSION
 ARG OPENCV_VERSION
 ARG NUMBA_VERSION
 ARG MMSEGMENTATION_VERSION
@@ -414,7 +387,7 @@ ENV SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL=True
 RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
     MMCV_TORCH_VERSION=$(python -c "print('torch' + ''.join('${PYTORCH_VERSION}'.split('.')[:2]) + '.0')") && \
     sudo pip${PYTHON_VERSION} install --no-cache-dir \
-        "ffcv${FFCV_VERSION}" \
+        "https://github.com/libffcv/ffcv/archive/ee8497c1a59abd715b6c8f027d6e5f552b1cce7e.zip" \
         "opencv-python${OPENCV_VERSION}" \
         "numba${NUMBA_VERSION}" \
         "mmsegmentation${MMSEGMENTATION_VERSION}" && \
