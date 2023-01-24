@@ -40,11 +40,13 @@ def test_fsdp_device_initialization(model: ComposerClassifier, device: str):
 
     trainer.fit()
     if isinstance(model, SimpleWeightTiedModel):
-        weight_1 = torch.nan_to_num(model.mlp.fc1.weight.data, 0.0)
-        weight_2 = torch.nan_to_num(model.mlp.fc2.weight.data, 0.0)
-        assert (torch.equal(weight_1, weight_2))
+        weight_1 = model.mlp.fc1.weight
+        weight_2 = model.mlp.fc2.weight
+        assert (id(weight_1) == id(weight_2))
+        assert (torch.equal(torch.nan_to_num(weight_1.data, 0.0), torch.nan_to_num(weight_2.data, 0.0)))
 
     if isinstance(model, EmbeddedWeightTiedModel):
-        weight_1 = torch.nan_to_num(model.net1.fc1.weight.data, 0.0)
-        weight_2 = torch.nan_to_num(model.net2.fc1.weight.data, 0.0)
-        assert (torch.equal(weight_1, weight_2))
+        weight_1 = model.net1.fc1.weight
+        weight_2 = model.net2.fc1.weight
+        assert (id(weight_1) == id(weight_2))
+        assert (torch.equal(torch.nan_to_num(weight_1.data, 0.0), torch.nan_to_num(weight_2.data, 0.0)))
