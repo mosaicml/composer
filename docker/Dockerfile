@@ -131,8 +131,7 @@ RUN apt-get update && \
         # Development tools
         vim \
         tmux \
-        htop \
-        nvtop && \
+        htop && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
