@@ -180,6 +180,8 @@ class SpeedMonitor(Callback):
     def eval_end(self, state: State, logger: Logger):
         del logger  # unused
         self.total_eval_wct += state.eval_timestamp.total_wct.total_seconds()
+        # state.dataloader_label should always be non-None unless user explicitly sets evaluator
+        # label to None, ignoring type hints
         assert state.dataloader_label is not None, 'evaluator label must not be None'
         if state.dataloader_label not in self.eval_wct_per_label:
             self.eval_wct_per_label[state.dataloader_label] = []
