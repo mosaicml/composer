@@ -8,7 +8,7 @@ import warnings
 from collections import deque
 from typing import Any, Deque, Dict, List, Optional
 
-from composer.core import Callback, State
+from composer.core import Callback, State, TimeUnit
 from composer.loggers import Logger
 
 __all__ = ['SpeedMonitor']
@@ -118,7 +118,7 @@ class SpeedMonitor(Callback):
         """
         if state.max_duration is None:
             return None
-        elif state.max_duration.unit == 'ep' and state.timestamp.epoch.value > 1:
+        elif state.max_duration.unit == TimeUnit('ep') and state.timestamp.epoch.value > 1:
             batches_per_epoch = (state.timestamp.batch -
                                  state.timestamp.batch_in_epoch).value / state.timestamp.epoch.value
             return state.timestamp.get('ba').value / (state.max_duration.value * batches_per_epoch)
