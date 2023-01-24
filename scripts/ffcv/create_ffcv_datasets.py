@@ -20,7 +20,6 @@ from torchvision.datasets import CIFAR10, ImageFolder
 from tqdm import tqdm
 
 from composer.datasets.ffcv_utils import write_ffcv_dataset
-from composer.datasets.streaming import StreamingDataset
 
 log = logging.getLogger(__name__)
 
@@ -122,93 +121,27 @@ def _parse_args():
     return args
 
 
-def cache_streaming(dataset, num_workers=64):
-    """A function to iterate over all the samples in the dataset to cache it locally."""
-    if 'LOCAL_WORLD_SIZE' not in os.environ:
-        os.environ['LOCAL_WORLD_SIZE'] = '1'
-
-    def _null_collate_fn(batch):
-        return None
-
-    dl = torch.utils.data.DataLoader(dataset,
-                                     batch_size=512,
-                                     num_workers=num_workers,
-                                     pin_memory=False,
-                                     drop_last=False,
-                                     collate_fn=_null_collate_fn)
-
-    # empty loop to download and cache the dataset
-    print('download and cache dataset')
-    for _ in tqdm(dl):
-        pass
-
-
-class PILImageClassStreamingDataset(StreamingDataset):
-    """A subclass of StreamingDataset that asserts and returns tuples (PIL.Image, np.int64).
-
-    Intended to enforce sample types for pipelines that expect the tuple format (image, class).
-    """
-
-    def __getitem__(self, idx: int) -> Tuple[Image.Image, np.int64]:
-        obj = super().__getitem__(idx)
-        assert 'x', 'y' in obj.keys()
-        assert isinstance(obj['x'], Image.Image)
-        assert isinstance(obj['y'], np.int64)
-        return (obj['x'], obj['y'])
-
-
 def _main():
-
     args = _parse_args()
 
-    ds = None
-    if args.datadir is not None:
-        if args.dataset == 'cifar10':
-            ds = CIFAR10(root=args.datadir, train=(args.split == 'train'), download=args.download)
-        elif args.dataset == 'imagenet1k':
-            ds = ImageFolder(os.path.join(args.datadir, args.split))
-        else:
-            raise ValueError(f'Unsupported dataset: {args.dataset}. Checkout the list of supported datasets with -h')
-
-        if args.subset > 0:
-            ds = Subset(ds, range(args.subset))
+    if args.dataset == 'cifar10':
+        dataset = CIFAR10(root=args.datadir, train=(args.split == 'train'), download=args.download)
+    elif args.dataset == 'imagenet1k':
+        dataset = ImageFolder(os.path.join(args.datadir, args.split))
     else:
-        remote = os.path.join(args.remote, args.split)
-        local = os.path.join(args.local, args.split)
+        raise ValueError(f'Unsupported dataset: {args.dataset}. Checkout the list of supported datasets with -h')
 
-        # Build a simple StreamingDataset that reads in the raw images, no processing
-        # Differet datasets are created + encoded differently, so that's why we need different decoders
-        if args.dataset == 'cifar10':
+    if args.subset > 0:
+        dataset = Subset(dataset, range(args.subset))
 
-            def _decode_image(data):
-                arr = np.frombuffer(data, np.uint8)
-                arr = arr.reshape(32, 32, 3)
-                return Image.fromarray(arr)
-
-            def _decode_class(data):
-                return np.frombuffer(data, dtype=np.int64)[0]
-        elif args.dataset == 'imagenet1k':
-
-            def _decode_image(data):
-                return Image.open(BytesIO(data)).convert('RGB')
-
-            def _decode_class(data):
-                return np.frombuffer(data, dtype=np.int64)[0]
-
-        decoders = {'x': _decode_image, 'y': _decode_class}
-        dataset = PILImageClassStreamingDataset(remote=remote, local=local, decoders=decoders, shuffle=False)
-
-        # Iterate over the dataset and cache it, so it can be used for random access
-        cache_streaming(dataset=dataset, num_workers=args.num_workers)
-
-        write_ffcv_dataset(dataset=dataset,
-                           write_path=args.write_path,
-                           max_resolution=args.max_resolution,
-                           num_workers=args.num_workers,
-                           write_mode=args.write_mode,
-                           compress_probability=args.compress_probability,
-                           jpeg_quality=args.jpeg_quality,
-                           chunk_size=args.chunk_size)
+    write_ffcv_dataset(dataset=dataset,
+                       write_path=args.write_path,
+                       max_resolution=args.max_resolution,
+                       num_workers=args.num_workers,
+                       write_mode=args.write_mode,
+                       compress_probability=args.compress_probability,
+                       jpeg_quality=args.jpeg_quality,
+                       chunk_size=args.chunk_size)
 
 
 if __name__ == '__main__':

@@ -3,7 +3,9 @@
 
 """Helpers for running distributed data parallel training."""
 
+import collections
 import logging
+import warnings
 from contextlib import contextmanager, nullcontext
 from typing import Any, Callable, ContextManager, Dict, Optional, Sequence, Union, cast
 
@@ -14,10 +16,10 @@ from torchmetrics import Metric, MetricCollection
 
 from composer.core import Precision
 from composer.core.state import State
-from composer.trainer.activation_checkpointing import apply_activation_checkpointing_wrapper, checkpoint_wrapper
+from composer.trainer.meta_safe_apply import meta_safe_apply
 from composer.utils import StringEnum, dist, ensure_tuple
 
-__all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module']
+__all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module']
 
 log = logging.getLogger(__name__)
 
@@ -142,13 +144,16 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     Args:
         model (torch.nn.Module): The model to wrap.
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer for `model`, assumed to have a single param group := model.parameters().
-        fsdp_config (Dict[str, Any]): The FSDP config. TODO: fill in configuration documentation
+        fsdp_config (Dict[str, Any]): The FSDP config.
         precision: (Precision): The precision being used by the Trainer, used to fill in defaults for FSDP `mixed_precision` settings.
     """
-    if version.parse(torch.__version__) < version.parse('1.12.0'):
-        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.12.0.')
+    if version.parse(torch.__version__) < version.parse('1.13.0'):
+        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
+    from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (apply_activation_checkpointing,
+                                                                             checkpoint_wrapper)
     from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
                                         ShardingStrategy)
+    from torch.distributed.fsdp.flatten_params_wrapper import FlattenParamsWrapper
 
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
@@ -166,36 +171,63 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         'SHARD_GRAD_OP': ShardingStrategy.SHARD_GRAD_OP,
         'FULL_SHARD': ShardingStrategy.FULL_SHARD,
     }
-    sharding_strategy = sharding_map[fsdp_config.get('sharding_strategy', 'FULL_SHARD').upper()]
+    sharding_map_key = fsdp_config.get('sharding_strategy', 'FULL_SHARD').upper()
+    sharding_strategy = sharding_map[sharding_map_key]
+
+    if precision == Precision.FP32 and sharding_map_key != 'NO_SHARD':
+        raise ValueError(
+            f'FSDP in PyTorch 1.13 does not support precision `{precision}` with sharding_strategy `{sharding_map_key}.` '
+            f'Consider using `amp` or `bf16` for precision for with sharding strategy `{sharding_map_key}.`')
 
     cpu_offload = CPUOffload(offload_params=True) if fsdp_config.get('cpu_offload', False) else None
     if cpu_offload is not None:
         raise ValueError('FSDP CPU Offload not supported yet.')
 
-    mixed_precision = fsdp_config.get('mixed_precision', 'DEFAULT').upper()
+    mixed_precision = fsdp_config.get('mixed_precision', 'DEFAULT')
+    param_dtype = None
+    reduce_dtype = None
+    buffer_dtype = None
     if isinstance(mixed_precision, dict):
-        param_dtype = get_torch_dtype(mixed_precision.get('param_dtype', 'float32'))
-        reduce_dtype = get_torch_dtype(mixed_precision.get('reduce_dtype', 'float32'))
-        buffer_dtype = get_torch_dtype(mixed_precision.get('buffer_dtype', 'float32'))
-    elif mixed_precision == 'FULL':
-        param_dtype = torch.float32
-        reduce_dtype = torch.float32
-        buffer_dtype = torch.float32
-    elif mixed_precision == 'DEFAULT':
-        param_dtype = torch.float32
-        reduce_dtype = get_torch_dtype(precision)
-        buffer_dtype = torch.float32
-    elif mixed_precision == 'PURE':
-        param_dtype = get_torch_dtype(precision)
-        reduce_dtype = get_torch_dtype(precision)
-        buffer_dtype = get_torch_dtype(precision)
+        param_dtype = mixed_precision.get('param_dtype', None)
+        if param_dtype is not None:
+            param_dtype = get_torch_dtype(param_dtype)
+        reduce_dtype = mixed_precision.get('reduce_dtype', None)
+        if reduce_dtype is not None:
+            reduce_dtype = get_torch_dtype(reduce_dtype)
+        buffer_dtype = mixed_precision.get('buffer_dtype', None)
+        if buffer_dtype is not None:
+            buffer_dtype = get_torch_dtype(buffer_dtype)
+    elif isinstance(mixed_precision, str):
+        mixed_precision = mixed_precision.upper()
+        if mixed_precision == 'FULL':
+            pass
+        elif mixed_precision == 'DEFAULT':
+            reduce_dtype = get_torch_dtype(precision)
+            buffer_dtype = torch.float32
+        elif mixed_precision == 'PURE':
+            param_dtype = get_torch_dtype(precision)
+            reduce_dtype = get_torch_dtype(precision)
+            buffer_dtype = get_torch_dtype(precision)
+        else:
+            raise ValueError(f'Unable to interpret mixed_precision={mixed_precision}')
     else:
         raise ValueError(f'Unable to interpret mixed_precision={mixed_precision}')
+
+    if sharding_map_key != 'NO_SHARD' and (
+            precision == Precision.AMP_FP16 and param_dtype not in [torch.float16, None] or
+            precision == Precision.AMP_BF16 and param_dtype not in [torch.bfloat16, None]):
+        raise ValueError(
+            f'FSDP in PyTorch 1.13 does not support precision `{precision}` with sharding strategy `{sharding_strategy}` '
+            f'and param_dtype `{param_dtype}.` Consider using one of the predefined mixed_precision strategies '
+            "(choose: `'FULL'`, `'DEFAULT'`, `'PURE'`)")
+
+    keep_low_precision_grads = fsdp_config.get('keep_low_precision_grads', False)
 
     mixed_precision = MixedPrecision(
         param_dtype=param_dtype,
         reduce_dtype=reduce_dtype,
         buffer_dtype=buffer_dtype,
+        keep_low_precision_grads=keep_low_precision_grads,
     )
 
     backward_prefetch_map = {
@@ -207,6 +239,10 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     min_params = int(float(fsdp_config.get('min_params', 1e9)))
     activation_checkpointing = fsdp_config.get('activation_checkpointing', False)
     activation_cpu_offload = fsdp_config.get('activation_cpu_offload', False)
+    sync_module_states = fsdp_config.get('sync_module_states', False)
+    forward_prefetch = fsdp_config.get('forward_prefetch', False)
+    limit_all_gathers = fsdp_config.get('limit_all_gathers', False)
+    ignored_modules = fsdp_config.get('ignored_modules', None)
 
     # We choose to not wrap the ComposerModel directly, but instead wrap any submodules like `ComposerModel.model`
     # This makes it safer to call ComposerModel-specific functions like 'eval_forward' that
@@ -215,9 +251,62 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     for name, obj in model.named_children():
         if not isinstance(obj, (Metric, MetricCollection)):
 
-            # If `obj` contains meta tensors, try to use `obj.param_init_fn` to initialize them
             def _param_init_fn(module: torch.nn.Module) -> None:
-                module.to_empty(device=f'cuda:{torch.cuda.current_device()}')
+                # A dictionary of all tied parameter pointers to module names
+                tied_pointers = {}
+
+                # Goes through all modules finding which weights have the same pointers
+                for name, mod in module.named_modules():
+                    for attr in ['weight', 'bias']:
+                        if hasattr(mod, attr):
+                            ptr = id(getattr(mod, attr))
+                            ptr_attr = (ptr, attr)
+                            name_list = tied_pointers.get(ptr_attr, [])
+                            name_list.append(name)
+                            tied_pointers[ptr_attr] = name_list
+
+                # Creates a dictionary of module names that should be tied together
+                tied_mod_names = collections.defaultdict(list)
+                # Creates a set of modules we should not initialize
+                should_not_init_params = set()
+                for ptr_attr_type, mod_names in tied_pointers.items():
+                    # No modules for this pointer are tied
+                    if len(mod_names) == 1:
+                        continue
+                    _, attr_type = ptr_attr_type
+                    first = next(mod_names.__iter__())
+                    for elem in mod_names:
+                        should_not_init_params.add('.'.join([elem, attr_type]))
+                        tied_mod_names[(first, attr_type)].append(elem)
+                    # Make sure at least one of the tied parameters is initialized
+                    should_not_init_params.remove('.'.join([first, attr_type]))
+
+                meta_safe_apply(module,
+                                lambda t: torch.empty_like(t, device=f'cuda:{torch.cuda.current_device()}'),
+                                should_not_init_params,
+                                module_name='')
+
+                if len(tied_mod_names) > 0:
+                    warnings.warn(('The passed in model appears to have tied weights. In order to '
+                                   'support effective weight tying, the tied modules need to be '
+                                   'in the same FSDP module. If the weights are not properly tied '
+                                   'it can lead to loss spikes. We have tried our best to ensure '
+                                   'the tied weights are in the same FSDP module.'))
+
+                # Redoes weight tying
+                for name_attr, tied_names in tied_mod_names.items():
+                    name, attr = name_attr
+                    src_mod = module.get_submodule(name)
+                    # We need to make sure the source and destination
+                    # modules end up in the same FSDP module otherwise
+                    # with sharding weight tying gets violated
+                    src_mod._fsdp_wrap = False  # type: ignore
+                    src_params = getattr(src_mod, attr)
+                    for tied_name in tied_names:
+                        dest_mod = module.get_submodule(tied_name)
+                        dest_mod._fsdp_wrap = False  # type: ignore
+                        setattr(dest_mod, attr, src_params)
+
                 if hasattr(obj, 'param_init_fn') and isinstance(obj.param_init_fn, Callable):
                     module.apply(obj.param_init_fn)
                 elif hasattr(module, 'reset_parameters') and isinstance(module.reset_parameters, Callable):
@@ -247,8 +336,12 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                 cpu_offload=cpu_offload,
                 mixed_precision=mixed_precision,
                 backward_prefetch=backward_prefetch,
+                ignored_modules=ignored_modules,
                 param_init_fn=_param_init_fn,
                 device_id=torch.cuda.current_device(),
+                sync_module_states=sync_module_states,
+                forward_prefetch=forward_prefetch,
+                limit_all_gathers=limit_all_gathers,
             )
 
             # Activation Checkpointing
@@ -261,6 +354,8 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                 # If module has attribute `module._activation_checkpointing = ...`, always respect it
                 # Otherwise checkpoint if root object `obj.activation_checkpointing_fn(module)` is true
                 def _check_fn(module: torch.nn.Module) -> bool:
+                    if isinstance(module, (FullyShardedDataParallel, FlattenParamsWrapper)):
+                        return False
                     if hasattr(module, '_activation_checkpointing'):
                         return bool(module._activation_checkpointing)
                     if hasattr(obj, 'activation_checkpointing_fn') and isinstance(obj.activation_checkpointing_fn,
@@ -268,7 +363,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                         return obj.activation_checkpointing_fn(module)
                     return False
 
-                apply_activation_checkpointing_wrapper(
+                apply_activation_checkpointing(
                     fsdp_obj,
                     checkpoint_wrapper_fn=second_wrap_fn,  # type: ignore
                     check_fn=_check_fn,  # type: ignore
@@ -287,6 +382,9 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         print(f'FSDP: Using min_params={min_params}')
         print(f'FSDP: Using activation_checkpointing={activation_checkpointing}')
         print(f'FSDP: Using activation_cpu_offload={activation_cpu_offload}')
+        print(f'FSDP: Using sync_module_states={sync_module_states}')
+        print(f'FSDP: Using forward_prefetch={forward_prefetch}')
+        print(f'FSDP: Using limit_all_gathers={limit_all_gathers}')
 
     # Rebuild optimizer now that parameters are sharded
     if optimizers:

@@ -22,7 +22,7 @@ Constrains all gradients to be between $[-\lambda, \lambda]$, where $\lambda$ is
 the `clipping_threshold`.
 
 <!-- Usage: -->
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```python
 import composer.functional as cf
 cf.apply_gradient_clipping(model.parameters(),
@@ -33,7 +33,7 @@ cf.apply_gradient_clipping(model.parameters(),
 Multiplies all gradients by $\min(1, \frac{\lambda}{||G||})$, where $\lambda$ is
 the `clipping_threshold` and $||G||$ is the total L2 norm of all gradients.
 <!-- Usage: -->
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```python
 import composer.functional as cf
 cf.apply_gradient_clipping(model.parameters(),
@@ -45,7 +45,7 @@ Clips all gradients based on the gradient norm to parameter norm ratio by multip
 $\min(1, \lambda\frac{||W||}{||G||})$, where $\lambda$ is the `clipping_threshold`,
 $||G||$ is the norm of the gradients and $||W||$ is the norm of the weights.
 <!-- Usage: -->
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```python
 import composer.functional as cf
 cf.apply_gradient_clipping(model.parameters(),
@@ -81,7 +81,7 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
-<!--pytest-codeblocks:skip-->
+<!--pytest.mark.skip-->
 ```python
 # Instantiate the algorithm and pass it into the Trainer
 # The trainer will automatically run it at the appropriate points in the training loop

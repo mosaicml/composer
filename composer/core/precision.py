@@ -4,6 +4,7 @@
 """Enum class for the numerical precision to be used by the model."""
 
 import contextlib
+import os
 from typing import Generator, Union
 
 import torch
@@ -17,28 +18,19 @@ class Precision(StringEnum):
     """Enum class for the numerical precision to be used by the model.
 
     Attributes:
-        AMP: Use :mod:`torch.cuda.amp`. Only compatible with GPUs.
-        FP16: Use 16-bit floating-point precision. Currently only
-            compatible with GPUs on DeepSpeed.
-        FP32: Use 32-bit floating-point precision.
-            Compatible with CPUs and GPUs.
-        BF16: Use 16-bit BFloat mixed precision. Compatible with CPUs and GPUs.
+        FP32: Use 32-bit floating-point precision. Compatible with CPUs and GPUs.
+        AMP_FP16: Use :mod:`torch.cuda.amp` wih 16-bit floating-point precision. Only compatible
+            with GPUs.
+        AMP_BF16: Use :mod:`torch.cuda.amp` wih 16-bit BFloat precision.
     """
-    AMP = 'amp'
-    FP16 = 'fp16'
     FP32 = 'fp32'
-    BF16 = 'bf16'
+    AMP_FP16 = 'amp_fp16'
+    AMP_BF16 = 'amp_bf16'
 
 
 @contextlib.contextmanager
 def get_precision_context(precision: Union[str, Precision]) -> Generator[None, None, None]:
     """Returns a context manager to automatically cast to a specific precision.
-
-    .. warning::
-
-        :attr:`.Precision.FP16` is only supported when using DeepSpeed, as PyTorch does not
-        natively support this precision. When this function is invoked with :attr:`.Precision.FP16`,
-        the precision context will be a no-op.
 
     Args:
         precision (str | Precision): Precision for the context
@@ -51,21 +43,15 @@ def get_precision_context(precision: Union[str, Precision]) -> Generator[None, N
         else:
             # Yield here to avoid warnings about cuda not being available
             yield
-    elif precision == Precision.FP16:
-        # No-op if FP16. FP16 is only supported by DeepSpeed, which is configured via the `deepspeed_config`
-        # DeepSpeed ignores `get_precision_context`. The Trainer init validates that Precision.FP16 is used
-        # only when using DeepSpeed.
-        yield
-    elif precision == Precision.AMP:
+    elif precision == Precision.AMP_FP16:
         # Retain compatibility with PyTorch < 1.10
         with torch.cuda.amp.autocast(True):
             yield
-    elif precision == Precision.BF16:
+    elif precision == Precision.AMP_BF16:
         if torch.cuda.is_available():
             with torch.cuda.amp.autocast(enabled=True, dtype=torch.bfloat16):
                 yield
         else:
-            import os
             os.environ['XLA_USE_BF16'] = '1'
             yield
     else:

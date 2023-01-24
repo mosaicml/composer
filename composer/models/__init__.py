@@ -20,7 +20,6 @@ from composer.models.initializers import Initializer
 from composer.models.mmdetection import MMDetModel
 from composer.models.resnet import composer_resnet
 from composer.models.resnet_cifar import composer_resnet_cifar
-from composer.models.ssd import SSD
 from composer.models.tasks import ComposerClassifier
 from composer.models.timm import composer_timm
 from composer.models.unet import UNet
@@ -39,7 +38,6 @@ __all__ = [
     'MMDetModel',
     'composer_resnet',
     'composer_resnet_cifar',
-    'SSD',
     'ComposerClassifier',
     'composer_timm',
     'UNet',

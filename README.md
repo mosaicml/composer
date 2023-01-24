@@ -156,7 +156,7 @@ trainer = Trainer(
     model=mnist_model(),
     train_dataloader=train_dataloader,
     eval_dataloader=eval_dataloader,
-    max_duration="2ep",
+    max_duration="1ep",
     algorithms=[
         ChannelsLast(),
         CutMix(alpha=1.0),
@@ -359,7 +359,7 @@ Here are some resources actively maintained by the Composer community to help yo
     <td>A Colab Notebook showing how to build new training modifications on top of Composer</td>
   </tr>
   <tr>
-    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/huggingface_models.ipynb" target="_blank" rel="noopener noreferrer">Training BERTs with Composer and 🤗 </a></td>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/finetune_huggingface.ipynb" target="_blank" rel="noopener noreferrer">Training BERTs with Composer and 🤗 </a></td>
     <td>A Colab Notebook showing how to train BERT models with Composer and 🤗!</td>
   </tr>
 </tbody>
