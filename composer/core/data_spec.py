@@ -74,6 +74,9 @@ def _num_microbatches_split_batch(batch: Any, num_microbatches: int) -> Sequence
     if isinstance(batch, Mapping):  # check for dictionary (hf style)
         return _num_microbatches_split_mapping(batch, num_microbatches)
 
+    if isinstance(batch, (Tuple, list)) and _check_list_is_primitives(batch):  # check for list of primitives
+        return _num_microbatches_split_list(batch, num_microbatches)
+
     if isinstance(batch, (Tuple, List)):  # check for batch on 2nd dimension
         result = []
         for item in batch:
@@ -123,6 +126,19 @@ def _split_mapping(m, microbatch_size: int):
     return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
 
 
+def _check_list_is_primitives(l):
+    """Checks if all elements in a list are the same primitive type."""
+    if len(l) == 0:
+        return True
+    first_type = type(l[0])
+    if not isinstance(l[0], (int, float, str, bool)):
+        return False
+    for item in l:
+        if type(item) != first_type:
+            return False
+    return True
+
+
 def _default_split_batch(batch: Any, microbatch_size: int) -> Sequence:
     """Splits batch into chunks of size `microbatch_size` for gradient accumulation.
 
@@ -136,6 +152,8 @@ def _default_split_batch(batch: Any, microbatch_size: int) -> Sequence:
         return _split_tensor(batch, microbatch_size)
     elif isinstance(batch, Mapping):  # check for dictionary (hf style)
         return _split_mapping(batch, microbatch_size)
+    elif isinstance(batch, (Tuple, list)) and _check_list_is_primitives(batch):  # check for list of primitives
+        return _split_list(batch, microbatch_size)
     elif isinstance(batch, (Tuple, List)):  # check for batch on 2nd dimension
         result = []
         for item in batch:

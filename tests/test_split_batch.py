@@ -14,6 +14,10 @@ def dummy_tensor_batch(batch_size=12) -> torch.Tensor:
     return torch.randn(size=(batch_size, 3, 32, 32))
 
 
+def dummy_list_str(batch_size=12) -> List[str]:
+    return [str(x) for x in range(batch_size)]
+
+
 def dummy_tuple_batch(batch_size=12) -> List[torch.Tensor]:
     # pytorch default collate converts tuples to lists
     # https://github.com/pytorch/pytorch/blob/e451259a609acdcd83105177ddba73fc41cfa9b4/torch/utils/data/_utils/collate.py#L67
@@ -76,6 +80,7 @@ def dummy_maskrcnn_batch(batch_size=12,
 def dummy_batches(batch_size=12):
     return [
         dummy_tensor_batch(batch_size=batch_size),
+        dummy_list_str(batch_size=batch_size),
         dummy_tuple_batch(batch_size=batch_size),
         dummy_tuple_batch_long(batch_size=batch_size),
         dummy_dict_batch(batch_size=batch_size),
