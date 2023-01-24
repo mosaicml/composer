@@ -60,8 +60,24 @@ def fsdp_state_dict_type_context(obj: torch.nn.Module, state_dict_type: str = 'f
     elif state_dict_type == 'local':
         state_dict_config = LocalStateDictConfig()
         fsdp_state_dict_type = StateDictType.LOCAL_STATE_DICT
+    else:
+        raise NotImplementedError(f'No valid FSDP state_dict_type for {state_dict_type}')
     with FSDP.state_dict_type(obj, state_dict_type=fsdp_state_dict_type, state_dict_config=state_dict_config):
         yield
+
+def fsdp_get_optim_state_dict(model: torch.nn.Module, optim: torch.optim.Optimizer, state_dict_type='full') -> Dict[str, Any]:
+    if version.parse(torch.__version__) < version.parse('1.13.0'):
+        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
+    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+    if state_dict_type == 'full':
+        return FSDP.full_optim_state_dict(model=model, optim=optim)
+    elif state_dict_type == 'sharded':
+        return FSDP.sharded_optim_state_dict(model=model, optim=optim)
+    elif state_dict_type == 'local':
+        sharded_optim_state_dict = FSDP.sharded_optim_state_dict(model=model, optim=optim)
+        return FSDP.flatten_sharded_optim_state_dict(sharded_optim_state_dict=sharded_optim_state_dict, model=model)
+    else:
+        raise NotImplementedError(f'No valid FSDP state_dict_type for {state_dict_type}')
 
 def get_fsdp_sharded_optim_state_dict(full_optim_state_dict: Dict[str, Any], model: torch.nn.Module):
     if version.parse(torch.__version__) < version.parse('1.13.0'):
@@ -689,12 +705,10 @@ class State(Serializable):
             elif attribute_name == 'optimizers':
                 optimizer = ensure_tuple(attribute_value)[0] # Let's stop pretending. We don't support more than one optimizer.
                 if self.fsdp_enabled:
-                    with fsdp_state_dict_type_context(optimizer,
-                                                      state_dict_type=self.fsdp_config['state_dict_type']):
-                        optim_state = {type(optimizer).__qualname__: optimizer.state_dict()}
+                    optim_state_dict = {type(optimizer).__qualname__: fsdp_get_optim_state_dict(self.model, optimizer)}
                 else:
-                    optim_state = {type(optimizer).__qualname__: optimizer.state_dict()}
-                serialized_value = optim_state
+                    optim_state_dict = {type(optimizer).__qualname__: optimizer.state_dict()}
+                serialized_value = optim_state_dict
             elif attribute_name == 'algorithms':
                 # Store as list to preserve order in which algorithms were applied
                 serialized_value = [(type(obj).__qualname__, obj.state_dict()) for obj in ensure_tuple(attribute_value)]
