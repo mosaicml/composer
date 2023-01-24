@@ -102,7 +102,7 @@ class SpeedMonitor(Callback):
         )
         self.total_eval_wct = state['total_eval_wct']
 
-        # Load only if present to support backwards compatibility
+        # Added in 0.13. Load only if present to support backwards compatibility
         if 'eval_wct_per_label' in state:
             self.eval_wct_per_label = state['eval_wct_per_label']
         if 'eval_rate_per_label' in state:
@@ -154,13 +154,9 @@ class SpeedMonitor(Callback):
                 # Only update the estimate if the elapsed duration has changed
                 self.last_elapsed_duration = elapsed_dur
                 remaining_time = batch_wct_avg * int(state.timestamp.batch) / elapsed_dur * (1 - elapsed_dur)
-                logger.log_metrics({'wall_clock/train_wct_avg': batch_wct_avg})
-                logger.log_metrics({'wall_clock/train_timestamp_batch': int(state.timestamp.batch)})
-                logger.log_metrics({'wall_clock/train_elapsed_dur': float(elapsed_dur)})
-                logger.log_metrics({'wall_clock/train_remaining_estimate': remaining_time})
                 # Add remaining time from each evaluator
                 for dataloader_label, eval_wcts in self.eval_wct_per_label.items():
-                    # Discard first eval_wct if possible as it usually slower due to dataloader
+                    # Discard first eval_wct if possible as it often slower due to dataset downloading
                     eval_wct_avg = None
                     if len(eval_wcts) > 1:
                         eval_wct_avg = sum(eval_wcts[1:]) / (len(eval_wcts) - 1)
@@ -170,9 +166,6 @@ class SpeedMonitor(Callback):
                     if eval_rate > 0:
                         remaining_calls = 1 / eval_rate - len(eval_wcts)
                         remaining_time += eval_wct_avg * remaining_calls
-                        logger.log_metrics({'wall_clock/eval_remaining_estimate': eval_wct_avg * remaining_calls})
-                        logger.log_metrics({'wall_clock/eval_wct_avg': eval_wct_avg})
-                        logger.log_metrics({'wall_clock/eval_remaining_calls': remaining_calls})
                 logger.log_metrics({'wall_clock/remaining_estimate': remaining_time})
 
         # Log the time
