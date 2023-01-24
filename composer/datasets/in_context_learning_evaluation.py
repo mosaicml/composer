@@ -194,9 +194,6 @@ class InContextLearningLMTaskDataset(Dataset):
     def get_num_samples_in_batch(self, batch) -> int:
         return batch['input_ids'].shape[0]
 
-    def update_metric(self, metric, batch, output_logits, labels):
-        metric.update(batch, output_logits, labels)
-
 
 class InContextLearningMultipleChoiceTaskDataset(Dataset):
     """A dataset that construct batches for in-context learning multiple choice evaluation
@@ -354,9 +351,6 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
 
     def get_num_samples_in_batch(self, batch) -> int:
         return batch['input_ids'].shape[0]
-
-    def update_metric(self, metric, batch, output_logits, labels):
-        metric.update(batch, output_logits, labels)
 
 
 def get_icl_task_dataloader(

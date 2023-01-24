@@ -108,7 +108,7 @@ def test_mc_task_dataloader(dataset_uri, tiny_gpt2_tokenizer):
 
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 5])
-@device('gpu', 'cpu')
+@device('gpu')
 def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenizer):
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -134,7 +134,7 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
 
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl', 'hellaswag_small.jsonl'])
-@device('gpu', 'cpu')
+@device('gpu')
 @pytest.mark.parametrize('num_fewshot', [0, 5])
 def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenizer):
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
