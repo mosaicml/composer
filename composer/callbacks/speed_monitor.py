@@ -55,7 +55,9 @@ class SpeedMonitor(Callback):
     +-----------------------------------+---------------------------------------------------------+
     | ``wall_clock/total``              | Total elapsed time (wall_clock/train + wall_clock/val)  |
     +-----------------------------------+---------------------------------------------------------+
-    | ``wall_clock/remaining_estimate`` | Estimated time to completion                            |
+    |                                   | Estimated time to completion using estimated throughput |
+    | ``wall_clock/remaining_estimate`` | multiplied by remaining time plus a correction for      |
+    |                                   | remaining eval calls                                    |
     +-----------------------------------+---------------------------------------------------------+
 
     Args:
@@ -103,12 +105,9 @@ class SpeedMonitor(Callback):
         self.total_eval_wct = state['total_eval_wct']
 
         # Added in 0.13. Load only if present to support backwards compatibility
-        if 'eval_wct_per_label' in state:
-            self.eval_wct_per_label = state['eval_wct_per_label']
-        if 'eval_rate_per_label' in state:
-            self.eval_rate_per_label = state['eval_rate_per_label']
-        if 'last_elapsed_duration' in state:
-            self.last_elapsed_duration = state['last_elapsed_duration']
+        self.eval_wct_per_label = state.get('eval_wct_per_label', self.eval_wct_per_label)
+        self.eval_rate_per_label = state.get('eval_rate_per_label', self.eval_rate_per_label)
+        self.last_elapsed_duration = state.get('last_elapsed_duration', self.last_elapsed_duration)
 
     def get_elapsed_duration(self, state: State) -> Optional[float]:
         """Get the elapsed duration.
@@ -123,7 +122,7 @@ class SpeedMonitor(Callback):
                                  state.timestamp.batch_in_epoch).value / state.timestamp.epoch.value
             return state.timestamp.get('ba').value / (state.max_duration.value * batches_per_epoch)
         elapsed_dur = state.get_elapsed_duration()
-        if elapsed_dur:
+        if elapsed_dur is not None:
             return elapsed_dur.value
         return None
 
@@ -146,13 +145,13 @@ class SpeedMonitor(Callback):
             logger.log_metrics({'throughput/samples_per_sec': throughput})
 
             # Estimate remaining time
-            batch_wct_avg = sum(self.batch_wct_buffer) / len(self.batch_wct_buffer)
             elapsed_dur = self.get_elapsed_duration(state)
             if elapsed_dur is None:
                 warnings.warn('`max_duration` is not set. Cannot estimate remaining time.')
             elif elapsed_dur > 0 and elapsed_dur != self.last_elapsed_duration:
                 # Only update the estimate if the elapsed duration has changed
                 self.last_elapsed_duration = elapsed_dur
+                batch_wct_avg = sum(self.batch_wct_buffer) / len(self.batch_wct_buffer)
                 total_num_batches = int(state.timestamp.batch) / elapsed_dur
                 remaining_time = batch_wct_avg * total_num_batches * (1 - elapsed_dur)
                 # Add remaining time from each evaluator
