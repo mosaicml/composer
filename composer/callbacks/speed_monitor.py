@@ -119,8 +119,9 @@ class SpeedMonitor(Callback):
         if state.max_duration is None:
             return None
         elif state.max_duration.unit == 'ep' and state.timestamp.epoch > 1:
-            batches_per_epoch = (state.timestamp.batch - state.timestamp.batch_in_epoch) / state.timestamp.epoch
-            return (state.timestamp.get('ba') / (state.max_duration * batches_per_epoch)).value
+            batches_per_epoch = (state.timestamp.batch -
+                                 state.timestamp.batch_in_epoch).value / state.timestamp.epoch.value
+            return state.timestamp.get('ba').value / (state.max_duration.value * batches_per_epoch)
         elapsed_dur = state.get_elapsed_duration()
         if elapsed_dur:
             return elapsed_dur.value
