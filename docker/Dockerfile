@@ -132,39 +132,39 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN if [ -n "$CUDA_VERSION" ] ; then \
-        apt-get update && \
-        apt-get install -y --no-install-recommends \
-            # For AWS EFA:
-            pciutils \
-            environment-modules \
-            libnl-3-200 \
-            libnl-3-dev \
-            libnl-route-3-200 \
-            libnl-route-3-dev \
-            linux-image-generic \
-            dkms \
-            rdma-core \
-            cmake \
-            libevent-core-2.1-7 \
-            libevent-pthreads-2.1-7 \
-            libhwloc15 \
-            initramfs-tools \
-            autoconf \
-            autotools-dev \
-            automake \
-            libtool \
-            gettext && \
-            # libibnetdisc5 \
-            # libibnetdisc-dev \
-            # librdmacm1 \
-            # libibumad3 \
-            # libibmad5 \
-            # libibnetdisc-dev && \
-        apt-get autoclean && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/* ; \
-    fi
+# RUN if [ -n "$CUDA_VERSION" ] ; then \
+#         apt-get update && \
+#         apt-get install -y --no-install-recommends \
+#             # For AWS EFA:
+#             pciutils \
+#             environment-modules \
+#             libnl-3-200 \
+#             libnl-3-dev \
+#             libnl-route-3-200 \
+#             libnl-route-3-dev \
+#             linux-image-generic \
+#             dkms \
+#             rdma-core \
+#             cmake \
+#             libevent-core-2.1-7 \
+#             libevent-pthreads-2.1-7 \
+#             libhwloc15 \
+#             initramfs-tools \
+#             autoconf \
+#             autotools-dev \
+#             automake \
+#             libtool \
+#             gettext && \
+#             # libibnetdisc5 \
+#             # libibnetdisc-dev \
+#             # librdmacm1 \
+#             # libibumad3 \
+#             # libibmad5 \
+#             # libibnetdisc-dev && \
+#         apt-get autoclean && \
+#         apt-get clean && \
+#         rm -rf /var/lib/apt/lists/* ; \
+#     fi
 
 ###############################
 # Install latest version of git
