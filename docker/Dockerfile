@@ -54,7 +54,6 @@ ARG VISION_BASE=pytorch_stage
 
 # Pip version strings of dependencies to install
 ARG MMCV_VERSION='==1.4.8'
-ARG FFCV_VERSION='==0.0.3'
 ARG OPENCV_VERSION='>=4.5.5.64,<4.6'
 ARG NUMBA_VERSION='>=0.55.0,<0.56'
 ARG MMSEGMENTATION_VERSION='>=0.22.0,<0.23'
@@ -128,7 +127,11 @@ RUN apt-get update && \
         liblcms2-dev \
         tcl \
         libjpeg8-dev \
-        less && \
+        less \
+        # Development tools
+        vim \
+        tmux \
+        htop && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -174,7 +177,10 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
     rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} - && \
-    pip${PYTHON_VERSION} install --no-cache-dir --upgrade pip setuptools
+    pip${PYTHON_VERSION} install --no-cache-dir --upgrade pip && \
+    # Pin setuptools before 66.0.0, which enforces PEP 440 and prevents imgcat install from FFCV.
+    # This will be removed once imgcat fixes its version tag or FFCV removes the unused dependency.
+    pip${PYTHON_VERSION} install --no-cache-dir setuptools==65.7.0
 
 #####################
 # Install pillow-simd
@@ -325,7 +331,6 @@ RUN sudo apt-get update && \
     sudo rm -rf /var/lib/apt/lists/*
 
 ARG MMCV_VERSION
-ARG FFCV_VERSION
 ARG OPENCV_VERSION
 ARG NUMBA_VERSION
 ARG MMSEGMENTATION_VERSION
@@ -339,7 +344,7 @@ ENV SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL=True
 RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
     MMCV_TORCH_VERSION=$(python -c "print('torch' + ''.join('${PYTORCH_VERSION}'.split('.')[:2]) + '.0')") && \
     sudo pip${PYTHON_VERSION} install --no-cache-dir \
-        "ffcv${FFCV_VERSION}" \
+        "https://github.com/libffcv/ffcv/archive/ee8497c1a59abd715b6c8f027d6e5f552b1cce7e.zip" \
         "opencv-python${OPENCV_VERSION}" \
         "numba${NUMBA_VERSION}" \
         "mmsegmentation${MMSEGMENTATION_VERSION}" && \

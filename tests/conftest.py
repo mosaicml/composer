@@ -103,11 +103,18 @@ def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item
 # use pytest.{var}, but instead should import and use the helper copy methods configure_{var}
 # (in tests.common.models) so the objects in the PyTest namespace do not change.
 def pytest_configure():
-    pytest.importorskip('transformers')
-    from tests.fixtures.fixtures import tiny_bert_config_helper, tiny_bert_model_helper, tiny_bert_tokenizer_helper
-    pytest.tiny_bert_config = tiny_bert_config_helper()  # type: ignore
-    pytest.tiny_bert_model = tiny_bert_model_helper(pytest.tiny_bert_config)  # type: ignore
-    pytest.tiny_bert_tokenizer = tiny_bert_tokenizer_helper()  # type: ignore
+    try:
+        import transformers
+        del transformers
+        TRANSFORMERS_INSTALLED = True
+    except ImportError:
+        TRANSFORMERS_INSTALLED = False
+
+    if TRANSFORMERS_INSTALLED:
+        from tests.fixtures.fixtures import tiny_bert_config_helper, tiny_bert_model_helper, tiny_bert_tokenizer_helper
+        pytest.tiny_bert_config = tiny_bert_config_helper()  # type: ignore
+        pytest.tiny_bert_model = tiny_bert_model_helper(pytest.tiny_bert_config)  # type: ignore
+        pytest.tiny_bert_tokenizer = tiny_bert_tokenizer_helper()  # type: ignore
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):
