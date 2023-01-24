@@ -124,6 +124,10 @@ RUN apt-get update && \
         tcl \
         libjpeg8-dev \
         less \
+        # For AWS EFA:
+        autoconf \
+        autotools-dev \
+        automake \
         # Development tools
         vim \
         tmux \
