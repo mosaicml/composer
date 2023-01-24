@@ -153,7 +153,8 @@ class SpeedMonitor(Callback):
             elif elapsed_dur > 0 and elapsed_dur != self.last_elapsed_duration:
                 # Only update the estimate if the elapsed duration has changed
                 self.last_elapsed_duration = elapsed_dur
-                remaining_time = batch_wct_avg * int(state.timestamp.batch) / elapsed_dur * (1 - elapsed_dur)
+                total_num_batches = int(state.timestamp.batch) / elapsed_dur
+                remaining_time = batch_wct_avg * total_num_batches * (1 - elapsed_dur)
                 # Add remaining time from each evaluator
                 for dataloader_label, eval_wcts in self.eval_wct_per_label.items():
                     # Discard first eval_wct if possible as it often slower due to dataset downloading
@@ -164,7 +165,8 @@ class SpeedMonitor(Callback):
                         eval_wct_avg = sum(eval_wcts) / len(eval_wcts)
                     eval_rate = self.eval_rate_per_label[dataloader_label]
                     if eval_rate > 0:
-                        remaining_calls = 1 / eval_rate - len(eval_wcts)
+                        num_total_evals = 1 / eval_rate
+                        remaining_calls = num_total_evals - len(eval_wcts)
                         remaining_time += eval_wct_avg * remaining_calls
                 logger.log_metrics({'wall_clock/remaining_estimate': remaining_time})
 
@@ -183,11 +185,11 @@ class SpeedMonitor(Callback):
         if state.dataloader_label not in self.eval_wct_per_label:
             self.eval_wct_per_label[state.dataloader_label] = []
         self.eval_wct_per_label[state.dataloader_label].append(state.eval_timestamp.total_wct.total_seconds())
-        max_dur = self.get_elapsed_duration(state)
-        if max_dur is None:
+        elapsed_dur = self.get_elapsed_duration(state)
+        if elapsed_dur is None:
             warnings.warn(
                 'Attempting to estimate remaining time but `max_duration` is not set. Skipping adjustment for evaluation time.'
             )
         else:
-            self.eval_rate_per_label[state.dataloader_label] = max_dur / len(
+            self.eval_rate_per_label[state.dataloader_label] = elapsed_dur / len(
                 self.eval_wct_per_label[state.dataloader_label])
