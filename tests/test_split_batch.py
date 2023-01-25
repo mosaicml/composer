@@ -14,6 +14,10 @@ def dummy_tensor_batch(batch_size=12) -> torch.Tensor:
     return torch.randn(size=(batch_size, 3, 32, 32))
 
 
+def dummy_list_str(batch_size=12) -> List[str]:
+    return [str(x) for x in range(batch_size)]
+
+
 def dummy_tuple_batch(batch_size=12) -> List[torch.Tensor]:
     # pytorch default collate converts tuples to lists
     # https://github.com/pytorch/pytorch/blob/e451259a609acdcd83105177ddba73fc41cfa9b4/torch/utils/data/_utils/collate.py#L67
@@ -37,10 +41,19 @@ def dummy_dict_batch(batch_size=12) -> Dict[str, torch.Tensor]:
 
 
 def dummy_dict_batch_with_metadata(batch_size=12) -> Dict[str, Union[List, torch.Tensor, str]]:
-    # sometimes metadata is included with a batch that isnt taken by the model.
+    # sometimes metadata is included with a batch that isn't taken by the model.
     image = torch.randn(size=(batch_size, 3, 32, 32))
     target = torch.randint(size=(batch_size,), high=10)
     meta = ['hi im a tag' for _ in range(batch_size)]
+    index = [[1, 2, 3] for _ in range(batch_size)]
+    return {'image': image, 'target': target, 'meta': meta, 'index': index}
+
+
+def dummy_dict_batch_with_common_metadata(batch_size=12) -> Dict[str, Union[List, torch.Tensor, str]]:
+    # sometimes metadata is included with a batch that isn't taken by the model.
+    image = torch.randn(size=(batch_size, 3, 32, 32))
+    target = torch.randint(size=(batch_size,), high=10)
+    meta = 'this is a string'
     index = [[1, 2, 3] for _ in range(batch_size)]
     return {'image': image, 'target': target, 'meta': meta, 'index': index}
 
@@ -76,10 +89,12 @@ def dummy_maskrcnn_batch(batch_size=12,
 def dummy_batches(batch_size=12):
     return [
         dummy_tensor_batch(batch_size=batch_size),
+        dummy_list_str(batch_size=batch_size),
         dummy_tuple_batch(batch_size=batch_size),
         dummy_tuple_batch_long(batch_size=batch_size),
         dummy_dict_batch(batch_size=batch_size),
-        dummy_dict_batch_with_metadata(batch_size=batch_size)
+        dummy_dict_batch_with_metadata(batch_size=batch_size),
+        dummy_dict_batch_with_common_metadata(batch_size=batch_size),
     ]
 
 
@@ -112,6 +127,21 @@ def test_split_tuple_long(batch):
     assert len(microbatches[0]) == 4
 
 
+@pytest.mark.parametrize('batch', dummy_batches(6))
+def test_batch_sizes(batch):
+    microbatches = _default_split_batch(batch, microbatch_size=2)
+    # should split into [len(2), len(2), len(1)]
+    assert len(microbatches) == 3
+    for microbatch in microbatches:
+        if isinstance(microbatch, Mapping):
+            assert len(microbatch['image']) == 2
+            assert len(microbatch['target']) == 2
+        if isinstance(microbatch, tuple):
+            assert len(microbatch[0]) == 2
+        if isinstance(microbatch, list):
+            assert len(microbatch) == 2
+
+
 @pytest.mark.parametrize('batch', dummy_batches(5))
 def test_odd_batch_sizes(batch):
     microbatches = _default_split_batch(batch, microbatch_size=2)
@@ -138,6 +168,14 @@ def test_microbatch_size_greater_than_batch_size(batch):
 def test_microbatch_size_split_maskrcnn(batch):
     microbatches = _split_list(batch, microbatch_size=4)
     assert len(microbatches) == 3
+
+
+@pytest.mark.parametrize('batch', [dummy_dict_batch_with_common_metadata(12)])
+def test_primitive_broadcast(batch):
+    microbatches = _default_split_batch(batch, microbatch_size=3)
+    assert len(microbatches) == 4
+    for mb in microbatches:
+        assert mb['meta'] == 'this is a string'
 
 
 ## Older tests for deprecated codepath. To be removed in 0.13
