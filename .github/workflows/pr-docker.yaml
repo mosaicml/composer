@@ -43,7 +43,7 @@ jobs:
       context: ./docker
       push: false
       staging: true
-      staging-repo: mosaicml/jenkins-staging
+      staging-repo: mosaicml/ci-staging
     secrets:
       username: ${{ secrets.DOCKER_HUB_USERNAME }}
       password: ${{ secrets.DOCKER_HUB_PASSWORD }}
