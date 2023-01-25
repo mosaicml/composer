@@ -241,25 +241,24 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         ./configure --prefix=/opt/aws-ofi-nccl/install \
             --with-libfabric=/opt/amazon/efa/ \
             --with-cuda=/usr/local/cuda \
-            --with-nccl=/opt/nccl/build \
+            # --with-nccl=/opt/nccl/build \
             --with-mpi=/opt/amazon/openmpi/ && \
-        make && make install && \
-        rm -rf /opt/aws-ofi-nccl ; \
+        make && make install ; \
     fi
 
-# ###################################
-# # Mellanox OFED driver installation
-# ###################################
+###################################
+# Mellanox OFED driver installation
+###################################
 
-# ARG MOFED_VERSION
+ARG MOFED_VERSION
 
-# RUN if [ -n "$MOFED_VERSION" ] ; then \
-#         mkdir -p /tmp/mofed && \
-#         wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz && \
-#         tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz -C /tmp/mofed && \
-#         /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64/mlnxofedinstall --user-space-only --without-fw-update --force && \
-#         rm -rf /tmp/mofed ; \
-#     fi
+RUN if [ -n "$MOFED_VERSION" ] ; then \
+        mkdir -p /tmp/mofed && \
+        wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz && \
+        tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz -C /tmp/mofed && \
+        /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64/mlnxofedinstall --user-space-only --without-fw-update --force && \
+        rm -rf /tmp/mofed ; \
+    fi
 
 #####################
 # Install NVIDIA Apex
