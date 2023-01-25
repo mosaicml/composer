@@ -314,8 +314,8 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                 else:
                     raise ValueError(
                         f'Object `{obj_name}` does not have a ``param_init_fn`` or a ``reset_parameters`` function. '
-                        'This can lead to bad parameter initialization. Please add a ``param_init_fn`` or ``reset_parameters`` '
-                        f'to your module `{obj_name}`.')
+                        'This leaves parameters without initialization. Please add a ``param_init_fn`` or ``reset_parameters`` '
+                        f'to module `{obj_name}`.')
 
             # Choose which modules to FSDP wrap according to the following priority:
             # If module has attribute `module._fsdp_wrap = ...`, always respect it

@@ -24,7 +24,7 @@ def test_fsdp_device_initialization(model: ComposerClassifier, device: str):
     'meta' devices. This is because 'meta' will result in deferred initialization until FSDP is initialized
 
     """
-    num_classes = 2
+    num_classes = 10
     model = model(num_features=num_classes, device=device)
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
