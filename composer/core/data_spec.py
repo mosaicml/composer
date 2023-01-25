@@ -51,6 +51,7 @@ def _num_microbatches_split_mapping(m, num_microbatches: int):
         elif isinstance(v, (List, Tuple)):
             chunked[k] = _num_microbatches_split_list(v, num_microbatches)
         elif isinstance(v, (int, float, str, bool)):
+            # Broadcast primitives to all chunks
             chunked[k] = [v] * num_microbatches
         else:
             raise ValueError(f'Unsupported batch type: {type(v)}.')
