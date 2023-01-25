@@ -3,6 +3,7 @@
 
 """Contains commonly used models that are shared across the test suite."""
 import copy
+from functools import partial
 from typing import Any, Dict, Tuple, Union
 
 import pytest
@@ -86,8 +87,17 @@ class SimpleWeightTiedModel(ComposerClassifier):
 
         self.mlp = mlp
         self.net = net
+        self.net.param_init_fn = self.param_init_fn
 
         self.mlp.fc1.weight = self.mlp.fc2.weight
+
+    def param_init_fn(self, module):
+        init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
+
+        if isinstance(module, torch.nn.Linear):
+            init_fn(module.weight)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
 
 
 class EmbeddedWeightTiedModel(ComposerClassifier):
@@ -112,10 +122,20 @@ class EmbeddedWeightTiedModel(ComposerClassifier):
 
         super().__init__(module=net)
 
+        self.module.param_init_fn = self.param_init_fn
+
         self.net1 = net1
         self.net2 = net2
 
         self.net1.fc1.weight = self.net2.fc1.weight
+
+    def param_init_fn(self, module):
+        init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
+
+        if isinstance(module, torch.nn.Linear):
+            init_fn(module.weight)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
 
 
 class SimpleConvModel(ComposerClassifier):
