@@ -50,7 +50,6 @@ def test_export_for_inference_torchscript(model_cls, sample_input):
     model.eval()
 
     orig_out = model(sample_input)
-
     save_format = 'torchscript'
     with tempfile.TemporaryDirectory() as tempdir:
         save_path = os.path.join(tempdir, f'model.pt')
@@ -271,7 +270,6 @@ def test_export_for_inference_onnx(model_cls, sample_input, device):
                     composer_device.tensor_to_device(sample_input[1]))
     composer_device.module_to_device(model)
     orig_out = model(sample_input)
-
     save_format = 'onnx'
     with tempfile.TemporaryDirectory() as tempdir:
         save_path = os.path.join(tempdir, f'model.{save_format}')
@@ -303,6 +301,7 @@ def test_export_for_inference_onnx(model_cls, sample_input, device):
     'model_cls, sample_input',
     [
         (partial(composer_resnet, 'resnet18'), (torch.rand(1, 3, 224, 224), torch.randint(10, (1,)))),
+        (SimpleTransformerClassifier, dummy_transformer_classifier_batch()),
     ],
 )
 @pytest.mark.world_size(2)
@@ -370,7 +369,10 @@ def test_export_for_inference_onnx_ddp(model_cls, sample_input, request: pytest.
 
 @pytest.mark.parametrize(
     'model_cls, sample_input',
-    [(partial(composer_resnet, 'resnet18'), (torch.rand(1, 3, 224, 224), torch.randint(10, (1,))))],
+    [
+        (partial(composer_resnet, 'resnet18'), (torch.rand(1, 3, 224, 224), torch.randint(10, (1,)))),
+        (SimpleTransformerClassifier, dummy_transformer_classifier_batch()),
+    ],
 )
 @pytest.mark.world_size(2)
 def test_export_for_inference_torchscript_ddp(model_cls, sample_input, request: pytest.FixtureRequest):
@@ -421,7 +423,7 @@ def test_export_for_inference_torchscript_ddp(model_cls, sample_input, request: 
 
 @pytest.mark.parametrize(
     'model_cls',
-    [(partial(composer_resnet, 'resnet18'))],
+    [partial(composer_resnet, 'resnet18'), SimpleTransformerClassifier],
 )
 def test_export_with_file_uploading_logger(model_cls):
     with patch('composer.utils.inference.export_for_inference'):
@@ -460,9 +462,7 @@ def test_export_with_file_uploading_logger(model_cls):
 
 @pytest.mark.parametrize(
     'model_cls',
-    [
-        partial(composer_resnet, 'resnet18'),
-    ],
+    [partial(composer_resnet, 'resnet18'), SimpleTransformerClassifier],
 )
 def test_export_with_other_logger(model_cls):
     with patch('composer.utils.inference.export_for_inference'):
