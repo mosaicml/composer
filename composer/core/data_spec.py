@@ -48,8 +48,12 @@ def _num_microbatches_split_mapping(m, num_microbatches: int):
     for k, v in m.items():
         if isinstance(v, torch.Tensor):
             chunked[k] = _num_microbatches_split_tensor(v, num_microbatches)
-        if isinstance(v, (List, Tuple)):
+        elif isinstance(v, (List, Tuple)):
             chunked[k] = _num_microbatches_split_list(v, num_microbatches)
+        elif isinstance(v, (int, float, str, bool)):
+            chunked[k] = [v] * num_microbatches
+        else:
+            raise ValueError(f'Unsupported batch type: {type(v)}.')
     num_chunks = len(list(chunked.values())[0])
     return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
 
@@ -120,9 +124,20 @@ def _split_mapping(m, microbatch_size: int):
     for k, v in m.items():
         if isinstance(v, torch.Tensor):
             chunked[k] = _split_tensor(v, microbatch_size)
-        if isinstance(v, (List, Tuple)):
+        elif isinstance(v, (List, Tuple)):
             chunked[k] = _split_list(v, microbatch_size)
-    num_chunks = len(list(chunked.values())[0])
+        elif isinstance(v, (int, float, str, bool)):
+            # Defer broadcasting primitives until we know num_chunks
+            pass
+        else:
+            raise ValueError(f'Unsupported batch type: {type(v)}.')
+    num_chunks = 1  # Default to 1 chunks if there are no tensors or everything is primitive
+    if len(chunked.keys()) != 0:
+        num_chunks = len(list(chunked.values())[0])
+    # Broadcast primitives to all chunks
+    for k, v in m.items():
+        if isinstance(v, (int, float, str, bool)):
+            chunked[k] = [v] * num_chunks
     return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
 
 
