@@ -17,6 +17,7 @@ jobs:
   pytest:
     timeout-minutes: 30
     runs-on: ubuntu-20.04
+    if: github.repository_owner == 'mosaicml'
     strategy:
       fail-fast: false
       matrix:
