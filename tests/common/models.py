@@ -353,15 +353,24 @@ class SimpleModelWithDropout(ComposerClassifier):
 
 
 def configure_tiny_bert_model():
-    return copy.deepcopy(pytest.tiny_bert_model)
+    try:
+        return copy.deepcopy(pytest.tiny_bert_model)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
 
 
 def configure_tiny_bert_tokenizer():
-    return copy.deepcopy(pytest.tiny_bert_tokenizer)
+    try:
+        return copy.deepcopy(pytest.tiny_bert_tokenizer)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
 
 
 def configure_tiny_bert_config():
-    return copy.deepcopy(pytest.tiny_bert_config)
+    try:
+        return copy.deepcopy(pytest.tiny_bert_config)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
 
 
 def configure_tiny_bert_hf_model(use_logits=True):
