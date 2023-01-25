@@ -137,40 +137,6 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# RUN if [ -n "$CUDA_VERSION" ] ; then \
-#         apt-get update && \
-#         apt-get install -y --no-install-recommends \
-#             # For AWS EFA:
-#             pciutils \
-#             environment-modules \
-#             libnl-3-200 \
-#             libnl-3-dev \
-#             libnl-route-3-200 \
-#             libnl-route-3-dev \
-#             linux-image-generic \
-#             dkms \
-#             rdma-core \
-#             cmake \
-#             libevent-core-2.1-7 \
-#             libevent-pthreads-2.1-7 \
-#             libhwloc15 \
-#             initramfs-tools \
-#             autoconf \
-#             autotools-dev \
-#             automake \
-#             libtool \
-#             gettext && \
-#             # libibnetdisc5 \
-#             # libibnetdisc-dev \
-#             # librdmacm1 \
-#             # libibumad3 \
-#             # libibmad5 \
-#             # libibnetdisc-dev && \
-#         apt-get autoclean && \
-#         apt-get clean && \
-#         rm -rf /var/lib/apt/lists/* ; \
-#     fi
-
 ###############################
 # Install latest version of git
 ###############################
@@ -281,19 +247,19 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         rm -rf /opt/aws-ofi-nccl ; \
     fi
 
-###################################
-# Mellanox OFED driver installation
-###################################
+# ###################################
+# # Mellanox OFED driver installation
+# ###################################
 
-ARG MOFED_VERSION
+# ARG MOFED_VERSION
 
-RUN if [ -n "$MOFED_VERSION" ] ; then \
-        mkdir -p /tmp/mofed && \
-        wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz && \
-        tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz -C /tmp/mofed && \
-        /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64/mlnxofedinstall --user-space-only --without-fw-update --force && \
-        rm -rf /tmp/mofed ; \
-    fi
+# RUN if [ -n "$MOFED_VERSION" ] ; then \
+#         mkdir -p /tmp/mofed && \
+#         wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz && \
+#         tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz -C /tmp/mofed && \
+#         /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64/mlnxofedinstall --user-space-only --without-fw-update --force && \
+#         rm -rf /tmp/mofed ; \
+#     fi
 
 #####################
 # Install NVIDIA Apex
