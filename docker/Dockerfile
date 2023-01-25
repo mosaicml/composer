@@ -234,16 +234,20 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
     fi
 
 RUN if [ -n "$CUDA_VERSION" ] ; then \
-        git clone https://github.com/aws/aws-ofi-nccl.git /opt/aws-ofi-nccl && \
-        cd /opt/aws-ofi-nccl && \
+        git clone https://github.com/aws/aws-ofi-nccl.git /tmp/aws-ofi-nccl && \
+        cd /tmp/aws-ofi-nccl && \
         git checkout ${AWS_OFI_NCCL_VERSION} && \
         ./autogen.sh && \
         ./configure --prefix=/opt/aws-ofi-nccl/install \
             --with-libfabric=/opt/amazon/efa/ \
             --with-cuda=/usr/local/cuda \
             # --with-nccl=/opt/nccl/build \
-            --with-mpi=/opt/amazon/openmpi/ && \
-        make && make install ; \
+            --with-nccl=/usr/local \
+            --with-mpi=/opt/amazon/openmpi/ \
+            --prefix=/usr/local && \
+        make && \
+        make install && \
+        rm -rf /tmp/aws-ofi-nccl ; \
     fi
 
 ###################################
