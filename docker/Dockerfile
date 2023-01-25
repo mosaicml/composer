@@ -218,7 +218,7 @@ RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_
 #####################################
 
 ARG EFA_INSTALLER_VERSION=latest
-ARG NCCL_VERSION=2.10.3
+# ARG NCCL_VERSION=2.10.3
 ARG AWS_OFI_NCCL_VERSION=aws
 
 ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/opt/nccl/build/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:$LD_LIBRARY_PATH
