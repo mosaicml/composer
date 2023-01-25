@@ -55,6 +55,5 @@ jobs:
         id: tests
         run: |
           set -ex
-          # mcli run -f .github/mcp/hello_world.yaml
           export PR_NUMBER=$(echo $GITHUB_REF | awk 'BEGIN { FS = "/" } ; { print $3 }')
           python .github/mcp/mcp_pytest.py --image '${{ matrix.container }}' --pr_number $PR_NUMBER --pytest_markers '${{ matrix.markers }}' --pytest_command '${{ matrix.pytest_command }}'
