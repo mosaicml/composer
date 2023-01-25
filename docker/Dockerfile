@@ -218,9 +218,11 @@ RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_
 #####################################
 
 ARG EFA_INSTALLER_VERSION=latest
+ARG NCCL_VERSION=2.10.3
 ARG AWS_OFI_NCCL_VERSION=aws
 
 ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/opt/nccl/build/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:$LD_LIBRARY_PATH
+# ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:$LD_LIBRARY_PATH
 ENV PATH=/opt/amazon/openmpi/bin/:/opt/amazon/efa/bin:$PATH
 
 RUN if [ -n "$CUDA_VERSION" ] ; then \
@@ -233,9 +235,15 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         rm -rf /tmp/aws-efa-installer* ; \
     fi
 
+RUN cd /tmp \
+  && git clone https://github.com/NVIDIA/nccl.git -b v${NCCL_VERSION}-1 \
+  && cd nccl \
+  && make -j64 src.build BUILDDIR=/usr/local \
+  && rm -rf /tmp/nccl
+
 RUN if [ -n "$CUDA_VERSION" ] ; then \
-        git clone https://github.com/aws/aws-ofi-nccl.git /tmp/aws-ofi-nccl && \
-        cd /tmp/aws-ofi-nccl && \
+        git clone https://github.com/aws/aws-ofi-nccl.git /opt/aws-ofi-nccl && \
+        cd /opt/aws-ofi-nccl && \
         git checkout ${AWS_OFI_NCCL_VERSION} && \
         ./autogen.sh && \
         ./configure --prefix=/opt/aws-ofi-nccl/install \
@@ -246,8 +254,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
             --with-mpi=/opt/amazon/openmpi/ \
             --prefix=/usr/local && \
         make && \
-        make install && \
-        rm -rf /tmp/aws-ofi-nccl ; \
+        make install ; \
     fi
 
 ###################################
