@@ -118,7 +118,7 @@ class SpeedMonitor(Callback):
         """
         if state.max_duration is None:
             return None
-        if state.max_duration.unit == TimeUnit('ep') and state.timestamp.epoch.value > 1:
+        if state.max_duration.unit == TimeUnit('ep') and state.timestamp.epoch.value >= 1:
             batches_per_epoch = (state.timestamp.batch -
                                  state.timestamp.batch_in_epoch).value / state.timestamp.epoch.value
             return state.timestamp.get('ba').value / (state.max_duration.value * batches_per_epoch)
@@ -147,6 +147,7 @@ class SpeedMonitor(Callback):
 
             # Estimate remaining time
             elapsed_fraction = self.get_elapsed_duration(state)
+            print(throughput, elapsed_fraction)
             if elapsed_fraction is None:
                 warnings.warn('`max_duration` is not set. Cannot estimate remaining time.')
             elif elapsed_fraction > 0 and elapsed_fraction != self.last_elapsed_fraction:
