@@ -76,8 +76,9 @@ class SpeedMonitor(Callback):
         # Keep track of time spent evaluating
         self.total_eval_wct = 0.0
         self.eval_wct_per_label: Dict[str, List[float]] = {}
-        self.eval_rate_per_label: Dict[str, float] = {}
-        self.last_elapsed_duration: float = 0.0
+        # How often eval is called as fraction of total training time
+        self.eval_frequency_per_label: Dict[str, float] = {}
+        self.last_elapsed_fraction: float = 0.0
 
     def state_dict(self) -> Dict[str, Any]:
         return {
@@ -87,8 +88,8 @@ class SpeedMonitor(Callback):
             'batch_num_samples_buffer': self.batch_num_samples_buffer,
             'total_eval_wct': self.total_eval_wct,
             'eval_wct_per_label': self.eval_wct_per_label,
-            'eval_rate_per_label': self.eval_rate_per_label,
-            'last_elapsed_duration': self.last_elapsed_duration,
+            'eval_frequency_per_label': self.eval_frequency_per_label,
+            'last_elapsed_fraction': self.last_elapsed_fraction,
         }
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
@@ -106,8 +107,8 @@ class SpeedMonitor(Callback):
 
         # Added in 0.13. Load only if present to support backwards compatibility
         self.eval_wct_per_label = state.get('eval_wct_per_label', self.eval_wct_per_label)
-        self.eval_rate_per_label = state.get('eval_rate_per_label', self.eval_rate_per_label)
-        self.last_elapsed_duration = state.get('last_elapsed_duration', self.last_elapsed_duration)
+        self.eval_frequency_per_label = state.get('eval_frequency_per_label', self.eval_frequency_per_label)
+        self.last_elapsed_fraction = state.get('last_elapsed_fraction', self.last_elapsed_fraction)
 
     def get_elapsed_duration(self, state: State) -> Optional[float]:
         """Get the elapsed duration.
@@ -117,7 +118,7 @@ class SpeedMonitor(Callback):
         """
         if state.max_duration is None:
             return None
-        elif state.max_duration.unit == TimeUnit('ep') and state.timestamp.epoch.value > 1:
+        if state.max_duration.unit == TimeUnit('ep') and state.timestamp.epoch.value > 1:
             batches_per_epoch = (state.timestamp.batch -
                                  state.timestamp.batch_in_epoch).value / state.timestamp.epoch.value
             return state.timestamp.get('ba').value / (state.max_duration.value * batches_per_epoch)
@@ -145,27 +146,28 @@ class SpeedMonitor(Callback):
             logger.log_metrics({'throughput/samples_per_sec': throughput})
 
             # Estimate remaining time
-            elapsed_dur = self.get_elapsed_duration(state)
-            if elapsed_dur is None:
+            elapsed_fraction = self.get_elapsed_duration(state)
+            if elapsed_fraction is None:
                 warnings.warn('`max_duration` is not set. Cannot estimate remaining time.')
-            elif elapsed_dur > 0 and elapsed_dur != self.last_elapsed_duration:
+            elif elapsed_fraction > 0 and elapsed_fraction != self.last_elapsed_fraction:
                 # Only update the estimate if the elapsed duration has changed
-                self.last_elapsed_duration = elapsed_dur
+                self.last_elapsed_fraction = elapsed_fraction
                 batch_wct_avg = sum(self.batch_wct_buffer) / len(self.batch_wct_buffer)
-                total_num_batches = int(state.timestamp.batch) / elapsed_dur
-                remaining_time = batch_wct_avg * total_num_batches * (1 - elapsed_dur)
+                total_num_batches = int(state.timestamp.batch) / elapsed_fraction
+                remaining_time = batch_wct_avg * total_num_batches * (1 - elapsed_fraction)
                 # Add remaining time from each evaluator
                 for dataloader_label, eval_wcts in self.eval_wct_per_label.items():
                     # Discard first eval_wct if possible as it often slower due to dataset downloading
                     eval_wct_avg = None
-                    if len(eval_wcts) > 1:
-                        eval_wct_avg = sum(eval_wcts[1:]) / (len(eval_wcts) - 1)
+                    num_evals_finished = len(eval_wcts)
+                    if num_evals_finished > 1:
+                        eval_wct_avg = sum(eval_wcts[1:]) / (num_evals_finished - 1)
                     else:
-                        eval_wct_avg = sum(eval_wcts) / len(eval_wcts)
-                    eval_rate = self.eval_rate_per_label[dataloader_label]
+                        eval_wct_avg = sum(eval_wcts) / num_evals_finished
+                    eval_rate = self.eval_frequency_per_label[dataloader_label]
                     if eval_rate > 0:
                         num_total_evals = 1 / eval_rate
-                        remaining_calls = num_total_evals - len(eval_wcts)
+                        remaining_calls = num_total_evals - num_evals_finished
                         remaining_time += eval_wct_avg * remaining_calls
                 logger.log_metrics({'wall_clock/remaining_estimate': remaining_time})
 
@@ -186,11 +188,11 @@ class SpeedMonitor(Callback):
         if state.dataloader_label not in self.eval_wct_per_label:
             self.eval_wct_per_label[state.dataloader_label] = []
         self.eval_wct_per_label[state.dataloader_label].append(state.eval_timestamp.total_wct.total_seconds())
-        elapsed_dur = self.get_elapsed_duration(state)
-        if elapsed_dur is None:
+        elapsed_fraction = self.get_elapsed_duration(state)
+        if elapsed_fraction is None:
             warnings.warn(
                 'Attempting to estimate remaining time but `max_duration` is not set. Skipping adjustment for evaluation time.'
             )
         else:
-            self.eval_rate_per_label[state.dataloader_label] = elapsed_dur / len(
+            self.eval_frequency_per_label[state.dataloader_label] = elapsed_fraction / len(
                 self.eval_wct_per_label[state.dataloader_label])
