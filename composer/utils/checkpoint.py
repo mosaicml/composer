@@ -466,10 +466,10 @@ def save_checkpoint(
     if dirname:
         os.makedirs(dirname, exist_ok=True)
 
-    fsdp_sharded_state_dict_enabled = (state.fsdp_enabled 
+    fsdp_sharding_enabled = (state.fsdp_enabled 
                                        and state.fsdp_config['state_dict_type'] != 'full')
     # only rank 0 saves the state_dict
-    if dist.get_global_rank() == 0 or fsdp_sharded_state_dict_enabled:
+    if dist.get_global_rank() == 0 or fsdp_sharding_enabled:
         with open(save_filename, 'wb') as f:
             torch.save(state_dict, f)
 
@@ -482,7 +482,7 @@ def save_checkpoint(
 
     dist.barrier()  # ensure all ranks saved their files
 
-    if dist.get_global_rank() == 0 or is_deepspeed:
+    if dist.get_global_rank() == 0 or is_deepspeed or fsdp_sharding_enabled:
         assert os.path.exists(save_filename), 'Expected file to have been saved.'
         return save_filename
     else:
