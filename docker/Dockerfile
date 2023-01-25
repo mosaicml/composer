@@ -177,10 +177,7 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
     rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} - && \
-    pip${PYTHON_VERSION} install --no-cache-dir --upgrade pip && \
-    # Pin setuptools before 66.0.0, which enforces PEP 440 and prevents imgcat install from FFCV.
-    # This will be removed once imgcat fixes its version tag or FFCV removes the unused dependency.
-    pip${PYTHON_VERSION} install --no-cache-dir setuptools==65.7.0
+    pip${PYTHON_VERSION} install --no-cache-dir --upgrade pip setuptools
 
 #####################
 # Install pillow-simd
@@ -338,13 +335,10 @@ ARG PYTHON_VERSION
 ARG CUPY_VERSION
 ARG CUDA_VERSION
 
-# Allow FFCV to install deprecated 'sklearn' rather than 'scikit-learn'
-ENV SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL=True
-
 RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
     MMCV_TORCH_VERSION=$(python -c "print('torch' + ''.join('${PYTORCH_VERSION}'.split('.')[:2]) + '.0')") && \
     sudo pip${PYTHON_VERSION} install --no-cache-dir \
-        "https://github.com/libffcv/ffcv/archive/ee8497c1a59abd715b6c8f027d6e5f552b1cce7e.zip" \
+        "https://github.com/libffcv/ffcv/archive/f9726ce2be6c36d57ed596b94e1e855131f0d732.zip" \
         "opencv-python${OPENCV_VERSION}" \
         "numba${NUMBA_VERSION}" \
         "mmsegmentation${MMSEGMENTATION_VERSION}" && \
