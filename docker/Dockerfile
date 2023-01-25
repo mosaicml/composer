@@ -238,7 +238,10 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
 RUN cd /tmp \
   && git clone https://github.com/NVIDIA/nccl.git -b v${NCCL_VERSION}-1 \
   && cd nccl \
-  && make -j64 src.build BUILDDIR=/usr/local \
+#   && make -j64 src.build BUILDDIR=/usr/local \
+  && make -j64 src.build CUDA_HOME=/usr/local/cuda NVCC_GENCODE="-gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_80,code=sm_80" BUILDDIR=/usr/local \
+#   && make pkg.txz.build \
+#   && tar -xvf build/pkg/txz/nccl_*.txz -C $CONDA_PREFIX --strip-components=1
   && rm -rf /tmp/nccl
 
 RUN if [ -n "$CUDA_VERSION" ] ; then \
