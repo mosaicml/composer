@@ -24,7 +24,7 @@ def test_fsdp_device_initialization(model: ComposerClassifier, device: str):
     'meta' devices. This is because 'meta' will result in deferred initialization until FSDP is initialized
 
     """
-    num_classes = 10
+    num_classes = 2
     model = model(num_features=num_classes, device=device)
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
@@ -43,10 +43,10 @@ def test_fsdp_device_initialization(model: ComposerClassifier, device: str):
         weight_1 = model.mlp.fc1.weight
         weight_2 = model.mlp.fc2.weight
         assert (id(weight_1) == id(weight_2))
-        assert (torch.equal(torch.nan_to_num(weight_1.data, 0.0), torch.nan_to_num(weight_2.data, 0.0)))
+        assert (torch.equal(weight_1, weight_2))
 
     if isinstance(model, EmbeddedWeightTiedModel):
         weight_1 = model.net1.fc1.weight
         weight_2 = model.net2.fc1.weight
         assert (id(weight_1) == id(weight_2))
-        assert (torch.equal(torch.nan_to_num(weight_1.data, 0.0), torch.nan_to_num(weight_2.data, 0.0)))
+        assert (torch.equal(weight_1, weight_2))

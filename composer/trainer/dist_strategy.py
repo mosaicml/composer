@@ -248,7 +248,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     # This makes it safer to call ComposerModel-specific functions like 'eval_forward' that
     # may make calls to sharded submodules. If we only wrap the submodules, then any call that ComposerModel makes
     # to a FSDP-wrapped submodule's `forward()` function will be safe and all-gather the necessary weights before `forward()`.
-    for name, obj in model.named_children():
+    for obj_name, obj in model.named_children():
         if not isinstance(obj, (Metric, MetricCollection)):
 
             def _param_init_fn(module: torch.nn.Module) -> None:
@@ -311,6 +311,11 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                     module.apply(obj.param_init_fn)
                 elif hasattr(module, 'reset_parameters') and isinstance(module.reset_parameters, Callable):
                     module.reset_parameters()
+                else:
+                    raise ValueError(
+                        f'Object `{obj_name}` does not have a ``param_init_fn`` or a ``reset_parameters`` function. '
+                        'This can lead to bad parameter initialization. Please add a ``param_init_fn`` or ``reset_parameters`` '
+                        f'to your module `{obj_name}`.')
 
             # Choose which modules to FSDP wrap according to the following priority:
             # If module has attribute `module._fsdp_wrap = ...`, always respect it
@@ -369,7 +374,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                     check_fn=_check_fn,  # type: ignore
                 )
 
-            setattr(model, name, fsdp_obj)
+            setattr(model, obj_name, fsdp_obj)
 
     # Print FSDP wrapped model and FSDP config if `verbose=True`
     if fsdp_config.get('verbose', False):
