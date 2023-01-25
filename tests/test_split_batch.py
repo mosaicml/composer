@@ -127,6 +127,21 @@ def test_split_tuple_long(batch):
     assert len(microbatches[0]) == 4
 
 
+@pytest.mark.parametrize('batch', dummy_batches(6))
+def test_batch_sizes(batch):
+    microbatches = _default_split_batch(batch, microbatch_size=2)
+    # should split into [len(2), len(2), len(1)]
+    assert len(microbatches) == 3
+    for microbatch in microbatches:
+        if isinstance(microbatch, Mapping):
+            assert len(microbatch['image']) == 2
+            assert len(microbatch['target']) == 2
+        if isinstance(microbatch, tuple):
+            assert len(microbatch[0]) == 2
+        if isinstance(microbatch, list):
+            assert len(microbatch) == 2
+
+
 @pytest.mark.parametrize('batch', dummy_batches(5))
 def test_odd_batch_sizes(batch):
     microbatches = _default_split_batch(batch, microbatch_size=2)
