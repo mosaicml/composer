@@ -237,7 +237,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
 
 RUN if [ -n "$CUDA_VERSION" ] ; then \
         cd /tmp && \
-        git clone https://github.com/NVIDIA/nccl.git -b v${NCCL_VERSION}-1 && \
+        git clone https://github.com/NVIDIA/nccl.git -b ${NCCL_VERSION} && \
         cd nccl && \
         #   && make -j64 src.build BUILDDIR=/usr/local \
         make -j64 src.build CUDA_HOME=/usr/local/cuda NVCC_GENCODE="-gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_80,code=sm_80" BUILDDIR=/usr/local && \
