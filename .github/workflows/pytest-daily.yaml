@@ -176,4 +176,4 @@ jobs:
         id: tests
         run: |
           set -ex
-          python .github/mcp/mcp_pytest.py --image '${{ matrix.container }}' --git_branch $GITHUB_SHA --pytest_markers '${{ matrix.markers }}' --pytest_command '${{ matrix.pytest_command }}'
+          python .github/mcp/mcp_pytest.py --image '${{ matrix.container }}' --git_commit $GITHUB_SHA --pytest_markers '${{ matrix.markers }}' --pytest_command '${{ matrix.pytest_command }}'
