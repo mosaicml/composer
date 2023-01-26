@@ -221,8 +221,8 @@ ARG EFA_INSTALLER_VERSION=latest
 # ARG NCCL_VERSION=2.10.3
 ARG AWS_OFI_NCCL_VERSION=aws
 
-ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/opt/nccl/build/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:$LD_LIBRARY_PATH
-# ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:$LD_LIBRARY_PATH
+# ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/opt/nccl/build/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:$LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:$LD_LIBRARY_PATH
 ENV PATH=/opt/amazon/openmpi/bin/:/opt/amazon/efa/bin:$PATH
 
 RUN if [ -n "$CUDA_VERSION" ] ; then \
@@ -235,17 +235,17 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         rm -rf /tmp/aws-efa-installer* ; \
     fi
 
-RUN if [ -n "$CUDA_VERSION" ] ; then \
-        cd /opt && \
-        git clone https://github.com/NVIDIA/nccl.git -b v${NCCL_VERSION} && \
-        cd nccl && \
-        #   && make -j64 src.build BUILDDIR=/usr/local \
-        # make -j64 src.build CUDA_HOME=/usr/local/cuda NVCC_GENCODE="-gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_80,code=sm_80" BUILDDIR=/usr/local && \
-        #   && make pkg.txz.build \
-        #   && tar -xvf build/pkg/txz/nccl_*.txz -C $CONDA_PREFIX --strip-components=1
-        make -j8 src.build CUDA_HOME=/usr/local/cuda NVCC_GENCODE="-gencode=arch=compute_80,code=sm_80 -gencode=arch=compute_75,code=sm_75 -gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_60,code=sm_60" ; \
-        # rm -rf /tmp/nccl ; \
-    fi
+# RUN if [ -n "$CUDA_VERSION" ] ; then \
+#         cd /opt && \
+#         git clone https://github.com/NVIDIA/nccl.git -b v${NCCL_VERSION} && \
+#         cd nccl && \
+#         #   && make -j64 src.build BUILDDIR=/usr/local \
+#         # make -j64 src.build CUDA_HOME=/usr/local/cuda NVCC_GENCODE="-gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_80,code=sm_80" BUILDDIR=/usr/local && \
+#         #   && make pkg.txz.build \
+#         #   && tar -xvf build/pkg/txz/nccl_*.txz -C $CONDA_PREFIX --strip-components=1
+#         make -j8 src.build CUDA_HOME=/usr/local/cuda NVCC_GENCODE="-gencode=arch=compute_80,code=sm_80 -gencode=arch=compute_75,code=sm_75 -gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_60,code=sm_60" ; \
+#         # rm -rf /tmp/nccl ; \
+#     fi
 
 RUN if [ -n "$CUDA_VERSION" ] ; then \
         git clone https://github.com/aws/aws-ofi-nccl.git /opt/aws-ofi-nccl && \
@@ -255,7 +255,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         ./configure --prefix=/opt/aws-ofi-nccl/install \
             --with-libfabric=/opt/amazon/efa/ \
             --with-cuda=/usr/local/cuda \
-            --with-nccl=/opt/nccl/build \
+            # --with-nccl=/opt/nccl/build \
             --with-mpi=/opt/amazon/openmpi/ \
             --prefix=/usr/local && \
         make && \
