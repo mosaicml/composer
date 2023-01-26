@@ -236,14 +236,15 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
     fi
 
 RUN if [ -n "$CUDA_VERSION" ] ; then \
-        cd /tmp && \
+        cd /opt && \
         git clone https://github.com/NVIDIA/nccl.git -b v${NCCL_VERSION} && \
         cd nccl && \
         #   && make -j64 src.build BUILDDIR=/usr/local \
-        make -j64 src.build CUDA_HOME=/usr/local/cuda NVCC_GENCODE="-gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_80,code=sm_80" BUILDDIR=/usr/local && \
+        # make -j64 src.build CUDA_HOME=/usr/local/cuda NVCC_GENCODE="-gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_80,code=sm_80" BUILDDIR=/usr/local && \
         #   && make pkg.txz.build \
         #   && tar -xvf build/pkg/txz/nccl_*.txz -C $CONDA_PREFIX --strip-components=1
-        rm -rf /tmp/nccl ; \
+        make -j8 src.build CUDA_HOME=/usr/local/cuda NVCC_GENCODE="-gencode=arch=compute_80,code=sm_80 -gencode=arch=compute_75,code=sm_75 -gencode=arch=compute_70,code=sm_70 -gencode=arch=compute_60,code=sm_60" ; \
+        # rm -rf /tmp/nccl ; \
     fi
 
 RUN if [ -n "$CUDA_VERSION" ] ; then \
@@ -254,8 +255,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         ./configure --prefix=/opt/aws-ofi-nccl/install \
             --with-libfabric=/opt/amazon/efa/ \
             --with-cuda=/usr/local/cuda \
-            # --with-nccl=/opt/nccl/build \
-            --with-nccl=/usr/local \
+            --with-nccl=/opt/nccl/build \
             --with-mpi=/opt/amazon/openmpi/ \
             --prefix=/usr/local && \
         make && \
