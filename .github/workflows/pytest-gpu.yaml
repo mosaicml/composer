@@ -1,4 +1,4 @@
-name: Pytest
+name: Pytest-GPU
 on:
   pull_request_target:
     branches:
@@ -12,7 +12,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 jobs:
-  pytest:
+  pytest-gpu:
     timeout-minutes: 30
     runs-on: ubuntu-20.04
     if: github.repository_owner == 'mosaicml'
