@@ -11,7 +11,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--name', type=str, default='mcp-pytest', help='Name of run')
-    parser.add_argument('--cluster', type=str, default='r1z3', help='Cluster to use')
+    parser.add_argument('--cluster', type=str, default='r1z4', help='Cluster to use')
     parser.add_argument('--gpu_type', type=str, default='a100_40gb', help='Type of GPU to use')
     parser.add_argument('--gpu_num', type=int, default=2, help='Number of the GPU to use')
     parser.add_argument('--image', type=str, default='mosaicml/pytorch:latest', help='Docker image to use')
