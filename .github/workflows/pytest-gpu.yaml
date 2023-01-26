@@ -1,6 +1,6 @@
 name: Pytest
 on:
-  pull_request:
+  pull_request_target:
     branches:
       - dev
       - main
@@ -15,7 +15,7 @@ jobs:
   pytest:
     timeout-minutes: 30
     runs-on: ubuntu-20.04
-    # if: github.repository_owner == 'mosaicml'
+    if: github.repository_owner == 'mosaicml'
     strategy:
       matrix:
         include:
