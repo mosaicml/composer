@@ -186,6 +186,14 @@ def _session_tiny_gpt2_tokenizer():  # type: ignore
     return hf_tokenizer
 
 
+@pytest.fixture(scope='session')
+def _session_tiny_gpt2_model(_session_tiny_gpt2_config):  # type: ignore
+    transformers = pytest.importorskip('transformers')
+
+    hf_model = transformers.AutoModelForCausalLM.from_config(_session_tiny_gpt2_config)  # type: ignore (thirdparty)
+    return hf_model
+
+
 @pytest.fixture
 def tiny_bert_model(_session_tiny_bert_model):
     return copy.deepcopy(_session_tiny_bert_model)
@@ -209,3 +217,8 @@ def tiny_gpt2_config(_session_tiny_gpt2_config):
 @pytest.fixture
 def tiny_gpt2_tokenizer(_session_tiny_gpt2_tokenizer):
     return copy.deepcopy(_session_tiny_gpt2_tokenizer)
+
+
+@pytest.fixture
+def tiny_gpt2_model(_session_tiny_gpt2_model):
+    return copy.deepcopy(_session_tiny_gpt2_model)
