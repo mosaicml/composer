@@ -71,6 +71,7 @@ jobs:
     needs: [ pytest ]
     timeout-minutes: 30
     runs-on: ubuntu-20.04
+    if: github.repository_owner == 'mosaicml'
     steps:
       - name: Checkout
         uses: actions/checkout@v2
