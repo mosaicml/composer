@@ -1,4 +1,4 @@
-name: Pytest
+name: Pytest-GPU
 on:
   pull_request_target:
     branches:
@@ -12,7 +12,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 jobs:
-  pytest:
+  pytest-gpu:
     timeout-minutes: 30
     runs-on: ubuntu-20.04
     if: github.repository_owner == 'mosaicml'
@@ -29,8 +29,6 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
@@ -55,5 +53,5 @@ jobs:
         id: tests
         run: |
           set -ex
-          export PR_NUMBER=$(echo $GITHUB_REF | awk 'BEGIN { FS = "/" } ; { print $3 }')
+          export PR_NUMBER=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
           python .github/mcp/mcp_pytest.py --image '${{ matrix.container }}' --pr_number $PR_NUMBER --pytest_markers '${{ matrix.markers }}' --pytest_command '${{ matrix.pytest_command }}'
