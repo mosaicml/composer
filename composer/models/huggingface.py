@@ -30,6 +30,17 @@ log = logging.getLogger(__name__)
 __all__ = ['HuggingFaceModel']
 
 
+def _is_registered_causal_lm(model: transformers.PreTrainedModel) -> bool:
+    """Return True if model class is either a registered 🤗 Causal LM or a subclass of one"""
+    try:
+        from transformers.models.auto.modeling_auto import MODEL_FOR_CAUSAL_LM_MAPPING
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='nlp',
+                                            conda_package='transformers',
+                                            conda_channel='conda-forge') from e
+    causal_lm_classes = list(MODEL_FOR_CAUSAL_LM_MAPPING.values())
+    return any([isinstance(model, causal_lm_class) for causal_lm_class in causal_lm_classes])
+
 class HuggingFaceModel(ComposerModel):
     """
     A wrapper class that converts 🤗 Transformers models to composer models.
@@ -42,6 +53,10 @@ class HuggingFaceModel(ComposerModel):
                 using :meth:`HuggingFaceModel.hf_from_composer_checkpoint`. If the tokenizer is not provided here, it will not be saved in the composer checkpoint.
         use_logits (bool, optional): If True, the model's output logits will be used to calculate validation metrics. Else, metrics will be inferred from the HuggingFaceModel directly. Default: ``False``
         metrics (list[Metric], optional): list of torchmetrics to apply to the output of `validate`. Default: ``None``.
+        shift_labels (bool, optional): If True, the batch's labels will be shifted before being used to calculate metrics. This should be set to true for CausalLM models and false otherwise. If not specified, `shift_labels` will be set automatically based on the model class name. Default: ``None``.
+
+            .. note:: To ensure correct behavior, set `shift_labels` manually if using a custom model (i.e., if `model` is not a
+                an instance of a registered 🤗 Transformers class).
     .. warning:: This wrapper is designed to work with 🤗 datasets that define a `labels` column.
 
     Example:
@@ -61,7 +76,8 @@ class HuggingFaceModel(ComposerModel):
                  tokenizer: Optional[Union[transformers.PreTrainedTokenizer,
                                            transformers.PreTrainedTokenizerFast]] = None,
                  use_logits: Optional[bool] = False,
-                 metrics: Optional[List[Metric]] = None) -> None:
+                 metrics: Optional[List[Metric]] = None,
+                 shift_labels: Optional[bool] = None) -> None:
         try:
             import transformers
             del transformers  # unused
@@ -95,6 +111,13 @@ class HuggingFaceModel(ComposerModel):
             self.val_metrics = {metric.__class__.__name__: metric for metric in metrics}
 
         self.labels: Optional[torch.Tensor] = None  # set in eval_forward() if exists
+
+        is_causal_lm = _is_registered_causal_lm(model)
+        self.shift_labels = is_causal_lm if shift_labels is None else shift_labels
+        if is_causal_lm and not self.shift_labels:
+            log.warning('The shift_labels argument was set to False but the model is an instance of a'
+                        ' HuggingFace Causal LM. This may lead to incorrect behavior.')
+            # Note: No warning if shift_labels and not is_causal_lm, since the model may simply be a custom class.
 
     @staticmethod
     def hf_from_composer_checkpoint(
@@ -277,6 +300,10 @@ class HuggingFaceModel(ComposerModel):
         output = outputs if outputs else self.forward(batch)
         if self.use_logits or batch.get('mode', None) == 'lm_task':
             self.labels = batch.pop('labels')
+            if self.shift_labels:
+                # HF CausalLM models internally shift labels before computing loss, so we do the same here
+                self.labels[:, :-1] = self.labels[:, 1:]
+                self.labels[:, -1] = -100
             if self.config.use_return_dict:
                 output = output['logits']
             else:
