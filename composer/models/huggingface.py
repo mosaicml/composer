@@ -30,17 +30,6 @@ log = logging.getLogger(__name__)
 __all__ = ['HuggingFaceModel']
 
 
-def _is_registered_causal_lm(model: transformers.PreTrainedModel) -> bool:
-    """Return True if model class is either a registered 🤗 Causal LM or a subclass of one"""
-    try:
-        from transformers.models.auto.modeling_auto import MODEL_FOR_CAUSAL_LM_MAPPING
-    except ImportError as e:
-        raise MissingConditionalImportError(extra_deps_group='nlp',
-                                            conda_package='transformers',
-                                            conda_channel='conda-forge') from e
-    causal_lm_classes = list(MODEL_FOR_CAUSAL_LM_MAPPING.values())
-    return any([isinstance(model, causal_lm_class) for causal_lm_class in causal_lm_classes])
-
 class HuggingFaceModel(ComposerModel):
     """
     A wrapper class that converts 🤗 Transformers models to composer models.
@@ -375,3 +364,15 @@ class HuggingFaceModel(ComposerModel):
             self.val_metrics.update(evaluator_metrics)
         else:
             self.val_metrics = evaluator_metrics
+
+
+def _is_registered_causal_lm(model: transformers.PreTrainedModel) -> bool:
+    """Return True if model class is either a registered 🤗 Causal LM or a subclass of one"""
+    try:
+        from transformers.models.auto.modeling_auto import MODEL_FOR_CAUSAL_LM_MAPPING
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='nlp',
+                                            conda_package='transformers',
+                                            conda_channel='conda-forge') from e
+    causal_lm_classes = list(MODEL_FOR_CAUSAL_LM_MAPPING.values())
+    return any([isinstance(model, causal_lm_class) for causal_lm_class in causal_lm_classes])
