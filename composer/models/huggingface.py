@@ -291,7 +291,7 @@ class HuggingFaceModel(ComposerModel):
             self.labels = batch.pop('labels')
             if self.shift_labels:
                 # HF CausalLM models internally shift labels before computing loss, so we do the same here
-                self.labels[:, :-1] = self.labels[:, 1:]
+                self.labels[:, :-1] = self.labels[:, 1:].clone()
                 self.labels[:, -1] = -100
             if self.config.use_return_dict:
                 output = output['logits']
