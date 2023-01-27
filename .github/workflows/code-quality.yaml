@@ -40,7 +40,7 @@ jobs:
         run: |
           set -ex
           python -m pip install --upgrade pip wheel
-          python -m pip install -e .${{ matrix.pip_deps }}
+          python -m pip install --upgrade --upgrade_strategy eager -e .${{ matrix.pip_deps }}
       - name: Run checks
         run: |
           pre-commit run --all-files
