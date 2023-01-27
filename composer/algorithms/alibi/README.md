@@ -45,10 +45,10 @@ def training_loop(model, train_loader):
 <!--pytest.mark.gpu-->
 <!--
 ```python
-from tests.common.models import configure_tiny_gpt_hf_model
+from tests.common.models import configure_tiny_gpt2_hf_model
 from tests.common.datasets import dummy_gpt_lm_dataloader
 
-model = configure_tiny_gpt_hf_model()
+model = configure_tiny_gpt2_hf_model()
 train_dataloader, eval_dataloader = dummy_gpt_lm_dataloader(), dummy_gpt_lm_dataloader()
 ```
 -->

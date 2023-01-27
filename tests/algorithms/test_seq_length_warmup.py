@@ -11,7 +11,7 @@ from composer.devices import DeviceCPU
 from composer.loggers import Logger
 from tests.common.datasets import (dummy_bert_lm_dataloader, dummy_gpt_lm_dataloader,
                                    dummy_text_classification_dataloader)
-from tests.common.models import SimpleTransformerClassifier, configure_tiny_bert_hf_model, configure_tiny_gpt_hf_model
+from tests.common.models import SimpleTransformerClassifier, configure_tiny_bert_hf_model, configure_tiny_gpt2_hf_model
 
 
 def check_batch_truncation(before, after, length, preserve_end_of_sequence=False):
@@ -77,7 +77,7 @@ def check_forward_backward(model, batch):
 
 @pytest.mark.parametrize('model, dataloader', [
     (configure_tiny_bert_hf_model, dummy_bert_lm_dataloader),
-    (configure_tiny_gpt_hf_model, dummy_gpt_lm_dataloader),
+    (configure_tiny_gpt2_hf_model, dummy_gpt_lm_dataloader),
     (pytest.param(
         SimpleTransformerClassifier,
         dummy_text_classification_dataloader,

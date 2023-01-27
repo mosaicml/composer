@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision.datasets import VisionDataset
 
 from composer.utils import dist
-from tests.common.models import configure_tiny_bert_tokenizer, configure_tiny_gpt_tokenizer
+from tests.common.models import configure_tiny_bert_tokenizer, configure_tiny_gpt2_tokenizer
 
 
 class RandomClassificationDataset(Dataset):
@@ -290,7 +290,7 @@ def dummy_bert_lm_dataloader(sequence_length=4, size=4):
 
 def dummy_gpt_lm_dataloader(sequence_length=4, size=4):
     transformers = pytest.importorskip('transformers')
-    tokenizer = configure_tiny_gpt_tokenizer()
+    tokenizer = configure_tiny_gpt2_tokenizer()
     collate_fn = transformers.data.data_collator.DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
     return dummy_hf_lm_dataloader(vocab_size=50257, sequence_length=sequence_length, size=size, collate_fn=collate_fn)
 

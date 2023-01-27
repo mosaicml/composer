@@ -12,7 +12,7 @@ from composer.core import Event, State
 from composer.devices import DeviceCPU
 from composer.loggers import Logger
 from tests.common.datasets import dummy_bert_lm_dataloader, dummy_gpt_lm_dataloader
-from tests.common.models import configure_tiny_bert_hf_model, configure_tiny_gpt_hf_model
+from tests.common.models import configure_tiny_bert_hf_model, configure_tiny_gpt2_hf_model
 
 
 def _double_batch_sequence_length(batch):
@@ -110,7 +110,7 @@ def test_registry(caplog):
 
 
 @pytest.mark.parametrize('model,dataloader', [(configure_tiny_bert_hf_model, dummy_bert_lm_dataloader),
-                                              (configure_tiny_gpt_hf_model, dummy_gpt_lm_dataloader)])
+                                              (configure_tiny_gpt2_hf_model, dummy_gpt_lm_dataloader)])
 class TestAlibi:
 
     def test_functional(

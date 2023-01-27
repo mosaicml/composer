@@ -26,7 +26,7 @@ from composer.models.base import ComposerModel
 from tests.common import get_module_subclasses
 from tests.common.datasets import RandomImageDataset, SimpleDataset, dummy_bert_lm_dataloader, dummy_gpt_lm_dataloader
 from tests.common.models import (SimpleConvModel, SimpleModelWithDropout, configure_tiny_bert_hf_model,
-                                 configure_tiny_gpt_hf_model)
+                                 configure_tiny_gpt2_hf_model)
 
 simple_bert_settings = {
     'model': configure_tiny_bert_hf_model,
@@ -37,7 +37,7 @@ simple_bert_settings = {
 }
 
 simple_gpt2_settings = {
-    'model': configure_tiny_gpt_hf_model,
+    'model': configure_tiny_gpt2_hf_model,
     'dataloader': (dummy_gpt_lm_dataloader, {
         'size': 8
     }),
@@ -228,7 +228,7 @@ def get_alg_dataloader(alg_cls: Type[Algorithm]) -> DataLoader:
 
     dataloader = cls(**kwargs)
     if isinstance(dataloader, Dataset):
-        dataloader = DataLoader(dataset=dataloader, batch_size=4)
+        dataloader = DataLoader(dataset=dataloader, batch_size=2)
     return dataloader
 
 
