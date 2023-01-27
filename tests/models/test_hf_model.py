@@ -18,6 +18,8 @@ from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.trainer import Trainer
 from composer.utils import dist
 from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset
+from tests.common.models import (configure_tiny_bert_model, configure_tiny_bert_tokenizer, configure_tiny_gpt_model,
+                                 configure_tiny_gpt_tokenizer)
 from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
 
 
@@ -459,35 +461,38 @@ def test_hf_loading_errors(tiny_bert_model, tiny_bert_tokenizer, model_class_nam
                                                             model_class_name_to_class[model_class_name])
 
 
-@pytest.mark.parametrize('model_type', ['gpt', 'bert'])
-def test_hf_auto_shift_labels(caplog, model_type: str, tiny_gpt2_model, tiny_gpt2_tokenizer, tiny_bert_model,
-                              tiny_bert_tokenizer):
+@pytest.mark.parametrize('model,tokenizer', [(configure_tiny_gpt_model, configure_tiny_gpt_tokenizer),
+                                             (configure_tiny_bert_model, configure_tiny_bert_tokenizer)])
+def test_hf_auto_shift_labels(caplog, model, tokenizer):
     pytest.importorskip('transformers')
 
     from composer.models import HuggingFaceModel
 
+    hf_model = model()
+    hf_tokenizer = tokenizer()
+
     # Confirm that shift_labels is automatically set to True for gpt2 and False for bert
-    if model_type == 'gpt':
+    if hf_model.config.model_type == 'gpt':
         import logging
 
-        tiny_gpt2_model.resize_token_embeddings(len(tiny_gpt2_tokenizer))
+        hf_model.resize_token_embeddings(len(hf_tokenizer))
 
         with caplog.at_level(logging.WARNING, logger='composer'):
-            model = HuggingFaceModel(tiny_gpt2_model, tokenizer=tiny_gpt2_tokenizer)
+            model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer)
             assert model.shift_labels == True
 
         assert len(caplog.messages) == 0
 
         # A warning should be generated if using a Causal LM and setting shift_labels to False
         with caplog.at_level(logging.WARNING, logger='composer'):
-            model = HuggingFaceModel(tiny_gpt2_model, tokenizer=tiny_gpt2_tokenizer, shift_labels=False)
+            model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, shift_labels=False)
             assert model.shift_labels == False
 
         assert caplog.messages[
             0] == 'The shift_labels argument was set to False but the model is an instance of a HuggingFace Causal LM. This may lead to incorrect behavior.'
 
-    if model_type == 'bert':
-        model = HuggingFaceModel(tiny_bert_model, tokenizer=tiny_bert_tokenizer)
+    if hf_model.config.model_type == 'bert':
+        model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer)
         assert model.shift_labels == False
 
 
@@ -501,5 +506,6 @@ def test_hf_causal_shift_labels(tiny_gpt2_model, tiny_gpt2_tokenizer):
     batch['labels'] = batch['input_ids'].clone()
 
     _ = model.eval_forward(batch)
+    assert isinstance(model.labels, torch.Tensor)
     assert torch.all(model.labels[..., :3] == batch['input_ids'][..., 1:4])
     assert torch.all(model.labels[..., -1] == -100)

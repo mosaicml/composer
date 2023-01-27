@@ -396,3 +396,15 @@ def configure_tiny_bert_config():
 
 def configure_tiny_bert_hf_model(use_logits=True):
     return HuggingFaceModel(configure_tiny_bert_model(), configure_tiny_bert_tokenizer(), use_logits)
+
+
+def configure_tiny_gpt_model():
+    return copy.deepcopy(pytest.tiny_gpt_model)
+
+
+def configure_tiny_gpt_tokenizer():
+    return copy.deepcopy(pytest.tiny_gpt_tokenizer)
+
+
+def configure_tiny_gpt_hf_model(use_logits=True):
+    return HuggingFaceModel(configure_tiny_gpt_model(), configure_tiny_gpt_tokenizer(), use_logits)
