@@ -44,7 +44,7 @@ class HuggingFaceModel(ComposerModel):
         metrics (list[Metric], optional): list of torchmetrics to apply to the output of `validate`. Default: ``None``.
         shift_labels (bool, optional): If True, the batch's labels will be shifted before being used to calculate metrics. This should be set to true for CausalLM models and false otherwise. If not specified, `shift_labels` will be set automatically based on the model class name. Default: ``None``.
 
-            .. note:: To ensure correct behavior, set `shift_labels` manually if using a custom model (i.e., if `model` is not a
+            .. note:: To ensure correct behavior, set `shift_labels` manually if using a custom model (i.e., if `model` is not
                 an instance of a registered 🤗 Transformers class).
     .. warning:: This wrapper is designed to work with 🤗 datasets that define a `labels` column.
 
