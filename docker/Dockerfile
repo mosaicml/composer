@@ -257,8 +257,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
             --with-libfabric=/opt/amazon/efa/ \
             --with-cuda=/usr/local/cuda \
             --with-nccl=/opt/nccl/build \
-            --with-mpi=/opt/amazon/openmpi/ \
-            --prefix=/usr/local && \
+            --with-mpi=/opt/amazon/openmpi/ && \
         make && \
         make install ; \
     fi
