@@ -399,11 +399,24 @@ def configure_tiny_bert_hf_model(use_logits=True):
 
 
 def configure_tiny_gpt_model():
-    return copy.deepcopy(pytest.tiny_gpt_model)
+    try:
+        return copy.deepcopy(pytest.tiny_gpt_model)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
 
 
 def configure_tiny_gpt_tokenizer():
-    return copy.deepcopy(pytest.tiny_gpt_tokenizer)
+    try:
+        return copy.deepcopy(pytest.tiny_gpt_tokenizer)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_gpt_config():
+    try:
+        return copy.deepcopy(pytest.tiny_gpt_config)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
 
 
 def configure_tiny_gpt_hf_model(use_logits=True):
