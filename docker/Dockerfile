@@ -222,7 +222,6 @@ ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/
 ENV PATH=/opt/amazon/openmpi/bin/:/opt/amazon/efa/bin:$PATH
 
 RUN if [ -n "$CUDA_VERSION" ] ; then \
-        apt-get update -y && \
         apt-get purge -y libmlx5-1 ibverbs-utils libibverbs-dev libibverbs1 ; \
     fi
 
