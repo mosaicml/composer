@@ -373,6 +373,12 @@ class SimpleModelWithDropout(ComposerClassifier):
         return outputs
 
 
+# Note: These methods are an alternative to the tiny_bert fixtures in fixtures.py.
+# Fixtures cannot be used natively as parametrized inputs, which we require when
+# we wish to run a test across multiple models, one of which is a HuggingFace model.
+# As a workaround, we inject objects into the PyTest namespace. Tests should not directly
+# use pytest.{var}, but instead should import and use these helper copy methods so the
+# objects in the PyTest namespace do not change.
 def configure_tiny_bert_model():
     try:
         return copy.deepcopy(pytest.tiny_bert_model)

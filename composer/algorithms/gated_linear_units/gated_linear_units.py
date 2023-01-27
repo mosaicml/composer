@@ -167,7 +167,8 @@ class GatedLinearUnits(Algorithm):
                model=model,
                train_dataloader=train_dataloader,
                max_duration="1ep",
-               algorithms=[algorithm]
+               algorithms=[algorithm],
+               optimizers=[optimizer]
            )
     """
 
