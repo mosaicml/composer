@@ -357,6 +357,7 @@ stage('Build') {
         }
 
         if (shouldBuildImage) {
+            // Only run tests when rebuilding docker images
             String stagingImageTag = generateStagingImageTag()
             buildArgs['TAGS'] << stagingImageTag
             String kanikoCommand = getKanikoCommand(buildArgs)
