@@ -180,7 +180,7 @@ extra_deps['mlperf'] = [
 ]
 
 extra_deps['streaming'] = [
-    'mosaicml-streaming<0.3.*',
+    'mosaicml-streaming<0.3',
     'boto3>=1.21.45,<2',
     'paramiko>=2.11.0,<3',
 ]
@@ -200,7 +200,7 @@ extra_deps['onnx'] = [
 
 extra_deps['mlflow'] = ['mlflow>=2.0.1,<3.0']
 
-extra_deps['all'] = list(set(dep for deps in extra_deps.values() for dep in deps))
+extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
 composer_data_files = ['py.typed']
 composer_data_files += package_files('composer', 'yamls', '.yaml')
@@ -210,7 +210,7 @@ package_name = os.environ.get('COMPOSER_PACKAGE_NAME', 'mosaicml')
 
 if package_name != 'mosaicml':
     print(f'`Building composer as `{package_name}`)', file=sys.stderr)
-
+print(extra_deps)
 setup(name=package_name,
       version=composer_version,
       author='MosaicML',
