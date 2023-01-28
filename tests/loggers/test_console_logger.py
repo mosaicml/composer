@@ -84,8 +84,12 @@ def test_console_logger_interval(console_logger_test_stream, console_logger_test
 def test_console_logger_interval_with_eval(console_logger_test_stream, console_logger_test_file_path, eval_interval,
                                            max_duration, eval_interval_unit, max_duration_unit):
 
+    
+    EVAL_LOG_INTERVAL = 100
     batch_size = 4
     dataset_size = 17
+    eval_batch_size = 2
+    eval_dataset_size = 300
     batches_per_epoch = math.ceil(dataset_size / batch_size)
 
     model = SimpleModel()
@@ -96,7 +100,7 @@ def test_console_logger_interval_with_eval(console_logger_test_stream, console_l
                       progress_bar=False,
                       train_dataloader=DataLoader(RandomClassificationDataset(size=dataset_size),
                                                   batch_size=batch_size),
-                      eval_dataloader=DataLoader(RandomClassificationDataset(size=dataset_size), batch_size=batch_size),
+                      eval_dataloader=DataLoader(RandomClassificationDataset(size=eval_dataset_size), batch_size=eval_batch_size),
                       max_duration=f'{max_duration}{max_duration_unit}')
     trainer.fit()
     console_logger_test_stream.flush()
@@ -109,6 +113,7 @@ def test_console_logger_interval_with_eval(console_logger_test_stream, console_l
     # a colon.
     eval_reg_exp = re.compile('Eval *:*')
     actual_num_eval_log_lines = sum([1 if bool(eval_reg_exp.search(line)) else 0 for line in lines])
+    
 
     assert model.val_metrics is not None
     num_eval_metrics = len(list(model.val_metrics.keys())) if isinstance(model.val_metrics, MetricCollection) else 1
@@ -123,12 +128,15 @@ def test_console_logger_interval_with_eval(console_logger_test_stream, console_l
         batches_per_logging_event = batches_per_epoch * eval_interval
         expected_num_eval_logging_events, remainder = divmod(max_duration, batches_per_logging_event)
 
+    num_progress_events_for_batch_1_and_last_batch = 2
+    num_progress_events_due_to_eval_interval = eval_dataset_size // eval_batch_size // EVAL_LOG_INTERVAL
+    num_eval_progress_lines_per_eval_event = num_progress_events_for_batch_1_and_last_batch + num_progress_events_due_to_eval_interval 
     # An eval logging event always happens at fit_end, so if one would not normally fall at
     # last batch or epoch, then add an extra event to the expected.
     if remainder:
         expected_num_eval_logging_events += 1
 
-    expected_num_eval_lines = expected_num_eval_logging_events * num_eval_metrics_and_losses_per_logging_event
+    expected_num_eval_lines = expected_num_eval_logging_events * (num_eval_metrics_and_losses_per_logging_event + num_eval_progress_lines_per_eval_event)
 
     assert actual_num_eval_log_lines == expected_num_eval_lines
 
