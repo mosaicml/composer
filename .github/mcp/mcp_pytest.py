@@ -28,7 +28,6 @@ if __name__ == '__main__':
         'integration_type': 'git_repo',
         'git_repo': 'mosaicml/composer',
         'ssh_clone': 'False',
-        'pip_install': '--user -e .[all]',
     }
     if args.git_branch is not None and args.git_commit is None:
         git_integration['git_branch'] = args.git_branch
@@ -44,6 +43,8 @@ if __name__ == '__main__':
         git fetch origin pull/{args.pr_number}/head:pr_branch
 
         git checkout pr_branch
+
+        pip install --user -e .[all]
 
         '''
 
