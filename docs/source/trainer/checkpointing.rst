@@ -329,7 +329,7 @@ and delete the checkpoints from the local disk. The checkpoints will be located 
 ``checkpoints/ep3.pt`` for third epoch's checkpoints, for example. The full URI in this case would be:
 ``s3://my_bucket/checkpoints/ep3.pt``.
 
-For uploading checkpoints to Coreweave's object store, the code is very similar to the
+For uploading checkpoints to [Coreweave's object store](https://docs.coreweave.com/storage/object-storage), the code is very similar to the
 above S3 uploading code. The only difference is you must set your Coreweave endpoint url.
 To do this you can just set the ``AWS_ENDPOINT_URL`` environment variable before creating the
 :class:`.Trainer`, like so:
