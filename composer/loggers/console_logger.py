@@ -36,6 +36,7 @@ class ConsoleLogger(LoggerDestination):
 
     def __init__(self,
                  log_interval: Union[int, str, Time] = '1ep',
+
                  stream: Union[str, TextIO] = sys.stderr,
                  log_traces: bool = False) -> None:
 
@@ -57,6 +58,7 @@ class ConsoleLogger(LoggerDestination):
             else:
                 raise ValueError(f'stream must be one of ("stdout", "stderr", TextIO-like), got {stream}')
         self.should_log_traces = log_traces
+        self.eval_log_interval = Time.from_timestring('100ba')
         self.stream = stream
         self.hparams: Dict[str, Any] = {}
         self.hparams_already_logged_to_console: bool = False
@@ -102,9 +104,15 @@ class ConsoleLogger(LoggerDestination):
             # Clear logged metrics.
             self.logged_metrics = {}
 
+    def eval_batch_end(self, state: State, logger: Logger) -> None:
+        cur_batch = int(state.eval_timestamp.batch)
+        unit = self.eval_log_interval.unit
+        if unit == TimeUnit.BATCH and (cur_batch % int(self.eval_log_interval) == 0 or cur_batch == 1):
+            self.log_to_console({}, prefix='Eval ', state=state, is_train=False)
+
     def eval_end(self, state: State, logger: Logger) -> None:
         # Log to the console at the end of eval no matter what log interval is selected.
-        self.log_to_console(state.eval_metric_values, prefix='Eval ', state=state)
+        self.log_to_console(state.eval_metric_values, prefix='Eval ', state=state, is_train=False)
 
     def fit_start(self, state: State, logger: Logger) -> None:
         if not self.hparams_already_logged_to_console:
@@ -120,6 +128,15 @@ class ConsoleLogger(LoggerDestination):
         if not self.hparams_already_logged_to_console:
             self.hparams_already_logged_to_console = True
             self._log_hparams_to_console()
+
+    def _get_eval_progress_string(self, state: State):
+        eval_batch = state.eval_timestamp.batch.value
+        eval_dataloader_label = state.dataloader_label
+        cur_evaluator = [evaluator for evaluator in state.evaluators 
+                         if evaluator.label == state.dataloader_label][0]
+        total_eval_batches = state.dataloader_len if state.dataloader_len is not None else cur_evaluator.subset_num_batches
+        curr_progress = f'[batch={eval_batch}/{total_eval_batches}] Eval on {eval_dataloader_label} data'
+        return curr_progress
 
     def _get_progress_string(self, state: State):
         if state.max_duration is None:
@@ -144,10 +161,13 @@ class ConsoleLogger(LoggerDestination):
             training_progress = f'[{unit.name.lower()}={curr_duration}/{total}]'
         return training_progress
 
-    def log_to_console(self, data: Dict[str, Any], state: State, prefix: str = '') -> None:
+    def log_to_console(self, data: Dict[str, Any], state: State, prefix: str = '', is_train=True) -> None:
         # log to console
-        training_progress = self._get_progress_string(state)
-        log_str = f'{training_progress}:'
+        if is_train:
+            progress = self._get_progress_string(state)
+        else:
+            progress = self._get_eval_progress_string(state)
+        log_str = f'{progress}:'
         for data_name, data in data.items():
             data_str = format_log_data_value(data)
             log_str += f'\n\t {prefix}{data_name}: {data_str}'
