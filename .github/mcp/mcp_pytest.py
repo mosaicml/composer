@@ -34,8 +34,7 @@ if __name__ == '__main__':
     if args.git_commit is not None:
         git_integration['git_commit'] = args.git_commit
 
-    command = 'echo Starting command section...'
-    command += 'cd composer'
+    command = 'cd composer'
 
     # Checkout a specific PR if specified
     if args.pr_number is not None:
