@@ -36,7 +36,6 @@ class ConsoleLogger(LoggerDestination):
 
     def __init__(self,
                  log_interval: Union[int, str, Time] = '1ep',
-
                  stream: Union[str, TextIO] = sys.stderr,
                  log_traces: bool = False) -> None:
 
@@ -132,8 +131,7 @@ class ConsoleLogger(LoggerDestination):
     def _get_eval_progress_string(self, state: State):
         eval_batch = state.eval_timestamp.batch.value
         eval_dataloader_label = state.dataloader_label
-        cur_evaluator = [evaluator for evaluator in state.evaluators 
-                         if evaluator.label == state.dataloader_label][0]
+        cur_evaluator = [evaluator for evaluator in state.evaluators if evaluator.label == state.dataloader_label][0]
         total_eval_batches = state.dataloader_len if state.dataloader_len is not None else cur_evaluator.subset_num_batches
         curr_progress = f'[batch={eval_batch}/{total_eval_batches}] Eval on {eval_dataloader_label} data'
         return curr_progress
