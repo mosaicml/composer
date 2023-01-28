@@ -210,7 +210,7 @@ package_name = os.environ.get('COMPOSER_PACKAGE_NAME', 'mosaicml')
 
 if package_name != 'mosaicml':
     print(f'`Building composer as `{package_name}`)', file=sys.stderr)
-print(extra_deps)
+
 setup(name=package_name,
       version=composer_version,
       author='MosaicML',
