@@ -132,7 +132,7 @@ class ConsoleLogger(LoggerDestination):
         eval_batch = state.eval_timestamp.batch.value
         eval_dataloader_label = state.dataloader_label
         cur_evaluator = [evaluator for evaluator in state.evaluators if evaluator.label == state.dataloader_label][0]
-        total_eval_batches = state.dataloader_len if state.dataloader_len is not None else cur_evaluator.subset_num_batches
+        total_eval_batches = int(state.dataloader_len) if state.dataloader_len is not None else cur_evaluator.subset_num_batches
         curr_progress = f'[batch={eval_batch}/{total_eval_batches}] Eval on {eval_dataloader_label} data'
         return curr_progress
 
