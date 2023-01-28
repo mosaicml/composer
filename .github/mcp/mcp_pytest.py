@@ -44,11 +44,11 @@ if __name__ == '__main__':
 
         git checkout pr_branch
 
-        pip install --user .[all]
-
         '''
 
     command += f'''
+
+    pip install --user .[all]
 
     export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}'"
 
