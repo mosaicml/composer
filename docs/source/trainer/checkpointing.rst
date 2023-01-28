@@ -331,7 +331,7 @@ and delete the checkpoints from the local disk. The checkpoints will be located 
 
 For uploading checkpoints to [Coreweave's object store](https://docs.coreweave.com/storage/object-storage), the code is very similar to the
 above S3 uploading code. The only difference is you must set your Coreweave endpoint url.
-To do this you can just set the ``AWS_ENDPOINT_URL`` environment variable before creating the
+To do this you can just set the ``S3_ENDPOINT_URL`` environment variable before creating the
 :class:`.Trainer`, like so:
 
 .. testcode::
@@ -339,7 +339,7 @@ To do this you can just set the ``AWS_ENDPOINT_URL`` environment variable before
 
     import os
 
-    os.environ['AWS_ENDPOINT_URL'] = 'https://object.las1.coreweave.com'
+    os.environ['S3_ENDPOINT_URL'] = 'https://object.las1.coreweave.com'
     from composer.trainer import Trainer
 
     # Save checkpoints every epoch to s3://my_bucket/checkpoints
