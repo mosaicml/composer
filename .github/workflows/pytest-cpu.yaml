@@ -48,7 +48,7 @@ jobs:
           set -ex
           export PATH=/composer-python:$PATH
           python -m pip install --upgrade pip wheel
-          python -m pip install --upgrade --upgrade-strategy eager -e .[all]
+          python -m pip install --upgrade -e .[all]
       - name: Run Tests
         id: tests
         run: |

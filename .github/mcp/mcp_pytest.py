@@ -28,7 +28,7 @@ if __name__ == '__main__':
         'integration_type': 'git_repo',
         'git_repo': 'mosaicml/composer',
         'ssh_clone': 'False',
-        'pip_install': '--upgrade --upgrade-strategy eager --user -e .[all]',
+        'pip_install': '--upgrade --user -e .[all]',
     }
     if args.git_branch is not None and args.git_commit is None:
         git_integration['git_branch'] = args.git_branch
