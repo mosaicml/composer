@@ -103,7 +103,6 @@ class ConsoleLogger(LoggerDestination):
         if unit == TimeUnit.BATCH and (cur_batch % int(self.log_interval) == 0 or cur_batch == 1):
             self.log_to_console(self.logged_metrics, prefix='Train ', state=state)
 
-
     def eval_batch_end(self, state: State, logger: Logger) -> None:
         cur_batch = int(state.eval_timestamp.batch)
         if cur_batch in self.eval_batch_idxs_to_log:
