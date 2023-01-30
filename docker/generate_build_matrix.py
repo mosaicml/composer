@@ -208,6 +208,8 @@ def _main():
             'TARGET': 'composer_stage',
             'TORCHVISION_VERSION': _get_torchvision_version(pytorch_version),
             'TORCHTEXT_VERSION': _get_torchtext_version(pytorch_version),
+            'MOFED_VERSION': '5.5-1.0.3.2',
+            'AWS_OFI_NCCL_VERSION': '',
             'COMPOSER_INSTALL_COMMAND': f'mosaicml[all]{composer_version}',
             'TAGS': _get_composer_tags(
                 composer_version=composer_version,
