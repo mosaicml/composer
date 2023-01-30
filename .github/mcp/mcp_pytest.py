@@ -48,7 +48,7 @@ if __name__ == '__main__':
 
     command += f'''
 
-    pip install --user .[all]
+    pip install --upgrade --user .[all]
 
     export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}'"
 
