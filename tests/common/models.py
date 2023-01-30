@@ -3,6 +3,7 @@
 
 """Contains commonly used models that are shared across the test suite."""
 import copy
+from functools import partial
 from typing import Any, Dict, Tuple, Union
 
 import pytest
@@ -86,8 +87,17 @@ class SimpleWeightTiedModel(ComposerClassifier):
 
         self.mlp = mlp
         self.net = net
+        self.net.param_init_fn = self.param_init_fn
 
         self.mlp.fc1.weight = self.mlp.fc2.weight
+
+    def param_init_fn(self, module):
+        init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
+
+        if isinstance(module, torch.nn.Linear):
+            init_fn(module.weight)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
 
 
 class EmbeddedWeightTiedModel(ComposerClassifier):
@@ -112,10 +122,20 @@ class EmbeddedWeightTiedModel(ComposerClassifier):
 
         super().__init__(module=net)
 
+        self.module.param_init_fn = self.param_init_fn
+
         self.net1 = net1
         self.net2 = net2
 
         self.net1.fc1.weight = self.net2.fc1.weight
+
+    def param_init_fn(self, module):
+        init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
+
+        if isinstance(module, torch.nn.Linear):
+            init_fn(module.weight)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
 
 
 class SimpleConvModel(ComposerClassifier):
@@ -354,16 +374,50 @@ class SimpleModelWithDropout(ComposerClassifier):
 
 
 def configure_tiny_bert_model():
-    return copy.deepcopy(pytest.tiny_bert_model)
+    try:
+        return copy.deepcopy(pytest.tiny_bert_model)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
 
 
 def configure_tiny_bert_tokenizer():
-    return copy.deepcopy(pytest.tiny_bert_tokenizer)
+    try:
+        return copy.deepcopy(pytest.tiny_bert_tokenizer)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
 
 
 def configure_tiny_bert_config():
-    return copy.deepcopy(pytest.tiny_bert_config)
+    try:
+        return copy.deepcopy(pytest.tiny_bert_config)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
 
 
 def configure_tiny_bert_hf_model(use_logits=True):
     return HuggingFaceModel(configure_tiny_bert_model(), configure_tiny_bert_tokenizer(), use_logits)
+
+
+def configure_tiny_gpt_model():
+    try:
+        return copy.deepcopy(pytest.tiny_gpt_model)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_gpt_tokenizer():
+    try:
+        return copy.deepcopy(pytest.tiny_gpt_tokenizer)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_gpt_config():
+    try:
+        return copy.deepcopy(pytest.tiny_gpt_config)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_gpt_hf_model(use_logits=True):
+    return HuggingFaceModel(configure_tiny_gpt_model(), configure_tiny_gpt_tokenizer(), use_logits)
