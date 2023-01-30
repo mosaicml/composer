@@ -28,7 +28,7 @@ def apply_factorization(model: torch.nn.Module,
                         latent_channels: Union[int, float] = 0.25,
                         min_features: int = 512,
                         latent_features: Union[int, float] = 0.25,
-                        optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None) -> int:
+                        optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None) -> None:
     """Replaces :class:`torch.nn.Linear` and :class:`torch.nn.Conv2d` modules with
     :class:`.FactorizedLinear` and :class:`.FactorizedConv2d` modules.
 
@@ -71,9 +71,6 @@ def apply_factorization(model: torch.nn.Module,
             then it is safe to omit this parameter. These optimizers will see
             the correct model parameters.
 
-    Returns:
-        The number of modules modified.
-
     Example:
         .. testcode::
 
@@ -82,20 +79,16 @@ def apply_factorization(model: torch.nn.Module,
             model = models.resnet50()
             cf.apply_factorization(model)
     """
-    replaced_conv_instances = {}
-    replaced_linear_instances = {}
     if factorize_convs:
-        replaced_conv_instances = _factorize_conv2d_modules(model,
-                                                            min_channels=min_channels,
-                                                            latent_channels=latent_channels,
-                                                            optimizers=optimizers)
+        _factorize_conv2d_modules(model,
+                                  min_channels=min_channels,
+                                  latent_channels=latent_channels,
+                                  optimizers=optimizers)
     if factorize_linears:
-        replaced_linear_instances = _factorize_linear_modules(model,
-                                                              min_features=min_features,
-                                                              latent_features=latent_features,
-                                                              optimizers=optimizers)
-
-    return len(replaced_conv_instances) + len(replaced_linear_instances)
+        _factorize_linear_modules(model,
+                                  min_features=min_features,
+                                  latent_features=latent_features,
+                                  optimizers=optimizers)
 
 
 class Factorize(Algorithm):
