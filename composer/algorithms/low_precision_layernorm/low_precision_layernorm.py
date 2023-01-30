@@ -103,8 +103,6 @@ def apply_low_precision_layernorm(model, optimizers: Union[torch.optim.Optimizer
         warnings.warn(NoEffectWarning('No instances of torch.nn.LayerNorm found.'))
     log.info(f'Successfully replaced {len(replaced_instances)} instances of LayerNorm with LowPrecisionLayerNorm')
 
-    return model
-
 
 class LowPrecisionLayerNorm(Algorithm):
     """
