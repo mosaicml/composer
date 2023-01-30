@@ -226,7 +226,7 @@ ENV PATH=/opt/amazon/openmpi/bin/:/opt/amazon/efa/bin:$PATH
 
 RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
         cd /tmp && \
-        curl -O https://efa-installer.amazonaws.com/aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz && \
+        curl -OsS https://efa-installer.amazonaws.com/aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz && \
         tar -xf /tmp/aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz && \
         cd aws-efa-installer && \
         apt-get update && \
