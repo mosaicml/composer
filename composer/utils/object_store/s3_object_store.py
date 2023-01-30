@@ -93,6 +93,9 @@ class S3ObjectStore(ObjectStore):
         if client_config is None:
             client_config = {}
         config = Config(**client_config)
+        if 'S3_ENDPOINT_URL' in os.environ and endpoint_url is None:
+            endpoint_url = os.environ['S3_ENDPOINT_URL']
+
         self.client = boto3.Session().client(
             's3',
             config=config,
