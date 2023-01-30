@@ -18,6 +18,8 @@ from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.trainer import Trainer
 from composer.utils import dist
 from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset
+from tests.common.models import (configure_tiny_bert_model, configure_tiny_bert_tokenizer, configure_tiny_gpt_model,
+                                 configure_tiny_gpt_tokenizer)
 from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
 
 
@@ -107,8 +109,20 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
     model_max_length_2 = tokenizer2.init_kwargs.get('model_max_length', None)
     if model_max_length_1 is not None and model_max_length_2 is not None:
         assert model_max_length_1 == model_max_length_2
+
     tokenizer1.__dict__['init_kwargs'].pop('model_max_length', None)
     tokenizer2.__dict__['init_kwargs'].pop('model_max_length', None)
+
+    # tokenizer.init_kwargs['tokenizer_file'] is unset when the tokenizer does not specify it, but is set to
+    # None when you save and reload, so here we just check that its the same if it is present in both tokenizers.
+    tokenizer_file_1 = tokenizer1.init_kwargs.get('tokenizer_file', None)
+    tokenizer_file_2 = tokenizer2.init_kwargs.get('tokenizer_file', None)
+    if tokenizer_file_1 is not None or tokenizer_file_2 is not None:
+        assert tokenizer_file_1 == tokenizer_file_2
+
+    tokenizer1.__dict__['init_kwargs'].pop('tokenizer_file', None)
+    tokenizer2.__dict__['init_kwargs'].pop('tokenizer_file', None)
+
     assert tokenizer1.__dict__ == tokenizer2.__dict__
 
 
@@ -445,3 +459,53 @@ def test_hf_loading_errors(tiny_bert_model, tiny_bert_tokenizer, model_class_nam
     with error_contexts[model_class_name]:
         _, _ = HuggingFaceModel.hf_from_composer_checkpoint(str(tmp_path / 'hf-checkpoint.pt'),
                                                             model_class_name_to_class[model_class_name])
+
+
+@pytest.mark.parametrize('model,tokenizer', [(configure_tiny_gpt_model, configure_tiny_gpt_tokenizer),
+                                             (configure_tiny_bert_model, configure_tiny_bert_tokenizer)])
+def test_hf_auto_shift_labels(caplog, model, tokenizer):
+    pytest.importorskip('transformers')
+
+    from composer.models import HuggingFaceModel
+
+    hf_model = model()
+    hf_tokenizer = tokenizer()
+
+    # Confirm that shift_labels is automatically set to True for gpt2 and False for bert
+    if hf_model.config.model_type == 'gpt':
+        import logging
+
+        hf_model.resize_token_embeddings(len(hf_tokenizer))
+
+        with caplog.at_level(logging.WARNING, logger='composer'):
+            model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer)
+            assert model.shift_labels == True
+
+        assert len(caplog.messages) == 0
+
+        # A warning should be generated if using a Causal LM and setting shift_labels to False
+        with caplog.at_level(logging.WARNING, logger='composer'):
+            model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, shift_labels=False)
+            assert model.shift_labels == False
+
+        assert caplog.messages[
+            0] == 'The shift_labels argument was set to False but the model is an instance of a HuggingFace Causal LM. This may lead to incorrect behavior.'
+
+    if hf_model.config.model_type == 'bert':
+        model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer)
+        assert model.shift_labels == False
+
+
+def test_hf_causal_shift_labels(tiny_gpt2_model, tiny_gpt2_tokenizer):
+    pytest.importorskip('transformers')
+
+    from composer.models import HuggingFaceModel
+    model = HuggingFaceModel(tiny_gpt2_model, tokenizer=tiny_gpt2_tokenizer, use_logits=True)
+
+    batch = tiny_gpt2_tokenizer('a b c d e f g h i j k', return_tensors='pt')
+    batch['labels'] = batch['input_ids'].clone()
+
+    _ = model.eval_forward(batch)
+    assert isinstance(model.labels, torch.Tensor)
+    assert torch.all(model.labels[..., :3] == batch['input_ids'][..., 1:4])
+    assert torch.all(model.labels[..., -1] == -100)

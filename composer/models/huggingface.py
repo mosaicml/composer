@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import tempfile
@@ -16,9 +17,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 import torch
 from torchmetrics import Metric
 
+from composer.metrics import METRIC_DEFAULT_CTORS, InContextLearningLMAccuracy
 from composer.models.base import ComposerModel
-from composer.utils import get_file
-from composer.utils.import_helpers import MissingConditionalImportError, import_object
+from composer.utils import MissingConditionalImportError, get_file, import_object
 
 if TYPE_CHECKING:
     import transformers
@@ -41,6 +42,10 @@ class HuggingFaceModel(ComposerModel):
                 using :meth:`HuggingFaceModel.hf_from_composer_checkpoint`. If the tokenizer is not provided here, it will not be saved in the composer checkpoint.
         use_logits (bool, optional): If True, the model's output logits will be used to calculate validation metrics. Else, metrics will be inferred from the HuggingFaceModel directly. Default: ``False``
         metrics (list[Metric], optional): list of torchmetrics to apply to the output of `validate`. Default: ``None``.
+        shift_labels (bool, optional): If True, the batch's labels will be shifted before being used to calculate metrics. This should be set to true for CausalLM models and false otherwise. If not specified, `shift_labels` will be set automatically based on the model class name. Default: ``None``.
+
+            .. note:: To ensure correct behavior, set `shift_labels` manually if using a custom model (i.e., if `model` is not
+                an instance of a registered 🤗 Transformers class).
     .. warning:: This wrapper is designed to work with 🤗 datasets that define a `labels` column.
 
     Example:
@@ -60,12 +65,13 @@ class HuggingFaceModel(ComposerModel):
                  tokenizer: Optional[Union[transformers.PreTrainedTokenizer,
                                            transformers.PreTrainedTokenizerFast]] = None,
                  use_logits: Optional[bool] = False,
-                 metrics: Optional[List[Metric]] = None) -> None:
+                 metrics: Optional[List[Metric]] = None,
+                 shift_labels: Optional[bool] = None) -> None:
         try:
             import transformers
             del transformers  # unused
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='transformers',
+            raise MissingConditionalImportError(extra_deps_group='nlp',
                                                 conda_package='transformers',
                                                 conda_channel='conda-forge') from e
 
@@ -86,14 +92,21 @@ class HuggingFaceModel(ComposerModel):
 
         self.use_logits = use_logits
 
-        self.train_metrics = None
-        self.val_metrics = None
+        self.train_metrics: Optional[Dict] = None
+        self.val_metrics: Optional[Dict] = None
 
         if metrics:
             self.train_metrics = {metric.__class__.__name__: metric for metric in metrics}
             self.val_metrics = {metric.__class__.__name__: metric for metric in metrics}
 
-        self.labels = None  # set in eval_forward() if exists
+        self.labels: Optional[torch.Tensor] = None  # set in eval_forward() if exists
+
+        is_causal_lm = _is_registered_causal_lm(model)
+        self.shift_labels = is_causal_lm if shift_labels is None else shift_labels
+        if is_causal_lm and not self.shift_labels:
+            log.warning('The shift_labels argument was set to False but the model is an instance of a'
+                        ' HuggingFace Causal LM. This may lead to incorrect behavior.')
+            # Note: No warning if shift_labels and not is_causal_lm, since the model may simply be a custom class.
 
     @staticmethod
     def hf_from_composer_checkpoint(
@@ -164,7 +177,7 @@ class HuggingFaceModel(ComposerModel):
         try:
             import transformers
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='transformers',
+            raise MissingConditionalImportError(extra_deps_group='nlp',
                                                 conda_package='transformers',
                                                 conda_channel='conda-forge') from e
 
@@ -257,6 +270,7 @@ class HuggingFaceModel(ComposerModel):
     def forward(self, batch):
         if isinstance(batch, dict) or isinstance(batch, UserDict):
             # Further input validation is left to the huggingface forward call
+            batch = {k: v for k, v in batch.items() if k in inspect.getfullargspec(self.model.forward).args}
             output = self.model(**batch)  # type: ignore (thirdparty)
         else:
             raise ValueError(
@@ -273,8 +287,12 @@ class HuggingFaceModel(ComposerModel):
 
     def eval_forward(self, batch, outputs: Optional[Any] = None):
         output = outputs if outputs else self.forward(batch)
-        if self.use_logits:
+        if self.use_logits or batch.get('mode', None) == 'lm_task':
             self.labels = batch.pop('labels')
+            if self.shift_labels:
+                # HF CausalLM models internally shift labels before computing loss, so we do the same here
+                self.labels[:, :-1] = self.labels[:, 1:].clone()
+                self.labels[:, -1] = -100
             if self.config.use_return_dict:
                 output = output['logits']
             else:
@@ -296,7 +314,11 @@ class HuggingFaceModel(ComposerModel):
         return metrics if metrics else {}
 
     def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
-        metric.update(outputs, self.labels)
+        if isinstance(metric, InContextLearningLMAccuracy):
+            assert self.labels is not None
+            metric.update(batch, outputs, self.labels)
+        else:
+            metric.update(outputs, self.labels)
 
     def get_metadata(self):
         model_output = {}
@@ -335,3 +357,22 @@ class HuggingFaceModel(ComposerModel):
                         'content': tokenizer_file_content
                     }
         return {'model': model_output, 'tokenizer': tokenizer_output}
+
+    def add_eval_metrics(self, evaluator):
+        evaluator_metrics = {m: METRIC_DEFAULT_CTORS[m]() for m in evaluator.metric_names}
+        if self.val_metrics is not None:
+            self.val_metrics.update(evaluator_metrics)
+        else:
+            self.val_metrics = evaluator_metrics
+
+
+def _is_registered_causal_lm(model: transformers.PreTrainedModel) -> bool:
+    """Return True if model class is either a registered 🤗 Causal LM or a subclass of one"""
+    try:
+        from transformers.models.auto.modeling_auto import MODEL_FOR_CAUSAL_LM_MAPPING
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='nlp',
+                                            conda_package='transformers',
+                                            conda_channel='conda-forge') from e
+    causal_lm_classes = list(MODEL_FOR_CAUSAL_LM_MAPPING.values())
+    return any([isinstance(model, causal_lm_class) for causal_lm_class in causal_lm_classes])

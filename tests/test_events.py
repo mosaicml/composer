@@ -64,13 +64,8 @@ class TestEventCalls:
         'device,deepspeed_zero_stage,use_fsdp,precision',
         [
             pytest.param('cpu', None, False, 'fp32', id='cpu-ddp'),
-            # TODO: Remove filterwarnings after DeepSpeed/Pytorch remove deprecated code
-            pytest.param('gpu',
-                         True,
-                         False,
-                         'fp32',
-                         id='gpu-ddp',
-                         marks=[pytest.mark.gpu, pytest.mark.filterwarnings('ignore::UserWarning')]),
+            # TODO: Remove filterwarnings after FSDP remove deprecated code
+            pytest.param('gpu', True, False, 'fp32', id='gpu-ddp', marks=pytest.mark.gpu),
             pytest.param('gpu',
                          None,
                          True,

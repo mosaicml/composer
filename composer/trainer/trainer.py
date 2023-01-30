@@ -29,7 +29,7 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
-from composer.callbacks import CheckpointSaver, GradMonitor
+from composer.callbacks import CheckpointSaver, OptimizerMonitor
 from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException, Callback, DataSpec, Engine, Evaluator,
                            Event, Precision, PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode,
                            ensure_data_spec, ensure_evaluator, ensure_time, get_precision_context)
@@ -44,8 +44,8 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.dist_strategy import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module
 from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectStore, Transform, checkpoint, dist,
-                            ensure_tuple, export_with_logger, format_name_with_dist, get_device, get_file,
-                            is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
+                            ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist, get_device,
+                            get_file, is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
                             maybe_create_remote_uploader_downloader_from_uri, model_eval_mode, parse_uri,
                             reproducibility)
 
@@ -141,7 +141,8 @@ def _set_evaluator_interval_and_subset_num_batches(
         if evaluator.eval_interval is None:
             evaluator.eval_interval = eval_interval
         eval_dataloader = evaluator.dataloader.dataloader
-        if isinstance(eval_dataloader, collections.abc.Sized) and evaluator.subset_num_batches is None:
+        if isinstance(eval_dataloader, collections.abc.Sized) and (evaluator.subset_num_batches is None or
+                                                                   evaluator.subset_num_batches == -1):
             try:
                 dataloader_len = len(eval_dataloader)
             except TypeError:
@@ -569,11 +570,8 @@ class Trainer:
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
         run_name (str, optional): A name for this training run. If not specified, the timestamp will be combined with a
             :doc:`coolname <coolname:index>`, e.g. ``1654298855-electric-zebra``.
-        progress_bar (bool, optional): Whether to show a progress bar. (default: ``True``)
-        log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
-
-            The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is ``False``.
-
+        progress_bar (bool): Whether to show a progress bar. (default: ``True``)
+        log_to_console (bool): Whether to print logging statements to the console. (default: ``False``)
         console_stream (TextIO | str, optional): The stream to write to. If a string, it can either be
             ``'stdout'`` or ``'stderr'``. (default: :attr:`sys.stderr`)
         console_log_interval (int | str | Time, optional): Specifies how frequently to log metrics to console.
@@ -587,6 +585,7 @@ class Trainer:
 
             Set to ``0`` to disable metrics logging to console.
         log_traces (bool): Whether to log traces or not. (default: ``False``)
+        auto_log_hparams (bool): Whether to automatically extract hyperparameters. (default: ``False``)
         load_path (str, optional):  The path format string to an existing checkpoint file.
 
             It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
@@ -769,6 +768,10 @@ class Trainer:
 
             To use DeepSpeed with default values, set to the empty dictionary ``{}``.
             To disable DeepSpeed (the default), set to ``None``.
+        fsdp_config (Dict[str, Any], optional): Configuration for FSDP.
+            See :doc:`FSDP Documentation </notes/distributed_training>` for more details.
+            To use FSDP with default values, set to the empty dictionary ``{}``. To
+            disable FSDP, set to ``None``. (default: ``None``)
         device (Device | str, optional): The device to use for training, which can be ``'cpu'``, ``'gpu'``,
             ``'tpu'``, or ``'mps'``. (default: ``None``)
 
@@ -880,6 +883,7 @@ class Trainer:
         console_stream: Union[str, TextIO] = 'stderr',
         console_log_interval: Union[int, str, Time] = '1ep',
         log_traces: bool = False,
+        auto_log_hparams: bool = False,
 
         # Load Checkpoint
         load_path: Optional[str] = None,
@@ -927,6 +931,7 @@ class Trainer:
         python_log_level: Optional[str] = None,
     ):
 
+        self.auto_log_hparams = auto_log_hparams
         self.python_log_level = python_log_level
         if self.python_log_level is not None:
             logging.basicConfig(
@@ -1064,6 +1069,7 @@ class Trainer:
             optimizers=optimizers,
             run_name=run_name,
             deepspeed_config=deepspeed_config,
+            fsdp_config=fsdp_config,
         )
 
         # Profiler
@@ -1173,6 +1179,11 @@ class Trainer:
         # Run Event.INIT
         self.engine.run_event(Event.INIT)
 
+        # Log hparams.
+        if self.auto_log_hparams:
+            self.local_hparams = extract_hparams(locals())
+            self.logger.log_hyperparameters(self.local_hparams)
+
         # Log gpus and nodes.
         device_name = self.state.device.__class__.__name__.lstrip('Device').lower()
         self.logger.log_hyperparameters({
@@ -1201,7 +1212,6 @@ class Trainer:
                 ensure_evaluator(evaluator, default_metric_names=model_metric_names)
                 for evaluator in ensure_tuple(eval_dataloader)
             ]
-
             # match metric names to model metrics
             self.state.eval_metrics = {
                 evaluator.label: _filter_metrics(eval_metrics, evaluator.metric_names) for evaluator in evaluators
@@ -1271,8 +1281,8 @@ class Trainer:
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
             for callback in self.state.callbacks:
-                if isinstance(callback, GradMonitor):
-                    raise ValueError('GradMonitor is not supported with DeepSpeed because DeepSpeed clears '
+                if isinstance(callback, OptimizerMonitor):
+                    raise ValueError('OptimizerMonitor is not supported with DeepSpeed because DeepSpeed clears '
                                      'the gradients before in the last call to .backward see: '
                                      'https://github.com/microsoft/DeepSpeed/issues/2329 for more details.')
 
@@ -1882,7 +1892,6 @@ class Trainer:
         log.info('Using precision %s', self.state.precision)
         self.logger.log_hyperparameters(
             {'enabled_algorithms/' + algo.__class__.__name__: True for algo in self.state.algorithms})
-
         assert self.state.dataloader is not None, 'dataloader is set in __init__() or fit()'
         assert self._train_data_spec is not None, 'The train data spec is set in __init__() or fit()'
         assert self.state.scaler is not None, 'scaler should have been set in __init__()'

@@ -292,8 +292,8 @@ class InfiniteDataloader(DataLoader):
         return None
 
 
-@pytest.mark.parametrize('eval_subset_num_batches', [None, 1])
-def test_infinite_eval_dataloader(eval_subset_num_batches):
+@pytest.mark.parametrize('eval_subset_num_batches,success', [[None, False], [-1, False], [1, True]])
+def test_infinite_eval_dataloader(eval_subset_num_batches, success):
     """Test the `eval_subset_num_batches` is required with infinite dataloader."""
     # Construct the trainer
     train_dataset = RandomClassificationDataset()
@@ -301,7 +301,7 @@ def test_infinite_eval_dataloader(eval_subset_num_batches):
     eval_dataset = RandomClassificationDataset()
     eval_dataloader = InfiniteDataloader(eval_dataset, sampler=dist.get_sampler(eval_dataset))
 
-    with contextlib.nullcontext() if eval_subset_num_batches is not None else pytest.raises(ValueError):
+    with contextlib.nullcontext() if success else pytest.raises(ValueError):
         Trainer(
             model=SimpleModel(),
             train_dataloader=train_dataloader,

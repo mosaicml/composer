@@ -10,11 +10,14 @@ from torchmetrics import Metric
 
 from composer.loss import soft_cross_entropy
 
-__all__ = ['Perplexity', 'BinaryF1Score', 'HFCrossEntropy', 'LanguageCrossEntropy', 'MaskedAccuracy']
+__all__ = [
+    'Perplexity', 'InContextLearningLMAccuracy', 'BinaryF1Score', 'HFCrossEntropy', 'LanguageCrossEntropy',
+    'MaskedAccuracy'
+]
 
 
 class MaskedAccuracy(Metric):
-    """Computes accuracy with support for masked indicies.
+    """Computes accuracy with support for masked indices.
 
     Adds metric state variables:
         correct (float): The number of instances where the prediction masked the target.
@@ -38,11 +41,11 @@ class MaskedAccuracy(Metric):
         self.add_state('total', default=torch.tensor(0), dist_reduce_fx='sum')
 
     def update(self, preds: torch.Tensor, target: torch.Tensor):
-        # predictions is a batch x num_classes tensor, take the argmax to get class indicies
+        # predictions is a batch x num_classes tensor, take the argmax to get class indices
         preds = torch.argmax(preds, dim=-1)
         assert preds.shape == target.shape
 
-        # mask out the padded indicies
+        # mask out the padded indices
         mask = (target != self.ignore_index)
         masked_target = target[mask]
         masked_preds = preds[mask]
@@ -98,7 +101,7 @@ class LanguageCrossEntropy(Metric):
         total_items = (target != self.ignore_index).sum()
         self.total_items += total_items  #type: ignore (third-party)
 
-        # accmulate loss over all batches
+        # accumulate loss over all batches
         self.sum_loss += losses
 
     def compute(self) -> Tensor:
@@ -203,9 +206,11 @@ class HFCrossEntropy(Metric):
 
             loss = soft_cross_entropy(logits, target)
 
-        # accmulate loss over all batches
+        # accumulate loss over all batches
         self.sum_loss += loss
 
+        # Note: This is a slightly different reduction than LanguageCrossEntropy, because LanguageCrossEntropy
+        # uses 'sum' reduction in its update call
         self.total_batches += 1  #type: ignore (third-party)
 
     def compute(self) -> Tensor:
@@ -229,3 +234,49 @@ class Perplexity(HFCrossEntropy):
         """Returns torch.exp() of the LanguageCrossEntropyLoss."""
         avg_loss = super().compute()
         return torch.exp(avg_loss)
+
+
+class InContextLearningLMAccuracy(Metric):
+    r"""Computes accuracy for In-context learning (ICL) language modeling (LM) tasks.
+
+    ICL LM tasks consist of some number of example language modeling tasks (referred to as the 'context'), followed by a test task where the model must correctly predict all the tokens
+    following tokens in some passage (referred to as the 'continuation').
+
+    For example, the model may be provided the context below and evaluated on its ability to correctly predict the continuation. Note: it doesn't matter
+    whether the model correctly predicts the context tokens.
+
+    Context: `The dog is->fuzzy\nthe water is->hot\nthe tree is->`
+    Continuation: `green`
+
+    Adds metric state variables:
+        correct (float): The number of examples where the model correctly predicted the whole continuation.
+        total (float): The number of total examples seen.
+
+    Args:
+        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
+            each forward() before returning the value at the step. Default: ``False``.
+    """
+
+    # Make torchmetrics call update only once
+    full_state_update = False
+
+    def __init__(self, dist_sync_on_step: bool = False):
+        # state from multiple processes
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.add_state('correct', default=torch.tensor(0), dist_reduce_fx='sum')
+        self.add_state('total', default=torch.tensor(0), dist_reduce_fx='sum')
+
+    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
+        targets = torch.roll(labels, shifts=-1)
+        targets[:, -1] = -100
+        for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
+            cont_tok_pred = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
+            cont_tok_targ = targets[batch_idx].index_select(dim=0, index=cont_idx - 1)
+
+            self.correct += (cont_tok_pred == cont_tok_targ).all().int()
+            self.total += torch.tensor(1)
+
+    def compute(self):
+        assert isinstance(self.correct, Tensor)
+        assert isinstance(self.total, Tensor)
+        return self.correct.float() / self.total

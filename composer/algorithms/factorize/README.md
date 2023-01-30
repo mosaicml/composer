@@ -118,7 +118,8 @@ We hope to allow factorization during training in the future.
 This might allow more intelligent allocation of factorization to different layers based on how well they can be approximated.
 To work around this limitation, one can save the model, stop training, load and alter the model, and then restart training.
 
-Factorize can be applied to any model with linear or convolutional layers but is most likely to be useful for large models with many channels or large hidden layer sizes.
+Factorize can be applied to any model with linear or convolutional layers but is most likely to be useful for large models with many channels or large hidden layer sizes. However, factorization may not work with your model if it makes special assumptions about linear layers and their attributes. For example, factorization will not work with `torch.nn.MultiHeadAttention` modules, because MultiHeadAttention expects its `linear` submodule to have a `weight` attribute, and `FactorizedLinear` does not have this attribute.
+
 At present, only factorizing `linear` and `conv2d` modules is supported (i.e., factorizing `conv1d` and `conv3d` modules is not supported).
 
 > ❗ Only Linear and 2D Convolution Modules are Supported

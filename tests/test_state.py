@@ -23,22 +23,24 @@ def random_tensor(size=(4, 10)):
 
 def get_dummy_state(request: pytest.FixtureRequest):
     model = SimpleModel()
+    dataset = RandomClassificationDataset()
+    dataloader = DataLoader(dataset, batch_size=4)
     optimizers = torch.optim.Adadelta(model.parameters())
     device = None
     for item in request.session.items:
         device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
         break
     assert device != None
-    state = State(
-        model=model,
-        device=device,
-        run_name=f'{random.randint(0, 100)}',
-        grad_accum=random.randint(0, 100),
-        rank_zero_seed=random.randint(0, 100),
-        precision=Precision.AMP_FP16,
-        max_duration=f'{random.randint(0, 100)}ep',
-        optimizers=optimizers,
-    )
+    state = State(model=model,
+                  device=device,
+                  train_dataloader=dataloader,
+                  run_name=f'{random.randint(0, 100)}',
+                  grad_accum=random.randint(0, 100),
+                  rank_zero_seed=random.randint(0, 100),
+                  precision=Precision.AMP_FP16,
+                  max_duration=f'{random.randint(0, 100)}ep',
+                  optimizers=optimizers,
+                  device_train_microbatch_size=2)
     state.schedulers = torch.optim.lr_scheduler.StepLR(optimizers, step_size=3)
     state.loss = random_tensor()
     state.batch = (random_tensor(), random_tensor())
@@ -134,7 +136,7 @@ def test_state_batch_set_item(batch, key, val, request: pytest.FixtureRequest):
     assert state.batch_get_item(key) == val
 
 
-def test_composer_env_info_in_state_dict(tmp_path, request: pytest.FixtureRequest):
+def test_composer_metadata_in_state_dict(tmp_path, request: pytest.FixtureRequest):
     state = get_dummy_state(request)
     save_path = pathlib.Path(tmp_path) / 'state_dict.pt'
     with open(save_path, 'wb') as _tmp_file:
@@ -148,3 +150,9 @@ def test_composer_env_info_in_state_dict(tmp_path, request: pytest.FixtureReques
     actual_env_info_keys = set(loaded_state_dict['metadata']['composer_env_info'].keys())
     assert expected_env_info_keys == actual_env_info_keys
     assert loaded_state_dict['metadata']['composer_env_info']['composer_version'] == composer.__version__
+
+    assert loaded_state_dict['metadata']['device'] == 'cpu'
+    assert loaded_state_dict['metadata']['precision'] == 'amp_fp16'
+    assert loaded_state_dict['metadata']['world_size'] == 1
+    assert loaded_state_dict['metadata']['device_train_microbatch_size'] == 2
+    assert loaded_state_dict['metadata']['train_dataloader_batch_size'] == 4
