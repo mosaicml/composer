@@ -212,6 +212,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     # They just never expected a user to pass in torch.float32 into mixed_precision as a param_dtype.
     # See: https://github.com/pytorch/pytorch/issues/90584
     # The PR fixing this bug is merged into PyTorch, but it hasn't made its way into a release yet.
+    # Instead a user needs to pass in `None` as param_dtype to have the parameters as torch.float32.
     # TODO: remove these checks when PyTorch has a release that includes the fix.
     if sharding_map_key != 'NO_SHARD':
         if (precision == Precision.AMP_FP16 and param_dtype not in [torch.float16, None] or
