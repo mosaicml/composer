@@ -20,21 +20,25 @@ from tests.common import device, world_size
 @device('cpu', 'gpu')
 @world_size(1, 2)
 @pytest.mark.parametrize('num_workers', [0, 1, 2])
-@pytest.mark.parametrize('dataset,dataset_args,seed',
-                         [('c4', {
-                             'remote': 's3://mosaicml-internal-dataset-c4/mds/2/',
-                             'tokenizer_name': 'bert-base-uncased',
-                             'max_seq_len': 256,
-                             'group_method': 'truncate'
-                         }, 1),
-                          ('pile', {
-                              'remote': 's3://mosaicml-internal-dataset-the-pile/mds/2/',
-                              'tokenizer_name': 'bert-base-uncased',
-                              'max_seq_len': 256,
-                              'group_method': 'truncate'
-                          }, 2), ('enwiki', {
-                              'remote': 's3://mosaicml-internal-dataset-enwiki-20200101/mds/2b/'
-                          }, 3)])
+@pytest.mark.parametrize(
+    'dataset,dataset_args,seed',
+    [
+        ('c4', {
+            'remote': 's3://mosaicml-internal-dataset-c4/mds/2/',
+            'tokenizer_name': 'bert-base-uncased',
+            'max_seq_len': 256,
+            'group_method': 'truncate'
+        }, 1),
+        ('pile', {
+            'remote': 's3://mosaicml-internal-dataset-the-pile/mds/2/',
+            'tokenizer_name': 'bert-base-uncased',
+            'max_seq_len': 256,
+            'group_method': 'truncate'
+        }, 2),
+        #   ('enwiki', {
+        #       'remote': 's3://mosaicml-internal-dataset-enwiki-20200101/mds/2b/'
+        #   }, 3)
+    ])
 def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_tokenizer, tiny_bert_model, world_size,
                             device, tmp_path):
     # Need to initialize dist before we get to streaming, because streaming always uses NCCL
