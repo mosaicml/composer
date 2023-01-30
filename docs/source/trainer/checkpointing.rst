@@ -329,6 +329,34 @@ and delete the checkpoints from the local disk. The checkpoints will be located 
 ``checkpoints/ep3.pt`` for third epoch's checkpoints, for example. The full URI in this case would be:
 ``s3://my_bucket/checkpoints/ep3.pt``.
 
+For uploading checkpoints to [Coreweave's object store](https://docs.coreweave.com/storage/object-storage), the code is very similar to the
+above S3 uploading code. The only difference is you must set your Coreweave endpoint url.
+To do this you can just set the ``S3_ENDPOINT_URL`` environment variable before creating the
+:class:`.Trainer`, like so:
+
+.. testcode::
+    :skipif: not _LIBCLOUD_INSTALLED
+
+    import os
+
+    os.environ['S3_ENDPOINT_URL'] = 'https://object.las1.coreweave.com'
+    from composer.trainer import Trainer
+
+    # Save checkpoints every epoch to s3://my_bucket/checkpoints
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration='10ep',
+        save_folder='s3://my_bucket/checkpoints',
+        save_interval='1ep',
+        save_overwrite=True,
+        save_filename='ep{epoch}.pt',
+        save_num_checkpoints_to_keep=0,  # delete all checkpoints locally
+    )
+
+    trainer.fit()
+
+
 Similarly for OCI:
 
 .. testcode::
