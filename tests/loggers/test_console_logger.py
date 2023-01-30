@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader
 from torchmetrics import MetricCollection
 
 from composer.callbacks import SpeedMonitor
+from composer.loggers.console_logger import NUM_EVAL_LOGGING_EVENTS
 from composer.trainer import Trainer
 from tests.common import RandomClassificationDataset, SimpleModel
 
@@ -84,11 +85,10 @@ def test_console_logger_interval(console_logger_test_stream, console_logger_test
 def test_console_logger_interval_with_eval(console_logger_test_stream, console_logger_test_file_path, eval_interval,
                                            max_duration, eval_interval_unit, max_duration_unit):
 
-    EVAL_LOG_INTERVAL = 100
     batch_size = 4
     dataset_size = 17
     eval_batch_size = 2
-    eval_dataset_size = 300
+    eval_dataset_size = 25
     batches_per_epoch = math.ceil(dataset_size / batch_size)
 
     model = SimpleModel()
@@ -128,7 +128,7 @@ def test_console_logger_interval_with_eval(console_logger_test_stream, console_l
         expected_num_eval_logging_events, remainder = divmod(max_duration, batches_per_logging_event)
 
     num_progress_events_for_batch_1_and_last_batch = 2
-    num_progress_events_due_to_eval_interval = eval_dataset_size // eval_batch_size // EVAL_LOG_INTERVAL
+    num_progress_events_due_to_eval_interval = NUM_EVAL_LOGGING_EVENTS
     num_eval_progress_lines_per_eval_event = num_progress_events_for_batch_1_and_last_batch + num_progress_events_due_to_eval_interval
     # An eval logging event always happens at fit_end, so if one would not normally fall at
     # last batch or epoch, then add an extra event to the expected.
