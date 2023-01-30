@@ -23,7 +23,7 @@ help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 host:
-	@$(PYTHON_BIN) -m $(HTTP_MODULE) --directory $(HTML_BUILDDIR)
+	@$(PYTHON_BIN) -m $(HTTP_MODULE) --directory $(HTML_BUILDDIR) -n -b linkcheck
 
 
 .PHONY: clean doctest help host Makefile
