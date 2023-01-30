@@ -2,24 +2,20 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from typing import Any, Dict, List, Type, Union
+from typing import Any, Dict, List, Type
 
 import pytest
-import yahp as hp
 
 import composer.callbacks
 import composer.loggers
 import composer.profiler
 from composer import Callback
 from composer.callbacks import EarlyStopper, ImageVisualizer, MemoryMonitor, SpeedMonitor, ThresholdStopper
-from composer.callbacks.callback_hparams_registry import callback_registry
 from composer.callbacks.export_for_inference import ExportForInferenceCallback
 from composer.callbacks.mlperf import MLPerfCallback
-from composer.loggers import CometMLLogger, RemoteUploaderDownloader, TensorboardLogger, WandBLogger
+from composer.loggers import CometMLLogger, MLFlowLogger, RemoteUploaderDownloader, TensorboardLogger, WandBLogger
 from composer.loggers.logger_destination import LoggerDestination
-from composer.loggers.logger_hparams_registry import RemoteUploaderDownloaderHparams, logger_registry
 from composer.loggers.progress_bar_logger import ProgressBarLogger
-from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
 from tests.common import get_module_subclasses
 
 try:
@@ -55,16 +51,23 @@ except ImportError:
     _MLPERF_INSTALLED = False
 
 try:
+    import mlflow
+    _MLFLOW_INSTALLED = True
+    del mlflow
+except ImportError:
+    _MLFLOW_INSTALLED = False
+
+try:
     import libcloud
     _LIBCLOUD_INSTALLED = True
     del libcloud  # unused
 except ImportError:
     _LIBCLOUD_INSTALLED = False
 
-_callback_kwargs: Dict[Union[Type[Callback], Type[hp.Hparams]], Dict[str, Any],] = {
+_callback_kwargs: Dict[Type[Callback], Dict[str, Any],] = {
     RemoteUploaderDownloader: {
-        'object_store_cls': LibcloudObjectStore,
-        'object_store_kwargs': {
+        'bucket_uri': 'libcloud://.',
+        'backend_kwargs': {
             'provider': 'local',
             'container': '.',
             'provider_kwargs': {
@@ -94,20 +97,9 @@ _callback_kwargs: Dict[Union[Type[Callback], Type[hp.Hparams]], Dict[str, Any],]
     SpeedMonitor: {
         'window_size': 1,
     },
-    RemoteUploaderDownloaderHparams: {
-        'object_store_hparams': {
-            'libcloud': {
-                'provider': 'local',
-                'container': '.',
-                'key_environ': 'KEY_ENVIRON',
-            },
-        },
-        'use_procs': False,
-        'num_concurrent_uploads': 1,
-    },
 }
 
-_callback_marks: Dict[Union[Type[Callback], Type[hp.Hparams]], List[pytest.MarkDecorator],] = {
+_callback_marks: Dict[Type[Callback], List[pytest.MarkDecorator],] = {
     RemoteUploaderDownloader: [
         pytest.mark.filterwarnings(
             # post_close might not be called if being used outside of the trainer
@@ -129,16 +121,12 @@ _callback_marks: Dict[Union[Type[Callback], Type[hp.Hparams]], List[pytest.MarkD
     ],
     CometMLLogger: [pytest.mark.skipif(not _COMETML_INSTALLED, reason='comet_ml is optional'),],
     TensorboardLogger: [pytest.mark.skipif(not _TENSORBOARD_INSTALLED, reason='Tensorboard is optional'),],
-    RemoteUploaderDownloaderHparams: [
-        pytest.mark.filterwarnings(
-            # post_close might not be called if being used outside of the trainer
-            r'ignore:Implicitly cleaning up:ResourceWarning',),
-    ],
     ImageVisualizer: [pytest.mark.skipif(not _WANDB_INSTALLED, reason='Wandb is optional')],
+    MLFlowLogger: [pytest.mark.skipif(not _MLFLOW_INSTALLED, reason='mlflow is optional'),],
 }
 
 
-def get_cb_kwargs(impl: Union[Type[Callback], Type[hp.Hparams]]):
+def get_cb_kwargs(impl: Type[Callback]):
     return _callback_kwargs.get(impl, {})
 
 
@@ -197,9 +185,7 @@ def get_cb_hparams_and_marks():
             yaml_dict = get_cb_kwargs(constructor)
             construct_from_yaml(constructor, yaml_dict=yaml_dict)
     """
-    implementations = [
-        *callback_registry.values(),
-        *logger_registry.values(),
-    ]
+    # TODO: (Hanlin) populate this
+    implementations = []
     ans = [_to_pytest_param(impl) for impl in implementations]
     return ans

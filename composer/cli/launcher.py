@@ -14,7 +14,6 @@ import sys
 import tempfile
 import time
 import traceback
-import warnings
 from argparse import ArgumentParser
 from typing import Any, Dict, List
 
@@ -22,7 +21,7 @@ import psutil
 import torch
 
 import composer
-from composer.utils.misc import get_free_tcp_port
+from composer.utils import get_free_tcp_port
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
 
@@ -220,9 +219,6 @@ def _parse_args():
             args.master_addr = '127.0.0.1'
 
         if args.master_port is None:
-            warnings.warn('AutoSelectPortWarning: The distributed key-value port was auto-selected. '
-                          'This may lead to race conditions when launching multiple training processes simultaneously. '
-                          'To eliminate this race condition, explicitly specify a port with --master_port PORT_NUMBER')
             args.master_port = get_free_tcp_port()
 
     return args
@@ -293,8 +289,8 @@ def _launch_processes(
                 MASTER_ADDR=master_addr,
                 MASTER_PORT=str(master_port),
                 PYTHONUNBUFFERED='1',
+                NCCL_ASYNC_ERROR_HANDLING='1',
         ):
-
             # Populate the distributed variables in all launcher args
             for arg in training_script_args:
                 cmd.append(os.path.expandvars(os.path.expanduser(arg)))

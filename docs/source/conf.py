@@ -21,17 +21,15 @@ import os
 import shutil
 import sys
 import tempfile
-import textwrap
 import types
 import warnings
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Tuple, Type
 
 import sphinx.application
 import sphinx.ext.autodoc
 import sphinx.util.logging
 import torch
 import torch.nn
-import yahp as hp
 from docutils import nodes
 from docutils.nodes import Element
 from git.repo.base import Repo
@@ -79,7 +77,7 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.napoleon',
     'sphinxcontrib.katex',
-    'sphinx.ext.linkcode',
+    'sphinx.ext.viewcode',
     'sphinx.ext.intersphinx',
     'sphinxemoji.sphinxemoji',
     'sphinxext.opengraph',
@@ -139,7 +137,9 @@ source_suffix = ['.rst', '.md']
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'examples/imagenet/README.md']
+exclude_patterns = [
+    '_build', 'Thumbs.db', '.DS_Store', 'examples/imagenet/README.md', 'examples/segmentation/README.md'
+]
 
 napoleon_custom_sections = [('Returns', 'params_style')]
 
@@ -187,7 +187,6 @@ html_favicon = 'https://mosaic-ml-staging.cdn.prismic.io/mosaic-ml-staging/b1f1a
 # Don't unfold our common type aliases
 autodoc_type_aliases = {
     'Batch': 'composer.core.types.Batch',
-    'Hparams': 'yahp.hparams.Hparams',
 }
 
 autodoc_default_options = {
@@ -198,8 +197,6 @@ autodoc_default_options = {
 autodoc_inherit_docstrings = False
 
 # Monkeypatch some objects as to exclude their docstrings
-hp.Hparams.__doc__ = ''
-hp.Hparams.initialize_object.__doc__ = ''
 torch.nn.Module.forward.__doc__ = ''
 
 torch.nn.Module.forward.__doc__ = None
@@ -390,20 +387,12 @@ def _auto_rst_for_module(module: types.ModuleType, exclude_members: List[Any]) -
     classes.sort(key=lambda x: x[0])
     attributes.sort(key=lambda x: x[0])
 
-    # separate hparams classes from other classes
-    hparams = [(n, c) for (n, c) in classes if issubclass(c, hp.Hparams)]
-    classes = [(n, c) for (n, c) in classes if not issubclass(c, hp.Hparams)]
-
-    for category, category_name in ((functions, 'Functions'), (classes, 'Classes'), (hparams, 'Hparams'),
-                                    (exceptions, 'Exceptions')):
+    for category, category_name in ((functions, 'Functions'), (classes, 'Classes'), (exceptions, 'Exceptions')):
         sphinx_lines = []
         for item_name, _ in category:
             sphinx_lines.append(f'      {item_name}')
         if len(sphinx_lines) > 0:
             lines.append(f'\n.. rubric:: {category_name}\n')
-            if category_name == 'Hparams':
-                lines.append('These classes are used with :mod:`yahp` for ``YAML``-based configuration.')
-                lines.append('')
             lines.append('.. autosummary::')
             lines.append('      :toctree: generated')
             lines.append('      :nosignatures:')
@@ -529,36 +518,6 @@ def _determine_lineno_of_attribute(module: types.ModuleType, attribute: str):
             if any(isinstance(x, ast.Name) and x.id == attribute for x in stmt.targets):
                 return stmt.lineno
     return None
-
-
-def linkcode_resolve(domain: str, info: Dict[str, str]):
-    """Adds links to the GitHub source code in the API Reference."""
-    assert domain == 'py', f'unsupported domain: {domain}'
-    module_name = info['module']
-
-    # Get the object and determine the line number
-    obj_name_in_module = info['fullname']
-    module = importlib.import_module(module_name)
-    lineno = _determine_lineno_of_attribute(module, obj_name_in_module)
-    if lineno is None:
-        obj = _recursive_getattr(module, obj_name_in_module)
-        if isinstance(obj, property):
-            # For properties, return the getter, where it is documented
-            obj = obj.fget
-        try:
-            _, lineno = inspect.getsourcelines(obj)
-        except TypeError:
-            # `inspect.getsourcelines` does not work on all object types (e.g. attributes).
-            # If it fails, it still might be possible to determine the source line through better parsing
-            # in _determine_lineno_of_attribute
-            pass
-    if lineno is None:
-        log.debug(f'Could not determine source line number for {module_name}.{obj_name_in_module}.')
-        return None
-    # Format the link
-    filename = module_name.replace('.', '/')
-    commit_sha = _COMMIT_SHA
-    return f'https://github.com/mosaicml/composer/blob/{commit_sha}/{filename}.py#L{lineno}'
 
 
 class PatchedHTMLTranslator(HTML5Translator):

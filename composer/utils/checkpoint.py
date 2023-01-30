@@ -25,8 +25,9 @@ from composer.utils.misc import is_model_deepspeed
 from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
+    from composer.core.passes import AlgorithmPass
     from composer.core.state import State
-    from composer.loggers import LoggerDestination
+    from composer.loggers import Logger, LoggerDestination
 
 log = logging.getLogger(__name__)
 
@@ -92,11 +93,14 @@ class PartialFilePath:
 def load_checkpoint(
     path: str,
     state: State,
+    logger: Logger,
     object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
     load_weights_only: bool = False,
     strict_model_weights: bool = False,
     progress_bar: bool = True,
     ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
+    exclude_algorithms: Optional[List[str]] = None,
+    algorithm_passes: Optional[List[AlgorithmPass]] = None,
 ):
     """Load a checkpoint from a local file, URI, or cloud object store into ``state``.
 
@@ -135,6 +139,7 @@ def load_checkpoint(
             correct state.
 
         state (State): The :class:`~composer.core.State` to load the checkpoint into.
+        logger (Logger): The :class:`~composer.logger.Logger` to log any information.
         object_store (Union[ObjectStore, LoggerDestination], optional): If the ``path`` is in an object store
             (i.e. AWS S3 or Google Cloud Storage), an instance of
             :class:`~.ObjectStore` or :class:`~.LoggerDestination` which will be used
@@ -167,6 +172,19 @@ def load_checkpoint(
             the state_dict before it is loaded.
 
             (default: ``None``)
+        exclude_algorithms (List[str], optional): A list of algorithm names to exclude from loading.
+            By default, algorithms with `required_on_load=True` which were enabled when training the loaded
+            checkpoint are automatically applied unless they conflict with a user specified algorithm. These
+            algorithms often change the model, and not applying them could result in certain layers not having
+            weights loaded.
+
+            Example 1: ``exclude_algorithms = ["BlurPool"]`` would exclude BlurPool from loading.
+
+            Example 2: ``exclude_algorithms = ["FusedLayerNorm", "Alibi"]`` would exclude FusedLayerNorm and Alibi from loading.
+
+            (default: ``None``)
+        algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
+            to sort them into the correct order. (default: ``None``)
 
     Returns:
         Optional[List[Dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
@@ -186,12 +204,15 @@ def load_checkpoint(
             )
             rng_state_dicts = _restore_checkpoint(
                 state,
+                logger,
                 composer_states_filepath,
                 extracted_rank_n,
                 extracted_checkpoint_folder,
                 load_weights_only=load_weights_only,
                 strict_model_weights=strict_model_weights,
                 ignore_keys=ignore_keys,
+                exclude_algorithms=exclude_algorithms,
+                algorithm_passes=algorithm_passes,
             )
         finally:
             # Wait for all ranks to finish restoring the checkpoint before releasing the tempdir, since tempdir can
@@ -367,12 +388,15 @@ def glob_filter(exclude_globs: List[str]) -> Callable[[Dict], None]:
 
 def _restore_checkpoint(
     state: State,
+    logger: Logger,
     composer_states_filepath: str,
     extracted_rank_n: bool,
     extracted_checkpoint_folder: Optional[str],
     load_weights_only: bool,
     strict_model_weights: bool,
     ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]],
+    exclude_algorithms: Optional[List[str]],
+    algorithm_passes: Optional[List[AlgorithmPass]],
 ) -> Optional[List[Dict[str, Any]]]:
     """Restore a checkpoint into ``state`` and returns the rng state dicts (if ``load_weights_only`` is False)."""
     # Now, all ranks load the checkpoint that local rank zero downloaded
@@ -402,10 +426,20 @@ def _restore_checkpoint(
         if load_path is None:
             raise RuntimeError(f'Failed to load DeepSpeed checkpoint')
     elif load_weights_only:
-        state.load_model_state(state_dict['state'], strict=strict_model_weights)
-
+        state.load_model_state(
+            state_dict['state'],
+            logger,
+            strict=strict_model_weights,
+            exclude_algorithms=exclude_algorithms,
+            algorithm_passes=algorithm_passes,
+        )
     if not load_weights_only:
-        state.load_state_dict(state_dict['state'])
+        state.load_state_dict(
+            state_dict['state'],
+            logger,
+            exclude_algorithms=exclude_algorithms,
+            algorithm_passes=algorithm_passes,
+        )
         return state_dict['rng']
 
 

@@ -10,9 +10,7 @@ from typing import Any, Callable, Optional, Union
 
 import torch
 
-from composer.core import State, Time
-from composer.core.callback import Callback
-from composer.core.time import TimeUnit
+from composer.core import Callback, State, Time, TimeUnit
 from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
@@ -134,10 +132,10 @@ class EarlyStopper(Callback):
         assert self.best_occurred is not None
         if self.patience.unit == TimeUnit.EPOCH:
             if state.timestamp.epoch - self.best_occurred.epoch > self.patience:
-                state.max_duration = state.timestamp.batch
+                state.stop_training()
         elif self.patience.unit == TimeUnit.BATCH:
             if state.timestamp.batch - self.best_occurred.batch > self.patience:
-                state.max_duration = state.timestamp.batch
+                state.stop_training()
         else:
             raise ValueError(f'The units of `patience` should be EPOCH or BATCH.')
 

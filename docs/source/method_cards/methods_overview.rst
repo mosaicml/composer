@@ -123,6 +123,15 @@
    Clips all gradients in model based on specified clipping_type
 
    ---
+   .. link-button:: gyro_dropout.html
+      :text: GyroDropout
+      :classes: card-title
+
+   :badge:`CV,badge-primary`
+   ++++++++++++++
+   Clips all gradients in model based on specified clipping_type
+
+   ---
    .. link-button:: label_smoothing.html
       :text: LabelSmoothing
       :classes: card-title
@@ -139,6 +148,15 @@
    :badge:`CV,badge-primary` :badge:`NLP,badge-success`
    ++++++++++++++
    Progressively freezes layers during training.
+
+   ---
+   .. link-button:: low_precision_layernorm.html
+      :text: LowPrecisionLayerNorm
+      :classes: card-title
+
+   :badge:`NLP,badge-primary` :badge:`CV,badge-success`
+   ++++++++++++++
+   Forces LayerNorm to run in lower precision.
 
    ---
    .. link-button:: mixup.html

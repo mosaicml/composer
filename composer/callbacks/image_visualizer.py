@@ -2,17 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Monitor train and eval images."""
-from typing import Any, Callable, Tuple, Union
+from typing import Any, Callable, Sequence, Tuple, Union
 
 import torch
-from numpy import ndarray
-from PIL import Image
 
 from composer.core import Callback, State, Time, TimeUnit
-from composer.loggers import InMemoryLogger, Logger, WandBLogger
+from composer.loggers import Logger
 from composer.loss.utils import infer_target_type
-from composer.utils import ensure_tuple
-from composer.utils.import_helpers import MissingConditionalImportError
+from composer.utils import MissingConditionalImportError
 
 __all__ = ['ImageVisualizer']
 
@@ -109,45 +106,29 @@ class ImageVisualizer(Callback):
             raise ValueError(f'Invalid time unit for parameter interval: '
                              f'{self.interval.unit}')
 
+        self.last_train_time_value_logged = -1
+
     def _log_inputs(self, state: State, logger: Logger, data_name: str):
         inputs = state.batch_get_item(key=self.input_key)
-        if isinstance(inputs, ndarray):
-            raise NotImplementedError('Input numpy array not supported yet')
-        if isinstance(inputs, Image.Image):
-            raise NotImplementedError('Input PIL image not supported yet')
-        if not isinstance(inputs, torch.Tensor):
-            raise NotImplementedError('Multiple input tensors not supported yet')
         # Verify inputs is a valid shape for conversion to an image
         if _check_for_image_format(inputs):
-            table = _make_input_images(inputs, self.num_images, self.channels_last)
-            # Only log to the wandb logger if it is available
-            for destination in ensure_tuple(logger.destinations):
-                if isinstance(destination, WandBLogger) or isinstance(destination, InMemoryLogger):
-                    destination.log_metrics({data_name: table}, state.timestamp.batch.value)
+            inputs = _make_input_images(inputs, self.num_images)
+            logger.log_images(inputs, name=data_name, use_table=True, channels_last=self.channels_last)
 
     def _log_segmented_inputs(self, state: State, logger: Logger, data_name: str):
         inputs = state.batch_get_item(key=self.input_key)
         targets = state.batch_get_item(key=self.target_key)
         outputs = state.outputs
-        if isinstance(inputs, ndarray):
-            raise NotImplementedError('Input numpy array not supported yet')
-        if isinstance(inputs, Image.Image):
-            raise NotImplementedError('Input PIL image not supported yet')
-        if not isinstance(inputs, torch.Tensor):
-            raise NotImplementedError('Multiple input tensors not supported yet')
-        if not isinstance(targets, torch.Tensor):
-            raise NotImplementedError('Multiple target tensors not supported yet')
-        if not isinstance(outputs, torch.Tensor):
-            raise NotImplementedError('Multiple output tensors not supported yet')
+        assert isinstance(outputs, torch.Tensor)
 
-        table = _make_segmentation_images(inputs, targets, outputs, self.num_images, self.channels_last)
-        # Only log to the wandb logger if it is available
-        for destination in ensure_tuple(logger.destinations):
-            if isinstance(destination, WandBLogger) or isinstance(destination, InMemoryLogger):
-                destination.log_metrics({data_name: table}, state.timestamp.batch.value)
+        images, masks = _make_segmentation_images(inputs, targets, outputs, self.num_images, self.channels_last)
+        logger.log_images(images, masks=masks, name=data_name, channels_last=self.channels_last, use_table=True)
 
     def before_forward(self, state: State, logger: Logger):
-        if self.mode.lower() == 'input' and state.timestamp.get(self.interval.unit).value % self.interval.value == 0:
+        current_time_value = state.timestamp.get(self.interval.unit).value
+        if self.mode.lower(
+        ) == 'input' and current_time_value % self.interval.value == 0 and current_time_value != self.last_train_time_value_logged:
+            self.last_train_time_value_logged = current_time_value
             self._log_inputs(state, logger, 'Images/Train')
 
     def eval_before_forward(self, state: State, logger: Logger):
@@ -155,8 +136,10 @@ class ImageVisualizer(Callback):
             self._log_inputs(state, logger, 'Images/Eval')
 
     def before_loss(self, state: State, logger: Logger):
-        if self.mode.lower() == 'segmentation' and state.timestamp.get(
-                self.interval.unit).value % self.interval.value == 0:
+        current_time_value = state.timestamp.get(self.interval.unit).value
+        if self.mode.lower(
+        ) == 'segmentation' and current_time_value % self.interval.value == 0 and current_time_value != self.last_train_time_value_logged:
+            self.last_train_time_value_logged = current_time_value
             self._log_segmented_inputs(state, logger, 'Images/Train')
 
     def eval_after_forward(self, state: State, logger: Logger):
@@ -164,33 +147,25 @@ class ImageVisualizer(Callback):
             self._log_segmented_inputs(state, logger, 'Images/Eval')
 
 
-def _make_input_images(inputs: torch.Tensor, num_images: int, channels_last: bool = False):
-    import wandb
+def _make_input_images(inputs: torch.Tensor, num_images: int):
     if inputs.shape[0] < num_images:
         num_images = inputs.shape[0]
-    if channels_last:
-        images = inputs[0:num_images].data.cpu().numpy()
-    else:
-        images = inputs[0:num_images].data.cpu().permute(0, 2, 3, 1).numpy()
-    table = wandb.Table(columns=['Image'])
-    for image in images:
-        img = wandb.Image(image)
-        table.add_data(img)
-    return table
+    images = inputs[0:num_images].data.cpu().numpy()
+    return images
 
 
 def _make_segmentation_images(inputs: torch.Tensor,
                               targets: torch.Tensor,
-                              outputs: torch.Tensor,
+                              outputs: Union[torch.Tensor, Sequence[torch.Tensor]],
                               num_images: int,
                               channels_last: bool = False):
-    import wandb
+    if isinstance(outputs, Sequence):
+        outputs = torch.stack(list(outputs))
     if min([inputs.shape[0], targets.shape[0], outputs.shape[0]]) < num_images:
         num_images = min([inputs.shape[0], targets.shape[0], outputs.shape[0]])
-    if channels_last:
-        images = inputs[0:num_images].data.cpu().numpy()
-    else:
-        images = inputs[0:num_images].data.cpu().permute(0, 2, 3, 1).numpy()
+
+    images = inputs[0:num_images].data.cpu().numpy()
+
     targets = targets[0:num_images]
     outputs = outputs[0:num_images]
     # Ensure the targets are in the expected format
@@ -210,13 +185,8 @@ def _make_segmentation_images(inputs: torch.Tensor,
         outputs = outputs.argmax(dim=1).cpu().numpy()
     # Adjust targets such that negative values are mapped to one higher than the maximum class
     targets[targets < 0] = num_classes
-    # Create a table of images and their corresponding segmentation masks
-    table = wandb.Table(columns=['Image'])
-    for image, target, prediction in zip(images, targets, outputs):
-        mask = {'ground truth': {'mask_data': target}, 'prediction': {'mask_data': prediction}}
-        img_mask_pair = wandb.Image(image, masks=mask)
-        table.add_data(img_mask_pair)
-    return table
+
+    return images, {'prediction': outputs, 'ground_truth': targets}
 
 
 def _check_for_image_format(data: torch.Tensor) -> bool:

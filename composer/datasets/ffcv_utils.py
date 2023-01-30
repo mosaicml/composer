@@ -6,7 +6,7 @@ from typing import Optional
 
 import numpy as np
 
-from composer.core.types import Dataset
+from composer.core import Dataset
 from composer.utils import MissingConditionalImportError
 
 try:

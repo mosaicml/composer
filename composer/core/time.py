@@ -22,7 +22,7 @@ import re
 from typing import Any, Dict, Generic, Optional, TypeVar, Union, cast
 
 from composer.core.serializable import Serializable
-from composer.utils.string_enum import StringEnum
+from composer.utils import StringEnum
 
 __all__ = ['TimeUnit', 'Time', 'Timestamp', 'ensure_time']
 

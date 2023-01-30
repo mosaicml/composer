@@ -11,22 +11,27 @@ import tempfile
 import time
 from glob import glob
 from typing import Any, Dict, List, Optional, Union
+from unittest.mock import MagicMock
 
 import pytest
 import torch
 import torch.distributed
+from pytest import MonkeyPatch
 from torch.utils.data import DataLoader
 
-from composer.algorithms import SqueezeExcite
-from composer.core.callback import Callback
-from composer.core.time import Time, TimeUnit
-from composer.loggers import RemoteUploaderDownloader
+from composer.algorithms import NoOpModel
+from composer.callbacks import CheckpointSaver
+from composer.core import Callback, Time, TimeUnit
+from composer.loggers import RemoteUploaderDownloader, remote_uploader_downloader
 from composer.optim import ExponentialScheduler
+from composer.trainer import trainer
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, is_tar
 from composer.utils.checkpoint import glob_filter
-from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
+from composer.utils.object_store.object_store import ObjectStore
+from composer.utils.object_store.s3_object_store import S3ObjectStore
 from tests.common import RandomImageDataset, SimpleConvModel, deep_compare, device
+from tests.common.markers import world_size
 
 
 class DummyStatefulCallback(Callback):
@@ -135,6 +140,114 @@ def test_ignore_params(remove_field_paths: List[List[str]], filter_params: List[
     assert base_dict == new_dict
 
 
+@pytest.mark.parametrize('folder,filename',
+                         [('{run_name}/my_checkpoints', 'ep{epoch}-rank{rank}.pt'),
+                          (pathlib.Path('{run_name}/my_checkpoints'), pathlib.Path('ep{epoch}-rank{rank}.pt'))])
+def test_checkpoint_saver_folder_filename_path(folder: Union[str, pathlib.Path], filename: Union[str, pathlib.Path]):
+    checkpoint_saver = CheckpointSaver(folder=folder, filename=filename)
+
+    assert checkpoint_saver.folder == str(folder)
+    assert checkpoint_saver.filename.filename == str(filename)
+
+
+@pytest.mark.parametrize(
+    'remote_file_name,latest_filename,latest_remote_file_name',
+    [('{run_name}/my_checkpoints/ep{epoch}-ba{batch}-rank{rank}.pt', 'latest-rank{rank}.pt',
+      '{run_name}/checkpoints/latest-rank{rank}.pt'),
+     (pathlib.Path('{run_name}/my_checkpoints/ep{epoch}-ba{batch}-rank{rank}.pt'), pathlib.Path('latest-rank{rank}.pt'),
+      pathlib.Path('{run_name}/checkpoints/latest-rank{rank}.pt'))])
+def test_checkpoint_filenames(remote_file_name: Optional[Union[str, pathlib.Path]],
+                              latest_filename: Optional[Union[str, pathlib.Path]],
+                              latest_remote_file_name: Optional[Union[str, pathlib.Path]]):
+    checkpoint_saver = CheckpointSaver(remote_file_name=remote_file_name,
+                                       latest_filename=latest_filename,
+                                       latest_remote_file_name=latest_remote_file_name)
+
+    assert checkpoint_saver.remote_file_name is not None
+    assert checkpoint_saver.latest_filename is not None
+    assert checkpoint_saver.latest_remote_file_name is not None
+
+    assert checkpoint_saver.remote_file_name.filename == str(remote_file_name)
+    assert checkpoint_saver.latest_filename.filename == str(latest_filename)
+    assert checkpoint_saver.latest_remote_file_name.filename == str(latest_remote_file_name)
+
+
+@pytest.mark.parametrize('remote_file_name,latest_filename,latest_remote_file_name', [(None, None, None)])
+def test_checkpoint_filenames_none(remote_file_name: Optional[Union[str, pathlib.Path]],
+                                   latest_filename: Optional[Union[str, pathlib.Path]],
+                                   latest_remote_file_name: Optional[Union[str, pathlib.Path]]):
+    checkpoint_saver = CheckpointSaver(remote_file_name=remote_file_name,
+                                       latest_filename=latest_filename,
+                                       latest_remote_file_name=latest_remote_file_name)
+
+    assert checkpoint_saver.remote_file_name == None
+    assert checkpoint_saver.latest_filename == None
+    assert checkpoint_saver.latest_remote_file_name == None
+
+
+class TestCheckpointSaving:
+
+    def get_trainer(self, **kwargs):
+        model = SimpleConvModel()
+        return Trainer(model=model, **kwargs)
+
+    @pytest.mark.parametrize('add_remote_ud', [True, False])
+    def test_s3_uri_creates_remote_ud(self, add_remote_ud: bool, monkeypatch: MonkeyPatch):
+        mock_validate_credentials = MagicMock()
+        monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
+        if add_remote_ud:
+            with pytest.warns(UserWarning):
+                trainer = self.get_trainer(save_folder='s3://bucket_name/{run_name}/checkpoints',
+                                           loggers=[
+                                               RemoteUploaderDownloader('s3://bucket_name',
+                                                                        file_path_format_string='{remote_file_name}')
+                                           ])
+        else:
+            trainer = self.get_trainer(save_folder='s3://bucket_name/{run_name}/checkpoints')
+
+        remote_uds = [
+            logger_dest for logger_dest in trainer.logger.destinations
+            if isinstance(logger_dest, RemoteUploaderDownloader)
+        ]
+        assert len(remote_uds) == 1
+        remote_ud = remote_uds[0]
+        assert remote_ud.remote_backend_name == 's3'
+        assert remote_ud.remote_bucket_name == 'bucket_name'
+
+    @pytest.mark.parametrize('uri', ['wandb://foo/bar', 'gcs://foo/bar', 'sftp://foo/bar"'])
+    def test_other_uris_error_out(self, uri: str):
+        with pytest.raises(NotImplementedError):
+            self.get_trainer(save_folder=uri)
+
+    @pytest.mark.parametrize('local_path', ['foo/bar/baz'])
+    def test_local_paths_work(self, local_path: str):
+        self.get_trainer(save_folder=local_path)
+
+    @pytest.mark.parametrize('save_folder,expected_path',
+                             [('s3://bucket_name/{run_name}/my_checkpoints', '{run_name}/my_checkpoints'),
+                              ('{run_name}/my_checkpoints', '{run_name}/my_checkpoints'), ('s3://bucket_name', '')])
+    def test_checkpoint_saver_properly_constructed(self, save_folder: str, expected_path: str,
+                                                   monkeypatch: MonkeyPatch):
+        mock_validate_credentials = MagicMock()
+        monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
+        mock_checkpoint_saver = MagicMock()
+        monkeypatch.setattr(trainer, 'CheckpointSaver', mock_checkpoint_saver)
+        self.get_trainer(save_folder=save_folder)
+        expected_prefix = expected_path + '/' if expected_path != '' else expected_path
+        rest_of_checkpoint_saver_kwargs = {
+            'filename': 'ep{epoch}-ba{batch}-rank{rank}.pt',
+            'remote_file_name': expected_prefix + 'ep{epoch}-ba{batch}-rank{rank}.pt',
+            'latest_filename': 'latest-rank{rank}.pt',
+            'latest_remote_file_name': expected_prefix + 'latest-rank{rank}.pt',
+            'overwrite': False,
+            'weights_only': False,
+            'save_interval': '1ep',
+            'num_checkpoints_to_keep': -1
+        }
+        expected_folder = expected_path.rstrip('/') if expected_path != '' else '.'
+        mock_checkpoint_saver.assert_called_once_with(folder=expected_folder, **rest_of_checkpoint_saver_kwargs)
+
+
 class TestCheckpointLoading:
 
     def _assert_weights_equivalent(self, m1: torch.nn.Module, m2: torch.nn.Module):
@@ -145,21 +258,28 @@ class TestCheckpointLoading:
         model = SimpleConvModel()
         optimizer = torch.optim.Adam(model.parameters())
 
+        train_dataset = RandomImageDataset()
+        eval_dataset = RandomImageDataset()
+        train_batch_size = 2
+
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
-                dataset=RandomImageDataset(),
-                batch_size=8,
+                dataset=train_dataset,
+                batch_size=train_batch_size,
+                sampler=dist.get_sampler(train_dataset),
             ),
             eval_dataloader=DataLoader(
-                dataset=RandomImageDataset(),
-                batch_size=16,
+                dataset=eval_dataset,
+                batch_size=4,
+                sampler=dist.get_sampler(eval_dataset),
             ),
-            grad_accum=2,
+            device_train_microbatch_size=train_batch_size // 2,
             precision='fp32',
             train_subset_num_batches=5,
+            eval_subset_num_batches=1,
             save_interval='1ep',
-            eval_interval='1ba',
+            eval_interval='1ep',
             save_filename='ep{epoch}.pt',
             max_duration='2ep',
             optimizers=optimizer,
@@ -174,8 +294,8 @@ class TestCheckpointLoading:
         os.makedirs(remote_dir, exist_ok=True)
 
         return RemoteUploaderDownloader(
-            object_store_cls=LibcloudObjectStore,
-            object_store_kwargs={
+            bucket_uri='libcloud://.',
+            backend_kwargs={
                 'provider': 'local',
                 'container': '.',
                 'provider_kwargs': {
@@ -186,6 +306,33 @@ class TestCheckpointLoading:
             use_procs=False,
             upload_staging_folder=str(tmp_path / 'staging_folder'),
         )
+
+    @pytest.mark.parametrize('load_path,load_object_store',
+                             [('s3://my-bucket/my-run-name/my-checkpoints', None),
+                              ('s3://my-bucket/my-run-name/my-checkpoints', S3ObjectStore(bucket='my-bucket')),
+                              ('my-run-name/my-checkpoints', S3ObjectStore(bucket='my-bucket'))])
+    def test_load_from_uri(self, load_path: str, load_object_store: Optional[ObjectStore], monkeypatch: MonkeyPatch):
+
+        mock_validate_credentials = MagicMock()
+        monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
+        mock_load_checkpoint = MagicMock()
+        monkeypatch.setattr(trainer.checkpoint, 'load_checkpoint', mock_load_checkpoint)
+        self.get_trainer(load_path=load_path, load_object_store=load_object_store)
+        mock_load_checkpoint.assert_called_once()
+        (_, call_kwargs), = mock_load_checkpoint.call_args_list
+        assert call_kwargs['path'] == 'my-run-name/my-checkpoints'
+        assert isinstance(call_kwargs['object_store'], S3ObjectStore)
+        assert call_kwargs['object_store'].bucket == 'my-bucket'
+
+    @pytest.mark.parametrize('load_path', [
+        'sftp://my-bucket/my-run-name/my-checkpoints', 'wandb://my-bucket/my-run-name/my-checkpoints',
+        'gcs://my-bucket/my-run-name/my-checkpoints'
+    ])
+    def test_other_backends_error(self, load_path: str, monkeypatch: MonkeyPatch):
+        mock_validate_credentials = MagicMock()
+        monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
+        with pytest.raises(NotImplementedError):
+            self.get_trainer(load_path=load_path)
 
     @device('cpu', 'gpu')
     @pytest.mark.parametrize('load_weights_only', [True, False])
@@ -231,7 +378,7 @@ class TestCheckpointLoading:
         pytest.importorskip('libcloud')
 
         trainer_1 = self.get_trainer(
-            save_folder='first',
+            save_folder='{run_name}/checkpoints',
             loggers=[self.get_logger(tmp_path)],
             run_name='electric-zebra',
         )
@@ -241,7 +388,7 @@ class TestCheckpointLoading:
         trainer_2 = self.get_trainer(
             loggers=[self.get_logger(tmp_path)],
             run_name='electric-zebra',
-            load_path='electric-zebra/checkpoints/latest-rank0',
+            load_path='electric-zebra/checkpoints/latest-rank0.pt',
             load_object_store=self.get_logger(tmp_path),
         )
 
@@ -251,16 +398,12 @@ class TestCheckpointLoading:
             trainer_2.state.model,
         )
 
+    @world_size(1, 2)
     @device('cpu', 'gpu')
     @pytest.mark.parametrize('use_object_store', [True, False])
     @pytest.mark.parametrize('delete_local', [True, False])
-    def test_autoresume(
-        self,
-        device: str,
-        tmp_path: pathlib.Path,
-        use_object_store: bool,
-        delete_local: bool,
-    ):
+    def test_autoresume(self, device: str, tmp_path: pathlib.Path, use_object_store: bool, delete_local: bool,
+                        world_size: int):
         if delete_local and not use_object_store:
             pytest.skip('Invalid test setting.')
 
@@ -350,25 +493,30 @@ class TestCheckpointLoading:
         )
         trainer_3.fit(duration='1ba')
 
-    def test_surgery_resumption(self, tmp_path: pathlib.Path):
+    def test_autoload_algorithm_old_checkpoint(self):
         trainer_1 = self.get_trainer(
-            algorithms=[SqueezeExcite(latent_channels=64, min_channels=3)],
-            save_folder=os.path.join(tmp_path, 'first'),
+            save_folder='first',
+            algorithms=[NoOpModel()],
         )
         trainer_1.fit()
         trainer_1.close()
 
-        # ValueError is raised without surgery
-        resume_file = os.path.join(tmp_path, 'first', 'ep1.pt')
-        with pytest.raises(ValueError) as e:
-            self.get_trainer(load_path=resume_file)
-        assert 'The following surgery algorithms' in str(e)
-
-        # Loads fine with surgery
-        self.get_trainer(
-            algorithms=[SqueezeExcite(latent_channels=64, min_channels=3)],
-            load_path=resume_file,
+        trainer_2 = self.get_trainer(
+            load_path=os.path.join('first', 'ep1.pt'),
+            algorithms=[NoOpModel()],
         )
+        trainer_2.fit(duration='1ba')
+
+        # Monkeypatch algorithm to have different signature
+        old_init, old_repr = NoOpModel.__init__, NoOpModel.__repr__
+        NoOpModel.__init__ = lambda self, x: None  # type: ignore
+        NoOpModel.__repr__ = lambda self: 'NoOpModel(3)'
+        with pytest.warns(UserWarning, match='required_on_load algorithm.*'), pytest.raises(
+                ValueError, match='loaded state dict contains a parameter group.*'):
+            trainer_3 = self.get_trainer(load_path=os.path.join('first', 'ep1.pt'),)
+            trainer_3.fit(duration='1ba')
+        # Restore algorithm
+        NoOpModel.__init__, NoOpModel.__repr__ = old_init, old_repr
 
 
 class TestCheckpointResumption:
@@ -377,19 +525,23 @@ class TestCheckpointResumption:
         model = SimpleConvModel()
         optimizer = torch.optim.Adam(model.parameters())
 
+        train_dataset = RandomImageDataset()
+        eval_dataset = RandomImageDataset(size=10)
+        train_batch_size = 2
+
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
-                dataset=RandomImageDataset(),
-                batch_size=8,
-                shuffle=False,
+                dataset=train_dataset,
+                batch_size=train_batch_size,
+                sampler=dist.get_sampler(train_dataset),
             ),
             eval_dataloader=DataLoader(
-                dataset=RandomImageDataset(),
+                dataset=eval_dataset,
                 batch_size=16,
-                shuffle=False,
+                sampler=dist.get_sampler(eval_dataset),
             ),
-            grad_accum=2,
+            device_train_microbatch_size=train_batch_size // 2,
             precision='fp32',
             train_subset_num_batches=5,
             max_duration='2ep',
@@ -574,14 +726,18 @@ def test_rotate_checkpoints(
     tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
     save_folder = tmp_paths[0]
 
+    deepseed_config = None
     if deepspeed_enabled:
         deepseed_config = {'zero_optimization': {'stage': zero_stage}}
-    else:
-        deepseed_config = None
+
+    train_dataset = RandomImageDataset()
 
     trainer = Trainer(
         model=SimpleConvModel(),
-        train_dataloader=DataLoader(dataset=RandomImageDataset()),
+        train_dataloader=DataLoader(
+            dataset=train_dataset,
+            sampler=dist.get_sampler(train_dataset),
+        ),
         save_folder=str(save_folder),
         save_filename='checkpoint_{rank}_{batch}.pt',
         save_interval='1ba',

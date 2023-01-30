@@ -13,17 +13,17 @@ import queue
 import tempfile
 import textwrap
 import time
-from typing import Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
-from composer.core.state import State
-from composer.core.time import Timestamp
 from composer.loggers import Logger
 from composer.profiler.json_trace_merger import merge_traces
 from composer.profiler.profiler_action import ProfilerAction
 from composer.profiler.trace_handler import TraceHandler
-from composer.utils import dist, ensure_folder_is_empty
-from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
-                                         format_name_with_dist, format_name_with_dist_and_time)
+from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, dist,
+                            ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time)
+
+if TYPE_CHECKING:
+    from composer.core import State, Timestamp
 
 __all__ = ['JSONTraceHandler']
 

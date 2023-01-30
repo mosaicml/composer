@@ -6,8 +6,8 @@ from typing import Callable, Optional, Sequence, Tuple
 import torch
 
 from composer.core import Callback, State, TimeUnit
+from composer.devices import Device
 from composer.loggers import Logger
-from composer.trainer.devices.device import Device
 
 
 class MetricSetterCallback(Callback):
@@ -52,6 +52,10 @@ class MetricSetterCallback(Callback):
         raw_metric = self.metric_cls()
         preds, targets = self._generate_dummy_metric_inputs(metric_val)
         raw_metric.update(preds=preds, target=targets)
+
+        # assert for pyright error: "module_to_device" is not a known member of "None"
+        assert self.device is not None
+        self.device.module_to_device(raw_metric)
         if self.dataloader_label == 'train':
             state.train_metrics[self.monitor] = raw_metric
         else:

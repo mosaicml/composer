@@ -115,7 +115,7 @@
       indexName: "mosaicml",
       container: '#algoliasearch',
       searchParameters: {
-        filters: `version:${siteVersion}`,
+        filters: `(version:${siteVersion} AND projects:composer)`,
         attributesToRetrieve: ['*']
       },
       transformItems(items) {

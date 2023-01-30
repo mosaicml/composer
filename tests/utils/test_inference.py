@@ -15,6 +15,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from composer.core import State
+from composer.devices import DeviceCPU, DeviceGPU
 from composer.functional import apply_gated_linear_units
 from composer.loggers import InMemoryLogger, Logger
 from composer.loggers.logger_destination import LoggerDestination
@@ -22,6 +23,8 @@ from composer.models import composer_resnet
 from composer.trainer.dist_strategy import prepare_ddp_module
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, export_with_logger, inference
+from composer.utils.device import get_device
+from tests.common import device
 from tests.common.datasets import RandomImageDataset
 
 
@@ -63,7 +66,7 @@ def test_export_for_inference_torchscript(model_cls, sample_input):
         )
 
 
-def test_huggingface_export_for_inference_onnx():
+def test_huggingface_export_for_inference_onnx(tiny_bert_config):
     pytest.importorskip('onnx')
     pytest.importorskip('onnxruntime')
     pytest.importorskip('transformers')
@@ -104,9 +107,11 @@ def test_huggingface_export_for_inference_onnx():
             1: 'seq_len'
         },
     }
-    # non pretrained model to avoid a slow test that downloads the weights.
-    config = transformers.AutoConfig.from_pretrained('bert-base-uncased', num_labels=2, hidden_act='gelu_new')
-    hf_model = transformers.AutoModelForSequenceClassification.from_config(config)  # type: ignore (thirdparty)
+
+    tiny_bert_config.num_labels = 2
+    tiny_bert_config.hidden_act = 'gelu_new'
+    hf_model = transformers.AutoModelForSequenceClassification.from_config(
+        tiny_bert_config)  # type: ignore (thirdparty)
 
     model = HuggingFaceModel(hf_model)
 
@@ -238,13 +243,14 @@ def test_gpu_huggingface_export_for_inference_onnx():
         )
 
 
+@device('cpu', 'gpu')
 @pytest.mark.parametrize(
     'model_cls, sample_input',
     [
         (partial(composer_resnet, 'resnet18'), (torch.rand(4, 3, 224, 224), torch.randint(10, (4,)))),
     ],
 )
-def test_export_for_inference_onnx(model_cls, sample_input):
+def test_export_for_inference_onnx(model_cls, sample_input, device):
     pytest.importorskip('onnx')
     pytest.importorskip('onnxruntime')
     import onnx
@@ -254,6 +260,11 @@ def test_export_for_inference_onnx(model_cls, sample_input):
     model = model_cls()
     model.eval()
 
+    composer_device = get_device(device)
+    cpu_device = get_device('cpu')
+    sample_input = (composer_device.tensor_to_device(sample_input[0]),
+                    composer_device.tensor_to_device(sample_input[1]))
+    composer_device.module_to_device(model)
     orig_out = model(sample_input)
 
     save_format = 'onnx'
@@ -271,15 +282,15 @@ def test_export_for_inference_onnx(model_cls, sample_input):
         ort_session = ort.InferenceSession(save_path)
         loaded_model_out = ort_session.run(
             None,
-            {'input': sample_input[0].numpy()},
+            {'input': cpu_device.tensor_to_device(sample_input[0]).numpy()},
         )
 
         torch.testing.assert_close(
-            orig_out.detach().numpy(),
+            cpu_device.tensor_to_device(orig_out.detach()).numpy(),
             loaded_model_out[0],
-            rtol=1e-4,  # lower tolerance for ONNX
-            atol=1e-3,  # lower tolerance for ONNX
-            msg=f'output mismatch with {save_format}',
+            rtol=1e-4 if isinstance(composer_device, DeviceCPU) else 1e-3,  # lower tolerance for ONNX
+            atol=1e-3 if isinstance(composer_device, DeviceCPU) else 1e-2,  # lower tolerance for ONNX
+            msg=lambda msg: f'output mismatch with {save_format}\n\nOriginal message: {msg}',
         )
 
 
@@ -290,7 +301,7 @@ def test_export_for_inference_onnx(model_cls, sample_input):
     ],
 )
 @pytest.mark.world_size(2)
-def test_export_for_inference_onnx_ddp(model_cls, sample_input):
+def test_export_for_inference_onnx_ddp(model_cls, sample_input, request: pytest.FixtureRequest):
     pytest.importorskip('onnx')
     pytest.importorskip('onnxruntime')
     import onnx
@@ -298,12 +309,17 @@ def test_export_for_inference_onnx_ddp(model_cls, sample_input):
     import onnxruntime as ort
 
     model = model_cls()
-
     optimizer = torch.optim.SGD(model.parameters(), 0.1)
+    device = None
+    for item in request.session.items:
+        device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
+        break
+    assert device != None
 
     state = State(
         model=model,
         rank_zero_seed=0,
+        device=device,
         run_name='run_name',
         optimizers=optimizer,
         grad_accum=2,
@@ -354,14 +370,19 @@ def test_export_for_inference_onnx_ddp(model_cls, sample_input):
     ],
 )
 @pytest.mark.world_size(2)
-def test_export_for_inference_torchscript_ddp(model_cls, sample_input):
+def test_export_for_inference_torchscript_ddp(model_cls, sample_input, request: pytest.FixtureRequest):
     model = model_cls()
-
     optimizer = torch.optim.SGD(model.parameters(), 0.1)
+    device = None
+    for item in request.session.items:
+        device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
+        break
+    assert device != None
 
     state = State(
         model=model,
         rank_zero_seed=0,
+        device=device,
         run_name='run_name',
         optimizers=optimizer,
         grad_accum=2,

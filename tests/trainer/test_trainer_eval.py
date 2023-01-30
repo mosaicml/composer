@@ -1,24 +1,30 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Callable, Union
+import contextlib
+from typing import Callable, Optional, Union
 
 import pytest
 from torch.utils.data import DataLoader
 from torchmetrics import Accuracy
 
-from composer.core import Event
+from composer.core import Algorithm, Event
 from composer.core.evaluator import Evaluator, evaluate_periodically
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
 from composer.trainer import Trainer
+from composer.utils import dist
 from tests.common import EventCounterCallback, RandomClassificationDataset, SimpleModel
 
 
 def test_eval():
     # Construct the trainer
+    dataset = RandomClassificationDataset()
     trainer = Trainer(
-        eval_dataloader=DataLoader(dataset=RandomClassificationDataset()),
+        eval_dataloader=DataLoader(
+            dataset=dataset,
+            sampler=dist.get_sampler(dataset),
+        ),
         model=SimpleModel(),
     )
 
@@ -34,30 +40,14 @@ def test_eval_call():
     trainer = Trainer(model=SimpleModel(),)
 
     # Evaluate the model
-    trainer.eval(eval_dataloader=DataLoader(dataset=RandomClassificationDataset()))
+    dataset = RandomClassificationDataset()
+    trainer.eval(eval_dataloader=DataLoader(
+        dataset=dataset,
+        sampler=dist.get_sampler(dataset),
+    ))
 
     # Assert that there is some accuracy
     assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
-
-
-def test_eval_deprecation_error():
-    # Construct the trainer
-    trainer = Trainer(model=SimpleModel(),)
-
-    with pytest.raises(ValueError):
-        trainer.eval(
-            dataloader=DataLoader(dataset=RandomClassificationDataset()),
-            dataloader_label='test',
-            metrics=Accuracy(),
-        )
-
-
-def test_eval_type_error():
-    # Construct the trainer
-    trainer = Trainer(model=SimpleModel(),)
-
-    with pytest.raises(TypeError):
-        trainer.eval(unknown_kwarg=None,)
 
 
 def test_trainer_eval_loop():
@@ -65,7 +55,11 @@ def test_trainer_eval_loop():
     trainer = Trainer(model=SimpleModel())
 
     # Evaluate the model
-    eval_dataloader = DataLoader(dataset=RandomClassificationDataset())
+    dataset = RandomClassificationDataset()
+    eval_dataloader = DataLoader(
+        dataset=dataset,
+        sampler=dist.get_sampler(dataset),
+    )
     trainer._eval_loop(
         dataloader=eval_dataloader,
         dataloader_label='eval',
@@ -85,7 +79,11 @@ def test_trainer_eval_subset_num_batches():
     )
 
     # Evaluate the model
-    eval_dataloader = DataLoader(dataset=RandomClassificationDataset())
+    dataset = RandomClassificationDataset()
+    eval_dataloader = DataLoader(
+        dataset=dataset,
+        sampler=dist.get_sampler(dataset),
+    )
     trainer.eval(
         eval_dataloader=eval_dataloader,
         subset_num_batches=1,
@@ -106,7 +104,11 @@ def test_trainer_eval_timestamp():
     )
 
     # Evaluate the model
-    eval_dataloader = DataLoader(dataset=RandomClassificationDataset())
+    dataset = RandomClassificationDataset()
+    eval_dataloader = DataLoader(
+        dataset=dataset,
+        sampler=dist.get_sampler(dataset),
+    )
     trainer.eval(eval_dataloader=eval_dataloader)
 
     # Ensure that the eval timestamp matches the number of evaluation events
@@ -129,27 +131,36 @@ def test_trainer_eval_timestamp():
                           'expected_eval_batch_start_calls'), [
                               (1, '5ep', True, 4, 4),
                               (Time(2, TimeUnit.EPOCH), '8ep', False, 4, 4),
-                              (Time(100, TimeUnit.BATCH), '8ep', False, 4, 4),
+                              (Time(10, TimeUnit.BATCH), '8ep', False, 4, 4),
                               (Time(0.25, TimeUnit.DURATION), '4ep', False, 4, 4),
                               ('1ep', '4ep', True, 3, 3),
-                              ('50ba', '4ep', False, 4, 4),
-                              ('50ba', '100ba', False, 2, 2),
+                              ('5ba', '4ep', False, 4, 4),
+                              ('5ba', '10ba', False, 2, 2),
                               ('0.35dur', '4ep', True, 2, 2),
-                              ('0.01dur', '1000ba', False, 100, 100),
-                              ('0.10dur', '700sp', True, 9, 9),
-                              ('0.05dur', '700sp', False, 20, 20),
+                              ('0.01dur', '100ba', False, 100, 100),
+                              ('0.10dur', '70sp', True, 9, 9),
+                              ('0.05dur', '80sp', False, 20, 20),
                           ])
 def test_eval_at_fit_end(eval_interval: Union[str, Time, int], max_duration: str, eval_at_fit_end: bool,
                          expected_eval_start_calls: int, expected_eval_batch_start_calls: int):
     """Test the `eval_subset_num_batches` and `eval_interval` works when specified on init."""
 
     # Construct the trainer
-    train_dataloader = DataLoader(dataset=RandomClassificationDataset(), batch_size=2)
+    train_dataset = RandomClassificationDataset(size=10)
+    train_dataloader = DataLoader(
+        dataset=train_dataset,
+        batch_size=2,
+        sampler=dist.get_sampler(train_dataset),
+    )
     event_counter_callback = EventCounterCallback()
     eval_interval = eval_interval
+    eval_dataset = RandomClassificationDataset(size=10)
     evaluator = Evaluator(
         label='eval',
-        dataloader=DataLoader(dataset=RandomClassificationDataset()),
+        dataloader=DataLoader(
+            dataset=eval_dataset,
+            sampler=dist.get_sampler(eval_dataset),
+        ),
         metric_names=['Accuracy'],
     )
 
@@ -180,11 +191,16 @@ def test_eval_at_fit_end(eval_interval: Union[str, Time, int], max_duration: str
         assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == expected_eval_batch_start_calls
 
 
+def _get_classification_dataloader():
+    dataset = RandomClassificationDataset()
+    return DataLoader(dataset, sampler=dist.get_sampler(dataset))
+
+
 @pytest.mark.parametrize('eval_dataloader', [
-    DataLoader(dataset=RandomClassificationDataset()),
+    _get_classification_dataloader(),
     Evaluator(
         label='eval',
-        dataloader=DataLoader(dataset=RandomClassificationDataset()),
+        dataloader=_get_classification_dataloader(),
         metric_names=['Accuracy'],
     ),
 ])
@@ -203,7 +219,8 @@ def test_eval_params_init(
     """Test the `eval_subset_num_batches` and `eval_interval` works when specified on init."""
 
     # Construct the trainer
-    train_dataloader = DataLoader(dataset=RandomClassificationDataset())
+    train_dataset = RandomClassificationDataset()
+    train_dataloader = DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset))
     event_counter_callback = EventCounterCallback()
     trainer = Trainer(
         model=SimpleModel(),
@@ -226,12 +243,17 @@ def test_eval_params_init(
 def test_eval_params_evaluator():
     """Test the `eval_subset_num_batches` and `eval_interval` works when specified as part of an evaluator."""
     # Construct the trainer
-    train_dataloader = DataLoader(dataset=RandomClassificationDataset())
+    train_dataset = RandomClassificationDataset()
+    train_dataloader = DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset))
     eval_interval_batches = 1
     eval_subset_num_batches = 2
+    eval_dataset = RandomClassificationDataset()
     eval_dataloader = Evaluator(
         label='eval',
-        dataloader=DataLoader(dataset=RandomClassificationDataset()),
+        dataloader=DataLoader(
+            dataset=eval_dataset,
+            sampler=dist.get_sampler(eval_dataset),
+        ),
         metric_names=['Accuracy'],
         eval_interval=f'{eval_interval_batches}ba',
         subset_num_batches=eval_subset_num_batches,
@@ -256,3 +278,74 @@ def test_eval_params_evaluator():
     assert event_counter_callback.event_to_num_calls[Event.EVAL_START] == trainer.state.timestamp.batch
     assert event_counter_callback.event_to_num_calls[
         Event.EVAL_BATCH_START] == eval_subset_num_batches * trainer.state.timestamp.batch
+
+
+class InfiniteDataloader(DataLoader):
+    """Infinite dataloader that never raises StopIteration."""
+
+    def __iter__(self):
+        while True:
+            for batch in super().__iter__():
+                yield batch
+
+    def __len__(self) -> Optional[int]:
+        return None
+
+
+@pytest.mark.parametrize('eval_subset_num_batches,success', [[None, False], [-1, False], [1, True]])
+def test_infinite_eval_dataloader(eval_subset_num_batches, success):
+    """Test the `eval_subset_num_batches` is required with infinite dataloader."""
+    # Construct the trainer
+    train_dataset = RandomClassificationDataset()
+    train_dataloader = DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset))
+    eval_dataset = RandomClassificationDataset()
+    eval_dataloader = InfiniteDataloader(eval_dataset, sampler=dist.get_sampler(eval_dataset))
+
+    with contextlib.nullcontext() if success else pytest.raises(ValueError):
+        Trainer(
+            model=SimpleModel(),
+            train_dataloader=train_dataloader,
+            eval_dataloader=eval_dataloader,
+            max_duration='1ep',
+            eval_subset_num_batches=eval_subset_num_batches,
+        )
+
+
+class BreakBatchAlgorithm(Algorithm):
+
+    def __init__(self):
+        super().__init__()
+
+    def match(self, event, state):
+        return event == Event.EVAL_BEFORE_FORWARD
+
+    def apply(self, event, state, logger):
+        del event, logger  # unused
+        state.batch = None
+
+
+@pytest.mark.parametrize('add_algorithm', [True, False])
+def test_eval_batch_can_be_modified(add_algorithm: bool):
+    train_dataset = RandomClassificationDataset(size=8)
+    train_dataloader = DataLoader(train_dataset, batch_size=4, sampler=dist.get_sampler(train_dataset))
+    eval_dataset = RandomClassificationDataset(size=8)
+    eval_dataloader = DataLoader(eval_dataset, batch_size=4, sampler=dist.get_sampler(eval_dataset))
+
+    with contextlib.nullcontext() if not add_algorithm else pytest.raises(TypeError):
+        trainer = Trainer(model=SimpleModel(),
+                          train_dataloader=train_dataloader,
+                          eval_dataloader=eval_dataloader,
+                          max_duration='1ep',
+                          algorithms=[BreakBatchAlgorithm()] if add_algorithm else [])
+        trainer.eval()
+
+
+@pytest.mark.parametrize('metric_names', ['Accuracy', ['Accuracy']])
+def test_evaluator_metric_names_string_errors(metric_names):
+    eval_dataset = RandomClassificationDataset(size=8)
+    eval_dataloader = DataLoader(eval_dataset, batch_size=4, sampler=dist.get_sampler(eval_dataset))
+
+    context = contextlib.nullcontext() if isinstance(metric_names, list) else pytest.raises(
+        ValueError, match='should be a list of strings')
+    with context:
+        _ = Evaluator(label='evaluator', dataloader=eval_dataloader, metric_names=metric_names)

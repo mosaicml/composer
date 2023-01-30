@@ -18,9 +18,9 @@ import composer.algorithms
 from composer import Algorithm
 from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
                                  Factorize, FusedLayerNorm, GatedLinearUnits, GhostBatchNorm, GradientClipping,
-                                 LabelSmoothing, LayerFreezing, MixUp, NoOpModel, ProgressiveResizing, RandAugment,
-                                 SelectiveBackprop, SeqLengthWarmup, SqueezeExcite, StochasticDepth,
-                                 WeightStandardization)
+                                 GyroDropout, LabelSmoothing, LayerFreezing, LowPrecisionLayerNorm, MixUp, NoOpModel,
+                                 ProgressiveResizing, RandAugment, SelectiveBackprop, SeqLengthWarmup, SqueezeExcite,
+                                 StochasticDepth, WeightStandardization)
 from composer.models import composer_resnet
 from composer.models.base import ComposerModel
 from tests import common
@@ -73,7 +73,13 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
             'clipping_threshold': 0.1
         },
     },
-    Alibi: None,  # NLP settings needed
+    Alibi: {
+        'model': make_synthetic_bert_model,
+        'dataloader': make_synthetic_bert_dataloader,
+        'kwargs': {
+            'max_sequence_length': 256
+        },
+    },
     AugMix: simple_vision_settings,
     BlurPool: {
         'model': common.SimpleConvModel,
@@ -114,13 +120,22 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     },
     LabelSmoothing: simple_vision_settings,
     LayerFreezing: simple_vision_settings,
+    LowPrecisionLayerNorm: simple_bert_settings,
     MixUp: simple_vision_settings,
     ProgressiveResizing: simple_vision_settings,
     RandAugment: simple_vision_settings,
     NoOpModel: simple_vision_settings,
     SAM: simple_vision_settings,
     SelectiveBackprop: simple_vision_settings,
-    SeqLengthWarmup: None,  # NLP settings needed
+    SeqLengthWarmup: {
+        'model': make_synthetic_bert_model,
+        'dataloader': make_synthetic_bert_dataloader,
+        'kwargs': {
+            'duration': 0.5,
+            'min_seq_length': 8,
+            'max_seq_length': 16
+        },
+    },
     SqueezeExcite: simple_resnet_settings,
     StochasticDepth: {
         'model': (composer_resnet, {
@@ -149,6 +164,17 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
         }
     },
     WeightStandardization: simple_vision_settings,
+    GyroDropout: {
+        'model': common.SimpleModelWithDropout,
+        'dataloader': (DataLoader, {
+            'dataset': common.SimpleDataset(batch_size=2, feature_size=64, num_classes=10)
+        }),
+        'kwargs': {
+            'p': 0.5,
+            'sigma': 2,
+            'tau': 1
+        }
+    },
 }
 
 
@@ -193,7 +219,7 @@ def get_alg_dataloader(alg_cls: Type[Algorithm]) -> DataLoader:
 
     dataloader = cls(**kwargs)
     if isinstance(dataloader, Dataset):
-        dataloader = DataLoader(dataset=dataloader, batch_size=4)
+        dataloader = DataLoader(dataset=dataloader, batch_size=2)
     return dataloader
 
 

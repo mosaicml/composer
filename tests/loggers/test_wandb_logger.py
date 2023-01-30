@@ -2,10 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import contextlib
+import imghdr
 import json
+import os
 import pathlib
+import pickle
 import uuid
-from typing import Type
+from pathlib import Path
+from typing import Sequence, Type
 
 import pytest
 import torch
@@ -21,6 +25,192 @@ from composer.trainer import Trainer
 from composer.utils import dist, retry
 from tests.callbacks.callback_settings import get_cb_kwargs, get_cbs_and_marks
 from tests.common import RandomClassificationDataset, SimpleModel
+from tests.common.datasets import RandomImageDataset
+from tests.common.models import SimpleConvModel
+
+
+@pytest.fixture
+def test_wandb_logger(tmp_path, dummy_state):
+    pytest.importorskip('wandb', reason='wandb is optional')
+    os.environ['WANDB_DIR'] = str(tmp_path)
+    os.environ['WANDB_MODE'] = 'offline'
+    dummy_state.run_name = 'wandb-test-log-image'
+    logger = Logger(dummy_state, [])
+    wandb_logger = WandBLogger()
+    wandb_logger.init(dummy_state, logger)
+    return wandb_logger
+
+
+def test_wandb_log_image(test_wandb_logger):
+    pytest.importorskip('wandb', reason='wandb is optional')
+
+    # We group all the image size variants into one test because calling wandb.init() is slow
+    image_variants = [
+        (torch.rand(4, 4), False),  # 2D image
+        (torch.rand(2, 3, 4, 4), False),  # multiple images, not channels last
+        (torch.rand(3, 4, 4), False),  # with channels, not channels last
+        ([torch.rand(4, 4, 3)], True),  # with channels, channels last
+        (torch.rand(2, 4, 4, 3), True),  # multiple images, channels last
+        ([torch.rand(4, 4, 3), torch.rand(4, 4, 3)], True)  # multiple images in list
+    ]
+
+    expected_num_images_total = 0
+    for (images, channels_last) in image_variants:
+        if isinstance(images, Sequence):
+            expected_num_images = len(images)
+            np_images = [image.numpy() for image in images]
+
+        else:
+            expected_num_images = 1 if images.ndim < 4 else images.shape[0]
+            np_images = images.numpy()
+        test_wandb_logger.log_images(images=images, channels_last=channels_last)
+        test_wandb_logger.log_images(images=np_images, channels_last=channels_last)
+        expected_num_images *= 2  # One set of torch tensors, one set of numpy arrays
+        expected_num_images_total += expected_num_images
+
+    test_wandb_logger.post_close()
+    img_dir = str(Path(test_wandb_logger.run_dir) / Path('media/images'))
+    imgs = [filename for filename in os.listdir(img_dir) if imghdr.what(img_dir + '/' + filename) == 'png']
+    actual_num_images = len(imgs)
+    assert actual_num_images == expected_num_images_total
+
+
+@pytest.mark.parametrize(
+    'images,channels_last',
+    [
+        (torch.rand(32), False),
+        (torch.rand(32, 0), False),  # Has zero in dimension.
+        (torch.rand(4, 4, 8, 32, 32), False),  # > 4 dim.
+        ([torch.rand(4, 32, 32, 3)], True),
+    ])  # sequence > 3 dim.
+def test_wandb_ml_log_image_errors_out(test_wandb_logger, images, channels_last):
+    pytest.importorskip('wandb', reason='wandb is optional')
+    with pytest.raises(ValueError):
+        test_wandb_logger.log_images(images, channels_last=channels_last)
+
+
+def test_wandb_log_image_with_masks(test_wandb_logger):
+    pytest.importorskip('wandb', reason='wandb is optional')
+
+    # We group all the image size variants into one test because calling comet_experiment.end() is slow
+    image_variants = [
+        # single image, single mask, channels last
+        (torch.randint(0, 256, (4, 4, 3)), {
+            'pred': torch.randint(0, 10, (4, 4))
+        }, True),
+        # multiple images, single mask, channels last
+        (torch.rand(2, 4, 4, 3), {
+            'pred': torch.randint(0, 10, (2, 4, 4))
+        }, True),
+        # multiple images, multiple masks, channels last
+        (torch.rand(2, 4, 4, 3), {
+            'pred': torch.randint(0, 10, (2, 4, 4)),
+            'pred2': torch.randint(0, 10, (2, 4, 4))
+        }, True),
+        # single image, single mask, not channels last
+        (torch.randint(0, 256, (3, 4, 4)), {
+            'pred': torch.randint(0, 10, (4, 4))
+        }, False),
+        # multiple images, single mask, not channels last
+        (torch.rand(2, 3, 4, 4), {
+            'pred': torch.randint(0, 10, (2, 4, 4))
+        }, False),
+        # multiple images, multiple masks, not channels last
+        (torch.rand(2, 3, 4, 4), {
+            'pred': torch.randint(0, 10, (2, 4, 4)),
+            'pred2': torch.randint(0, 10, (2, 4, 4))
+        }, False)
+    ]
+
+    expected_num_masks_total = 0
+    expected_num_images_total = 0
+    for (images, masks, channels_last) in image_variants:
+        num_masks = len(masks.keys())
+        expected_num_images = 1 if images.ndim < 4 else images.shape[0]
+        expected_num_masks = num_masks * expected_num_images
+
+        test_wandb_logger.log_images(images=images, masks=masks, channels_last=channels_last)
+        expected_num_images_total += expected_num_images
+        expected_num_masks_total += expected_num_masks
+
+    test_wandb_logger.post_close()
+    img_dir = str(Path(test_wandb_logger.run_dir) / Path('media/images'))
+    imgs = [
+        filename for filename in os.listdir(img_dir)
+        if not os.path.isdir(img_dir + '/' + filename) and imghdr.what(img_dir + '/' + filename) == 'png'
+    ]
+    actual_num_images = len(imgs)
+    assert actual_num_images == expected_num_images_total
+
+    mask_dir = str(Path(test_wandb_logger.run_dir) / Path('media/images/mask'))
+    masks = [filename for filename in os.listdir(mask_dir) if imghdr.what(mask_dir + '/' + filename) == 'png']
+    actual_num_masks = len(masks)
+    assert actual_num_masks == expected_num_masks_total
+
+
+@pytest.mark.parametrize('images,masks', [(torch.randint(0, 256, (32, 32, 3)), {
+    'pred': torch.randint(0, 10, (32, 32))
+})])
+def test_wandb_log_image_with_masks_and_table(images, masks, test_wandb_logger):
+    wandb = pytest.importorskip('wandb', reason='wandb is optional')
+
+    expected_num_images = 1 if images.ndim < 4 else images.shape[0]
+
+    assert wandb.run is not None
+    wandb_run_dir = Path(wandb.run.dir)
+    test_wandb_logger.log_images(images=images, masks=masks, channels_last=True, use_table=True)
+    test_wandb_logger.post_close()
+
+    wandb_media_dir = wandb_run_dir.parent / Path('files') / Path('media') / Path('table')
+    image_table_files = wandb_media_dir.glob('./*.json')
+
+    image_count = 0
+    for image_table_file in image_table_files:
+        table_columns = json.load(open(image_table_file.absolute()))['data']
+        num_images = sum([1 for column in table_columns if column[0] == 'Image'])
+        image_count += num_images
+
+    assert image_count == expected_num_images
+
+
+def test_wandb_log_metrics(test_wandb_logger):
+    wandb = pytest.importorskip('wandb', reason='wandb is optional')
+
+    dataset_size = 40
+    batch_size = 4
+
+    trainer = Trainer(model=SimpleConvModel(),
+                      loggers=test_wandb_logger,
+                      train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
+                      eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
+                      max_duration='1ep')
+
+    trainer.fit()
+
+    wandb_run_dir = Path(wandb.run.dir)
+    run_file = wandb_run_dir.parent / Path(f'run-{wandb.run.id}.wandb')
+
+    # delete trainer to force WandBLogger to clean up in post_close
+    del trainer
+
+    # Note, it is not clear how to correctly load this file, so we are just loading it as text
+    # and searching the text for expected strings
+    with open(run_file, encoding='latin-1') as _wandb_file:
+        all_run_text = _wandb_file.read()
+
+    train_metrics_accuracy_count = all_run_text.count('metrics/train/Accuracy')
+    eval_metrics_accuracy_count = all_run_text.count('metrics/eval/Accuracy')
+    eval_metrics_cross_entropy_count = all_run_text.count('metrics/eval/CrossEntropy')
+    train_loss_count = all_run_text.count('loss/train/total')
+
+    expected_number_train_loss_count = (dataset_size / batch_size) + 1  # wandb includes it in the file one extra time
+    expected_number_train_metrics_count = (dataset_size /
+                                           batch_size) + 2  # wandb includes it in the file two extra times
+    expected_number_eval_metrics_count = 2  # wandb includes it in the file twice
+    assert train_metrics_accuracy_count == expected_number_train_metrics_count
+    assert train_loss_count == expected_number_train_loss_count
+    assert eval_metrics_accuracy_count == expected_number_eval_metrics_count
+    assert eval_metrics_cross_entropy_count == expected_number_eval_metrics_count
 
 
 @pytest.mark.parametrize('callback_cls', get_cbs_and_marks(callbacks=True))
@@ -48,6 +238,28 @@ def test_logged_data_is_json_serializable(callback_cls: Type[Callback]):
             if isinstance(data, (WBValue, torch.Tensor)):
                 continue
             json.dumps(data)
+
+
+def test_wandb_is_pickleable_when_disabled(dummy_state: State):
+    pytest.importorskip('wandb', reason='wandb is optional')
+    original_wandb_mode = os.environ.get('WANDB_MODE', None)
+    os.environ['WANDB_MODE'] = 'disabled'
+    wandb_logger = WandBLogger()
+
+    # Need to initialize WandbLogger before calling .state_dict()
+    dummy_state.callbacks.append(wandb_logger)
+    logger = Logger(dummy_state, [wandb_logger])
+    engine = Engine(dummy_state, logger)
+    engine.run_event(Event.INIT)
+
+    # Just make sure this doesn't crash due to wandb.sdk.lib.disabled.RunDisabled not being pickleable
+    pickle.loads(pickle.dumps(wandb_logger.state_dict()))
+
+    # reset wandb mode
+    if original_wandb_mode is None:
+        del os.environ['WANDB_MODE']
+    else:
+        os.environ['WANDB_MODE'] = original_wandb_mode
 
 
 @pytest.mark.world_size(2)

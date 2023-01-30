@@ -93,6 +93,9 @@ class S3ObjectStore(ObjectStore):
         if client_config is None:
             client_config = {}
         config = Config(**client_config)
+        if 'S3_ENDPOINT_URL' in os.environ and endpoint_url is None:
+            endpoint_url = os.environ['S3_ENDPOINT_URL']
+
         self.client = boto3.Session().client(
             's3',
             config=config,
@@ -141,7 +144,7 @@ class S3ObjectStore(ObjectStore):
         callback: Optional[Callable[[int, int], None]] = None,
     ):
         if os.path.exists(filename) and not overwrite:
-            raise FileExistsError(f'The file at {filename} already exists')
+            raise FileExistsError(f'The file at {filename} already exists and overwrite is set to False.')
         tmp_path = str(filename) + f'.{uuid.uuid4()}.tmp'
         if callback is None:
             cb_wrapper = None

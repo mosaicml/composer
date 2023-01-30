@@ -16,8 +16,7 @@ import torch
 import torch.utils.data
 import torchvision
 
-from composer.utils import dist
-from composer.utils.import_helpers import MissingConditionalImportError
+from composer.utils import MissingConditionalImportError, dist
 
 PATCH_SIZE = [1, 192, 160]
 
@@ -25,7 +24,7 @@ __all__ = ['PytTrain', 'PytVal']
 
 
 def build_brats_dataloader(datadir: str,
-                           batch_size: int,
+                           global_batch_size: int,
                            oversampling: float = 0.33,
                            is_train: bool = True,
                            drop_last: bool = True,
@@ -34,8 +33,13 @@ def build_brats_dataloader(datadir: str,
     """Builds a BRaTS dataloader
 
     Args:
+        global_batch_size (int): Global batch size.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    if global_batch_size % dist.get_world_size() != 0:
+        raise ValueError(
+            f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
+    batch_size = global_batch_size // dist.get_world_size()
     x_train, y_train, x_val, y_val = get_data_split(datadir)
     dataset = PytTrain(x_train, y_train, oversampling) if is_train else PytVal(x_val, y_val)
     collate_fn = None if is_train else _my_collate

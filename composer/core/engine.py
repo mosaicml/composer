@@ -26,12 +26,14 @@ These orderings are enforced by algorithm passes. The default passes registered 
     def run_last(algorithms: Sequence[Algorithm], event: Event) -> Sequence[Algorithm]:
         algorithms = sorted(algorithms, key=lambda x: isinstance(x, MyAlgorithm))
 
-    Engine.register_pass(run_last)
+    engine = Engine(algorithm_passes=run_last)
 
 .. note::
 
     * An instance of :class:`.Engine` is automatically constructed by the :class:`.Trainer`
-      constructor. A user need not instantiate the :class:`.Engine` class.
+      constructor. A user need not instantiate the :class:`.Engine` class. Instead, they should
+      specify algorithm_passes to the :class:`.Trainer` constructor, which will be passed to the
+      :class:`.Engine` constructor.
 
 .. note::
     * The design of :class:`.Engine` is subject to change in future releases
@@ -67,18 +69,20 @@ import atexit
 import contextlib
 import logging
 import os
+import textwrap
 import weakref
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import ContextManager, Dict, List, Optional, Sequence, TypeVar, Union, cast
+from typing import Callable, ContextManager, Dict, List, Optional, Sequence, Tuple, TypeVar, Union, cast
 
 from composer.core import passes
 from composer.core.algorithm import Algorithm
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.state import State
-from composer.loggers import Logger
+from composer.loggers import Logger, LoggerDestination
 from composer.profiler import ProfilerAction
+from composer.utils import ensure_tuple
 
 log = logging.getLogger(__name__)
 
@@ -114,6 +118,7 @@ def _get_default_passes():
     return [
         passes.sort_selective_backprop_first,
         passes.sort_fused_layernorm_last,
+        passes.sort_low_precision_layernorm_last,
         passes.set_filo_order,
         passes.warn_if_multiple_loss_interpolation,
     ]
@@ -159,14 +164,41 @@ class Engine():
         state (State): The initial :class:`.State` of the trainer. ``state`` will be modified in-place.
         logger (Logger): A :class:`.Logger` instance to be used for logging algorithm and callback
             specific metrics.
+        algorithm_passes ([AlgorithmPass | Tuple[AlgorithmPass, int] | Sequence[AlgorithmPass | Tuple[AlgorithmPass, int]], optional):
+            Optional list of passes to change order in which algorithms are applied. These passes are merged with the
+            default passes specified in :class:`.Engine`. If ``None``, then no additional passes will be used.
     """
 
-    def __init__(self, state: State, logger: Logger):
+    def __init__(
+        self,
+        state: State,
+        logger: Logger,
+        algorithm_passes: Optional[Union[passes.AlgorithmPass, Tuple[passes.AlgorithmPass, int],
+                                         Sequence[Union[passes.AlgorithmPass, Tuple[passes.AlgorithmPass,
+                                                                                    int]]]]] = None,
+    ):
         self.logger = logger
         self.state = state
         self._is_closed = False
 
         self.algorithm_passes: List[passes.AlgorithmPass] = _get_default_passes()
+        if algorithm_passes is not None:
+            # Wrap in list if not already a list or if it's a length 2 list specifying a single
+            # call to register_pass with type [AlgorithmPass, int]
+            if not isinstance(algorithm_passes, list) or (len(algorithm_passes) == 2 and
+                                                          isinstance(algorithm_passes[1], int)):
+                algorithm_passes = [algorithm_passes]  # type: ignore wrapping list
+            algo_passes = algorithm_passes if isinstance(algorithm_passes, list) else [algorithm_passes]
+            for algo_pass in algo_passes:
+                algo_pass = ensure_tuple(algo_pass)
+                if len(algo_pass) == 1 and isinstance(algo_pass[0], Callable):
+                    self.register_pass(algo_pass[0])
+                elif len(algo_pass) == 2 and isinstance(algo_pass[0], Callable) and isinstance(algo_pass[1], int):
+                    self.register_pass(algo_pass[0], algo_pass[1])
+                else:
+                    raise ValueError(
+                        textwrap.dedent('Received invalid algorithm_pass. Expected either a single AlgorithmPass '
+                                        f'or a tuple of (AlgorithmPass, int), but received {algo_pass}.'))
 
         atexit.register(self._close, state, logger)
 
@@ -234,11 +266,19 @@ class Engine():
             # For the INIT event, run the callbacks first to initialize the loggers
             # For other events, run the algorithms first, so the callbacks have the state
             # after algorithms modify it
-            self._run_callbacks(event)
+            self._check_for_still_open_callbacks()
+
+            # Run loggers first, so they can be initialized before any callbacks that may
+            # use them.
+            self._run_loggers(event)
+            self._run_nonlogger_callbacks(event)
             traces = self._run_algorithms(event)
         else:
             traces = self._run_algorithms(event)
-            self._run_callbacks(event)
+            # Run callbacks first, so any log calls from a callback that are executed lazily
+            # get registered before they are flushed by the logger itself.
+            self._run_nonlogger_callbacks(event)
+            self._run_loggers(event)
 
         if event.is_before_event and duration_marker is not None:
             duration_marker.start()
@@ -299,10 +339,10 @@ class Engine():
     def _assert_dataloader_and_duration_set(state: State, event: Event):
         # correctness checks that dataloader and max duration need to be set for certain events
 
-        if event != Event.INIT:  # datalaoder should be set on all events expect INIT
+        if event != Event.INIT and event != Event.AFTER_LOAD:  # dataloader should be set on all events expect INIT/AFTER_LOAD
             assert state.dataloader is not None, f'The trainer should have set state.dataloader for event {event}.'
 
-        if event != Event.INIT and not event.is_predict and not event.is_eval:
+        if event != Event.INIT and event != Event.AFTER_LOAD and not event.is_predict and not event.is_eval:
             assert state.max_duration is not None, f'The trainer should have set state.max_duration for event {event}.'
 
     def _run_algorithms(
@@ -370,31 +410,37 @@ class Engine():
 
         return algorithms_to_run
 
+    def _check_for_still_open_callbacks(self):
+        # Some callbacks may be open from a previous training run
+        # If so, error and instruct the user that they must call `trainer.close()`
+        # so callbacks can clean up and reset their state properly
+        for cb in self.state.callbacks:
+            # If it's not in the set, then the callback is new, so it's closed by definition
+            if cb in _OPEN_CALLBACKS:
+                raise RuntimeError(
+                    ('Cannot create a new trainer with an open callback or logger from a previous trainer. '
+                     'To fix, call trainer.close() before creating this new trainer to ensure that all '
+                     'callbacks or loggers shut down properly.'))
+            _OPEN_CALLBACKS.add(cb)
+
     def _run_callbacks(
         self,
         event: Union[Event, str],
+        callbacks: Optional[Sequence[Callback]] = None,
     ):
         """Runs a sequence of callbacks by calling the function for an event.
 
         Args:
             event (Event | str): The current :class:`.Event`.
+            callbacks (Callback | Sequence[Callback], optional): The callbacks to run.
+                If None is specified, will use all the callback in state (self.state).
+
         """
         event = Event(event)
 
-        if event == Event.INIT:
-            # Some callbacks may be open from a previous training run
-            # If so, error and instruct the user that they must call `trainer.close()`
-            # so callbacks can clean up and reset their state properly
-            for cb in self.state.callbacks:
-                # If it's not in the set, then the callback is new, so it's closed by definition
-                if cb in _OPEN_CALLBACKS:
-                    raise RuntimeError(
-                        ('Cannot create a new trainer with an open callback or logger from a previous trainer. '
-                         'To fix, call trainer.close() before creating this new trainer to ensure that all '
-                         'callbacks or loggers shut down properly.'))
-                _OPEN_CALLBACKS.add(cb)
+        callbacks = self.state.callbacks if callbacks is None else callbacks
 
-        for cb in self.state.callbacks:
+        for cb in callbacks:
             marker = None
             if self.state.profiler is not None:
                 marker = self.state.profiler.marker(f'callback/{cb.__class__.__name__}/event/{event.value}',
@@ -407,12 +453,22 @@ class Engine():
                 self._debug_log(event, f'Running callback {type(cb).__name__}')
                 cb.run_event(event, self.state, self.logger)
 
+    def _run_loggers(self, event: Union[Event, str]):
+        loggers = [callback for callback in self.state.callbacks if isinstance(callback, LoggerDestination)]
+        self._run_callbacks(event, loggers)
+
+    def _run_nonlogger_callbacks(self, event: Union[Event, str]):
+        callbacks = [callback for callback in self.state.callbacks if not isinstance(callback, LoggerDestination)]
+        self._run_callbacks(event, callbacks)
+
     def __del__(self):
         global _did_atexit_run
         if _did_atexit_run or self._is_closed:
             # Do not attempt to shutdown again, since close() already ran via __atexit__ or was already invoked
             return
         self.close()
+        atexit.unregister(_set_atexit_ran)
+        atexit.unregister(self._close)
 
     def _debug_log(self, event: Event, msg: str):
         """Helper to include timestamp and event info in log messages."""
@@ -473,3 +529,9 @@ class Engine():
                     log.error(f'Error running {callback.__class__.__name__}.post_close().', exc_info=e, stack_info=True)
                 else:
                     _OPEN_CALLBACKS.discard(callback)
+
+        # Try to shut down any persistent workers
+        try:
+            state.train_dataloader._iterator._shutdown_workers()  # type: ignore [reportGeneralTypeIssues]
+        except:
+            pass

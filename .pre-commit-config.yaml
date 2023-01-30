@@ -16,7 +16,7 @@ repos:
   - repo: https://github.com/pycqa/isort
     hooks:
       - id: isort
-    rev: 5.10.1
+    rev: 5.12.0
   # -   repo: https://github.com/pycqa/pylint
   #     hooks:
   #         - id: pylint
@@ -43,8 +43,6 @@ repos:
       - id: check-added-large-files
       - id: check-ast
       - id: check-builtin-literals
-        args:
-          - --no-allow-dict-kwargs
       - id: check-case-conflict
       - id: check-docstring-first
       - id: check-executables-have-shebangs

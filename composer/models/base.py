@@ -13,7 +13,7 @@ import torch
 from torch import Tensor
 from torchmetrics import Metric
 
-from composer.core.types import Batch
+from composer.core import Batch
 from composer.loggers import Logger
 
 __all__ = ['ComposerModel']
@@ -221,7 +221,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 		Returns:
 			Any: The evaluation outputs.
 		"""
-        raise NotImplementedError()
+        return outputs if outputs is not None else self.forward(batch)
 
     def update_metric(
         self,

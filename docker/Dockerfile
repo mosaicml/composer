@@ -25,6 +25,11 @@ ARG PYTORCH_VERSION=1.11.0
 # version that corresponds to the PyTorch version
 ARG TORCHVISION_VERSION=0.12.0
 
+# The Torchtext version to install.
+# Reference https://github.com/pytorch/text#installation to determine the Torchtext
+# version that corresponds to the PyTorch version
+ARG TORCHTEXT_VERSION=0.12.0
+
 # In the Dockerimage, Pillow-SIMD is installed instead of Pillow. To trick pip into thinking that
 # Pillow is also installed (so it won't override it with a future pip install), a Pillow stub is included
 # PILLOW_PSEUDOVERSION is the Pillow version that pip thinks is installed
@@ -33,8 +38,12 @@ ARG PILLOW_PSEUDOVERSION=7.0.0
 ARG PILLOW_SIMD_VERSION=7.0.0.post3
 
 # Version of the Mellanox Drivers to install (for InfiniBand support)
-# Levave blank for no Mellanox Drivers
+# Leave blank for no Mellanox Drivers
 ARG MOFED_VERSION=5.5-1.0.3.2
+
+# Version of the HPC-X Drivers to install (for InfiniBand support)
+# Leave blank for no HPC-X Drivers
+ARG HPCX_VERSION=2.13.1
 
 ########################
 # Vision Image Arguments
@@ -45,7 +54,6 @@ ARG VISION_BASE=pytorch_stage
 
 # Pip version strings of dependencies to install
 ARG MMCV_VERSION='==1.4.8'
-ARG FFCV_VERSION='==0.0.3'
 ARG OPENCV_VERSION='>=4.5.5.64,<4.6'
 ARG NUMBA_VERSION='>=0.55.0,<0.56'
 ARG MMSEGMENTATION_VERSION='>=0.22.0,<0.23'
@@ -107,7 +115,6 @@ RUN apt-get update && \
         wget \
         sudo \
         build-essential \
-        git \
         software-properties-common \
         dirmngr \
         apt-utils \
@@ -119,7 +126,22 @@ RUN apt-get update && \
         libfreetype6-dev \
         liblcms2-dev \
         tcl \
-        libjpeg8-dev && \
+        libjpeg8-dev \
+        less \
+        # Development tools
+        vim \
+        tmux \
+        htop && \
+    apt-get autoclean && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+###############################
+# Install latest version of git
+###############################
+RUN add-apt-repository ppa:git-core/ppa && \
+    apt-get install -y --no-install-recommends \
+        git && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -138,6 +160,9 @@ RUN \
 # Install Python
 ################
 ARG PYTHON_VERSION
+
+# Python 3.10 changes where packages are installed. Workaround until all packages support new format
+ENV DEB_PYTHON_INSTALL_LAYOUT=deb
 
 RUN add-apt-repository ppa:deadsnakes/ppa && \
     apt-get update && \
@@ -173,11 +198,16 @@ RUN pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
 #################
 ARG PYTORCH_VERSION
 ARG TORCHVISION_VERSION
+ARG TORCHTEXT_VERSION
+
+# Set so supporting PyTorch packages such as Torchvision, Torchaudio, Torchtext pin PyTorch version
+ENV PYTORCH_VERSION=${PYTORCH_VERSION}
 
 RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
     pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
         torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
-        torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG}
+        torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} \
+        torchtext==${TORCHTEXT_VERSION}
 
 ###################################
 # Mellanox OFED driver installation
@@ -193,6 +223,25 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
         rm -rf /tmp/mofed ; \
     fi
 
+###########################
+# HPC-X driver installation
+###########################
+
+ARG HPCX_VERSION
+
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib:
+
+RUN if [ -n "$HPCX_VERSION" ] ; then \
+        mkdir -p /tmp/hpcx && \
+        wget -nv -P /tmp/hpcx https://content.mellanox.com/hpc/hpc-x/v${HPCX_VERSION}/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64.tbz && \
+        tar -xvf /tmp/hpcx/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64.tbz -C /tmp/hpcx && \
+        mv /tmp/hpcx/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64 /opt/hpcx && \
+        rm -rf /tmp/hpcx && \
+        # Set appropriate env vars to use SHARP
+        echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/profile && \
+        echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/bash.bashrc && \
+        echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/zshenv ; \
+    fi
 
 #####################
 # Install NVIDIA Apex
@@ -202,6 +251,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         cd /tmp/apex && \
         git clone https://github.com/NVIDIA/apex && \
         cd apex && \
+        pip${PYTHON_VERSION} install --no-cache-dir -r requirements.txt && \
         pip${PYTHON_VERSION} install --no-cache-dir \
             --global-option="--cpp_ext" \
             --global-option="--cuda_ext" \
@@ -214,13 +264,13 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
 # Install Flash Attention
 ##########################
 RUN if [ -n "$CUDA_VERSION" ] ; then \
-        pip${PYTHON_VERSION} install --no-cache-dir git+https://github.com/mvpatel2000/flash-attention@main ; \
+        pip${PYTHON_VERSION} install --no-cache-dir flash-attn==0.2.2; \
     fi
 
 ###########################
 # Install Pandoc Dependency
 ###########################
-# Pandoc is needed for the documentation buid and is a nuisance to install via pip so just installing via dpkg
+# Pandoc is needed for the documentation build and is a nuisance to install via pip so just installing via dpkg
 RUN wget https://github.com/jgm/pandoc/releases/download/2.19.2/pandoc-2.19.2-1-amd64.deb && \
     dpkg -i pandoc-2.19.2-1-amd64.deb && \
     rm pandoc-2.19.2-1-amd64.deb
@@ -278,7 +328,6 @@ RUN sudo apt-get update && \
     sudo rm -rf /var/lib/apt/lists/*
 
 ARG MMCV_VERSION
-ARG FFCV_VERSION
 ARG OPENCV_VERSION
 ARG NUMBA_VERSION
 ARG MMSEGMENTATION_VERSION
@@ -289,7 +338,7 @@ ARG CUDA_VERSION
 RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
     MMCV_TORCH_VERSION=$(python -c "print('torch' + ''.join('${PYTORCH_VERSION}'.split('.')[:2]) + '.0')") && \
     sudo pip${PYTHON_VERSION} install --no-cache-dir \
-        "ffcv${FFCV_VERSION}" \
+        "https://github.com/libffcv/ffcv/archive/f9726ce2be6c36d57ed596b94e1e855131f0d732.zip" \
         "opencv-python${OPENCV_VERSION}" \
         "numba${NUMBA_VERSION}" \
         "mmsegmentation${MMSEGMENTATION_VERSION}" && \

@@ -8,8 +8,7 @@ from typing import Dict, Union
 
 import torch.cuda
 
-from composer.core import State
-from composer.core.callback import Callback
+from composer.core import Callback, State
 from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
@@ -77,8 +76,7 @@ class MemoryMonitor(Callback):
         # Memory monitor takes no args
         pass
 
-    def fit_start(self, state: State, logger: Logger) -> None:
-        # TODO(ravi) move this check would be on Event.INIT after #1084 is merged
+    def init(self, state: State, logger: Logger) -> None:
         # Not relying on `torch.cuda.is_available()` since the model could be on CPU.
         model_device = next(state.model.parameters()).device
 
