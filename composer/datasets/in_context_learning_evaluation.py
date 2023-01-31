@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import random
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Any, Union
 
 import torch
 import transformers
@@ -13,7 +13,8 @@ from datasets import load_dataset
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
-from composer.core import DataSpec
+from composer.core import DataSpec, _default_split_batch
+from composer.core.data_spec import _default_split_batch
 from composer.utils import MissingConditionalImportError, dist, get_file
 
 if TYPE_CHECKING:
@@ -26,14 +27,17 @@ def _make_padded_input(context_enc, continuation_enc, max_seq_len, pad_tok_id):
     if len(continuation_enc) + len(context_enc) > max_seq_len:
         # clip from the end
         context_max_subseq_len = max_seq_len - len(continuation_enc)
-        assert context_max_subseq_len > 0  # can't support continuations which are longer than the max seq len
+
+        if context_max_subseq_len > 0:
+            raise Exception(f'Dataset included continuation longer than the max seq len')
+            # can't support continuations which are longer than the max seq len
+
         context_enc = context_enc[-(context_max_subseq_len):]
 
     # continuation span is the _inclusive_ range of indices corresponding to the continuation
     continuation_span = torch.tensor(range(len(context_enc), len(context_enc) + len(continuation_enc)))
     inp = torch.tensor(
-        (context_enc + continuation_enc
-        )[-(max_seq_len + 1):],  # trim from the left if context + continuation are larger than max_seq_len
+        (context_enc + continuation_enc),
         dtype=torch.long,
     )
     (inp_len,) = inp.shape
@@ -78,10 +82,9 @@ class InContextLearningLMTaskDataset(Dataset):
         batch_size (int): Size of a batch used for eval
         max_seq_len (int): The sequence length expected by the model
         pad_tok_id (int): The special token reserved for padding the ends of batches
-        num_fewshot (int): The number of complete fewshot examples to pad each test example with
+        num_fewshot (int): The number of complete fewshot examples to prepend before each test example
         prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
-        example_delimiter (str): Separator that goes between individual examples (e.g. '\n')
-        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
+        example_delimiter (str): Separator that goes between individual (context, continuation) pairs (e.g. '\n')        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
         destination_path (str): Temporary path to store downloaded datasets
     """
 
@@ -125,8 +128,8 @@ class InContextLearningLMTaskDataset(Dataset):
         Args:
             num_fewshot (int): Number of examples context/continuation pairs to prepend to the test pair
             prompt_string (str): The prompt to prepend to all inputs
-            example_delimiter (str): The delimiter used to separate each example query/answer pair
-            continuation_delimiter (str): The delimiter used to separate each query from its answer
+            example_delimiter (str): The delimiter used to separate each individual context/continuation pair
+            continuation_delimiter (str): The delimiter used to separate each context from its continuation
 
         Returns:
             dict: Contains the context, the continuation, and the preamble (prompt + fewshot examples)
@@ -194,6 +197,9 @@ class InContextLearningLMTaskDataset(Dataset):
     def get_num_samples_in_batch(self, batch) -> int:
         return batch['input_ids'].shape[0]
 
+    def split_batch(self, batch: Any, microbatch_size: int):
+        return _default_split_batch(batch, microbatch_size)
+
 
 class InContextLearningMultipleChoiceTaskDataset(Dataset):
     """A dataset that construct batches for in-context learning multiple choice evaluation
@@ -218,10 +224,9 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         batch_size (int): Size of a batch used for eval
         max_seq_len (int): The sequence length expected by the model
         pad_tok_id (int): The special token reserved for padding the ends of batches
-        num_fewshot (int): The number of complete fewshot examples to pad each test example with
+        num_fewshot (int): The number of complete fewshot examples to prepend before each test example
         prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
-        example_delimiter (str): Separator that goes between individual examples (e.g. '\n')
-        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
+        example_delimiter (str): Separator that goes between individual (context, continuation) pairs (e.g. '\n')        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
         destination_path (str): Temporary path to store downloaded datasets
     """
 
@@ -352,6 +357,14 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
     def get_num_samples_in_batch(self, batch) -> int:
         return batch['input_ids'].shape[0]
 
+    def split_batch(self, batch: Any, microbatch_size: int):
+        # can only split MC batches into microbatches which are a multiple of the
+        # number of As per Q
+        if microbatch_size % self.num_choices != 0:
+            raise Exception(f"""Attempted to lower batch size to {microbatch_size}.
+                 {microbatch_size} must be a multiple of the number of choices per question {self.num_choices}""")
+        return _default_split_batch(batch, microbatch_size)
+
 
 def get_icl_task_dataloader(
         icl_task_type: str,
@@ -430,4 +443,5 @@ def get_icl_task_dataloader(
         collate_fn=dataset.collate_fn,
     ),
                     device_transforms=None,
-                    get_num_samples_in_batch=dataset.get_num_samples_in_batch)
+                    get_num_samples_in_batch=dataset.get_num_samples_in_batch,
+                    split_batch=dataset.split_batch)

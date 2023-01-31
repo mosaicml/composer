@@ -285,11 +285,9 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
-        targets = torch.roll(labels, shifts=-1)
-        targets[:, -1] = -100
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
             cont_tok_pred = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
-            cont_tok_targ = targets[batch_idx].index_select(dim=0, index=cont_idx - 1)
+            cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
 
             self.correct += (cont_tok_pred == cont_tok_targ).all().int()
             self.total += torch.tensor(1.0)
@@ -331,13 +329,10 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
         self.add_state('total', default=torch.tensor(0.0), dist_reduce_fx='sum')
 
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
-        targets = torch.roll(labels, shifts=-1)
-        targets[:, -1] = -100
-
         perplexities = []
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
             cont_tok_logits = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1)
-            cont_tok_targ = targets[batch_idx].index_select(dim=0, index=cont_idx - 1)
+            cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
             cross_entropy = F.cross_entropy(cont_tok_logits, cont_tok_targ)
             perplexity = torch.exp(cross_entropy)
             perplexities.append(perplexity)

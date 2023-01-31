@@ -33,6 +33,7 @@ def test_batch_padding_logic(tiny_gpt2_tokenizer):
     continuation = tiny_gpt2_tokenizer(' dog' * 2000)['input_ids']
     context = tiny_gpt2_tokenizer(' cat' * 2000)['input_ids']
     _, continuation_spans = _make_padded_input(context, continuation, 2048, tiny_gpt2_tokenizer.eos_token_id)
+    # the context (of len 2000) gets clipped to len 48 so that the whole continuation can fit
     assert continuation_spans[0] == 48 and continuation_spans[-1] == 2047
 
 
@@ -66,6 +67,9 @@ def test_lm_task_dataloader(dataset_uri, tiny_gpt2_tokenizer):
     assert isinstance(batch['continuation_indices'], list) and len(batch['continuation_indices']) == batch_size
     assert 'mode' in batch
     assert batch['mode'] == 'icl_task'
+    min_idx = min(batch['continuation_indices'][0]).item()
+    max_idx = max(batch['continuation_indices'][0]).item()
+    assert tokenizer.decode(batch['input_ids'][0][min_idx:max_idx + 1]) == ' glen'
 
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl'])
@@ -104,6 +108,10 @@ def test_mc_task_dataloader(dataset_uri, tiny_gpt2_tokenizer):
     assert 'choice_groupings' in batch
     assert isinstance(batch['choice_groupings'], list) and len(
         batch['choice_groupings']) == batch_size // choices_per_question
+
+    min_idx = min(batch['continuation_indices'][0]).item()
+    max_idx = max(batch['continuation_indices'][0]).item()
+    assert tokenizer.decode(batch['input_ids'][0][min_idx:max_idx + 1]) == ': Pour it onto a plate'
 
 
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
