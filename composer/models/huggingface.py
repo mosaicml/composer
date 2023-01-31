@@ -295,7 +295,7 @@ class HuggingFaceModel(ComposerModel):
                 output = output['logits']
             else:
                 # logits are at index 1 in the output tuple
-                output = output[1]
+                output = output[0]
 
             # if we are in the single class case, then remove the classes dimension
             if output.shape[1] == 1:
@@ -304,7 +304,8 @@ class HuggingFaceModel(ComposerModel):
             output = outputs if outputs else self.forward(batch)
             self.labels = batch.pop('labels')
 
-        if self.shift_labels or batch.get('mode', None) == 'lm_task':
+        if self.shift_labels or batch.get('mode', None) == 'icl_task':
+            assert self.labels is not None
             # HF CausalLM models internally shift labels before computing loss, so we do the same here
             self.labels[:, :-1] = self.labels[:, 1:].clone()
             self.labels[:, -1] = -100

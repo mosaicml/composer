@@ -9,12 +9,10 @@ from typing import TYPE_CHECKING, Any, Union
 
 import torch
 import transformers
-from datasets import load_dataset
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
-from composer.core import DataSpec, _default_split_batch
-from composer.core.data_spec import _default_split_batch
+from composer.core import DataSpec
 from composer.utils import MissingConditionalImportError, dist, get_file
 
 if TYPE_CHECKING:
@@ -28,7 +26,7 @@ def _make_padded_input(context_enc, continuation_enc, max_seq_len, pad_tok_id):
         # clip from the end
         context_max_subseq_len = max_seq_len - len(continuation_enc)
 
-        if context_max_subseq_len > 0:
+        if context_max_subseq_len < 0:
             raise Exception(f'Dataset included continuation longer than the max seq len')
             # can't support continuations which are longer than the max seq len
 
@@ -101,7 +99,7 @@ class InContextLearningLMTaskDataset(Dataset):
         destination_path: str = 'icl_lm_task.jsonl',
     ):
         try:
-            from datasets import load_dataset
+            from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
         except ImportError as e:
             raise MissingConditionalImportError(extra_deps_group='nlp',
                                                 conda_package='datasets',
@@ -197,9 +195,6 @@ class InContextLearningLMTaskDataset(Dataset):
     def get_num_samples_in_batch(self, batch) -> int:
         return batch['input_ids'].shape[0]
 
-    def split_batch(self, batch: Any, microbatch_size: int):
-        return _default_split_batch(batch, microbatch_size)
-
 
 class InContextLearningMultipleChoiceTaskDataset(Dataset):
     """A dataset that construct batches for in-context learning multiple choice evaluation
@@ -242,6 +237,13 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         continuation_delimiter: str,
         destination_path: str = 'icl_mc_task.jsonl',
     ):
+        try:
+            from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='nlp',
+                                                conda_package='datasets',
+                                                conda_channel='conda-forge') from e
+
         get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
         self.samples = list(
@@ -358,12 +360,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         return batch['input_ids'].shape[0]
 
     def split_batch(self, batch: Any, microbatch_size: int):
-        # can only split MC batches into microbatches which are a multiple of the
-        # number of As per Q
-        if microbatch_size % self.num_choices != 0:
-            raise Exception(f"""Attempted to lower batch size to {microbatch_size}.
-                 {microbatch_size} must be a multiple of the number of choices per question {self.num_choices}""")
-        return _default_split_batch(batch, microbatch_size)
+        raise Exception(f"""We haven't implemented batch splitting for multiple choice tasks""")
 
 
 def get_icl_task_dataloader(
@@ -444,4 +441,4 @@ def get_icl_task_dataloader(
     ),
                     device_transforms=None,
                     get_num_samples_in_batch=dataset.get_num_samples_in_batch,
-                    split_batch=dataset.split_batch)
+                    split_batch=dataset.split_batch if isinstance(dataset, InContextLearningMultipleChoiceTaskDataset) else None)

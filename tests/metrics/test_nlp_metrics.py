@@ -221,7 +221,7 @@ def test_in_context_learning_lm_accuracy(tiny_gpt2_tokenizer):
         cont_idxs.append(torch.tensor(list(range(start, end))))
 
     batch = {'continuation_indices': cont_idxs, 'labels': inputs, 'input_ids': inputs}
-    logits = torch.nn.functional.one_hot(torch.roll(inputs, shifts=-1), num_classes=pad + 1)
+    logits = torch.nn.functional.one_hot(inputs, num_classes=pad + 1)
     logits[2] = logits[1].clone()  # make one of the answers incorrect
     metric = InContextLearningLMAccuracy()
     metric.update(batch, logits, batch['labels'])
@@ -257,7 +257,7 @@ def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):
         'gold_indices': gold_indices,
         'choice_groupings': choice_groupings
     }
-    logits = torch.nn.functional.one_hot(torch.roll(inputs, shifts=-1), num_classes=pad + 1).float()
+    logits = torch.nn.functional.one_hot(inputs, num_classes=pad + 1).float()
 
     # for the first two, the correct answer is continuation 0
     # make the answer correct by making continuation 0 more likely for both answers
