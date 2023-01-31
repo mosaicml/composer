@@ -71,7 +71,7 @@ jobs:
           set -ex
           export PATH=/composer-python:$PATH
           python -m pip install --upgrade pip wheel
-          python -m pip install -e .[all]
+          python -m pip install --upgrade .[all]
       - name: Run Tests
         id: tests
         run: |
@@ -171,7 +171,7 @@ jobs:
       - name: Setup MCLI
         run: |
           set -ex
-          python -m pip install mosaicml-cli
+          python -m pip install --upgrade mosaicml-cli
           mcli init --mcloud
           mcli version
       - name: Submit Run
