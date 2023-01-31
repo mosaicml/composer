@@ -22,7 +22,7 @@ class SyntheticDataType(StringEnum):
     """Defines the distribution of the synthetic data.
 
     Attributes:
-        GAUSSIAN: Standard Guassian distribution.
+        GAUSSIAN: Standard Gaussian distribution.
         SEPARABLE: Gaussian distributed, but classes will be mean-shifted for
             separability.
     """
