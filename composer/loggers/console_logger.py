@@ -96,12 +96,16 @@ class ConsoleLogger(LoggerDestination):
 
         if unit == TimeUnit.EPOCH and (cur_epoch % int(self.log_interval) == 0 or cur_epoch == 1):
             self.log_to_console(self.logged_metrics, prefix='Train ', state=state)
+            # Clear logged metrics.
+            self.logged_metrics = {}
 
     def batch_end(self, state: State, logger: Logger) -> None:
         cur_batch = int(state.timestamp.batch)
         unit = self.log_interval.unit
         if unit == TimeUnit.BATCH and (cur_batch % int(self.log_interval) == 0 or cur_batch == 1):
             self.log_to_console(self.logged_metrics, prefix='Train ', state=state)
+            # Clear logged metrics.
+            self.logged_metrics = {}
 
     def eval_batch_end(self, state: State, logger: Logger) -> None:
         cur_batch = int(state.eval_timestamp.batch)
@@ -110,7 +114,7 @@ class ConsoleLogger(LoggerDestination):
 
     def eval_end(self, state: State, logger: Logger) -> None:
         # Log to the console at the end of eval no matter what log interval is selected.
-        self.log_to_console(self.logged_metrics, prefix='Eval ', state=state, is_train=False)
+        self.log_to_console(state.eval_metric_values, prefix='Eval ', state=state, is_train=False)
 
     def fit_start(self, state: State, logger: Logger) -> None:
         if not self.hparams_already_logged_to_console:
@@ -183,9 +187,6 @@ class ConsoleLogger(LoggerDestination):
             data_str = format_log_data_value(data)
             log_str += f'\n\t {prefix}{data_name}: {data_str}'
         self._log_to_console(log_str)
-
-        # Clear logged metrics.
-        self.logged_metrics = {}
 
     def _log_to_console(self, log_str: str):
         """Logs to the console, avoiding interleaving with a progress bar."""
