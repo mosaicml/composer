@@ -156,7 +156,7 @@ Now that we have launched an EC2 instance, configured the runtime and populated 
         --val_dataset.imagenet.ffcv_write_dataset`
         The first two arguments simply specify the area of the raw ImageNet training and validation data, respectively.  The second two arguments enable dataset conversion if the expected FFCV formatted files do not exist.
 
-        To perform this conversion manually, please follow the instructions detailed in the [README](https://github.com/mosaicml/benchmarks/tree/main/blogs/resnet#running-a-recipe) in our [benchmarks repository](https://github.com/mosaicml/benchmarks/tree/main/blogs/resnet), which contains all the code associated with our original blog post.
+        To perform this conversion manually, please follow the instructions detailed in the [README](https://github.com/mosaicml/examples/tree/main/examples/resnet#using-mosaic-recipes) in our [examples repository](https://github.com/mosaicml/examples/tree/main/examples/resnet), which contains all the code associated with our original blog post.
 
     ```
 
