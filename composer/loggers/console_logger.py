@@ -149,7 +149,7 @@ class ConsoleLogger(LoggerDestination):
         cur_evaluator = [evaluator for evaluator in state.evaluators if evaluator.label == state.dataloader_label][0]
         total_eval_batches = int(
             state.dataloader_len) if state.dataloader_len is not None else cur_evaluator.subset_num_batches
-        # To please pyright. Based _set_evaluator_interval_and_subset_num_batches, total_eval_batches can't be None
+        # To please pyright. Based on _set_evaluator_interval_and_subset_num_batches, total_eval_batches can't be None
         assert total_eval_batches is not None
         return total_eval_batches
 
