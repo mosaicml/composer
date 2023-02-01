@@ -433,12 +433,13 @@ def get_icl_task_dataloader(
 
     sampler = dist.get_sampler(dataset, drop_last=False, shuffle=False)
 
-    return DataSpec(DataLoader(
-        dataset,
-        batch_size=effective_batchsize,
-        sampler=sampler,
-        collate_fn=dataset.collate_fn,
-    ),
-                    device_transforms=None,
-                    get_num_samples_in_batch=dataset.get_num_samples_in_batch,
-                    split_batch=dataset.split_batch if isinstance(dataset, InContextLearningMultipleChoiceTaskDataset) else None)
+    return DataSpec(
+        DataLoader(
+            dataset,
+            batch_size=effective_batchsize,
+            sampler=sampler,
+            collate_fn=dataset.collate_fn,
+        ),
+        device_transforms=None,
+        get_num_samples_in_batch=dataset.get_num_samples_in_batch,
+        split_batch=dataset.split_batch if isinstance(dataset, InContextLearningMultipleChoiceTaskDataset) else None)

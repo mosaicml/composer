@@ -169,11 +169,7 @@ extra_deps['coco'] = [
     'pycocotools>=2.0.4,<3',
 ]
 
-extra_deps['nlp'] = [
-    'datasets>=2.4,<3',
-    'transformers>=4.11,<5',
-    'datasets>=2.4,<3'
-]
+extra_deps['nlp'] = ['datasets>=2.4,<3', 'transformers>=4.11,<5', 'datasets>=2.4,<3']
 
 extra_deps['mlperf'] = [
     # TODO: use pip when available: https://github.com/mlcommons/logging/issues/218
