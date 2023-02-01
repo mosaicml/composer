@@ -4,8 +4,9 @@
 """Run pytest using MCP."""
 
 import argparse
+from concurrent.futures import TimeoutError
 
-from mcli.sdk import RunConfig, RunStatus, create_run, follow_run_logs, wait_for_run_status
+from mcli.sdk import RunConfig, RunStatus, create_run, get_run_logs, stop_runs, wait_for_run_status
 
 if __name__ == '__main__':
 
@@ -74,13 +75,26 @@ if __name__ == '__main__':
     # Create run
     run = create_run(config)
 
-    # Wait till run starts before fetching logs
+    # Wait until run starts before fetching logs
     run = wait_for_run_status(run, status='running')
+    print('Run started. Waiting for run to complete...')
+
+    # Wait up to 30 minutes for run to complete
+    try:
+        run = wait_for_run_status(run, status='completed', timeout=60 * 30)
+    except TimeoutError:
+        print('Run timed out and did not complete in 30 minutes.')
+
+    # Get run status and stop run
+    success = run.status == RunStatus.COMPLETED
+    print(f'Run completed with status: {run.status} (success={success})')
+    if run.status == RunStatus.RUNNING:
+        stop_runs([run])
+        print('Run stopped.')
 
     # Print logs
-    for line in follow_run_logs(run):
+    for line in get_run_logs(run):
         print(line, end='')
 
-    # Fail if command exited with non-zero exit code
-    run = wait_for_run_status(run, 'completed')
-    assert run.status == RunStatus.COMPLETED
+    # Fail if command exited with non-zero exit code or timed out
+    assert success
