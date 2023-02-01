@@ -391,23 +391,6 @@ stage('Build') {
                 }
             }]
         }
-        else if (!isComposerImage) {
-            // If not rebuilding the docker image, and it's not a composer image, run GPU tests only on the "latest" image
-            // Only run tests on the 'mosaicml/pytorch' or 'mosaicml/pytorch_vision' images -- not 'mosaicml/composer'
-            Boolean isCpuImage = buildArgs['CUDA_VERSION'] == ''
-            Boolean shouldRunGpuTests = false
-
-            originalTags.each { tag ->
-                if (pytestGpuImageTagsToTest.contains(tag)) {
-                    shouldRunGpuTests = true
-                }
-            }
-
-            if (shouldRunGpuTests) {
-                String existingImageTag = originalTags[0]
-                scheduleJob(jobs, existingImageTag, buildArgs, originalTags)
-            }
-        }
     }
 
     if (dependenciesChanged) {

@@ -86,7 +86,7 @@ install_requires = [
     'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<10',
     'packaging>=21.3.0,<23',
-    'importlib-metadata>=5.0.0,<6',
+    'importlib-metadata>=5.0.0,<7',
 ]
 extra_deps = {}
 
@@ -98,7 +98,7 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.0',
     'junitparser==2.8.0',
-    'coverage[toml]==7.0.4',
+    'coverage[toml]==7.1.0',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.2.1',
     'toml==0.10.2',
@@ -170,6 +170,7 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
+    'datasets>=2.4,<3',
     'transformers>=4.11,<5',
 ]
 

@@ -265,5 +265,5 @@ and make it compatible with our trainer.
 .. |loss| replace:: :meth:`~.ComposerModel.loss`
 .. _MMDetection: https://mmdetection.readthedocs.io/en/latest/
 .. _Transformers: https://huggingface.co/docs/transformers/index
-.. _TIMM: https://fastai.github.io/timmdocs/
+.. _TIMM: https://timm.fast.ai/
 .. _torchvision: https://pytorch.org/vision/stable/models.html

@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 jobs:
   pytest-cpu:
-    timeout-minutes: 30
+    timeout-minutes: 45
     runs-on: ubuntu-20.04
     if: github.repository_owner == 'mosaicml'
     strategy:
@@ -70,8 +70,8 @@ jobs:
         run: |
           set -ex
           export PATH=/composer-python:$PATH
-          python -m pip install --upgrade pip wheel
-          python -m pip install -e .[all]
+          python -m pip install --upgrade 'pip<23' wheel
+          python -m pip install --upgrade .[all]
       - name: Run Tests
         id: tests
         run: |
@@ -107,7 +107,7 @@ jobs:
       - name: Setup
         run: |
           set -ex
-          python -m pip install --upgrade pip wheel
+          python -m pip install --upgrade 'pip<23' wheel
           pip install coverage[toml]==6.5.0
       - name: Download artifacts
         uses: actions/download-artifact@v3
@@ -123,7 +123,7 @@ jobs:
           python -m coverage combine
           python -m coverage report
   pytest-gpu:
-    timeout-minutes: 30
+    timeout-minutes: 45
     runs-on: ubuntu-20.04
     if: github.repository_owner == 'mosaicml'
     strategy:
@@ -171,7 +171,7 @@ jobs:
       - name: Setup MCLI
         run: |
           set -ex
-          python -m pip install mosaicml-cli
+          python -m pip install --upgrade mosaicml-cli
           mcli init --mcloud
           mcli version
       - name: Submit Run
