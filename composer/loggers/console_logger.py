@@ -19,8 +19,8 @@ from composer.utils import dist
 if TYPE_CHECKING:
     from composer.core import State
 
-# We use deciles here.
-NUM_EVAL_LOGGING_EVENTS = 10
+# We use deciles here, so 11 events because deciles including 0.
+NUM_EVAL_LOGGING_EVENTS = 11
 
 
 class ConsoleLogger(LoggerDestination):
@@ -128,12 +128,14 @@ class ConsoleLogger(LoggerDestination):
 
     def eval_start(self, state: State, logger: Logger) -> None:
         total_eval_batches = self._get_total_eval_batches(state)
-        deciles = np.linspace(0, 1, NUM_EVAL_LOGGING_EVENTS + 1)
+        deciles = np.linspace(0, 1, NUM_EVAL_LOGGING_EVENTS)
         batch_idxs = np.arange(1, total_eval_batches + 1)
         if total_eval_batches < NUM_EVAL_LOGGING_EVENTS:
             self.eval_batch_idxs_to_log = list(batch_idxs)
         else:
             self.eval_batch_idxs_to_log = list(np.quantile(batch_idxs, deciles).round().astype(dtype=int))
+        last_batch_idx = total_eval_batches
+        self.eval_batch_idxs_to_log.remove(last_batch_idx)
         if not self.hparams_already_logged_to_console:
             self.hparams_already_logged_to_console = True
             self._log_hparams_to_console()
