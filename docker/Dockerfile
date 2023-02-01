@@ -166,7 +166,7 @@ RUN \
 ################
 ARG PYTHON_VERSION
 
-RUN CONDA_PYTHON_VERSION=$(python -c "print('${PYTHON_VERSION}'.replace('.', ''))") && \
+RUN CONDA_PYTHON_VERSION=${PYTHON_VERSION//./} && \
     wget https://repo.anaconda.com/miniconda/Miniconda3-py${CONDA_PYTHON_VERSION}_22.11.1-1-Linux-x86_64.sh -O ./miniconda.sh && \
     bash ./miniconda.sh -b && \
     eval "$(/root/miniconda3/bin/conda shell.bash hook)" && \
