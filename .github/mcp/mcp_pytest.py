@@ -75,6 +75,7 @@ if __name__ == '__main__':
 
     # Create run
     run = create_run(config)
+    print(f'Run created: {run.run}')
 
     # Wait until run starts before fetching logs
     run = wait_for_run_status(run, status='running')
