@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader
 from torchmetrics import MetricCollection
 
 from composer.callbacks import SpeedMonitor
+from composer.loggers.console_logger import NUM_EVAL_LOGGING_EVENTS
 from composer.trainer import Trainer
 from tests.common import RandomClassificationDataset, SimpleModel
 
@@ -86,6 +87,8 @@ def test_console_logger_interval_with_eval(console_logger_test_stream, console_l
 
     batch_size = 4
     dataset_size = 17
+    eval_batch_size = 2
+    eval_dataset_size = 25
     batches_per_epoch = math.ceil(dataset_size / batch_size)
 
     model = SimpleModel()
@@ -96,7 +99,8 @@ def test_console_logger_interval_with_eval(console_logger_test_stream, console_l
                       progress_bar=False,
                       train_dataloader=DataLoader(RandomClassificationDataset(size=dataset_size),
                                                   batch_size=batch_size),
-                      eval_dataloader=DataLoader(RandomClassificationDataset(size=dataset_size), batch_size=batch_size),
+                      eval_dataloader=DataLoader(RandomClassificationDataset(size=eval_dataset_size),
+                                                 batch_size=eval_batch_size),
                       max_duration=f'{max_duration}{max_duration_unit}')
     trainer.fit()
     console_logger_test_stream.flush()
@@ -123,12 +127,15 @@ def test_console_logger_interval_with_eval(console_logger_test_stream, console_l
         batches_per_logging_event = batches_per_epoch * eval_interval
         expected_num_eval_logging_events, remainder = divmod(max_duration, batches_per_logging_event)
 
+    num_progress_events_due_to_eval_interval = NUM_EVAL_LOGGING_EVENTS
+    num_eval_progress_lines_per_eval_event = num_progress_events_due_to_eval_interval
     # An eval logging event always happens at fit_end, so if one would not normally fall at
     # last batch or epoch, then add an extra event to the expected.
     if remainder:
         expected_num_eval_logging_events += 1
 
-    expected_num_eval_lines = expected_num_eval_logging_events * num_eval_metrics_and_losses_per_logging_event
+    expected_num_eval_lines = expected_num_eval_logging_events * (num_eval_metrics_and_losses_per_logging_event +
+                                                                  num_eval_progress_lines_per_eval_event)
 
     assert actual_num_eval_log_lines == expected_num_eval_lines
 
