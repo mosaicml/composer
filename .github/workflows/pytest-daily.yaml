@@ -70,7 +70,7 @@ jobs:
         run: |
           set -ex
           export PATH=/composer-python:$PATH
-          python -m pip install --upgrade pip wheel
+          python -m pip install --upgrade 'pip<23' wheel
           python -m pip install --upgrade .[all]
       - name: Run Tests
         id: tests
@@ -107,7 +107,7 @@ jobs:
       - name: Setup
         run: |
           set -ex
-          python -m pip install --upgrade pip wheel
+          python -m pip install --upgrade 'pip<23' wheel
           pip install coverage[toml]==6.5.0
       - name: Download artifacts
         uses: actions/download-artifact@v3
