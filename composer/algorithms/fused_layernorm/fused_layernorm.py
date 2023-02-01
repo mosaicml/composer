@@ -32,12 +32,6 @@ def check_if_apex_installed():
         )
 
 
-def warn_fln_deprecation():
-    warnings.warn(
-        DeprecationWarning(
-            'Fused LayerNorm will be deprecated and removed in v0.13. Please use Low Precision LayerNorm instead.'))
-
-
 def from_LayerNorm(layer: torch.nn.Module, module_index: int) -> APEXFusedLayerNorm:
     """Defines a replacement policy from a `torch.nn.LayerNorm` to a `apex.normalization.fused_layer_norm`"""
     assert isinstance(layer,
@@ -105,7 +99,6 @@ class FusedLayerNorm(Algorithm):
 
     def __init__(self):
         # FusedLayerNorm takes no arguments
-        warn_fln_deprecation()
         check_if_apex_installed()
 
     def __repr__(self) -> str:
