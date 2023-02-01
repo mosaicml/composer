@@ -166,23 +166,15 @@ RUN \
 ################
 ARG PYTHON_VERSION
 
-# Python 3.10 changes where packages are installed. Workaround until all packages support new format
-ENV DEB_PYTHON_INSTALL_LAYOUT=deb
+RUN CONDA_PYTHON_VERSION=$(python -c "print('${PYTHON_VERSION}'.replace('.', ''))") && \
+    wget https://repo.anaconda.com/miniconda/Miniconda3-py${CONDA_PYTHON_VERSION}_22.11.1-1-Linux-x86_64.sh -O ./miniconda.sh && \
+    bash ./miniconda.sh -b && \
+    eval "$(/root/miniconda3/bin/conda shell.bash hook)" && \
+    conda init && \
+    rm -rf miniconda.sh
 
-RUN add-apt-repository ppa:deadsnakes/ppa && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-    python3-apt \
-    python${PYTHON_VERSION} \
-    python${PYTHON_VERSION}-dev \
-    python${PYTHON_VERSION}-distutils \
-    python${PYTHON_VERSION}-venv && \
-    apt-get autoclean && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} - && \
-    pip${PYTHON_VERSION} install --no-cache-dir --upgrade pip setuptools
+RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py | python - && \
+    pip install --no-cache-dir --upgrade pip setuptools
 
 #####################
 # Install pillow-simd
@@ -194,8 +186,8 @@ ARG PILLOW_SIMD_VERSION
 # so when pillow_simd is installed, other packages won't later override it
 COPY pillow_stub /tmp/pillow_stub
 
-RUN pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
-    pip${PYTHON_VERSION} install --no-cache-dir --upgrade pillow_simd==${PILLOW_SIMD_VERSION} && \
+RUN pip install --no-cache-dir --upgrade /tmp/pillow_stub && \
+    pip install --no-cache-dir --upgrade pillow_simd==${PILLOW_SIMD_VERSION} && \
     rm -rf /tmp/pillow_stub
 
 #################
@@ -208,8 +200,8 @@ ARG TORCHTEXT_VERSION
 # Set so supporting PyTorch packages such as Torchvision, Torchaudio, Torchtext pin PyTorch version
 ENV PYTORCH_VERSION=${PYTORCH_VERSION}
 
-RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
-    pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
+RUN CUDA_VERSION_TAG=$(python -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
+    pip install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
         torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
         torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} \
         torchtext==${TORCHTEXT_VERSION}
@@ -268,11 +260,10 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         cd /tmp/apex && \
         git clone https://github.com/NVIDIA/apex && \
         cd apex && \
-        pip${PYTHON_VERSION} install --no-cache-dir -r requirements.txt && \
-        pip${PYTHON_VERSION} install --no-cache-dir \
+        pip install --no-cache-dir -r requirements.txt && \
+        pip install --no-cache-dir \
             --global-option="--cpp_ext" \
             --global-option="--cuda_ext" \
-            --target  /usr/local/lib/python${PYTHON_VERSION}/dist-packages \
             ./ && \
         rm -rf /tmp/apex ; \
     fi
@@ -281,7 +272,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
 # Install Flash Attention
 ##########################
 RUN if [ -n "$CUDA_VERSION" ] ; then \
-        pip${PYTHON_VERSION} install --no-cache-dir flash-attn==0.2.2; \
+        pip install --no-cache-dir flash-attn==0.2.2; \
     fi
 
 ###########################
@@ -291,27 +282,6 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
 RUN wget https://github.com/jgm/pandoc/releases/download/2.19.2/pandoc-2.19.2-1-amd64.deb && \
     dpkg -i pandoc-2.19.2-1-amd64.deb && \
     rm pandoc-2.19.2-1-amd64.deb
-
-################################
-# Use the correct python version
-################################
-
-# Set the default python by creating our own folder and hacking the path
-# We don't want to use upgrade-alternatives as that will break system packages
-
-ARG COMPOSER_PYTHON_BIN=/composer-python
-
-RUN mkdir -p ${COMPOSER_PYTHON_BIN} && \
-    ln -s $(which python${PYTHON_VERSION}) ${COMPOSER_PYTHON_BIN}/python && \
-    ln -s $(which python${PYTHON_VERSION}) ${COMPOSER_PYTHON_BIN}/python3 && \
-    ln -s $(which python${PYTHON_VERSION}) ${COMPOSER_PYTHON_BIN}/python${PYTHON_VERSION} && \
-    ln -s $(which pip${PYTHON_VERSION}) ${COMPOSER_PYTHON_BIN}/pip && \
-    ln -s $(which pip${PYTHON_VERSION}) ${COMPOSER_PYTHON_BIN}/pip3 && \
-    ln -s $(which pip${PYTHON_VERSION}) ${COMPOSER_PYTHON_BIN}/pip${PYTHON_VERSION} && \
-    # Include this folder, and the local bin folder, on the path
-    echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/profile && \
-    echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/bash.bashrc && \
-    echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/zshenv
 
 # Ensure that non-interactive shells load /etc/profile
 ENV BASH_ENV=/etc/profile
@@ -352,18 +322,18 @@ ARG PYTHON_VERSION
 ARG CUPY_VERSION
 ARG CUDA_VERSION
 
-RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
+RUN CUDA_VERSION_TAG=$(python -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
     MMCV_TORCH_VERSION=$(python -c "print('torch' + ''.join('${PYTORCH_VERSION}'.split('.')[:2]) + '.0')") && \
-    sudo pip${PYTHON_VERSION} install --no-cache-dir \
+    sudo pip install --no-cache-dir \
         "https://github.com/libffcv/ffcv/archive/f9726ce2be6c36d57ed596b94e1e855131f0d732.zip" \
         "opencv-python${OPENCV_VERSION}" \
         "numba${NUMBA_VERSION}" \
         "mmsegmentation${MMSEGMENTATION_VERSION}" && \
-    sudo pip${PYTHON_VERSION} install --no-cache-dir \
+    sudo pip install --no-cache-dir \
         "mmcv-full${MMCV_VERSION}" \
         -f https://download.openmmlab.com/mmcv/dist/${CUDA_VERSION_TAG}/${MMCV_TORCH_VERSION}/index.html && \
     if [ -n "$CUDA_VERSION" ] ; then \
-        sudo pip${PYTHON_VERSION} install --no-cache-dir cupy-`echo ${CUDA_VERSION_TAG} | sed "s/cu/cuda/g"`${CUPY_VERSION}; \
+        sudo pip install --no-cache-dir cupy-`echo ${CUDA_VERSION_TAG} | sed "s/cu/cuda/g"`${CUPY_VERSION}; \
     fi
 
 
