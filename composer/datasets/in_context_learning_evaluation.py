@@ -202,7 +202,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
 
     If each question has N answer choices, we construct N distinct inputs per question. In order to ensure
     consistency across multi-GPU, we set the batch size to be `min(N, batch_size)` so that all N
-    inputs per question can stored in the same batch. 
+    inputs per question can stored in the same batch.
 
     Each batch then consists of batch_size // N distinct questions and has the following the structure
 
