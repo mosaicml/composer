@@ -6,8 +6,9 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING, Any, Dict, Optional, TextIO, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, TextIO, Union
 
+import numpy as np
 import yaml
 
 from composer.core.time import Time, TimeUnit
@@ -17,6 +18,9 @@ from composer.utils import dist
 
 if TYPE_CHECKING:
     from composer.core import State
+
+# We use deciles here, so 11 events because deciles including 0.
+NUM_EVAL_LOGGING_EVENTS = 11
 
 
 class ConsoleLogger(LoggerDestination):
@@ -35,7 +39,7 @@ class ConsoleLogger(LoggerDestination):
     """
 
     def __init__(self,
-                 log_interval: Union[int, str, Time] = '1ep',
+                 log_interval: Union[int, str, Time] = '1ba',
                  stream: Union[str, TextIO] = sys.stderr,
                  log_traces: bool = False) -> None:
 
@@ -61,6 +65,7 @@ class ConsoleLogger(LoggerDestination):
         self.hparams: Dict[str, Any] = {}
         self.hparams_already_logged_to_console: bool = False
         self.logged_metrics: Dict[str, float] = {}
+        self.eval_batch_idxs_to_log: Sequence[int] = []
 
     def log_traces(self, traces: Dict[str, Any]):
         if self.should_log_traces:
@@ -102,9 +107,14 @@ class ConsoleLogger(LoggerDestination):
             # Clear logged metrics.
             self.logged_metrics = {}
 
+    def eval_batch_end(self, state: State, logger: Logger) -> None:
+        cur_batch = int(state.eval_timestamp.batch)
+        if cur_batch in self.eval_batch_idxs_to_log:
+            self.log_to_console({}, prefix='Eval ', state=state, is_train=False)
+
     def eval_end(self, state: State, logger: Logger) -> None:
         # Log to the console at the end of eval no matter what log interval is selected.
-        self.log_to_console(state.eval_metric_values, prefix='Eval ', state=state)
+        self.log_to_console(state.eval_metric_values, prefix='Eval ', state=state, is_train=False)
 
     def fit_start(self, state: State, logger: Logger) -> None:
         if not self.hparams_already_logged_to_console:
@@ -117,9 +127,35 @@ class ConsoleLogger(LoggerDestination):
             self._log_hparams_to_console()
 
     def eval_start(self, state: State, logger: Logger) -> None:
+        total_eval_batches = self._get_total_eval_batches(state)
+        deciles = np.linspace(0, 1, NUM_EVAL_LOGGING_EVENTS)
+        batch_idxs = np.arange(1, total_eval_batches + 1)
+        if total_eval_batches < NUM_EVAL_LOGGING_EVENTS:
+            self.eval_batch_idxs_to_log = list(batch_idxs)
+        else:
+            self.eval_batch_idxs_to_log = list(np.quantile(batch_idxs, deciles).round().astype(dtype=int))
+        # Remove index of last batch, so that we don't print progress at end of last batch and then
+        # at eval end.
+        last_batch_idx = total_eval_batches
+        self.eval_batch_idxs_to_log.remove(last_batch_idx)
         if not self.hparams_already_logged_to_console:
             self.hparams_already_logged_to_console = True
             self._log_hparams_to_console()
+
+    def _get_eval_progress_string(self, state: State):
+        eval_batch = state.eval_timestamp.batch.value
+        eval_dataloader_label = state.dataloader_label
+        total_eval_batches = self._get_total_eval_batches(state)
+        curr_progress = f'[Eval batch={eval_batch}/{total_eval_batches}] Eval on {eval_dataloader_label} data'
+        return curr_progress
+
+    def _get_total_eval_batches(self, state: State) -> int:
+        cur_evaluator = [evaluator for evaluator in state.evaluators if evaluator.label == state.dataloader_label][0]
+        total_eval_batches = int(
+            state.dataloader_len) if state.dataloader_len is not None else cur_evaluator.subset_num_batches
+        # To please pyright. Based on _set_evaluator_interval_and_subset_num_batches, total_eval_batches can't be None
+        assert total_eval_batches is not None
+        return total_eval_batches
 
     def _get_progress_string(self, state: State):
         if state.max_duration is None:
@@ -144,10 +180,13 @@ class ConsoleLogger(LoggerDestination):
             training_progress = f'[{unit.name.lower()}={curr_duration}/{total}]'
         return training_progress
 
-    def log_to_console(self, data: Dict[str, Any], state: State, prefix: str = '') -> None:
+    def log_to_console(self, data: Dict[str, Any], state: State, prefix: str = '', is_train=True) -> None:
         # log to console
-        training_progress = self._get_progress_string(state)
-        log_str = f'{training_progress}:'
+        if is_train:
+            progress = self._get_progress_string(state)
+        else:
+            progress = self._get_eval_progress_string(state)
+        log_str = f'{progress}' + (':' if len(data) > 0 else '')
         for data_name, data in data.items():
             data_str = format_log_data_value(data)
             log_str += f'\n\t {prefix}{data_name}: {data_str}'
