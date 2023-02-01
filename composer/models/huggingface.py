@@ -289,6 +289,13 @@ class HuggingFaceModel(ComposerModel):
         if self.use_logits or batch.get('mode', None) == 'icl_task':
             # pop labels first to avoid computing loss
             self.labels = batch.pop('labels')
+
+            if self.shift_labels or batch.get('mode', None) == 'icl_task':
+                assert self.labels is not None
+                # HF CausalLM models internally shift labels before computing loss, so we do the same here
+                self.labels[:, :-1] = self.labels[:, 1:].clone()
+                self.labels[:, -1] = -100
+
             output = outputs if outputs else self.forward(batch)
 
             if self.config.use_return_dict:
@@ -303,13 +310,6 @@ class HuggingFaceModel(ComposerModel):
                 output = output.squeeze(dim=1)
         else:
             output = outputs if outputs else self.forward(batch)
-            self.labels = batch.pop('labels')
-
-        if self.shift_labels or batch.get('mode', None) == 'icl_task':
-            assert self.labels is not None
-            # HF CausalLM models internally shift labels before computing loss, so we do the same here
-            self.labels[:, :-1] = self.labels[:, 1:].clone()
-            self.labels[:, -1] = -100
 
         return output
 
