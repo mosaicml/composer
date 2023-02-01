@@ -192,10 +192,13 @@ def load_checkpoint(
     """
     # download the checkpoint to the node-local folder
     log.debug('Loading checkpoint at %s', path)
+    # Each node gets one unique folder to store checkpoints that is shared amongst all local ranks in that node.
     tempdir_ctx = tempfile.TemporaryDirectory() if dist.get_local_rank() == 0 else contextlib.nullcontext(None)
     with tempdir_ctx as tempdir:
         try:
+            # Get the path to the proper checkpoint folder corresponding to the current rank's node.
             node_checkpoint_folder = _get_node_checkpoint_download_folder(tempdir)
+            
             composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = download_checkpoint(
                 path=path,
                 node_checkpoint_folder=node_checkpoint_folder,
