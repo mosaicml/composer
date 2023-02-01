@@ -2560,7 +2560,6 @@ class Trainer:
                 ensure_evaluator(evaluator, default_metric_names=metric_names)
                 for evaluator in ensure_tuple(eval_dataloader)
             ]
-            
 
             if self.state.eval_metrics:
                 for evaluator in evaluators:
