@@ -134,6 +134,8 @@ class ConsoleLogger(LoggerDestination):
             self.eval_batch_idxs_to_log = list(batch_idxs)
         else:
             self.eval_batch_idxs_to_log = list(np.quantile(batch_idxs, deciles).round().astype(dtype=int))
+        # Remove index of last batch, so that we don't print progress at end of last batch and then
+        # at eval end.
         last_batch_idx = total_eval_batches
         self.eval_batch_idxs_to_log.remove(last_batch_idx)
         if not self.hparams_already_logged_to_console:
