@@ -2552,7 +2552,7 @@ class Trainer:
 
         """
         if eval_dataloader is not None:
-
+            eval_passed_in = True
             eval_metrics = deepcopy(self._original_model.get_metrics(is_train=False))
             metric_names = [str(k) for k in eval_metrics.keys()]
 
@@ -2560,6 +2560,7 @@ class Trainer:
                 ensure_evaluator(evaluator, default_metric_names=metric_names)
                 for evaluator in ensure_tuple(eval_dataloader)
             ]
+            
 
             if self.state.eval_metrics:
                 for evaluator in evaluators:
@@ -2581,6 +2582,7 @@ class Trainer:
             )
             self.state.evaluators.extend(evaluators)  # Add evaluators to state.evaluators
         else:
+            eval_passed_in = False
             if not self.state.evaluators:
                 raise ValueError('eval_dataloader must be provided to either Trainer init() or eval().')
             evaluators = self.state.evaluators
@@ -2592,7 +2594,8 @@ class Trainer:
                 subset_num_batches=subset_num_batches,
                 metrics=self.state.eval_metrics[evaluator.label],
             )
-            self.state.evaluators.remove(evaluator)  # Remove them from state once eval is finished.
+            if eval_passed_in:
+                self.state.evaluators.remove(evaluator)  # Remove them from state once eval is finished.
 
     def _eval_loop(
         self,
