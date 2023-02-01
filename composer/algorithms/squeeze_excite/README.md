@@ -75,7 +75,7 @@ trainer = Trainer(
     model=model,
     train_dataloader=train_dataloader,
     eval_dataloader=eval_dataloader,
-    max_duration='10ep',
+    max_duration='1ep',
     algorithms=[algo]
 )
 
