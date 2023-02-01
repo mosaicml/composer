@@ -2579,6 +2579,7 @@ class Trainer:
                 eval_interval='1ep',  # ignored
                 subset_num_batches=subset_num_batches,
             )
+            self.state.evaluators.extend(evaluators)  # Add evaluators to state.evaluators
         else:
             if not self.state.evaluators:
                 raise ValueError('eval_dataloader must be provided to either Trainer init() or eval().')
@@ -2591,6 +2592,7 @@ class Trainer:
                 subset_num_batches=subset_num_batches,
                 metrics=self.state.eval_metrics[evaluator.label],
             )
+            self.state.evaluators.remove(evaluator)  # Remove them from state once eval is finished.
 
     def _eval_loop(
         self,
