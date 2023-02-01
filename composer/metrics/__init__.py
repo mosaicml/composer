@@ -10,9 +10,19 @@ from composer.metrics.nlp import (BinaryF1Score, HFCrossEntropy, InContextLearni
                                   Perplexity)
 
 __all__ = [
-    'MAP', 'MIoU', 'Dice', 'CrossEntropy', 'LossMetric', 'Perplexity', 'BinaryF1Score', 'HFCrossEntropy',
-    'LanguageCrossEntropy', 'MaskedAccuracy', 'InContextLearningLMAccuracy', 'InContextLearningMultipleChoiceAccuracy',
-    'InContextLearningMetric'
+    'MAP',
+    'MIoU',
+    'Dice',
+    'CrossEntropy',
+    'LossMetric',
+    'Perplexity',
+    'BinaryF1Score',
+    'HFCrossEntropy',
+    'LanguageCrossEntropy',
+    'MaskedAccuracy',
+    'InContextLearningLMAccuracy',
+    'InContextLearningMultipleChoiceAccuracy',
+    'InContextLearningMetric',
 ]
 
 METRIC_DEFAULT_CTORS = {

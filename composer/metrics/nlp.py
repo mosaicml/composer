@@ -305,8 +305,6 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
     At inference time each possible choice is given to the model as a separate input and the one for which the model assigns
     the lowest perplexity to the choice is considered the model's choice. The model is correct if it "chooses" the right answer.
 
-
-
     Context: `The dog is->fuzzy\nthe water is->hot\nthe tree is->`
     Continuation: `green`
 

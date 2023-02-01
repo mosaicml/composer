@@ -75,7 +75,8 @@ class InContextLearningLMTaskDataset(Dataset):
 
     Args:
         dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
-            supported by :meth:`composer.utils.maybe_create_object_store_from_uri`.
+            supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "context",
+            and "continuation". See tests/datasets/local_data/lambada_small.jsonl.
         tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to transform data into batches
         batch_size (int): Size of a batch used for eval
         max_seq_len (int): The sequence length expected by the model
@@ -201,7 +202,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
 
     If each question has N answer choices, we construct N distinct inputs per question. In order to ensure
     consistency across multi-GPU, we set the batch size to be `min(N, batch_size)` so that all N
-    inputs per question can stored in the same batch.
+    inputs per question can stored in the same batch. 
 
     Each batch then consists of batch_size // N distinct questions and has the following the structure
 
@@ -214,7 +215,8 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
 
     Args:
         dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
-            supported by :meth:`composer.utils.maybe_create_object_store_from_uri`.
+            supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "query",
+            "choices", and "gold" index. See tests/datasets/local_data/piqa_small.jsonl.
         tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to transform data into batches
         batch_size (int): Size of a batch used for eval
         max_seq_len (int): The sequence length expected by the model
