@@ -294,7 +294,8 @@ class HuggingFaceModel(ComposerModel):
             if self.config.use_return_dict:
                 output = output['logits']
             else:
-                # logits are at index 1 in the output tuple
+                # logits are at index 0 in the output tuple
+                # because we have popped labels, so no loss is present in the tuple
                 output = output[0]
 
             # if we are in the single class case, then remove the classes dimension
