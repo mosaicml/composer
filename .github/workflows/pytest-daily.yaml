@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 jobs:
   pytest-cpu:
-    timeout-minutes: 30
+    timeout-minutes: 45
     runs-on: ubuntu-20.04
     if: github.repository_owner == 'mosaicml'
     strategy:
@@ -123,7 +123,7 @@ jobs:
           python -m coverage combine
           python -m coverage report
   pytest-gpu:
-    timeout-minutes: 30
+    timeout-minutes: 45
     runs-on: ubuntu-20.04
     if: github.repository_owner == 'mosaicml'
     strategy:

@@ -54,4 +54,4 @@ jobs:
         run: |
           set -ex
           export PR_NUMBER=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
-          python .github/mcp/mcp_pytest.py --image '${{ matrix.container }}' --pr_number $PR_NUMBER --pytest_markers '${{ matrix.markers }}' --pytest_command '${{ matrix.pytest_command }}'
+          python .github/mcp/mcp_pytest.py --image '${{ matrix.container }}' --pr_number $PR_NUMBER --pytest_markers '${{ matrix.markers }}' --pytest_command '${{ matrix.pytest_command }}' --timeout 1200

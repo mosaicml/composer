@@ -23,6 +23,7 @@ if __name__ == '__main__':
                         help='PR number to check out. Overrides git_branch/git_commit if specified')
     parser.add_argument('--pytest_markers', type=str, help='Markers to pass to pytest')
     parser.add_argument('--pytest_command', type=str, help='Command to run pytest')
+    parser.add_argument('--timeout', type=int, default=1800, help='Timeout for run (in seconds)')
     args = parser.parse_args()
 
     git_integration = {
@@ -79,11 +80,11 @@ if __name__ == '__main__':
     run = wait_for_run_status(run, status='running')
     print('Run started. Waiting for run to complete...')
 
-    # Wait up to 30 minutes for run to complete
+    # Wait up to args.timeout seconds for run to complete
     try:
-        run = wait_for_run_status(run, status='completed', timeout=60 * 30)
+        run = wait_for_run_status(run, status='completed', timeout=args.timeout)
     except TimeoutError:
-        print('Run timed out and did not complete in 30 minutes.')
+        print(f'Run timed out and did not complete in {args.timeout/60} minutes.')
 
     # Get run status and stop run
     success = run.status == RunStatus.COMPLETED
