@@ -576,8 +576,8 @@ class Trainer:
             ``'stdout'`` or ``'stderr'``. (default: :attr:`sys.stderr`)
         console_log_interval (int | str | Time, optional): Specifies how frequently to log metrics to console.
             An integer, which will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time`
-            object, or a callable. (default: ``1``)
-            Defaults to ``1`` (log metrics every epoch).
+            object, or a callable. (default: ``1ba``)
+            Defaults to ``1ba`` (log metrics every batch).
 
             If an integer (in epochs), :class:`.Time` string, or :class:`.Time` instance, the metrics will be logged
             with this frequency. :class:`.Time` strings or :class:`.Time` instances must have units of
@@ -881,7 +881,7 @@ class Trainer:
         progress_bar: bool = True,
         log_to_console: bool = False,
         console_stream: Union[str, TextIO] = 'stderr',
-        console_log_interval: Union[int, str, Time] = '1ep',
+        console_log_interval: Union[int, str, Time] = '1ba',
         log_traces: bool = False,
         auto_log_hparams: bool = False,
 
@@ -2552,7 +2552,7 @@ class Trainer:
 
         """
         if eval_dataloader is not None:
-
+            eval_passed_in = True
             eval_metrics = deepcopy(self._original_model.get_metrics(is_train=False))
             metric_names = [str(k) for k in eval_metrics.keys()]
 
@@ -2579,7 +2579,9 @@ class Trainer:
                 eval_interval='1ep',  # ignored
                 subset_num_batches=subset_num_batches,
             )
+            self.state.evaluators.extend(evaluators)  # Add evaluators to state.evaluators
         else:
+            eval_passed_in = False
             if not self.state.evaluators:
                 raise ValueError('eval_dataloader must be provided to either Trainer init() or eval().')
             evaluators = self.state.evaluators
@@ -2591,6 +2593,8 @@ class Trainer:
                 subset_num_batches=subset_num_batches,
                 metrics=self.state.eval_metrics[evaluator.label],
             )
+            if eval_passed_in:
+                self.state.evaluators.remove(evaluator)  # Remove them from state once eval is finished.
 
     def _eval_loop(
         self,

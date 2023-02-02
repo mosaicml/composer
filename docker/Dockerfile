@@ -41,9 +41,9 @@ ARG PILLOW_SIMD_VERSION=7.0.0.post3
 # Leave blank for no Mellanox Drivers
 ARG MOFED_VERSION=5.5-1.0.3.2
 
-# Version of the HPC-X Drivers to install (for InfiniBand support)
-# Leave blank for no HPC-X Drivers
-ARG HPCX_VERSION=2.13.1
+# Version of EFA Drivers to install (for AWS Elastic Fabric Adapter support)
+# Leave blank for no EFA Drivers
+ARG AWS_OFI_NCCL_VERSION=v1.5.0-aws
 
 ########################
 # Vision Image Arguments
@@ -54,7 +54,6 @@ ARG VISION_BASE=pytorch_stage
 
 # Pip version strings of dependencies to install
 ARG MMCV_VERSION='==1.4.8'
-ARG FFCV_VERSION='==0.0.3'
 ARG OPENCV_VERSION='>=4.5.5.64,<4.6'
 ARG NUMBA_VERSION='>=0.55.0,<0.56'
 ARG MMSEGMENTATION_VERSION='>=0.22.0,<0.23'
@@ -128,7 +127,16 @@ RUN apt-get update && \
         liblcms2-dev \
         tcl \
         libjpeg8-dev \
-        less && \
+        less \
+        # For AWS EFA:
+        autoconf \
+        autotools-dev \
+        automake \
+        libtool \
+        # Development tools
+        vim \
+        tmux \
+        htop && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -174,7 +182,7 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
     rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} - && \
-    pip${PYTHON_VERSION} install --no-cache-dir --upgrade pip setuptools
+    pip${PYTHON_VERSION} install --no-cache-dir --upgrade 'pip<23' setuptools
 
 #####################
 # Install pillow-simd
@@ -206,6 +214,38 @@ RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_
         torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} \
         torchtext==${TORCHTEXT_VERSION}
 
+#####################################
+# Install EFA and AWS-OFI-NCCL plugin
+#####################################
+
+ARG EFA_INSTALLER_VERSION=latest
+ARG AWS_OFI_NCCL_VERSION
+
+ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:$LD_LIBRARY_PATH
+ENV PATH=/opt/amazon/openmpi/bin/:/opt/amazon/efa/bin:$PATH
+
+RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
+        cd /tmp && \
+        curl -OsS https://efa-installer.amazonaws.com/aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz && \
+        tar -xf /tmp/aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz && \
+        cd aws-efa-installer && \
+        apt-get update && \
+        ./efa_installer.sh -y -g -d --skip-kmod --skip-limit-conf --no-verify && \
+        rm -rf /tmp/aws-efa-installer* ; \
+    fi
+
+RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
+        git clone https://github.com/aws/aws-ofi-nccl.git /opt/aws-ofi-nccl && \
+        cd /opt/aws-ofi-nccl && \
+        git checkout ${AWS_OFI_NCCL_VERSION} && \
+        ./autogen.sh && \
+        ./configure --prefix=/opt/aws-ofi-nccl/install \
+            --with-libfabric=/opt/amazon/efa/ \
+            --with-cuda=/usr/local/cuda \
+            --disable-tests && \
+        make && make install ; \
+    fi
+
 ###################################
 # Mellanox OFED driver installation
 ###################################
@@ -218,26 +258,6 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
         tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz -C /tmp/mofed && \
         /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64/mlnxofedinstall --user-space-only --without-fw-update --force && \
         rm -rf /tmp/mofed ; \
-    fi
-
-###########################
-# HPC-X driver installation
-###########################
-
-ARG HPCX_VERSION
-
-ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib:
-
-RUN if [ -n "$HPCX_VERSION" ] ; then \
-        mkdir -p /tmp/hpcx && \
-        wget -nv -P /tmp/hpcx https://content.mellanox.com/hpc/hpc-x/v${HPCX_VERSION}/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64.tbz && \
-        tar -xvf /tmp/hpcx/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64.tbz -C /tmp/hpcx && \
-        mv /tmp/hpcx/hpcx-v${HPCX_VERSION}-gcc-MLNX_OFED_LINUX-5-ubuntu20.04-cuda11-gdrcopy2-nccl2.12-x86_64 /opt/hpcx && \
-        rm -rf /tmp/hpcx && \
-        # Set appropriate env vars to use SHARP
-        echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/profile && \
-        echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/bash.bashrc && \
-        echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/nccl_rdma_sharp_plugin/lib:/opt/hpcx/sharp/lib" >> /etc/zshenv ; \
     fi
 
 #####################
@@ -325,7 +345,6 @@ RUN sudo apt-get update && \
     sudo rm -rf /var/lib/apt/lists/*
 
 ARG MMCV_VERSION
-ARG FFCV_VERSION
 ARG OPENCV_VERSION
 ARG NUMBA_VERSION
 ARG MMSEGMENTATION_VERSION
@@ -333,13 +352,10 @@ ARG PYTHON_VERSION
 ARG CUPY_VERSION
 ARG CUDA_VERSION
 
-# Allow FFCV to install deprecated 'sklearn' rather than 'scikit-learn'
-ENV SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL=True
-
 RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
     MMCV_TORCH_VERSION=$(python -c "print('torch' + ''.join('${PYTORCH_VERSION}'.split('.')[:2]) + '.0')") && \
     sudo pip${PYTHON_VERSION} install --no-cache-dir \
-        "ffcv${FFCV_VERSION}" \
+        "https://github.com/libffcv/ffcv/archive/f9726ce2be6c36d57ed596b94e1e855131f0d732.zip" \
         "opencv-python${OPENCV_VERSION}" \
         "numba${NUMBA_VERSION}" \
         "mmsegmentation${MMSEGMENTATION_VERSION}" && \

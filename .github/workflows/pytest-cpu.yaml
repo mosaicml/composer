@@ -1,4 +1,4 @@
-name: Pytest
+name: Pytest-CPU
 on:
   pull_request:
     branches:
@@ -12,9 +12,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 jobs:
-  pytest:
+  pytest-cpu:
     timeout-minutes: 30
     runs-on: ubuntu-20.04
+    if: github.repository_owner == 'mosaicml'
     strategy:
       matrix:
         include:
@@ -46,8 +47,8 @@ jobs:
         run: |
           set -ex
           export PATH=/composer-python:$PATH
-          python -m pip install --upgrade pip wheel
-          python -m pip install -e .[all]
+          python -m pip install --upgrade 'pip<23' wheel
+          python -m pip install --upgrade .[all]
       - name: Run Tests
         id: tests
         run: |
@@ -67,16 +68,17 @@ jobs:
           name: coverage-${{ github.sha }}-${{ matrix.name }}
           path: .coverage
   coverage:
-    needs: [ pytest ]
+    needs: [ pytest-cpu ]
     timeout-minutes: 30
     runs-on: ubuntu-20.04
+    if: github.repository_owner == 'mosaicml'
     steps:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Setup
         run: |
           set -ex
-          python -m pip install --upgrade pip wheel
+          python -m pip install --upgrade 'pip<23' wheel
           pip install coverage[toml]==6.5.0
       - name: Download artifacts
         uses: actions/download-artifact@v3

@@ -160,9 +160,9 @@ FullyShardedDataParallel (FSDP)
 
 Composer integrates Pytorch's `FullyShardedDataParallel <https://pytorch.org/docs/stable/fsdp.html>`__ engine with some syntactic sugar to make it easy to write custom models that work with Composer + FSDP.
 
-At a high level, when you use the Composer Trainer, you must pass it a :mod:`ComposerModel` like `ComposerGPT <https://github.com/mosaicml/benchmarks/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py#L178>`__ that defines certain functions like :code:`forward`, :code:`eval_forward`, :code:`loss`, etc. that are called during the training loop.
+At a high level, when you use the Composer Trainer, you must pass it a :mod:`ComposerModel` like `ComposerGPT <https://github.com/mosaicml/examples/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py#L178>`__ that defines certain functions like :code:`forward`, :code:`eval_forward`, :code:`loss`, etc. that are called during the training loop.
 
-Inside that :mod:`ComposerModel` you may have one or many submodules, such as a :code:`.model` or :code:`.language_model` or :code:`.classifier` that is the actual :mod:`torch.nn.Module` that you will be deploying at inference time. In our case, this is the `GPT <https://github.com/mosaicml/benchmarks/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py#L102>`__ module that we build and attach :mod:`ComposerGPT.model`.
+Inside that :mod:`ComposerModel` you may have one or many submodules, such as a :code:`.model` or :code:`.language_model` or :code:`.classifier` that is the actual :mod:`torch.nn.Module` that you will be deploying at inference time. In our case, this is the `GPT <https://github.com/mosaicml/examples/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py#L102>`__ module that we build and attach :mod:`ComposerGPT.model`.
 
 When you provide an :code:`fsdp_config={...}` dictionary to the Composer Trainer, then on :code:`__init__`, the Trainer will attempt to wrap **each of the submodules** of your :mod:`ComposerModel` with an FSDP auto wrap policy. This wrapping is recursive, so not only is `GPT` wrapped, but all submodules of `GPT` may/may not be wrapped too. See the `FSDP documentation <https://pytorch.org/docs/stable/fsdp.html>`__ for more details on how auto wrap policies work.
 
@@ -300,7 +300,7 @@ To make auto-wrapping easier on users, Composer uses a custom auto wrap policy t
 
 These rules are meant to make it easy for users to modify existing models for usage with FSDP. You can either add attributes to modules you want to wrap (#1), define a filter (#2), or make no changes at all and just use the size-based policy via :code:`fsdp_config['min_params'] = ...` (#3).
 
-In `gpt.py <https://github.com/mosaicml/benchmarks/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py>`__, you can see that `we used rule #2 <https://github.com/mosaicml/benchmarks/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py#L172>`__ to specify that all :code:`GPTBlock` modules within :code:`GPT` should be wrapped. Alternatively, we could have easily attributed each of the blocks with :code:`block._fsdp_wrap = True` and it would have accomplished the same thing. Whatever style you prefer, it's up to you!
+In `gpt.py <https://github.com/mosaicml/examples/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py>`__, you can see that `we used rule #2 <https://github.com/mosaicml/examples/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py#L172>`__ to specify that all :code:`GPTBlock` modules within :code:`GPT` should be wrapped. Alternatively, we could have easily attributed each of the blocks with :code:`block._fsdp_wrap = True` and it would have accomplished the same thing. Whatever style you prefer, it's up to you!
 
 A very similar auto wrap policy is provided for activation checkpointing, with analogous rule #1 that looks for :code:`module._activation_checkpointing = True | False` and rule #2 that looks for :code:`def activation_checkpointing_fn(module: torch.nn.Module) -> bool`.
 
