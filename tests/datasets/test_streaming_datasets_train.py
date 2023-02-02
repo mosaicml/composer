@@ -17,6 +17,7 @@ from tests.common import device, world_size
 
 @pytest.mark.daily
 @pytest.mark.remote
+@pytest.mark.timeout(30)
 @device('cpu', 'gpu')
 @world_size(1, 2)
 @pytest.mark.parametrize('num_workers', [0, 1, 2])
