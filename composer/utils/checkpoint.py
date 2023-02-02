@@ -110,7 +110,7 @@ def load_checkpoint(
             It can be a path to a file on the local disk, a URL, or if ``object_store`` is set, the object name
             for a checkpoint in a cloud bucket.
 
-            When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, checkpoints are shareded by rank.
+            When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, checkpoints are sharded by rank.
             Instead of hard-coding the rank in the ``path``, use the following format variables:
 
             +------------------------+-------------------------------------------------------+
@@ -143,7 +143,7 @@ def load_checkpoint(
         object_store (Union[ObjectStore, LoggerDestination], optional): If the ``path`` is in an object store
             (i.e. AWS S3 or Google Cloud Storage), an instance of
             :class:`~.ObjectStore` or :class:`~.LoggerDestination` which will be used
-            to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath, set to ``None``.
+            to retrieve the checkpoint. Otherwise, if the checkpoint is a local filepath, set to ``None``.
             (default: ``None``)
         load_weights_only (bool, optional): Whether or not to only restore the model weights from the checkpoint without
             restoring the associated state. (default: ``False``)
@@ -153,7 +153,7 @@ def load_checkpoint(
             Ignored if the checkpoint is a local file path. (default: ``True``)
         ignore_keys (List[str] | (Dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
             which, when provided, will be ignored from the state_dict before a checkpoint is loaded. Each path is a list
-            of strings specifying the keys to index into ``state_dict`` joined together with `/` as a seperator (as PyTorch
+            of strings specifying the keys to index into ``state_dict`` joined together with `/` as a separator (as PyTorch
             uses `.` in parameter names). If a prefix is provided, all children are also ignored (see Example 2).
             See :mod:`composer.core.state` for the structure of state_dict.
 
