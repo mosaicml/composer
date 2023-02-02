@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 import torch
 from torchmetrics import Metric
 
-from composer.metrics import METRIC_DEFAULT_CTORS, InContextLearningLMAccuracy
+from composer.metrics import METRIC_DEFAULT_CTORS, InContextLearningMetric
 from composer.models.base import ComposerModel
 from composer.utils import MissingConditionalImportError, get_file, import_object
 
@@ -44,8 +44,8 @@ class HuggingFaceModel(ComposerModel):
         metrics (list[Metric], optional): list of torchmetrics to apply to the output of `validate`. Default: ``None``.
         shift_labels (bool, optional): If True, the batch's labels will be shifted before being used to calculate metrics. This should be set to true for CausalLM models and false otherwise. If not specified, `shift_labels` will be set automatically based on the model class name. Default: ``None``.
 
-            .. note:: To ensure correct behavior, set `shift_labels` manually if using a custom model (i.e., if `model` is not
-                an instance of a registered 🤗 Transformers class).
+        .. note:: To ensure correct behavior, set `shift_labels` manually if using a custom model (i.e., if `model` is not
+        an instance of a registered 🤗 Transformers class).
     .. warning:: This wrapper is designed to work with 🤗 datasets that define a `labels` column.
 
     Example:
@@ -286,22 +286,30 @@ class HuggingFaceModel(ComposerModel):
             return outputs[0]
 
     def eval_forward(self, batch, outputs: Optional[Any] = None):
-        output = outputs if outputs else self.forward(batch)
-        if self.use_logits or batch.get('mode', None) == 'lm_task':
+        if self.use_logits or batch.get('mode', None) == 'icl_task':
+            # pop labels first to avoid computing loss
             self.labels = batch.pop('labels')
-            if self.shift_labels:
+
+            if self.shift_labels or batch.get('mode', None) == 'icl_task':
+                assert self.labels is not None
                 # HF CausalLM models internally shift labels before computing loss, so we do the same here
                 self.labels[:, :-1] = self.labels[:, 1:].clone()
                 self.labels[:, -1] = -100
+
+            output = outputs if outputs else self.forward(batch)
+
             if self.config.use_return_dict:
                 output = output['logits']
             else:
-                # logits are at index 1 in the output tuple
-                output = output[1]
+                # logits are at index 0 in the output tuple
+                # because we have popped labels, so no loss is present in the tuple
+                output = output[0]
 
             # if we are in the single class case, then remove the classes dimension
             if output.shape[1] == 1:
                 output = output.squeeze(dim=1)
+        else:
+            output = outputs if outputs else self.forward(batch)
 
         return output
 
@@ -314,11 +322,11 @@ class HuggingFaceModel(ComposerModel):
         return metrics if metrics else {}
 
     def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
-        if isinstance(metric, InContextLearningLMAccuracy):
+        if isinstance(metric, InContextLearningMetric) and batch.get('mode', None) == 'icl_task':
             assert self.labels is not None
             metric.update(batch, outputs, self.labels)
         else:
-            metric.update(outputs, self.labels)
+            metric.update(outputs, self.labels)  # pyright: ignore [reportGeneralTypeIssues]
 
     def get_metadata(self):
         model_output = {}
