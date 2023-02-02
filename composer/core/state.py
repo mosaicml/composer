@@ -890,18 +890,18 @@ class State(Serializable):
                 if self.fsdp_config['state_dict_type'] == 'sharded':
                     # Optimizer and optimizer state dict are already sharded, so just
                     # load the state_dict
-                    optimizer.load_state_dict(optim_state_dict)
+                    flattened_optim_state_dict = FSDP.flatten_sharded_optim_state_dict(
+                                                        sharded_optim_state_dict=optim_state_dict,
+                                                        model=self.model,
+                                                        optim=optimizer)
+                    optimizer.load_state_dict(flattened_optim_state_dict)
                 elif self.fsdp_config['state_dict_type'] == 'local':
                     # Optimizer and optimizer state dict are already sharded, but not
                     # flattened, so we flatten the state dict then load it.
                     if version.parse(torch.__version__) < version.parse('1.13.0'):
                         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
                     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-                    flattened_optim_state_dict = FSDP.flatten_sharded_optim_state_dict(
-                                                        sharded_optim_state_dict=optim_state_dict,
-                                                        model=self.model,
-                                                        optim=optimizer)
-                    optimizer.load_state_dict(flattened_optim_state_dict)
+                    optimizer.load_state_dict(optim_state_dict)
             elif self.fsdp_enabled:
                 sharded_osd = get_fsdp_sharded_optim_state_dict(full_optim_state_dict=optim_state_dict, model=self.model)
                 optimizer.load_state_dict(sharded_osd)
