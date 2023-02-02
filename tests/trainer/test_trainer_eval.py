@@ -50,6 +50,39 @@ def test_eval_call():
     assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
 
 
+def test_eval_call_with_trainer_evaluators():
+    trainer_dataset = RandomClassificationDataset()
+    trainer_evaluator = Evaluator(label='trainer',
+                                  dataloader=DataLoader(
+                                      dataset=trainer_dataset,
+                                      sampler=dist.get_sampler(trainer_dataset),
+                                  ))
+
+    eval_call_dataset = RandomClassificationDataset()
+    eval_call_evaluator = Evaluator(label='eval_call',
+                                    dataloader=DataLoader(dataset=eval_call_dataset,
+                                                          sampler=dist.get_sampler(eval_call_dataset)))
+    # Construct the trainer
+    trainer = Trainer(model=SimpleModel(), eval_dataloader=trainer_evaluator)
+
+    # Empty eval call.
+    trainer.eval()
+
+    # Check trainer_evaluator is not deleted.
+    assert trainer_evaluator in trainer.state.evaluators
+
+    # Eval call with an evaluator passed.
+    trainer.eval(eval_dataloader=eval_call_evaluator)
+
+    # Evaluators passed to constructor permanently reside in trainer.state.evaluators.
+    # Check trainer_evaluator is NOT deleted.
+    assert trainer_evaluator in trainer.state.evaluators
+    # Evaluators passed to eval temporarily reside in trainer.state.evaluators for the duration
+    # of evaluation.
+    # Check eval_call_evaluator IS deleted.
+    assert eval_call_evaluator not in trainer.state.evaluators
+
+
 def test_trainer_eval_loop():
     # Construct the trainer
     trainer = Trainer(model=SimpleModel())
