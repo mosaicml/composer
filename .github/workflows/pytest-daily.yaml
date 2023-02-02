@@ -2,9 +2,6 @@ name: Pytest-Daily
 on:
   schedule:
     - cron: '30 2 * * *' # 2:30 every day
-  pull_request:
-    branches:
-      - dev
   push:
     branches:
       - dev
@@ -181,5 +178,4 @@ jobs:
         id: tests
         run: |
           set -ex
-          export PR_NUMBER=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
-          python .github/mcp/mcp_pytest.py --image '${{ matrix.container }}' --pr_number $PR_NUMBER --pytest_markers '${{ matrix.markers }}' --pytest_command '${{ matrix.pytest_command }}'
+          python .github/mcp/mcp_pytest.py --image '${{ matrix.container }}' --git_commit $GITHUB_SHA --pytest_markers '${{ matrix.markers }}' --pytest_command '${{ matrix.pytest_command }}'
