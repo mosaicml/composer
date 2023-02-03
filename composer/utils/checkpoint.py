@@ -292,6 +292,10 @@ def download_checkpoint(
                     # the underlying issue is that the checkpoint file does not exist on the disk
                     # or could not be downloaded
                     raise RuntimeError(f'Checkpoint {path} does not exist')
+            
+            if fsdp_sharded_state_dict_enabled:
+                with tempfile.TemporaryDirectory() as tempdir:
+                    test_file = 
 
         if rank_zero_checkpoint_filepath != rank_n_checkpoint_filepath:
             # every RANK needs ITS OWN checkpoint.
@@ -304,9 +308,14 @@ def download_checkpoint(
                          object_store=object_store,
                          progress_bar=progress_bar)
             except FileNotFoundError:
+
+                if fsdp_sharded_state_dict_enabled:
+                    raise NotImplementedError(textwrap.dedent(f"""Could not find the {path} checkpoint for rank {dist.get_global_rank()}.
+                                                              This is likely because there are more ranks than checkpoint files."""))
                 # Allowing not-found errors to be ignored as sometimes there won't be rank-local checkpoints
-                # (e.g. when not using deepspeed)
-                pass
+                # (e.g. when not using deepspeed nor using fsdp sharded checkpoints)
+                else:
+                    pass
 
             if extracted_checkpoint_folder is not None:
                 try:
