@@ -28,8 +28,8 @@ from composer.models import ComposerModel
 from composer.optim import ExponentialScheduler
 from composer.trainer.trainer import _generate_run_name
 from composer.utils import dist, is_model_deepspeed, is_model_fsdp, map_collection, reproducibility
-from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
-                          world_size)
+from tests.common import (InfiniteClassificationDataset, RandomClassificationDataset, RandomImageDataset,
+                          SimpleConvModel, SimpleModel, device, world_size)
 from tests.common.events import EventCounterCallback
 from tests.test_state import assert_state_equivalent
 
@@ -185,6 +185,16 @@ class TestTrainerInitOrFit:
 
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
+
+    def test_max_duration_epoch_with_infinite_train_loader(self, model: ComposerModel):
+        with pytest.raises(
+                ValueError,
+                match=
+                'max_duration cannot be in epochs when using a DataLoader without a length and not specifying train_subset_num_batches.'
+        ):
+            train_loader = DataLoader(InfiniteClassificationDataset(), batch_size=4)
+            trainer = Trainer(model=model, train_dataloader=train_loader, max_duration='1ep')
+            trainer.fit()
 
     @pytest.mark.parametrize('reset_time', [True, False])
     @pytest.mark.parametrize('new_duration', [

@@ -5,8 +5,8 @@ import types
 from typing import List, Type
 
 from tests.common.compare import deep_compare
-from tests.common.datasets import (RandomClassificationDataset, RandomImageDataset, RandomSegmentationDataset,
-                                   RandomTextClassificationDataset, SimpleDataset)
+from tests.common.datasets import (InfiniteClassificationDataset, RandomClassificationDataset, RandomImageDataset,
+                                   RandomSegmentationDataset, RandomTextClassificationDataset, SimpleDataset)
 from tests.common.events import EventCounterCallback
 from tests.common.markers import device, world_size
 from tests.common.models import (ConvModel, EmbeddedWeightTiedModel, SimpleConvModel, SimpleModel,
@@ -20,8 +20,23 @@ def get_module_subclasses(module: types.ModuleType, cls: Type) -> List[Type]:
 
 
 __all__ = [
-    'assert_state_equivalent', 'RandomClassificationDataset', 'RandomTextClassificationDataset', 'RandomImageDataset',
-    'RandomSegmentationDataset', 'ConvModel', 'SimpleConvModel', 'SimpleModel', 'SimpleTransformerClassifier',
-    'EmbeddedWeightTiedModel', 'SimpleWeightTiedModel', 'EventCounterCallback', 'deep_compare', 'device', 'world_size',
-    'get_module_subclasses', 'SimpleModelWithDropout', 'SimpleDataset'
+    'assert_state_equivalent',
+    'RandomClassificationDataset',
+    'RandomTextClassificationDataset',
+    'RandomImageDataset',
+    'RandomSegmentationDataset',
+    'ConvModel',
+    'SimpleConvModel',
+    'SimpleModel',
+    'SimpleTransformerClassifier',
+    'EmbeddedWeightTiedModel',
+    'SimpleWeightTiedModel',
+    'EventCounterCallback',
+    'deep_compare',
+    'device',
+    'world_size',
+    'get_module_subclasses',
+    'SimpleModelWithDropout',
+    'SimpleDataset',
+    'InfiniteClassificationDataset',
 ]
