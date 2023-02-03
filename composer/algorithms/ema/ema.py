@@ -72,7 +72,7 @@ def compute_ema(model: torch.nn.Module, ema_model: Union[torch.nn.Module, EMAPar
                 if name in ema_buffers:
                     ema_buffers[name].copy_(ema_buffers[name] * smoothing + param.data * (1. - smoothing))
         else:
-            raise ValueError("ema_model must be a torch.nn.Module or EMAParameters")
+            raise ValueError('ema_model must be a torch.nn.Module or EMAParameters')
 
 
 class EMA(Algorithm):

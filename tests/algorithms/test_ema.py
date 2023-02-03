@@ -2,14 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
-import itertools
 
 import numpy as np
 import pytest
 import torch
 
 from composer.algorithms import EMA
-from composer.algorithms.ema.ema import compute_ema, EMAParameters
+from composer.algorithms.ema.ema import EMAParameters, compute_ema
 from composer.core import Event, Time, Timestamp, TimeUnit
 from tests.common import SimpleConvModel, SimpleTransformerClassifier
 from tests.common.models import configure_tiny_bert_hf_model
@@ -33,11 +32,12 @@ def validate_model(model1, model2):
     model1_params, model1_buffers = dict(model1.named_parameters()), dict(model1.named_buffers())
     model2_params, model2_buffers = dict(model2.named_parameters()), dict(model2.named_buffers())
 
-    for name, param in model1_params.items():
+    for name, _ in model1_params.items():
         torch.testing.assert_close(model1_params[name].data, model2_params[name].data)
 
-    for name, buffer in model1_buffers.items():
+    for name, _ in model1_buffers.items():
         torch.testing.assert_close(model1_buffers[name].data, model2_buffers[name].data)
+
 
 @pytest.mark.parametrize('smoothing', [0, 0.5, 0.99, 1])
 @pytest.mark.parametrize('model_cls', [(SimpleConvModel), (SimpleTransformerClassifier),
@@ -48,6 +48,7 @@ def test_ema(smoothing, model_cls):
     original_model = copy.deepcopy(ema_model)
     compute_ema(model=model, ema_model=ema_model, smoothing=smoothing)
     validate_ema(model, original_model, ema_model, smoothing)
+
 
 # params = [(half_life, update_interval)]
 @pytest.mark.parametrize('params', [{
