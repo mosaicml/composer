@@ -187,11 +187,7 @@ class TestTrainerInitOrFit:
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
     def test_max_duration_epoch_with_infinite_train_loader(self, model: ComposerModel):
-        with pytest.raises(
-                ValueError,
-                match=
-                'max_duration cannot be in epochs when using a DataLoader without a length and not specifying train_subset_num_batches.'
-        ):
+        with pytest.raises(ValueError, match='max_duration cannot be specified in epochs'):
             train_loader = DataLoader(InfiniteClassificationDataset(), batch_size=4)
             trainer = Trainer(model=model, train_dataloader=train_loader, max_duration='1ep')
             trainer.fit()

@@ -1689,6 +1689,12 @@ class Trainer:
         if self.state.max_duration is None:
             _raise_missing_argument_exception('max_duration')
 
+        if self.state.dataloader_len is None and self.state.max_duration.unit == TimeUnit.EPOCH:
+            raise ValueError(
+                ('max_duration cannot be specified in epochs when using an infinite dataloader. Please either '
+                 'provide a dataloader with a length, specify max_duration in batches, samples, or tokens, or provide '
+                 'train_subset_num_batches.'))
+
         if self.state.max_duration <= self.state.timestamp.get(self.state.max_duration.unit) and not reset_time:
             raise ValueError(
                 (f'The max_duration ({self.state.max_duration}) is less than or equal to the elapsed training duration '
