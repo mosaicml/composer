@@ -5,8 +5,9 @@
 
 from composer.metrics.map import MAP
 from composer.metrics.metrics import CrossEntropy, Dice, LossMetric, MIoU
-from composer.metrics.nlp import (BinaryF1Score, HFCrossEntropy, InContextLearningLMAccuracy, LanguageCrossEntropy,
-                                  MaskedAccuracy, Perplexity)
+from composer.metrics.nlp import (BinaryF1Score, HFCrossEntropy, InContextLearningLMAccuracy, InContextLearningMetric,
+                                  InContextLearningMultipleChoiceAccuracy, LanguageCrossEntropy, MaskedAccuracy,
+                                  Perplexity)
 
 __all__ = [
     'MAP',
@@ -20,8 +21,11 @@ __all__ = [
     'LanguageCrossEntropy',
     'MaskedAccuracy',
     'InContextLearningLMAccuracy',
+    'InContextLearningMultipleChoiceAccuracy',
+    'InContextLearningMetric',
 ]
 
 METRIC_DEFAULT_CTORS = {
     'InContextLearningLMAccuracy': InContextLearningLMAccuracy,
+    'InContextLearningMultipleChoiceAccuracy': InContextLearningMultipleChoiceAccuracy
 }

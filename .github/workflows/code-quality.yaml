@@ -39,8 +39,8 @@ jobs:
       - name: Setup
         run: |
           set -ex
-          python -m pip install --upgrade pip wheel
-          python -m pip install -e .${{ matrix.pip_deps }}
+          python -m pip install --upgrade 'pip<23' wheel
+          python -m pip install --upgrade .${{ matrix.pip_deps }}
       - name: Run checks
         run: |
           pre-commit run --all-files
