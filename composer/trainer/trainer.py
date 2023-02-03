@@ -57,7 +57,7 @@ log = logging.getLogger(__name__)
 
 __all__ = ['Trainer']
 
-# syntax to shorten the Scheduler type annoations
+# syntax to shorten the Scheduler type annotations
 Scheduler = Union[ComposerScheduler, PyTorchScheduler]
 
 
@@ -622,7 +622,7 @@ class Trainer:
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
         load_object_store (Union[ObjectStore, LoggerDestination], optional): If the ``load_path`` is in an
             object store (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStore` or
-            :class:`.LoggerDestination` which will be used to retreive the checkpoint. Otherwise, if the
+            :class:`.LoggerDestination` which will be used to retrieve the checkpoint. Otherwise, if the
             checkpoint is a local filepath, set to ``None``. Also, it can be ``None`` if the ``load_path`` is
             an S3 URI because the appropriate object store will be automatically constructed in that case.
             Ignored if ``load_path`` is ``None``.
@@ -1007,7 +1007,7 @@ class Trainer:
             optimizers = map_collection(optimizers, device.optimizer_to_device)
 
         # Microbatching
-        # To support backwards compatability, we currently support both device_train_microbatch_size
+        # To support backwards compatibility, we currently support both device_train_microbatch_size
         # and grad_accum. If both are specified with grad_accum=1, we will use device_train_microbatch_size.
         if device_train_microbatch_size is not None:
             using_device_microbatch_size = True
