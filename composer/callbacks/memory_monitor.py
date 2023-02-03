@@ -50,23 +50,23 @@ class MemoryMonitor(Callback):
 
     The following statistics are recorded:
 
-    +----------------+--------------------------------------------------------------------------------+
-    | Statistic      | Description                                                                    |
-    +================+================================================================================+
-    | alloc_requests | Number of memory allocation requests received by the memory allocator.         |
-    +----------------+--------------------------------------------------------------------------------+
-    | free_requests  | Number of memory free requests received by the memory allocator.               |
-    +----------------+--------------------------------------------------------------------------------+
-    | allocated_mem  | Amount of allocated memory in bytes.                                           |
-    +----------------+--------------------------------------------------------------------------------+
-    | active_mem     | Amount of active memory in bytes at the time of recording.                     |
-    +----------------+--------------------------------------------------------------------------------+
-    | inactive_mem   | Amount of inactive, non-releaseable memory in bytes at the time of recording.  |
-    +----------------+--------------------------------------------------------------------------------+
-    | reserved_mem   | Amount of reserved memory in bytes at the time of recording.                   |
-    +----------------+--------------------------------------------------------------------------------+
-    | alloc_retries  | Number of failed cudaMalloc calls that result in a cache flush and retry.      |
-    +----------------+--------------------------------------------------------------------------------+
+    +----------------+-----------------------------------------------------------------------------------+
+    | Statistic      | Description                                                                       |
+    +================+===================================================================================+
+    | alloc_requests | Number of memory allocation requests received by the memory allocator.            |
+    +----------------+-----------------------------------------------------------------------------------+
+    | free_requests  | Number of memory free requests received by the memory allocator.                  |
+    +----------------+-----------------------------------------------------------------------------------+
+    | allocated_mem  | Amount of allocated memory in gigabytes.                                          |
+    +----------------+-----------------------------------------------------------------------------------+
+    | active_mem     | Amount of active memory in gigabytes at the time of recording.                    |
+    +----------------+-----------------------------------------------------------------------------------+
+    | inactive_mem   | Amount of inactive, non-releaseable memory in gigabytes at the time of recording. |
+    +----------------+-----------------------------------------------------------------------------------+
+    | reserved_mem   | Amount of reserved memory in gigabytes at the time of recording.                  |
+    +----------------+-----------------------------------------------------------------------------------+
+    | alloc_retries  | Number of failed cudaMalloc calls that result in a cache flush and retry.         |
+    +----------------+-----------------------------------------------------------------------------------+
 
     .. note::
         Memory usage monitoring is only supported for GPU devices.
@@ -98,7 +98,7 @@ class MemoryMonitor(Callback):
 _MEMORY_STATS = {
     'allocation.all.allocated': 'alloc_requests',
     'allocation.all.freed': 'free_requests',
-    'allocated_bytes.all.allocated': 'allocated_mem',
+    'allocated_bytes.all.current': 'allocated_mem',
     'active_bytes.all.current': 'active_mem',
     'inactive_split_bytes.all.current': 'inactive_mem',
     'reserved_bytes.all.current': 'reserved_mem',
@@ -109,9 +109,13 @@ _MEMORY_STATS = {
 def _get_memory_report() -> Dict[str, Union[int, float]]:
     memory_stats = torch.cuda.memory_stats()
 
-    # simplify the memory_stats
-    memory_report = {
-        name: memory_stats[torch_name] for (torch_name, name) in _MEMORY_STATS.items() if torch_name in memory_stats
-    }
+    # simplify and reformat the memory_stats
+    memory_report = {}
+    for (torch_name, name) in _MEMORY_STATS.items():
+        if torch_name in memory_stats:
+            # Convert to gigabytes
+            if 'bytes' in torch_name:
+                memory_report[name.replace('bytes', 'gigabytes')] = memory_stats[torch_name] / 1e9
+            memory_report[name] = memory_stats[torch_name]
 
     return memory_report
