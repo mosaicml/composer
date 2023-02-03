@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import copy
 import itertools
 import logging
 from typing import Any, Dict, Optional, Union
@@ -203,13 +202,13 @@ class EMA(Algorithm):
         return should_start
 
     def _ensure_training_weights_active(self, state: State):
-        if self.ema_weights_active is True:
-            _swap_params(model=state.model, ema_parameters=self.ema_model)
+        if self.ema_weights_active is True and self.ema_model is not None:
+            self.ema_model.swap_params(model=state.model)
             self.ema_weights_active = False
 
     def _ensure_ema_weights_active(self, state: State):
-        if self.ema_weights_active is False:
-            _swap_params(model=state.model, ema_parameters=self.ema_model)
+        if self.ema_weights_active is False and self.ema_model is not None:
+            self.ema_model.swap_params(model=state.model)
             self.ema_weights_active = True
 
     def match(self, event: Event, state: State) -> bool:
@@ -251,7 +250,7 @@ class EMA(Algorithm):
 
         if event == Event.FIT_START:
             # Ensure that params are on the right device if a checkpoint has been loaded
-            _move_params_to_device(ema_parameters=self.ema_model, destination_model=state.model)
+            self.ema_model.move_params_to_device(destination_model=state.model)
 
         if event == Event.BATCH_START and self.ema_weights_active:
             # Ensure the model being trained has the correct weights
@@ -295,6 +294,38 @@ class EMA(Algorithm):
                 else:
                     setattr(self, attribute_name, serialized_value)
 
+    def get_ema_model(self, model: torch.nn.Module) -> torch.nn.Module:
+        """Replaces the parameters of the supplied model with the ema parameters if they are not already active.
+
+        Args:
+            model (torch.nn.Module): The model to replace the parameters of.
+
+        Returns:
+            torch.nn.Module: The model with the ema parameters.
+        """
+        assert self.ema_model is not None
+        # Ensure that self.ema_model contains the ema weights. If not raise an error.
+        if self.ema_weights_active == True:
+            raise ValueError('The ema weight are currently contained in the composer model.')
+        self.ema_model.transfer_ema_params(model=model)
+        return model
+
+    def get_training_model(self, model: torch.nn.Module) -> torch.nn.Module:
+        """Replaces the parameters of the supplied model with the training parameters if they are not already active.
+
+        Args:
+            model (torch.nn.Module): The model to replace the parameters of.
+
+        Returns:
+            torch.nn.Module: The model with the training parameters.
+        """
+        assert self.ema_model is not None
+        # Ensure that self.ema_model contains the training weights. If not raise an error.
+        if self.ema_weights_active == False:
+            raise ValueError('The training weights are currently contained in the composer model.')
+        self.ema_model.transfer_ema_params(model=model)
+        return model
+
 
 class EMAParameters:
     """A class that stores the parameters and buffers of a model needed for averaging."""
@@ -315,26 +346,34 @@ class EMAParameters:
     def named_buffers(self):
         return self.named_buffers_dict.items()
 
+    def swap_params(self, model: torch.nn.Module):
+        """Swaps the parameters and buffers of a model with the ema parameters."""
+        with torch.no_grad():
+            ema_params = self.named_parameters_dict
+            ema_buffers = self.named_buffers_dict
 
-def _swap_params(model: torch.nn.Module, ema_parameters: EMAParameters):
-    """Swaps the parameters and buffers of a model with those in ema_parameters."""
-    with torch.no_grad():
-        ema_params = ema_parameters.named_parameters_dict
-        ema_buffers = ema_parameters.named_buffers_dict
+            for name, param in model.named_parameters():
+                if name in ema_params:
+                    param.data, ema_params[name] = ema_params[name], param.data
 
-        for name, param in model.named_parameters():
-            if name in ema_params:
-                param.data, ema_params[name] = ema_params[name], param.data
+            for name, buffer in model.named_buffers():
+                buffer.data, ema_buffers[name] = ema_buffers[name], buffer.data
 
-        for name, buffer in model.named_buffers():
-            buffer.data, ema_buffers[name] = ema_buffers[name], buffer.data
+    def transfer_ema_params(self, model: torch.nn.Module):
+        """Transfers the parameters and buffers from the ema model to the supplied model."""
+        with torch.no_grad():
+            for name, param in model.named_parameters():
+                if name in self.named_parameters_dict:
+                    param.data = self.named_parameters_dict[name]
 
+            for name, buffer in model.named_buffers():
+                buffer.data = self.named_buffers_dict[name]
 
-def _move_params_to_device(ema_parameters: EMAParameters, destination_model: torch.nn.Module):
-    """Moves the ema parameters and buffers to the device of a destination model."""
-    model_state_dict = destination_model.state_dict()
-    for name, param in ema_parameters.named_parameters_dict.items():
-        ema_parameters.named_parameters_dict[name] = param.to(model_state_dict[name].device)
+    def move_params_to_device(self, destination_model: torch.nn.Module):
+        """Moves the ema parameters and buffers to the device of a destination model."""
+        model_state_dict = destination_model.state_dict()
+        for name, param in self.named_parameters_dict.items():
+            self.named_parameters_dict[name] = param.to(model_state_dict[name].device)
 
-    for name, buffer in ema_parameters.named_buffers_dict.items():
-        ema_parameters.named_buffers_dict[name] = buffer.to(model_state_dict[name].device)
+        for name, buffer in self.named_buffers_dict.items():
+            self.named_buffers_dict[name] = buffer.to(model_state_dict[name].device)
