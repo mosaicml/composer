@@ -333,7 +333,9 @@ class EMAParameters:
     def __init__(self, model: Union[None, torch.nn.Module]):
         if model is not None:
             # Copy the trainable parameters and buffers.
-            self.named_parameters_dict = {name: param.data.clone() for name, param in model.named_parameters() if param.requires_grad}
+            self.named_parameters_dict = {
+                name: param.data.clone() for name, param in model.named_parameters() if param.requires_grad
+            }
             self.named_buffers_dict = {name: buffer.data.clone() for name, buffer in model.named_buffers()}
         else:
             # Empty storage
