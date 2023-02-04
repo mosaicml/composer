@@ -295,7 +295,39 @@ def download_checkpoint(
             
             if fsdp_sharded_state_dict_enabled:
                 with tempfile.TemporaryDirectory() as tempdir:
-                    test_file = 
+
+                    # Check if there exists a checkpoint file for a rank larger than the 
+                    # largest rank.
+                    try:
+                        get_file(destination=os.path.join(tempdir, 'test_too_many_files'),
+                                path=path.format(rank=dist.get_world_size()),
+                                object_store=object_store,
+                                progress_bar=progress_bar)
+                        raise NotImplementedError(textwrap.dedent(f"""\
+                            Found {path.format(rank=dist.get_world_size())} 
+                            checkpoint for a rank {dist.get_world_size()}
+                            larger than the number of active ranks. 
+                            Loading in more checkpoint shards than there are ranks is 
+                            not supported at this time. Please run with as many ranks as
+                            checkpoint shards or save your checkpoints again using 
+                            {dist.get_world_size()} ranks."""))
+                    except:
+                        pass
+
+                    # Check if there is checkpoint file for the largest rank.
+                    try:
+                        get_file(destination=os.path.join(tempdir, 'test_too_few_files'),
+                                path=path.format(rank=dist.get_world_size() - 1),
+                                object_store=object_store,
+                                progress_bar=progress_bar)
+                    except:
+                        raise NotImplementedError(textwrap.dedent(f"""\
+                            Could not find the {path} checkpoint for rank {dist.get_world_size() - 1}.
+                            This is likely because there are more ranks than checkpoint files
+                            Loading in fewer checkpoint shards than there are ranks is 
+                            not supported at this time. Please run with as many ranks as
+                            checkpoint shards or save your checkpoints again using 
+                            {dist.get_world_size()} ranks."""))
 
         if rank_zero_checkpoint_filepath != rank_n_checkpoint_filepath:
             # every RANK needs ITS OWN checkpoint.
@@ -308,10 +340,14 @@ def download_checkpoint(
                          object_store=object_store,
                          progress_bar=progress_bar)
             except FileNotFoundError:
-
                 if fsdp_sharded_state_dict_enabled:
-                    raise NotImplementedError(textwrap.dedent(f"""Could not find the {path} checkpoint for rank {dist.get_global_rank()}.
-                                                              This is likely because there are more ranks than checkpoint files."""))
+                    raise NotImplementedError(textwrap.dedent(f"""\
+                                Could not find the {path} checkpoint for rank {dist.get_global_rank()}.
+                                This is likely because there are more ranks than checkpoint files
+                                Loading in fewer checkpoint shards than there are ranks is 
+                                not supported at this time. Please run with as many ranks as
+                                checkpoint shards or save your checkpoints again using 
+                                {dist.get_world_size()} ranks."""))
                 # Allowing not-found errors to be ignored as sometimes there won't be rank-local checkpoints
                 # (e.g. when not using deepspeed nor using fsdp sharded checkpoints)
                 else:
