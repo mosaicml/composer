@@ -186,10 +186,22 @@ class TestTrainerInitOrFit:
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
-    def test_max_duration_epoch_with_infinite_train_loader(self, model: ComposerModel):
-        with pytest.raises(ValueError, match='max_duration cannot be specified in epochs'):
+    @pytest.mark.parametrize('max_duration', [1, '1ep', '1ba', '1sp'])
+    @pytest.mark.parametrize('train_subset_num_batches', [-1, 1])
+    def test_infinite_train_loader(self, model: ComposerModel, max_duration: Union[int, str],
+                                   train_subset_num_batches: int):
+        should_raise = (isinstance(max_duration, int) or
+                        max_duration.endswith('ep')) and (train_subset_num_batches is None or
+                                                          train_subset_num_batches == -1)
+        context = pytest.raises(
+            ValueError,
+            match='max_duration cannot be specified in epochs') if should_raise else contextlib.nullcontext()
+        with context:
             train_loader = DataLoader(InfiniteClassificationDataset(), batch_size=4)
-            trainer = Trainer(model=model, train_dataloader=train_loader, max_duration='1ep')
+            trainer = Trainer(model=model,
+                              train_dataloader=train_loader,
+                              max_duration=max_duration,
+                              train_subset_num_batches=train_subset_num_batches)
             trainer.fit()
 
     @pytest.mark.parametrize('reset_time', [True, False])
