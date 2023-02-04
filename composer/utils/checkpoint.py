@@ -194,15 +194,16 @@ def load_checkpoint(
     log.debug('Loading checkpoint at %s', path)
     # Each node gets one unique folder to store checkpoints that is shared amongst all local ranks in that node.
     # If fsdp sharded state_dicts is enabled then EVERY rank gets a unique checkpoint file.
-    tempdir_ctx = (tempfile.TemporaryDirectory() if (state.fsdp_sharded_state_dict_enabled or dist.get_local_rank() == 0) 
-                                                 else contextlib.nullcontext(None))
+    tempdir_ctx = (tempfile.TemporaryDirectory() if (state.fsdp_sharded_state_dict_enabled or
+                                                     dist.get_local_rank() == 0) else contextlib.nullcontext(None))
     with tempdir_ctx as tempdir:
         try:
             # Get the path to the proper checkpoint folder corresponding to the current rank's node.
             # If fsdp_sharded_state_dict_enabled then just use that rank's unique tempdir.
-            node_checkpoint_folder = (tempdir if state.fsdp_sharded_state_dict_enabled 
-                                              else _get_node_checkpoint_download_folder(tempdir))
-            
+            node_checkpoint_folder = (tempdir if state.fsdp_sharded_state_dict_enabled else
+                                      _get_node_checkpoint_download_folder(tempdir))
+            assert node_checkpoint_folder is not None
+
             composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = download_checkpoint(
                 path=path,
                 node_checkpoint_folder=node_checkpoint_folder,
@@ -245,7 +246,7 @@ def download_checkpoint(
     node_checkpoint_folder: str,
     object_store: Optional[Union[ObjectStore, LoggerDestination]],
     progress_bar: bool,
-    fsdp_sharded_state_dict_enabled: bool,
+    fsdp_sharded_state_dict_enabled: bool = False,
 ) -> Tuple[str, Optional[str], bool]:
     """Download the checkpoint stored at ``path``, potentially in ``object_store``, to ``node_checkpoint_folder``.
 
@@ -271,8 +272,8 @@ def download_checkpoint(
         # and only rank zero has this file unless fsdp_sharded_state_dict_enabled then
         # every rank has it's own file.
         extracted_checkpoint_folder = None
-        composer_states_filepath = (rank_n_checkpoint_filepath if fsdp_sharded_state_dict_enabled 
-                                                               else rank_zero_checkpoint_filepath)
+        composer_states_filepath = (rank_n_checkpoint_filepath
+                                    if fsdp_sharded_state_dict_enabled else rank_zero_checkpoint_filepath)
 
     try:
         if ((fsdp_sharded_state_dict_enabled and dist.get_global_rank() == 0) or
