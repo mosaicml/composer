@@ -229,10 +229,7 @@ def get_lm_trainer(hf_model, hf_tokenizer, save_folder, load_path: Optional[str]
     transformers = pytest.importorskip('transformers')
     from composer.models import HuggingFaceModel
 
-    metrics = [
-        LanguageCrossEntropy(ignore_index=-100, vocab_size=hf_model.config.vocab_size),
-        MaskedAccuracy(ignore_index=-100)
-    ]
+    metrics = [LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100)]
 
     model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, metrics=metrics, use_logits=True)
 
