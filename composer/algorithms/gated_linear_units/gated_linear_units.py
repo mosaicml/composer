@@ -96,7 +96,6 @@ def apply_gated_linear_units(model: torch.nn.Module,
                 NoEffectWarning('No instances of BertIntermediate were found so Gated Linear Units will be skipped '
                                 'as no modules can be replaced. This is likely because Gated Linear Units has already '
                                 'been applied to this model.'))
-            return
 
         # get the activation functions used
         act_fns = {module.intermediate_act_fn for module in intermediate_modules}
