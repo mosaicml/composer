@@ -5,11 +5,28 @@ from typing import Sequence
 import pytest
 import torch
 from PIL import Image
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, IterableDataset
 from torchvision.datasets import VisionDataset
 
 from composer.utils import dist
 from tests.common.models import configure_tiny_bert_tokenizer, configure_tiny_gpt2_tokenizer
+
+
+class InfiniteClassificationDataset(IterableDataset):
+    """Classification dataset that never ends.
+
+    Args:
+        shape (Sequence[int]): shape of features (default: (1, 1, 1))
+        num_classes (int): number of classes (default: 2)
+    """
+
+    def __init__(self, shape: Sequence[int] = (1, 1, 1), num_classes: int = 2):
+        self.shape = shape
+        self.num_classes = num_classes
+
+    def __iter__(self):
+        while True:
+            yield torch.randn(*self.shape), torch.randint(0, self.num_classes, size=(1,))[0]
 
 
 class RandomClassificationDataset(Dataset):
