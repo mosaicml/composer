@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """A collection of common torchmetrics for NLP tasks."""
-from typing import Mapping, Union
+import warnings
+from typing import Mapping, Optional, Union
 
 import torch
 from torch import Tensor
@@ -13,7 +14,7 @@ from composer.loss import soft_cross_entropy
 
 __all__ = [
     'Perplexity', 'InContextLearningLMAccuracy', 'BinaryF1Score', 'HFCrossEntropy', 'LanguageCrossEntropy',
-    'MaskedAccuracy'
+    'MaskedAccuracy', 'LanguagePerplexity'
 ]
 
 
@@ -77,10 +78,15 @@ class LanguageCrossEntropy(Metric):
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def __init__(self, vocab_size: int, dist_sync_on_step=False, ignore_index: int = -100):
+    def __init__(self, vocab_size: Optional[int] = None, dist_sync_on_step: bool = False, ignore_index: int = -100):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
-        self.vocab_size = vocab_size
+        if vocab_size is not None:
+            warnings.warn(
+                DeprecationWarning(
+                    'The vocab_size argument is deprecated and will be removed in 0.14. It is no longer needed, because the correct shape of output and target is inferred based on the number of target elements.'
+                ))
+
         self.ignore_index = ignore_index
         self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=ignore_index, reduction='sum')
         self.add_state('sum_loss', default=torch.tensor(0.), dist_reduce_fx='sum')
@@ -94,10 +100,16 @@ class LanguageCrossEntropy(Metric):
                 either the Tensor or a Mapping type that contains the loss or model logits.
             target (~torch.Tensor): A Tensor of ground-truth values to compare against.
         """
-        assert isinstance(output, Tensor)
-        output = output.view(-1, self.vocab_size)
+        if isinstance(output, Mapping):
+            logits = output['logits']
+        elif isinstance(output, Tensor):
+            logits = output
+        else:
+            raise Exception(f'Type {type(output)} for the output is unsupported.')
+
         target = target.view(-1)
-        losses = self.loss_fn(output, target)
+        logits = logits.view(target.shape[0], -1)
+        losses = self.loss_fn(logits, target)
 
         total_items = (target != self.ignore_index).sum()
         self.total_items += total_items  #type: ignore (third-party)
@@ -180,6 +192,11 @@ class HFCrossEntropy(Metric):
     full_state_update = False
 
     def __init__(self, dist_sync_on_step=False):
+        warnings.warn(
+            DeprecationWarning(
+                "'HFCrossEntropy' is deprecated and will be removed in 0.14. Please use `LanguageCrossEntropy' instead."
+            ))
+
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
         self.add_state('sum_loss', default=torch.tensor(0.), dist_reduce_fx='sum')
@@ -225,14 +242,30 @@ class HFCrossEntropy(Metric):
 
 
 class Perplexity(HFCrossEntropy):
-    """Subclasses :class:`~composer.models.nlp_metrics.HFLanguageCrossEntropyLoss` to implement perplexity.
+    """Subclasses :class:`~composer.metrics.nlp.HFCrossEntropy` to implement perplexity.
 
     If an algorithm modifies the loss function and it is no longer directly provided in the output, then this could be
     expensive because it'll compute the loss twice.
     """
 
+    def __init__(self, dist_sync_on_step=False):
+        warnings.warn(
+            DeprecationWarning(
+                "'Perplexity' is deprecated and will be removed in 0.14. Please use `LanguagePerplexity' instead."))
+
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+
     def compute(self) -> Tensor:
-        """Returns torch.exp() of the LanguageCrossEntropyLoss."""
+        """Returns torch.exp() of the HFCrossEntropy."""
+        avg_loss = super().compute()
+        return torch.exp(avg_loss)
+
+
+class LanguagePerplexity(LanguageCrossEntropy):
+    """Subclasses :class:`~composer.metrics.nlp.LanguageCrossEntropy` to implement perplexity."""
+
+    def compute(self) -> Tensor:
+        """Returns torch.exp() of the LanguageCrossEntropy."""
         avg_loss = super().compute()
         return torch.exp(avg_loss)
 
