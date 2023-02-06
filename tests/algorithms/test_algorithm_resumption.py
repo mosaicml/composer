@@ -46,7 +46,7 @@ def test_algorithm_resumption(
     shared_config = {
         'max_duration': '2ep',
         'save_filename': 'ep{epoch}-rank{rank}',
-        'train_subset_num_batches': 2,
+        'train_subset_num_batches': 4,
         'precision': 'amp_fp16',
     }
 

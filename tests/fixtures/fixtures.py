@@ -157,7 +157,7 @@ def _session_tiny_bert_config():  # type: ignore
     return tiny_bert_config_helper()
 
 
-def tiny_gpt_model_helper(config):
+def tiny_gpt2_model_helper(config):
     transformers = pytest.importorskip('transformers')
 
     return transformers.AutoModelForCausalLM.from_config(config)
@@ -165,10 +165,10 @@ def tiny_gpt_model_helper(config):
 
 @pytest.fixture(scope='session')
 def _session_tiny_gpt2_model(_session_tiny_gpt2_config):  # type: ignore
-    return tiny_gpt_model_helper(_session_tiny_gpt2_config)
+    return tiny_gpt2_model_helper(_session_tiny_gpt2_config)
 
 
-def tiny_gpt_config_helper():
+def tiny_gpt2_config_helper():
     transformers = pytest.importorskip('transformers')
 
     tiny_overrides = {
@@ -181,10 +181,10 @@ def tiny_gpt_config_helper():
 
 @pytest.fixture(scope='session')
 def _session_tiny_gpt2_config():  # type: ignore
-    return tiny_gpt_config_helper()
+    return tiny_gpt2_config_helper()
 
 
-def tiny_gpt_tokenizer_helper():
+def tiny_gpt2_tokenizer_helper():
     transformers = pytest.importorskip('transformers')
 
     hf_tokenizer = transformers.AutoTokenizer.from_pretrained('gpt2')
@@ -194,7 +194,7 @@ def tiny_gpt_tokenizer_helper():
 
 @pytest.fixture(scope='session')
 def _session_tiny_gpt2_tokenizer():  # type: ignore
-    return tiny_gpt_tokenizer_helper()
+    return tiny_gpt2_tokenizer_helper()
 
 
 @pytest.fixture

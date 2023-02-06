@@ -15,6 +15,7 @@ from composer.utils import dist
 from tests.common import device, world_size
 
 
+@pytest.mark.skip(reason='CO-1735, failing intermittently on different nodes, additional debug required')
 @pytest.mark.daily
 @pytest.mark.remote
 @device('cpu', 'gpu')

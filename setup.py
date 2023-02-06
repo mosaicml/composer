@@ -124,7 +124,7 @@ extra_deps['dev'] = [
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.16.1',
-    'traitlets==5.8.0',
+    'traitlets==5.9.0',
     'nbsphinx==0.8.12',
     'pandoc==2.3',
     'pypandoc==1.10',
@@ -171,6 +171,7 @@ extra_deps['coco'] = [
 
 extra_deps['nlp'] = [
     'transformers>=4.11,<5',
+    'datasets>=2.4,<3',
 ]
 
 extra_deps['mlperf'] = [

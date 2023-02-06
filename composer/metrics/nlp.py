@@ -7,6 +7,7 @@ from typing import Mapping, Optional, Union
 
 import torch
 from torch import Tensor
+from torch.nn import functional as F
 from torchmetrics import Metric
 
 from composer.loss import soft_cross_entropy
@@ -269,7 +270,24 @@ class LanguagePerplexity(LanguageCrossEntropy):
         return torch.exp(avg_loss)
 
 
-class InContextLearningLMAccuracy(Metric):
+class InContextLearningMetric(Metric):
+
+    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
+        """Abstract interface for computing an in-context learning metrics.
+
+        Args:
+            batch (dict): Batch must consist minimally of `input_ids` as well as any other structure needed
+                to compute the metric.
+            output_logits (torch.Tensor): The model outputs evaluated on the batch `input_ids`
+            labels (torch.Tensor): The correct outputs.
+
+        Raises:
+            NotImplementedError: Abstract method must be implemented by subclasses
+        """
+        raise NotImplementedError
+
+
+class InContextLearningLMAccuracy(InContextLearningMetric):
     r"""Computes accuracy for In-context learning (ICL) language modeling (LM) tasks.
 
     ICL LM tasks consist of some number of example language modeling tasks (referred to as the 'context'), followed by a test task where the model must correctly predict all the tokens
@@ -282,8 +300,8 @@ class InContextLearningLMAccuracy(Metric):
     Continuation: `green`
 
     Adds metric state variables:
-        correct (float): The number of examples where the model correctly predicted the whole continuation.
-        total (float): The number of total examples seen.
+        correct (float): The number of instances where the prediction masked the target.
+        total (float): The number of total instances that were predicted.
 
     Args:
         dist_sync_on_step (bool, optional): Synchronize metric state across processes at
@@ -296,18 +314,67 @@ class InContextLearningLMAccuracy(Metric):
     def __init__(self, dist_sync_on_step: bool = False):
         # state from multiple processes
         super().__init__(dist_sync_on_step=dist_sync_on_step)
-        self.add_state('correct', default=torch.tensor(0), dist_reduce_fx='sum')
-        self.add_state('total', default=torch.tensor(0), dist_reduce_fx='sum')
+        self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
-        targets = torch.roll(labels, shifts=-1)
-        targets[:, -1] = -100
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
             cont_tok_pred = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
-            cont_tok_targ = targets[batch_idx].index_select(dim=0, index=cont_idx - 1)
+            cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
 
             self.correct += (cont_tok_pred == cont_tok_targ).all().int()
-            self.total += torch.tensor(1)
+            self.total += torch.tensor(1.0)
+
+    def compute(self):
+        assert isinstance(self.correct, Tensor)
+        assert isinstance(self.total, Tensor)
+        return self.correct / self.total
+
+
+class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
+    r"""Computes accuracy for In-context learning (ICL) multiple choice (MC) tasks.
+
+    ICL MC tasks consists of a series of questions with some number of possible choices (only one of which can be correct).
+    At inference time each possible choice is given to the model as a separate input and the one for which the model assigns
+    the lowest perplexity to the choice is considered the model's choice. The model is correct if it "chooses" the right answer.
+
+    Context: `The dog is->fuzzy\nthe water is->hot\nthe tree is->`
+    Continuation: `green`
+
+    Adds metric state variables:
+        correct (float): The number of instances where the prediction masked the target.
+        total (float): The number of total instances that were predicted.
+
+    Args:
+        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
+            each forward() before returning the value at the step. Default: ``False``.
+    """
+
+    # Make torchmetrics call update only once
+    full_state_update = False
+
+    def __init__(self, dist_sync_on_step: bool = False):
+        # state from multiple processes
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.add_state('correct', default=torch.tensor(0.0), dist_reduce_fx='sum')
+        self.add_state('total', default=torch.tensor(0.0), dist_reduce_fx='sum')
+
+    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
+        perplexities = []
+        for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
+            cont_tok_logits = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1)
+            cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
+            cross_entropy = F.cross_entropy(cont_tok_logits, cont_tok_targ)
+            perplexity = torch.exp(cross_entropy)
+            perplexities.append(perplexity)
+
+        for (start, end), gold_idx in zip(batch['choice_groupings'], batch['gold_indices']):
+            subset = perplexities[start:end]
+            idx_min = subset.index(min(subset))
+
+            if idx_min == gold_idx:
+                self.correct += torch.tensor(1.0)
+            self.total += torch.tensor(1.0)
 
     def compute(self):
         assert isinstance(self.correct, Tensor)

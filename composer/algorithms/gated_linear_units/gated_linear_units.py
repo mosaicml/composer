@@ -153,7 +153,10 @@ class GatedLinearUnits(Algorithm):
     Example:
         .. testsetup::
 
-           model, train_dataloader, optimizer = _make_synthetic_bert_state()
+           from tests.common.models import configure_tiny_bert_hf_model
+           from tests.common.datasets import dummy_bert_lm_dataloader
+
+           model, train_dataloader = configure_tiny_bert_hf_model(), dummy_bert_lm_dataloader()
 
         .. testcode::
 
