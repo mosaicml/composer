@@ -243,8 +243,7 @@ class SimpleTransformerMaskedLM(ComposerClassifier):
 
         net = torch.nn.Sequential(transformer_base, lm_head)
 
-        mlm_metrics = MetricCollection(LanguageCrossEntropy(ignore_index=-100, vocab_size=vocab_size),
-                                       MaskedAccuracy(ignore_index=-100))
+        mlm_metrics = MetricCollection(LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100))
         loss = torch.nn.CrossEntropyLoss()
         super().__init__(module=net, train_metrics=mlm_metrics, val_metrics=mlm_metrics, loss_fn=loss)
 
