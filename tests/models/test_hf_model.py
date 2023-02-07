@@ -18,8 +18,8 @@ from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.trainer import Trainer
 from composer.utils import dist
 from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset
-from tests.common.models import (configure_tiny_bert_model, configure_tiny_bert_tokenizer, configure_tiny_gpt_model,
-                                 configure_tiny_gpt_tokenizer)
+from tests.common.models import (configure_tiny_bert_model, configure_tiny_bert_tokenizer, configure_tiny_gpt2_model,
+                                 configure_tiny_gpt2_tokenizer)
 from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
 
 
@@ -229,10 +229,7 @@ def get_lm_trainer(hf_model, hf_tokenizer, save_folder, load_path: Optional[str]
     transformers = pytest.importorskip('transformers')
     from composer.models import HuggingFaceModel
 
-    metrics = [
-        LanguageCrossEntropy(ignore_index=-100, vocab_size=hf_model.config.vocab_size),
-        MaskedAccuracy(ignore_index=-100)
-    ]
+    metrics = [LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100)]
 
     model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, metrics=metrics, use_logits=True)
 
@@ -461,7 +458,7 @@ def test_hf_loading_errors(tiny_bert_model, tiny_bert_tokenizer, model_class_nam
                                                             model_class_name_to_class[model_class_name])
 
 
-@pytest.mark.parametrize('model,tokenizer', [(configure_tiny_gpt_model, configure_tiny_gpt_tokenizer),
+@pytest.mark.parametrize('model,tokenizer', [(configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer),
                                              (configure_tiny_bert_model, configure_tiny_bert_tokenizer)])
 def test_hf_auto_shift_labels(caplog, model, tokenizer):
     pytest.importorskip('transformers')

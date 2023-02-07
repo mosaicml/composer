@@ -100,10 +100,7 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
     else:
         tokenizer = None
 
-    metrics = [
-        LanguageCrossEntropy(ignore_index=-100, vocab_size=model.config.vocab_size),
-        MaskedAccuracy(ignore_index=-100)
-    ]
+    metrics = [LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100)]
     return HuggingFaceModel(model=model, tokenizer=tokenizer, use_logits=True, metrics=metrics)
 
 

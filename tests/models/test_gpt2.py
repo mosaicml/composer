@@ -28,4 +28,4 @@ def test_gpt2_hf_factory(tiny_gpt2_config, tiny_gpt2_tokenizer, monkeypatch):
     trainer = Trainer(model=gpt2_composer_model, train_dataloader=train_dataloader, max_duration='1ep')
     trainer.fit()
 
-    assert trainer.state.train_metrics['Perplexity'].compute() > 0.0
+    assert trainer.state.train_metrics['LanguagePerplexity'].compute() > 0.0

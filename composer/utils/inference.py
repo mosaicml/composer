@@ -162,7 +162,7 @@ def export_for_inference(
 
     # Apply surgery algorithms in the given order
     for alg in ensure_tuple(surgery_algs):
-        model = alg(model)
+        alg(model)
 
     if load_path is not None:
         # download checkpoint and load weights only

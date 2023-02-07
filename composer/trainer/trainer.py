@@ -57,7 +57,7 @@ log = logging.getLogger(__name__)
 
 __all__ = ['Trainer']
 
-# syntax to shorten the Scheduler type annoations
+# syntax to shorten the Scheduler type annotations
 Scheduler = Union[ComposerScheduler, PyTorchScheduler]
 
 
@@ -576,8 +576,8 @@ class Trainer:
             ``'stdout'`` or ``'stderr'``. (default: :attr:`sys.stderr`)
         console_log_interval (int | str | Time, optional): Specifies how frequently to log metrics to console.
             An integer, which will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time`
-            object, or a callable. (default: ``1``)
-            Defaults to ``1`` (log metrics every epoch).
+            object, or a callable. (default: ``1ba``)
+            Defaults to ``1ba`` (log metrics every batch).
 
             If an integer (in epochs), :class:`.Time` string, or :class:`.Time` instance, the metrics will be logged
             with this frequency. :class:`.Time` strings or :class:`.Time` instances must have units of
@@ -622,7 +622,7 @@ class Trainer:
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
         load_object_store (Union[ObjectStore, LoggerDestination], optional): If the ``load_path`` is in an
             object store (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStore` or
-            :class:`.LoggerDestination` which will be used to retreive the checkpoint. Otherwise, if the
+            :class:`.LoggerDestination` which will be used to retrieve the checkpoint. Otherwise, if the
             checkpoint is a local filepath, set to ``None``. Also, it can be ``None`` if the ``load_path`` is
             an S3 URI because the appropriate object store will be automatically constructed in that case.
             Ignored if ``load_path`` is ``None``.
@@ -881,7 +881,7 @@ class Trainer:
         progress_bar: bool = True,
         log_to_console: bool = False,
         console_stream: Union[str, TextIO] = 'stderr',
-        console_log_interval: Union[int, str, Time] = '1ep',
+        console_log_interval: Union[int, str, Time] = '1ba',
         log_traces: bool = False,
         auto_log_hparams: bool = False,
 
@@ -1007,7 +1007,7 @@ class Trainer:
             optimizers = map_collection(optimizers, device.optimizer_to_device)
 
         # Microbatching
-        # To support backwards compatability, we currently support both device_train_microbatch_size
+        # To support backwards compatibility, we currently support both device_train_microbatch_size
         # and grad_accum. If both are specified with grad_accum=1, we will use device_train_microbatch_size.
         if device_train_microbatch_size is not None:
             using_device_microbatch_size = True
@@ -1688,6 +1688,12 @@ class Trainer:
 
         if self.state.max_duration is None:
             _raise_missing_argument_exception('max_duration')
+
+        if self.state.dataloader_len is None and self.state.max_duration.unit == TimeUnit.EPOCH:
+            raise ValueError(
+                ('max_duration cannot be specified in epochs when using an infinite dataloader. Please either '
+                 'provide a dataloader with a length, specify max_duration in batches, samples, or tokens, or provide '
+                 'train_subset_num_batches.'))
 
         if self.state.max_duration <= self.state.timestamp.get(self.state.max_duration.unit) and not reset_time:
             raise ValueError(
@@ -2552,7 +2558,7 @@ class Trainer:
 
         """
         if eval_dataloader is not None:
-
+            eval_passed_in = True
             eval_metrics = deepcopy(self._original_model.get_metrics(is_train=False))
             metric_names = [str(k) for k in eval_metrics.keys()]
 
@@ -2579,7 +2585,9 @@ class Trainer:
                 eval_interval='1ep',  # ignored
                 subset_num_batches=subset_num_batches,
             )
+            self.state.evaluators.extend(evaluators)  # Add evaluators to state.evaluators
         else:
+            eval_passed_in = False
             if not self.state.evaluators:
                 raise ValueError('eval_dataloader must be provided to either Trainer init() or eval().')
             evaluators = self.state.evaluators
@@ -2591,6 +2599,8 @@ class Trainer:
                 subset_num_batches=subset_num_batches,
                 metrics=self.state.eval_metrics[evaluator.label],
             )
+            if eval_passed_in:
+                self.state.evaluators.remove(evaluator)  # Remove them from state once eval is finished.
 
     def _eval_loop(
         self,

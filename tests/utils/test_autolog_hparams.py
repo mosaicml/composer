@@ -129,7 +129,7 @@ def test_extract_hparams_trainer():
         'progress_bar': False,
         'log_to_console': False,
         'console_stream': 'stderr',
-        'console_log_interval': '1ep',
+        'console_log_interval': '1ba',
         'log_traces': False,
         'auto_log_hparams': True,
 

@@ -74,7 +74,7 @@ def cnn_model_with_grads():
 
 def simple_transformer_model_with_grads():
     # Make a Transformer model.
-    model = SimpleTransformerClassifier(num_classes=3)
+    model = SimpleTransformerClassifier(vocab_size=100, num_classes=3)
     # Force wrap every module in FSDP, to allow for testing FSDP
     # gradient clipping properly.
     for layer in model.modules():

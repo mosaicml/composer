@@ -4,8 +4,9 @@
 """Run pytest using MCP."""
 
 import argparse
+from concurrent.futures import TimeoutError
 
-from mcli.sdk import RunConfig, RunStatus, create_run, follow_run_logs, wait_for_run_status
+from mcli.sdk import RunConfig, RunStatus, create_run, get_run_logs, stop_runs, wait_for_run_status
 
 if __name__ == '__main__':
 
@@ -22,6 +23,7 @@ if __name__ == '__main__':
                         help='PR number to check out. Overrides git_branch/git_commit if specified')
     parser.add_argument('--pytest_markers', type=str, help='Markers to pass to pytest')
     parser.add_argument('--pytest_command', type=str, help='Command to run pytest')
+    parser.add_argument('--timeout', type=int, default=1800, help='Timeout for run (in seconds)')
     args = parser.parse_args()
 
     git_integration = {
@@ -48,7 +50,7 @@ if __name__ == '__main__':
 
     command += f'''
 
-    pip install --user .[all]
+    pip install --upgrade --user .[all]
 
     export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}'"
 
@@ -73,14 +75,28 @@ if __name__ == '__main__':
 
     # Create run
     run = create_run(config)
+    print(f'Run created: {run.name}')
 
-    # Wait till run starts before fetching logs
+    # Wait until run starts before fetching logs
     run = wait_for_run_status(run, status='running')
+    print('Run started. Waiting for run to complete...')
+
+    # Wait up to args.timeout seconds for run to complete
+    try:
+        run = wait_for_run_status(run, status='completed', timeout=args.timeout)
+    except TimeoutError:
+        print(f'Run timed out and did not complete in {args.timeout/60} minutes.')
+
+    # Get run status and stop run
+    success = run.status == RunStatus.COMPLETED
+    print(f'Run completed with status: {run.status} (success={success})')
+    if run.status == RunStatus.RUNNING:
+        stop_runs([run])
+        print('Run stopped.')
 
     # Print logs
-    for line in follow_run_logs(run):
+    for line in get_run_logs(run):
         print(line, end='')
 
-    # Fail if command exited with non-zero exit code
-    run = wait_for_run_status(run, 'completed')
-    assert run.status == RunStatus.COMPLETED
+    # Fail if command exited with non-zero exit code or timed out
+    assert success
