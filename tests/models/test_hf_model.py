@@ -230,13 +230,13 @@ def get_lm_trainer(hf_model,
                    hf_tokenizer,
                    save_folder,
                    load_path: Optional[str] = None,
-                   is_conditionaL_generation: bool = False,
+                   is_conditional_generation: bool = False,
                    do_eval: bool = False):
     transformers = pytest.importorskip('transformers')
     from composer.models import HuggingFaceModel
 
     metrics: List[Metric] = [LanguageCrossEntropy(ignore_index=-100)]
-    if not is_conditionaL_generation:
+    if not is_conditional_generation:
         metrics.append(MaskedAccuracy(ignore_index=-100))
 
     model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, metrics=metrics, use_logits=True)
@@ -250,10 +250,10 @@ def get_lm_trainer(hf_model,
                                         vocab_size=vocab_size,
                                         sequence_length=sequence_length,
                                         use_keys=True,
-                                        use_token_type_ids=not is_conditionaL_generation,
-                                        conditional_generation=is_conditionaL_generation)
+                                        use_token_type_ids=not is_conditional_generation,
+                                        conditional_generation=is_conditional_generation)
 
-    if not is_conditionaL_generation:
+    if not is_conditional_generation:
         collator = transformers.DataCollatorForLanguageModeling(tokenizer=hf_tokenizer, mlm_probability=0.15)
     else:
         # Note: this could be transformers.DataCollatorForSeq2Seq(tokenizer=hf_tokenizer, model=hf_model),
@@ -535,6 +535,6 @@ def test_hf_causal_shift_labels(tiny_gpt2_model, tiny_gpt2_tokenizer):
 def test_encoder_decoder(tiny_t5_model, tiny_t5_tokenizer):
     pytest.importorskip('transformers')
 
-    trainer = get_lm_trainer(tiny_t5_model, tiny_t5_tokenizer, None, is_conditionaL_generation=True, do_eval=True)
+    trainer = get_lm_trainer(tiny_t5_model, tiny_t5_tokenizer, None, is_conditional_generation=True, do_eval=True)
     trainer.fit()
     trainer.eval()
