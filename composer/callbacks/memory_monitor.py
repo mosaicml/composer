@@ -115,7 +115,7 @@ def _get_memory_report() -> Dict[str, Union[int, float]]:
         if torch_name in memory_stats:
             # Convert to gigabytes
             if 'bytes' in torch_name:
-                memory_report[name.replace('bytes', 'gigabytes')] = memory_stats[torch_name] / 1e9
+                memory_report[name.replace('bytes', 'gigabytes')] = round(memory_stats[torch_name] / 1e9, 3)
             memory_report[name] = memory_stats[torch_name]
 
     return memory_report
