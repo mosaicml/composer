@@ -211,10 +211,7 @@ def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokeni
     # pretraining
     if model_type == 'tinybert_hf':
         assert tiny_bert_model is not None
-        pretraining_metrics = [
-            LanguageCrossEntropy(ignore_index=-100, vocab_size=tiny_bert_tokenizer.vocab_size),
-            MaskedAccuracy(ignore_index=-100)
-        ]
+        pretraining_metrics = [LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100)]
         pretraining_model = HuggingFaceModel(tiny_bert_model,
                                              tiny_bert_tokenizer,
                                              use_logits=True,
