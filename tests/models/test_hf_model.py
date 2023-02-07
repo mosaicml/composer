@@ -5,13 +5,14 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 from unittest.mock import patch
 from urllib.parse import urlparse
 
 import pytest
 import torch
 from torch.utils.data import DataLoader
+from torchmetrics import Metric
 from torchmetrics.classification import Accuracy
 
 from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
@@ -225,11 +226,18 @@ def test_hf_state_dict_info(tmp_path: Path, pass_in_tokenizer: bool, modify_toke
         assert hf_tokenizer_state == {}
 
 
-def get_lm_trainer(hf_model, hf_tokenizer, save_folder, load_path: Optional[str] = None):
+def get_lm_trainer(hf_model,
+                   hf_tokenizer,
+                   save_folder,
+                   load_path: Optional[str] = None,
+                   is_conditionaL_generation: bool = False,
+                   do_eval: bool = False):
     transformers = pytest.importorskip('transformers')
     from composer.models import HuggingFaceModel
 
-    metrics = [LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100)]
+    metrics: List[Metric] = [LanguageCrossEntropy(ignore_index=-100)]
+    if not is_conditionaL_generation:
+        metrics.append(MaskedAccuracy(ignore_index=-100))
 
     model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, metrics=metrics, use_logits=True)
 
@@ -241,17 +249,33 @@ def get_lm_trainer(hf_model, hf_tokenizer, save_folder, load_path: Optional[str]
     train_dataset = RandomTextLMDataset(size=size,
                                         vocab_size=vocab_size,
                                         sequence_length=sequence_length,
-                                        use_keys=True)
+                                        use_keys=True,
+                                        use_token_type_ids=not is_conditionaL_generation,
+                                        conditional_generation=is_conditionaL_generation)
 
-    collator = transformers.DataCollatorForLanguageModeling(tokenizer=hf_tokenizer, mlm_probability=0.15)
+    if not is_conditionaL_generation:
+        collator = transformers.DataCollatorForLanguageModeling(tokenizer=hf_tokenizer, mlm_probability=0.15)
+    else:
+        # Note: this could be transformers.DataCollatorForSeq2Seq(tokenizer=hf_tokenizer, model=hf_model),
+        # but we want to test the scenario where the input batch does not have decoder_input_ids,
+        # which DataCollatorForSeq2Seq automatically adds
+        collator = transformers.DefaultDataCollator()
 
     train_dataloader = DataLoader(train_dataset,
                                   batch_size=batch_size,
                                   collate_fn=collator,
                                   sampler=dist.get_sampler(train_dataset))
 
+    eval_dataloader = None
+    if do_eval:
+        eval_dataloader = DataLoader(train_dataset,
+                                     batch_size=batch_size,
+                                     collate_fn=collator,
+                                     sampler=dist.get_sampler(train_dataset))
+
     trainer = Trainer(model=model,
                       train_dataloader=train_dataloader,
+                      eval_dataloader=eval_dataloader,
                       max_duration='1ep',
                       save_folder=save_folder,
                       save_interval='1ep',
@@ -506,3 +530,11 @@ def test_hf_causal_shift_labels(tiny_gpt2_model, tiny_gpt2_tokenizer):
     assert isinstance(model.labels, torch.Tensor)
     assert torch.all(model.labels[..., :3] == batch['input_ids'][..., 1:4])
     assert torch.all(model.labels[..., -1] == -100)
+
+
+def test_encoder_decoder(tiny_t5_model, tiny_t5_tokenizer):
+    pytest.importorskip('transformers')
+
+    trainer = get_lm_trainer(tiny_t5_model, tiny_t5_tokenizer, None, is_conditionaL_generation=True, do_eval=True)
+    trainer.fit()
+    trainer.eval()

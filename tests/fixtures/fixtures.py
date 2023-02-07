@@ -197,6 +197,29 @@ def _session_tiny_gpt2_tokenizer():  # type: ignore
     return tiny_gpt2_tokenizer_helper()
 
 
+@pytest.fixture(scope='session')
+def _session_tiny_t5_config():  # type: ignore
+    transformers = pytest.importorskip('transformers')
+
+    tiny_overrides = {'d_ff': 128, 'd_model': 64, 'num_layers': 2, 'num_decoder_layers': 2, 'num_heads': 2}
+    return transformers.AutoConfig.from_pretrained('t5-small', **tiny_overrides)
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_t5_tokenizer():  # type: ignore
+    transformers = pytest.importorskip('transformers')
+
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('t5-small', model_max_length=512)
+    return hf_tokenizer
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_t5_model(_session_tiny_t5_config):  # type: ignore
+    transformers = pytest.importorskip('transformers')
+
+    return transformers.T5ForConditionalGeneration(config=_session_tiny_t5_config)
+
+
 @pytest.fixture
 def tiny_bert_model(_session_tiny_bert_model):
     return copy.deepcopy(_session_tiny_bert_model)
@@ -225,3 +248,18 @@ def tiny_gpt2_tokenizer(_session_tiny_gpt2_tokenizer):
 @pytest.fixture
 def tiny_gpt2_model(_session_tiny_gpt2_model):
     return copy.deepcopy(_session_tiny_gpt2_model)
+
+
+@pytest.fixture
+def tiny_t5_config(_session_tiny_t5_config):
+    return copy.deepcopy(_session_tiny_t5_config)
+
+
+@pytest.fixture
+def tiny_t5_tokenizer(_session_tiny_t5_tokenizer):
+    return copy.deepcopy(_session_tiny_t5_tokenizer)
+
+
+@pytest.fixture
+def tiny_t5_model(_session_tiny_t5_model):
+    return copy.deepcopy(_session_tiny_t5_model)
