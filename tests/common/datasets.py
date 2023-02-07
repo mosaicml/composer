@@ -203,7 +203,7 @@ class RandomTextLMDataset(Dataset):
                  vocab_size: int = 10,
                  sequence_length: int = 8,
                  use_keys: bool = False,
-                 use_token_type_ids: bool = False,
+                 use_token_type_ids: bool = True,
                  conditional_generation: bool = False):
         self.vocab_size = vocab_size
         self.sequence_length = sequence_length
