@@ -52,6 +52,10 @@ if __name__ == '__main__':
 
         '''
 
+    # Shorten name if too long
+    if len(name) > 56:
+        name = name[:56]
+
     command += f'''
 
     pip install --upgrade --user .[all]
