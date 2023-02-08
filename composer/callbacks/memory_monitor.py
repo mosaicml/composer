@@ -118,8 +118,9 @@ def _get_memory_report(memory_keys: Optional[Dict[str, str]] = None) -> Dict[str
             if 'bytes' in torch_name:
                 gigabytes = memory_stats[torch_name] / 1.0e9
                 # Round to preserve 5 significant digits
-                order_of_magnitude = int(math.floor(math.log10(abs(gigabytes))))
-                gigabytes = round(gigabytes, -order_of_magnitude + 4)
+                if gigabytes != 0:
+                    order_of_magnitude = int(math.floor(math.log10(abs(gigabytes))))
+                    gigabytes = round(gigabytes, -order_of_magnitude + 4)
                 memory_report[name.replace('bytes', 'gigabytes')] = gigabytes
             else:
                 memory_report[name] = memory_stats[torch_name]
