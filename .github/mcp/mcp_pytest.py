@@ -11,7 +11,7 @@ from mcli.sdk import RunConfig, RunStatus, create_run, get_run_logs, stop_runs, 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--name', type=str, default='mcp-pytest', help='Name of run')
+    parser.add_argument('--name', type=str, default='mcp-pytest', help='Base name of run')
     parser.add_argument('--cluster', type=str, default='r1z4', help='Cluster to use')
     parser.add_argument('--gpu_type', type=str, default='a100_40gb', help='Type of GPU to use')
     parser.add_argument('--gpu_num', type=int, default=2, help='Number of the GPU to use')
@@ -26,20 +26,24 @@ if __name__ == '__main__':
     parser.add_argument('--timeout', type=int, default=1800, help='Timeout for run (in seconds)')
     args = parser.parse_args()
 
+    name = args.name
     git_integration = {
         'integration_type': 'git_repo',
         'git_repo': 'mosaicml/composer',
         'ssh_clone': 'False',
     }
     if args.git_branch is not None and args.git_commit is None:
+        name += f'-branch-{args.git_branch}'
         git_integration['git_branch'] = args.git_branch
     if args.git_commit is not None:
+        name += f'-commit-{args.git_commit}'
         git_integration['git_commit'] = args.git_commit
 
     command = 'cd composer'
 
     # Checkout a specific PR if specified
     if args.pr_number is not None:
+        name += f'-pr-{args.pr_number}'
         command += f'''
 
         git fetch origin pull/{args.pr_number}/head:pr_branch
@@ -47,6 +51,10 @@ if __name__ == '__main__':
         git checkout pr_branch
 
         '''
+
+    # Shorten name if too long
+    if len(name) > 56:
+        name = name[:56]
 
     command += f'''
 
@@ -64,7 +72,7 @@ if __name__ == '__main__':
     '''
 
     config = RunConfig(
-        name=args.name,
+        name=name,
         cluster=args.cluster,
         gpu_type=args.gpu_type,
         gpu_num=args.gpu_num,
