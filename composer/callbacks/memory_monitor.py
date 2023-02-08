@@ -5,7 +5,7 @@
 import logging
 import math
 import warnings
-from typing import Dict, Union
+from typing import Dict, Optional, Union
 
 import torch.cuda
 
@@ -54,10 +54,6 @@ class MemoryMonitor(Callback):
     +----------------+-----------------------------------------------------------------------------------+
     | Statistic      | Description                                                                       |
     +================+===================================================================================+
-    | alloc_requests | Number of memory allocation requests received by the memory allocator.            |
-    +----------------+-----------------------------------------------------------------------------------+
-    | free_requests  | Number of memory free requests received by the memory allocator.                  |
-    +----------------+-----------------------------------------------------------------------------------+
     | allocated_mem  | Amount of allocated memory in gigabytes.                                          |
     +----------------+-----------------------------------------------------------------------------------+
     | active_mem     | Amount of active memory in gigabytes at the time of recording.                    |
@@ -71,11 +67,16 @@ class MemoryMonitor(Callback):
 
     .. note::
         Memory usage monitoring is only supported for GPU devices.
+
+    Args:
+        memory_keys (Dict[str, str], optional): A dict specifying memory statistics to log. Keys
+            are the names of memory statistics to log from `torch.cuda.memory_stats()`, and values
+            are the names of they are logged under. If not provided, the above statistics are
+            logged. Defaults to None.
     """
 
-    def __init__(self) -> None:
-        # Memory monitor takes no args
-        pass
+    def __init__(self, memory_keys: Optional[Dict[str, str]] = None) -> None:
+        self.memory_keys = memory_keys
 
     def init(self, state: State, logger: Logger) -> None:
         # Not relying on `torch.cuda.is_available()` since the model could be on CPU.
@@ -91,14 +92,12 @@ class MemoryMonitor(Callback):
         if model_device.type != 'cuda':
             return
 
-        memory_report = _get_memory_report()
+        memory_report = _get_memory_report(self.memory_keys)
 
         logger.log_metrics({f'memory/{mem_stat}': val for (mem_stat, val) in memory_report.items()})
 
 
-_MEMORY_STATS = {
-    'allocation.all.allocated': 'alloc_requests',
-    'allocation.all.freed': 'free_requests',
+_MEMORY_KEYS = {
     'allocated_bytes.all.current': 'allocated_mem',
     'active_bytes.all.current': 'active_mem',
     'inactive_split_bytes.all.current': 'inactive_mem',
@@ -107,12 +106,14 @@ _MEMORY_STATS = {
 }
 
 
-def _get_memory_report() -> Dict[str, Union[int, float]]:
+def _get_memory_report(memory_keys: Optional[Dict[str, str]] = None) -> Dict[str, Union[int, float]]:
+    # simplify and reformat the memory_stats
     memory_stats = torch.cuda.memory_stats()
 
-    # simplify and reformat the memory_stats
+    memory_keys = memory_keys or _MEMORY_KEYS
+
     memory_report = {}
-    for (torch_name, name) in _MEMORY_STATS.items():
+    for (torch_name, name) in memory_keys.items():
         if torch_name in memory_stats:
             # Convert to gigabytes
             if 'bytes' in torch_name:
