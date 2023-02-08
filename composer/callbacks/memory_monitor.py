@@ -3,6 +3,7 @@
 
 """Log memory usage during training."""
 import logging
+import math
 import warnings
 from typing import Dict, Union
 
@@ -115,6 +116,10 @@ def _get_memory_report() -> Dict[str, Union[int, float]]:
         if torch_name in memory_stats:
             # Convert to gigabytes
             if 'bytes' in torch_name:
+                gigabytes = memory_stats[torch_name] / 1.0e9
+                # Round to preserve 5 significant digits
+                order_of_magnitude = int(math.floor(math.log10(abs(gigabytes))))
+                gigabytes = round(gigabytes, -order_of_magnitude + 4)
                 memory_report[name.replace('bytes', 'gigabytes')] = memory_stats[torch_name] / 1.0e9
             else:
                 memory_report[name] = memory_stats[torch_name]
