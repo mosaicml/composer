@@ -107,11 +107,10 @@ _MEMORY_KEYS = {
 
 
 def _get_memory_report(memory_keys: Optional[Dict[str, str]] = None) -> Dict[str, Union[int, float]]:
-    # simplify and reformat the memory_stats
     memory_stats = torch.cuda.memory_stats()
-
     memory_keys = memory_keys or _MEMORY_KEYS
 
+    # simplify and reformat the memory_stats
     memory_report = {}
     for (torch_name, name) in memory_keys.items():
         if torch_name in memory_stats:
