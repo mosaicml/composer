@@ -20,7 +20,9 @@ log = logging.getLogger(__name__)
 __all__ = ['EMA', 'compute_ema']
 
 
-def compute_ema(model: torch.nn.Module, ema_model: Union[torch.nn.Module, EMAParameters], smoothing: float = 0.99) -> None:
+def compute_ema(model: torch.nn.Module,
+                ema_model: Union[torch.nn.Module, EMAParameters],
+                smoothing: float = 0.99) -> None:
     r"""Updates the weights of ``ema_model`` to be closer to the weights of ``model``
     according to an exponential weighted average. Weights are updated according to
 
