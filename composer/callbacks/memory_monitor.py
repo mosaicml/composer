@@ -71,7 +71,7 @@ class MemoryMonitor(Callback):
     Args:
         memory_keys (Dict[str, str], optional): A dict specifying memory statistics to log. Keys
             are the names of memory statistics to log from `torch.cuda.memory_stats()`, and values
-            are the names of they are logged under. If not provided, the above statistics are
+            are the names they will be logged under. If not provided, the above statistics are
             logged. Defaults to None.
     """
 
