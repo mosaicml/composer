@@ -115,7 +115,7 @@ def export_for_inference(
         dynamic_axes (Any, optional): Dictionary specifying the axes of input/output tensors as dynamic. May be required
             for exporting models using older versions of PyTorch when types cannot be inferred.
         surgery_algs (Union[Callable, Sequence[Callable]], optional): Algorithms that should be applied to the model
-            before loading a checkpoint. Each should be callable that takes a model and returns modified model.
+            before loading a checkpoint. Each should be callable that takes a model and returns None.
             ``surgery_algs`` are applied before ``transforms``. (default: ``None``)
         transforms (Sequence[Transform], optional): transformations (usually optimizations) that should
             be applied to the model. Each Transform should be a callable that takes a model and returns a modified model.
@@ -162,7 +162,7 @@ def export_for_inference(
 
     # Apply surgery algorithms in the given order
     for alg in ensure_tuple(surgery_algs):
-        model = alg(model)
+        alg(model)
 
     if load_path is not None:
         # download checkpoint and load weights only
