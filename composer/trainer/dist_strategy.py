@@ -174,11 +174,6 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     sharding_map_key = fsdp_config.get('sharding_strategy', 'FULL_SHARD').upper()
     sharding_strategy = sharding_map[sharding_map_key]
 
-    if precision == Precision.FP32 and sharding_map_key != 'NO_SHARD':
-        raise ValueError(
-            f'FSDP in PyTorch 1.13 does not support precision `{precision}` with sharding_strategy `{sharding_map_key}.` '
-            f'Consider using `amp` or `bf16` for precision for with sharding strategy `{sharding_map_key}.`')
-
     cpu_offload = CPUOffload(offload_params=True) if fsdp_config.get('cpu_offload', False) else None
     if cpu_offload is not None:
         raise ValueError('FSDP CPU Offload not supported yet.')
@@ -213,13 +208,25 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     else:
         raise ValueError(f'Unable to interpret mixed_precision={mixed_precision}')
 
-    if sharding_map_key != 'NO_SHARD' and (
-            precision == Precision.AMP_FP16 and param_dtype not in [torch.float16, None] or
-            precision == Precision.AMP_BF16 and param_dtype not in [torch.bfloat16, None]):
-        raise ValueError(
-            f'FSDP in PyTorch 1.13 does not support precision `{precision}` with sharding strategy `{sharding_strategy}` '
-            f'and param_dtype `{param_dtype}.` Consider using one of the predefined mixed_precision strategies '
-            "(choose: `'FULL'`, `'DEFAULT'`, `'PURE'`)")
+    # Note: FSDP does support the use of torch.float32 with sharding.
+    # They just never expected a user to pass in torch.float32 into mixed_precision as a param_dtype.
+    # See: https://github.com/pytorch/pytorch/issues/90584
+    # The PR fixing this bug is merged into PyTorch, but it hasn't made its way into a release yet.
+    # Instead a user needs to pass in `None` as param_dtype to have the parameters as torch.float32.
+    # TODO: remove these checks when PyTorch has a release that includes the fix.
+    if sharding_map_key != 'NO_SHARD':
+        if (precision == Precision.AMP_FP16 and param_dtype not in [torch.float16, None] or
+                precision == Precision.AMP_BF16 and param_dtype not in [torch.bfloat16, None]):
+            raise ValueError(
+                f'FSDP in PyTorch 1.13 does not support precision `{precision}` with sharding strategy `{sharding_strategy}` '
+                f'and param_dtype `{param_dtype}.` Consider using one of the predefined mixed_precision strategies '
+                "(choose: `'FULL'`, `'DEFAULT'`, `'PURE'`)")
+
+        if param_dtype == torch.float32:
+            raise ValueError(
+                f'FSDP in PyTorch 1.13 does not support param_dtype `{param_dtype}` with sharding_strategy `{sharding_map_key}` '
+                f'Consider using `amp` or `bf16` for precision or setting param_dtype in mixed_precision to `None` '
+                f'with sharding strategy `{sharding_map_key}.`')
 
     keep_low_precision_grads = fsdp_config.get('keep_low_precision_grads', False)
 
@@ -248,7 +255,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     # This makes it safer to call ComposerModel-specific functions like 'eval_forward' that
     # may make calls to sharded submodules. If we only wrap the submodules, then any call that ComposerModel makes
     # to a FSDP-wrapped submodule's `forward()` function will be safe and all-gather the necessary weights before `forward()`.
-    for name, obj in model.named_children():
+    for obj_name, obj in model.named_children():
         if not isinstance(obj, (Metric, MetricCollection)):
 
             def _param_init_fn(module: torch.nn.Module) -> None:
@@ -311,6 +318,11 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                     module.apply(obj.param_init_fn)
                 elif hasattr(module, 'reset_parameters') and isinstance(module.reset_parameters, Callable):
                     module.reset_parameters()
+                else:
+                    raise ValueError(
+                        f'Object `{obj_name}` does not have a ``param_init_fn`` or a ``reset_parameters`` function. '
+                        'This leaves parameters without initialization. Please add a ``param_init_fn`` or ``reset_parameters`` '
+                        f'to module `{obj_name}`.')
 
             # Choose which modules to FSDP wrap according to the following priority:
             # If module has attribute `module._fsdp_wrap = ...`, always respect it
@@ -369,7 +381,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                     check_fn=_check_fn,  # type: ignore
                 )
 
-            setattr(model, name, fsdp_obj)
+            setattr(model, obj_name, fsdp_obj)
 
     # Print FSDP wrapped model and FSDP config if `verbose=True`
     if fsdp_config.get('verbose', False):

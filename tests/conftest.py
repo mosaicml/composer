@@ -21,7 +21,6 @@ reproducibility.configure_deterministic_mode()
 pytest_plugins = [
     'tests.fixtures.autouse_fixtures',
     'tests.fixtures.fixtures',
-    'tests.fixtures.synthetic_hf_state',
 ]
 
 
@@ -111,10 +110,15 @@ def pytest_configure():
         TRANSFORMERS_INSTALLED = False
 
     if TRANSFORMERS_INSTALLED:
-        from tests.fixtures.fixtures import tiny_bert_config_helper, tiny_bert_model_helper, tiny_bert_tokenizer_helper
+        from tests.fixtures.fixtures import (tiny_bert_config_helper, tiny_bert_model_helper,
+                                             tiny_bert_tokenizer_helper, tiny_gpt2_config_helper,
+                                             tiny_gpt2_model_helper, tiny_gpt2_tokenizer_helper)
         pytest.tiny_bert_config = tiny_bert_config_helper()  # type: ignore
         pytest.tiny_bert_model = tiny_bert_model_helper(pytest.tiny_bert_config)  # type: ignore
         pytest.tiny_bert_tokenizer = tiny_bert_tokenizer_helper()  # type: ignore
+        pytest.tiny_gpt2_config = tiny_gpt2_config_helper()  # type: ignore
+        pytest.tiny_gpt2_model = tiny_gpt2_model_helper(pytest.tiny_gpt2_config)  # type: ignore
+        pytest.tiny_gpt2_tokenizer = tiny_gpt2_tokenizer_helper()  # type: ignore
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):

@@ -3,6 +3,7 @@
 
 """Contains commonly used models that are shared across the test suite."""
 import copy
+from functools import partial
 from typing import Any, Dict, Tuple, Union
 
 import pytest
@@ -86,8 +87,17 @@ class SimpleWeightTiedModel(ComposerClassifier):
 
         self.mlp = mlp
         self.net = net
+        self.net.param_init_fn = self.param_init_fn
 
         self.mlp.fc1.weight = self.mlp.fc2.weight
+
+    def param_init_fn(self, module):
+        init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
+
+        if isinstance(module, torch.nn.Linear):
+            init_fn(module.weight)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
 
 
 class EmbeddedWeightTiedModel(ComposerClassifier):
@@ -112,10 +122,20 @@ class EmbeddedWeightTiedModel(ComposerClassifier):
 
         super().__init__(module=net)
 
+        self.module.param_init_fn = self.param_init_fn
+
         self.net1 = net1
         self.net2 = net2
 
         self.net1.fc1.weight = self.net2.fc1.weight
+
+    def param_init_fn(self, module):
+        init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
+
+        if isinstance(module, torch.nn.Linear):
+            init_fn(module.weight)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
 
 
 class SimpleConvModel(ComposerClassifier):
@@ -223,8 +243,7 @@ class SimpleTransformerMaskedLM(ComposerClassifier):
 
         net = torch.nn.Sequential(transformer_base, lm_head)
 
-        mlm_metrics = MetricCollection(LanguageCrossEntropy(ignore_index=-100, vocab_size=vocab_size),
-                                       MaskedAccuracy(ignore_index=-100))
+        mlm_metrics = MetricCollection(LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100))
         loss = torch.nn.CrossEntropyLoss()
         super().__init__(module=net, train_metrics=mlm_metrics, val_metrics=mlm_metrics, loss_fn=loss)
 
@@ -258,7 +277,7 @@ class SimpleTransformerMaskedLM(ComposerClassifier):
 class SimpleTransformerClassifier(ComposerClassifier):
     """Transformer model for testing"""
 
-    def __init__(self, vocab_size: int = 100, num_classes: int = 2):
+    def __init__(self, vocab_size: int = 10, num_classes: int = 2):
         transformer_base = SimpleTransformerBase(vocab_size=vocab_size, d_model=16)
         pooler = Mean()
         dropout = torch.nn.Dropout(0.3)
@@ -353,6 +372,12 @@ class SimpleModelWithDropout(ComposerClassifier):
         return outputs
 
 
+# Note: These methods are an alternative to the tiny_bert fixtures in fixtures.py.
+# Fixtures cannot be used natively as parametrized inputs, which we require when
+# we wish to run a test across multiple models, one of which is a HuggingFace model.
+# As a workaround, we inject objects into the PyTest namespace. Tests should not directly
+# use pytest.{var}, but instead should import and use these helper copy methods so the
+# objects in the PyTest namespace do not change.
 def configure_tiny_bert_model():
     try:
         return copy.deepcopy(pytest.tiny_bert_model)
@@ -376,3 +401,28 @@ def configure_tiny_bert_config():
 
 def configure_tiny_bert_hf_model(use_logits=True):
     return HuggingFaceModel(configure_tiny_bert_model(), configure_tiny_bert_tokenizer(), use_logits)
+
+
+def configure_tiny_gpt2_model():
+    try:
+        return copy.deepcopy(pytest.tiny_gpt2_model)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_gpt2_tokenizer():
+    try:
+        return copy.deepcopy(pytest.tiny_gpt2_tokenizer)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_gpt2_config():
+    try:
+        return copy.deepcopy(pytest.tiny_gpt2_config)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_gpt2_hf_model(use_logits=True):
+    return HuggingFaceModel(configure_tiny_gpt2_model(), configure_tiny_gpt2_tokenizer(), use_logits)

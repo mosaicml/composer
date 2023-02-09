@@ -86,7 +86,7 @@ install_requires = [
     'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<10',
     'packaging>=21.3.0,<23',
-    'importlib-metadata>=5.0.0,<6',
+    'importlib-metadata>=5.0.0,<7',
 ]
 extra_deps = {}
 
@@ -98,7 +98,7 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.0',
     'junitparser==2.8.0',
-    'coverage[toml]==7.0.4',
+    'coverage[toml]==7.1.0',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.2.1',
     'toml==0.10.2',
@@ -124,7 +124,7 @@ extra_deps['dev'] = [
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.16.1',
-    'traitlets==5.8.0',
+    'traitlets==5.9.0',
     'nbsphinx==0.8.12',
     'pandoc==2.3',
     'pypandoc==1.10',
@@ -171,6 +171,7 @@ extra_deps['coco'] = [
 
 extra_deps['nlp'] = [
     'transformers>=4.11,<5',
+    'datasets>=2.4,<3',
 ]
 
 extra_deps['mlperf'] = [
@@ -180,7 +181,7 @@ extra_deps['mlperf'] = [
 ]
 
 extra_deps['streaming'] = [
-    'mosaicml-streaming<0.3.*',
+    'mosaicml-streaming<0.3',
     'boto3>=1.21.45,<2',
     'paramiko>=2.11.0,<3',
 ]

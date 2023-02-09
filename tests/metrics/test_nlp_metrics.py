@@ -7,7 +7,8 @@ import pytest
 import torch
 from torch.nn.functional import cross_entropy
 
-from composer.metrics.nlp import (BinaryF1Score, HFCrossEntropy, InContextLearningLMAccuracy, LanguageCrossEntropy,
+from composer.metrics.nlp import (BinaryF1Score, HFCrossEntropy, InContextLearningLMAccuracy,
+                                  InContextLearningMultipleChoiceAccuracy, LanguageCrossEntropy, LanguagePerplexity,
                                   MaskedAccuracy, Perplexity)
 
 
@@ -65,11 +66,11 @@ def test_cross_entropy(batch_size: float, ignore_index: int, sequence_length: in
         minibatch_size (int): the minibatch size to simulate for model predictions
     """
     batch_size = int(batch_size)
-
     generated_preds = torch.randn((batch_size, sequence_length, num_classes))
     generated_true = torch.randint(low=0, high=num_classes, size=(batch_size, sequence_length))
 
-    torchmetrics_xent = LanguageCrossEntropy(vocab_size=num_classes, dist_sync_on_step=False, ignore_index=ignore_index)
+    torchmetrics_xent = LanguageCrossEntropy(dist_sync_on_step=False, ignore_index=ignore_index)
+    ce_with_keys_metric = LanguageCrossEntropy(dist_sync_on_step=False, ignore_index=ignore_index)
 
     if ignore_index is not None:
         labels_mask = torch.rand((batch_size, sequence_length))
@@ -85,9 +86,16 @@ def test_cross_entropy(batch_size: float, ignore_index: int, sequence_length: in
         preds_subset = generated_preds[begin_idx:end_idx]
         true_subset = generated_true[begin_idx:end_idx]
         torchmetrics_xent.update(preds_subset, true_subset)
+        ce_with_keys_metric.update(
+            {
+                'logits': preds_subset.view(-1, num_classes),
+                'loss': cross_entropy(preds_subset.view(-1, num_classes), true_subset.view(-1))
+            }, true_subset.view(-1))
 
     torchmetrics_loss = torchmetrics_xent.compute()
+    ce_with_keys_loss = ce_with_keys_metric.compute()
     correct_loss = cross_entropy(generated_preds.view(-1, num_classes), generated_true.view(-1))
+    assert torchmetrics_loss == ce_with_keys_loss
     assert torch.isclose(correct_loss, torchmetrics_loss)
 
 
@@ -168,7 +176,7 @@ def test_hf_cross_entropy_equivalence():
     assert all(torch.isclose(metric, correct_loss) for metric in [ce_tensors, ce_with_keys, ce_direct_loss])
 
 
-def test_perplexity():
+def test_hf_perplexity():
     batch_size = 1024
     sequence_length = 64
     num_classes = 10
@@ -203,6 +211,41 @@ def test_perplexity():
     assert torch.equal(torch.exp(ce), perplexity)
 
 
+def test_language_perplexity():
+    batch_size = 1024
+    sequence_length = 64
+    num_classes = 10
+    ignore_index = -100
+    minibatch_size = 128
+
+    generated_preds = torch.randn((batch_size, sequence_length, num_classes))
+    generated_true = torch.randint(low=0, high=num_classes, size=(batch_size, sequence_length))
+
+    ce_metric = LanguageCrossEntropy(dist_sync_on_step=False)
+    perplexity_metric = LanguagePerplexity(dist_sync_on_step=False)
+
+    labels_mask = torch.rand((batch_size, sequence_length))
+    labels_mask[labels_mask > 0.8] = 1
+    labels_mask[labels_mask <= 0.8] = 0
+    labels_mask = labels_mask.bool()
+    generated_true[labels_mask] = ignore_index
+
+    num_batches = math.ceil(batch_size / minibatch_size)
+    for batch_idx in range(num_batches):
+        begin_idx = (batch_idx * minibatch_size)
+        end_idx = ((batch_idx + 1) * minibatch_size)
+        preds_subset = generated_preds[begin_idx:end_idx]
+        true_subset = generated_true[begin_idx:end_idx]
+
+        ce_metric.update(preds_subset, true_subset)
+        perplexity_metric.update(preds_subset, true_subset)
+
+    ce = ce_metric.compute()
+    perplexity = perplexity_metric.compute()
+
+    assert torch.equal(torch.exp(ce), perplexity)
+
+
 def test_in_context_learning_lm_accuracy(tiny_gpt2_tokenizer):
     contexts = ['The dog is', 'I love to eat', 'I hate', 'The weather is']
     continuations = [' furry', ' pie', ' long lines', ' snowy']
@@ -220,9 +263,55 @@ def test_in_context_learning_lm_accuracy(tiny_gpt2_tokenizer):
         cont_idxs.append(torch.tensor(list(range(start, end))))
 
     batch = {'continuation_indices': cont_idxs, 'labels': inputs, 'input_ids': inputs}
-    logits = torch.nn.functional.one_hot(torch.roll(inputs, shifts=-1), num_classes=pad + 1)
+    logits = torch.nn.functional.one_hot(inputs, num_classes=pad + 1)
     logits[2] = logits[1].clone()  # make one of the answers incorrect
     metric = InContextLearningLMAccuracy()
     metric.update(batch, logits, batch['labels'])
 
     assert metric.compute() == 0.75
+
+
+def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):
+    contexts = [
+        'Q: How do you cook a cake?', 'Q: How do you cook a cake?', 'Q: How old is the earth?',
+        'Q: How old is the earth?'
+    ]
+    continuations = [' A: turn on the oven', ' A: do a backflip', ' A: 2 minutes', ' A: 4.5 billion years']
+    gold_indices = [0, 1]
+    choice_groupings = [(0, 2), (2, 4)]
+    pad = tiny_gpt2_tokenizer.pad_token_id
+    inputs = [
+        tiny_gpt2_tokenizer(context)['input_ids'] + tiny_gpt2_tokenizer(continuation)['input_ids']
+        for context, continuation in zip(contexts, continuations)
+    ]
+    inputs = torch.tensor([input + [pad] * (2048 - len(input)) for input in inputs])
+
+    cont_idxs = []
+    for context, continuation in zip(contexts, continuations):
+        start = len(tiny_gpt2_tokenizer(context)['input_ids'])
+        end = start + len(tiny_gpt2_tokenizer(continuation)['input_ids'])
+        cont_idxs.append(torch.tensor(list(range(start, end))))
+
+    batch = {
+        'continuation_indices': cont_idxs,
+        'labels': inputs,
+        'input_ids': inputs,
+        'gold_indices': gold_indices,
+        'choice_groupings': choice_groupings
+    }
+    logits = torch.nn.functional.one_hot(inputs, num_classes=pad + 1).float()
+
+    # for the first two, the correct answer is continuation 0
+    # make the answer correct by making continuation 0 more likely for both answers
+    start, end = cont_idxs[1].tolist()[0], cont_idxs[1].tolist()[-1]
+    logits[1][start:end] = logits[0][start:end].clone()
+
+    # for the last two, the correct answer is continuation 3
+    # make the answer incorrect by maing continuation 2 more likely for both answers
+    start, end = cont_idxs[3].tolist()[0], cont_idxs[3].tolist()[-1]
+    logits[3][start:end] = logits[2][start:end].clone()
+
+    metric = InContextLearningMultipleChoiceAccuracy()
+
+    metric.update(batch, logits, batch['labels'])
+    assert metric.compute() == 0.5
