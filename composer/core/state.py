@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import collections.abc
-import contextlib
 import logging
 import textwrap
 import warnings
@@ -398,6 +397,13 @@ class State(Serializable):
         self.deepspeed_config = deepspeed_config
         self.fsdp_config = fsdp_config
 
+        self.fsdp_state_dict_type: Optional[str] = None
+        if self.fsdp_enabled:
+            if self.fsdp_config is not None:
+                self.fsdp_state_dict_type = self.fsdp_config.get('state_dict_type', 'full')
+            else:
+                self.fsdp_state_dict_type = 'full'
+
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None
         self.loss: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
@@ -644,7 +650,7 @@ class State(Serializable):
     def fsdp_sharded_state_dict_enabled(self):
         if self.fsdp_config is None:
             return False
-        return (self.fsdp_enabled and self.fsdp_config['state_dict_type'] in ['sharded', 'local'])
+        return (self.fsdp_enabled and self.fsdp_state_dict_type in ['sharded', 'local'])
 
     def _get_integrations_state_dict(self) -> Dict[str, Any]:
         """Gets a dictionary of information about integrations to store in the state dict.
@@ -715,10 +721,10 @@ class State(Serializable):
             elif attribute_name == 'model':
                 # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
                 # If it is DDP wrapped, do not save the `module.` prefix, as that is an implementation detail
-
-                with fsdp_state_dict_type_context(
-                        attribute_value, state_dict_type=self.fsdp_config['state_dict_type']) if (
-                            self.fsdp_enabled and self.fsdp_config is not None) else contextlib.nullcontext():
+                if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
+                    with fsdp_state_dict_type_context(attribute_value, state_dict_type=self.fsdp_state_dict_type):
+                        model_state = attribute_value.state_dict()
+                else:
                     model_state = attribute_value.state_dict()
 
                 if self.is_model_ddp:
@@ -727,12 +733,10 @@ class State(Serializable):
             elif attribute_name == 'optimizers':
                 optimizer = ensure_tuple(attribute_value)[
                     0]  # Let's stop pretending. We don't support more than one optimizer.
-                if self.fsdp_enabled and self.fsdp_config is not None:
+                if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
                     optim_state_dict = {
                         type(optimizer).__qualname__:
-                            fsdp_get_optim_state_dict(self.model,
-                                                      optimizer,
-                                                      state_dict_type=self.fsdp_config['state_dict_type'])
+                            fsdp_get_optim_state_dict(self.model, optimizer, state_dict_type=self.fsdp_state_dict_type)
                     }
                 else:
                     optim_state_dict = {type(optimizer).__qualname__: optimizer.state_dict()}
@@ -887,8 +891,10 @@ class State(Serializable):
             # with the `module.` prefix
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
 
-        with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_config['state_dict_type']) if (
-                self.fsdp_enabled and self.fsdp_config is not None) else contextlib.nullcontext():
+        if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
+            with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
+                missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
+        else:
             missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
         if len(missing_keys) > 0:
             log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
@@ -909,8 +915,8 @@ class State(Serializable):
                     category=UserWarning)
                 continue
             optim_state_dict = serialized_value[type(optimizer).__qualname__]
-            if self.fsdp_sharded_state_dict_enabled and self.fsdp_config is not None:
-                if self.fsdp_config['state_dict_type'] == 'sharded':
+            if self.fsdp_enabled:
+                if self.fsdp_state_dict_type == 'sharded':
                     if version.parse(torch.__version__) < version.parse('1.13.0'):
                         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
                     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -920,16 +926,16 @@ class State(Serializable):
                     flattened_optim_state_dict = FSDP.flatten_sharded_optim_state_dict(
                         sharded_optim_state_dict=optim_state_dict, model=self.model, optim=optimizer)
                     optimizer.load_state_dict(flattened_optim_state_dict)
-                elif self.fsdp_config['state_dict_type'] == 'local':
+                elif self.fsdp_state_dict_type == 'local':
                     # Optimizer and optimizer state dict are already sharded and flattened,
                     # so just load the state_dict.
                     optimizer.load_state_dict(optim_state_dict)
-            # FSDP enabled, but fsdp_sharded_state_dict is not enabled, so the state dict
-            # is a full state dict and we must shard and flatten it first before loading it.
-            elif self.fsdp_enabled:
-                sharded_osd = get_fsdp_sharded_optim_state_dict(full_optim_state_dict=optim_state_dict,
-                                                                model=self.model)
-                optimizer.load_state_dict(sharded_osd)
+                else:  # fsdp_state_dict_type == 'full'
+                    # FSDP enabled, but fsdp_state_dict is set to 'full', so the state dict
+                    # is a full state dict and we must shard and flatten it first before loading it.
+                    sharded_osd = get_fsdp_sharded_optim_state_dict(full_optim_state_dict=optim_state_dict,
+                                                                    model=self.model)
+                    optimizer.load_state_dict(sharded_osd)
             # No FSDP, so just load the optim state dict.
             else:
                 optimizer.load_state_dict(optim_state_dict)
