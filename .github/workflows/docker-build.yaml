@@ -60,6 +60,7 @@ jobs:
           echo "TORCHTEXT_VERSION: ${{ matrix.TORCHTEXT_VERSION }}"
           echo "TORCHVISION_VERSION: ${{ matrix.TORCHVISION_VERSION }}"
           echo "CUDA_VERSION: ${{ matrix.CUDA_VERSION }}"
+          echo "AWS_OFI_NCCL_VERSION: ${{ matrix.AWS_OFI_NCCL_VERSION }}"
           echo "COMPOSER_INSTALL_COMMAND: ${{ matrix.COMPOSER_INSTALL_COMMAND }}"
           echo "TAGS: ${{ matrix.TAGS }}"
           echo "UUID: ${{ matrix.UUID }}"
@@ -91,6 +92,7 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ matrix.BASE_IMAGE }}
             CUDA_VERSION=${{ matrix.CUDA_VERSION }}
+            AWS_OFI_NCCL_VERSION=${{ matrix.AWS_OFI_NCCL_VERSION }}
             PYTHON_VERSION=${{ matrix.PYTHON_VERSION }}
             PYTORCH_VERSION=${{ matrix.PYTORCH_VERSION }}
             TORCHTEXT_VERSION=${{ matrix.TORCHTEXT_VERSION }}
