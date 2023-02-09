@@ -63,7 +63,7 @@
 - AWS_OFI_NCCL_VERSION: v1.5.0-aws
   BASE_IMAGE: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 11.7.1
-  IMAGE_NAME: torch-1-13-1-cu117
+  IMAGE_NAME: torch-1-13-1-cu117-aws
   MOFED_VERSION: ''
   PYTHON_VERSION: '3.10'
   PYTORCH_VERSION: 1.13.1

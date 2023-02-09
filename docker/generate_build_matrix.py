@@ -112,7 +112,7 @@ def _get_composer_tags(composer_version: str, use_cuda: bool):
     return tags
 
 
-def _get_image_name(pytorch_version: str, cuda_version: str, stage: str):
+def _get_image_name(pytorch_version: str, cuda_version: str, stage: str, interconnect: str):
     pytorch_version = pytorch_version.replace('.', '-')
     cuda_version = _get_cuda_version_tag(cuda_version)
 
@@ -123,7 +123,12 @@ def _get_image_name(pytorch_version: str, cuda_version: str, stage: str):
     else:
         raise ValueError(f'Invalid stage: {stage}')
 
-    return f'torch{stage}-{pytorch_version}-{cuda_version}'
+    if interconnect == 'EFA':
+        fabric = '-aws'
+    else:
+        fabric = ''
+
+    return f'torch{stage}-{pytorch_version}-{cuda_version}{fabric}'
 
 
 def _write_table(table_tag: str, table_contents: str):
@@ -157,7 +162,7 @@ def _main():
 
         entry = {
             'IMAGE_NAME':
-                _get_image_name(pytorch_version, cuda_version, stage),
+                _get_image_name(pytorch_version, cuda_version, stage, interconnect),
             'BASE_IMAGE':
                 _get_base_image(cuda_version),
             'CUDA_VERSION':
