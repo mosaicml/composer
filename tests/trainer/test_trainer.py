@@ -1143,7 +1143,8 @@ class TestTrainerEvents():
         with pytest.raises(AssertionError):
             trainer.fit()
 
-@pytest.mark.skip(reason="<Jira issue>: Temporarily disabling to debug failures")
+
+@pytest.mark.skip(reason='<Jira issue>: Temporarily disabling to debug failures')
 @pytest.mark.vision
 class TestFFCVDataloaders:
 
