@@ -302,9 +302,9 @@ class HuggingFaceModel(ComposerModel):
             if self.config.use_return_dict:
                 output = output['logits']
             else:
-                # logits are at index 0 in the output tuple
-                # because we have popped labels, so no loss is present in the tuple
-                output = output[0]
+                # if loss was computed (cached outputs from forward), loss is at index 0 and logits are at index 1
+                # if loss was not computed (no cached outputs during eval), loss is not present and logits are at index 0
+                output = output[1] if len(output[0].shape) == 0 else output[0]
 
             # if we are in the single class case, then remove the classes dimension
             if output.shape[1] == 1:

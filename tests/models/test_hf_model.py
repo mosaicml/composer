@@ -225,7 +225,7 @@ def test_hf_state_dict_info(tmp_path: Path, pass_in_tokenizer: bool, modify_toke
         assert hf_tokenizer_state == {}
 
 
-def get_lm_trainer(hf_model, hf_tokenizer, save_folder, load_path: Optional[str] = None):
+def get_lm_trainer(hf_model, hf_tokenizer, save_folder, load_path: Optional[str] = None, do_eval: bool = False):
     transformers = pytest.importorskip('transformers')
     from composer.models import HuggingFaceModel
 
@@ -250,8 +250,16 @@ def get_lm_trainer(hf_model, hf_tokenizer, save_folder, load_path: Optional[str]
                                   collate_fn=collator,
                                   sampler=dist.get_sampler(train_dataset))
 
+    eval_dataloader = None
+    if do_eval:
+        eval_dataloader = DataLoader(train_dataset,
+                                     batch_size=batch_size,
+                                     collate_fn=collator,
+                                     sampler=dist.get_sampler(train_dataset))
+
     trainer = Trainer(model=model,
                       train_dataloader=train_dataloader,
+                      eval_dataloader=eval_dataloader,
                       max_duration='1ep',
                       save_folder=save_folder,
                       save_interval='1ep',
@@ -506,3 +514,13 @@ def test_hf_causal_shift_labels(tiny_gpt2_model, tiny_gpt2_tokenizer):
     assert isinstance(model.labels, torch.Tensor)
     assert torch.all(model.labels[..., :3] == batch['input_ids'][..., 1:4])
     assert torch.all(model.labels[..., -1] == -100)
+
+
+def test_hf_return_dict_false(tiny_bert_config, tiny_bert_tokenizer):
+    transformers = pytest.importorskip('transformers')
+
+    tiny_bert_config.return_dict = False
+    tiny_bert_model = transformers.AutoModelForMaskedLM.from_config(tiny_bert_config)
+    trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, None, do_eval=True)
+
+    trainer.fit()
