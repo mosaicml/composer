@@ -78,6 +78,7 @@ class HuggingFaceModel(ComposerModel):
         super().__init__()
         self.model = model
         self.config = model.config
+        self.model_forward_args = inspect.getfullargspec(self.model.forward).args
         self.tokenizer = tokenizer
 
         if self.tokenizer is None:
@@ -270,7 +271,7 @@ class HuggingFaceModel(ComposerModel):
     def forward(self, batch):
         if isinstance(batch, dict) or isinstance(batch, UserDict):
             # Further input validation is left to the huggingface forward call
-            batch = {k: v for k, v in batch.items() if k in inspect.getfullargspec(self.model.forward).args}
+            batch = {k: v for k, v in batch.items() if k in self.model_forward_args}
             output = self.model(**batch)  # type: ignore (thirdparty)
         else:
             raise ValueError(
