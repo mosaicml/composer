@@ -78,6 +78,7 @@ class HuggingFaceModel(ComposerModel):
         super().__init__()
         self.model = model
         self.config = model.config
+        self.model_forward_args = inspect.getfullargspec(self.model.forward).args
         self.tokenizer = tokenizer
 
         if self.tokenizer is None:
@@ -270,7 +271,7 @@ class HuggingFaceModel(ComposerModel):
     def forward(self, batch):
         if isinstance(batch, dict) or isinstance(batch, UserDict):
             # Further input validation is left to the huggingface forward call
-            batch = {k: v for k, v in batch.items() if k in inspect.getfullargspec(self.model.forward).args}
+            batch = {k: v for k, v in batch.items() if k in self.model_forward_args}
             output = self.model(**batch)  # type: ignore (thirdparty)
         else:
             raise ValueError(
@@ -290,6 +291,16 @@ class HuggingFaceModel(ComposerModel):
             # pop labels first to avoid computing loss
             self.labels = batch.pop('labels')
 
+            # HF encoder decoder models like T5 expect either decoder_input_ids or labels,
+            # so we add decoder_input_ids to the batch if it is missing
+            if self.model.config.is_encoder_decoder and 'decoder_input_ids' not in batch:
+                if hasattr(self.model, 'prepare_decoder_input_ids_from_labels'):
+                    batch['decoder_input_ids'] = self.model.prepare_decoder_input_ids_from_labels(labels=self.labels)
+                else:
+                    raise RuntimeError(
+                        'Encoder decoder models require that either decoder_input_ids is present in the batch'
+                        ' or that the model has a prepare_decoder_input_ids_from_labels method.')
+
             if self.shift_labels or batch.get('mode', None) == 'icl_task':
                 assert self.labels is not None
                 # HF CausalLM models internally shift labels before computing loss, so we do the same here
@@ -301,9 +312,9 @@ class HuggingFaceModel(ComposerModel):
             if self.config.use_return_dict:
                 output = output['logits']
             else:
-                # logits are at index 0 in the output tuple
-                # because we have popped labels, so no loss is present in the tuple
-                output = output[0]
+                # if loss was computed (cached outputs from forward), loss is at index 0 and logits are at index 1
+                # if loss was not computed (no cached outputs during eval), loss is not present and logits are at index 0
+                output = output[1] if len(output[0].shape) == 0 else output[0]
 
             # if we are in the single class case, then remove the classes dimension
             if output.shape[1] == 1:
