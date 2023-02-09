@@ -28,8 +28,8 @@ from composer.models import ComposerModel
 from composer.optim import ExponentialScheduler
 from composer.trainer.trainer import _generate_run_name
 from composer.utils import dist, is_model_deepspeed, is_model_fsdp, map_collection, reproducibility
-from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, device,
-                          world_size)
+from tests.common import (InfiniteClassificationDataset, RandomClassificationDataset, RandomImageDataset,
+                          SimpleConvModel, SimpleModel, device, world_size)
 from tests.common.events import EventCounterCallback
 from tests.test_state import assert_state_equivalent
 
@@ -185,6 +185,24 @@ class TestTrainerInitOrFit:
 
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
+
+    @pytest.mark.parametrize('max_duration', [1, '1ep', '1ba', '1sp'])
+    @pytest.mark.parametrize('train_subset_num_batches', [-1, 1])
+    def test_infinite_train_loader(self, model: ComposerModel, max_duration: Union[int, str],
+                                   train_subset_num_batches: int):
+        should_raise = (isinstance(max_duration, int) or
+                        max_duration.endswith('ep')) and (train_subset_num_batches is None or
+                                                          train_subset_num_batches == -1)
+        context = pytest.raises(
+            ValueError,
+            match='max_duration cannot be specified in epochs') if should_raise else contextlib.nullcontext()
+        with context:
+            train_loader = DataLoader(InfiniteClassificationDataset(), batch_size=4)
+            trainer = Trainer(model=model,
+                              train_dataloader=train_loader,
+                              max_duration=max_duration,
+                              train_subset_num_batches=train_subset_num_batches)
+            trainer.fit()
 
     @pytest.mark.parametrize('reset_time', [True, False])
     @pytest.mark.parametrize('new_duration', [
@@ -875,6 +893,67 @@ class TestTrainerInitOrFit:
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_CHECKPOINT] == 2
 
 
+@pytest.mark.vision
+class TestFFCVDataloaders:
+
+    train_file = None
+    val_file = None
+    tmp_path = None
+
+    @pytest.fixture(autouse=True)
+    def create_dataset(self, tmp_path_factory: pytest.TempPathFactory):
+        dataset_train = RandomImageDataset(size=16, is_PIL=True)
+        self.tmp_path = tmp_path_factory.mktemp('ffcv')
+        output_train_file = str(self.tmp_path / 'train.ffcv')
+        write_ffcv_dataset(dataset_train, write_path=output_train_file, num_workers=1, write_mode='proportion')
+        dataset_val = RandomImageDataset(size=16, is_PIL=True)
+        output_val_file = str(self.tmp_path / 'val.ffcv')
+        write_ffcv_dataset(dataset_val, write_path=output_val_file, num_workers=1, write_mode='proportion')
+        self.train_file = output_train_file
+        self.val_file = output_val_file
+
+    def _get_dataloader(self, is_train):
+        assert self.tmp_path is not None
+        assert self.train_file is not None
+        assert self.val_file is not None
+        datadir = os.path.join(self.tmp_path, self.train_file if is_train else self.val_file)
+        return build_ffcv_imagenet_dataloader(
+            datadir=str(datadir),
+            global_batch_size=4,
+            is_train=is_train,
+            num_workers=0,
+        )
+
+    @pytest.fixture
+    def config(self):
+        try:
+            import ffcv
+        except ImportError as e:
+            raise ImportError(('Composer was installed without ffcv support. '
+                               'To use ffcv with Composer, please install ffcv in your environment.')) from e
+        train_dataloader = self._get_dataloader(is_train=True)
+        val_dataloader = self._get_dataloader(is_train=False)
+        assert isinstance(train_dataloader, ffcv.Loader)
+        assert isinstance(val_dataloader, ffcv.Loader)
+        return {
+            'model': SimpleConvModel(),
+            'train_dataloader': train_dataloader,
+            'eval_dataloader': val_dataloader,
+            'max_duration': '2ep',
+        }
+
+    """
+    Tests that training completes with ffcv dataloaders.
+    """
+
+    @device('gpu-amp', precision=True)
+    def test_ffcv(self, config, device, precision):
+        config['device'] = device
+        config['precision'] = precision
+        trainer = Trainer(**config)
+        trainer.fit()
+
+
 @world_size(1, 2)
 @device('cpu', 'gpu', 'gpu-amp', precision=True)
 class TestTrainerEquivalence():
@@ -1124,67 +1203,6 @@ class TestTrainerEvents():
         trainer = Trainer(**config)
         with pytest.raises(AssertionError):
             trainer.fit()
-
-
-@pytest.mark.vision
-class TestFFCVDataloaders:
-
-    train_file = None
-    val_file = None
-    tmp_path = None
-
-    @pytest.fixture(autouse=True)
-    def create_dataset(self, tmp_path_factory: pytest.TempPathFactory):
-        dataset_train = RandomImageDataset(size=16, is_PIL=True)
-        self.tmp_path = tmp_path_factory.mktemp('ffcv')
-        output_train_file = str(self.tmp_path / 'train.ffcv')
-        write_ffcv_dataset(dataset_train, write_path=output_train_file, num_workers=1, write_mode='proportion')
-        dataset_val = RandomImageDataset(size=16, is_PIL=True)
-        output_val_file = str(self.tmp_path / 'val.ffcv')
-        write_ffcv_dataset(dataset_val, write_path=output_val_file, num_workers=1, write_mode='proportion')
-        self.train_file = output_train_file
-        self.val_file = output_val_file
-
-    def _get_dataloader(self, is_train):
-        assert self.tmp_path is not None
-        assert self.train_file is not None
-        assert self.val_file is not None
-        datadir = os.path.join(self.tmp_path, self.train_file if is_train else self.val_file)
-        return build_ffcv_imagenet_dataloader(
-            datadir=str(datadir),
-            global_batch_size=4,
-            is_train=is_train,
-            num_workers=0,
-        )
-
-    @pytest.fixture
-    def config(self):
-        try:
-            import ffcv
-        except ImportError as e:
-            raise ImportError(('Composer was installed without ffcv support. '
-                               'To use ffcv with Composer, please install ffcv in your environment.')) from e
-        train_dataloader = self._get_dataloader(is_train=True)
-        val_dataloader = self._get_dataloader(is_train=False)
-        assert isinstance(train_dataloader, ffcv.Loader)
-        assert isinstance(val_dataloader, ffcv.Loader)
-        return {
-            'model': SimpleConvModel(),
-            'train_dataloader': train_dataloader,
-            'eval_dataloader': val_dataloader,
-            'max_duration': '2ep',
-        }
-
-    """
-    Tests that training completes with ffcv dataloaders.
-    """
-
-    @device('gpu-amp', precision=True)
-    def test_ffcv(self, config, device, precision):
-        config['device'] = device
-        config['precision'] = precision
-        trainer = Trainer(**config)
-        trainer.fit()
 
 
 @pytest.mark.world_size(2)
