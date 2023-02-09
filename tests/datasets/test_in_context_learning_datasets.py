@@ -52,7 +52,7 @@ def test_lm_task_dataloader(dataset_uri, tiny_gpt2_tokenizer):
                                  batch_size,
                                  max_seq_len=seqlen,
                                  pad_tok_id=tokenizer.eos_token_id,
-                                 num_fewshot=1,
+                                 num_fewshot=0,
                                  prompt_string='',
                                  example_delimiter='\n',
                                  continuation_delimiter='')
@@ -74,7 +74,8 @@ def test_lm_task_dataloader(dataset_uri, tiny_gpt2_tokenizer):
 
 
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
-def test_lm_task_dataloader_opt_tokenizer(dataset_uri):
+@pytest.mark.parametrize('num_fewshot', [0, 1])
+def test_lm_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot):
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
@@ -87,7 +88,7 @@ def test_lm_task_dataloader_opt_tokenizer(dataset_uri):
                                  batch_size,
                                  max_seq_len=seqlen,
                                  pad_tok_id=tokenizer.eos_token_id,
-                                 num_fewshot=1,
+                                 num_fewshot=num_fewshot,
                                  prompt_string='',
                                  example_delimiter='\n',
                                  continuation_delimiter='')
@@ -106,10 +107,13 @@ def test_lm_task_dataloader_opt_tokenizer(dataset_uri):
     min_idx = min(batch['continuation_indices'][0]).item()
     max_idx = max(batch['continuation_indices'][0]).item()
     assert tokenizer.decode(batch['input_ids'][0][min_idx:max_idx + 1]) == ' glen'
+    assert tokenizer.decode(batch['input_ids'][0][0:min_idx]).startswith('</s>')
+    assert tokenizer.decode(batch['input_ids'][0][0:min_idx]).count('</s>') == 1
 
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl'])
-def test_mc_task_dataloader_opt_tokenizer(dataset_uri):
+@pytest.mark.parametrize('num_fewshot', [0, 1])
+def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot):
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
@@ -123,7 +127,7 @@ def test_mc_task_dataloader_opt_tokenizer(dataset_uri):
                                  batch_size,
                                  max_seq_len=seqlen,
                                  pad_tok_id=tokenizer.eos_token_id,
-                                 num_fewshot=1,
+                                 num_fewshot=num_fewshot,
                                  prompt_string='',
                                  example_delimiter='\n',
                                  continuation_delimiter=': ')
@@ -149,9 +153,8 @@ def test_mc_task_dataloader_opt_tokenizer(dataset_uri):
     min_idx = min(batch['continuation_indices'][0]).item()
     max_idx = max(batch['continuation_indices'][0]).item()
     assert tokenizer.decode(batch['input_ids'][0][min_idx:max_idx + 1]) == ': Pour it onto a plate'
-    assert tokenizer.decode(
-        batch['input_ids'][0][0:min_idx]
-    ) == "</s>how do you open a capri-sun: open the straw attached to the juice, and then stick it in the small hole at the front of the pouch.\nWhen boiling butter, when it's ready, you can"
+    assert tokenizer.decode(batch['input_ids'][0][0:min_idx]).startswith('</s>')
+    assert tokenizer.decode(batch['input_ids'][0][0:min_idx]).count('</s>') == 1
 
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl'])
