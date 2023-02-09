@@ -538,3 +538,13 @@ def test_encoder_decoder(tiny_t5_model, tiny_t5_tokenizer):
     trainer = get_lm_trainer(tiny_t5_model, tiny_t5_tokenizer, None, is_conditional_generation=True, do_eval=True)
     trainer.fit()
     trainer.eval()
+
+
+def test_hf_return_dict_false(tiny_bert_config, tiny_bert_tokenizer):
+    transformers = pytest.importorskip('transformers')
+
+    tiny_bert_config.return_dict = False
+    tiny_bert_model = transformers.AutoModelForMaskedLM.from_config(tiny_bert_config)
+    trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, None, do_eval=True)
+
+    trainer.fit()
