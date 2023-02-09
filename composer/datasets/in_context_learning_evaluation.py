@@ -153,10 +153,10 @@ class InContextLearningLMTaskDataset(Dataset):
 
             cont = f'{continuation_delimiter}{cont}'
 
-            encoded_example['context'] = self.tokenizer(ctxt)
-            encoded_example['continuation'] = self.tokenizer(cont)
             encoded_example['preamble'] = self.tokenizer(
                 preamble)  # if the preamble is empty then these will be 0-length lists
+            encoded_example['context'] = self.tokenizer(ctxt, add_special_tokens=len(preamble) == 0)
+            encoded_example['continuation'] = self.tokenizer(cont, add_special_tokens=False)
 
             examples.append(encoded_example)
 
@@ -300,11 +300,11 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
                 query = f'{example_delimiter}{query}'
 
             choices = [f'{continuation_delimiter}{choice}' for choice in choices]
-            encoded_example['query'] = self.tokenizer(query)
-            encoded_example['choices'] = [self.tokenizer(choice) for choice in choices]
             encoded_example['preamble'] = self.tokenizer(
                 preamble)  # if the preamble is empty then these will be 0-length lists
             encoded_example['gold_idx'] = gold_idx
+            encoded_example['query'] = self.tokenizer(query, add_special_tokens=len(preamble) == 0)
+            encoded_example['choices'] = [self.tokenizer(choice, add_special_tokens=False) for choice in choices]
 
             examples.append(encoded_example)
 
