@@ -80,7 +80,7 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
         fsdp_state_dict_type = StateDictType.SHARDED_STATE_DICT
 
     # Local is the FSDP standard sharded, flattened parameters. This is what the parameters
-    # are formatted to for a single ranks FSDP module.
+    # are formatted to for a single rank's FSDP module.
     elif state_dict_type == 'local':
         state_dict_config = LocalStateDictConfig()
         fsdp_state_dict_type = StateDictType.LOCAL_STATE_DICT
