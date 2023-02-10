@@ -66,6 +66,9 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
     from torch.distributed.fsdp import FullStateDictConfig
     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
     from torch.distributed.fsdp import LocalStateDictConfig, StateDictType
+    # torch forgot to put ShardedStateDictConfig in torch/distributed/fsdp/__init__.py, so we
+    # have to import it this way.
+    from torch.distributed.fsdp.fully_sharded_data_parallel import ShardedStateDictConfig
 
     # Full is the full monolithic state dict materialized in memory on just rank 0
     # with offloading to cpu if necessary
@@ -76,7 +79,7 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
     # Sharded is sharded state dict, but unflattened parameters (not useful for FSDP, but
     # useful if you plan to use the state dict outside of FSDP).
     elif state_dict_type == 'sharded':
-        state_dict_config = None
+        state_dict_config = ShardedStateDictConfig()
         fsdp_state_dict_type = StateDictType.SHARDED_STATE_DICT
 
     # Local is the FSDP standard sharded, flattened parameters. This is what the parameters
