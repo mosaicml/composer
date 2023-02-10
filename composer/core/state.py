@@ -44,7 +44,23 @@ log = logging.getLogger(__name__)
 
 
 @contextmanager
-def fsdp_state_dict_type_context(obj: torch.nn.Module, state_dict_type: str = 'full'):
+def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str = 'full'):
+    """Context manager for materializing or loading an fsdp module's state dict.
+
+    Args:
+        module (torch.nn.Module): The torch module that you want to call `state_dict()`
+            or `load_state_dict()`.
+        state_dict_type (str, optional): which of the three state dict types you want to use.
+            choices are ['full', 'sharded', 'local']. Defaults to 'full'.
+            * 'full': the full, unsharded state dict materialized only on rank 0 with cpu_offload if necessary
+            * 'local': the sharded, flattened state_dict, where each rank only gets a single shard.
+            * 'sharded': the sharded, unflattened state_dict, where each rank only gets a single shard.
+            See torch.distributed.fsdp.StateDictType for more info.
+
+    Raises:
+        RuntimeError: if your torch version is earlier than 1.13.0 because FSDP is not available for those versions.
+        NotImplementedError: if you specify a state_dict_type not in ['full', 'sharded', 'local'].
+    """
     if version.parse(torch.__version__) < version.parse('1.13.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
     from torch.distributed.fsdp import FullStateDictConfig
@@ -70,13 +86,31 @@ def fsdp_state_dict_type_context(obj: torch.nn.Module, state_dict_type: str = 'f
         fsdp_state_dict_type = StateDictType.LOCAL_STATE_DICT
     else:
         raise NotImplementedError(f'No valid FSDP state_dict_type for {state_dict_type}')
-    with FSDP.state_dict_type(obj, state_dict_type=fsdp_state_dict_type, state_dict_config=state_dict_config):
+    with FSDP.state_dict_type(module, state_dict_type=fsdp_state_dict_type, state_dict_config=state_dict_config):
         yield
 
 
 def fsdp_get_optim_state_dict(model: torch.nn.Module,
                               optim: torch.optim.Optimizer,
                               state_dict_type='full') -> Dict[str, Any]:
+    """Materializes a given model's optimizer's state_dict.
+
+    Args:
+        model (torch.nn.Module): The model that the optimizer corresponds to.
+        optim (torch.optim.Optimizer): The optimizer that you want a state dict for.
+        state_dict_type (str, optional): which of the three state dict types you want to use.
+            choices are ['full', 'sharded', 'local']. Defaults to 'full'.
+            * 'full': the full, unsharded state dict materialized only on rank 0
+            * 'local': the sharded, flattened state_dict, where each rank only gets a single shard.
+            * 'sharded': the sharded, unflattened state_dict, where each rank only gets a single shard.
+
+    Raises:
+        RuntimeError: if your torch version is earlier than 1.13.0 because FSDP is not available for those versions.
+        NotImplementedError: if you specify a state_dict_type not in ['full', 'sharded', 'local'].
+
+    Returns:
+        Dict[str, Any]: The state_dict for the given optimizer.
+    """
     if version.parse(torch.__version__) < version.parse('1.13.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
