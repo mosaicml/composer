@@ -291,6 +291,16 @@ class HuggingFaceModel(ComposerModel):
             # pop labels first to avoid computing loss
             self.labels = batch.pop('labels')
 
+            # HF encoder decoder models like T5 expect either decoder_input_ids or labels,
+            # so we add decoder_input_ids to the batch if it is missing
+            if self.model.config.is_encoder_decoder and 'decoder_input_ids' not in batch:
+                if hasattr(self.model, 'prepare_decoder_input_ids_from_labels'):
+                    batch['decoder_input_ids'] = self.model.prepare_decoder_input_ids_from_labels(labels=self.labels)
+                else:
+                    raise RuntimeError(
+                        'Encoder decoder models require that either decoder_input_ids is present in the batch'
+                        ' or that the model has a prepare_decoder_input_ids_from_labels method.')
+
             if self.shift_labels or batch.get('mode', None) == 'icl_task':
                 assert self.labels is not None
                 # HF CausalLM models internally shift labels before computing loss, so we do the same here
