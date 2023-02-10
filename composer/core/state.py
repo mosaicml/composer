@@ -89,6 +89,7 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
         fsdp_state_dict_type = StateDictType.LOCAL_STATE_DICT
     else:
         raise NotImplementedError(f'No valid FSDP state_dict_type for {state_dict_type}')
+
     with FSDP.state_dict_type(module, state_dict_type=fsdp_state_dict_type, state_dict_config=state_dict_config):
         yield
 
