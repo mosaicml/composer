@@ -73,7 +73,7 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
         state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
         fsdp_state_dict_type = StateDictType.FULL_STATE_DICT
 
-    # Sharded is sharded state dict, but unfattened parameters (not useful for FSDP, but
+    # Sharded is sharded state dict, but unflattened parameters (not useful for FSDP, but
     # useful if you plan to use the state dict outside of FSDP).
     elif state_dict_type == 'sharded':
         state_dict_config = None
