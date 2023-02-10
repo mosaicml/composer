@@ -100,10 +100,7 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
     else:
         tokenizer = None
 
-    metrics = [
-        LanguageCrossEntropy(ignore_index=-100, vocab_size=model.config.vocab_size),
-        MaskedAccuracy(ignore_index=-100)
-    ]
+    metrics = [LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100)]
     return HuggingFaceModel(model=model, tokenizer=tokenizer, use_logits=True, metrics=metrics)
 
 
@@ -176,7 +173,7 @@ def create_bert_classification(num_labels: Optional[int] = 2,
         This will have two noteworthy effects. First, it will switch the training loss to :class:`~torch.nn.MSELoss`.
         Second, the returned :class:`.ComposerModel`'s train/validation metrics will be :class:`~torchmetrics.MeanSquaredError` and :class:`~torchmetrics.SpearmanCorrCoef`.
 
-        For the classifcation case (when ``num_labels > 1``), the training loss is :class:`~torch.nn.CrossEntropyLoss`, and the train/validation
+        For the classification case (when ``num_labels > 1``), the training loss is :class:`~torch.nn.CrossEntropyLoss`, and the train/validation
         metrics are :class:`~torchmetrics.Accuracy` and :class:`~torchmetrics.MatthewsCorrCoef`, as well as :class:`.BinaryF1Score` if ``num_labels == 2``.
     """
     try:

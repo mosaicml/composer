@@ -25,6 +25,7 @@ class DeviceMPS(Device):
     This class takes no arguments.
     """
     dist_backend = ''
+    name = 'mps'
 
     def __init__(self):
         if version.parse(torch.__version__) < version.parse('1.12.0'):

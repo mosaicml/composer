@@ -23,31 +23,36 @@ from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, Channel
                                  StochasticDepth, WeightStandardization)
 from composer.models import composer_resnet
 from composer.models.base import ComposerModel
-from tests import common
-from tests.fixtures.synthetic_hf_state import (make_synthetic_bert_dataloader, make_synthetic_bert_model,
-                                               make_synthetic_gpt2_dataloader, make_synthetic_gpt2_model)
+from tests.common import get_module_subclasses
+from tests.common.datasets import RandomImageDataset, SimpleDataset, dummy_bert_lm_dataloader, dummy_gpt_lm_dataloader
+from tests.common.models import (SimpleConvModel, SimpleModelWithDropout, configure_tiny_bert_hf_model,
+                                 configure_tiny_gpt2_hf_model)
 
 simple_bert_settings = {
-    'model': make_synthetic_bert_model,
-    'dataloader': make_synthetic_bert_dataloader,
+    'model': configure_tiny_bert_hf_model,
+    'dataloader': (dummy_bert_lm_dataloader, {
+        'size': 8
+    }),
     'kwargs': {},
 }
 
 simple_gpt2_settings = {
-    'model': make_synthetic_gpt2_model,
-    'dataloader': make_synthetic_gpt2_dataloader,
+    'model': configure_tiny_gpt2_hf_model,
+    'dataloader': (dummy_gpt_lm_dataloader, {
+        'size': 8
+    }),
     'kwargs': {},
 }
 
 simple_vision_settings = {
-    'model': common.SimpleConvModel,
-    'dataset': common.RandomImageDataset,
+    'model': SimpleConvModel,
+    'dataset': RandomImageDataset,
     'kwargs': {},
 }
 
 simple_vision_pil_settings = {
-    'model': common.SimpleConvModel,
-    'dataset': (common.RandomImageDataset, {
+    'model': SimpleConvModel,
+    'dataset': (RandomImageDataset, {
         'is_PIL': True
     }),
     'kwargs': {},
@@ -58,7 +63,7 @@ simple_resnet_settings = {
         'model_name': 'resnet18',
         'num_classes': 2
     }),
-    'dataset': (common.RandomImageDataset, {
+    'dataset': (RandomImageDataset, {
         'shape': (3, 224, 224),
     }),
     'kwargs': {},
@@ -66,18 +71,26 @@ simple_resnet_settings = {
 
 _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     GradientClipping: {
-        'model': common.SimpleConvModel,
-        'dataset': common.RandomImageDataset,
+        'model': SimpleConvModel,
+        'dataset': RandomImageDataset,
         'kwargs': {
             'clipping_type': 'norm',
             'clipping_threshold': 0.1
         },
     },
-    Alibi: None,  # NLP settings needed
+    Alibi: {
+        'model': configure_tiny_bert_hf_model,
+        'dataloader': (dummy_bert_lm_dataloader, {
+            'size': 8
+        }),
+        'kwargs': {
+            'max_sequence_length': 256
+        },
+    },
     AugMix: simple_vision_settings,
     BlurPool: {
-        'model': common.SimpleConvModel,
-        'dataset': common.RandomImageDataset,
+        'model': SimpleConvModel,
+        'dataset': RandomImageDataset,
         'kwargs': {
             'min_channels': 0,
         },
@@ -85,14 +98,14 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     ChannelsLast: simple_vision_settings,
     ColOut: simple_vision_settings,
     CutMix: {
-        'model': common.SimpleConvModel,
-        'dataset': common.RandomImageDataset,
+        'model': SimpleConvModel,
+        'dataset': RandomImageDataset,
         'kwargs': {}
     },
     CutOut: simple_vision_settings,
     EMA: {
-        'model': common.SimpleConvModel,
-        'dataset': common.RandomImageDataset,
+        'model': SimpleConvModel,
+        'dataset': RandomImageDataset,
         'kwargs': {
             'half_life': '1ba',
         },
@@ -105,7 +118,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
             'model_name': 'resnet18',
             'num_classes': 2
         }),
-        'dataset': (common.RandomImageDataset, {
+        'dataset': (RandomImageDataset, {
             'shape': (3, 224, 224)
         }),
         'kwargs': {
@@ -121,14 +134,24 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     NoOpModel: simple_vision_settings,
     SAM: simple_vision_settings,
     SelectiveBackprop: simple_vision_settings,
-    SeqLengthWarmup: None,  # NLP settings needed
+    SeqLengthWarmup: {
+        'model': configure_tiny_bert_hf_model,
+        'dataloader': (dummy_bert_lm_dataloader, {
+            'size': 8
+        }),
+        'kwargs': {
+            'duration': 0.5,
+            'min_seq_length': 8,
+            'max_seq_length': 16
+        },
+    },
     SqueezeExcite: simple_resnet_settings,
     StochasticDepth: {
         'model': (composer_resnet, {
             'model_name': 'resnet50',
             'num_classes': 2
         }),
-        'dataset': (common.RandomImageDataset, {
+        'dataset': (RandomImageDataset, {
             'shape': (3, 224, 224),
         }),
         'kwargs': {
@@ -140,8 +163,8 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
         }
     },
     SWA: {
-        'model': common.SimpleConvModel,
-        'dataset': common.RandomImageDataset,
+        'model': SimpleConvModel,
+        'dataset': RandomImageDataset,
         'kwargs': {
             'swa_start': '0.2dur',
             'swa_end': '0.97dur',
@@ -150,7 +173,17 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
         }
     },
     WeightStandardization: simple_vision_settings,
-    GyroDropout: None,  # Dropout settings needed
+    GyroDropout: {
+        'model': SimpleModelWithDropout,
+        'dataloader': (DataLoader, {
+            'dataset': SimpleDataset(batch_size=2, feature_size=64, num_classes=10)
+        }),
+        'kwargs': {
+            'p': 0.5,
+            'sigma': 2,
+            'tau': 1
+        }
+    },
 }
 
 
@@ -195,7 +228,7 @@ def get_alg_dataloader(alg_cls: Type[Algorithm]) -> DataLoader:
 
     dataloader = cls(**kwargs)
     if isinstance(dataloader, Dataset):
-        dataloader = DataLoader(dataset=dataloader, batch_size=4)
+        dataloader = DataLoader(dataset=dataloader, batch_size=2)
     return dataloader
 
 
@@ -207,7 +240,7 @@ def get_algs_with_marks():
     E.g. @pytest.mark.parametrize("alg_class", get_algs_with_marks())
     """
     ans = []
-    for alg_cls in common.get_module_subclasses(composer.algorithms, Algorithm):
+    for alg_cls in get_module_subclasses(composer.algorithms, Algorithm):
         marks = []
         settings = _settings[alg_cls]
 

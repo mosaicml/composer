@@ -6,14 +6,12 @@ from copy import deepcopy
 import pytest
 
 from composer.algorithms.seq_length_warmup import SeqLengthWarmup, set_batch_sequence_length
-from composer.core.event import Event
+from composer.core import Event, State
+from composer.devices import DeviceCPU
 from composer.loggers import Logger
-from tests.fixtures.synthetic_hf_state import make_dataset_configs, synthetic_hf_state_maker
-
-
-def make_synthetic_state(family, session):
-    synthetic_config = make_dataset_configs(model_family=[family])[0]
-    return synthetic_hf_state_maker(synthetic_config, session)
+from tests.common.datasets import (dummy_bert_lm_dataloader, dummy_gpt_lm_dataloader,
+                                   dummy_text_classification_dataloader)
+from tests.common.models import SimpleTransformerClassifier, configure_tiny_bert_hf_model, configure_tiny_gpt2_hf_model
 
 
 def check_batch_truncation(before, after, length, preserve_end_of_sequence=False):
@@ -77,14 +75,30 @@ def check_forward_backward(model, batch):
     output['loss'].backward()
 
 
-@pytest.mark.parametrize('synthetic_state_family', ['bert', 'gpt2'])
+@pytest.mark.parametrize('model, dataloader', [
+    (configure_tiny_bert_hf_model, dummy_bert_lm_dataloader),
+    (configure_tiny_gpt2_hf_model, dummy_gpt_lm_dataloader),
+    (pytest.param(
+        SimpleTransformerClassifier,
+        dummy_text_classification_dataloader,
+        marks=pytest.mark.xfail(reason='Gated Linear Units does not currently support non-HuggingFace models'))),
+])
 @pytest.mark.parametrize('truncate,preserve_end_of_sequence', [(True, True), (True, False), (False, False)])
 class TestSeqLengthWarmup:
 
     @pytest.mark.parametrize('curr_seq_length', [8, 64])
-    def test_functional(self, synthetic_state_family: str, curr_seq_length: int, truncate: bool,
-                        preserve_end_of_sequence: bool, request: pytest.FixtureRequest):
-        state, _, dataloader = make_synthetic_state(synthetic_state_family, request.session)
+    def test_functional(self, model, dataloader, curr_seq_length: int, truncate: bool, preserve_end_of_sequence: bool):
+        model = model()
+        dataloader = dataloader()
+        state = State(
+            model=model,
+            rank_zero_seed=0,
+            run_name='run_name',
+            device=DeviceCPU(),
+            dataloader=dataloader,
+            dataloader_label='train',
+            max_duration='1ep',
+        )
         batch_before = next(iter(dataloader))
         batch_after = set_batch_sequence_length(deepcopy(batch_before), curr_seq_length, truncate,
                                                 preserve_end_of_sequence)
@@ -92,9 +106,18 @@ class TestSeqLengthWarmup:
         check_batch(batch_before, batch_after, curr_seq_length, truncate, preserve_end_of_sequence)
         check_forward_backward(state.model, batch_after)
 
-    def test_algorithm(self, synthetic_state_family: str, empty_logger: Logger, truncate: bool,
-                       preserve_end_of_sequence: bool, request: pytest.FixtureRequest):
-        state, _, dataloader = make_synthetic_state(synthetic_state_family, request.session)
+    def test_algorithm(self, model, dataloader, empty_logger: Logger, truncate: bool, preserve_end_of_sequence: bool):
+        model = model()
+        dataloader = dataloader()
+        state = State(
+            model=model,
+            rank_zero_seed=0,
+            run_name='run_name',
+            device=DeviceCPU(),
+            dataloader=dataloader,
+            dataloader_label='train',
+            max_duration='1ep',
+        )
 
         # Synthetic dataset has a size of 2 batches per epoch (max duration = 1ep)
         seq_length_warmup = SeqLengthWarmup(duration=0.5,

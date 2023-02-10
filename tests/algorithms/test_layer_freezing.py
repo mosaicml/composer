@@ -11,12 +11,13 @@ from composer.algorithms import LayerFreezing
 from composer.core import Event, Precision, State, Timestamp
 from composer.devices import DeviceCPU, DeviceGPU
 from composer.loggers import Logger
-from tests.common import SimpleConvModel
+from tests.common import SimpleConvModel, SimpleTransformerClassifier
+from tests.common.models import configure_tiny_bert_hf_model
 
 
-def _generate_state(request: pytest.FixtureRequest, epoch: int, max_epochs: int):
+def _generate_state(request: pytest.FixtureRequest, model_cls, epoch: int, max_epochs: int):
     """Generates a state and fast forwards the timestamp by epochs."""
-    model = SimpleConvModel()
+    model = model_cls()
     device = None
     for item in request.session.items:
         device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
@@ -50,8 +51,9 @@ def _assert_param_groups_equal(expected_groups, actual_groups):
             assert (actual_groups[i]['params'][j] == expected_params).all()
 
 
-def test_freeze_layers_no_freeze(empty_logger: Logger, request: pytest.FixtureRequest):
-    state = _generate_state(request, epoch=10, max_epochs=100)
+@pytest.mark.parametrize('model_cls', [SimpleConvModel, SimpleTransformerClassifier, configure_tiny_bert_hf_model])
+def test_freeze_layers_no_freeze(model_cls, empty_logger: Logger, request: pytest.FixtureRequest):
+    state = _generate_state(request, model_cls, epoch=10, max_epochs=100)
 
     first_optimizer = state.optimizers[0]
     expected_param_groups = deepcopy(first_optimizer.param_groups)
@@ -63,8 +65,9 @@ def test_freeze_layers_no_freeze(empty_logger: Logger, request: pytest.FixtureRe
     _assert_param_groups_equal(expected_param_groups, updated_param_groups)
 
 
-def test_freeze_layers_with_freeze(empty_logger: Logger, request: pytest.FixtureRequest):
-    state = _generate_state(request, epoch=80, max_epochs=100)
+@pytest.mark.parametrize('model_cls', [SimpleConvModel, SimpleTransformerClassifier, configure_tiny_bert_hf_model])
+def test_freeze_layers_with_freeze(model_cls, empty_logger: Logger, request: pytest.FixtureRequest):
+    state = _generate_state(request, model_cls, epoch=80, max_epochs=100)
 
     first_optimizer = state.optimizers[0]
     expected_param_groups = deepcopy(first_optimizer.param_groups)

@@ -221,7 +221,7 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 		Returns:
 			Any: The evaluation outputs.
 		"""
-        raise NotImplementedError()
+        return outputs if outputs is not None else self.forward(batch)
 
     def update_metric(
         self,

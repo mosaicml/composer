@@ -20,7 +20,7 @@ import tqdm
 
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_callback
-from composer.utils.object_store import ObjectStore, OCIObjectStore, S3ObjectStore
+from composer.utils.object_store import LibcloudObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore
 
 if TYPE_CHECKING:
     from composer.core import Timestamp
@@ -345,6 +345,17 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
     elif backend == 'wandb':
         raise NotImplementedError(f'There is no implementation for WandB load_object_store via URI. Please use '
                                   'WandBLogger')
+    elif backend == 'gs':
+        if 'GCS_KEY' not in os.environ or 'GCS_SECRET' not in os.environ:
+            raise ValueError(
+                'You must set the GCS_KEY and GCS_SECRET env variable with you HMAC access id and secret respectively')
+
+        return LibcloudObjectStore(
+            provider='google_storage',
+            container=bucket_name,
+            key_environ='GCS_KEY',  # Name of env variable for HMAC access id.
+            secret_environ='GCS_SECRET',  # Name of env variable for HMAC secret.
+        )
     elif backend == 'oci':
         return OCIObjectStore(bucket=bucket_name)
     else:
@@ -381,6 +392,19 @@ def maybe_create_remote_uploader_downloader_from_uri(
             return None
     if backend in ['s3', 'oci']:
         return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}')
+
+    elif backend == 'gs':
+        if 'GCS_KEY' not in os.environ or 'GCS_SECRET' not in os.environ:
+            raise ValueError(
+                'You must set the GCS_KEY and GCS_SECRET env variable with you HMAC access id and secret respectively')
+        return RemoteUploaderDownloader(
+            bucket_uri=f'libcloud://{bucket_name}',
+            backend_kwargs={
+                'provider': 'google_storage',
+                'container': bucket_name,
+                'key_environ': 'GCS_KEY',  # Name of env variable for HMAC access id.
+                'secret_environ': 'GCS_SECRET',  # Name of env variable for HMAC secret.
+            })
 
     elif backend == 'wandb':
         raise NotImplementedError(f'There is no implementation for WandB via URI. Please use '

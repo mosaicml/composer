@@ -38,6 +38,6 @@ def test_memory_monitor_gpu():
     )
     trainer.fit()
 
-    num_memory_monitor_calls = len(in_memory_logger.data['memory/alloc_requests'])
+    num_memory_monitor_calls = len(in_memory_logger.data['memory/allocated_mem'])
 
     assert num_memory_monitor_calls == int(trainer.state.timestamp.batch)

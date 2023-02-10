@@ -96,7 +96,6 @@ def apply_gated_linear_units(model: torch.nn.Module,
                 NoEffectWarning('No instances of BertIntermediate were found so Gated Linear Units will be skipped '
                                 'as no modules can be replaced. This is likely because Gated Linear Units has already '
                                 'been applied to this model.'))
-            return
 
         # get the activation functions used
         act_fns = {module.intermediate_act_fn for module in intermediate_modules}
@@ -140,7 +139,7 @@ def apply_gated_linear_units(model: torch.nn.Module,
 
 class GatedLinearUnits(Algorithm):
     """Replaces all instances of Linear layers in the feed-forward subnetwork with a `Gated Linear Unit <https://arxiv.org/abs/2002.05202>`_.
-    The Gated Linear Units provide a more expressive form for the same number of parameters, and a slight degredation to throughput.
+    The Gated Linear Units provide a more expressive form for the same number of parameters, and a slight degradation to throughput.
 
     Runs on :attr:`.Event.INIT`, so it can swap the Linear layers in the FFN for GLUs before the model is DDP wrapped.
 
@@ -153,7 +152,10 @@ class GatedLinearUnits(Algorithm):
     Example:
         .. testsetup::
 
-           model, train_dataloader, optimizer = _make_synthetic_bert_state()
+           from tests.common.models import configure_tiny_bert_hf_model
+           from tests.common.datasets import dummy_bert_lm_dataloader
+
+           model, train_dataloader = configure_tiny_bert_hf_model(), dummy_bert_lm_dataloader()
 
         .. testcode::
 

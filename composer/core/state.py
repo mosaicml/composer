@@ -100,10 +100,9 @@ class State(Serializable):
     """The state of the trainer.
 
     Contains variables that the trainer tracks throughout the training loop. Note that all the necessary parts (i.e.,
-    :attr:`serialized_attributes`) of state are serialized when the trainer is checkpointed so that it can be used
+    :attr:`serialized_attributes`) of state are serialized when the trainer is checkpointed so that it can be used to
     restore the trainer and continue training from a checkpoint.  :mod:`~composer.algorithms` are able to modify an
     instance of this class in-place.
-
 
     .. note::
 
@@ -622,6 +621,13 @@ class State(Serializable):
         """
         metadata_dict = {}
         metadata_dict['composer_env_info'] = get_composer_env_dict()
+        metadata_dict['device'] = self.device.name
+        metadata_dict['precision'] = self.precision.value
+        metadata_dict['world_size'] = dist.get_world_size()
+        metadata_dict['device_train_microbatch_size'] = self.device_train_microbatch_size
+
+        if self._train_dataloader is not None and hasattr(self._train_dataloader, 'batch_size'):
+            metadata_dict['train_dataloader_batch_size'] = self._train_dataloader.batch_size  # type: ignore
 
         return metadata_dict
 
@@ -663,7 +669,7 @@ class State(Serializable):
                 serialized_value = self._dataset_state_dict()
             elif attribute_name == 'model':
                 # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
-                # If it is DDP wrapped, do not save the `module.` prefix, as that is an implmentation detail
+                # If it is DDP wrapped, do not save the `module.` prefix, as that is an implementation detail
                 with get_fsdp_rank0_cpu_save_context(
                         attribute_value) if self.fsdp_enabled else contextlib.nullcontext():
                     model_state = attribute_value.state_dict()
@@ -756,7 +762,7 @@ class State(Serializable):
                                 f"loaded checkpoint but is now specified in the following forms: {', '.join(current_algos[type(algo)])}."
                                 'Potential parameter discrepancies for this required_on_load algorithm may lead to '
                                 'unexpected behavior, including failing to load weights for some layers.'))
-                    # Otherwise, queue algorithm to be autoappled
+                    # Otherwise, queue algorithm to be autoapplied
                     elif type(algo) not in current_algos:
                         missing_algos.add(algo)
                         missing_algo_names.append(algo_name)
@@ -937,6 +943,17 @@ class State(Serializable):
                 self._load_dataset_state(serialized_value)
             elif attribute_name == 'optimizers':
                 self.load_optim_state(state)
+            elif attribute_name == 'train_metrics':
+                state_field_value = getattr(self, attribute_name)
+                for metric_name, metric in serialized_value.items():
+                    state_field_value[metric_name] = metric
+                    metric._device = self.device._device
+            elif attribute_name == 'eval_metrics':
+                state_field_value = getattr(self, attribute_name)
+                for eval_key, eval_metrics in serialized_value.items():
+                    for metric_name, metric in eval_metrics.items():
+                        state_field_value[eval_key][metric_name] = metric
+                        metric._device = self.device._device
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                 state_field_value = getattr(self, attribute_name)
                 for target in ensure_tuple(state_field_value):
@@ -1007,7 +1024,7 @@ class State(Serializable):
 
         .. note::
 
-            If not explicitely specified, this value is an approximation, as it depends on ``len(self.dataloader)``.
+            If not explicitly specified, this value is an approximation, as it depends on ``len(self.dataloader)``.
             See the :doc:`PyTorch DataLoader Documentation <torch:data>` for more information.
 
         Returns:

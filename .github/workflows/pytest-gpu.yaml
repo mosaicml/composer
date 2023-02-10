@@ -1,0 +1,57 @@
+name: Pytest-GPU
+on:
+  pull_request_target:
+    branches:
+      - dev
+      - main
+      - release/**
+  workflow_call:
+  workflow_dispatch:
+# Cancel old runs when a new commit is pushed to the same branch if not on main or dev
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
+jobs:
+  pytest-gpu:
+    timeout-minutes: 30
+    runs-on: ubuntu-20.04
+    if: github.repository_owner == 'mosaicml'
+    strategy:
+      matrix:
+        include:
+          - name: 'gpu-3.10-1.13-vision-doctest'
+            container: mosaicml/pytorch_vision:1.13.1_cu117-python3.10-ubuntu20.04
+            markers: 'not daily and not remote and gpu and (vision or not vision) and (doctest or not doctest)'
+            pytest_command: 'coverage run -m pytest'
+    name: ${{ matrix.name }}
+    env:
+      MOSAICML_API_KEY: ${{ secrets.MCLOUD_API_KEY }}
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Cache pip
+        uses: actions/cache@v2
+        with:
+          # This path is specific to Ubuntu
+          path: ~/.cache/pip
+          # Look to see if there is a cache hit for the corresponding requirements file
+          key: ${{ runner.os }}-pip-${{ hashFiles('setup.py') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+            ${{ runner.os }}-
+      - name: Setup MCLI
+        run: |
+          set -ex
+          python -m pip install --upgrade mosaicml-cli
+          mcli init --mcloud
+          mcli version
+      - name: Submit Run
+        id: tests
+        run: |
+          set -ex
+          export PR_NUMBER=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
+          python .github/mcp/mcp_pytest.py --image '${{ matrix.container }}' --pr_number $PR_NUMBER --pytest_markers '${{ matrix.markers }}' --pytest_command '${{ matrix.pytest_command }}' --timeout 1200

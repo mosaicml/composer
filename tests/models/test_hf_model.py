@@ -5,19 +5,22 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 from unittest.mock import patch
 from urllib.parse import urlparse
 
 import pytest
 import torch
 from torch.utils.data import DataLoader
+from torchmetrics import Metric
 from torchmetrics.classification import Accuracy
 
 from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.trainer import Trainer
 from composer.utils import dist
 from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset
+from tests.common.models import (configure_tiny_bert_model, configure_tiny_bert_tokenizer, configure_tiny_gpt2_model,
+                                 configure_tiny_gpt2_tokenizer)
 from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
 
 
@@ -107,8 +110,20 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
     model_max_length_2 = tokenizer2.init_kwargs.get('model_max_length', None)
     if model_max_length_1 is not None and model_max_length_2 is not None:
         assert model_max_length_1 == model_max_length_2
+
     tokenizer1.__dict__['init_kwargs'].pop('model_max_length', None)
     tokenizer2.__dict__['init_kwargs'].pop('model_max_length', None)
+
+    # tokenizer.init_kwargs['tokenizer_file'] is unset when the tokenizer does not specify it, but is set to
+    # None when you save and reload, so here we just check that its the same if it is present in both tokenizers.
+    tokenizer_file_1 = tokenizer1.init_kwargs.get('tokenizer_file', None)
+    tokenizer_file_2 = tokenizer2.init_kwargs.get('tokenizer_file', None)
+    if tokenizer_file_1 is not None or tokenizer_file_2 is not None:
+        assert tokenizer_file_1 == tokenizer_file_2
+
+    tokenizer1.__dict__['init_kwargs'].pop('tokenizer_file', None)
+    tokenizer2.__dict__['init_kwargs'].pop('tokenizer_file', None)
+
     assert tokenizer1.__dict__ == tokenizer2.__dict__
 
 
@@ -211,14 +226,18 @@ def test_hf_state_dict_info(tmp_path: Path, pass_in_tokenizer: bool, modify_toke
         assert hf_tokenizer_state == {}
 
 
-def get_lm_trainer(hf_model, hf_tokenizer, save_folder, load_path: Optional[str] = None):
+def get_lm_trainer(hf_model,
+                   hf_tokenizer,
+                   save_folder,
+                   load_path: Optional[str] = None,
+                   is_conditional_generation: bool = False,
+                   do_eval: bool = False):
     transformers = pytest.importorskip('transformers')
     from composer.models import HuggingFaceModel
 
-    metrics = [
-        LanguageCrossEntropy(ignore_index=-100, vocab_size=hf_model.config.vocab_size),
-        MaskedAccuracy(ignore_index=-100)
-    ]
+    metrics: List[Metric] = [LanguageCrossEntropy(ignore_index=-100)]
+    if not is_conditional_generation:
+        metrics.append(MaskedAccuracy(ignore_index=-100))
 
     model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, metrics=metrics, use_logits=True)
 
@@ -230,17 +249,33 @@ def get_lm_trainer(hf_model, hf_tokenizer, save_folder, load_path: Optional[str]
     train_dataset = RandomTextLMDataset(size=size,
                                         vocab_size=vocab_size,
                                         sequence_length=sequence_length,
-                                        use_keys=True)
+                                        use_keys=True,
+                                        use_token_type_ids=not is_conditional_generation,
+                                        conditional_generation=is_conditional_generation)
 
-    collator = transformers.DataCollatorForLanguageModeling(tokenizer=hf_tokenizer, mlm_probability=0.15)
+    if not is_conditional_generation:
+        collator = transformers.DataCollatorForLanguageModeling(tokenizer=hf_tokenizer, mlm_probability=0.15)
+    else:
+        # Note: this could be transformers.DataCollatorForSeq2Seq(tokenizer=hf_tokenizer, model=hf_model),
+        # but we want to test the scenario where the input batch does not have decoder_input_ids,
+        # which DataCollatorForSeq2Seq automatically adds
+        collator = transformers.DefaultDataCollator()
 
     train_dataloader = DataLoader(train_dataset,
                                   batch_size=batch_size,
                                   collate_fn=collator,
                                   sampler=dist.get_sampler(train_dataset))
 
+    eval_dataloader = None
+    if do_eval:
+        eval_dataloader = DataLoader(train_dataset,
+                                     batch_size=batch_size,
+                                     collate_fn=collator,
+                                     sampler=dist.get_sampler(train_dataset))
+
     trainer = Trainer(model=model,
                       train_dataloader=train_dataloader,
+                      eval_dataloader=eval_dataloader,
                       max_duration='1ep',
                       save_folder=save_folder,
                       save_interval='1ep',
@@ -445,3 +480,71 @@ def test_hf_loading_errors(tiny_bert_model, tiny_bert_tokenizer, model_class_nam
     with error_contexts[model_class_name]:
         _, _ = HuggingFaceModel.hf_from_composer_checkpoint(str(tmp_path / 'hf-checkpoint.pt'),
                                                             model_class_name_to_class[model_class_name])
+
+
+@pytest.mark.parametrize('model,tokenizer', [(configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer),
+                                             (configure_tiny_bert_model, configure_tiny_bert_tokenizer)])
+def test_hf_auto_shift_labels(caplog, model, tokenizer):
+    pytest.importorskip('transformers')
+
+    from composer.models import HuggingFaceModel
+
+    hf_model = model()
+    hf_tokenizer = tokenizer()
+
+    # Confirm that shift_labels is automatically set to True for gpt2 and False for bert
+    if hf_model.config.model_type == 'gpt':
+        import logging
+
+        hf_model.resize_token_embeddings(len(hf_tokenizer))
+
+        with caplog.at_level(logging.WARNING, logger='composer'):
+            model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer)
+            assert model.shift_labels == True
+
+        assert len(caplog.messages) == 0
+
+        # A warning should be generated if using a Causal LM and setting shift_labels to False
+        with caplog.at_level(logging.WARNING, logger='composer'):
+            model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, shift_labels=False)
+            assert model.shift_labels == False
+
+        assert caplog.messages[
+            0] == 'The shift_labels argument was set to False but the model is an instance of a HuggingFace Causal LM. This may lead to incorrect behavior.'
+
+    if hf_model.config.model_type == 'bert':
+        model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer)
+        assert model.shift_labels == False
+
+
+def test_hf_causal_shift_labels(tiny_gpt2_model, tiny_gpt2_tokenizer):
+    pytest.importorskip('transformers')
+
+    from composer.models import HuggingFaceModel
+    model = HuggingFaceModel(tiny_gpt2_model, tokenizer=tiny_gpt2_tokenizer, use_logits=True)
+
+    batch = tiny_gpt2_tokenizer('a b c d e f g h i j k', return_tensors='pt')
+    batch['labels'] = batch['input_ids'].clone()
+
+    _ = model.eval_forward(batch)
+    assert isinstance(model.labels, torch.Tensor)
+    assert torch.all(model.labels[..., :3] == batch['input_ids'][..., 1:4])
+    assert torch.all(model.labels[..., -1] == -100)
+
+
+def test_encoder_decoder(tiny_t5_model, tiny_t5_tokenizer):
+    pytest.importorskip('transformers')
+
+    trainer = get_lm_trainer(tiny_t5_model, tiny_t5_tokenizer, None, is_conditional_generation=True, do_eval=True)
+    trainer.fit()
+    trainer.eval()
+
+
+def test_hf_return_dict_false(tiny_bert_config, tiny_bert_tokenizer):
+    transformers = pytest.importorskip('transformers')
+
+    tiny_bert_config.return_dict = False
+    tiny_bert_model = transformers.AutoModelForMaskedLM.from_config(tiny_bert_config)
+    trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, None, do_eval=True)
+
+    trainer.fit()

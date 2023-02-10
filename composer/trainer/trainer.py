@@ -29,7 +29,7 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
-from composer.callbacks import CheckpointSaver, GradMonitor
+from composer.callbacks import CheckpointSaver, OptimizerMonitor
 from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException, Callback, DataSpec, Engine, Evaluator,
                            Event, Precision, PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode,
                            ensure_data_spec, ensure_evaluator, ensure_time, get_precision_context)
@@ -44,8 +44,8 @@ from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.dist_strategy import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module
 from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectStore, Transform, checkpoint, dist,
-                            ensure_tuple, export_with_logger, format_name_with_dist, get_device, get_file,
-                            is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
+                            ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist, get_device,
+                            get_file, is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
                             maybe_create_remote_uploader_downloader_from_uri, model_eval_mode, parse_uri,
                             reproducibility)
 
@@ -57,7 +57,7 @@ log = logging.getLogger(__name__)
 
 __all__ = ['Trainer']
 
-# syntax to shorten the Scheduler type annoations
+# syntax to shorten the Scheduler type annotations
 Scheduler = Union[ComposerScheduler, PyTorchScheduler]
 
 
@@ -570,17 +570,14 @@ class Trainer:
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
         run_name (str, optional): A name for this training run. If not specified, the timestamp will be combined with a
             :doc:`coolname <coolname:index>`, e.g. ``1654298855-electric-zebra``.
-        progress_bar (bool, optional): Whether to show a progress bar. (default: ``True``)
-        log_to_console (bool, optional): Whether to print logging statements to the console. (default: ``None``)
-
-            The default behavior (when set to ``None``) only prints logging statements when ``progress_bar`` is ``False``.
-
+        progress_bar (bool): Whether to show a progress bar. (default: ``True``)
+        log_to_console (bool): Whether to print logging statements to the console. (default: ``False``)
         console_stream (TextIO | str, optional): The stream to write to. If a string, it can either be
             ``'stdout'`` or ``'stderr'``. (default: :attr:`sys.stderr`)
         console_log_interval (int | str | Time, optional): Specifies how frequently to log metrics to console.
             An integer, which will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time`
-            object, or a callable. (default: ``1``)
-            Defaults to ``1`` (log metrics every epoch).
+            object, or a callable. (default: ``1ba``)
+            Defaults to ``1ba`` (log metrics every batch).
 
             If an integer (in epochs), :class:`.Time` string, or :class:`.Time` instance, the metrics will be logged
             with this frequency. :class:`.Time` strings or :class:`.Time` instances must have units of
@@ -588,6 +585,7 @@ class Trainer:
 
             Set to ``0`` to disable metrics logging to console.
         log_traces (bool): Whether to log traces or not. (default: ``False``)
+        auto_log_hparams (bool): Whether to automatically extract hyperparameters. (default: ``False``)
         load_path (str, optional):  The path format string to an existing checkpoint file.
 
             It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
@@ -624,7 +622,7 @@ class Trainer:
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
         load_object_store (Union[ObjectStore, LoggerDestination], optional): If the ``load_path`` is in an
             object store (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStore` or
-            :class:`.LoggerDestination` which will be used to retreive the checkpoint. Otherwise, if the
+            :class:`.LoggerDestination` which will be used to retrieve the checkpoint. Otherwise, if the
             checkpoint is a local filepath, set to ``None``. Also, it can be ``None`` if the ``load_path`` is
             an S3 URI because the appropriate object store will be automatically constructed in that case.
             Ignored if ``load_path`` is ``None``.
@@ -883,8 +881,9 @@ class Trainer:
         progress_bar: bool = True,
         log_to_console: bool = False,
         console_stream: Union[str, TextIO] = 'stderr',
-        console_log_interval: Union[int, str, Time] = '1ep',
+        console_log_interval: Union[int, str, Time] = '1ba',
         log_traces: bool = False,
+        auto_log_hparams: bool = False,
 
         # Load Checkpoint
         load_path: Optional[str] = None,
@@ -932,6 +931,7 @@ class Trainer:
         python_log_level: Optional[str] = None,
     ):
 
+        self.auto_log_hparams = auto_log_hparams
         self.python_log_level = python_log_level
         if self.python_log_level is not None:
             logging.basicConfig(
@@ -1007,7 +1007,7 @@ class Trainer:
             optimizers = map_collection(optimizers, device.optimizer_to_device)
 
         # Microbatching
-        # To support backwards compatability, we currently support both device_train_microbatch_size
+        # To support backwards compatibility, we currently support both device_train_microbatch_size
         # and grad_accum. If both are specified with grad_accum=1, we will use device_train_microbatch_size.
         if device_train_microbatch_size is not None:
             using_device_microbatch_size = True
@@ -1179,6 +1179,11 @@ class Trainer:
         # Run Event.INIT
         self.engine.run_event(Event.INIT)
 
+        # Log hparams.
+        if self.auto_log_hparams:
+            self.local_hparams = extract_hparams(locals())
+            self.logger.log_hyperparameters(self.local_hparams)
+
         # Log gpus and nodes.
         device_name = self.state.device.__class__.__name__.lstrip('Device').lower()
         self.logger.log_hyperparameters({
@@ -1207,7 +1212,6 @@ class Trainer:
                 ensure_evaluator(evaluator, default_metric_names=model_metric_names)
                 for evaluator in ensure_tuple(eval_dataloader)
             ]
-
             # match metric names to model metrics
             self.state.eval_metrics = {
                 evaluator.label: _filter_metrics(eval_metrics, evaluator.metric_names) for evaluator in evaluators
@@ -1277,8 +1281,8 @@ class Trainer:
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
             for callback in self.state.callbacks:
-                if isinstance(callback, GradMonitor):
-                    raise ValueError('GradMonitor is not supported with DeepSpeed because DeepSpeed clears '
+                if isinstance(callback, OptimizerMonitor):
+                    raise ValueError('OptimizerMonitor is not supported with DeepSpeed because DeepSpeed clears '
                                      'the gradients before in the last call to .backward see: '
                                      'https://github.com/microsoft/DeepSpeed/issues/2329 for more details.')
 
@@ -1685,6 +1689,12 @@ class Trainer:
         if self.state.max_duration is None:
             _raise_missing_argument_exception('max_duration')
 
+        if self.state.dataloader_len is None and self.state.max_duration.unit == TimeUnit.EPOCH:
+            raise ValueError(
+                ('max_duration cannot be specified in epochs when using an infinite dataloader. Please either '
+                 'provide a dataloader with a length, specify max_duration in batches, samples, or tokens, or provide '
+                 'train_subset_num_batches.'))
+
         if self.state.max_duration <= self.state.timestamp.get(self.state.max_duration.unit) and not reset_time:
             raise ValueError(
                 (f'The max_duration ({self.state.max_duration}) is less than or equal to the elapsed training duration '
@@ -1888,7 +1898,6 @@ class Trainer:
         log.info('Using precision %s', self.state.precision)
         self.logger.log_hyperparameters(
             {'enabled_algorithms/' + algo.__class__.__name__: True for algo in self.state.algorithms})
-
         assert self.state.dataloader is not None, 'dataloader is set in __init__() or fit()'
         assert self._train_data_spec is not None, 'The train data spec is set in __init__() or fit()'
         assert self.state.scaler is not None, 'scaler should have been set in __init__()'
@@ -2549,7 +2558,7 @@ class Trainer:
 
         """
         if eval_dataloader is not None:
-
+            eval_passed_in = True
             eval_metrics = deepcopy(self._original_model.get_metrics(is_train=False))
             metric_names = [str(k) for k in eval_metrics.keys()]
 
@@ -2576,7 +2585,9 @@ class Trainer:
                 eval_interval='1ep',  # ignored
                 subset_num_batches=subset_num_batches,
             )
+            self.state.evaluators.extend(evaluators)  # Add evaluators to state.evaluators
         else:
+            eval_passed_in = False
             if not self.state.evaluators:
                 raise ValueError('eval_dataloader must be provided to either Trainer init() or eval().')
             evaluators = self.state.evaluators
@@ -2588,6 +2599,8 @@ class Trainer:
                 subset_num_batches=subset_num_batches,
                 metrics=self.state.eval_metrics[evaluator.label],
             )
+            if eval_passed_in:
+                self.state.evaluators.remove(evaluator)  # Remove them from state once eval is finished.
 
     def _eval_loop(
         self,

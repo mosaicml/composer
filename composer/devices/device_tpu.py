@@ -26,6 +26,8 @@ class DeviceTPU(Device):
     More details.
     """
 
+    name = 'tpu'
+
     def __init__(self):
         import torch_xla.core.xla_model as xm
 

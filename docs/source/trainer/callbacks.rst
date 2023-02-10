@@ -47,7 +47,7 @@ components of training.
     ~checkpoint_saver.CheckpointSaver
     ~speed_monitor.SpeedMonitor
     ~lr_monitor.LRMonitor
-    ~grad_monitor.GradMonitor
+    ~optimizer_monitor.OptimizerMonitor
     ~memory_monitor.MemoryMonitor
     ~image_visualizer.ImageVisualizer
     ~mlperf.MLPerfCallback

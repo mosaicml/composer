@@ -119,29 +119,105 @@ def s3_bucket(request: pytest.FixtureRequest):
 # below should be used instead. This is because the session scoped fixtures return the same object to every
 # test that requests it, so tests would have side effects on each other. Instead, the non session
 # scoped fixtures below perform a deepcopy before returning the fixture.
-@pytest.fixture(scope='session')
-def _session_tiny_bert_model():  # type: ignore
+def tiny_bert_model_helper(config):
     transformers = pytest.importorskip('transformers')
 
-    config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny')
-    hf_model = transformers.AutoModelForMaskedLM.from_config(config)  # type: ignore (thirdparty)
-    return hf_model
+    return transformers.AutoModelForMaskedLM.from_config(config)  # type: ignore (thirdparty)
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_bert_model(_session_tiny_bert_config):  # type: ignore
+    return tiny_bert_model_helper(_session_tiny_bert_config)
+
+
+def tiny_bert_tokenizer_helper():
+    transformers = pytest.importorskip('transformers')
+
+    return transformers.AutoTokenizer.from_pretrained('bert-base-uncased')
 
 
 @pytest.fixture(scope='session')
 def _session_tiny_bert_tokenizer():  # type: ignore
-    transformers = pytest.importorskip('transformers')
+    return tiny_bert_tokenizer_helper()
 
-    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('prajjwal1/bert-tiny')
-    return hf_tokenizer
+
+def tiny_bert_config_helper():
+    transformers = pytest.importorskip('transformers')
+    tiny_overrides = {
+        'hidden_size': 128,
+        'num_attention_heads': 2,
+        'num_hidden_layers': 2,
+        'intermediate_size': 512,
+    }
+    return transformers.AutoConfig.from_pretrained('bert-base-uncased', **tiny_overrides)
 
 
 @pytest.fixture(scope='session')
 def _session_tiny_bert_config():  # type: ignore
+    return tiny_bert_config_helper()
+
+
+def tiny_gpt2_model_helper(config):
     transformers = pytest.importorskip('transformers')
 
-    hf_config = transformers.AutoConfig.from_pretrained('prajjwal1/bert-tiny')
-    return hf_config
+    return transformers.AutoModelForCausalLM.from_config(config)
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_gpt2_model(_session_tiny_gpt2_config):  # type: ignore
+    return tiny_gpt2_model_helper(_session_tiny_gpt2_config)
+
+
+def tiny_gpt2_config_helper():
+    transformers = pytest.importorskip('transformers')
+
+    tiny_overrides = {
+        'n_embd': 2,
+        'n_head': 2,
+        'n_layer': 2,
+    }
+    return transformers.AutoConfig.from_pretrained('gpt2', **tiny_overrides)
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_gpt2_config():  # type: ignore
+    return tiny_gpt2_config_helper()
+
+
+def tiny_gpt2_tokenizer_helper():
+    transformers = pytest.importorskip('transformers')
+
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('gpt2')
+    hf_tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+    return hf_tokenizer
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_gpt2_tokenizer():  # type: ignore
+    return tiny_gpt2_tokenizer_helper()
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_t5_config():  # type: ignore
+    transformers = pytest.importorskip('transformers')
+
+    tiny_overrides = {'d_ff': 128, 'd_model': 64, 'num_layers': 2, 'num_decoder_layers': 2, 'num_heads': 2}
+    return transformers.AutoConfig.from_pretrained('t5-small', **tiny_overrides)
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_t5_tokenizer():  # type: ignore
+    transformers = pytest.importorskip('transformers')
+
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('t5-small', model_max_length=512)
+    return hf_tokenizer
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_t5_model(_session_tiny_t5_config):  # type: ignore
+    transformers = pytest.importorskip('transformers')
+
+    return transformers.T5ForConditionalGeneration(config=_session_tiny_t5_config)
 
 
 @pytest.fixture
@@ -157,3 +233,33 @@ def tiny_bert_tokenizer(_session_tiny_bert_tokenizer):
 @pytest.fixture
 def tiny_bert_config(_session_tiny_bert_config):
     return copy.deepcopy(_session_tiny_bert_config)
+
+
+@pytest.fixture
+def tiny_gpt2_config(_session_tiny_gpt2_config):
+    return copy.deepcopy(_session_tiny_gpt2_config)
+
+
+@pytest.fixture
+def tiny_gpt2_tokenizer(_session_tiny_gpt2_tokenizer):
+    return copy.deepcopy(_session_tiny_gpt2_tokenizer)
+
+
+@pytest.fixture
+def tiny_gpt2_model(_session_tiny_gpt2_model):
+    return copy.deepcopy(_session_tiny_gpt2_model)
+
+
+@pytest.fixture
+def tiny_t5_config(_session_tiny_t5_config):
+    return copy.deepcopy(_session_tiny_t5_config)
+
+
+@pytest.fixture
+def tiny_t5_tokenizer(_session_tiny_t5_tokenizer):
+    return copy.deepcopy(_session_tiny_t5_tokenizer)
+
+
+@pytest.fixture
+def tiny_t5_model(_session_tiny_t5_model):
+    return copy.deepcopy(_session_tiny_t5_model)

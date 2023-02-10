@@ -26,6 +26,7 @@ class DeviceCPU(Device):
     """
 
     dist_backend = 'gloo'
+    name = 'cpu'
     _device = torch.device('cpu')
 
     def module_to_device(self, module: T_nnModule) -> T_nnModule:

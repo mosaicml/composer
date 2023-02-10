@@ -9,7 +9,7 @@ Make sure to run:
 pip install 'mosaicml[tensorboard]'
 ```
 
-## Logging to Tensorboard Pythonically
+## Logging to Tensorboard
 To log your run's results to tensorboard, first you will need to create a `TensorboardLogger`
 object, like so:
 
@@ -63,106 +63,6 @@ trainer.fit()
 Now, run this code and if all goes well, your loss and metric results will be logged Tensorboard log files, which will be written to "./my_tensorboard_logs".
 See [these instructions](#viewing-your-results-locally) for viewing your results in the Tensorboard viewer.
 
-## Logging to Tensorboard using YAML configs
-To log to Tensorboard using YAML config files, you can add these lines to you YAML file:
-```yaml
-  loggers:
-    tensorboard:
-      log_dir: my_tensorboard_logs
-```
-Putting it all together the MNIST config YAML file version of the code above should look like:
-
-```yaml
-train_dataset:
-  mnist:
-    is_train: true
-    datadir: ./datasets/mnist
-    download: true
-val_dataset:
-  mnist:
-    is_train: false
-    datadir: ./datasets/mnist
-    download: true
-model:
-  mnist_classifier:
-    num_classes: 10
-max_duration: 5ep
-eval_interval: 1ep
-train_batch_size: 128
-eval_batch_size: 64
-loggers:
-  tensorboard:
-    log_dir: my_tensorboard_logs
-```
-Then save that YAML file as `mnist.yaml` for example.
-
-To run the training using this config file, just run:
-
-<!--pytest.mark.skip-->
-```bash
-python examples/run_composer_trainer.py -f mnist.yaml
-```
-
-If all goes well, your loss and metric results will be logged Tensorboard log files, which will be written to "./my_tensorboard_logs".
-See [these instructions](#viewing-your-results-locally) for viewing your results in the Tensorboard viewer.
-
-## Saving your Logs to S3
-You can also save your Tensorboard logs to cloud storage such as Amazon S3. This is especially useful in cases where your run environment does not have persistent storage.
-
-To save your logs to S3, you need to use an {class}`~.RemoteUploaderDownloader`
-
-If you are using YAML configs you can get S3 logging by adding the following lines to your YAML file under loggers:
-
-```yaml
-loggers:
-  object_store:
-    object_store_hparams:
-      s3:
-        bucket: my-s3-bucket-name
-```
-Remember to replace `my-s3-bucket-name` with the name of your bucket.
-
-Putting this all together, your YAML file will look like:
-
-```yaml
-train_dataset:
-  mnist:
-    is_train: true
-    datadir: ./datasets/mnist
-    download: true
-val_dataset:
-  mnist:
-    is_train: false
-    datadir: ./datasets/mnist
-    download: true
-model:
-  mnist_classifier:
-    num_classes: 10
-max_duration: 5ep
-eval_interval: 1ep
-train_batch_size: 128
-eval_batch_size: 64
-loggers:
-  tensorboard:
-    log_dir: my_tensorboard_logs
-  object_store:
-    object_store_hparams:
-      s3:
-        bucket: my-s3-bucket-name
-```
-
-Once again you can run this job like so:
-
-<!--pytest.mark.skip-->
-```bash
-python examples/run_composer_trainer.py -f mnist.yaml
-```
-
-If all goes well: your loss and metric results will be logged Tensorboard log files, which will be written to `s3://my-s3-bucket-name/tensorboard_logs`
-The tensorboard logger will always name the directory inside your bucket "`tensorboard_logs`".
-
-See [these instructions](#viewing-your-results-from-s3) for viewing your results in the Tensorboard viewer.
-
 
 ## Viewing your Results Locally
 If you saved your Tensorboard log files locally you can view them by starting a Tensorboard process and pointing it to the log directory you specified. To do this run the following at the command line:
@@ -183,7 +83,6 @@ Open the URL in your browser to access the Tensorboard viewer, which should look
 ![tb_screenshot](../_images/tensorboard_screenshot.png)
 
 Enjoy viewing your metrics!
-
 
 
 ## Viewing your Results from S3

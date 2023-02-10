@@ -77,7 +77,7 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.napoleon',
     'sphinxcontrib.katex',
-    'sphinx.ext.linkcode',
+    'sphinx.ext.viewcode',
     'sphinx.ext.intersphinx',
     'sphinxemoji.sphinxemoji',
     'sphinxext.opengraph',
@@ -518,36 +518,6 @@ def _determine_lineno_of_attribute(module: types.ModuleType, attribute: str):
             if any(isinstance(x, ast.Name) and x.id == attribute for x in stmt.targets):
                 return stmt.lineno
     return None
-
-
-def linkcode_resolve(domain: str, info: Dict[str, str]):
-    """Adds links to the GitHub source code in the API Reference."""
-    assert domain == 'py', f'unsupported domain: {domain}'
-    module_name = info['module']
-
-    # Get the object and determine the line number
-    obj_name_in_module = info['fullname']
-    module = importlib.import_module(module_name)
-    lineno = _determine_lineno_of_attribute(module, obj_name_in_module)
-    if lineno is None:
-        obj = _recursive_getattr(module, obj_name_in_module)
-        if isinstance(obj, property):
-            # For properties, return the getter, where it is documented
-            obj = obj.fget
-        try:
-            _, lineno = inspect.getsourcelines(obj)
-        except TypeError:
-            # `inspect.getsourcelines` does not work on all object types (e.g. attributes).
-            # If it fails, it still might be possible to determine the source line through better parsing
-            # in _determine_lineno_of_attribute
-            pass
-    if lineno is None:
-        log.debug(f'Could not determine source line number for {module_name}.{obj_name_in_module}.')
-        return None
-    # Format the link
-    filename = module_name.replace('.', '/')
-    commit_sha = _COMMIT_SHA
-    return f'https://github.com/mosaicml/composer/blob/{commit_sha}/{filename}.py#L{lineno}'
 
 
 class PatchedHTMLTranslator(HTML5Translator):

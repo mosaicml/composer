@@ -32,6 +32,7 @@ class DeviceGPU(Device):
             For more information, see :ref:`torch:tf32_on_ampere`.
     """
     dist_backend = 'nccl'
+    name = 'gpu'
 
     def __init__(
         self,

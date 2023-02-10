@@ -112,8 +112,8 @@ from torchvision import models
 my_model = models.resnet18()
 
 # add blurpool and squeeze excite layers
-my_model = cf.apply_blurpool(my_model)
-my_model = cf.apply_squeeze_excite(my_model)
+cf.apply_blurpool(my_model)
+cf.apply_squeeze_excite(my_model)
 
 # your own training code starts here
 ```
@@ -359,7 +359,7 @@ Here are some resources actively maintained by the Composer community to help yo
     <td>A Colab Notebook showing how to build new training modifications on top of Composer</td>
   </tr>
   <tr>
-    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/huggingface_models.ipynb" target="_blank" rel="noopener noreferrer">Training BERTs with Composer and 🤗 </a></td>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/finetune_huggingface.ipynb" target="_blank" rel="noopener noreferrer">Training BERTs with Composer and 🤗 </a></td>
     <td>A Colab Notebook showing how to train BERT models with Composer and 🤗!</td>
   </tr>
 </tbody>

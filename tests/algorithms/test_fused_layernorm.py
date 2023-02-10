@@ -1,31 +1,27 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Tuple
-
 import pytest
 from torch.nn import LayerNorm
 
 from composer.algorithms.fused_layernorm import FusedLayerNorm, apply_fused_layernorm
-from composer.core.event import Event
+from composer.core import Event, State
 from composer.loggers import Logger
+from composer.models.huggingface import HuggingFaceModel
+from composer.utils import get_device
 from tests.common import device
-from tests.fixtures.synthetic_hf_state import make_dataset_configs, synthetic_hf_state_maker
-
-
-@pytest.fixture()
-def synthetic_bert_state(request: pytest.FixtureRequest):
-    synthetic_config = make_dataset_configs(model_family=['bert'])[0]
-    return synthetic_hf_state_maker(synthetic_config, request.session)
+from tests.common.datasets import dummy_bert_lm_dataloader, dummy_text_classification_dataloader
+from tests.common.models import SimpleTransformerClassifier, configure_tiny_bert_hf_model
 
 
 def assert_is_fln_instance(model):
     pytest.importorskip('apex')
-    pytest.importorskip('transformers')
     from apex.normalization.fused_layer_norm import FusedLayerNorm as APEXFusedLayerNorm
-    from transformers import BertForMaskedLM, BertForSequenceClassification
 
-    assert isinstance(model, BertForMaskedLM) or isinstance(model, BertForSequenceClassification)
+    # When checking modules of a HuggingFace model, we need to parse the model object it wraps
+    # This is not necessary for SimpleTransformerClassifier models.
+    if isinstance(model, HuggingFaceModel):
+        model = model.model
     # ensure that within the entire model, no PyTorch LayerNorm exists, and at least one APEX FLN does.
     assert model.modules is not None, 'model has .modules method'
     for module_class in model.modules():
@@ -37,25 +33,51 @@ def assert_is_fln_instance(model):
 
 
 @device('gpu')
-def test_fused_layernorm_functional(synthetic_bert_state: Tuple, device: str):
-    state, _, _ = synthetic_bert_state
+@pytest.mark.parametrize('model,dataloader', [
+    (configure_tiny_bert_hf_model, dummy_bert_lm_dataloader),
+    (SimpleTransformerClassifier, dummy_text_classification_dataloader),
+])
+def test_fused_layernorm_functional(model, dataloader, device: str, request: pytest.FixtureRequest):
+    model = model()
+    dataloader = dataloader()
+    state = State(
+        model=model,
+        rank_zero_seed=0,
+        run_name='run_name',
+        device=get_device(device),
+        dataloader=dataloader,
+        dataloader_label='train',
+        max_duration='1ep',
+    )
+    if device == 'gpu':
+        state.model = state.model.cuda()  # move the model to gpu
+
     apply_fused_layernorm(state.model, state.optimizers)
-    assert_is_fln_instance(state.model.model)
+    assert_is_fln_instance(state.model)
 
 
 @device('gpu')
-def test_fused_layernorm_algorithm(synthetic_bert_state: Tuple, empty_logger: Logger, device: str):
-    pytest.importorskip('transformers')
-    from transformers import BertForMaskedLM, BertForSequenceClassification
+@pytest.mark.parametrize('model,dataloader', [
+    (configure_tiny_bert_hf_model, dummy_bert_lm_dataloader),
+    (SimpleTransformerClassifier, dummy_text_classification_dataloader),
+])
+def test_fused_layernorm_algorithm(model, dataloader, empty_logger: Logger, device: str):
 
-    state, _, _ = synthetic_bert_state
+    model = model()
+    dataloader = dataloader()
+    state = State(
+        model=model,
+        rank_zero_seed=0,
+        run_name='run_name',
+        device=get_device(device),
+        dataloader=dataloader,
+        dataloader_label='train',
+        max_duration='1ep',
+    )
     fused_layernorm = FusedLayerNorm()
     if device == 'gpu':
         state.model = state.model.cuda()  # move the model to gpu
 
-    # state.model wrapped in HuggingFaceModel wrapped
-    assert isinstance(state.model.model, BertForMaskedLM) or isinstance(state.model.model,
-                                                                        BertForSequenceClassification)
     fused_layernorm.apply(Event.INIT, state, empty_logger)
 
-    assert_is_fln_instance(state.model.model)
+    assert_is_fln_instance(state.model)
