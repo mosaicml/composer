@@ -66,7 +66,7 @@ model = ema.ema_model
 
 ### Implementation Details
 
-Because EMA needs to maintain a copy of the model's (averaged) weights, it requires a bit more on-device memory. In the functional implementation, the amount of extra memory is 2x the size of the model. In the composer trainer implementation, it is 3x the size of the model to allow for swapping the training and evaluation models. In practice, the extra memory used is small relative to the total amount of memory used, as activations and optimizer state are not duplicated.
+Because EMA needs to maintain a copy of the model's (averaged) weights, it requires a bit more on-device memory. The amount of extra memory used is equal to the size of the model's trainable parameters and buffers. In practice, the extra memory used is small relative to the total amount of memory used, as activations and optimizer state are not duplicated.
 
 EMA also uses a bit of extra compute to calculate the moving average. This can lead to a small slowdown. The extra compute can be reduced by not computing the moving average every iteration. In the composer trainer implementation this can be done by using a larger `update_interval`. In practice we find that as long as `half_life` is much larger than `update_interval`, increasing `update_interval` does not have much effect on generalization performance.
 
@@ -113,7 +113,7 @@ To use this, `half_life` should be set to `half_life=None`, and the value of smo
 
 > ❗ Evaluation should not be done with the training model
 >
-> Evaluation should be done with the `ema_model` in the functional impementation as this is the model containing the averaged parameters. The ema model can be accessed after training from the `EMA` object via `model = ema.ema_model` in the composer trainer implementation. Similarly, the model without ema applied (the training model) can be accessed via `model=ema.training_model`. By default, when saving checkpoints with the `CheckpointSaver` callback or through trainer arguments the weights saved will be the ema model weights. An exception is if saving is done by explicitly calling `trainer.save_checkpoint()` which will result in the training model weights being saved as `state.model`.
+> Evaluation should be done with the `ema_model` in the functional impementation as this is the model containing the averaged parameters. The ema model can be accessed after training from the `EMA` object via `model = ema.get_ema_model(model)` in the composer trainer implementation. This replaces the parameters of the supplied model with the ema_weights unless composer's model already contains them. Similarly, the model without ema applied (the training model) can be accessed via `model=ema.get_training_model(model)`. By default, when saving checkpoints with the `CheckpointSaver` callback or through trainer arguments the weights saved will be the ema model weights. An exception is if saving is done by explicitly calling `trainer.save_checkpoint()` which will result in the training model weights being saved as `state.model`.
 
 
 ## Attribution
