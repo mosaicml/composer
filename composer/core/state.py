@@ -970,9 +970,9 @@ class State(Serializable):
                 else:  # fsdp_state_dict_type == 'full'
                     # FSDP enabled, but fsdp_state_dict is set to 'full', so the state dict
                     # is a full state dict and we must shard and flatten it first before loading it.
-                    sharded_osd = get_fsdp_sharded_optim_state_dict(full_optim_state_dict=optim_state_dict,
-                                                                    model=self.model)
-                    optimizer.load_state_dict(sharded_osd)
+                    sharded_optim_state_dict = get_fsdp_sharded_optim_state_dict(full_optim_state_dict=optim_state_dict,
+                                                                                 model=self.model)
+                    optimizer.load_state_dict(sharded_optim_state_dict)
             # No FSDP, so just load the optim state dict.
             else:
                 optimizer.load_state_dict(optim_state_dict)
