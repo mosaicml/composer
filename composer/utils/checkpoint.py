@@ -193,7 +193,7 @@ def load_checkpoint(
     # download the checkpoint to the node-local folder
     log.debug('Loading checkpoint at %s', path)
     # Each node gets one unique folder to store checkpoints that is shared amongst all local ranks in that node.
-    # If fsdp sharded state_dicts is enabled then EVERY rank gets a unique checkpoint file.
+    # If fsdp sharded state_dicts is enabled then EVERY rank gets a unique checkpoint folder.
     tempdir_ctx = (tempfile.TemporaryDirectory() if (state.fsdp_sharded_state_dict_enabled or
                                                      dist.get_local_rank() == 0) else contextlib.nullcontext(None))
     with tempdir_ctx as tempdir:
