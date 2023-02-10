@@ -96,7 +96,7 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
 
 def fsdp_get_optim_state_dict(model: torch.nn.Module,
                               optim: torch.optim.Optimizer,
-                              state_dict_type='full') -> Dict[str, Any]:
+                              state_dict_type: str = 'full') -> Dict[str, Any]:
     """Materializes a given model's optimizer's state_dict.
 
     Args:
