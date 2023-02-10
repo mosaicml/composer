@@ -127,7 +127,6 @@ def fsdp_get_optim_state_dict(model: torch.nn.Module,
     elif state_dict_type == 'local':
         # State dict is already local, so just return state dict.
         return optim.state_dict()
-
     else:
         raise NotImplementedError(f'No valid FSDP state_dict_type for {state_dict_type}')
 
