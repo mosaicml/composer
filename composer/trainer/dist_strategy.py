@@ -4,13 +4,18 @@
 """Helpers for running distributed data parallel training."""
 
 import collections
+import functools
 import logging
 import warnings
 from contextlib import contextmanager, nullcontext
-from typing import Any, Callable, ContextManager, Dict, Optional, Sequence, Union, cast
+from typing import Any, Callable, ContextManager, Dict, Optional, Sequence, Set, Tuple, Union, cast
 
 import torch
+import torch.nn as nn
 from packaging import version
+from torch.distributed.fsdp import FullyShardedDataParallel
+from torch.distributed.fsdp._utils import _contains_batchnorm, _override_batchnorm_mixed_precision
+from torch.distributed.fsdp.wrap import _or_policy, _wrap, _wrap_batchnorm_individually
 from torch.nn.parallel import DistributedDataParallel
 from torchmetrics import Metric, MetricCollection
 
@@ -136,6 +141,115 @@ def get_torch_dtype(dtype: Union[Precision, str]):
         raise ValueError(f'Not sure how to convert dtype={dtype} to a torch dtype.')
 
 
+def _pro_recursive_wrap(module: nn.Module,
+                        auto_wrap_policy: Callable,
+                        wrapper_cls: Callable,
+                        ignored_modules: Set[nn.Module],
+                        ignored_params: Set[nn.Parameter],
+                        only_wrap_children: bool = False,
+                        **kwargs: Any) -> Tuple[nn.Module, int]:
+    """
+    Automatically wrap child modules of *module* that meet the given
+    criteria with :func:`auto_wrap`. Does not rely on _ConfigAutoWrap.
+    Args:
+        module (nn.Module):
+            module to recursively wrap
+        auto_wrap_policy (Callable):
+            A callable specifying a policy to recursively wrap layers with FSDP.
+        ignored_modules (Set[torch.nn.Module]): Modules to ignore when
+            wrapping.
+        ignored_params (Set[torch.nn.Parameter]): Parameters to ignore when
+            wrapping; these should be the parameters contained in the modules
+            in ``ignored_modules``.
+    Returns:
+        (nn.Module, int):
+            Wrapped module and the number parameters wrapped recursively.
+    """
+    assert auto_wrap_policy is not None, 'Must specify auto_wrap_policy.'
+    assert wrapper_cls is not None, 'Must specify wrapper_cls'
+    # Make sure no child is already wrapped.
+    for _, child in module.named_modules():
+        if child in ignored_modules:
+            continue
+        try:
+            assert not isinstance(child, cast(type, wrapper_cls))
+        except TypeError:
+            # wrapper_cls is a function as opposed to a class type, just bypass above check.
+            pass
+
+    # We count all params, assuming none of them are already wrapped.
+    num_params = sum(p.numel() for p in module.parameters() if p not in ignored_params)
+
+    assert auto_wrap_policy is not None
+    if auto_wrap_policy(module=module, recurse=True, unwrapped_params=num_params):
+        total_wrapped_params = 0
+        # Iterate through the children, recursively wrap if necessary
+        for name, child in module.named_children():
+            if child in ignored_modules:
+                continue
+            wrapped_child, num_wrapped_params = _pro_recursive_wrap(
+                module=child,
+                auto_wrap_policy=auto_wrap_policy,
+                wrapper_cls=wrapper_cls,
+                ignored_modules=ignored_modules,
+                ignored_params=ignored_params,
+                **kwargs,
+            )
+            setattr(module, name, wrapped_child)
+            # Keep track of how many parameters have been wrapped
+            total_wrapped_params += num_wrapped_params
+        # decide if we need to wrap the current module,
+        # since the left over parameters exceed the number of params to wrap
+        remainder = num_params - total_wrapped_params
+        module_kwargs = auto_wrap_policy(module=module, recurse=False, unwrapped_params=remainder)
+        if not only_wrap_children and module_kwargs:
+            module_kwargs = module_kwargs if isinstance(module_kwargs, dict) else {}
+            print(module, module_kwargs)
+            final_kwargs = {**kwargs, **module_kwargs}
+            # Leaf node or final wrapping of the remainder both happen here.
+            return _wrap(module, wrapper_cls, **final_kwargs), num_params
+        else:
+            return module, total_wrapped_params
+    return module, 0
+
+
+class MosaicFullyShardedDataParallel(FullyShardedDataParallel):
+
+    def _auto_wrap(
+        self,
+        auto_wrap_kwargs: Dict[str, Any],
+        fsdp_kwargs: Dict[str, Any],
+    ) -> None:
+        """
+        Recursively auto wraps the root module given by the key "module" in
+        ``auto_wrap_kwargs`` with the arguments in ``auto_wrap_kwargs`` and
+        ``fsdp_kwargs``.
+        Precondition: ``auto_wrap_policy`` contains the arguments expected by
+        ``_recursive_wrap()``, where ``auto_wrap_policy`` is not ``None``.
+        ``fsdp_kwargs`` contains all FSDP arguments except ``module``.
+        """
+        auto_wrap_policy = auto_wrap_kwargs['auto_wrap_policy']
+        root_module = auto_wrap_kwargs['module']
+        assert auto_wrap_policy is not None
+        # For auto wrapping, submodules should not already be wrapped with FSDP
+        # since double wrapping is not supported
+        for module_name, module in root_module.named_modules():
+            if isinstance(module, FullyShardedDataParallel):
+                raise ValueError(f'Expected {module_name} to NOT be FullyShardedDataParallel '
+                                 'if using an `auto_wrap_policy`')
+        mixed_precision = fsdp_kwargs['mixed_precision']
+        if mixed_precision is not None and _contains_batchnorm(root_module):
+            _override_batchnorm_mixed_precision(root_module)
+            auto_wrap_policy = functools.partial(_or_policy, policies=[_wrap_batchnorm_individually, auto_wrap_policy])
+            warnings.warn('Both mixed precision and an `auto_wrap_policy` were specified '
+                          'for FSDP, where the wrapped module has batch norm submodules. '
+                          'The batch norm submodules will be wrapped as separate FSDP '
+                          'instances with mixed precision disabled since some batch norm '
+                          'kernels do not support low precision.')
+            auto_wrap_kwargs['auto_wrap_policy'] = auto_wrap_policy
+        _pro_recursive_wrap(**auto_wrap_kwargs, **fsdp_kwargs)
+
+
 def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch.optim.Optimizer,
                                                                            Sequence[torch.optim.Optimizer]]],
                         fsdp_config: Dict[str, Any], precision: Precision) -> None:
@@ -243,7 +357,6 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         'BACKWARD_POST': BackwardPrefetch.BACKWARD_POST,
     }
     backward_prefetch = backward_prefetch_map[fsdp_config.get('backward_prefetch', 'BACKWARD_POST').upper()]
-    min_params = int(float(fsdp_config.get('min_params', 1e9)))
     activation_checkpointing = fsdp_config.get('activation_checkpointing', False)
     activation_cpu_offload = fsdp_config.get('activation_cpu_offload', False)
     sync_module_states = fsdp_config.get('sync_module_states', False)
@@ -327,7 +440,6 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
             # Choose which modules to FSDP wrap according to the following priority:
             # If module has attribute `module._fsdp_wrap = ...`, always respect it
             # Otherwise wrap if root object `obj.fsdp_wrap_fn(module)` is true
-            # Or if unwrapped params in module in greater than or equal to fsdp_config.min_params
             def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, unwrapped_params: int) -> bool:
                 if recurse:
                     return True
@@ -335,13 +447,12 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                     if hasattr(module, '_fsdp_wrap'):
                         return bool(module._fsdp_wrap)
 
-                    is_large = unwrapped_params >= min_params
                     if hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
-                        return obj.fsdp_wrap_fn(module) or is_large
+                        return obj.fsdp_wrap_fn(module)
                     else:
-                        return is_large
+                        return False
 
-            fsdp_obj = FullyShardedDataParallel(
+            fsdp_obj = MosaicFullyShardedDataParallel(
                 obj,
                 sharding_strategy=sharding_strategy,
                 auto_wrap_policy=_auto_wrap_policy,
@@ -383,6 +494,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
 
             setattr(model, obj_name, fsdp_obj)
 
+    exit(0)
     # Print FSDP wrapped model and FSDP config if `verbose=True`
     if fsdp_config.get('verbose', False):
         print(f'FSDP: Wrapped Model:')
@@ -391,7 +503,6 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         print(f'FSDP: Using cpu_offload={cpu_offload}')
         print(f'FSDP: Using mixed_precision={mixed_precision}')
         print(f'FSDP: Using backward_prefetch={backward_prefetch}')
-        print(f'FSDP: Using min_params={min_params}')
         print(f'FSDP: Using activation_checkpointing={activation_checkpointing}')
         print(f'FSDP: Using activation_cpu_offload={activation_cpu_offload}')
         print(f'FSDP: Using sync_module_states={sync_module_states}')
