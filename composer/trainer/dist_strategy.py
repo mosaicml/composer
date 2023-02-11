@@ -8,14 +8,14 @@ import functools
 import logging
 import warnings
 from contextlib import contextmanager, nullcontext
-from typing import (Any, Callable, ContextManager, Dict, Optional, Sequence, Set, Tuple, Union, cast)
+from typing import Any, Callable, ContextManager, Dict, Optional, Sequence, Set, Tuple, Union, cast
 
 import torch
 import torch.nn as nn
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel
-from torch.distributed.fsdp._utils import (_contains_batchnorm, _override_batchnorm_mixed_precision)
-from torch.distributed.fsdp.wrap import (_or_policy, _wrap, _wrap_batchnorm_individually)
+from torch.distributed.fsdp._utils import _contains_batchnorm, _override_batchnorm_mixed_precision
+from torch.distributed.fsdp.wrap import _or_policy, _wrap, _wrap_batchnorm_individually
 from torch.nn.parallel import DistributedDataParallel
 from torchmetrics import Metric, MetricCollection
 
@@ -151,6 +151,7 @@ def _pro_recursive_wrap(module: nn.Module,
     """
     Automatically wrap child modules of *module* that meet the given
     criteria with :func:`auto_wrap`. Does not rely on _ConfigAutoWrap.
+
     Args:
         module (nn.Module):
             module to recursively wrap
@@ -266,8 +267,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                                                                              checkpoint_wrapper)
     from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
                                         ShardingStrategy)
-    from torch.distributed.fsdp.flatten_params_wrapper import \
-        FlattenParamsWrapper
+    from torch.distributed.fsdp.flatten_params_wrapper import FlattenParamsWrapper
 
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
