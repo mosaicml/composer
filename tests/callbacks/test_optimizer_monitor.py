@@ -34,7 +34,6 @@ def test_optimizer_monitor(log_optimizer_metrics: bool):
     grad_norm_calls = len(in_memory_logger.data['l2_norm/grad/global'])
     layer_norm_calls = [len(calls) for (k, calls) in in_memory_logger.data.items() if 'l2_norm/grad' in k]
     assert 'l2_norm/grad/module.2.weight' in in_memory_logger.data.keys()
-
     if log_optimizer_metrics:
         assert 'l2_norm/moment/module.2.weight' in in_memory_logger.data.keys()
         assert 'l2_norm_ratio/moment_grad/module.2.weight' in in_memory_logger.data.keys()
@@ -43,6 +42,7 @@ def test_optimizer_monitor(log_optimizer_metrics: bool):
         assert 'l2_norm/update/module.2.weight' in in_memory_logger.data.keys()
         assert 'cosine/update_grad/module.2.weight' in in_memory_logger.data.keys()
         assert 'l2_norm_ratio/update_param/module.2.weight' in in_memory_logger.data.keys()
+        assert 'percentage_zero/second_moment/module.2.weight' in in_memory_logger.data.keys()
 
     # expected to log gradient norm once per step (total batch)
     assert grad_norm_calls == num_train_steps

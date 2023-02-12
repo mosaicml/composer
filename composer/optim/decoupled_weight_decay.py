@@ -207,6 +207,12 @@ class DecoupledAdamW(AdamW):
         'l2_norm_ratio/update_param':
             lambda param, optim_state, step_tensor: torch.linalg.vector_norm(step_tensor) / torch.linalg.vector_norm(
                 param.data),
+        'percentage_zero/moment':
+            lambda param, optim_state, step_tensor: sum(optim_state['exp_avg'].flatten() == 0) / len(optim_state[
+                'exp_avg'].flatten()),
+        'percentage_zero/second_moment':
+            lambda param, optim_state, step_tensor: sum(optim_state['exp_avg_sq'].flatten() == 0) / len(optim_state[
+                'exp_avg_sq'].flatten())
     }
 
     def __init__(self,
