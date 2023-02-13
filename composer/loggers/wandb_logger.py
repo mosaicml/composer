@@ -239,7 +239,7 @@ class WandBLogger(LoggerDestination):
                 # the trainer is evaluating or predicting. Assuming evaluation in this case.
                 metadata.update({f'eval_timestamp/{k}': v for (k, v) in state.eval_timestamp.state_dict().items()})
 
-            if extension == '.pt':
+            if extension == 'pt':
                 extension = 'model'
 
             wandb_artifact = wandb.Artifact(
