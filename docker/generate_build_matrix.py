@@ -163,8 +163,6 @@ def _main():
         entry = {
             'IMAGE_NAME':
                 _get_image_name(pytorch_version, cuda_version, stage, interconnect),
-            'BASE_IMAGE':
-                _get_base_image(cuda_version),
             'TARGET':
                 stage,
             'TAGS':
@@ -176,6 +174,8 @@ def _main():
                     interconnect=interconnect,
                 ),
             'BUILD_ARGS': {
+                'BASE_IMAGE':
+                    _get_base_image(cuda_version),
                 'CUDA_VERSION': cuda_version,
                 'PYTHON_VERSION': python_version,
                 'PYTORCH_VERSION': pytorch_version,
@@ -222,13 +222,13 @@ def _main():
 
         entry = {
             'IMAGE_NAME': f"composer-{composer_version.replace('.', '-')}{cpu}",
-            'BASE_IMAGE': _get_base_image(cuda_version),
             'TARGET': 'composer_stage',
             'TAGS': _get_composer_tags(
                 composer_version=composer_version,
                 use_cuda=use_cuda,
             ),
             'BUILD_ARGS': {
+                'BASE_IMAGE': _get_base_image(cuda_version),
                 'CUDA_VERSION': cuda_version,
                 'PYTHON_VERSION': python_version,
                 'PYTORCH_VERSION': pytorch_version,
@@ -287,7 +287,7 @@ def _main():
 
         table.append([
             entry['TAGS'][0].split(':')[1].replace('_cpu', ''),  # Composer version, or 'latest'
-            'No' if entry['BASE_IMAGE'].startswith('ubuntu:') else 'Yes',  # Whether there is Cuda support
+            'No' if entry['BUILD_ARGS']['BASE_IMAGE'].startswith('ubuntu:') else 'Yes',  # Whether there is Cuda support
             ', '.join(reversed(list(f'`{x}`' for x in entry['TAGS']))),  # Docker tags
         ])
     table.sort(key=lambda x: x[1], reverse=True)  # cuda support

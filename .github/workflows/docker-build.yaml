@@ -47,7 +47,7 @@ jobs:
 
       - name: Calculate Docker Image Variables
         run: |
-          set -euxo pipefail
+          set -euo pipefail
 
           ###################
           # Image config
@@ -58,6 +58,10 @@ jobs:
           echo "TAGS: ${{ matrix.TAGS }}"
           echo "UUID: ${{ matrix.UUID }}"
           echo "BUILD_ARGS: ${{ toJSON(matrix.BUILD_ARGS) }}"
+
+          BUILD_ARGS=$(python .github/bin/gen_docker_matrix.py docker/build_matrix.yaml --get_image_build_args ${{ matrix.IMAGE_NAME }} | jq -r 'to_entries | map("\(.key)=\(.value|tostring)") | join(" ")')
+          echo "BUILD_ARGS=$BUILD_ARGS" >> ${GITHUB_ENV}
+
 
           ###################
           # Calculate the tag
@@ -74,21 +78,13 @@ jobs:
           echo "IMAGE_TAG=${IMAGE_TAG}" >> ${GITHUB_ENV}
           echo "IMAGE_CACHE=${IMAGE_CACHE}" >> ${GITHUB_ENV}
 
-      # - name: Build and Push the Docker Image
-      #   uses: docker/build-push-action@v3
-      #   with:
-      #     context: ${{ inputs.context }}
-      #     tags: ${{ env.IMAGE_TAG }}
-      #     target: ${{ matrix.TARGET }}
-      #     push: ${{ inputs.push }}
-      #     cache-from: type=registry,ref=${{ env.IMAGE_CACHE }}
-      #     cache-to: type=registry,ref=${{ env.IMAGE_CACHE }},mode=max
-      #     build-args: |
-      #       BASE_IMAGE=${{ matrix.BASE_IMAGE }}
-      #       CUDA_VERSION=${{ matrix.CUDA_VERSION }}
-      #       AWS_OFI_NCCL_VERSION=${{ matrix.AWS_OFI_NCCL_VERSION }}
-      #       PYTHON_VERSION=${{ matrix.PYTHON_VERSION }}
-      #       PYTORCH_VERSION=${{ matrix.PYTORCH_VERSION }}
-      #       TORCHTEXT_VERSION=${{ matrix.TORCHTEXT_VERSION }}
-      #       TORCHVISION_VERSION=${{ matrix.TORCHVISION_VERSION }}
-      #       COMPOSER_INSTALL_COMMAND=${{ matrix.COMPOSER_INSTALL_COMMAND }}
+      - name: Build and Push the Docker Image
+        uses: docker/build-push-action@v3
+        with:
+          context: ${{ inputs.context }}
+          tags: ${{ env.IMAGE_TAG }}
+          target: ${{ matrix.TARGET }}
+          push: ${{ inputs.push }}
+          cache-from: type=registry,ref=${{ env.IMAGE_CACHE }}
+          cache-to: type=registry,ref=${{ env.IMAGE_CACHE }},mode=max
+          build-args: ${{ env.BUILD_ARGS }}
