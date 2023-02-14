@@ -312,7 +312,7 @@ To save and load sharded checkpoints with FSDP, you can make use of the field, :
 Depending on the value you set for :code:`state_dict_type`, you can get different checkpointing behavior:
 
 1. :code:`state_dict_type='full'`
-the default. Saves one big checkpoint file for the whole model. 
+the default. Saves one big checkpoint file for the whole model.
 It does this by gathering the model state to the global rank 0 device, unflattening it, and then saving it out.
 Similarly when loading checkpoints, the global rank 0 device will load in the checkpoint file and scatter the
 model state to the other ranks.
@@ -325,7 +325,7 @@ corresponding to their shard. No scatter needed.
 
 3. :code:`state_dict_type='sharded'`
 Each rank saves out an unflattened shard. Useful when using the checkpoint shard files for a non-FSDP use-case.
-Expensive because requires a gather, unflatten, then scatter. For loading, similar to ``state_dict_type='local'``, each rank 
+Expensive because requires a gather, unflatten, then scatter. For loading, similar to ``state_dict_type='local'``, each rank
 loads in the checkpoint file corresponding to their unflattened shard.
 
 See `The FSDP docs <https://pytorch.org/docs/stable/fsdp.html#torch.distributed.fsdp.FullyShardedDataParallel.state_dict>`__ for more info.
@@ -333,7 +333,7 @@ See `The FSDP docs <https://pytorch.org/docs/stable/fsdp.html#torch.distributed.
 For example, to save sharded checkpoints with FSDP, you can do:
 
 .. code:: python
-    
+
     import torch.nn as nn
     from composer import Trainer
 
@@ -400,7 +400,7 @@ if you trained with 4 ranks, ```./checkpoints``` would contain 4 files: ``ba2_ra
 To load these checkpoint files, you would need to do something like this:
 
 .. code:: python
-    
+
     from composer import Trainer
 
     fsdp_config = {
@@ -424,7 +424,7 @@ the file to load is dependent on which rank is constructing the ``Trainer`` obje
 
 2. We must set ``'state_dict_type': 'local'``, like we did during the save.
 
-3. Composer does not support elastic checkpointing (more ranks than checkpoint files or more files than ranks), so you 
+3. Composer does not support elastic checkpointing (more ranks than checkpoint files or more files than ranks), so you
 must make sure the number of ranks you run on during load is the same as the number you used during save (the same as the number of files).
 
 
