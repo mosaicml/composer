@@ -57,7 +57,7 @@ jobs:
           echo "TARGET: ${{ matrix.TARGET }}"
           echo "TAGS: ${{ matrix.TAGS }}"
           echo "UUID: ${{ matrix.UUID }}"
-          echo "BUILD_ARGS: ${{ matrix.BUILD_ARGS }}"
+          echo "BUILD_ARGS: ${{ toJSON(matrix.BUILD_ARGS) }}"
 
           ###################
           # Calculate the tag
