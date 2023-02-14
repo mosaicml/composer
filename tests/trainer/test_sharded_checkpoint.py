@@ -36,15 +36,16 @@ def get_trainer(save_folder: str, save_filename: str, num_features=2, fsdp_state
 
 @pytest.mark.gpu
 @world_size(2)
-def test_fsdp_full_state_dict_save(tmp_path: pathlib.Path):
+def test_fsdp_full_state_dict_save(world_size, tmp_path: pathlib.Path):
     
     
     save_folder=tmp_path
     save_filename='rank{rank}.pt'
-    trainer = get_trainer(save_folder=save_folder,
+    trainer = get_trainer(save_folder=str(save_folder),
                             save_filename=save_filename,
                             fsdp_state_dict_type='full')
-    trainer.fit()
+    with pytest.warns():
+        trainer.fit()
     rankn_checkpoint = save_folder / pathlib.Path(f'rank{dist.get_global_rank()}.pt')
     if dist.get_global_rank() == 0:
         assert os.path.exists(rankn_checkpoint)
@@ -62,8 +63,7 @@ def test_fsdp_full_state_dict_save(tmp_path: pathlib.Path):
         for param_name in model_params_from_memory.keys():
             cp_model_tensor = model_params_from_checkpoint[param_name]
             mem_model_tensor = model_params_from_memory[param_name]
-            assert (torch.equal(cp_model_tensor, mem_model_tensor),
-                    f"Weight named {param_name} not the same between model checkpoint and in memory model")
+            assert torch.equal(cp_model_tensor, mem_model_tensor), f"Weight named {param_name} not the same between model checkpoint and in memory model"
 
         # Check that optim params are equal between checkpoint and in memory optimizer
         optim_params_from_checkpoint = state_dict_from_checkpoint['state']['optimizers']['Adam']['state']
@@ -74,5 +74,4 @@ def test_fsdp_full_state_dict_save(tmp_path: pathlib.Path):
             for moment_name in mem_param_moment_dict.keys():
                 cp_moment = cp_param_moment_dict[moment_name]
                 mem_moment = mem_param_moment_dict[moment_name]
-                assert (torch.equal(cp_moment, mem_moment),
-                        f"Moment {moment_name} for parameter {param_name} not the same between optimizer checkpoint and in memory optimizer")
+                assert torch.equal(cp_moment, mem_moment), f"Moment {moment_name} for parameter {param_name} not the same between optimizer checkpoint and in memory optimizer"
