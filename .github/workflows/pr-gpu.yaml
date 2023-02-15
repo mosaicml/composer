@@ -29,9 +29,10 @@ jobs:
     if: github.repository_owner == 'mosaicml'
     with:
       container: ${{ matrix.container }}
-      mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
       mcloud-timeout: 1200
       name: ${{ mattrix.name }}
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
       python-version: 3.9
+    secrets:
+      mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
