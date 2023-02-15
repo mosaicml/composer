@@ -420,7 +420,7 @@ To load these checkpoint files, you would need to do something like this:
 Three things to note in this load example:
 
 1. Instead of setting ``load_path`` to the path to a specific file, we keep the ``{rank}`` placeholder to denote that
-the file to load is dependent on which rank is constructing the ``Trainer`` object.
+the file to load is different for each rank.
 
 2. We must set ``'state_dict_type': 'local'``, like we did during the save.
 
