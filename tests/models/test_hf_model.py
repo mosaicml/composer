@@ -546,6 +546,7 @@ def test_encoder_decoder(tiny_t5_model, tiny_t5_tokenizer):
 @pytest.mark.gpu
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
+@pytest.mark.filterwarnings('ignore::UserWarning')
 def test_hf_fsdp(tiny_bert_config, tiny_bert_tokenizer):
     transformers = pytest.importorskip('transformers')
 
@@ -563,9 +564,6 @@ def test_hf_fsdp(tiny_bert_config, tiny_bert_tokenizer):
     }
 
     trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, None, fsdp_config=fsdp_config)
-
-    print(trainer.state.model)
-    assert False
 
     assert is_model_fsdp(trainer.state.model)
 
