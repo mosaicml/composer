@@ -52,7 +52,7 @@ def _compare_optims_between_state_dicts(state_dict1, state_dict2):
     state_dict2_keys = set(state_dict2_optim_params.keys())
     assert len(state_dict1_keys.symmetric_difference(state_dict2_keys)) == 0, textwrap.dedent(
         f"""The two state dicts being compared must have the exact same set of keys,
-        but instead these keys that belong to one, but not the other:
+        but instead these keys belong to one, but not the other:
         {state_dict1_keys.symmetric_difference(state_dict2_keys)}""")
 
     for param_name in state_dict2_optim_params.keys():
