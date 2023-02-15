@@ -418,7 +418,6 @@ class DecoupledAdamW(AdamW):
             decay_factor = (lr / initial_lr) if initial_lr else 1.0
             step_tensor.add_(param, alpha=-weight_decay * decay_factor)
             for metric in self.metric_functions:
-                optimizer_metrics[f'{metric}/{name}'] = self.metric_functions[metric](param, param_optim_state,
-                                                                                      step_tensor).item()
+                optimizer_metrics[f'{metric}/{name}'] = self.metric_functions[metric](param, param_optim_state, step_tensor)
 
         return optimizer_metrics

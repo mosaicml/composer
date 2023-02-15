@@ -114,6 +114,11 @@ class OptimizerMonitor(Callback):
         for metric in optimizer_metrics:
             if metric.startswith('l2_norm/grad'):
                 norm += optimizer_metrics[metric] ** 2
+
+        
+        for metric in optimizer_metrics:
+            if isinstance(optimizer_metrics[metric], torch.Tensor):
+                optimizer_metrics[metric] = optimizer_metrics[metric].item()
         
         optimizer_metrics['l2_norm/grad/global'] = norm**0.5
         logger.log_metrics(optimizer_metrics)
