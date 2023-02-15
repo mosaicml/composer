@@ -7,7 +7,7 @@ on:
       - release/**
     paths:
       - .github/bin/gen_docker_matrix.py
-      - .github/workflows/docker-build.yaml
+      - .github/workflows/reusable/docker-configure-build-push.yaml
       - .github/workflows/pr-docker.yaml
       - docker/**
 defaults:
