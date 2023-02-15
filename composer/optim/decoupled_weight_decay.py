@@ -362,10 +362,14 @@ class DecoupledAdamW(AdamW):
     def dist_reduce_metrics(self, optimizer_metrics):
         for metric in optimizer_metrics:
             if metric.startswith('l2_norm'):
-                reduced = dist.all_reduce(optimizer_metrics[metric], reduce_operation='SUM') if dist.get_world_size() > 1 else optimizer_metrics[metric]
+                reduced = dist.all_reduce(
+                    optimizer_metrics[metric],
+                    reduce_operation='SUM') if dist.get_world_size() > 1 else optimizer_metrics[metric]
                 optimizer_metrics[metric] = math.sqrt(reduced)
             elif metric.startswith('cosine'):
-                reduced = dist.all_reduce(optimizer_metrics[metric], reduce_operation='SUM') if dist.get_world_size() > 1 else optimizer_metrics[metric]
+                reduced = dist.all_reduce(
+                    optimizer_metrics[metric],
+                    reduce_operation='SUM') if dist.get_world_size() > 1 else optimizer_metrics[metric]
                 optimizer_metrics[metric] = math.sqrt(reduced)
                 _, vectors, layer = tuple(metric.split('/'))
 
@@ -376,7 +380,9 @@ class DecoupledAdamW(AdamW):
                 B_reduced_norm = optimizer_metrics[f'l2_norm/{B}/{layer}']
                 optimizer_metrics[metric] /= (A_reduced_norm * B_reduced_norm)
             else:
-                reduced =  dist.all_reduce(optimizer_metrics[metric], reduce_operation='SUM') if dist.get_world_size() > 1 else optimizer_metrics[metric]
+                reduced = dist.all_reduce(
+                    optimizer_metrics[metric],
+                    reduce_operation='SUM') if dist.get_world_size() > 1 else optimizer_metrics[metric]
                 optimizer_metrics[metric] = reduced / dist.get_world_size()
 
     def pre_reduce_metrics(self, optimizer_metrics):
@@ -418,6 +424,7 @@ class DecoupledAdamW(AdamW):
             decay_factor = (lr / initial_lr) if initial_lr else 1.0
             step_tensor.add_(param, alpha=-weight_decay * decay_factor)
             for metric in self.metric_functions:
-                optimizer_metrics[f'{metric}/{name}'] = self.metric_functions[metric](param, param_optim_state, step_tensor)
+                optimizer_metrics[f'{metric}/{name}'] = self.metric_functions[metric](param, param_optim_state,
+                                                                                      step_tensor)
 
         return optimizer_metrics
