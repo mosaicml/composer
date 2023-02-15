@@ -228,9 +228,9 @@ setup(name=package_name,
       packages=setuptools.find_packages(exclude=['docker*', 'examples*', 'scripts*', 'tests*']),
       classifiers=[
           'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.7',
           'Programming Language :: Python :: 3.8',
           'Programming Language :: Python :: 3.9',
+          'Programming Language :: Python :: 3.10',
       ],
       install_requires=install_requires,
       entry_points={
@@ -241,7 +241,7 @@ setup(name=package_name,
       },
       extras_require=extra_deps,
       dependency_links=['https://developer.download.nvidia.com/compute/redist'],
-      python_requires='>=3.7',
+      python_requires='>=3.8',
       ext_package='composer',
       cmdclass={'develop': develop})
 

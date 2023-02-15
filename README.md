@@ -28,8 +28,8 @@
     <a href="https://pypi.org/project/mosaicml/">
         <img alt="PyPi Package Version" src="https://img.shields.io/pypi/v/mosaicml">
     </a>
-    <a href="https://pypi.org/project/mosaicml/">
-        <img alt="PyPi Downloads" src="https://img.shields.io/pypi/dm/mosaicml">
+    <a href="https://pepy.tech/project/mosaicml/">
+        <img alt="PyPi Downloads" src="https://static.pepy.tech/personalized-badge/mosaicml?period=month&units=international_system&left_color=grey&right_color=blue&left_text=Downloads/month">
     </a>
     <a href="https://docs.mosaicml.com/en/stable/">
         <img alt="Documentation" src="https://readthedocs.org/projects/composer/badge/?version=stable">
