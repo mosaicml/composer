@@ -156,12 +156,15 @@ class HuggingFaceModel(ComposerModel):
         .. testcode::
 
             hf_model, hf_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint('composer-hf-checkpoint.pt')
+            # At this point, hf_model is randomly initialized
             composer_model = HuggingFaceModel(hf_model, hf_tokenizer)
             trainer = Trainer(model=composer_model,
                               train_dataloader=train_dataloader,
                               save_filename='composer-hf-checkpoint-2.pt',
                               max_duration='1ep',
-                              save_folder='./')
+                              save_folder='./',
+                              load_path='composer-hf-checkpoint.pt')
+            # At this point, the weights have been loaded from the composer checkpoint into hf_model
 
         Args:
             checkpoint_path (str): Path to the composer checkpoint, can be a local path, ``http(s)://`` url, or ``s3://`` uri
