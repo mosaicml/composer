@@ -7,6 +7,7 @@ import torch
 
 from composer.core import Callback, State
 from composer.loggers import Logger
+from composer.utils import dist
 
 __all__ = ['OptimizerMonitor']
 
@@ -99,6 +100,12 @@ class OptimizerMonitor(Callback):
                 metric_reporter = getattr(state.optimizers[0], 'report_per_parameter_metrics', None)
                 if callable(metric_reporter) and self.log_optimizer_metrics:
                     optimizer_metrics = metric_reporter(p, name, optimizer_metrics)
+
+        if state.fsdp_enabled and dist.get_world_size() > 0:
+            pre_reduce_metrics = getattr(state.optimizers[0], 'pre_reduce_metrics', None)
+            optimizer_metrics = pre_reduce_metrics(optimizer_metrics)
+            dist_reduce_metrics = getattr(state.optimizers[0], 'dist_reduce_metrics', None)
+            optimizer_metrics = dist_reduce_metrics(optimizer_metrics)
 
         default_metrics['l2_norm/grad/global'] = norm**0.5
 

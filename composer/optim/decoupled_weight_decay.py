@@ -17,6 +17,8 @@ import torch
 from torch.optim import SGD, AdamW
 from torch.optim.optimizer import required  # type: ignore
 
+from composer.utils import dist
+
 log = logging.getLogger(__name__)
 
 __all__ = ['DecoupledSGDW', 'DecoupledAdamW']
@@ -189,24 +191,20 @@ class DecoupledAdamW(AdamW):
     metric_functions = {
         'l2_norm/moment':
             lambda param, optim_state, step_tensor: torch.linalg.vector_norm(optim_state['exp_avg']),
-        'l2_norm_ratio/moment_grad':
-            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(param.grad) / torch.linalg.vector_norm(
-                optim_state['exp_avg']),
-        'cosine/moment_grad':
-            lambda param, optim_state, step_tensor: torch.nn.functional.cosine_similarity(
-                param.grad.flatten(), optim_state['exp_avg'].flatten(), dim=0),
         'l2_norm/param':
             lambda param, optim_state, step_tensor: torch.linalg.vector_norm(param.data),
         'l2_norm/second_moment_sqrt':
             lambda param, optim_state, step_tensor: torch.linalg.vector_norm(optim_state['exp_avg_sq']).sqrt(),
         'l2_norm/update':
             lambda param, optim_state, step_tensor: torch.linalg.vector_norm(step_tensor),
+        'l2_norm/grad':
+            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(param.grad),
         'cosine/update_grad':
             lambda param, optim_state, step_tensor: torch.nn.functional.cosine_similarity(
                 param.grad.flatten(), step_tensor.flatten(), dim=0),
-        'l2_norm_ratio/update_param':
-            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(step_tensor) / torch.linalg.vector_norm(
-                param.data),
+        'cosine/moment_grad':
+            lambda param, optim_state, step_tensor: torch.nn.functional.cosine_similarity(
+                param.grad.flatten(), optim_state['exp_avg'].flatten(), dim=0),
         'percentage_nonzero/moment':
             lambda param, optim_state, step_tensor:
             (torch.count_nonzero(optim_state['exp_avg']) / optim_state['exp_avg_sq'].nelement())
@@ -361,6 +359,44 @@ class DecoupledAdamW(AdamW):
 
         return loss
 
+    def dist_reduce_metrics(self, optimizer_metrics):
+        for metric in optimizer_metrics:
+            if metric.startswith('l2_norm'):
+                optimizer_metrics[metric] = torch.sqrt(
+                    dist.all_reduce(optimizer_metrics[metric], reduce_operation='SUM'))
+            elif metric.startswith('cosine'):
+                optimizer_metrics[metric] = dist.all_reduce(optimizer_metrics[metric], reduce_operation='SUM')
+                _, vectors, layer = tuple(metric.split('/'))
+
+                A, B = tuple(vectors.split('_'))
+
+                # it would've already been squared, so let's undo that
+                A_reduced_norm = optimizer_metrics[f'l2_norm/{A}/{layer}']
+                B_reduced_norm = optimizer_metrics[f'l2_norm/{B}/{layer}']
+                optimizer_metrics[metric] /= (A_reduced_norm * B_reduced_norm)
+            else:
+                optimizer_metrics[metric] = dist.all_reduce(optimizer_metrics[metric],
+                                                            reduce_operation='SUM') / dist.get_world_size()
+
+    def pre_reduce_metrics(self, optimizer_metrics):
+        # some of the metrics need to be modified before being reduced in order for the
+        # reduction to work properly
+
+        for metric in optimizer_metrics:
+            if metric.startswith('l2_norm'):
+                # l2 norms need to be squared, before they are reduced via summation
+                optimizer_metrics[metric] = optimizer_metrics[metric]**2
+            elif metric.startswith('cosine'):
+                _, vectors, layer = tuple(metric.split('/'))
+
+                A, B = tuple(vectors.split('_'))
+
+                # it would've already been squared, so let's undo that
+                A_rank_subset_norm = torch.sqrt(optimizer_metrics[f'l2_norm/{A}/{layer}'])
+                B_rank_subset_norm = torch.sqrt(optimizer_metrics[f'l2_norm/{B}/{layer}'])
+
+                optimizer_metrics[metric] *= A_rank_subset_norm * B_rank_subset_norm
+
     def report_per_parameter_metrics(self, param: torch.Tensor, name: str, optimizer_metrics: dict):
         lr = self.param_groups[0]['lr']
         eps = self.param_groups[0]['eps']
@@ -381,4 +417,5 @@ class DecoupledAdamW(AdamW):
             for metric in self.metric_functions:
                 optimizer_metrics[f'{metric}/{name}'] = self.metric_functions[metric](param, param_optim_state,
                                                                                       step_tensor).item()
+
         return optimizer_metrics
