@@ -5,9 +5,6 @@ on:
       container:
         required: true
         type: string
-      mcloud-api-key:
-        required: true
-        type: string
       mcloud-timeout:
         required: false
         type: number
@@ -25,12 +22,15 @@ on:
         required: false
         type: string
         default: 3.9
+    secrets:
+      mcloud-api-key:
+        required: true
 jobs:
   pytest-gpu:
     timeout-minutes: 30 # ${{ inputs.gha-timeout }} for some reason not able to turn this into an input
     runs-on: ubuntu-latest
     env:
-      MOSAICML_API_KEY: ${{ inputs.mcloud-api-key }}
+      MOSAICML_API_KEY: ${{ secrets.mcloud-api-key }}
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v3
