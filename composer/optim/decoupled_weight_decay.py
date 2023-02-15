@@ -360,12 +360,14 @@ class DecoupledAdamW(AdamW):
         return loss
 
     def dist_reduce_metrics(self, optimizer_metrics):
+        breakpoint()
         for metric in optimizer_metrics:
             if metric.startswith('l2_norm'):
-                optimizer_metrics[metric] = torch.sqrt(
-                    dist.all_reduce(optimizer_metrics[metric], reduce_operation='SUM'))
+                reduced = dist.all_reduce(optimizer_metrics[metric], reduce_operation='SUM') if dist.get_world_size() > 1 else optimizer_metrics[metric]
+                optimizer_metrics[metric] = math.sqrt(reduced)
             elif metric.startswith('cosine'):
-                optimizer_metrics[metric] = dist.all_reduce(optimizer_metrics[metric], reduce_operation='SUM')
+                reduced = dist.all_reduce(optimizer_metrics[metric], reduce_operation='SUM') if dist.get_world_size() > 1 else optimizer_metrics[metric]
+                optimizer_metrics[metric] = math.sqrt(reduced)
                 _, vectors, layer = tuple(metric.split('/'))
 
                 A, B = tuple(vectors.split('_'))
@@ -375,8 +377,8 @@ class DecoupledAdamW(AdamW):
                 B_reduced_norm = optimizer_metrics[f'l2_norm/{B}/{layer}']
                 optimizer_metrics[metric] /= (A_reduced_norm * B_reduced_norm)
             else:
-                optimizer_metrics[metric] = dist.all_reduce(optimizer_metrics[metric],
-                                                            reduce_operation='SUM') / dist.get_world_size()
+                reduced =  dist.all_reduce(optimizer_metrics[metric], reduce_operation='SUM') if dist.get_world_size() > 1 else optimizer_metrics[metric]
+                optimizer_metrics[metric] = reduced / dist.get_world_size()
 
     def pre_reduce_metrics(self, optimizer_metrics):
         # some of the metrics need to be modified before being reduced in order for the
@@ -392,10 +394,12 @@ class DecoupledAdamW(AdamW):
                 A, B = tuple(vectors.split('_'))
 
                 # it would've already been squared, so let's undo that
-                A_rank_subset_norm = torch.sqrt(optimizer_metrics[f'l2_norm/{A}/{layer}'])
-                B_rank_subset_norm = torch.sqrt(optimizer_metrics[f'l2_norm/{B}/{layer}'])
+                A_rank_subset_norm = math.sqrt(optimizer_metrics[f'l2_norm/{A}/{layer}'])
+                B_rank_subset_norm = math.sqrt(optimizer_metrics[f'l2_norm/{B}/{layer}'])
 
                 optimizer_metrics[metric] *= A_rank_subset_norm * B_rank_subset_norm
+
+        return optimizer_metrics
 
     def report_per_parameter_metrics(self, param: torch.Tensor, name: str, optimizer_metrics: dict):
         lr = self.param_groups[0]['lr']

@@ -88,27 +88,32 @@ class OptimizerMonitor(Callback):
 
     def batch_end(self, state: State, logger: Logger):
         norm = 0.0
-        default_metrics = {}
         optimizer_metrics = {}
 
         for name, p in state.model.named_parameters():
             if p.grad is not None and p.requires_grad:
-                param_grad_norm = torch.linalg.vector_norm(p.grad)
-                default_metrics[f'l2_norm/grad/{name}'] = param_grad_norm
-
-                norm += param_grad_norm**2
+                
                 metric_reporter = getattr(state.optimizers[0], 'report_per_parameter_metrics', None)
                 if callable(metric_reporter) and self.log_optimizer_metrics:
                     optimizer_metrics = metric_reporter(p, name, optimizer_metrics)
 
-        if state.fsdp_enabled and dist.get_world_size() > 0:
+                if f'l2_norm/grad/{name}' not in optimizer_metrics:
+                    param_grad_norm = torch.linalg.vector_norm(p.grad)
+                    optimizer_metrics[f'l2_norm/grad/{name}'] = param_grad_norm
+                
+
+        if state.fsdp_enabled and dist.get_world_size() > 0 and self.log_optimizer_metrics:
             pre_reduce_metrics = getattr(state.optimizers[0], 'pre_reduce_metrics', None)
-            optimizer_metrics = pre_reduce_metrics(optimizer_metrics)
+            if callable(metric_reporter) and self.log_optimizer_metrics:
+                optimizer_metrics = pre_reduce_metrics(optimizer_metrics)
+
             dist_reduce_metrics = getattr(state.optimizers[0], 'dist_reduce_metrics', None)
-            optimizer_metrics = dist_reduce_metrics(optimizer_metrics)
+            if callable(metric_reporter) and self.log_optimizer_metrics:
+                optimizer_metrics = dist_reduce_metrics(optimizer_metrics)
 
-        default_metrics['l2_norm/grad/global'] = norm**0.5
-
-        logger.log_metrics(default_metrics)
-        if self.log_optimizer_metrics:
-            logger.log_metrics(optimizer_metrics)
+        for metric in optimizer_metrics:
+            if metric.startswith('l2_norm/grad'):
+                norm += optimizer_metrics[metric] ** 2
+        
+        optimizer_metrics['l2_norm/grad/global'] = norm**0.5
+        logger.log_metrics(optimizer_metrics)
