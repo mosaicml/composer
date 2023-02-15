@@ -330,7 +330,7 @@ loads in the checkpoint file corresponding to their unflattened shard.
 
 See `The FSDP docs <https://pytorch.org/docs/stable/fsdp.html#torch.distributed.fsdp.FullyShardedDataParallel.state_dict>`__ for more info.
 
-For example, to save sharded checkpoints with FSDP, you can do:
+For example, to save local, sharded checkpoints (`state_dict_type='local'`) with FSDP, you can do:
 
 .. code:: python
 
