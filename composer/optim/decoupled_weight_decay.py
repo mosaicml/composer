@@ -360,7 +360,6 @@ class DecoupledAdamW(AdamW):
         return loss
 
     def dist_reduce_metrics(self, optimizer_metrics):
-        breakpoint()
         for metric in optimizer_metrics:
             if metric.startswith('l2_norm'):
                 reduced = dist.all_reduce(optimizer_metrics[metric], reduce_operation='SUM') if dist.get_world_size() > 1 else optimizer_metrics[metric]
