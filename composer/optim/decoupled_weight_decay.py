@@ -385,6 +385,8 @@ class DecoupledAdamW(AdamW):
                 if dist.get_world_size() > 1:
                     dist.all_reduce(reduced, reduce_operation='SUM')
                 optimizer_metrics[metric] = reduced / dist.get_world_size()
+        
+        return optimizer_metrics
 
     def pre_reduce_metrics(self, optimizer_metrics):
         # some of the metrics need to be modified before being reduced in order for the
