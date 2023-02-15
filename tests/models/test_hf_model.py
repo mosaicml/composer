@@ -567,3 +567,20 @@ def test_separate_eval_metrics(tiny_bert_model, tiny_bert_tokenizer):
     assert hf_model.val_metrics is not None
     assert hf_model.train_metrics.keys() == {'LanguageCrossEntropy'}
     assert hf_model.val_metrics.keys() == {'MaskedAccuracy'}
+
+
+def test_add_eval_metrics(tiny_bert_model, tiny_bert_tokenizer):
+    pytest.importorskip('transformers')
+
+    from composer.models import HuggingFaceModel
+
+    metrics: List[Metric] = [LanguageCrossEntropy(ignore_index=-100)]
+    eval_metrics: List[Metric] = [MaskedAccuracy(ignore_index=-100)]
+
+    hf_model = HuggingFaceModel(tiny_bert_model, tokenizer=tiny_bert_tokenizer, metrics=metrics)
+    hf_model.add_eval_metrics(eval_metrics)
+
+    assert hf_model.train_metrics is not None
+    assert hf_model.val_metrics is not None
+    assert hf_model.train_metrics.keys() == {'LanguageCrossEntropy'}
+    assert hf_model.val_metrics.keys() == {'LanguageCrossEntropy', 'MaskedAccuracy'}
