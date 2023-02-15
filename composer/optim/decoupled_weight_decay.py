@@ -362,15 +362,16 @@ class DecoupledAdamW(AdamW):
     def dist_reduce_metrics(self, optimizer_metrics):
         for metric in optimizer_metrics:
             if metric.startswith('l2_norm'):
-                reduced = dist.all_reduce(
-                    optimizer_metrics[metric],
-                    reduce_operation='SUM') if dist.get_world_size() > 1 else optimizer_metrics[metric]
+                reduced = optimizer_metrics[metric]
+                if dist.get_world_size() > 1:
+                    dist.all_reduce(reduced, reduce_operation='SUM')
+
                 optimizer_metrics[metric] = math.sqrt(reduced)
             elif metric.startswith('cosine'):
-                reduced = dist.all_reduce(
-                    optimizer_metrics[metric],
-                    reduce_operation='SUM') if dist.get_world_size() > 1 else optimizer_metrics[metric]
-                optimizer_metrics[metric] = math.sqrt(reduced)
+                reduced = optimizer_metrics[metric]
+                if dist.get_world_size() > 1:
+                    dist.all_reduce(reduced, reduce_operation='SUM')
+
                 _, vectors, layer = tuple(metric.split('/'))
 
                 A, B = tuple(vectors.split('_'))
@@ -378,11 +379,11 @@ class DecoupledAdamW(AdamW):
                 # it would've already been squared, so let's undo that
                 A_reduced_norm = optimizer_metrics[f'l2_norm/{A}/{layer}']
                 B_reduced_norm = optimizer_metrics[f'l2_norm/{B}/{layer}']
-                optimizer_metrics[metric] /= (A_reduced_norm * B_reduced_norm)
+                optimizer_metrics[metric] = reduced / (A_reduced_norm * B_reduced_norm)
             else:
-                reduced = dist.all_reduce(
-                    optimizer_metrics[metric],
-                    reduce_operation='SUM') if dist.get_world_size() > 1 else optimizer_metrics[metric]
+                reduced = optimizer_metrics[metric]
+                if dist.get_world_size() > 1:
+                    dist.all_reduce(reduced, reduce_operation='SUM')
                 optimizer_metrics[metric] = reduced / dist.get_world_size()
 
     def pre_reduce_metrics(self, optimizer_metrics):
