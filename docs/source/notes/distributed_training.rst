@@ -312,7 +312,7 @@ To save and load sharded checkpoints with FSDP, you can make use of the field, :
 Depending on the value you set for :code:`state_dict_type`, you can get different checkpointing behavior:
 
 1. :code:`state_dict_type='full'`
-the default. Saves one big checkpoint file for the whole model.
+The default. Saves one big checkpoint file for the whole model.
 It does this by gathering the model state to the global rank 0 device, unflattening it, and then saving it out.
 Similarly when loading checkpoints, the global rank 0 device will load in the checkpoint file and scatter the
 model state to the other ranks.
