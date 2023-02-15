@@ -163,8 +163,20 @@ def _main():
         entry = {
             'IMAGE_NAME':
                 _get_image_name(pytorch_version, cuda_version, stage, interconnect),
+            'BASE_IMAGE':
+                _get_base_image(cuda_version),
+            'CUDA_VERSION':
+                cuda_version,
+            'PYTHON_VERSION':
+                python_version,
+            'PYTORCH_VERSION':
+                pytorch_version,
             'TARGET':
                 stage,
+            'TORCHVISION_VERSION':
+                _get_torchvision_version(pytorch_version),
+            'TORCHTEXT_VERSION':
+                _get_torchtext_version(pytorch_version),
             'TAGS':
                 _get_pytorch_tags(
                     python_version=python_version,
@@ -173,15 +185,6 @@ def _main():
                     stage=stage,
                     interconnect=interconnect,
                 ),
-            'BUILD_ARGS': {
-                'BASE_IMAGE':
-                    _get_base_image(cuda_version),
-                'CUDA_VERSION': cuda_version,
-                'PYTHON_VERSION': python_version,
-                'PYTORCH_VERSION': pytorch_version,
-                'TORCHVISION_VERSION': _get_torchvision_version(pytorch_version),
-                'TORCHTEXT_VERSION': _get_torchtext_version(pytorch_version),
-            },
         }
 
         # Only build the vision image on latest python
@@ -195,15 +198,15 @@ def _main():
 
         # Skip the mellanox drivers if not in the cuda images or using EFA
         if not cuda_version or interconnect == 'EFA':
-            entry['BUILD_ARGS']['MOFED_VERSION'] = ''
+            entry['MOFED_VERSION'] = ''
         else:
-            entry['BUILD_ARGS']['MOFED_VERSION'] = '5.5-1.0.3.2'
+            entry['MOFED_VERSION'] = '5.5-1.0.3.2'
 
         # Skip EFA drivers if not using EFA
         if interconnect != 'EFA':
-            entry['BUILD_ARGS']['AWS_OFI_NCCL_VERSION'] = ''
+            entry['AWS_OFI_NCCL_VERSION'] = ''
         else:
-            entry['BUILD_ARGS']['AWS_OFI_NCCL_VERSION'] = 'v1.5.0-aws'
+            entry['AWS_OFI_NCCL_VERSION'] = 'v1.5.0-aws'
 
         pytorch_entries.append(entry)
 
@@ -222,22 +225,20 @@ def _main():
 
         entry = {
             'IMAGE_NAME': f"composer-{composer_version.replace('.', '-')}{cpu}",
+            'BASE_IMAGE': _get_base_image(cuda_version),
+            'CUDA_VERSION': cuda_version,
+            'PYTHON_VERSION': python_version,
+            'PYTORCH_VERSION': pytorch_version,
             'TARGET': 'composer_stage',
+            'TORCHVISION_VERSION': _get_torchvision_version(pytorch_version),
+            'TORCHTEXT_VERSION': _get_torchtext_version(pytorch_version),
+            'MOFED_VERSION': '5.5-1.0.3.2',
+            'AWS_OFI_NCCL_VERSION': '',
+            'COMPOSER_INSTALL_COMMAND': f'mosaicml[all]=={composer_version}',
             'TAGS': _get_composer_tags(
                 composer_version=composer_version,
                 use_cuda=use_cuda,
             ),
-            'BUILD_ARGS': {
-                'BASE_IMAGE': _get_base_image(cuda_version),
-                'CUDA_VERSION': cuda_version,
-                'PYTHON_VERSION': python_version,
-                'PYTORCH_VERSION': pytorch_version,
-                'TORCHVISION_VERSION': _get_torchvision_version(pytorch_version),
-                'TORCHTEXT_VERSION': _get_torchtext_version(pytorch_version),
-                'MOFED_VERSION': '5.5-1.0.3.2',
-                'AWS_OFI_NCCL_VERSION': '',
-                'COMPOSER_INSTALL_COMMAND': f'mosaicml[all]=={composer_version}',
-            },
         }
 
         composer_entries.append(entry)
@@ -253,19 +254,18 @@ def _main():
     table = []
     for entry in pytorch_entries:
         interconnect = 'N/A'
-        if entry['BUILD_ARGS']['CUDA_VERSION']:
-            if entry['BUILD_ARGS']['MOFED_VERSION'] != '':
+        if entry['CUDA_VERSION']:
+            if entry['MOFED_VERSION'] != '':
                 interconnect = 'Infiniband'
             else:
                 interconnect = 'EFA'
-        cuda_version = f"{entry['BUILD_ARGS']['CUDA_VERSION']} ({interconnect})" if entry['BUILD_ARGS'][
-            'CUDA_VERSION'] else 'cpu'
+        cuda_version = f"{entry['CUDA_VERSION']} ({interconnect})" if entry['CUDA_VERSION'] else 'cpu'
         table.append([
             'Ubuntu 20.04',  # Linux distro
             'Base' if entry['TARGET'] == 'pytorch_stage' else 'Vision',  # Flavor
-            entry['BUILD_ARGS']['PYTORCH_VERSION'],  # Pytorch version
+            entry['PYTORCH_VERSION'],  # Pytorch version
             cuda_version,  # Cuda version
-            entry['BUILD_ARGS']['PYTHON_VERSION'],  # Python version,
+            entry['PYTHON_VERSION'],  # Python version,
             ', '.join(reversed(list(f'`{x}`' for x in entry['TAGS']))),  # Docker tags
         ])
     table.sort(
@@ -287,7 +287,7 @@ def _main():
 
         table.append([
             entry['TAGS'][0].split(':')[1].replace('_cpu', ''),  # Composer version, or 'latest'
-            'No' if entry['BUILD_ARGS']['BASE_IMAGE'].startswith('ubuntu:') else 'Yes',  # Whether there is Cuda support
+            'No' if entry['BASE_IMAGE'].startswith('ubuntu:') else 'Yes',  # Whether there is Cuda support
             ', '.join(reversed(list(f'`{x}`' for x in entry['TAGS']))),  # Docker tags
         ])
     table.sort(key=lambda x: x[1], reverse=True)  # cuda support

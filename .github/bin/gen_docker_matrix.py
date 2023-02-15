@@ -23,10 +23,6 @@ def _parse_args() -> Namespace:
                       action='append',
                       required=False,
                       help='List of build args to override globally')
-    args.add_argument('--get_image_build_args',
-                      action='store',
-                      required=False,
-                      help='Return JSON output of build arguments for specified image')
 
     return args.parse_args()
 
@@ -36,26 +32,22 @@ def main(args: Namespace):
     image_configs = yaml.safe_load(args.yaml_file)
 
     for image_config in image_configs:
-        if args.get_image_build_args is None:
-            # Convert tags list to a CSV string
-            image_config['TAGS'] = ','.join(image_config['TAGS'])
 
-            # Generate a random UUID for staging
-            image_config['UUID'] = str(uuid4())
+        # Convert tags list to a CSV string
+        image_config['TAGS'] = ','.join(image_config['TAGS'])
 
-            # Apply build args override
-            if args.build_args is not None:
-                for build_arg in args.build_args:
-                    arg, val = build_arg.split('=')
-                    if arg in image_config.keys():
-                        image_config[arg] = val
-        else:
-            if image_config['IMAGE_NAME'] == args.get_image_build_args:
-                print(json.dumps(image_config['BUILD_ARGS']))
+        # Generate a random UUID for staging
+        image_config['UUID'] = str(uuid4())
 
-    if args.get_image_build_args is None:
-        json_string = json.dumps(image_configs)
-        print(f"""matrix={{"include": {json_string}}}""")
+        # Apply build args override
+        if args.build_args is not None:
+            for build_arg in args.build_args:
+                arg, val = build_arg.split('=')
+                if arg in image_config.keys():
+                    image_config[arg] = val
+
+    json_string = json.dumps(image_configs)
+    print(f"""matrix={{"include": {json_string}}}""")
 
 
 if __name__ == '__main__':
