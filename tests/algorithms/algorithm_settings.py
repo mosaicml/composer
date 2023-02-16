@@ -18,15 +18,16 @@ import composer.algorithms
 from composer import Algorithm
 from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
                                  Factorize, FusedLayerNorm, GatedLinearUnits, GhostBatchNorm, GradientClipping,
-                                 GyroDropout, LabelSmoothing, LayerFreezing, LowPrecisionLayerNorm, MixUp, NoOpModel,
-                                 ProgressiveResizing, RandAugment, SelectiveBackprop, SeqLengthWarmup, SqueezeExcite,
-                                 StochasticDepth, WeightStandardization)
+                                 GyroDropout, LabelSmoothing, LayerFreezing, LowPrecisionGroupNorm,
+                                 LowPrecisionLayerNorm, MixUp, NoOpModel, ProgressiveResizing, RandAugment,
+                                 SelectiveBackprop, SeqLengthWarmup, SqueezeExcite, StochasticDepth,
+                                 WeightStandardization)
 from composer.models import composer_resnet
 from composer.models.base import ComposerModel
 from tests.common import get_module_subclasses
 from tests.common.datasets import RandomImageDataset, SimpleDataset, dummy_bert_lm_dataloader, dummy_gpt_lm_dataloader
-from tests.common.models import (SimpleConvModel, SimpleModelWithDropout, configure_tiny_bert_hf_model,
-                                 configure_tiny_gpt2_hf_model)
+from tests.common.models import (SimpleConvModel, SimpleGroupNormConvModel, SimpleModelWithDropout,
+                                 configure_tiny_bert_hf_model, configure_tiny_gpt2_hf_model)
 
 simple_bert_settings = {
     'model': configure_tiny_bert_hf_model,
@@ -128,6 +129,10 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     LabelSmoothing: simple_vision_settings,
     LayerFreezing: simple_vision_settings,
     LowPrecisionLayerNorm: simple_bert_settings,
+    LowPrecisionGroupNorm: {
+        'model': SimpleGroupNormConvModel,
+        'dataset': RandomImageDataset,
+    },
     MixUp: simple_vision_settings,
     ProgressiveResizing: simple_vision_settings,
     RandAugment: simple_vision_settings,
