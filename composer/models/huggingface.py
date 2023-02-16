@@ -472,6 +472,8 @@ def write_huggingface_pretrained_from_composer_checkpoint(
 
     .. testcode::
 
+        from composer.models import write_huggingface_pretrained_from_composer_checkpoint
+
         write_huggingface_pretrained_from_composer_checkpoint('composer-hf-checkpoint.pt', './hf-save-pretrained-output')
         loaded_model = transformers.AutoModelForSequenceClassification.from_pretrained('./hf-save-pretrained-output')
 
