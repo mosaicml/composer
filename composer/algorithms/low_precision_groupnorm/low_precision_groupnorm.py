@@ -66,6 +66,7 @@ def apply_low_precision_groupnorm(model, optimizers: Union[torch.optim.Optimizer
     policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {torch.nn.GroupNorm: to_LPGroupNorm}
 
     replaced_instances = module_surgery.replace_module_classes(module=model, optimizers=optimizers, policies=policy)
+    print(f'Replaced {len(replaced_instances)} instances of GroupNorm with LowPrecisionGroupNorm')
     if len(replaced_instances) == 0:
         warnings.warn(NoEffectWarning('No instances of torch.nn.GroupNorm found.'))
     log.info(f'Successfully replaced {len(replaced_instances)} instances of GroupNorm with LowPrecisionGroupNorm')

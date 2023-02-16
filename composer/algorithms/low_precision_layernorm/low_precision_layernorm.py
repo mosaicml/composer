@@ -96,6 +96,7 @@ def apply_low_precision_layernorm(model, optimizers: Union[torch.optim.Optimizer
         }
 
     replaced_instances = module_surgery.replace_module_classes(module=model, optimizers=optimizers, policies=policy)
+    print(f'Replaced {len(replaced_instances)} instances of LayerNorm with LowPrecisionLayerNorm')
     if len(replaced_instances) == 0:
         warnings.warn(NoEffectWarning('No instances of torch.nn.LayerNorm found.'))
     log.info(f'Successfully replaced {len(replaced_instances)} instances of LayerNorm with LowPrecisionLayerNorm')
