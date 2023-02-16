@@ -9,8 +9,9 @@ from tests.common.datasets import (InfiniteClassificationDataset, RandomClassifi
                                    RandomSegmentationDataset, RandomTextClassificationDataset, SimpleDataset)
 from tests.common.events import EventCounterCallback
 from tests.common.markers import device, world_size
-from tests.common.models import (ConvModel, EmbeddedWeightTiedModel, SimpleConvModel, SimpleModel,
-                                 SimpleModelWithDropout, SimpleTransformerClassifier, SimpleWeightTiedModel)
+from tests.common.models import (ConvModel, EmbeddedWeightTiedModel, SimpleConvModel, SimpleGroupNormConvModel,
+                                 SimpleModel, SimpleModelWithDropout, SimpleTransformerClassifier,
+                                 SimpleWeightTiedModel)
 from tests.common.state import assert_state_equivalent
 
 
@@ -27,6 +28,7 @@ __all__ = [
     'RandomSegmentationDataset',
     'ConvModel',
     'SimpleConvModel',
+    'SimpleGroupNormConvModel',
     'SimpleModel',
     'SimpleTransformerClassifier',
     'EmbeddedWeightTiedModel',
