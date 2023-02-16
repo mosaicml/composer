@@ -49,7 +49,7 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
 
     Args:
         module (torch.nn.Module): The torch module that you want to call `state_dict()`
-            or `load_state_dict()`.
+            or `load_state_dict()` on.
         state_dict_type (str, optional): which of the three state dict types you want to use.
             choices are ['full', 'sharded', 'local']. Defaults to 'full'.
             * 'full': the full, unsharded state dict materialized only on rank 0 with cpu_offload if necessary
