@@ -442,6 +442,39 @@ def write_huggingface_pretrained_from_composer_checkpoint(
         local_checkpoint_save_location: Optional[Union[Path, str]] = None) -> None:
     """Write the output of `transformers.PreTrainedModel.save_pretrained from a composer checkpoint
 
+    .. note:: This function will not work properly if you used surgery algorithms when you trained your model. In that case you will want to
+        load the model weights using the Composer :class:`~composer.Trainer` with the `load_path` argument.
+
+    .. testsetup::
+
+        import torch
+
+        dataset = RandomTextClassificationDataset(size=16, use_keys=True)
+        train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=8)
+        eval_dataloader = torch.utils.data.DataLoader(dataset, batch_size=8)
+
+        import transformers
+        from composer.models import HuggingFaceModel
+        from composer.trainer import Trainer
+
+        hf_model = transformers.AutoModelForSequenceClassification.from_pretrained('prajjwal1/bert-tiny', num_labels=2)
+        hf_tokenizer = transformers.AutoTokenizer.from_pretrained('prajjwal1/bert-tiny')
+        composer_model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, metrics=[], use_logits=True)
+        trainer = Trainer(model=composer_model,
+                            train_dataloader=train_dataloader,
+                            save_filename='composer-hf-checkpoint.pt',
+                            max_duration='1ep',
+                            save_folder='./')
+        trainer.fit()
+        trainer.close()
+
+    Example:
+
+    .. testcode::
+
+        write_huggingface_pretrained_from_composer_checkpoint('composer-hf-checkpoint.pt', './hf-save-pretrained-output')
+        loaded_model = transformers.AutoModelForSequenceClassification.from_pretrained('./hf-save-pretrained-output')
+
     Args:
         checkpoint_path (Union[Path, str]): Path to the composer checkpoint, can be a local path, or a remote path beginning with ``s3://``, or another backend
             supported by :meth:`composer.utils.maybe_create_object_store_from_uri`.
