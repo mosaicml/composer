@@ -169,7 +169,7 @@ class HuggingFaceModel(ComposerModel):
 
         Args:
             checkpoint_path (str): Path to the composer checkpoint, can be a local path, or a remote path beginning with ``s3://``, or another backend
-            supported by :meth:`composer.utils.maybe_create_object_store_from_uri`.
+                supported by :meth:`composer.utils.maybe_create_object_store_from_uri`.
             model_instantiation_class (Union[Type[:class:`transformers.PreTrainedModel`], Type[:class:`transformers.AutoModel`], str]), optional):
                 Class to use to create the HuggingFace model. Defaults to the model class used in the original checkpoint. If this argument is
                 a HuggingFace auto class (e.g. :class:`transformers.AutoModel` or :class:`transformers.AutoModelForSequenceClassification`), the ``from_config`` method will be used,
