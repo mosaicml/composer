@@ -440,7 +440,7 @@ def write_huggingface_pretrained_from_composer_checkpoint(
         checkpoint_path: Union[Path, str],
         output_folder: Union[Path, str],
         local_checkpoint_save_location: Optional[Union[Path, str]] = None) -> None:
-    """Write the output of `transformers.PreTrainedModel.save_pretrained from a composer checkpoint
+    """Write the a `config.json` and `pytorch_model.bin`, like `transformers.PreTrainedModel.from_pretrained` expects, from a composer checkpoint
 
     .. note:: This function will not work properly if you used surgery algorithms when you trained your model. In that case you will want to
         load the model weights using the Composer :class:`~composer.Trainer` with the `load_path` argument.
