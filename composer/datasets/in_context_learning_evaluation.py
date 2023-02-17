@@ -97,7 +97,7 @@ class InContextLearningLMTaskDataset(Dataset):
         prompt_string: str,
         example_delimiter: str,
         continuation_delimiter: str,
-        destination_path: str = 'icl_lm_task.jsonl',
+        destination_path: str,
     ):
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
