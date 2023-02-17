@@ -1,6 +1,6 @@
 name: PR Docker
 on:
-  pull_request:
+  pull_request_target:
     branches:
       - dev
       - main
@@ -56,7 +56,7 @@ jobs:
       context: ./docker
       image-name: ${{ matrix.IMAGE_NAME }}
       image-uuid: ${{ matrix.UUID }}
-      push: false
+      push: true
       staging: true
       staging-repo: mosaicml/ci-staging
       tags: ${{ matrix.TAGS }}
