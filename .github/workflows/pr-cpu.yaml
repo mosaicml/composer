@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 jobs:
   pytest-cpu:
-    uses: ./.github/reusable_workflows/pytest-cpu.yaml
+    uses: ./.github/workflows/pytest-cpu.yaml
     strategy:
       matrix:
         include:
@@ -50,7 +50,7 @@ jobs:
       pytest-markers: ${{ matrix.markers }}
       python-version: 3.9
   coverage:
-    uses: ./.github/reusable_workflows/coverage.yaml
+    uses: ./.github/workflows/coverage.yaml
     name: Coverage Results
     if: github.repository_owner == 'mosaicml'
     needs: [ pytest-cpu ]
