@@ -8,6 +8,7 @@ on:
 defaults:
   run:
     working-directory: .
+
 jobs:
   build-image-matrix:
     if: github.repository_owner == 'mosaicml'
@@ -28,6 +29,7 @@ jobs:
           # Generate build matrix
           BUILD_MATRIX=$(python .github/bin/gen_docker_matrix.py docker/build_matrix.yaml)
           echo $BUILD_MATRIX >> $GITHUB_OUTPUT
+
   stage-docker-build:
     needs: build-image-matrix
     uses: ./.github/workflows/docker-configure-build-push.yaml

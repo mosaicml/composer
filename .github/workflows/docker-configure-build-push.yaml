@@ -60,7 +60,7 @@ jobs:
           ###################
           # Calculate the tag
           ###################
-          if [ ${{ inputs.staging }} = "false" ]; then
+          if [ "${{ inputs.staging }}" = "false" ]; then
             STAGING_REPO=${{ inputs.staging-repo }}
             IMAGE_TAG=${STAGING_REPO}:${{ inputs.image-uuid }}
             IMAGE_CACHE="${STAGING_REPO}:${{ inputs.image-name }}-buildcache"
