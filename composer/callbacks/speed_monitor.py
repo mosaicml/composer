@@ -77,8 +77,6 @@ class SpeedMonitor(Callback):
             'batch_start_wct': self.batch_start_wct,
             'batch_wct_buffer': self.batch_wct_buffer,
             'batch_num_samples_buffer': self.batch_num_samples_buffer,
-            # "window_wct": self.window_wct,
-            # "window_num_samples": self.window_num_samples,
             'total_eval_wct': self.total_eval_wct,
         }
 
@@ -95,7 +93,7 @@ class SpeedMonitor(Callback):
         )
         self.total_eval_wct = state['total_eval_wct']
 
-    def before_dataloader(self, state: State, logger: Logger) -> None:
+    def fit_start(self, state: State, logger: Logger) -> None:
         del logger  # unused
         self.batch_start_wct = state.timestamp.total_wct.total_seconds()
         self.batch_start_num_samples = int(state.timestamp.sample)
@@ -120,6 +118,10 @@ class SpeedMonitor(Callback):
             'wall_clock/val': self.total_eval_wct,
             'wall_clock/total': (state.timestamp.total_wct.total_seconds() + self.total_eval_wct),
         })
+
+        # Update start times to track round trip time until next batch
+        self.batch_start_wct = state.timestamp.total_wct.total_seconds()
+        self.batch_start_num_samples = int(state.timestamp.sample)
 
     def eval_end(self, state: State, logger: Logger):
         del logger  # unused
