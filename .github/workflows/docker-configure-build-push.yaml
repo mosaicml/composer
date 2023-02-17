@@ -66,7 +66,7 @@ jobs:
             IMAGE_CACHE="${STAGING_REPO}:${{ inputs.image-name }}-buildcache"
           else
             IMAGE_TAG=${{ inputs.tags }}
-            IMAGE_CACHE="${IMAGE_TAG}-buildcache"
+            IMAGE_CACHE="${TAG/,//}-buildcache"
           fi
 
           echo "IMAGE_TAG=${IMAGE_TAG}" >> ${GITHUB_ENV}
