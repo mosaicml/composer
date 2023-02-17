@@ -129,6 +129,14 @@ def test_fsdp_full_state_dict_save(world_size, tmp_path: pathlib.Path):
         assert state_dict_in_memory['model']['module.4.bias'].shape == layer2_bias_shape
         assert sum([p.numel() for p in state_dict_in_memory['model'].values()]) == expected_total_num_params
 
+        # Check rank 0 state dict also has the full optimizer params
+        optim_state_dict = state_dict_in_memory['optimizers']['Adam']['state']
+        assert all([optim_moment.shape == layer1_weights_shape for moment_name, optim_moment in optim_state_dict['module.2.weight'].items() if moment_name != 'step'])
+        assert all([optim_moment.shape == layer2_weights_shape for moment_name, optim_moment in optim_state_dict['module.4.weight'].items() if moment_name != 'step'])
+        assert all([optim_moment.shape == layer1_bias_shape for moment_name, optim_moment in optim_state_dict['module.2.bias'].items() if moment_name != 'step'])
+        assert all([optim_moment.shape == layer2_bias_shape for moment_name, optim_moment in optim_state_dict['module.4.bias'].items() if moment_name != 'step'])
+
+
         # Check that checkpoint matches state dict
         with open(str(rankn_checkpoint), 'rb') as f:
             state_dict_from_checkpoint = torch.load(f)['state']
@@ -146,6 +154,9 @@ def test_fsdp_full_state_dict_save(world_size, tmp_path: pathlib.Path):
         # Assert total number of params is half of the total (because partitioned across 2 ranks).
         assert sum([p.numel() for p in state_dict_in_memory['model'].values()
                    ]) == expected_total_num_params / dist.get_world_size()
+
+        # In FSDP for full state dicts, the optim state dicts on other raks are empty dictionaries
+        assert state_dict_in_memory['optimizers']['Adam'] == {}
 
 
 @pytest.mark.gpu
@@ -212,6 +223,19 @@ def test_fsdp_partitioned_state_dict_save(world_size, tmp_path: pathlib.Path, st
         assert sum([p.local_tensor().numel() for p in state_dict_in_memory['model'].values()
                    ]) == expected_total_num_params / dist.get_world_size()
 
+        # Check optimizer is partitioned and flattened.
+        rank_n_optim_state_dict = state_dict_in_memory['optimizers']['Adam']['state']
+        # Assert all optim moments are flattened
+        assert all([optim_moment.ndim == 1 for 
+                        module_name in rank_n_optim_state_dict.keys() for 
+                            moment_name, optim_moment in rank_n_optim_state_dict[module_name].items() if moment_name != 'step'])
+        
+        # Assert total number of moments in optim state divided across ranks
+        moments_per_parameter = 2
+        assert sum([optim_moment.numel() for 
+                        module_name in rank_n_optim_state_dict.keys() for 
+                            moment_name, optim_moment in rank_n_optim_state_dict[module_name].items() if moment_name != 'step'])  == (moments_per_parameter * expected_total_num_params) / dist.get_world_size()
+
     if state_dict_type == 'sharded':
         rankn_state_dict_keys = set(state_dict_in_memory['model'].keys())
 
@@ -222,9 +246,24 @@ def test_fsdp_partitioned_state_dict_save(world_size, tmp_path: pathlib.Path, st
         assert all([isinstance(p, ShardedTensor) for p in state_dict_in_memory['model'].values()])
 
         # Assert total number of params is less than that of the total (because partitioned across 2 ranks). Does not divide
-        # evenly with sharded and unflatteend, so we just check that the params per rank is less than the total/
+        # evenly with sharded and unflattened, so we just check that the params per rank is less than the total/
         assert sum([p.local_tensor().numel() for p in state_dict_in_memory['model'].values()
                    ]) < expected_total_num_params
+
+        # Check optimizer is partitioned, but unflattened.
+        rank_n_optim_state_dict = state_dict_in_memory['optimizers']['Adam']['state']
+        # Assert all optim moments are flattened
+        assert not all([optim_moment.ndim == 1 for 
+                        module_name in rank_n_optim_state_dict.keys() for 
+                            moment_name, optim_moment in rank_n_optim_state_dict[module_name].items() if moment_name != 'step'])
+        
+        # Assert total number of optim params is less than that of the total (because partitioned across 2 ranks). Does not divide
+        # evenly with sharded and unflattened, so we just check that the optim params per rank is less than the total.
+        moments_per_parameter = 2
+        assert sum([optim_moment.local_tensor().numel() for 
+                        module_name in rank_n_optim_state_dict.keys() for 
+                            moment_name, optim_moment in rank_n_optim_state_dict[module_name].items() if moment_name != 'step'])  < (moments_per_parameter * expected_total_num_params)
+
 
     # Check state dicts same between the in memory state and the on disk checkpoint for both ranks.
     with open(str(rankn_checkpoint), 'rb') as f:
