@@ -52,6 +52,11 @@ class Logger:
         self.destinations = ensure_tuple(destinations)
         self._state = state
 
+    def get_step(self):
+        if self._state.dataloader_label == 'predict':
+            return self._state.predict_timestamp.batch.value
+        return self._state.timestamp.batch.value
+
     def log_traces(self, traces: Dict[str, Any]):
         for destination in self.destinations:
             destination.log_traces(traces)
@@ -62,7 +67,7 @@ class Logger:
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
         if step is None:
-            step = self._state.timestamp.batch.value
+            step = self.get_step()
         for destination in self.destinations:
             destination.log_metrics(metrics, step)
 
@@ -96,7 +101,7 @@ class Logger:
                 with WandB.
         """
         if step is None:
-            step = self._state.timestamp.batch.value
+            step = self.get_step()
         for destination in self.destinations:
             destination.log_images(images, name, channels_last, step, masks, mask_class_labels, use_table)
 
