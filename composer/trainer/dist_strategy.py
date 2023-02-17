@@ -132,6 +132,10 @@ def get_torch_dtype(dtype: Union[Precision, str]):
         return torch.float16
     elif dtype in ['bfloat16', 'bfloat', 'torch.bfloat16', 'bf16', 'amp_bf16']:
         return torch.bfloat16
+    elif dtype in ['amp_fp8']:
+        # We use torch.bfloat16 by default for amp_fp8 as there is no
+        # fp8 datatype in PyTorch yet.
+        return torch.bfloat16
     else:
         raise ValueError(f'Not sure how to convert dtype={dtype} to a torch dtype.')
 
