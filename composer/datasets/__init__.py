@@ -11,7 +11,7 @@ from composer.datasets.cifar import (build_cifar10_dataloader, build_ffcv_cifar1
                                      build_streaming_cifar10_dataloader, build_synthetic_cifar10_dataloader)
 from composer.datasets.imagenet import (build_ffcv_imagenet_dataloader, build_imagenet_dataloader,
                                         build_streaming_imagenet1k_dataloader, build_synthetic_imagenet_dataloader)
-from composer.datasets.lm_dataset import build_lm_dataloader, build_synthetic_lm_dataloader
+from composer.datasets.lm_dataset import build_lm_dataloader
 from composer.datasets.mnist import build_mnist_dataloader, build_synthetic_mnist_dataloader
 from composer.datasets.synthetic import (SyntheticBatchPairDataset, SyntheticDataLabelType, SyntheticDataType,
                                          SyntheticPILDataset)
@@ -39,5 +39,4 @@ __all__ = [
     'build_mnist_dataloader',
     'build_synthetic_mnist_dataloader',
     'build_lm_dataloader',
-    'build_synthetic_lm_dataloader',
 ]

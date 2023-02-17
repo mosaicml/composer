@@ -15,7 +15,7 @@ from composer.models.classify_mnist import mnist_model
 from composer.models.deeplabv3 import composer_deeplabv3
 from composer.models.efficientnetb0 import composer_efficientnetb0
 from composer.models.gpt2 import create_gpt2
-from composer.models.huggingface import HuggingFaceModel
+from composer.models.huggingface import HuggingFaceModel, write_huggingface_pretrained_from_composer_checkpoint
 from composer.models.initializers import Initializer
 from composer.models.mmdetection import MMDetModel
 from composer.models.resnet import composer_resnet
@@ -34,6 +34,7 @@ __all__ = [
     'composer_efficientnetb0',
     'create_gpt2',
     'HuggingFaceModel',
+    'write_huggingface_pretrained_from_composer_checkpoint',
     'Initializer',
     'MMDetModel',
     'composer_resnet',

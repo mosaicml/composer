@@ -21,6 +21,7 @@ from typing import Callable as Callable
 from urllib.parse import urlparse
 
 import numpy as np
+import pytest
 import torch
 import torch.optim
 import torch.utils.data
@@ -90,15 +91,6 @@ from tests.common.datasets import RandomTextClassificationDataset
 
 # Disable wandb
 os.environ['WANDB_MODE'] = 'disabled'
-
-
-def _make_synthetic_bert_state():
-    from tests.fixtures.synthetic_hf_state import make_synthetic_bert_dataloader, make_synthetic_bert_model
-    bert_model = make_synthetic_bert_model()
-    bert_optimizer = torch.optim.SGD(bert_model.parameters(), lr=0.001)
-    mlm_dataloader = make_synthetic_bert_dataloader()
-    return bert_model, mlm_dataloader, bert_optimizer
-
 
 # Change the cwd to be the tempfile, so we don't pollute the documentation source folder
 tmpdir = tempfile.mkdtemp()
@@ -258,3 +250,26 @@ def _new_libcloudObjectStore_init(self, fake_ellipses: None = None, **kwargs: An
 
 
 LibcloudObjectStore.__init__ = _new_libcloudObjectStore_init  # type: ignore
+
+# Note: These methods are an alternative to the tiny_bert fixtures in fixtures.py.
+# Fixtures cannot be used natively as parametrized inputs, which we require when
+# we wish to run a test across multiple models, one of which is a HuggingFace BERT Tiny.
+# As a workaround, we inject objects into the PyTest namespace. Tests should not directly
+# use pytest.{var}, but instead should import and use the helper copy methods configure_{var}
+# (in tests.common.models) so the objects in the PyTest namespace do not change.
+try:
+    import transformers
+    del transformers
+    TRANSFORMERS_INSTALLED = True
+except ImportError:
+    TRANSFORMERS_INSTALLED = False
+
+if TRANSFORMERS_INSTALLED:
+    from tests.fixtures.fixtures import (tiny_bert_config_helper, tiny_bert_model_helper, tiny_bert_tokenizer_helper,
+                                         tiny_gpt2_config_helper, tiny_gpt2_model_helper, tiny_gpt2_tokenizer_helper)
+    pytest.tiny_bert_config = tiny_bert_config_helper()  # type: ignore
+    pytest.tiny_bert_model = tiny_bert_model_helper(pytest.tiny_bert_config)  # type: ignore
+    pytest.tiny_bert_tokenizer = tiny_bert_tokenizer_helper()  # type: ignore
+    pytest.tiny_gpt2_config = tiny_gpt2_config_helper()  # type: ignore
+    pytest.tiny_gpt2_model = tiny_gpt2_model_helper(pytest.tiny_gpt2_config)  # type: ignore
+    pytest.tiny_gpt2_tokenizer = tiny_gpt2_tokenizer_helper()  # type: ignore

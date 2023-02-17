@@ -104,7 +104,6 @@ class State(Serializable):
     restore the trainer and continue training from a checkpoint.  :mod:`~composer.algorithms` are able to modify an
     instance of this class in-place.
 
-
     .. note::
 
         An instance of this class is automatically constructed by the :class:`~.Trainer` constructor. A user need

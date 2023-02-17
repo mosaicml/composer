@@ -32,12 +32,6 @@ def check_if_apex_installed():
         )
 
 
-def warn_fln_deprecation():
-    warnings.warn(
-        DeprecationWarning(
-            'Fused LayerNorm will be deprecated and removed in v0.13. Please use Low Precision LayerNorm instead.'))
-
-
 def from_LayerNorm(layer: torch.nn.Module, module_index: int) -> APEXFusedLayerNorm:
     """Defines a replacement policy from a `torch.nn.LayerNorm` to a `apex.normalization.fused_layer_norm`"""
     assert isinstance(layer,
@@ -75,6 +69,9 @@ class FusedLayerNorm(Algorithm):
     Example:
         .. testsetup::
 
+           from tests.common.models import configure_tiny_bert_hf_model
+           from tests.common.datasets import dummy_bert_lm_dataloader
+
            def no_op(self, *args): pass
 
            from composer.algorithms import FusedLayerNorm
@@ -83,7 +80,8 @@ class FusedLayerNorm(Algorithm):
 
            FusedLayerNorm.apply = no_op
 
-           model, train_dataloader, optimizer = _make_synthetic_bert_state()
+
+           model, train_dataloader = configure_tiny_bert_hf_model(), dummy_bert_lm_dataloader()
 
         .. testcode::
 
@@ -101,7 +99,6 @@ class FusedLayerNorm(Algorithm):
 
     def __init__(self):
         # FusedLayerNorm takes no arguments
-        warn_fln_deprecation()
         check_if_apex_installed()
 
     def __repr__(self) -> str:

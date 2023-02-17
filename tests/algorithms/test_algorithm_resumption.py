@@ -17,6 +17,8 @@ from tests.common import deep_compare
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('alg_cls', get_algs_with_marks())
+@pytest.mark.filterwarnings('ignore:Detected call of `lr_scheduler.step()'
+                           )  # optimizer.step() sometimes skipped when NaN/inf on low batch size
 def test_algorithm_resumption(
     tmp_path: pathlib.Path,
     alg_cls: Type[Algorithm],
@@ -44,7 +46,7 @@ def test_algorithm_resumption(
     shared_config = {
         'max_duration': '2ep',
         'save_filename': 'ep{epoch}-rank{rank}',
-        'train_subset_num_batches': 2,
+        'train_subset_num_batches': 4,
         'precision': 'amp_fp16',
     }
 
