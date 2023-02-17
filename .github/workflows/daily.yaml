@@ -14,7 +14,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 jobs:
-  pytest-cpu:
+  daily-pytest-cpu:
     uses: ./.github/workflows/pytest-cpu.yaml
     strategy:
       matrix:
@@ -74,3 +74,10 @@ jobs:
       aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
       wandb-api-key: ${{ secrets.WANDB_API_KEY }}
+  coverage:
+    uses: ./.github/workflows/coverage.yaml
+    name: Coverage Results
+    if: github.repository_owner == 'mosaicml'
+    needs: [ daily-pytest-cpu ]
+    with:
+      download-path: artifacts
