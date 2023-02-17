@@ -47,7 +47,7 @@ jobs:
 
       - name: Publish distribution 📦 to Test PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        if: ! contains(github.ref, 'refs/tags/v')
+        if: contains(github.ref, 'refs/head/') || contains(github.ref, 'refs/pull/')
         with:
           user: __token__
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}
