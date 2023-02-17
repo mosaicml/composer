@@ -459,7 +459,10 @@ def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool = False, s
 def local_rank_zero_download_and_wait(expected_file_path: str):
     """Context manager to wait for a file to exist on all ranks except local rank zero.
 
-    It is expected that the file will be created by local rank zero.
+    It is expected that the file will be created by local rank zero. This function is useful
+    as an alternative to ``run_local_rank_zero_first`` when downloading a file, because it does
+    not require dist to be initialized. It only requires that the ``LOCAL_RANK`` environment variable
+    is set.
 
     Args:
         expected_file_path (str): The file to wait for existence of
