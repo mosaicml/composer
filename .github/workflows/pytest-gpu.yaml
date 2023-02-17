@@ -8,7 +8,7 @@ on:
       mcloud-timeout:
         required: false
         type: number
-        default: 1200
+        default: 1800
       name:
         required: true
         type: string
@@ -27,7 +27,7 @@ on:
         required: true
 jobs:
   pytest-gpu:
-    timeout-minutes: 30 # ${{ inputs.gha-timeout }} for some reason not able to turn this into an input
+    timeout-minutes: 60 # ${{ inputs.gha-timeout }} for some reason not able to turn this into an input
     runs-on: ubuntu-latest
     env:
       MOSAICML_API_KEY: ${{ secrets.mcloud-api-key }}
