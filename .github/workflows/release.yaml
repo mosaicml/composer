@@ -82,7 +82,7 @@ jobs:
 
   build-image-matrix:
     needs:
-      - packaging
+      - pypi-packaging
     runs-on: ubuntu-latest
     timeout-minutes: 2
     outputs:
