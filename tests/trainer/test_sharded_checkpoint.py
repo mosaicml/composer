@@ -118,7 +118,7 @@ def test_fsdp_full_state_dict_save(world_size, tmp_path: pathlib.Path):
     state_dict_in_memory = trainer.state.state_dict()
 
     if dist.get_global_rank() == 0:
-        # Check rank 0 state dict has the full model weights
+        # Check rank 0 state dict has the full model weights.
         assert set(state_dict_in_memory['model'].keys()) == {
             'module.2.weight', 'module.2.bias', 'module.4.weight', 'module.4.bias'
         }
@@ -129,7 +129,7 @@ def test_fsdp_full_state_dict_save(world_size, tmp_path: pathlib.Path):
         assert state_dict_in_memory['model']['module.4.bias'].shape == layer2_bias_shape
         assert sum([p.numel() for p in state_dict_in_memory['model'].values()]) == expected_total_num_params
 
-        # Check rank 0 state dict also has the full optimizer params
+        # Check rank 0 state dict also has the full optimizer params.
         optim_state_dict = state_dict_in_memory['optimizers']['Adam']['state']
         assert all([
             optim_moment.shape == layer1_weights_shape
@@ -161,7 +161,7 @@ def test_fsdp_full_state_dict_save(world_size, tmp_path: pathlib.Path):
         _compare_optims_between_state_dicts(state_dict_from_checkpoint, state_dict_in_memory)
 
     if dist.get_global_rank() == 1:
-        # Check rank 1 state dict just has the flattened shards
+        # Check rank 1 state dict just has the flattened shards.
         rank1_state_dict_keys = set(state_dict_in_memory['model'].keys())
         # Assert all params flattened
         assert all([k.endswith('flat_param') for k in rank1_state_dict_keys])
@@ -170,7 +170,7 @@ def test_fsdp_full_state_dict_save(world_size, tmp_path: pathlib.Path):
         assert sum([p.numel() for p in state_dict_in_memory['model'].values()
                    ]) == expected_total_num_params / dist.get_world_size()
 
-        # In FSDP for full state dicts, the optim state dicts on other raks are empty dictionaries
+        # In FSDP for full state dicts, the optim state dicts on other ranks are empty dictionaries.
         assert state_dict_in_memory['optimizers']['Adam'] == {}
 
 
@@ -221,7 +221,7 @@ def test_fsdp_partitioned_state_dict_save(world_size, tmp_path: pathlib.Path, st
     trainer.fit()
     rankn_checkpoint = save_folder / pathlib.Path(f'rank{dist.get_global_rank()}.pt')
 
-    # Check that both rank 0 and rank 1 save a checkpoint
+    # Check that both rank 0 and rank 1 save a checkpoint.
     assert os.path.exists(rankn_checkpoint)
 
     state_dict_in_memory = trainer.state.state_dict()
@@ -232,7 +232,7 @@ def test_fsdp_partitioned_state_dict_save(world_size, tmp_path: pathlib.Path, st
         assert all([k.endswith('flat_param') for k in rankn_state_dict_keys])
         assert all([p.ndim == 1 for p in state_dict_in_memory['model'].values()])
 
-        # Assert all params of type ShardedTensor
+        # Assert all params of type ShardedTensor.
         assert all([isinstance(p, ShardedTensor) for p in state_dict_in_memory['model'].values()])
 
         # Assert total number of params is half of the total (because partitioned across 2 ranks). Seems to divide evenly with flattened and sharded.
@@ -249,7 +249,7 @@ def test_fsdp_partitioned_state_dict_save(world_size, tmp_path: pathlib.Path, st
             if moment_name != 'step'
         ])
 
-        # Assert total number of moments in optim state divided across ranks
+        # Assert total number of moments in optim state divided across ranks.
         moments_per_parameter = 2
         assert sum([
             optim_moment.numel()
