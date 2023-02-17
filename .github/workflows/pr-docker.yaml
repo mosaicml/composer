@@ -38,7 +38,7 @@ jobs:
           echo $BUILD_MATRIX >> $GITHUB_OUTPUT
   stage-docker-build:
     needs: build-image-matrix
-    uses: ./.github/workflows/docker-configure-build-push.yaml
+    uses: ./.github/reusable_workflows/docker-configure-build-push.yaml
     strategy:
       fail-fast: true
       matrix: ${{ fromJSON(needs.build-image-matrix.outputs.matrix) }}

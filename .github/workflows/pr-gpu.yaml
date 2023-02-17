@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 jobs:
   pytest-gpu:
-    uses: ./.github/workflows/pytest-gpu.yaml
+    uses: ./.github/reusable_workflows/pytest-gpu.yaml
     strategy:
       matrix:
         include:
