@@ -5,11 +5,6 @@ on:
       - dev
       - main
       - release/**
-  pull_request_target:
-    branches:
-      - dev
-      - main
-      - release/**
   workflow_dispatch:
 # Cancel old runs when a new commit is pushed to the same branch if not on main or dev
 concurrency:
