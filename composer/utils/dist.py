@@ -462,7 +462,7 @@ def local_rank_zero_download_and_wait(expected_file_path: str):
     It is expected that the file will be created by local rank zero. This function is useful
     as an alternative to ``run_local_rank_zero_first`` when downloading a file, because it does
     not require dist to be initialized. It only requires that the ``LOCAL_RANK`` environment variable
-    is set.
+    is set. If dist is initialized, you probably want to use ``run_local_rank_zero_first`` instead.
 
     Args:
         expected_file_path (str): The file to wait for existence of
