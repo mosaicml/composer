@@ -549,6 +549,10 @@ This will load the first epoch's checkpoints from GCS and resume training in the
 Note: For GCS, remember to input your `HMAC access id and secret <https://cloud.google.com/storage/docs/authentication/hmackeys/>`__
 to the environment variables ``GCS_KEY`` and ``GCS_SECRET`` respectively or the save operation will fail.
 
+.. warning::
+    Do not load checkpoints from untrusted sources as they may contain malicious code.
+    Users should ensure the proper sanity checks are in place before loading checkpoints.
+
 
 API Reference
 -------------

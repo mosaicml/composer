@@ -10,6 +10,7 @@ import json
 import logging
 import tempfile
 import textwrap
+import warnings
 from collections import UserDict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
@@ -41,7 +42,8 @@ class HuggingFaceModel(ComposerModel):
             .. note:: If the tokenizer is provided, its config will be saved in the composer checkpoint, and it can be reloaded
                 using :meth:`HuggingFaceModel.hf_from_composer_checkpoint`. If the tokenizer is not provided here, it will not be saved in the composer checkpoint.
         use_logits (bool, optional): If True, the model's output logits will be used to calculate validation metrics. Else, metrics will be inferred from the HuggingFaceModel directly. Default: ``False``
-        metrics (list[Metric], optional): list of torchmetrics to apply to the output of `validate`. Default: ``None``.
+        metrics (list[Metric], optional): list of torchmetrics to apply to the output of `eval_forward` during training. If ``eval_metrics`` is ``None``, these will also be used as ``eval_metrics``.  Default: ``None``.
+        eval_metrics (list[Metric], optional): list of torchmetrics to compute on the eval_dataloader, or be accessible to :class:`Evaluator`s. Default: ``None``.
         shift_labels (bool, optional): If True, the batch's labels will be shifted before being used to calculate metrics. This should be set to true for CausalLM models and false otherwise. If not specified, `shift_labels` will be set automatically based on the model class name. Default: ``None``.
 
         .. note:: To ensure correct behavior, set `shift_labels` manually if using a custom model (i.e., if `model` is not
@@ -66,6 +68,7 @@ class HuggingFaceModel(ComposerModel):
                                            transformers.PreTrainedTokenizerFast]] = None,
                  use_logits: Optional[bool] = False,
                  metrics: Optional[List[Metric]] = None,
+                 eval_metrics: Optional[List[Metric]] = None,
                  shift_labels: Optional[bool] = None) -> None:
         try:
             import transformers
@@ -78,6 +81,7 @@ class HuggingFaceModel(ComposerModel):
         super().__init__()
         self.model = model
         self.config = model.config
+        self.model_forward_args = inspect.getfullargspec(self.model.forward).args
         self.tokenizer = tokenizer
 
         if self.tokenizer is None:
@@ -95,9 +99,12 @@ class HuggingFaceModel(ComposerModel):
         self.train_metrics: Optional[Dict] = None
         self.val_metrics: Optional[Dict] = None
 
-        if metrics:
+        if metrics is not None:
             self.train_metrics = {metric.__class__.__name__: metric for metric in metrics}
-            self.val_metrics = {metric.__class__.__name__: metric for metric in metrics}
+            if eval_metrics is None:
+                self.val_metrics = {metric.__class__.__name__: metric for metric in metrics}
+            else:
+                self.val_metrics = {metric.__class__.__name__: metric for metric in eval_metrics}
 
         self.labels: Optional[torch.Tensor] = None  # set in eval_forward() if exists
 
@@ -270,7 +277,7 @@ class HuggingFaceModel(ComposerModel):
     def forward(self, batch):
         if isinstance(batch, dict) or isinstance(batch, UserDict):
             # Further input validation is left to the huggingface forward call
-            batch = {k: v for k, v in batch.items() if k in inspect.getfullargspec(self.model.forward).args}
+            batch = {k: v for k, v in batch.items() if k in self.model_forward_args}
             output = self.model(**batch)  # type: ignore (thirdparty)
         else:
             raise ValueError(
@@ -290,6 +297,16 @@ class HuggingFaceModel(ComposerModel):
             # pop labels first to avoid computing loss
             self.labels = batch.pop('labels')
 
+            # HF encoder decoder models like T5 expect either decoder_input_ids or labels,
+            # so we add decoder_input_ids to the batch if it is missing
+            if self.model.config.is_encoder_decoder and 'decoder_input_ids' not in batch:
+                if hasattr(self.model, 'prepare_decoder_input_ids_from_labels'):
+                    batch['decoder_input_ids'] = self.model.prepare_decoder_input_ids_from_labels(labels=self.labels)
+                else:
+                    raise RuntimeError(
+                        'Encoder decoder models require that either decoder_input_ids is present in the batch'
+                        ' or that the model has a prepare_decoder_input_ids_from_labels method.')
+
             if self.shift_labels or batch.get('mode', None) == 'icl_task':
                 assert self.labels is not None
                 # HF CausalLM models internally shift labels before computing loss, so we do the same here
@@ -301,9 +318,9 @@ class HuggingFaceModel(ComposerModel):
             if self.config.use_return_dict:
                 output = output['logits']
             else:
-                # logits are at index 0 in the output tuple
-                # because we have popped labels, so no loss is present in the tuple
-                output = output[0]
+                # if loss was computed (cached outputs from forward), loss is at index 0 and logits are at index 1
+                # if loss was not computed (no cached outputs during eval), loss is not present and logits are at index 0
+                output = output[1] if len(output[0].shape) == 0 else output[0]
 
             # if we are in the single class case, then remove the classes dimension
             if output.shape[1] == 1:
@@ -367,6 +384,9 @@ class HuggingFaceModel(ComposerModel):
         return {'model': model_output, 'tokenizer': tokenizer_output}
 
     def add_eval_metrics(self, evaluator):
+        warnings.warn(
+            DeprecationWarning('The add_eval_metrics method is deprecated and will be removed in a future release. '
+                               'Please pass in `eval_metrics` directly to the constructor.'))
         evaluator_metrics = {m: METRIC_DEFAULT_CTORS[m]() for m in evaluator.metric_names}
         if self.val_metrics is not None:
             self.val_metrics.update(evaluator_metrics)
