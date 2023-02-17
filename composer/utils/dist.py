@@ -459,6 +459,8 @@ def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool = False, s
 def local_rank_zero_download_and_wait(expected_file_path: str):
     """Context manager to wait for a file to exist on all ranks except local rank zero.
 
+    It is expected that the file will be created by local rank zero.
+
     Args:
         expected_file_path (str): The file to wait for existence of
     """
