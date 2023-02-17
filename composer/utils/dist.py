@@ -35,6 +35,7 @@ from __future__ import annotations
 import datetime
 import logging
 import os
+import time
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, List, Optional, Sequence, TypeVar, Union, cast
 
@@ -452,6 +453,21 @@ def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool = False, s
         num_replicas=get_world_size(),
         rank=get_global_rank(),
     )
+
+
+@contextmanager
+def local_rank_zero_download_and_wait(expected_file_path: str):
+    """Context manager to wait for a file to exist on all ranks except local rank zero.
+
+    Args:
+        expected_file_path (str): The file to wait for existence of
+    """
+    local_rank = get_local_rank()
+    if local_rank != 0:
+        while not os.path.exists(expected_file_path):
+            time.sleep(0.1)
+
+    yield
 
 
 @contextmanager

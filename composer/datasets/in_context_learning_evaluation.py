@@ -105,8 +105,8 @@ class InContextLearningLMTaskDataset(Dataset):
             raise MissingConditionalImportError(extra_deps_group='nlp',
                                                 conda_package='datasets',
                                                 conda_channel='conda-forge') from e
-        destination_path = f'rank{dist.get_local_rank()}' + destination_path
-        get_file(dataset_uri, destination_path, overwrite=True)
+        with dist.local_rank_zero_download_and_wait(destination_path):
+            get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
         self.samples = list(
             dataset.map(lambda examples: {
@@ -247,8 +247,8 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
                                                 conda_package='datasets',
                                                 conda_channel='conda-forge') from e
 
-        destination_path = f'rank{dist.get_local_rank()}' + destination_path
-        get_file(dataset_uri, destination_path, overwrite=True)
+        with dist.local_rank_zero_download_and_wait(destination_path):
+            get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
         self.samples = list(
             dataset.map(lambda examples: {
