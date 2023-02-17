@@ -37,7 +37,7 @@ jobs:
         run: |
           set -ex
           export PATH=/composer-python:$PATH
-          export COMMON_ARGS="-v --durations=20 -m '${{ input.pytest-markers }}'"
+          export COMMON_ARGS="-v --durations=20 -m '${{ inputs.pytest-markers }}'"
 
           # Necessary to run git diff for doctests
           git config --global --add safe.directory /__w/composer/composer
