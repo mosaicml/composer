@@ -106,7 +106,8 @@ class InContextLearningLMTaskDataset(Dataset):
                                                 conda_package='datasets',
                                                 conda_channel='conda-forge') from e
 
-        get_file(dataset_uri, destination_path, overwrite=True)
+        if dist.get_local_rank() == 0:
+            get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
         self.samples = list(
             dataset.map(lambda examples: {
@@ -247,7 +248,8 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
                                                 conda_package='datasets',
                                                 conda_channel='conda-forge') from e
 
-        get_file(dataset_uri, destination_path, overwrite=True)
+        if dist.get_local_rank() == 0:
+            get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
         self.samples = list(
             dataset.map(lambda examples: {
