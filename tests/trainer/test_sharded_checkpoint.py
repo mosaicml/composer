@@ -185,7 +185,8 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path):
 def test_fsdp_partitioned_state_dict_save(world_size, tmp_path: pathlib.Path, state_dict_type: str):
 
     if version.parse(torch.__version__) < version.parse('1.13.0'):
-        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
+        pytest.skip()
+    pytest.importorskip("torch.distributed.fsdp.fully_sharded_data_parallel")
     from torch.distributed.fsdp.fully_sharded_data_parallel import ShardedTensor
     save_folder = tmp_path
     save_filename = 'rank{rank}.pt'
@@ -246,7 +247,7 @@ def test_fsdp_partitioned_state_dict_save(world_size, tmp_path: pathlib.Path, st
         assert all([isinstance(p, ShardedTensor) for p in state_dict_in_memory['model'].values()])
 
         # Assert total number of params is less than that of the total (because partitioned across 2 ranks). Does not divide
-        # evenly with sharded and unflattened, so we just check that the params per rank is less than the total/
+        # evenly with sharded and unflattened, so we just check that the params per rank is less than the total.
         assert sum([p.local_tensor().numel() for p in state_dict_in_memory['model'].values()
                    ]) < expected_total_num_params
 
