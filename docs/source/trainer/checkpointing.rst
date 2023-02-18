@@ -554,6 +554,12 @@ to the environment variables ``GCS_KEY`` and ``GCS_SECRET`` respectively or the 
     Users should ensure the proper sanity checks are in place before loading checkpoints.
 
 
+Saving and Loading Sharded Checkpoints
+--------------------------------------
+Using `FSDP <https://pytorch.org/docs/stable/fsdp.html>`__, you can save and load sharded checkpoints with Composer.
+See `these docs </notes/distributed_training.html#saving-and-loading-sharded-checkpoints-with-fsdp>`_ for more info and some examples.
+
+
 API Reference
 -------------
 *   :class:`.RemoteUploaderDownloader` for saving checkpoints to cloud storage.

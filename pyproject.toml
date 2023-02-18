@@ -116,6 +116,8 @@ filterwarnings = [
     'ignore:Positional args are being deprecated, use kwargs instead.*:UserWarning',
     'ignore:yahp-based workflows are deprecated and will be removed:DeprecationWarning',
     'ignore:Torchmetrics v0.9 introduced a new argument class property:UserWarning',
+    'ignore:torch.distributed._all_gather_base is a private function and will be deprecated:UserWarning',
+    'ignore:torch.distributed._reduce_scatter_base is a private function and will be deprecated:UserWarning',
 ]
 
 # Coverage
