@@ -232,12 +232,27 @@ class DecoupledAdamW(AdamW):
         super().__init__(params=params, lr=lr, betas=betas, eps=eps, weight_decay=weight_decay, amsgrad=amsgrad)
         for group in self.param_groups:
             group['initial_lr'] = group['lr']
+        self.layer_to_scale = {}
+        self.amsgrad = amsgrad
+
+    def set_scaling(self, param, scaling):
+        prev_scaling = self.layer_to_scale.get(param, 1.0)
+        self.layer_to_scale[param] = scaling * prev_scaling
+
+    def get_scaling(self, param):
+        if self.layer_to_scale:
+            if param not in self.layer_to_scale:
+                return 1.0
+            else:
+                return self.layer_to_scale[param]
+        else:
+            return 1.0
 
     @staticmethod
     def adamw(params: List[torch.Tensor], grads: List[torch.Tensor], exp_avgs: List[torch.Tensor],
               exp_avg_sqs: List[torch.Tensor], max_exp_avg_sqs: List[torch.Tensor], state_steps: List[int], *,
-              amsgrad: bool, beta1: float, beta2: float, lr: float, initial_lr: float, weight_decay: float,
-              eps: float) -> None:
+              amsgrad: bool, beta1: float, beta2: float, lr: float, initial_lr: float, weight_decay: float, eps: float,
+              layerwise_lrs) -> None:
         r"""Functional API that performs AdamW algorithm computation with decoupled weight decay.
 
         Args:
@@ -280,9 +295,38 @@ class DecoupledAdamW(AdamW):
             else:
                 denom = (exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(eps)
 
-            step_size = lr / bias_correction1
+            step_size = lr * layerwise_lrs[i] / bias_correction1
 
             param.addcdiv_(exp_avg, denom, value=-step_size)
+
+    def reset_state(self):
+        for group in self.param_groups:
+            amsgrad = group['amsgrad']
+            for p in group['params']:
+                if not p.requires_grad:
+                    continue
+                state = self.state[p]
+                state['step'] = 0
+                # Exponential moving average of gradient values
+                state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+                # Exponential moving average of squared gradient values
+                state['exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+                if amsgrad:
+                    # Maintains max of all exp. moving avg. of sq. grad. values
+                    state['max_exp_avg_sq'] = torch.zeros_like(p, memory_format=torch.preserve_format)
+
+    def reset_param_state(self, param):
+        if param not in self.state:
+            return
+        state = self.state[param]
+        state['step'] = 0
+        # Exponential moving average of gradient values
+        state['exp_avg'] = torch.zeros_like(param, memory_format=torch.preserve_format)
+        # Exponential moving average of squared gradient values
+        state['exp_avg_sq'] = torch.zeros_like(param, memory_format=torch.preserve_format)
+        if self.amsgrad:
+            # Maintains max of all exp. moving avg. of sq. grad. values
+            state['max_exp_avg_sq'] = torch.zeros_like(param, memory_format=torch.preserve_format)
 
     @torch.no_grad()
     def step(self, closure=None):
@@ -304,6 +348,7 @@ class DecoupledAdamW(AdamW):
             exp_avg_sqs = []
             max_exp_avg_sqs = []
             state_steps = []
+            layerwise_lrs = []
             amsgrad = group['amsgrad']
             beta1, beta2 = group['betas']
             eps = group['eps']
@@ -312,7 +357,7 @@ class DecoupledAdamW(AdamW):
             weight_decay = group['weight_decay']
 
             for p in group['params']:
-                if p.grad is None:
+                if p.grad is None or not p.requires_grad:
                     continue
                 params_with_grad.append(p)
                 if p.grad.is_sparse:
@@ -322,7 +367,7 @@ class DecoupledAdamW(AdamW):
                 state = self.state[p]
 
                 # State initialization
-                if len(state) == 0:
+                if 'step' not in state:
                     state['step'] = 0
                     # Exponential moving average of gradient values
                     state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
@@ -334,7 +379,7 @@ class DecoupledAdamW(AdamW):
 
                 exp_avgs.append(state['exp_avg'])
                 exp_avg_sqs.append(state['exp_avg_sq'])
-
+                layerwise_lrs.append(self.get_scaling(p))
                 if amsgrad:
                     max_exp_avg_sqs.append(state['max_exp_avg_sq'])
 
@@ -355,13 +400,16 @@ class DecoupledAdamW(AdamW):
                        lr=lr,
                        initial_lr=initial_lr,
                        weight_decay=weight_decay,
-                       eps=eps)
+                       eps=eps,
+                       layerwise_lrs=layerwise_lrs)
 
         return loss
 
     def dist_reduce_metrics(self, optimizer_metrics):
         for metric in optimizer_metrics:
-            if metric.startswith('l2_norm'):
+            if metric.startswith('layerwise_lr_scaling'):
+                continue
+            elif metric.startswith('l2_norm'):
                 reduced = optimizer_metrics[metric]
                 if dist.get_world_size() > 1:
                     dist.all_reduce(reduced, reduce_operation='SUM')
@@ -385,7 +433,7 @@ class DecoupledAdamW(AdamW):
                 if dist.get_world_size() > 1:
                     dist.all_reduce(reduced, reduce_operation='SUM')
                 optimizer_metrics[metric] = reduced / dist.get_world_size()
-        
+
         return optimizer_metrics
 
     def pre_reduce_metrics(self, optimizer_metrics):
@@ -393,7 +441,9 @@ class DecoupledAdamW(AdamW):
         # reduction to work properly
 
         for metric in optimizer_metrics:
-            if metric.startswith('l2_norm'):
+            if metric.startswith('layerwise_lr_scaling'):
+                continue
+            elif metric.startswith('l2_norm'):
                 # l2 norms need to be squared, before they are reduced via summation
                 optimizer_metrics[metric] = optimizer_metrics[metric]**2
             elif metric.startswith('cosine'):
@@ -418,16 +468,19 @@ class DecoupledAdamW(AdamW):
         beta1, beta2 = self.param_groups[0]['betas']
         if param in self.state:
             param_optim_state = self.state[param]
+            local_lr = lr * self.get_scaling(param)
             step = param_optim_state['step']
             bias_correction1 = 1 - beta1**step
             bias_correction2 = 1 - beta2**step
             denom = (param_optim_state['exp_avg_sq'].sqrt() / math.sqrt(bias_correction2)).add_(eps)
-            step_size = lr / bias_correction1
+            step_size = local_lr / bias_correction1
             step_tensor = step_size * param_optim_state['exp_avg'].div(denom)
-            decay_factor = (lr / initial_lr) if initial_lr else 1.0
+            decay_factor = (local_lr / initial_lr) if initial_lr else 1.0
             step_tensor.add_(param, alpha=-weight_decay * decay_factor)
             for metric in self.metric_functions:
                 optimizer_metrics[f'{metric}/{name}'] = self.metric_functions[metric](param, param_optim_state,
                                                                                       step_tensor)
+
+            optimizer_metrics[f'layerwise_lr_scaling/{name}'] = self.get_scaling(param)
 
         return optimizer_metrics
