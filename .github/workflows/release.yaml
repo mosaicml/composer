@@ -57,6 +57,7 @@ jobs:
     needs:
       - pypi-packaging
     uses: ./.github/workflows/release-docker.yaml
+    if: contains(github.ref, 'refs/tags/v')
     secrets:
       DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
       DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
