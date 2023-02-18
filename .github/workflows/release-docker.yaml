@@ -3,6 +3,11 @@ name: Release Docker Images
 on:
   workflow_dispatch:
   workflow_call:
+    secrets:
+      DOCKER_HUB_USERNAME:
+        required: true
+      DOCKER_HUB_PASSWORD:
+        required: true
 
 defaults:
   run:
