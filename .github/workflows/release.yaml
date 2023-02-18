@@ -58,5 +58,5 @@ jobs:
       - pypi-packaging
     uses: ./.github/workflows/release-docker.yaml
     secrets:
-      username: ${{ secrets.DOCKER_HUB_USERNAME }}
-      password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+      DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+      DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
