@@ -105,10 +105,10 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     },
     CutOut: simple_vision_settings,
     Distillation: {
-        'model': common.SimpleConvModel,
-        'dataset': common.RandomImageDataset,
+        'model': SimpleConvModel,
+        'dataset': RandomImageDataset,
         'kwargs': {
-            'teachers': common.SimpleConvModel(),
+            'teachers': SimpleConvModel(),
             'kd_loss_fn': KLDivergence(),
         },
     },
