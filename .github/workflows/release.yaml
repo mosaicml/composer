@@ -80,7 +80,7 @@ jobs:
       #     asset_name: ${{ env.name }}
       #     asset_content_type: application/zip
 
-  # publish-docker-images:
-  #   needs:
-  #     - pypi-packaging
-  #   uses: ./.github/workflows/release-docker.yaml
+  publish-docker-images:
+    needs:
+      - pypi-packaging
+    uses: ./.github/workflows/release-docker.yaml
