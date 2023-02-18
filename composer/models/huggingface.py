@@ -24,6 +24,7 @@ from composer.utils import MissingConditionalImportError, get_file, import_objec
 
 if TYPE_CHECKING:
     import transformers
+    from transformers import PretrainedConfig
     from transformers.models.auto.auto_factory import _BaseAutoModelClass
 
 log = logging.getLogger(__name__)
@@ -156,15 +157,19 @@ class HuggingFaceModel(ComposerModel):
         .. testcode::
 
             hf_model, hf_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint('composer-hf-checkpoint.pt')
+            # At this point, hf_model is randomly initialized
             composer_model = HuggingFaceModel(hf_model, hf_tokenizer)
             trainer = Trainer(model=composer_model,
                               train_dataloader=train_dataloader,
                               save_filename='composer-hf-checkpoint-2.pt',
                               max_duration='1ep',
-                              save_folder='./')
+                              save_folder='./',
+                              load_path='composer-hf-checkpoint.pt')
+            # At this point, the weights have been loaded from the composer checkpoint into hf_model
 
         Args:
-            checkpoint_path (str): Path to the composer checkpoint, can be a local path, ``http(s)://`` url, or ``s3://`` uri
+            checkpoint_path (str): Path to the composer checkpoint, can be a local path, or a remote path beginning with ``s3://``, or another backend
+                supported by :meth:`composer.utils.maybe_create_object_store_from_uri`.
             model_instantiation_class (Union[Type[:class:`transformers.PreTrainedModel`], Type[:class:`transformers.AutoModel`], str]), optional):
                 Class to use to create the HuggingFace model. Defaults to the model class used in the original checkpoint. If this argument is
                 a HuggingFace auto class (e.g. :class:`transformers.AutoModel` or :class:`transformers.AutoModelForSequenceClassification`), the ``from_config`` method will be used,
@@ -206,14 +211,8 @@ class HuggingFaceModel(ComposerModel):
         hf_model_state = hf_state['model']
         hf_tokenizer_state = hf_state['tokenizer']
 
-        hf_config_dict = hf_model_state['config']['content']
-        # Update the config with any extra args needed
-        hf_config_dict.update(model_config_kwargs)
-        # JSON keys need to be converted back to ints, huggingface does not auto convert them along this code path
-        if 'id2label' in hf_config_dict:
-            hf_config_dict['id2label'] = {int(k): v for k, v in hf_config_dict['id2label'].items()}
+        loaded_config = get_hf_config_from_composer_state_dict(loaded_state_dict, config_overrides=model_config_kwargs)
 
-        loaded_config = transformers.AutoConfig.from_pretrained(hf_config_dict['_name_or_path'], **hf_config_dict)
         if model_instantiation_class is not None:
             # If the instantiation class is explicitly provided, use it
             # If a string is provided, attempt to import the class it refers to
@@ -404,3 +403,109 @@ def _is_registered_causal_lm(model: transformers.PreTrainedModel) -> bool:
                                             conda_channel='conda-forge') from e
     causal_lm_classes = list(MODEL_FOR_CAUSAL_LM_MAPPING.values())
     return any([isinstance(model, causal_lm_class) for causal_lm_class in causal_lm_classes])
+
+
+def get_hf_config_from_composer_state_dict(state_dict: Dict[str, Any],
+                                           config_overrides: Optional[Dict[str, Any]] = None) -> 'PretrainedConfig':
+    """Get a HuggingFace config from a composer state dict with overrides applied
+
+    Args:
+        state_dict (Dict[str, Any]): The state dict to get the config from
+        config_overrides (Dict[str, Any], optional): Any overrides to apply to the config
+
+    Returns:
+        transformers.PretrainedConfig: The HuggingFace config
+    """
+    try:
+        import transformers
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='nlp',
+                                            conda_package='transformers',
+                                            conda_channel='conda-forge') from e
+
+    if config_overrides is None:
+        config_overrides = {}
+
+    hf_config_dict = state_dict['state']['integrations']['huggingface']['model']['config']['content']
+    # Update the config with any extra args needed
+    hf_config_dict.update(config_overrides)
+    # JSON keys need to be converted back to ints, huggingface does not auto convert them along this code path
+    if 'id2label' in hf_config_dict:
+        hf_config_dict['id2label'] = {int(k): v for k, v in hf_config_dict['id2label'].items()}
+
+    return transformers.AutoConfig.from_pretrained(hf_config_dict['_name_or_path'], **hf_config_dict)
+
+
+def write_huggingface_pretrained_from_composer_checkpoint(
+        checkpoint_path: Union[Path, str],
+        output_folder: Union[Path, str],
+        local_checkpoint_save_location: Optional[Union[Path, str]] = None) -> None:
+    """Write a ``config.json`` and ``pytorch_model.bin``, like :meth:`transformers.PreTrainedModel.from_pretrained` expects, from a composer checkpoint
+
+    .. note:: This function will not work properly if you used surgery algorithms when you trained your model. In that case you will want to
+        load the model weights using the Composer :class:`~composer.Trainer` with the ``load_path`` argument.
+
+    .. testsetup::
+
+        import torch
+
+        dataset = RandomTextClassificationDataset(size=16, use_keys=True)
+        train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=8)
+        eval_dataloader = torch.utils.data.DataLoader(dataset, batch_size=8)
+
+        import transformers
+        from composer.models import HuggingFaceModel
+        from composer.trainer import Trainer
+
+        hf_model = transformers.AutoModelForSequenceClassification.from_pretrained('prajjwal1/bert-tiny', num_labels=2)
+        hf_tokenizer = transformers.AutoTokenizer.from_pretrained('prajjwal1/bert-tiny')
+        composer_model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, metrics=[], use_logits=True)
+        trainer = Trainer(model=composer_model,
+                            train_dataloader=train_dataloader,
+                            save_filename='composer-hf-checkpoint.pt',
+                            max_duration='1ep',
+                            save_folder='./')
+        trainer.fit()
+        trainer.close()
+
+    Example:
+
+    .. testcode::
+
+        from composer.models import write_huggingface_pretrained_from_composer_checkpoint
+
+        write_huggingface_pretrained_from_composer_checkpoint('composer-hf-checkpoint.pt', './hf-save-pretrained-output')
+        loaded_model = transformers.AutoModelForSequenceClassification.from_pretrained('./hf-save-pretrained-output')
+
+    Args:
+        checkpoint_path (Union[Path, str]): Path to the composer checkpoint, can be a local path, or a remote path beginning with ``s3://``, or another backend
+            supported by :meth:`composer.utils.maybe_create_object_store_from_uri`.
+        output_folder (Union[Path, str]): Path to the folder to write the output to. Must be a local path.
+        local_checkpoint_save_location (Optional[Union[Path, str]], optional): If specified, where to save the checkpoint file to locally.
+                                                                                If the input ``checkpoint_path`` is already a local path, this will be a symlink.
+                                                                                Defaults to None, which will use a temporary file.
+    """
+    try:
+        import transformers
+        del transformers
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='nlp',
+                                            conda_package='transformers',
+                                            conda_channel='conda-forge') from e
+
+    # default local path to a tempfile if path is not provided
+    if local_checkpoint_save_location is None:
+        tmp_dir = tempfile.TemporaryDirectory()
+        local_checkpoint_save_location = Path(tmp_dir.name) / 'local-composer-checkpoint.pt'
+
+    # download the checkpoint file
+    get_file(str(checkpoint_path), str(local_checkpoint_save_location))
+
+    composer_state_dict = torch.load(local_checkpoint_save_location)
+
+    config = get_hf_config_from_composer_state_dict(composer_state_dict)
+    config.save_pretrained(output_folder)
+
+    weights_state_dict = composer_state_dict['state']['model']
+    torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(weights_state_dict, prefix='model.')
+    torch.save(weights_state_dict, Path(output_folder) / 'pytorch_model.bin')
