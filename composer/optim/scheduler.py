@@ -329,10 +329,15 @@ class LinearScheduler(ComposerScheduler):
         self.alpha_i = alpha_i
         self.alpha_f = alpha_f
         self.t_max = Time.from_timestring(t_max) if isinstance(t_max, str) else t_max
+        self.time_shift = '0ba'
+
+    def set_time_shift(self, time_shift: Union[str, Time]):
+        self.time_shift = time_shift
 
     def __call__(self, state: State, ssr: float = 1.0):
         t_max = _convert_time(self.t_max, state, ssr=ssr)
         current_time = state.timestamp.get(t_max.unit)
+        current_time -= _convert_time(self.time_shift, state)
         frac_of_total = min(1.0, (current_time / t_max).value)
 
         current_factor = self.alpha_i + frac_of_total * (self.alpha_f - self.alpha_i)
@@ -741,7 +746,12 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
         self.t_max = t_max
         self.alpha_f = alpha_f
         self.scale_warmup = scale_warmup
+        self.time_shift = '0ba'
         self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=1.0, t_max=t_warmup)
+
+    def set_time_shift(self, time_shift: Union[str, Time]):
+        self.time_shift = time_shift
+        self.warmup_scheduler.set_time_shift(self.time_shift)
 
     def __call__(self, state: State, ssr: float = 1.0):
         t_warmup = _convert_time(self.t_warmup, state)
@@ -751,14 +761,17 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
                 The warmup duration is 0. If you specified warmup as a fraction of total
                 training duration, take note that the warmup duration is calculated in the
                 same unit as the trainer's max_duration parameter."""))
-
-        if state.timestamp < t_warmup:
+        time_shift = _convert_time(self.time_shift, state)
+        current_time = state.timestamp.get(time_shift.unit)
+        if (current_time - time_shift) < t_warmup:
             if self.scale_warmup:
                 return self.warmup_scheduler(state, ssr)
             return self.warmup_scheduler(state)
 
         t_max = _convert_time(self.t_max, state, ssr=ssr)
         current_time = state.timestamp.get(t_warmup.unit)
+        current_time -= _convert_time(self.time_shift, state)
+
         frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value if (t_max > t_warmup) else 0.0
         frac_of_total = min(1.0, frac_of_total)
 
