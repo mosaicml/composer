@@ -2760,9 +2760,6 @@ class Trainer:
 
                 self.engine.run_event(Event.EVAL_BATCH_END)
 
-            self.logger.log_metrics({'trainer/epoch': self.state.timestamp.epoch.value})
-            self.logger.log_metrics({'trainer/global_step': self.state.timestamp.batch.value})
-
             self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics)
 
             self.engine.run_event(Event.EVAL_END)
