@@ -205,7 +205,7 @@ class HuggingFaceModel(ComposerModel):
         get_file(checkpoint_path, str(local_checkpoint_save_location))
 
         # load the state dict in
-        loaded_state_dict = torch.load(local_checkpoint_save_location)
+        loaded_state_dict = torch.load(local_checkpoint_save_location, map_location='cpu')
 
         hf_state = loaded_state_dict['state']['integrations']['huggingface']
         hf_model_state = hf_state['model']
@@ -501,7 +501,7 @@ def write_huggingface_pretrained_from_composer_checkpoint(
     # download the checkpoint file
     get_file(str(checkpoint_path), str(local_checkpoint_save_location))
 
-    composer_state_dict = torch.load(local_checkpoint_save_location)
+    composer_state_dict = torch.load(local_checkpoint_save_location, map_location='cpu')
 
     config = get_hf_config_from_composer_state_dict(composer_state_dict)
     config.save_pretrained(output_folder)
