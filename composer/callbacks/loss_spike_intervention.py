@@ -137,7 +137,7 @@ class LossSpikeIntervention(Callback):
         clear_opt = self.unfreeze_policy.get('clear_opt', DEFAULT_CLEAR_OPT)
         newly_unfrozen_layers = set()
         for layer in self.frozen_layers:
-            if (batch_idx - self.frozen_layers[layer]) >= timeout:
+            if (batch_idx - self.frozen_layers[layer]) == timeout:
                 # unfreeze the layer
                 newly_unfrozen_layers.add(layer)
 
