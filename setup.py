@@ -96,7 +96,7 @@ extra_deps['dev'] = [
     # Imports for docs builds and running tests
     # Pinning versions strictly to avoid random test failures.
     # Should manually update dependency versions occassionally.
-    'custom_inherit==2.4.0',
+    'custom_inherit==2.4.1',
     'junitparser==2.8.0',
     'coverage[toml]==7.1.0',
     'fasteners==0.18',  # object store tests require fasteners
@@ -128,7 +128,7 @@ extra_deps['dev'] = [
     'nbsphinx==0.8.12',
     'pandoc==2.3',
     'pypandoc==1.10',
-    'GitPython==3.1.30',
+    'GitPython==3.1.31',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
     'cryptography==38.0.4',
