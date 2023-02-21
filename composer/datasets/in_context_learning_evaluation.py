@@ -97,7 +97,7 @@ class InContextLearningLMTaskDataset(Dataset):
         prompt_string: str,
         example_delimiter: str,
         continuation_delimiter: str,
-        destination_path: str = 'icl_lm_task.jsonl',
+        destination_path: str,
     ):
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
@@ -105,8 +105,8 @@ class InContextLearningLMTaskDataset(Dataset):
             raise MissingConditionalImportError(extra_deps_group='nlp',
                                                 conda_package='datasets',
                                                 conda_channel='conda-forge') from e
-
-        get_file(dataset_uri, destination_path, overwrite=True)
+        with dist.local_rank_zero_download_and_wait(destination_path):
+            get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
         self.samples = list(
             dataset.map(lambda examples: {
@@ -238,7 +238,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         prompt_string: str,
         example_delimiter: str,
         continuation_delimiter: str,
-        destination_path: str = 'icl_mc_task.jsonl',
+        destination_path: str,
     ):
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
@@ -247,7 +247,8 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
                                                 conda_package='datasets',
                                                 conda_channel='conda-forge') from e
 
-        get_file(dataset_uri, destination_path, overwrite=True)
+        with dist.local_rank_zero_download_and_wait(destination_path):
+            get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
         self.samples = list(
             dataset.map(lambda examples: {
@@ -367,16 +368,17 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
 
 
 def get_icl_task_dataloader(
-        icl_task_type: str,
-        dataset_uri: str,
-        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
-        batch_size: int,
-        max_seq_len: int,
-        pad_tok_id: int,
-        num_fewshot: int,
-        prompt_string: str,  # e.g. 'translate english to french:'
-        example_delimiter: str,  # e.g. '\n'
-        continuation_delimiter: str,  # e.g. ''
+    icl_task_type: str,
+    dataset_uri: str,
+    tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
+    batch_size: int,
+    max_seq_len: int,
+    pad_tok_id: int,
+    num_fewshot: int,
+    prompt_string: str,  # e.g. 'translate english to french:'
+    example_delimiter: str,  # e.g. '\n'
+    continuation_delimiter: str,  # e.g. ''
+    destination_path: str,
 ) -> DataSpec:
     """This constructs a dataloader capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
 
@@ -422,14 +424,27 @@ def get_icl_task_dataloader(
     """
 
     if icl_task_type == 'multiple_choice':
-        dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri, tokenizer, max_seq_len, pad_tok_id,
-                                                             num_fewshot, prompt_string, example_delimiter,
-                                                             continuation_delimiter)
+        dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri,
+                                                             tokenizer,
+                                                             max_seq_len,
+                                                             pad_tok_id,
+                                                             num_fewshot,
+                                                             prompt_string,
+                                                             example_delimiter,
+                                                             continuation_delimiter,
+                                                             destination_path=destination_path)
         batch_size = max(dataset.num_choices, batch_size)
         effective_batchsize = batch_size // dataset.num_choices
     elif icl_task_type == 'language_modeling':
-        dataset = InContextLearningLMTaskDataset(dataset_uri, tokenizer, max_seq_len, pad_tok_id, num_fewshot,
-                                                 prompt_string, example_delimiter, continuation_delimiter)
+        dataset = InContextLearningLMTaskDataset(dataset_uri,
+                                                 tokenizer,
+                                                 max_seq_len,
+                                                 pad_tok_id,
+                                                 num_fewshot,
+                                                 prompt_string,
+                                                 example_delimiter,
+                                                 continuation_delimiter,
+                                                 destination_path=destination_path)
         effective_batchsize = batch_size
     else:
         raise Exception(f'Unrecognized ICL task type: {icl_task_type}')
