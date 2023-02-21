@@ -17,7 +17,7 @@ DEFAULT_TIMEOUT = 5_000
 DEFAULT_LAYERWISE_LR_SCALE = 0.01
 DEFAULT_CLEAR_OPT = True
 DEFAULT_GLOBAL_LR_INCREASE = 1.0
-DEFAULT_UNFREEZE_LAYERS = True
+DEFAULT_UNFREEZE_LAYERS = False
 
 class MetricSpikeDetector:
 
@@ -208,6 +208,9 @@ class LossSpikeIntervention(Callback):
 
             for scheduler in state.schedulers:
                 scheduler.base_lrs = [self.global_lr_scale * lr for lr in scheduler.base_lrs]
+            
+            # we will decrease the rate at which we slow LR
+            self.global_lr_scale /= 2
 
         if self.unfreeze_policy is not None:
             self.unfreeze_layers(state, batch_idx)
