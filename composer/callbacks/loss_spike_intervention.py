@@ -135,11 +135,20 @@ class LossSpikeIntervention(Callback):
         for layer in self.frozen_layers:
             if (batch_idx - self.frozen_layers[layer]) >= timeout:
                 # unfreeze the layer
+                print(f"Unfreezing layer: {layer}")
                 newly_unfrozen_layers.add(layer)
 
         for layer in newly_unfrozen_layers:
             del self.frozen_layers[layer]
             self.all_layers.add(layer)
+            full_metric_name = f'{self.metric}/{layer}'
+            self.metric_spike_detectors[full_metric_name] = MetricSpikeDetector(
+                    self.window_moving_average,
+                    self.increase_factor,
+                    self.increase_lookback,
+                    self.plateau_min_duration,
+                    self.end_spike_factor,
+            )
             self.unfreeze_layer(layer, lr_scale, clear_opt, state)
 
     def batch_end(self, state: State, logger: Logger):
