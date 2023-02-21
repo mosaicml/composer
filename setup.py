@@ -96,7 +96,7 @@ extra_deps['dev'] = [
     # Imports for docs builds and running tests
     # Pinning versions strictly to avoid random test failures.
     # Should manually update dependency versions occassionally.
-    'custom_inherit==2.4.0',
+    'custom_inherit==2.4.1',
     'junitparser==2.8.0',
     'coverage[toml]==7.1.0',
     'fasteners==0.18',  # object store tests require fasteners
