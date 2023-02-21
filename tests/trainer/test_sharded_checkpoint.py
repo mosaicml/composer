@@ -91,6 +91,8 @@ def _compare_model_params_between_state_dicts(state_dict1, state_dict2):
 @pytest.mark.gpu
 @world_size(2)
 def test_fsdp_full_state_dict_save(world_size, tmp_path: pathlib.Path):
+    if version.parse(torch.__version__) < version.parse('1.13.0'):
+        pytest.skip()
 
     save_folder = tmp_path
     save_filename = 'rank{rank}.pt'
@@ -177,6 +179,8 @@ def test_fsdp_full_state_dict_save(world_size, tmp_path: pathlib.Path):
 @pytest.mark.gpu
 @world_size(2)
 def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path):
+    if version.parse(torch.__version__) < version.parse('1.13.0'):
+        pytest.skip()
 
     save_folder = tmp_path
     save_filename = 'rank{rank}.pt'
@@ -198,9 +202,9 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path):
 @world_size(2)
 @pytest.mark.parametrize('state_dict_type', ['local', 'sharded'])
 def test_fsdp_partitioned_state_dict_save(world_size, tmp_path: pathlib.Path, state_dict_type: str):
-
     if version.parse(torch.__version__) < version.parse('1.13.0'):
         pytest.skip()
+
     pytest.importorskip('torch.distributed.fsdp.fully_sharded_data_parallel')
     from torch.distributed.fsdp.fully_sharded_data_parallel import ShardedTensor
     save_folder = tmp_path
@@ -305,6 +309,8 @@ def test_fsdp_partitioned_state_dict_save(world_size, tmp_path: pathlib.Path, st
 @world_size(2)
 @pytest.mark.parametrize('state_dict_type', ['local', 'sharded'])
 def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, state_dict_type: str):
+    if version.parse(torch.__version__) < version.parse('1.13.0'):
+        pytest.skip()
 
     save_folder = tmp_path
     save_filename = 'rank{rank}.pt'
