@@ -39,7 +39,7 @@ def test_batch_padding_logic(tiny_gpt2_tokenizer):
 
 
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
-def test_lm_task_dataloader(dataset_uri, tiny_gpt2_tokenizer):
+def test_lm_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
     tokenizer = tiny_gpt2_tokenizer
@@ -55,7 +55,8 @@ def test_lm_task_dataloader(dataset_uri, tiny_gpt2_tokenizer):
                                  num_fewshot=0,
                                  prompt_string='',
                                  example_delimiter='\n',
-                                 continuation_delimiter='')
+                                 continuation_delimiter='',
+                                 destination_path=str(tmp_path / 'icl.jsonl'))
 
     assert isinstance(dl.dataloader, DataLoader)  # pyright
     batch = next(dl.dataloader._get_iterator())
@@ -75,7 +76,7 @@ def test_lm_task_dataloader(dataset_uri, tiny_gpt2_tokenizer):
 
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 1])
-def test_lm_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot):
+def test_lm_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
@@ -91,7 +92,8 @@ def test_lm_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot):
                                  num_fewshot=num_fewshot,
                                  prompt_string='',
                                  example_delimiter='\n',
-                                 continuation_delimiter='')
+                                 continuation_delimiter='',
+                                 destination_path=str(tmp_path / 'icl.jsonl'))
 
     assert isinstance(dl.dataloader, DataLoader)  # pyright
     batch = next(dl.dataloader._get_iterator())
@@ -113,7 +115,7 @@ def test_lm_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot):
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 1])
-def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot):
+def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
@@ -130,7 +132,8 @@ def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot):
                                  num_fewshot=num_fewshot,
                                  prompt_string='',
                                  example_delimiter='\n',
-                                 continuation_delimiter=': ')
+                                 continuation_delimiter=': ',
+                                 destination_path=str(tmp_path / 'icl.jsonl'))
 
     assert isinstance(dl.dataloader, DataLoader)  # pyright
     batch = next(dl.dataloader._get_iterator())
@@ -158,7 +161,7 @@ def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot):
 
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl'])
-def test_mc_task_dataloader(dataset_uri, tiny_gpt2_tokenizer):
+def test_mc_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
     tokenizer = tiny_gpt2_tokenizer
@@ -174,7 +177,8 @@ def test_mc_task_dataloader(dataset_uri, tiny_gpt2_tokenizer):
                                  num_fewshot=1,
                                  prompt_string='',
                                  example_delimiter='\n',
-                                 continuation_delimiter=': ')
+                                 continuation_delimiter=': ',
+                                 destination_path=str(tmp_path / 'icl.jsonl'))
 
     assert isinstance(dl.dataloader, DataLoader)  # pyright
     batch = next(dl.dataloader._get_iterator())
@@ -202,7 +206,7 @@ def test_mc_task_dataloader(dataset_uri, tiny_gpt2_tokenizer):
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 5])
 @device('gpu')
-def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenizer):
+def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenizer, tmp_path):
     pytest.importorskip('datasets')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -217,7 +221,9 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
                                  num_fewshot=num_fewshot,
                                  prompt_string='',
                                  example_delimiter='\n',
-                                 continuation_delimiter='')
+                                 continuation_delimiter='',
+                                 destination_path=str(tmp_path / 'icl.jsonl'))
+
     evaluator = Evaluator(label='lambada', dataloader=dl, metric_names=['InContextLearningLMAccuracy'])
     model = create_gpt2(use_pretrained=False, pretrained_model_name='EleutherAI/gpt-neo-125M')
     model.add_eval_metrics(evaluator)
@@ -230,7 +236,7 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl', 'hellaswag_small.jsonl'])
 @device('gpu')
 @pytest.mark.parametrize('num_fewshot', [0, 5])
-def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenizer):
+def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     pytest.importorskip('datasets')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -245,7 +251,9 @@ def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenize
                                  num_fewshot=num_fewshot,
                                  prompt_string='',
                                  example_delimiter='\n',
-                                 continuation_delimiter=': ')
+                                 continuation_delimiter=': ',
+                                 destination_path=str(tmp_path / 'icl.jsonl'))
+
     evaluator = Evaluator(label='lambada', dataloader=dl, metric_names=['InContextLearningMultipleChoiceAccuracy'])
     model = create_gpt2(use_pretrained=False, pretrained_model_name='EleutherAI/gpt-neo-125M')
     model.add_eval_metrics(evaluator)
