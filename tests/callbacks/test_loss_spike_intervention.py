@@ -20,7 +20,10 @@ def test_loss_spike_intervention():
                                          increase_factor=5,
                                          increase_lookback=500,
                                          plateau_min_duration=100,
-                                         end_spike_factor=1.10)
+                                         end_spike_factor=1.10,
+                                         unfreeze_policy={
+                                            "timeout": 2,
+                                         })
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     model = SimpleModel()
     # Construct the trainer and train
@@ -30,7 +33,7 @@ def test_loss_spike_intervention():
         loggers=in_memory_logger,
         train_dataloader=DataLoader(RandomClassificationDataset()),
         optimizers=DecoupledAdamW(model.parameters()),
-        max_duration='3ba',
+        max_duration='10ba',
     )
     trainer.fit()
     num_train_steps = int(trainer.state.timestamp.batch)

@@ -13,10 +13,11 @@ from composer.utils import dist
 
 __all__ = ['LossSpikeIntervention']
 
-DEFAULT_TIMEOUT = 10_000
-DEFAULT_LR_SCALE = 0.01
+DEFAULT_TIMEOUT = 5_000
+DEFAULT_LAYERWISE_LR_SCALE = 0.01
 DEFAULT_CLEAR_OPT = True
-
+DEFAULT_GLOBAL_LR_INCREASE = 1.0
+DEFAULT_UNFREEZE_LAYERS = True
 
 class MetricSpikeDetector:
 
@@ -87,10 +88,10 @@ class LossSpikeIntervention(Callback):
                  increase_lookback=500,
                  plateau_min_duration=100,
                  end_spike_factor=1.10,
-                 lr_scale=0.0,
+                 global_lr_scale=0.0,
                  unfreeze_policy=None):
         self.metric = metric
-        self.lr_scale = lr_scale
+        self.global_lr_scale = global_lr_scale
         self.window_moving_average = window_moving_average
         self.increase_factor = increase_factor
         self.increase_lookback = increase_lookback
@@ -115,41 +116,52 @@ class LossSpikeIntervention(Callback):
                     self.end_spike_factor,
                 )
 
-    def unfreeze_layer(self, layer, lr_scale, clear_opt, state):
+    def unfreeze_layer(self, layer, layerwise_lr_scale, clear_opt, state):
         for name, p in state.model.named_parameters():
             if name == layer:
                 p.requires_grad = True
                 set_scaling = getattr(state.optimizers[0], 'set_scaling', None)
                 if set_scaling:
-                    set_scaling(p, lr_scale)
+                    set_scaling(p, layerwise_lr_scale)
 
                 reset_param_state = getattr(state.optimizers[0], 'reset_param_state', None)
                 if reset_param_state and clear_opt:
                     reset_param_state(p)
+                break
 
     def unfreeze_layers(self, state, batch_idx):
         timeout = self.unfreeze_policy.get('timeout', DEFAULT_TIMEOUT)
-        lr_scale = self.unfreeze_policy.get('lr_scale', DEFAULT_LR_SCALE)
+        layerwise_lr_scale = self.unfreeze_policy.get('layerwise_lr_scale', DEFAULT_LAYERWISE_LR_SCALE)
+        global_lr_increase = self.unfreeze_policy.get('global_lr_increase', DEFAULT_GLOBAL_LR_INCREASE)
+        unfreeze_layers = self.unfreeze_layer.get('unfreeze_layers', DEFAULT_UNFREEZE_LAYERS)
         clear_opt = self.unfreeze_policy.get('clear_opt', DEFAULT_CLEAR_OPT)
         newly_unfrozen_layers = set()
         for layer in self.frozen_layers:
             if (batch_idx - self.frozen_layers[layer]) >= timeout:
                 # unfreeze the layer
-                print(f"Unfreezing layer: {layer}")
                 newly_unfrozen_layers.add(layer)
 
-        for layer in newly_unfrozen_layers:
-            del self.frozen_layers[layer]
-            self.all_layers.add(layer)
-            full_metric_name = f'{self.metric}/{layer}'
-            self.metric_spike_detectors[full_metric_name] = MetricSpikeDetector(
-                    self.window_moving_average,
-                    self.increase_factor,
-                    self.increase_lookback,
-                    self.plateau_min_duration,
-                    self.end_spike_factor,
-            )
-            self.unfreeze_layer(layer, lr_scale, clear_opt, state)
+        if len(newly_unfrozen_layers) > 0:
+            for optimizer in state.optimizers:
+                for group in optimizer.param_groups:
+                    group['lr'] *= global_lr_increase
+
+            for scheduler in state.schedulers:
+                scheduler.base_lrs = [global_lr_increase * lr for lr in scheduler.base_lrs]
+
+        if unfreeze_layers:
+            for layer in newly_unfrozen_layers:
+                del self.frozen_layers[layer]
+                self.all_layers.add(layer)
+                full_metric_name = f'{self.metric}/{layer}'
+                self.metric_spike_detectors[full_metric_name] = MetricSpikeDetector(
+                        self.window_moving_average,
+                        self.increase_factor,
+                        self.increase_lookback,
+                        self.plateau_min_duration,
+                        self.end_spike_factor,
+                )
+                self.unfreeze_layer(layer, layerwise_lr_scale, clear_opt, state)
 
     def batch_end(self, state: State, logger: Logger):
         norm = 0.0
@@ -192,10 +204,10 @@ class LossSpikeIntervention(Callback):
             self.freeze_layers(newly_failed_layers, state)
             for optimizer in state.optimizers:
                 for group in optimizer.param_groups:
-                    group['lr'] *= self.lr_scale
+                    group['lr'] *= self.global_lr_scale
 
             for scheduler in state.schedulers:
-                scheduler.base_lrs = [self.lr_scale * lr for lr in scheduler.base_lrs]
+                scheduler.base_lrs = [self.global_lr_scale * lr for lr in scheduler.base_lrs]
 
         if self.unfreeze_policy is not None:
             self.unfreeze_layers(state, batch_idx)
