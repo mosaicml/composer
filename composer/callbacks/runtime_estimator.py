@@ -130,6 +130,8 @@ class RuntimeEstimator(Callback):
             rate = elapsed_time / (elapsed_dur - self.start_dur)
             remaining_time = rate * (1 - elapsed_dur)
 
+            print(f'Batch end: remaining_time: {remaining_time}')
+
             # Add remaining time from each evaluator using known frequencies. We explicitly compute
             # frequency instead of using time interpolation to avoid saw tooth pattern in estimates
             for dataloader_label, eval_wcts in self.eval_wct_per_label.items():
@@ -141,6 +143,9 @@ class RuntimeEstimator(Callback):
                 else:
                     eval_wct_avg = sum(eval_wcts) / num_evals_finished
                 eval_rate = self.eval_frequency_per_label[dataloader_label]
+                print(
+                    f'dataloader_label: {dataloader_label}, eval_wct_avg: {eval_wct_avg}, eval_rate: {eval_rate}, num_evals_finished: {num_evals_finished}'
+                )
                 if eval_rate > 0:
                     num_total_evals = 1 / eval_rate
                     remaining_calls = num_total_evals - num_evals_finished
@@ -167,3 +172,4 @@ class RuntimeEstimator(Callback):
         else:
             self.eval_frequency_per_label[state.dataloader_label] = elapsed_fraction / len(
                 self.eval_wct_per_label[state.dataloader_label])
+            print(f'Eval finished! eval_frequency_per_label: {self.eval_frequency_per_label[state.dataloader_label]}')
