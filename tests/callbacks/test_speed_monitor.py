@@ -4,6 +4,7 @@
 import collections.abc
 import datetime
 
+import pytest
 from torch.utils.data import DataLoader
 
 from composer.callbacks import SpeedMonitor
@@ -24,14 +25,19 @@ def _assert_no_negative_values(logged_values):
             assert v >= 0
 
 
-def test_speed_monitor():
+@pytest.mark.parametrize('has_flops_per_batch', [True, False])
+def test_speed_monitor(has_flops_per_batch: bool):
     # Construct the callbacks
     speed_monitor = SpeedMonitor(window_size=2)
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
 
+    model = SimpleModel()
+    if has_flops_per_batch:
+        model.flops_per_batch = 100
+
     # Construct the trainer and train
     trainer = Trainer(
-        model=SimpleModel(),
+        model=model,
         callbacks=speed_monitor,
         loggers=in_memory_logger,
         train_dataloader=DataLoader(RandomClassificationDataset()),
@@ -43,14 +49,26 @@ def test_speed_monitor():
     _assert_no_negative_values(in_memory_logger.data['wall_clock/train'])
     _assert_no_negative_values(in_memory_logger.data['wall_clock/val'])
     _assert_no_negative_values(in_memory_logger.data['wall_clock/total'])
+    _assert_no_negative_values(in_memory_logger.data['throughput/batches_per_sec'])
     _assert_no_negative_values(in_memory_logger.data['throughput/samples_per_sec'])
+    _assert_no_negative_values(in_memory_logger.data['throughput/device/batches_per_sec'])
+    _assert_no_negative_values(in_memory_logger.data['throughput/device/samples_per_sec'])
+    if has_flops_per_batch:
+        _assert_no_negative_values(in_memory_logger.data['throughput/flops_per_sec'])
+        _assert_no_negative_values(in_memory_logger.data['throughput/device/flops_per_sec'])
 
     assert isinstance(trainer.state.dataloader, collections.abc.Sized)
     assert trainer.state.dataloader_label is not None
     assert trainer.state.dataloader_len is not None
     expected_step_calls = (trainer.state.dataloader_len - len(speed_monitor.history_samples) + 1) * int(
         trainer.state.timestamp.epoch)
+    assert len(in_memory_logger.data['throughput/batches_per_sec']) == expected_step_calls
     assert len(in_memory_logger.data['throughput/samples_per_sec']) == expected_step_calls
+    assert len(in_memory_logger.data['throughput/device/batches_per_sec']) == expected_step_calls
+    assert len(in_memory_logger.data['throughput/device/samples_per_sec']) == expected_step_calls
+    if has_flops_per_batch:
+        assert len(in_memory_logger.data['throughput/flops_per_sec']) == expected_step_calls
+        assert len(in_memory_logger.data['throughput/device/flops_per_sec']) == expected_step_calls
     num_batches = int(trainer.state.timestamp.batch)
     assert len(in_memory_logger.data['wall_clock/total']) == num_batches
     assert len(in_memory_logger.data['wall_clock/train']) == num_batches

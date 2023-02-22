@@ -266,11 +266,11 @@ class SpeedMonitor(Callback):
             composer_model = state.model
             if not isinstance(composer_model, ComposerModel):
                 composer_model = composer_model.module  # Pass through DDP wrapping
-            if hasattr(composer_model, 'num_fwd_flops'):
-                num_fwd_flops = composer_model.num_fwd_flops  # type: ignore
-                if not isinstance(num_fwd_flops, (int, float)):
-                    raise TypeError(f'num_fwd_flops must be int or float, got {type(num_fwd_flops)}.')
-                flops_per_sec = num_fwd_flops * samples_per_sec
+            if hasattr(composer_model, 'flops_per_batch'):
+                flops_per_batch = composer_model.flops_per_batch  # type: ignore
+                if not isinstance(flops_per_batch, (int, float)):
+                    raise TypeError(f'flops_per_batch must be int or float, got {type(flops_per_batch)}.')
+                flops_per_sec = flops_per_batch * samples_per_sec
                 logger.log_metrics({'throughput/flops_per_sec': flops_per_sec})
                 dev_flops_per_sec = flops_per_sec / world_size
                 logger.log_metrics({'throughput/device/flops_per_sec': dev_flops_per_sec})
