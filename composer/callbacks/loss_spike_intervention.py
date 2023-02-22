@@ -89,7 +89,9 @@ class LossSpikeIntervention(Callback):
                  plateau_min_duration=100,
                  end_spike_factor=1.10,
                  global_lr_scale=0.0,
-                 unfreeze_policy=None):
+                 unfreeze_policy=None,
+                 lr_raise_rate=1.0,
+                 raise_frequency=10_000):
         self.metric = metric
         self.global_lr_scale = global_lr_scale
         self.window_moving_average = window_moving_average
@@ -102,6 +104,9 @@ class LossSpikeIntervention(Callback):
         self.frozen_layers = {}
         self.all_layers = set()
         self.unfreeze_policy = unfreeze_policy
+        self.batch_last_frozen = 0
+        self.lr_raise_rate = lr_raise_rate
+        self.raise_frequency = raise_frequency
 
     def fit_start(self, state: State, logger: Logger) -> None:
         for name, p in state.model.named_parameters():
@@ -163,6 +168,14 @@ class LossSpikeIntervention(Callback):
                 )
                 self.unfreeze_layer(layer, layerwise_lr_scale, clear_opt, state)
 
+    def scale_global_lrs(self, state, scale):
+        for optimizer in state.optimizers:
+                for group in optimizer.param_groups:
+                    group['lr'] *= scale
+
+        for scheduler in state.schedulers:
+                scheduler.base_lrs = [scale * lr for lr in scheduler.base_lrs]
+
     def batch_end(self, state: State, logger: Logger):
         norm = 0.0
         optimizer_metrics = {}
@@ -201,14 +214,9 @@ class LossSpikeIntervention(Callback):
         newly_failed_layers = self.detect_failed_layers(optimizer_metrics, batch_idx)
 
         if len(newly_failed_layers) > 0:
+            self.batch_last_frozen = batch_idx
             self.freeze_layers(newly_failed_layers, state)
-            for optimizer in state.optimizers:
-                for group in optimizer.param_groups:
-                    group['lr'] *= self.global_lr_scale
-
-            for scheduler in state.schedulers:
-                scheduler.base_lrs = [self.global_lr_scale * lr for lr in scheduler.base_lrs]
-            
+            self.scale_global_lrs(state, self.global_lr_scale)
             # we will decrease the rate at which we slow LR
             self.global_lr_scale = max(1 - (1-self.global_lr_scale) / 2, 1.0)
 
@@ -217,6 +225,9 @@ class LossSpikeIntervention(Callback):
 
         optimizer_metrics['num_frozen_layers'] = len(self.frozen_layers)
         logger.log_metrics(optimizer_metrics)
+
+        if batch_idx - self.batch_last_frozen > 0 and (batch_idx - self.batch_last_frozen) % self.raise_frequency == 0:
+            self.scale_global_lrs(state, self.lr_raise_rate)
 
         if len(self.all_layers) == 0:
             state.stop_training()
