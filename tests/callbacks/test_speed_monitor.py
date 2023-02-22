@@ -48,8 +48,8 @@ def test_speed_monitor():
     assert isinstance(trainer.state.dataloader, collections.abc.Sized)
     assert trainer.state.dataloader_label is not None
     assert trainer.state.dataloader_len is not None
-    expected_step_calls = (trainer.state.dataloader_len - len(speed_monitor.history_samples)) * int(
-        trainer.state.timestamp.epoch) - 1
+    expected_step_calls = (trainer.state.dataloader_len - len(speed_monitor.history_samples) + 1) * int(
+        trainer.state.timestamp.epoch)
     assert len(in_memory_logger.data['throughput/samples_per_sec']) == expected_step_calls
     num_batches = int(trainer.state.timestamp.batch)
     assert len(in_memory_logger.data['wall_clock/total']) == num_batches
