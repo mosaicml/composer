@@ -471,7 +471,7 @@ class TestTrainerInitOrFit:
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
     @pytest.mark.gpu
-    @pytest.mark.parametrize('precision', list(Precision))
+    @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])
     @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_deepspeed(
         self,
@@ -496,7 +496,7 @@ class TestTrainerInitOrFit:
     @pytest.mark.gpu
     @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                         reason='requires PyTorch 1.13 or higher')
-    @pytest.mark.parametrize('precision', list(Precision))
+    @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])
     @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_fsdp(
         self,
@@ -578,7 +578,7 @@ class TestTrainerInitOrFit:
         assert all(p.device.type == 'cuda' for p in trainer_2.state.model.parameters())
         map_collection(trainer_2.state.optimizers, _assert_optimizer_is_on_device)
 
-    @pytest.mark.parametrize('precision', list(Precision))
+    @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])
     @pytest.mark.parametrize('device', ['cpu', pytest.param('gpu', marks=pytest.mark.gpu)])
     def test_precision(
         self,
@@ -893,6 +893,67 @@ class TestTrainerInitOrFit:
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_CHECKPOINT] == 2
 
 
+@pytest.mark.vision
+class TestFFCVDataloaders:
+
+    train_file = None
+    val_file = None
+    tmp_path = None
+
+    @pytest.fixture(autouse=True)
+    def create_dataset(self, tmp_path_factory: pytest.TempPathFactory):
+        dataset_train = RandomImageDataset(size=16, is_PIL=True)
+        self.tmp_path = tmp_path_factory.mktemp('ffcv')
+        output_train_file = str(self.tmp_path / 'train.ffcv')
+        write_ffcv_dataset(dataset_train, write_path=output_train_file, num_workers=1, write_mode='proportion')
+        dataset_val = RandomImageDataset(size=16, is_PIL=True)
+        output_val_file = str(self.tmp_path / 'val.ffcv')
+        write_ffcv_dataset(dataset_val, write_path=output_val_file, num_workers=1, write_mode='proportion')
+        self.train_file = output_train_file
+        self.val_file = output_val_file
+
+    def _get_dataloader(self, is_train):
+        assert self.tmp_path is not None
+        assert self.train_file is not None
+        assert self.val_file is not None
+        datadir = os.path.join(self.tmp_path, self.train_file if is_train else self.val_file)
+        return build_ffcv_imagenet_dataloader(
+            datadir=str(datadir),
+            global_batch_size=4,
+            is_train=is_train,
+            num_workers=0,
+        )
+
+    @pytest.fixture
+    def config(self):
+        try:
+            import ffcv
+        except ImportError as e:
+            raise ImportError(('Composer was installed without ffcv support. '
+                               'To use ffcv with Composer, please install ffcv in your environment.')) from e
+        train_dataloader = self._get_dataloader(is_train=True)
+        val_dataloader = self._get_dataloader(is_train=False)
+        assert isinstance(train_dataloader, ffcv.Loader)
+        assert isinstance(val_dataloader, ffcv.Loader)
+        return {
+            'model': SimpleConvModel(),
+            'train_dataloader': train_dataloader,
+            'eval_dataloader': val_dataloader,
+            'max_duration': '2ep',
+        }
+
+    """
+    Tests that training completes with ffcv dataloaders.
+    """
+
+    @device('gpu-amp', precision=True)
+    def test_ffcv(self, config, device, precision):
+        config['device'] = device
+        config['precision'] = precision
+        trainer = Trainer(**config)
+        trainer.fit()
+
+
 @world_size(1, 2)
 @device('cpu', 'gpu', 'gpu-amp', precision=True)
 class TestTrainerEquivalence():
@@ -1142,67 +1203,6 @@ class TestTrainerEvents():
         trainer = Trainer(**config)
         with pytest.raises(AssertionError):
             trainer.fit()
-
-
-@pytest.mark.vision
-class TestFFCVDataloaders:
-
-    train_file = None
-    val_file = None
-    tmp_path = None
-
-    @pytest.fixture(autouse=True)
-    def create_dataset(self, tmp_path_factory: pytest.TempPathFactory):
-        dataset_train = RandomImageDataset(size=16, is_PIL=True)
-        self.tmp_path = tmp_path_factory.mktemp('ffcv')
-        output_train_file = str(self.tmp_path / 'train.ffcv')
-        write_ffcv_dataset(dataset_train, write_path=output_train_file, num_workers=1, write_mode='proportion')
-        dataset_val = RandomImageDataset(size=16, is_PIL=True)
-        output_val_file = str(self.tmp_path / 'val.ffcv')
-        write_ffcv_dataset(dataset_val, write_path=output_val_file, num_workers=1, write_mode='proportion')
-        self.train_file = output_train_file
-        self.val_file = output_val_file
-
-    def _get_dataloader(self, is_train):
-        assert self.tmp_path is not None
-        assert self.train_file is not None
-        assert self.val_file is not None
-        datadir = os.path.join(self.tmp_path, self.train_file if is_train else self.val_file)
-        return build_ffcv_imagenet_dataloader(
-            datadir=str(datadir),
-            global_batch_size=4,
-            is_train=is_train,
-            num_workers=0,
-        )
-
-    @pytest.fixture
-    def config(self):
-        try:
-            import ffcv
-        except ImportError as e:
-            raise ImportError(('Composer was installed without ffcv support. '
-                               'To use ffcv with Composer, please install ffcv in your environment.')) from e
-        train_dataloader = self._get_dataloader(is_train=True)
-        val_dataloader = self._get_dataloader(is_train=False)
-        assert isinstance(train_dataloader, ffcv.Loader)
-        assert isinstance(val_dataloader, ffcv.Loader)
-        return {
-            'model': SimpleConvModel(),
-            'train_dataloader': train_dataloader,
-            'eval_dataloader': val_dataloader,
-            'max_duration': '2ep',
-        }
-
-    """
-    Tests that training completes with ffcv dataloaders.
-    """
-
-    @device('gpu-amp', precision=True)
-    def test_ffcv(self, config, device, precision):
-        config['device'] = device
-        config['precision'] = precision
-        trainer = Trainer(**config)
-        trainer.fit()
 
 
 @pytest.mark.world_size(2)

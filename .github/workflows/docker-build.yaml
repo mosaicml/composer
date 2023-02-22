@@ -1,0 +1,100 @@
+name: Docker Build
+on:
+  workflow_call:
+    inputs:
+      build-matrix:
+        required: true
+        type: string
+      context:
+        required: true
+        type: string
+      push:
+        required: true
+        type: boolean
+      staging:
+        required: true
+        type: boolean
+      staging-repo:
+        required: false
+        type: string
+    secrets:
+      username:
+        required: true
+      password:
+        required: true
+jobs:
+  build-images:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix: ${{ fromJSON(inputs.build-matrix) }}
+    name: "${{ matrix.IMAGE_NAME }}"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.username }}
+          password: ${{ secrets.password }}
+
+      - name: Calculate Docker Image Variables
+        run: |
+          set -euxo pipefail
+
+          ###################
+          # Image config
+          ###################
+          echo "IMAGE_NAME: ${{ matrix.IMAGE_NAME }}"
+          echo "BASE_IMAGE: ${{ matrix.BASE_IMAGE }}"
+          echo "TARGET: ${{ matrix.TARGET }}"
+          echo "PYTHON_VERSION: ${{ matrix.PYTHON_VERSION }}"
+          echo "PYTORCH_VERSION: ${{ matrix.PYTORCH_VERSION }}"
+          echo "TORCHTEXT_VERSION: ${{ matrix.TORCHTEXT_VERSION }}"
+          echo "TORCHVISION_VERSION: ${{ matrix.TORCHVISION_VERSION }}"
+          echo "CUDA_VERSION: ${{ matrix.CUDA_VERSION }}"
+          echo "AWS_OFI_NCCL_VERSION: ${{ matrix.AWS_OFI_NCCL_VERSION }}"
+          echo "COMPOSER_INSTALL_COMMAND: ${{ matrix.COMPOSER_INSTALL_COMMAND }}"
+          echo "TAGS: ${{ matrix.TAGS }}"
+          echo "UUID: ${{ matrix.UUID }}"
+
+          ###################
+          # Calculate the tag
+          ###################
+          if [[ ${{ inputs.staging }} ]]; then
+            STAGING_REPO=${{ inputs.staging-repo }}
+            IMAGE_TAG=${STAGING_REPO}:${{ matrix.UUID }}
+            IMAGE_CACHE="${STAGING_REPO}:${{ matrix.IMAGE_NAME }}-buildcache"
+          else
+            IMAGE_TAG=${{ matrix.TAGS }}
+            IMAGE_CACHE="${IMAGE_TAG}-buildcache"
+          fi
+
+          echo "IMAGE_TAG=${IMAGE_TAG}" >> ${GITHUB_ENV}
+          echo "IMAGE_CACHE=${IMAGE_CACHE}" >> ${GITHUB_ENV}
+
+      - name: Build and Push the Docker Image
+        uses: docker/build-push-action@v3
+        with:
+          context: ${{ inputs.context }}
+          tags: ${{ env.IMAGE_TAG }}
+          target: ${{ matrix.TARGET }}
+          push: ${{ inputs.push }}
+          cache-from: type=registry,ref=${{ env.IMAGE_CACHE }}
+          cache-to: type=registry,ref=${{ env.IMAGE_CACHE }},mode=max
+          build-args: |
+            BASE_IMAGE=${{ matrix.BASE_IMAGE }}
+            CUDA_VERSION=${{ matrix.CUDA_VERSION }}
+            AWS_OFI_NCCL_VERSION=${{ matrix.AWS_OFI_NCCL_VERSION }}
+            PYTHON_VERSION=${{ matrix.PYTHON_VERSION }}
+            PYTORCH_VERSION=${{ matrix.PYTORCH_VERSION }}
+            TORCHTEXT_VERSION=${{ matrix.TORCHTEXT_VERSION }}
+            TORCHVISION_VERSION=${{ matrix.TORCHVISION_VERSION }}
+            COMPOSER_INSTALL_COMMAND=${{ matrix.COMPOSER_INSTALL_COMMAND }}

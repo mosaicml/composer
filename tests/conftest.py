@@ -62,7 +62,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
                 help="""\
         Rank zero seed to use. `reproducibility.seed_all(seed + dist.get_global_rank())` will be invoked
         before each test.""")
-    _add_option(parser, 'sftp_uri', help='SFTP URI for integration tests.')
     _add_option(parser, 's3_bucket', help='S3 Bucket for integration tests')
 
 
