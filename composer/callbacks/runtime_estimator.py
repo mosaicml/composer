@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import time
 import warnings
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from composer.core import Callback, State, TimeUnit
 from composer.loggers import Logger
@@ -58,6 +58,27 @@ class RuntimeEstimator(Callback):
         self.start_time = None
         self.start_dur = None
 
+        # Keep track of time spent evaluating
+        self.total_eval_wct = 0.0
+        self.eval_wct_per_label: Dict[str, List[float]] = {}
+        # How often eval is called as fraction of total training time
+        self.eval_frequency_per_label: Dict[str, float] = {}
+        self.last_elapsed_fraction: float = 0.0
+
+    def state_dict(self) -> Dict[str, Any]:
+        return {
+            'total_eval_wct': self.total_eval_wct,
+            'eval_wct_per_label': self.eval_wct_per_label,
+            'eval_frequency_per_label': self.eval_frequency_per_label,
+            'last_elapsed_fraction': self.last_elapsed_fraction,
+        }
+
+    def load_state_dict(self, state: Dict[str, Any]) -> None:
+        self.total_eval_wct = state['total_eval_wct']
+        self.eval_wct_per_label = state['eval_wct_per_label']
+        self.eval_frequency_per_label = state['eval_frequency_per_label']
+        self.last_elapsed_fraction = state['last_elapsed_fraction']
+
     def get_elapsed_duration(self, state: State) -> Optional[float]:
         """Get the elapsed duration.
 
@@ -103,8 +124,42 @@ class RuntimeEstimator(Callback):
         assert self.start_time is not None
         if elapsed_dur > self.start_dur:
             elapsed_time = time.time() - self.start_time
+            elapsed_time -= self.total_eval_wct  # Subtract time spent evaluating
             print(
                 f'Elapsed time: {elapsed_time}, elapsed duration: {elapsed_dur}, checkpoint duration: {self.start_dur}')
             rate = elapsed_time / (elapsed_dur - self.start_dur)
             remaining_time = rate * (1 - elapsed_dur)
+
+            # Add remaining time from each evaluator using known frequencies
+            for dataloader_label, eval_wcts in self.eval_wct_per_label.items():
+                # Discard first eval_wct if possible as it often slower due to dataset downloading
+                eval_wct_avg = None
+                num_evals_finished = len(eval_wcts)
+                if num_evals_finished > 1:
+                    eval_wct_avg = sum(eval_wcts[1:]) / (num_evals_finished - 1)
+                else:
+                    eval_wct_avg = sum(eval_wcts) / num_evals_finished
+                eval_rate = self.eval_frequency_per_label[dataloader_label]
+                if eval_rate > 0:
+                    num_total_evals = 1 / eval_rate
+                    remaining_calls = num_total_evals - num_evals_finished
+                    remaining_time += eval_wct_avg * remaining_calls
+
             logger.log_metrics({'wall_clock/remaining_estimate': remaining_time})
+
+    def eval_end(self, state: State, logger: Logger) -> None:
+        self.total_eval_wct += state.eval_timestamp.total_wct.total_seconds()
+        # state.dataloader_label should always be non-None unless user explicitly sets evaluator
+        # label to None, ignoring type hints
+        assert state.dataloader_label is not None, 'evaluator label must not be None'
+        if state.dataloader_label not in self.eval_wct_per_label:
+            self.eval_wct_per_label[state.dataloader_label] = []
+        self.eval_wct_per_label[state.dataloader_label].append(state.eval_timestamp.total_wct.total_seconds())
+        elapsed_fraction = self.get_elapsed_duration(state)
+        if elapsed_fraction is None:
+            warnings.warn(
+                'Attempting to estimate remaining time but `max_duration` is not set. Skipping adjustment for evaluation time.'
+            )
+        else:
+            self.eval_frequency_per_label[state.dataloader_label] = elapsed_fraction / len(
+                self.eval_wct_per_label[state.dataloader_label])
