@@ -49,7 +49,7 @@ class RuntimeEstimator(Callback):
 
     def __init__(self) -> None:
         self._enabled = True
-        self.start_time = time.time()
+        self.start_time = None
         self.checkpoint_dur = None
 
     def get_elapsed_duration(self, state: State) -> Optional[float]:
@@ -70,14 +70,14 @@ class RuntimeEstimator(Callback):
         return None
 
     def fit_start(self, state: State, logger: Logger) -> None:
-        print(f'Fit start: {time.time() - self.start_time}')
         self.checkpoint_dur = self.get_elapsed_duration(state)
         if self.checkpoint_dur is None:
             warnings.warn('`max_duration` is not set. Cannot estimate remaining time.')
             self._enabled = False
 
     def batch_start(self, state: State, logger: Logger) -> None:
-        print(f'Batch start: {time.time() - self.start_time}')
+        if self.start_time is None:
+            self.start_time = time.time()
 
     def batch_end(self, state: State, logger: Logger) -> None:
         if not self._enabled:
@@ -90,6 +90,7 @@ class RuntimeEstimator(Callback):
             return
 
         assert self.checkpoint_dur is not None
+        assert self.start_time is not None
         elapsed_time = time.time() - self.start_time
         print(
             f'Elapsed time: {elapsed_time}, elapsed duration: {elapsed_dur}, checkpoint duration: {self.checkpoint_dur}'
