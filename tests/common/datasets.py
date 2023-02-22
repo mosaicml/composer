@@ -5,11 +5,28 @@ from typing import Sequence
 import pytest
 import torch
 from PIL import Image
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, IterableDataset
 from torchvision.datasets import VisionDataset
 
 from composer.utils import dist
 from tests.common.models import configure_tiny_bert_tokenizer, configure_tiny_gpt2_tokenizer
+
+
+class InfiniteClassificationDataset(IterableDataset):
+    """Classification dataset that never ends.
+
+    Args:
+        shape (Sequence[int]): shape of features (default: (1, 1, 1))
+        num_classes (int): number of classes (default: 2)
+    """
+
+    def __init__(self, shape: Sequence[int] = (1, 1, 1), num_classes: int = 2):
+        self.shape = shape
+        self.num_classes = num_classes
+
+    def __iter__(self):
+        while True:
+            yield torch.randn(*self.shape), torch.randint(0, self.num_classes, size=(1,))[0]
 
 
 class RandomClassificationDataset(Dataset):
@@ -181,10 +198,18 @@ class RandomTextLMDataset(Dataset):
         use_keys: (bool): whether to return the item in a dictionary with keys for input and output
     """
 
-    def __init__(self, size: int = 100, vocab_size: int = 10, sequence_length: int = 8, use_keys: bool = False):
+    def __init__(self,
+                 size: int = 100,
+                 vocab_size: int = 10,
+                 sequence_length: int = 8,
+                 use_keys: bool = False,
+                 use_token_type_ids: bool = True,
+                 conditional_generation: bool = False):
         self.vocab_size = vocab_size
         self.sequence_length = sequence_length
         self.use_keys = use_keys
+        self.use_token_type_ids = use_token_type_ids
+        self.conditional_generation = conditional_generation
 
         self.input_key = 'input_ids'
 
@@ -200,13 +225,20 @@ class RandomTextLMDataset(Dataset):
     def __getitem__(self, index: int):
         if self.x is None:
             self.x = torch.randint(low=0, high=self.vocab_size, size=(self.size, self.sequence_length))
+            if self.conditional_generation:
+                self.y = torch.randint(low=0, high=self.vocab_size, size=(self.size, 2 * self.sequence_length))
 
         x = self.x[index]
 
         if self.use_keys:
-            return {'input_ids': x, 'token_type_ids': torch.zeros_like(x)}
+            output = {'input_ids': x}
+            if self.use_token_type_ids:
+                output['token_type_ids'] = torch.zeros_like(x)
+            if self.y is not None:
+                output['labels'] = self.y[index]
+            return output
         else:
-            return x
+            return x if self.y is None else (x, self.y[index])
 
 
 class SimpleDataset(Dataset):
