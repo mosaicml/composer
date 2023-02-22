@@ -45,12 +45,18 @@ class RuntimeEstimator(Callback):
     +===================================+=========================================================+
     | ``wall_clock/remaining_estimate`` | Estimated time to completion                            |
     +-----------------------------------+---------------------------------------------------------+
+
+    Args:
+        skip_batches (int, optional): Number of batches to skip before starting clock to estimate
+            remaining time. Typically, the first few batches are slower due to dataloader, cache
+            warming, and other reasons. Defaults to 1.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, skip_batches: int = 1) -> None:
         self._enabled = True
+        self.batches_left_to_skip = skip_batches
         self.start_time = None
-        self.checkpoint_dur = None
+        self.start_dur = None
 
     def get_elapsed_duration(self, state: State) -> Optional[float]:
         """Get the elapsed duration.
@@ -64,23 +70,25 @@ class RuntimeEstimator(Callback):
             batches_per_epoch = (state.timestamp.batch -
                                  state.timestamp.batch_in_epoch).value / state.timestamp.epoch.value
             return state.timestamp.get('ba').value / (state.max_duration.value * batches_per_epoch)
+        # TODO: Compute ba count if max dur in ep but dataloader len is available
         elapsed_dur = state.get_elapsed_duration()
         if elapsed_dur is not None:
             return elapsed_dur.value
         return None
 
-    def fit_start(self, state: State, logger: Logger) -> None:
-        self.checkpoint_dur = self.get_elapsed_duration(state)
-        if self.checkpoint_dur is None:
-            warnings.warn('`max_duration` is not set. Cannot estimate remaining time.')
-            self._enabled = False
-
     def batch_start(self, state: State, logger: Logger) -> None:
-        if self.start_time is None:
+        if self._enabled and self.start_time is None and self.batches_left_to_skip == 0:
             self.start_time = time.time()
+            self.start_dur = self.get_elapsed_duration(state)
+            if self.start_dur is None:
+                warnings.warn('`max_duration` is not set. Cannot estimate remaining time.')
+                self._enabled = False
 
     def batch_end(self, state: State, logger: Logger) -> None:
         if not self._enabled:
+            return
+        if self.batches_left_to_skip > 0:
+            self.batches_left_to_skip -= 1
             return
 
         elapsed_dur = self.get_elapsed_duration(state)
@@ -89,12 +97,10 @@ class RuntimeEstimator(Callback):
             warnings.warn('`max_duration` is not set. Cannot estimate remaining time.')
             return
 
-        assert self.checkpoint_dur is not None
+        assert self.start_dur is not None
         assert self.start_time is not None
         elapsed_time = time.time() - self.start_time
-        print(
-            f'Elapsed time: {elapsed_time}, elapsed duration: {elapsed_dur}, checkpoint duration: {self.checkpoint_dur}'
-        )
-        rate = elapsed_time / (elapsed_dur - self.checkpoint_dur)
+        print(f'Elapsed time: {elapsed_time}, elapsed duration: {elapsed_dur}, checkpoint duration: {self.start_dur}')
+        rate = elapsed_time / (elapsed_dur - self.start_dur)
         remaining_time = rate * (1 - elapsed_dur)
         logger.log_metrics({'wall_clock/remaining_estimate': remaining_time})
