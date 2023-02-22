@@ -74,6 +74,7 @@ class RuntimeEstimator(Callback):
         if self.checkpoint_dur is None:
             warnings.warn('`max_duration` is not set. Cannot estimate remaining time.')
             self._enabled = False
+        print(f'Checkpoint duration: {self.checkpoint_dur}, enabled: {self._enabled}')
 
     def batch_end(self, state: State, logger: Logger) -> None:
         if not self._enabled:
@@ -82,11 +83,15 @@ class RuntimeEstimator(Callback):
         elapsed_dur = self.get_elapsed_duration(state)
         if elapsed_dur is None:
             self._enabled = False
+            print('Cannot estimate remaining time.')
             warnings.warn('`max_duration` is not set. Cannot estimate remaining time.')
             return
 
         assert self.checkpoint_dur is not None
         elapsed_time = time.time() - self.start_time
+        print(
+            f'Elapsed time: {elapsed_time}, elapsed duration: {elapsed_dur}, checkpoint duration: {self.checkpoint_dur}'
+        )
         rate = elapsed_time / (elapsed_dur - self.checkpoint_dur)
         remaining_time = rate * (1 - elapsed_dur)
         logger.log_metrics({'wall_clock/remaining_estimate': remaining_time})
