@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import warnings
 from collections import deque
-from typing import Any, Deque, Dict, Optional, Union
+from typing import Any, Callable, Deque, Dict, Optional, Union
 
 import torch
 
@@ -136,6 +136,10 @@ class SpeedMonitor(Callback):
     the `window_size` threshold. If a model has `flops_per_batch` attribute, then flops per second
     is also logged. If running on a known GPU type or if `gpu_flops_available` is set, then MFU is
     also logged. All metrics are also logged as per device by dividing by world size.
+
+    To specify `flops_per_batch`, the model attribute can either be set as an int or float, which
+    would be used for every batch, or as a callable which accepts a batch and returns an int or
+    float. The latter formulation is useful for filtering out the flops of padding tokens.
 
     The wall clock time is logged on every :attr:`.Event.BATCH_END` event.
 
@@ -267,9 +271,15 @@ class SpeedMonitor(Callback):
             if not isinstance(composer_model, ComposerModel):
                 composer_model = composer_model.module  # Pass through DDP wrapping
             if hasattr(composer_model, 'flops_per_batch'):
-                flops_per_batch = composer_model.flops_per_batch  # type: ignore
-                if not isinstance(flops_per_batch, (int, float)):
-                    raise TypeError(f'flops_per_batch must be int or float, got {type(flops_per_batch)}.')
+                model_flops_per_batch = composer_model.flops_per_batch  # type: ignore
+                flops_per_batch = None
+                if isinstance(model_flops_per_batch, (int, float)):
+                    flops_per_batch = model_flops_per_batch
+                elif isinstance(model_flops_per_batch, Callable):
+                    flops_per_batch = model_flops_per_batch(state.batch)
+                else:
+                    raise TypeError(f'flops_per_batch must be int, float, or callable accepting a batch and '
+                                    'returning an int or float. Instead, got {type(flops_per_batch)}.')
                 flops_per_sec = flops_per_batch * samples_per_sec
                 logger.log_metrics({'throughput/flops_per_sec': flops_per_sec})
                 dev_flops_per_sec = flops_per_sec / world_size
