@@ -180,7 +180,7 @@ class SpeedMonitor(Callback):
     |                                     | If model has attribute `flops_per_batch`, estimates       |
     | `throughput/flops_per_sec`          | flops per second with `flops_per_batch * samples_per_sec` |
     |                                     |                                                           |
-    +=====================================+===========================================================+
+    +-------------------------------------+-----------------------------------------------------------+
     | `throughput/device/batches_per_sec` | `throughput/batches_per_sec` divided by world size        |
     +-------------------------------------+-----------------------------------------------------------+
     | `throughput/device/samples_per_sec` | `throughput/samples_per_sec` divided by world size        |
@@ -197,7 +197,7 @@ class SpeedMonitor(Callback):
     | `throughput/device/mfu`             | Only logged when model has attribute `flops_per_batch`    |
     |                                     | and `gpu_flops_available`, which can be passed as an      |
     |                                     | argument if not automatically determined by SpeedMonitor  |
-    +=====================================+===========================================================+
+    +-------------------------------------+-----------------------------------------------------------+
     | `wall_clock/train`                  | Total elapsed training time                               |
     +-------------------------------------+-----------------------------------------------------------+
     | `wall_clock/val`                    | Total elapsed validation time                             |
