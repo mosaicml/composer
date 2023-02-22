@@ -1,48 +1,43 @@
-name: Pytest-CPU
+name: Pytest CPU
 on:
-  pull_request:
-    branches:
-      - dev
-      - main
-      - release/**
   workflow_call:
-  workflow_dispatch:
-# Cancel old runs when a new commit is pushed to the same branch if not on main or dev
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
+    inputs:
+      container:
+        required: true
+        type: string
+      name:
+        required: true
+        type: string
+      pytest-command:
+        required: true
+        type: string
+      pytest-markers:
+        required: true
+        type: string
+      pytest-s3-bucket:
+        required: false
+        type: string
+      pytest-wandb-entity:
+        required: false
+        type: string
+      pytest-wandb-project:
+        required: false
+        type: string
+    secrets:
+      wandb-api-key:
+        required: false
+      aws-access-key-id:
+        required: false
+      aws-secret-access-key:
+        required: false
 jobs:
   pytest-cpu:
     timeout-minutes: 30
-    runs-on: ubuntu-20.04
-    if: github.repository_owner == 'mosaicml'
-    strategy:
-      matrix:
-        include:
-          - name: 'cpu-3.8-1.11'
-            container: mosaicml/pytorch:1.11.0_cpu-python3.8-ubuntu20.04
-            markers: 'not daily and not remote and not gpu and not vision and not doctest'
-            pytest_command: 'coverage run -m pytest'
-          - name: 'cpu-3.9-1.12'
-            container: mosaicml/pytorch:1.12.1_cpu-python3.9-ubuntu20.04
-            markers: 'not daily and not remote and not gpu and not vision and not doctest'
-            pytest_command: 'coverage run -m pytest'
-          - name: 'cpu-3.10-1.13'
-            container: mosaicml/pytorch:1.13.1_cpu-python3.10-ubuntu20.04
-            markers: 'not daily and not remote and not gpu and not vision and not doctest'
-            pytest_command: 'coverage run -m pytest'
-          - name: 'cpu-vision'
-            container: mosaicml/pytorch_vision:1.13.1_cpu-python3.10-ubuntu20.04
-            markers: 'not daily and not remote and not gpu and vision and not doctest'
-            pytest_command: 'coverage run -m pytest'
-          - name: 'cpu-doctest'
-            container: mosaicml/pytorch_vision:1.13.1_cpu-python3.10-ubuntu20.04
-            markers: 'not daily and not remote and not gpu and not vision and doctest'
-            pytest_command: 'coverage run -m pytest tests/test_docs.py'
-    name: ${{ matrix.name }}
-    container: ${{ matrix.container }}
+    runs-on: ubuntu-latest
+    container: ${{ inputs.container }}
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout Repo
+        uses: actions/checkout@v3
       - name: Setup
         run: |
           set -ex
@@ -54,42 +49,22 @@ jobs:
         run: |
           set -ex
           export PATH=/composer-python:$PATH
-          export COMMON_ARGS="-v --durations=20 -m '${{ matrix.markers }}'"
+          export WANDB_API_KEY='${{ secrets.wandb-api-key }}'
+          export WANDB_ENTITY='${{ inputs.pytest-wandb-entity }}'
+          export WANDB_PROJECT='${{ inputs.pytest-wandb-project }}'
+          export AWS_ACCESS_KEY_ID='${{ secrets.aws-access-key-id }}'
+          export AWS_SECRET_ACCESS_KEY='${{ secrets.aws-secret-access-key }}'
+          export S3_BUCKET='${{ inputs.pytest-s3-bucket }}'
+          export COMMON_ARGS="-v --durations=20 -m '${{ inputs.pytest-markers }}' --s3_bucket '$S3_BUCKET'"
 
           # Necessary to run git diff for doctests
           git config --global --add safe.directory /__w/composer/composer
 
-          make test PYTEST='${{ matrix.pytest_command }}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
-          make test-dist PYTEST='${{ matrix.pytest_command }}' EXTRA_ARGS="$COMMON_ARGS" WORLD_SIZE=2
+          make test PYTEST='${{ inputs.pytest-command }}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
+          make test-dist PYTEST='${{ inputs.pytest-command }}' EXTRA_ARGS="$COMMON_ARGS" WORLD_SIZE=2
 
           python -m coverage combine
       - uses: actions/upload-artifact@v3
         with:
-          name: coverage-${{ github.sha }}-${{ matrix.name }}
+          name: coverage-${{ github.sha }}-${{ inputs.name }}
           path: .coverage
-  coverage:
-    needs: [ pytest-cpu ]
-    timeout-minutes: 30
-    runs-on: ubuntu-20.04
-    if: github.repository_owner == 'mosaicml'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Setup
-        run: |
-          set -ex
-          python -m pip install --upgrade 'pip<23' wheel
-          pip install coverage[toml]==6.5.0
-      - name: Download artifacts
-        uses: actions/download-artifact@v3
-        with:
-          path: artifacts
-      - name: Generate coverage report
-        run: |
-          set -ex
-
-          # Flatten the coverage files
-          ls artifacts | while read x; do mv artifacts/$x/.coverage .coverage.$x; done
-
-          python -m coverage combine
-          python -m coverage report
