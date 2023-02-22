@@ -1,18 +1,18 @@
-name: PR Docker
+name: Release Docker Images
+
 on:
-  pull_request:
-    branches:
-      - dev
-      - main
-      - release/**
-    paths:
-      - .github/bin/gen_docker_matrix.py
-      - .github/workflows/docker-configure-build-push.yaml
-      - .github/workflows/pr-docker.yaml
-      - docker/**
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      DOCKER_HUB_USERNAME:
+        required: true
+      DOCKER_HUB_PASSWORD:
+        required: true
+
 defaults:
   run:
     working-directory: .
+
 jobs:
   build-image-matrix:
     if: github.repository_owner == 'mosaicml'
@@ -30,12 +30,10 @@ jobs:
           # Install yaml dependency
           pip install pyyaml
 
-          # Override package install command for Composer image
-          COMPOSER_INSTALL_COMMAND="mosaicml[all]@git+https://github.com/mosaicml/composer.git@${{ github.sha }}"
-
           # Generate build matrix
-          BUILD_MATRIX=$(python .github/bin/gen_docker_matrix.py docker/build_matrix.yaml -b COMPOSER_INSTALL_COMMAND=$COMPOSER_INSTALL_COMMAND)
+          BUILD_MATRIX=$(python .github/bin/gen_docker_matrix.py docker/build_matrix.yaml)
           echo $BUILD_MATRIX >> $GITHUB_OUTPUT
+
   stage-docker-build:
     needs: build-image-matrix
     uses: ./.github/workflows/docker-configure-build-push.yaml
@@ -57,8 +55,7 @@ jobs:
       image-name: ${{ matrix.IMAGE_NAME }}
       image-uuid: ${{ matrix.UUID }}
       push: true
-      staging: true
-      staging-repo: mosaicml/ci-staging
+      staging: false
       tags: ${{ matrix.TAGS }}
       target: ${{ matrix.TARGET }}
     secrets:
