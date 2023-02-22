@@ -138,7 +138,7 @@ class LossSpikeIntervention(Callback):
         timeout = self.unfreeze_policy.get('timeout', DEFAULT_TIMEOUT)
         layerwise_lr_scale = self.unfreeze_policy.get('layerwise_lr_scale', DEFAULT_LAYERWISE_LR_SCALE)
         global_lr_increase = self.unfreeze_policy.get('global_lr_increase', DEFAULT_GLOBAL_LR_INCREASE)
-        unfreeze_layers = self.unfreeze_layer.get('unfreeze_layers', DEFAULT_UNFREEZE_LAYERS)
+        unfreeze_layers = self.unfreeze_policy.get('unfreeze_layers', DEFAULT_UNFREEZE_LAYERS)
         clear_opt = self.unfreeze_policy.get('clear_opt', DEFAULT_CLEAR_OPT)
         newly_unfrozen_layers = set()
         for layer in self.frozen_layers:
