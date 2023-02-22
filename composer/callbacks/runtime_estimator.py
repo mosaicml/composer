@@ -11,6 +11,7 @@ from composer.loggers import Logger
 
 __all__ = ['RuntimeEstimator']
 
+
 class RuntimeEstimator(Callback):
     """Estimates total training time.
 
@@ -37,12 +38,9 @@ class RuntimeEstimator(Callback):
 
     The runtime estimate is logged by the :class:`.Logger` to the following key as described below.
 
-    +----------------------------------+----------------------------------------------------------+
-    | Key                              | Logged data                                              |
-    +==================================+==========================================================+
     +-----------------------------------+---------------------------------------------------------+
-    |                                   | Estimated time to completion using current throughput   |
-    | ``wall_clock/remaining_estimate`` | multiplied by remaining time plus a correction for      |
-    |                                   | remaining eval calls                                    |
+    | Key                               | Logged data                                             |
+    +===================================+=========================================================+
+    | ``wall_clock/remaining_estimate`` | Estimated time to completion                            |
     +-----------------------------------+---------------------------------------------------------+
     """
