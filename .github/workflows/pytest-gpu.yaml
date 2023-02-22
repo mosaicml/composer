@@ -63,7 +63,7 @@ jobs:
           REF_ARGS=""
 
           # Use the PR number if it exists, commit SHA for protected branches and the branch name otherwise
-          if [ -z "$PR_NUMBER" ]; then
+          if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
             if [[ "$GITHUB_REF" =~ "refs/heads/dev" || "$GITHUB_REF" =~ "refs/heads/main" || "$GITHUB_REF" =~ "refs/heads/release" ]]; then
               REF_ARGS="--git_commit $GITHUB_SHA"
             else
