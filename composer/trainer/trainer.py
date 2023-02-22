@@ -1921,7 +1921,7 @@ class Trainer:
             try:
                 if int(self.state.timestamp.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
-                    self.logger.log_metrics({'epoch': int(self.state.timestamp.epoch)})
+                    self.logger.log_metrics({'trainer/epoch': int(self.state.timestamp.epoch)})
 
                 dataloader = self.state.dataloader
                 if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
@@ -2759,9 +2759,6 @@ class Trainer:
                 last_wct = now
 
                 self.engine.run_event(Event.EVAL_BATCH_END)
-
-            self.logger.log_metrics({'epoch': self.state.timestamp.epoch.value})
-            self.logger.log_metrics({'trainer/global_step': self.state.timestamp.batch.value})
 
             self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics)
 
