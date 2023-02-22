@@ -8,8 +8,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers.modeling_outputs import \
-    MaskedLMOutput  # TODO: This is not installed by default so it needs to made a conditional import
 
 from composer import Algorithm, Event, State
 from composer.core.precision import get_precision_context
@@ -17,10 +15,18 @@ from composer.core.time import Time
 from composer.devices import Device, DeviceTPU
 from composer.loggers import Logger
 from composer.models import ComposerModel
-from composer.trainer.dist_strategy import prepare_ddp_module, prepare_fsdp_module
-from composer.utils import dist, get_device
+from composer.trainer.dist_strategy import prepare_fsdp_module
+from composer.utils import get_device
 
 log = logging.getLogger(__name__)
+
+try:
+    from transformers.modeling_outputs import \
+        MaskedLMOutput  # TODO: This is not installed by default so it needs to made a conditional import
+    mlm_installed = True
+except ImportError:
+    log.error('Unable to import transformers')
+    mlm_installed = False
 
 __all__ = ['Distillation', 'KLDivergence']
 
@@ -115,7 +121,9 @@ class Distillation(Algorithm):
 
         if event == Event.FIT_START:
             # Handle parallelization
-            for teacher_i, teacher in enumerate(self.teachers):
+            # TODO: Figure out whether we even need DDP wrapping, given that teacher
+            # params don't receive gradients
+            for teacher in self.teachers:
                 if state.fsdp_config is not None:
                     try:
                         prepare_fsdp_module(teacher,
@@ -124,14 +132,6 @@ class Distillation(Algorithm):
                                             precision=state.precision)
                     except:
                         log.error('Unable to prepare teacher model for FSDP')
-                        raise
-                # TODO: Figure out whether we even need DDP wrapping, given that teacher
-                # params don't receive gradients
-                elif state.fsdp_config is None and dist.get_world_size() > 1:
-                    try:
-                        self.teachers[teacher_i] = prepare_ddp_module(teacher, find_unused_parameters=True)
-                    except:
-                        log.error('Unable to prepare teacher model for DDP')
                         raise
                 else:
                     try:
@@ -163,7 +163,7 @@ class Distillation(Algorithm):
                 with get_precision_context(state.precision):
                     for idx in t_idx:
                         teacher_output = self.teachers[int(idx)](input)
-                        if isinstance(teacher_output, MaskedLMOutput):
+                        if mlm_installed and isinstance(teacher_output, MaskedLMOutput):
                             teacher_outputs.append(teacher_output.logits.detach().clone())
                         else:
                             teacher_outputs.append(teacher_output)
@@ -179,8 +179,10 @@ class Distillation(Algorithm):
             kd_loss = torch.empty(0)
             if isinstance(student_output, torch.Tensor):
                 kd_loss = self.kd_loss_fn(teacher_output, student_output)
+            elif mlm_installed:
+                kd_loss = self.kd_loss_fn(teacher_output, student_output.logits)  #type: ignore #TODO: Fix this
             else:
-                kd_loss = self.kd_loss_fn(teacher_output.logits, student_output.logits)  #type: ignore #TODO: Fix this
+                raise ValueError('student output is expected to be a Tensor')
 
             # Modify original loss and return to original format (dict, tuple, numeric)
             if isinstance(base_loss, tuple):
