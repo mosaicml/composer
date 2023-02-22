@@ -70,6 +70,7 @@ class RuntimeEstimator(Callback):
         return None
 
     def fit_start(self, state: State, logger: Logger) -> None:
+        print(f'Fit start: {time.time() - self.start_time}')
         self.checkpoint_dur = self.get_elapsed_duration(state)
         if self.checkpoint_dur is None:
             warnings.warn('`max_duration` is not set. Cannot estimate remaining time.')
