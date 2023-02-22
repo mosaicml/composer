@@ -210,7 +210,7 @@ class LossSpikeIntervention(Callback):
                 scheduler.base_lrs = [self.global_lr_scale * lr for lr in scheduler.base_lrs]
             
             # we will decrease the rate at which we slow LR
-            self.global_lr_scale *= 2
+            self.global_lr_scale = max(1 - (1-self.global_lr_scale) / 2, 1.0)
 
         if self.unfreeze_policy is not None:
             self.unfreeze_layers(state, batch_idx)
