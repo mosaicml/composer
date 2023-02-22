@@ -17,10 +17,6 @@ on:
       pytest-s3-bucket:
         required: false
         type: string
-      python-version:
-        required: false
-        type: string
-        default: 3.9
       pytest-wandb-entity:
         required: false
         type: string
@@ -42,10 +38,6 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v3
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: ${{ inputs.python-version }}
       - name: Setup
         run: |
           set -ex
@@ -56,7 +48,6 @@ jobs:
         id: tests
         run: |
           set -ex
-          export PATH=/composer-python:$PATH
           export PATH=/composer-python:$PATH
           export WANDB_API_KEY='${{ secrets.wandb-api-key }}'
           export WANDB_ENTITY='${{ inputs.pytest-wandb-entity }}'

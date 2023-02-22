@@ -43,7 +43,6 @@ jobs:
       name: ${{ matrix.name }}
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
-      python-version: 3.9
   coverage:
     uses: ./.github/workflows/coverage.yaml
     name: Coverage Results
