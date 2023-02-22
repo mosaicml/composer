@@ -100,6 +100,7 @@ class RuntimeEstimator(Callback):
         return None
 
     def batch_start(self, state: State, logger: Logger) -> None:
+        print(f'Batch start: {state.timestamp.get("ba")}')
         if self._enabled and self.start_time is None and self.batches_left_to_skip == 0:
             self.start_time = time.time()
             self.start_dur = self.get_elapsed_duration(state)
@@ -130,7 +131,7 @@ class RuntimeEstimator(Callback):
             rate = elapsed_time / (elapsed_dur - self.start_dur)
             remaining_time = rate * (1 - elapsed_dur)
 
-            print(f'Batch end: remaining_time: {remaining_time}')
+            print(f'Batch end. train remaining_time: {remaining_time}')
 
             # Add remaining time from each evaluator using known frequencies. We explicitly compute
             # frequency instead of using time interpolation to avoid saw tooth pattern in estimates
@@ -144,13 +145,15 @@ class RuntimeEstimator(Callback):
                     eval_wct_avg = sum(eval_wcts) / num_evals_finished
                 eval_rate = self.eval_frequency_per_label[dataloader_label]
                 print(
-                    f'dataloader_label: {dataloader_label}, eval_wct_avg: {eval_wct_avg}, eval_rate: {eval_rate}, num_evals_finished: {num_evals_finished}'
+                    f'\tdataloader_label: {dataloader_label}, eval_wct_avg: {eval_wct_avg}, eval_rate: {eval_rate}, num_evals_finished: {num_evals_finished}'
                 )
                 if eval_rate > 0:
                     num_total_evals = 1 / eval_rate
                     remaining_calls = num_total_evals - num_evals_finished
                     remaining_time += eval_wct_avg * remaining_calls
+                    print(f'\tEval time: {eval_wct_avg * remaining_calls}')
 
+            print(f'\tRemaining time: {remaining_time}')
             logger.log_metrics({'wall_clock/remaining_estimate': remaining_time})
 
     def eval_end(self, state: State, logger: Logger) -> None:
