@@ -130,7 +130,8 @@ class RuntimeEstimator(Callback):
             rate = elapsed_time / (elapsed_dur - self.start_dur)
             remaining_time = rate * (1 - elapsed_dur)
 
-            # Add remaining time from each evaluator using known frequencies
+            # Add remaining time from each evaluator using known frequencies. We explicitly compute
+            # frequency instead of using time interpolation to avoid saw tooth pattern in estimates
             for dataloader_label, eval_wcts in self.eval_wct_per_label.items():
                 # Discard first eval_wct if possible as it often slower due to dataset downloading
                 eval_wct_avg = None
@@ -148,6 +149,9 @@ class RuntimeEstimator(Callback):
             logger.log_metrics({'wall_clock/remaining_estimate': remaining_time})
 
     def eval_end(self, state: State, logger: Logger) -> None:
+        # If eval is called before training starts, ignore it
+        if not self._enabled or self.start_time is None:
+            return
         self.total_eval_wct += state.eval_timestamp.total_wct.total_seconds()
         # state.dataloader_label should always be non-None unless user explicitly sets evaluator
         # label to None, ignoring type hints
