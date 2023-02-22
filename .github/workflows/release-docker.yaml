@@ -54,7 +54,7 @@ jobs:
       context: ./docker
       image-name: ${{ matrix.IMAGE_NAME }}
       image-uuid: ${{ matrix.UUID }}
-      push: false
+      push: true
       staging: false
       tags: ${{ matrix.TAGS }}
       target: ${{ matrix.TARGET }}
