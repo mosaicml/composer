@@ -1919,10 +1919,8 @@ class Trainer:
 
         while self.state.timestamp < self.state.max_duration:
             try:
-                print(f'Batch {int(self.state.timestamp.batch_in_epoch)}')
                 if int(self.state.timestamp.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
-                    print(f'Epoch {int(self.state.timestamp.epoch)}')
                     self.logger.log_metrics({'trainer/epoch': int(self.state.timestamp.epoch)})
 
                 dataloader = self.state.dataloader
