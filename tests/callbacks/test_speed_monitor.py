@@ -40,23 +40,18 @@ def test_speed_monitor():
     )
     trainer.fit()
 
-    wall_clock_train_calls = len(in_memory_logger.data['wall_clock/train'])
-    wall_clock_val_calls = len(in_memory_logger.data['wall_clock/val'])
-    wall_clock_total_calls = len(in_memory_logger.data['wall_clock/total'])
-    throughput_step_calls = len(in_memory_logger.data['throughput/samples_per_sec'])
     _assert_no_negative_values(in_memory_logger.data['wall_clock/train'])
     _assert_no_negative_values(in_memory_logger.data['wall_clock/val'])
     _assert_no_negative_values(in_memory_logger.data['wall_clock/total'])
-    _assert_no_negative_values(in_memory_logger.data['wall_clock/train'])
     _assert_no_negative_values(in_memory_logger.data['throughput/samples_per_sec'])
 
     assert isinstance(trainer.state.dataloader, collections.abc.Sized)
     assert trainer.state.dataloader_label is not None
     assert trainer.state.dataloader_len is not None
-    expected_step_calls = (trainer.state.dataloader_len - speed_monitor.window_size + 1) * int(
+    expected_step_calls = (trainer.state.dataloader_len - len(speed_monitor.history_samples)) * int(
         trainer.state.timestamp.epoch)
-    assert throughput_step_calls == expected_step_calls
+    assert len(in_memory_logger.data['throughput/samples_per_sec']) == expected_step_calls
     num_batches = int(trainer.state.timestamp.batch)
-    assert wall_clock_total_calls == num_batches
-    assert wall_clock_train_calls == num_batches
-    assert wall_clock_val_calls == num_batches
+    assert len(in_memory_logger.data['wall_clock/total']) == num_batches
+    assert len(in_memory_logger.data['wall_clock/train']) == num_batches
+    assert len(in_memory_logger.data['wall_clock/val']) == num_batches
