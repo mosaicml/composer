@@ -1994,13 +1994,13 @@ class Trainer:
                             metrics=self.state.train_metrics,
                         )
 
+                    self.engine.run_event(Event.BATCH_END)
+
                     self.state.timestamp = self.state.timestamp.to_next_batch(
                         samples=total_num_samples,
                         tokens=total_num_tokens,
                         duration=batch_time,
                     )
-
-                    self.engine.run_event(Event.BATCH_END)
 
                     # Pause the timing during evaluation
                     # Evaluation time is tracked separately in state.eval_timestamp
@@ -2022,8 +2022,6 @@ class Trainer:
                     # This happens if the "break" did not trigger above, or if it
                     # did (e.g. duration specified in samples/batches/tokens), but it is still
                     # the end of the dataloader (i.e. next(dataloader) would raise StopIteration)
-                    self.state.timestamp = self.state.timestamp.to_next_epoch()
-
                     if self.state.train_metrics is not None:
                         self._compute_and_log_metrics(
                             dataloader_label='train',
@@ -2035,6 +2033,8 @@ class Trainer:
                             scheduler.step()
 
                     self.engine.run_event(Event.EPOCH_END)
+
+                    self.state.timestamp = self.state.timestamp.to_next_epoch()
 
                     # Pause the timing during evaluation
                     # Evaluation time is tracked separately in state.eval_timestamp
