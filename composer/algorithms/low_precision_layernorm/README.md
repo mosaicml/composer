@@ -72,8 +72,6 @@ Low Precision LayerNorm utilizes the existing `normalized_shape` and `d_eps` fro
 
 ## Technical Details
 
-Low Precision LayerNorm is meant to replace our Fused LayerNorm algorithm. The two algorithms achieve very similar throughput. Fused LayerNorm also runs in low precision, but it is a more complex algorithm, since it uses a custom kernel. Since the custom kernel provides no additional speedup, we have replaced it with this simpler algorithm.
-
 > ✅ Low Precision LayerNorm Improves Training Speed
 >
 > In our experiments, Low Preicision LayerNorm improves the attainable tradeoffs between training speed and the final quality of the trained model.
