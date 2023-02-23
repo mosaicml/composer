@@ -318,7 +318,9 @@ class BlurPool2d(nn.Module):
         self.channels = channels
         self.stride = stride
         self.padding = padding
-        self.register_buffer('filt2d', _default_2d_filter().repeat(channels, 1, 1, 1))
+        self.register_buffer('filt2d', _default_2d_filter())
+        if self.channels > 0:
+            self.filt2d = self.filt2d.repeat(channels, 1, 1, 1)
 
     def forward(self, input: torch.Tensor):
         return blur_2d(input, channels=self.channels, stride=self.stride, filter=self.filt2d)
