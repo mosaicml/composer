@@ -2559,7 +2559,7 @@ class Trainer:
                 for evaluation.  If not provided, defaults to using the
                 ``eval_dataloader`` provided to the trainer init().
             subset_num_batches (int, optional): Evaluate on this many batches. Default to ``-1`` (the entire
-                dataloader. Can also be provided in the trainer init()as ``eval_subset_num_batches``.
+                dataloader. Can also be provided in the trainer.__init__() as ``eval_subset_num_batches``.
 
         """
         if eval_dataloader is not None:
