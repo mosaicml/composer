@@ -94,31 +94,31 @@ def get_gpu_flops_available(state: State):
         return 0
 
     # torch.cuda.get_device_name() ex output: 'NVIDIA A100-SXM4-40GB'
-    dev_name = torch.cuda.get_device_name().lower()
-    if 'h100-sxm' in dev_name:
-        dev_name = 'h100-sxm'
-    elif 'h100-pcie' in dev_name:
-        dev_name = 'h100-pcie'
-    elif 'a100' in dev_name:
-        dev_name = 'a100'
-    elif 'v100-sxm' in dev_name:
-        dev_name = 'v100-sxm'
-    elif 'v100-pcie' in dev_name:
-        dev_name = 'v100-pcie'
-    elif 't4' in dev_name:
-        dev_name = 't4'
+    device_name = torch.cuda.get_device_name().lower()
+    if 'h100-sxm' in device_name:
+        device_name = 'h100-sxm'
+    elif 'h100-pcie' in device_name:
+        device_name = 'h100-pcie'
+    elif 'a100' in device_name:
+        device_name = 'a100'
+    elif 'v100-sxm' in device_name:
+        device_name = 'v100-sxm'
+    elif 'v100-pcie' in device_name:
+        device_name = 'v100-pcie'
+    elif 't4' in device_name:
+        device_name = 't4'
     else:
-        dev_name = None
+        device_name = None
 
-    if dev_name:
+    if device_name is not None:
         try:
-            gpu_flops_available = int(GPU_AVAILABLE_FLOPS[dev_name][state.precision.value])
+            gpu_flops_available = int(GPU_AVAILABLE_FLOPS[device_name][state.precision.value])
         except:
             gpu_flops_available = None
 
     if gpu_flops_available is None:
         warnings.warn(
-            f'gpu_flop count not found for {dev_name=} with precision: {state.precision.value}; ' +\
+            f'gpu_flop count not found for {device_name} with precision: {state.precision.value}; ' +\
             f'MFU cannot be calculated and reported. gpu_flops_available can be manually' +\
             f'overridden by setting gpu_flops_available in SpeedMonitor.'
         )
@@ -137,9 +137,9 @@ class SpeedMonitor(Callback):
     is also logged. If running on a known GPU type or if `gpu_flops_available` is set, then MFU is
     also logged. All metrics are also logged as per device by dividing by world size.
 
-    To specify `flops_per_batch`, the model attribute can either be set as an int or float, which
-    would be used for every batch, or as a callable which accepts a batch and returns an int or
-    float. The latter formulation is useful for filtering out the flops of padding tokens.
+    To compute `flops_per_sec`, the model attribute `flops_per_batch` should be set to a callable
+    which accepts a batch and returns the number of flops for that batch. Typically, this should
+    be flops per sample times the batch size unless pad tokens are used.
 
     The wall clock time is logged on every :attr:`.Event.BATCH_END` event.
 
@@ -177,12 +177,8 @@ class SpeedMonitor(Callback):
     |                                     | Only logged when dataloader.dataset has `max_seq_len`.    |
     |                                     | This may include padding depending on dataset             |
     +-------------------------------------+-----------------------------------------------------------+
-    |                                     | Estimates flops by `flops_per_batch * samples_per_sec`    |
+    |                                     | Estimates flops by `flops_per_batch * batches_per_sec`    |
     | `throughput/flops_per_sec`          | if model has attribute `flops_per_batch`                  |
-    |                                     |                                                           |
-    +-------------------------------------+-----------------------------------------------------------+
-    |                                     | If model has attribute `flops_per_batch`, estimates       |
-    | `throughput/flops_per_sec`          | flops per second with `flops_per_batch * samples_per_sec` |
     |                                     |                                                           |
     +-------------------------------------+-----------------------------------------------------------+
     | `throughput/device/batches_per_sec` | `throughput/batches_per_sec` divided by world size        |
@@ -191,7 +187,7 @@ class SpeedMonitor(Callback):
     +-------------------------------------+-----------------------------------------------------------+
     |                                     | `throughput/tokens_per_sec` divided by world size. Only   |
     | `throughput/device/tokens_per_sec`  | logged when dataloader.dataset has `max_seq_len`. This    |
-    |                                     | may include pad tokens depending on how dataset           |
+    |                                     | may include pad tokens depending on dataset               |
     +-------------------------------------+-----------------------------------------------------------+
     |                                     | `throughput/flops_per_sec` divided by world size. Only    |
     | `throughput/device/flops_per_sec`   | logged when model has attribute `flops_per_batch`         |
@@ -219,7 +215,6 @@ class SpeedMonitor(Callback):
         self.history_samples: Deque[int] = deque(maxlen=window_size + 1)
         self.history_wct: Deque[float] = deque(maxlen=window_size + 1)
 
-        self.set_gpu_flops_available = False
         self.gpu_flops_available = gpu_flops_available
 
         # Keep track of time spent evaluating
@@ -272,15 +267,11 @@ class SpeedMonitor(Callback):
                 composer_model = composer_model.module  # Pass through DDP wrapping
             if hasattr(composer_model, 'flops_per_batch'):
                 model_flops_per_batch = composer_model.flops_per_batch  # type: ignore
-                flops_per_batch = None
-                if isinstance(model_flops_per_batch, (int, float)):
-                    flops_per_batch = model_flops_per_batch
-                elif isinstance(model_flops_per_batch, Callable):
-                    flops_per_batch = model_flops_per_batch(state.batch)
-                else:
-                    raise TypeError(f'flops_per_batch must be int, float, or callable accepting a batch and '
-                                    'returning an int or float. Instead, got {type(flops_per_batch)}.')
-                flops_per_sec = flops_per_batch * samples_per_sec
+                if not isinstance(model_flops_per_batch, Callable):
+                    raise TypeError('flops_per_batch must a callable accepting a batch and '
+                                    f'returning an int or float. Instead, got {type(model_flops_per_batch)}.')
+                flops_per_batch = model_flops_per_batch(state.batch)
+                flops_per_sec = flops_per_batch * batches_per_sec
                 logger.log_metrics({'throughput/flops_per_sec': flops_per_sec})
                 dev_flops_per_sec = flops_per_sec / world_size
                 logger.log_metrics({'throughput/device/flops_per_sec': dev_flops_per_sec})
