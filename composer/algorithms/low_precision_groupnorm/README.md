@@ -9,7 +9,8 @@ Low Precision GroupNorm forces `torch.nn.GroupNorm` modules to run in float16 or
 
 
 ## How to Use
-Low Precision GroupNorm wraps `torch.nn.GroupNorm`, forcing the module to run in a lower precision if you have autocast enabled. If you are running in Automatic Mixed Precision (`amp`) mode, Low Precision GroupNorm will run in `torch.float16`. If you are running in `bf16` mode, Low Precision GroupNorm will run in `torch.bfloat16`.
+Low Precision GroupNorm wraps `torch.nn.GroupNorm`, forcing the module to run in a lower precision if you have autocast enabled. This depends on the `precision` argument passed to Trainer, with
+`precision='amp_fp16'` corresponding to `torch.float16` and `precision='amp_bf16'` corresponding to `torch.bfloat16`.
 
 This algorithm will have no effect if you are running in `fp32` or `fp16` mode.
 
@@ -66,7 +67,7 @@ trainer.fit()
 
 ### Implementation Details
 
-Low Precision GroupNorm is implemented by performing model surgery, which looks for instances of `torch.nn.GroupNorm` and replaces them with `composer.algorithms.low_precision_groupnorm.low_precision_groupnorm.LPGroupNorm`, which is a thin wrapper around `torch.nn.GroupNorm` that manually turns autocast off and specifices the input dtype to lower precision.
+Low Precision GroupNorm is implemented by performing model surgery, which looks for instances of `torch.nn.GroupNorm` and replaces them with `composer.algorithms.LPGroupNorm`, which is a thin wrapper around `torch.nn.GroupNorm` that manually turns autocast off and specifices the input dtype to lower precision.
 
 ## Suggested Hyperparameters
 

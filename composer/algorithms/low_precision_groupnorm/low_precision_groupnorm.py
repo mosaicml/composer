@@ -51,8 +51,7 @@ class LPGroupNorm(torch.nn.GroupNorm):
 
 
 def to_LPGroupNorm(layer: torch.nn.Module, module_index: int) -> LPGroupNorm:
-    assert isinstance(layer,
-                      torch.nn.GroupNorm), 'The replacement policy will look for all instances of torch.nn.GroupNorm'
+    assert isinstance(layer, torch.nn.GroupNorm), 'Replacement policy only replaces torch.nn.GroupNorm'
     return LPGroupNorm(layer)
 
 
@@ -73,10 +72,11 @@ def apply_low_precision_groupnorm(model, optimizers: Union[torch.optim.Optimizer
 
 class LowPrecisionGroupNorm(Algorithm):
     """
-    Replaces all instances of `torch.nn.GroupNorm` with `composer.algorithms.low_precision_groupnorm.low_precision_groupnorm.LPGroupNorm`.
+    Replaces all instances of :class:`torch.nn.GroupNorm` with class:`.LPGroupNorm`.
 
-    LPGroupNorm is a thin wrapper around `torch.nn.GroupNorm` which forces the layer to run in lower precision (torch.float16 or torch.bfloat16)
-    if autocast is enabled. This algorithm has no effect in FP32 or DeepSpeed FP16 mode, where autocast is disabled.
+    LPGroupNorm is a thin wrapper around :class:`torch.nn.GroupNorm` which forces the layer to run
+    in lower precision (torch.float16 or torch.bfloat16) if autocast is enabled. This algorithm has
+    no effect in FP32 or DeepSpeed FP16 mode, where autocast is disabled.
 
     This algorithm is intended to be used instead of Fused GroupNorm. They have similar behavior and performance.
 

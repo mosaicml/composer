@@ -69,8 +69,7 @@ def to_LPLayerNorm(layer: torch.nn.Module, module_index: int) -> LPLayerNorm:
 
 def to_FusedLayerNorm(layer: torch.nn.Module, module_index: int) -> APEXFusedLayerNorm:
     """Defines a replacement policy from a `torch.nn.LayerNorm` to a `apex.normalization.fused_layer_norm`"""
-    assert isinstance(layer,
-                      torch.nn.LayerNorm), 'The replacement policy will look for all instances of torch.nn.LayerNorm'
+    assert isinstance(layer, torch.nn.LayerNorm), 'Replacement policy only replaces torch.nn.LayerNorm'
     fused_layernorm = APEXFusedLayerNorm(normalized_shape=layer.normalized_shape, eps=layer.eps)
     with torch.no_grad():
         fused_layernorm.weight.copy_(layer.weight)
@@ -103,10 +102,11 @@ def apply_low_precision_layernorm(model, optimizers: Union[torch.optim.Optimizer
 
 class LowPrecisionLayerNorm(Algorithm):
     """
-    Replaces all instances of `torch.nn.LayerNorm` with `composer.algorithms.low_precision_layernorm.low_precision_layernorm.LPLayerNorm`.
+    Replaces all instances of :class:`torch.nn.LayerNorm` with class:`.LPLayerNorm`.
 
-    LPLayerNorm is a thin wrapper around `torch.nn.LayerNorm` which forces the layer to run in lower precision (torch.float16 or torch.bfloat16)
-    if autocast is enabled. This algorithm has no effect in FP32 or DeepSpeed FP16 mode, where autocast is disabled.
+    LPLayerNorm is a thin wrapper around :class:`torch.nn.LayerNorm` which forces the layer to run
+    in lower precision (torch.float16 or torch.bfloat16) if autocast is enabled. This algorithm has
+    no effect in FP32 or DeepSpeed FP16 mode, where autocast is disabled.
 
     This algorithm is intended to be used instead of Fused LayerNorm. They have similar behavior and performance.
 
