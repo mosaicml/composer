@@ -64,8 +64,8 @@ def blur_2d(input: torch.Tensor,
 
     if filter is None:
         filter = _default_2d_filter()
-    padding = _padding_for_filt_2d_same(
-        filter)  # The dynamic control flow branch below does not affect this as only h and w are used.
+    # The dynamic control flow branch below does not affect the padding as only h and w are used.
+    padding = _padding_for_filt_2d_same(filter)
 
     if channels < 1:  # Use Dynamic Control Flow
         _, c, h, w = input.shape
@@ -81,11 +81,11 @@ def blur_2d(input: torch.Tensor,
         if w + 2 * padding[1] < filter_w:
             return input
 
-        return F.conv2d(input, filter, stride=stride, padding=padding, groups=n_in_channels,
-                        bias=None)  # Use Dynamic Control Flow
+        # Use Dynamic Control Flow
+        return F.conv2d(input, filter, stride=stride, padding=padding, groups=n_in_channels, bias=None)
 
-    return F.conv2d(input, filter, stride=stride, padding=padding, groups=channels,
-                    bias=None)  # Use Static Control Flow
+    # Use Static Control Flow
+    return F.conv2d(input, filter, stride=stride, padding=padding, groups=channels, bias=None)
 
 
 def blurmax_pool2d(input: torch.Tensor,
