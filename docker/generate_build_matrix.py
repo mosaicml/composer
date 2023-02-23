@@ -99,16 +99,36 @@ def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: s
 
 
 def _get_composer_tags(composer_version: str, use_cuda: bool):
-    if not composer_version:
-        composer_version = 'latest'
-    composer_version = composer_version.lstrip('=')
-    if composer_version == 'GIT_COMMIT':
-        # Jenkins will set the tag
-        return []
-    tag = f'mosaicml/composer:{composer_version}'
+    base_image_name = 'mosaicml/composer'
+
+    tags = []
     if not use_cuda:
-        tag += '_cpu'
-    return [tag]
+        tags.append(f'{base_image_name}:{composer_version}_cpu')
+        tags.append(f'{base_image_name}:latest_cpu')
+    else:
+        tags.append(f'{base_image_name}:{composer_version}')
+        tags.append(f'{base_image_name}:latest')
+
+    return tags
+
+
+def _get_image_name(pytorch_version: str, cuda_version: str, stage: str, interconnect: str):
+    pytorch_version = pytorch_version.replace('.', '-')
+    cuda_version = _get_cuda_version_tag(cuda_version)
+
+    if stage == 'pytorch_stage':
+        stage = ''
+    elif stage == 'vision_stage':
+        stage = '-vision'
+    else:
+        raise ValueError(f'Invalid stage: {stage}')
+
+    if interconnect == 'EFA':
+        fabric = '-aws'
+    else:
+        fabric = ''
+
+    return f'torch{stage}-{pytorch_version}-{cuda_version}{fabric}'
 
 
 def _write_table(table_tag: str, table_contents: str):
@@ -141,6 +161,8 @@ def _main():
         cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
 
         entry = {
+            'IMAGE_NAME':
+                _get_image_name(pytorch_version, cuda_version, stage, interconnect),
             'BASE_IMAGE':
                 _get_base_image(cuda_version),
             'CUDA_VERSION':
@@ -191,7 +213,7 @@ def _main():
     composer_entries = []
 
     # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
-    composer_versions = ['', '==0.12.1', 'GIT_COMMIT']  # Only build images for the latest composer version
+    composer_versions = ['0.12.1']  # Only build images for the latest composer version
     composer_python_versions = [LATEST_PYTHON_VERSION]  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):
@@ -199,8 +221,10 @@ def _main():
 
         pytorch_version = _get_pytorch_version(python_version)
         cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
+        cpu = '-cpu' if not use_cuda else ''
 
         entry = {
+            'IMAGE_NAME': f"composer-{composer_version.replace('.', '-')}{cpu}",
             'BASE_IMAGE': _get_base_image(cuda_version),
             'CUDA_VERSION': cuda_version,
             'PYTHON_VERSION': python_version,
@@ -210,7 +234,7 @@ def _main():
             'TORCHTEXT_VERSION': _get_torchtext_version(pytorch_version),
             'MOFED_VERSION': '5.5-1.0.3.2',
             'AWS_OFI_NCCL_VERSION': '',
-            'COMPOSER_INSTALL_COMMAND': f'mosaicml[all]{composer_version}',
+            'COMPOSER_INSTALL_COMMAND': f'mosaicml[all]=={composer_version}',
             'TAGS': _get_composer_tags(
                 composer_version=composer_version,
                 use_cuda=use_cuda,
