@@ -14,7 +14,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from composer.core import State
+from composer.core import Precision, State
 from composer.devices import DeviceCPU, DeviceGPU
 from composer.functional import apply_gated_linear_units
 from composer.loggers import InMemoryLogger, Logger
@@ -24,8 +24,8 @@ from composer.trainer.dist_strategy import prepare_ddp_module
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, export_with_logger, inference
 from composer.utils.device import get_device
-from tests.common import device
-from tests.common.datasets import RandomImageDataset
+from tests.common import SimpleTransformerClassifier, device
+from tests.common.datasets import RandomImageDataset, dummy_transformer_classifier_batch
 
 
 class MockFileUploader(LoggerDestination):
@@ -35,14 +35,13 @@ class MockFileUploader(LoggerDestination):
         return True
 
 
-@pytest.mark.parametrize(
-    'model_cls, sample_input',
-    [
-        (partial(composer_resnet, 'resnet18'), (torch.rand(4, 3, 224, 224), torch.randint(10, (4,)))),
-    ],
-)
+@pytest.mark.parametrize('model_cls, sample_input', [
+    (partial(composer_resnet, 'resnet18'), (torch.rand(4, 3, 224, 224), torch.randint(10, (4,)))),
+    (SimpleTransformerClassifier, dummy_transformer_classifier_batch(vocab_size=10)),
+])
 def test_export_for_inference_torchscript(model_cls, sample_input):
     model = model_cls()
+
     model.eval()
 
     orig_out = model(sample_input)
@@ -163,7 +162,7 @@ def test_gpu_huggingface_export_for_inference_onnx():
     import onnxruntime as ort
     import transformers
 
-    from composer.functional import apply_fused_layernorm
+    from composer.functional import apply_low_precision_layernorm
     from composer.models import HuggingFaceModel
 
     # HuggingFace Bert Model
@@ -203,7 +202,7 @@ def test_gpu_huggingface_export_for_inference_onnx():
 
     optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
     apply_gated_linear_units(model, optimizer)
-    apply_fused_layernorm(model, optimizer)
+    apply_low_precision_layernorm(model, optimizer, Precision('amp_fp16'))
 
     model.eval()
     orig_out = model(sample_input)
