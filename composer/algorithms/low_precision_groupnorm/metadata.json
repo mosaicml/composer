@@ -3,7 +3,7 @@
         "name": "Low Precision GroupNorm",
         "class_name": "LowPrecisionGroupNorm",
         "functional": "apply_low_precision_groupnorm",
-        "tldr": "Forces GroupNorm to fp16 or bf16",
+        "tldr": "Forces GroupNorm to use fp16 or bf16",
         "attribution": "",
         "link": "",
         "domains": [

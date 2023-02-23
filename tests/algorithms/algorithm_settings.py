@@ -26,8 +26,8 @@ from composer.models import composer_resnet
 from composer.models.base import ComposerModel
 from tests.common import get_module_subclasses
 from tests.common.datasets import RandomImageDataset, SimpleDataset, dummy_bert_lm_dataloader, dummy_gpt_lm_dataloader
-from tests.common.models import (SimpleConvModel, SimpleGroupNormConvModel, SimpleModelWithDropout,
-                                 configure_tiny_bert_hf_model, configure_tiny_gpt2_hf_model)
+from tests.common.models import (ConvModel, SimpleConvModel, SimpleModelWithDropout, configure_tiny_bert_hf_model,
+                                 configure_tiny_gpt2_hf_model)
 
 simple_bert_settings = {
     'model': configure_tiny_bert_hf_model,
@@ -130,7 +130,9 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     LayerFreezing: simple_vision_settings,
     LowPrecisionLayerNorm: simple_bert_settings,
     LowPrecisionGroupNorm: {
-        'model': SimpleGroupNormConvModel,
+        'model': (ConvModel, {
+            'norm': 'groupnorm'
+        }),
         'dataset': RandomImageDataset,
         'kwargs': {},
     },
