@@ -2249,7 +2249,7 @@ class Trainer:
         assert self._train_data_spec is not None
 
         # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
-        device_batch = self.state.batch
+        device_batch = deepcopy(self.state.batch)
 
         microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
         sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
