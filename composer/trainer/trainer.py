@@ -1921,7 +1921,7 @@ class Trainer:
             try:
                 if int(self.state.timestamp.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
-                    self.logger.log_metrics({'epoch': int(self.state.timestamp.epoch)})
+                    self.logger.log_metrics({'trainer/epoch': int(self.state.timestamp.epoch)})
 
                 dataloader = self.state.dataloader
                 if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
@@ -2554,7 +2554,7 @@ class Trainer:
                 for evaluation.  If not provided, defaults to using the
                 ``eval_dataloader`` provided to the trainer init().
             subset_num_batches (int, optional): Evaluate on this many batches. Default to ``-1`` (the entire
-                dataloader. Can also be provided in the trainer init()as ``eval_subset_num_batches``.
+                dataloader. Can also be provided in the trainer.__init__() as ``eval_subset_num_batches``.
 
         """
         if eval_dataloader is not None:
@@ -2759,9 +2759,6 @@ class Trainer:
                 last_wct = now
 
                 self.engine.run_event(Event.EVAL_BATCH_END)
-
-            self.logger.log_metrics({'epoch': self.state.timestamp.epoch.value})
-            self.logger.log_metrics({'trainer/global_step': self.state.timestamp.batch.value})
 
             self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics)
 
