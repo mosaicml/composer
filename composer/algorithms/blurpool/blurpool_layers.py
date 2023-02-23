@@ -30,7 +30,10 @@ def _padding_for_filt_2d_same(filt: torch.Tensor):
     return int(torch.div(h, 2)), int(torch.div(w, 2))
 
 
-def blur_2d(input: torch.Tensor, channels: int = 0, stride: _size_2_t = 1, filter: Optional[torch.Tensor] = None) -> torch.Tensor:
+def blur_2d(input: torch.Tensor,
+            channels: int = 0,
+            stride: _size_2_t = 1,
+            filter: Optional[torch.Tensor] = None) -> torch.Tensor:
     """Applies a spatial low-pass filter.
 
     Args:
@@ -61,26 +64,28 @@ def blur_2d(input: torch.Tensor, channels: int = 0, stride: _size_2_t = 1, filte
 
     if filter is None:
         filter = _default_2d_filter()
+    padding = _padding_for_filt_2d_same(
+        filter)  # The dynamic control flow branch below does not affect this as only h and w are used.
 
     if channels < 1:  # Use Dynamic Control Flow
         _, c, h, w = input.shape
         n_in_channels = c
+
         if (filter.shape[0] == 1) and (n_in_channels > 1):
             # filt is already a rank 4 tensor
             filter = filter.repeat((n_in_channels, 1, 1, 1))
 
-    padding = _padding_for_filt_2d_same(filter)
-
-    if channels < 1:  # Use Dynamic Control Flow
         _, _, filter_h, filter_w = filter.shape
         if h + 2 * padding[0] < filter_h:
             return input
         if w + 2 * padding[1] < filter_w:
             return input
 
-        return F.conv2d(input, filter, stride=stride, padding=padding, groups=n_in_channels, bias=None)  # Use Dynamic Control Flow
+        return F.conv2d(input, filter, stride=stride, padding=padding, groups=n_in_channels,
+                        bias=None)  # Use Dynamic Control Flow
 
-    return F.conv2d(input, filter, stride=stride, padding=padding, groups=channels, bias=None)  # Use Static Control Flow
+    return F.conv2d(input, filter, stride=stride, padding=padding, groups=channels,
+                    bias=None)  # Use Static Control Flow
 
 
 def blurmax_pool2d(input: torch.Tensor,
