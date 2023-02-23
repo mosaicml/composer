@@ -1994,13 +1994,13 @@ class Trainer:
                             metrics=self.state.train_metrics,
                         )
 
-                    self.engine.run_event(Event.BATCH_END)
-
                     self.state.timestamp = self.state.timestamp.to_next_batch(
                         samples=total_num_samples,
                         tokens=total_num_tokens,
                         duration=batch_time,
                     )
+
+                    self.engine.run_event(Event.BATCH_END)
 
                     # Pause the timing during evaluation
                     # Evaluation time is tracked separately in state.eval_timestamp
@@ -2032,9 +2032,9 @@ class Trainer:
                         for scheduler in self.state.schedulers:
                             scheduler.step()
 
-                    self.engine.run_event(Event.EPOCH_END)
-
                     self.state.timestamp = self.state.timestamp.to_next_epoch()
+
+                    self.engine.run_event(Event.EPOCH_END)
 
                     # Pause the timing during evaluation
                     # Evaluation time is tracked separately in state.eval_timestamp
