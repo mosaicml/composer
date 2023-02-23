@@ -101,7 +101,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     CutMix: {
         'model': SimpleConvModel,
         'dataset': RandomImageDataset,
-        'kwargs': {}
+        'kwargs': {},
     },
     CutOut: simple_vision_settings,
     EMA: {
@@ -132,6 +132,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     LowPrecisionGroupNorm: {
         'model': SimpleGroupNormConvModel,
         'dataset': RandomImageDataset,
+        'kwargs': {},
     },
     MixUp: simple_vision_settings,
     ProgressiveResizing: simple_vision_settings,
