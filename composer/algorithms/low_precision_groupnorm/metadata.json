@@ -1,5 +1,5 @@
 {
-    "low_precision_layernorm": {
+    "low_precision_groupnorm": {
         "name": "Low Precision GroupNorm",
         "class_name": "LowPrecisionGroupNorm",
         "functional": "apply_low_precision_groupnorm",
