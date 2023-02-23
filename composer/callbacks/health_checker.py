@@ -4,7 +4,9 @@
 """Log memory usage during training."""
 import logging
 from collections import deque
-from typing import Optional
+from typing import List, Optional
+
+import torch
 
 try:
     import psutil
@@ -30,37 +32,6 @@ from composer.utils import dist
 log = logging.getLogger(__name__)
 
 __all__ = ['HealthChecker']
-
-
-# modified from https://github.com/wandb/wandb/blob/main/wandb/sdk/internal/system/assets/gpu.py
-def gpu_in_use_by_this_process(gpu_handle) -> bool:
-
-    pid = os.getpid()
-
-    if psutil is None:
-        return False
-
-    try:
-        base_process = psutil.Process(pid=pid)
-    except psutil.NoSuchProcess:
-        # do not report any gpu metrics if the base process cant be found
-        return False
-
-    our_processes = base_process.children(recursive=True)
-    our_processes.append(base_process)
-
-    our_pids = {process.pid for process in our_processes}
-
-    compute_pids = {
-        process.pid for process in pynvml.nvmlDeviceGetComputeRunningProcesses(gpu_handle)  # type: ignore
-    }
-    graphics_pids = {
-        process.pid for process in pynvml.nvmlDeviceGetGraphicsRunningProcesses(gpu_handle)  # type: ignore
-    }
-
-    pids_using_device = compute_pids | graphics_pids
-
-    return len(pids_using_device & our_pids) > 0
 
 
 class HealthChecker(Callback):
@@ -94,29 +65,27 @@ class HealthChecker(Callback):
         if not self.slack_webhook_url:
             self.slack_webhook_url = os.environ.get('SLACK_WEBHOOK_URL', None)
 
-        self.alerted = False
         self.last_sample = 0
         self.last_check = 0
 
-        self.metrics = [GPUUtilization()]
+        self.metrics = []
+        if self._is_available():
+            self.metrics.append(GPUUtilization())
 
     def init(self, state: State, logger: Logger) -> None:
         pass
 
     def after_train_batch(self, state: State, logger: Logger):
-        if self.alerted:
-            # only alert once
-            return
-
         if self._sample(state.timestamp):
             for metric in self.metrics:
                 metric.sample()
 
         if self._check(state.timestamp):
             for metric in self.metrics:
-                if metric.check():
-                    self._alert(state, metric)
-                    self.alerted = True
+                message, alert = metric.check()
+                if alert and not metric.alerted:
+                    self._alert(message)
+                    metric.alerted = True
                 metric.clear()
 
     def _sample(self, timestamp: Timestamp) -> bool:
@@ -139,7 +108,7 @@ class HealthChecker(Callback):
             return True
         return False
 
-    def _alert(self, state: State, metric) -> None:
+    def _alert(self, message: str) -> None:
         message = 'Found a potential issue!'
 
         logging.warning(message)
@@ -147,32 +116,58 @@ class HealthChecker(Callback):
             client = WebhookClient(url=self.slack_webhook_url)
             client.send(text=message)
 
+    @staticmethod
+    def _is_available() -> bool:
+        if not torch.cuda.is_available():
+            return False
+        try:
+            pynvml.nvmlInit()  # type: ignore
+            return True
+        except pynvml.NVMLError_LibraryNotFound:  # type: ignore
+            logging.warning('NVML not found, disabling GPU health checking')
+        except ImportError:
+            logging.warning('pynvml library not found, disabling GPU health checking.')
+        except Exception as e:
+            logging.warning(f'Error initializing NVML: {e}')
+
+        return False
+
 
 class GPUUtilization:
+
+    alerted: bool = False
 
     def __init__(self, threshold=10) -> None:
         self.samples = deque()
         self.threshold = threshold
 
     def sample(self) -> None:
-        sample = self._sample()
-        if sample is not None:
-            self.samples.append(sample)
+        if dist.get_local_rank == 0:
+            sample = self._sample()
+            if sample is not None:
+                self.samples.append(sample)
 
-    def _sample(self) -> Optional[float]:
-        device_count = pynvml.nvmlDeviceGetCount()  # type: ignore
+    def _sample(self) -> Optional[List[float]]:
+        # TODO: catch NVMLError
+        samples = []
+        device_count = pynvml.nvmlDeviceGetCount()
         for i in range(device_count):
-            handle = pynvml.nvmlDeviceGetHandleByIndex(i)  # type: ignore
-            if gpu_in_use_by_this_process(handle):
-                return pynvml.nvmlDeviceGetUtilizationRates(handle).gpu,  # type: ignore
-        return None
+            handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+            samples.append(pynvml.nvmlDeviceGetUtilizationRates(handle).gpu)
+        return samples
 
-    def check(self) -> bool:
-        sample = [s for s in self.samples if s is not None]
-        average_sample = np.mean(sample) if sample else None
-        all_samples = dist.all_gather_object(average_sample)
+    def check(self, state: State) -> Tuple[str, bool]:
+        if dist.get_local_rank == 0:
+            average_sample = np.nanmean(self.samples, axis=0)
+            if np.nanmax(average_sample) - np.nanmin(average_sample) > self.threshold:
+                message = '{run_name} experiencing abnormal GPU utilizations on rank {rank}: {utils}'
+                return message.format(
+                    run_name=state.run_name,
+                    rank=dist.node_rank,
+                    utils=average_sample,
+                ), True
 
-        return np.nanmax(all_samples) - np.nanmin(all_samples) > self.threshold
+        return None, False
 
     def clear(self) -> None:
         self.samples.clear()
@@ -180,26 +175,37 @@ class GPUUtilization:
 
 class ECCErrors:
 
+    alerted: bool = False
+
     def __init__(self, threshold=100) -> None:
         self.samples = deque()
         self.threshold = threshold
 
     def sample(self) -> None:
-        sample = self._sample()
-        if sample is not None:
-            self.samples.append(sample)
+        if dist.get_local_rank == 0:
+            sample = self._sample()
+            if sample is not None:
+                self.samples.append(sample)
 
     def _sample(self) -> Optional[float]:
-        device_count = pynvml.nvmlDeviceGetCount()  # type: ignore
+        samples = []
+        device_count = pynvml.nvmlDeviceGetCount()
         for i in range(device_count):
-            handle = pynvml.nvmlDeviceGetHandleByIndex(i)  # type: ignore
-            if gpu_in_use_by_this_process(handle):
-                return pynvml.nvmlDeviceGetMemoryErrorCounter(handle, 0, 0, 2)  # type: ignore
-        return None
+            handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+            samples.append(pynvml.nvmlDeviceGetMemoryErrorCounter(handle, 0, 0, 2))
+        return samples
 
-    def check(self) -> bool:
-        sample = [s for s in self.samples if s is not None]
-        return np.nanmax(sample) - np.nanmin(sample) > self.threshold
+    def check(self, state: State) -> Tuple[str, bool]:
+        if dist.get_local_rank == 0:
+            min_counter = np.min(self.samples, axis=0)
+            max_counter = np.max(self.samples, axis=0)
+            gpus_with_error = np.where(max_counter - min_counter > self.threshold)
+            if len(gpus_with_error) > 0:
+                message = '{run_name} reporting high memory ECC error on rank {rank} for GPUs: {gpus}'
+                ecc_data = ['GPU: {} ({} -> {})'.format(i, min_counter[i], max_counter[i]) for i in gpus_with_error]
+                return message.format(run_name=state.run_name, rank=dist.node_rank, gpus=ecc_data), True
+
+        return None, False
 
     def clear(self) -> None:
         self.samples.clear()
