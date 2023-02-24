@@ -204,18 +204,7 @@ class DecoupledAdamW(AdamW):
                 param.grad.flatten(), step_tensor.flatten(), dim=0),
         'cosine/moment_grad':
             lambda param, optim_state, step_tensor: torch.nn.functional.cosine_similarity(
-                param.grad.flatten(), optim_state['exp_avg'].flatten(), dim=0),
-        'percentage_nonzero/moment':
-            lambda param, optim_state, step_tensor:
-            (torch.count_nonzero(optim_state['exp_avg']) / optim_state['exp_avg_sq'].nelement())
-            if optim_state['exp_avg'].flatten().shape[0] > 0 else 0,
-        'percentage_nonzero/grad':
-            lambda param, optim_state, step_tensor: (torch.count_nonzero(param.grad) / param.grad.nelement())
-            if param.grad.nelement() > 0 else 0,
-        'percentage_nonzero/second_moment':
-            lambda param, optim_state, step_tensor:
-            (torch.count_nonzero(optim_state['exp_avg_sq']) / optim_state['exp_avg_sq'].nelement())
-            if optim_state['exp_avg_sq'].flatten().shape[0] > 0 else 0,
+                param.grad.flatten(), optim_state['exp_avg'].flatten(), dim=0)
     }
 
     def __init__(self,
@@ -377,7 +366,6 @@ class DecoupledAdamW(AdamW):
 
                 A, B = tuple(vectors.split('_'))
 
-                # it would've already been squared, so let's undo that
                 A_reduced_norm = optimizer_metrics[f'l2_norm/{A}/{layer}']
                 B_reduced_norm = optimizer_metrics[f'l2_norm/{B}/{layer}']
                 optimizer_metrics[metric] = reduced / (A_reduced_norm * B_reduced_norm)
@@ -401,7 +389,7 @@ class DecoupledAdamW(AdamW):
 
                 A, B = tuple(vectors.split('_'))
 
-                # Take square root of squared metrics
+                # L2 norm would've been squared in previous branch
                 A_rank_subset_norm = math.sqrt(optimizer_metrics[f'l2_norm/{A}/{layer}'])
                 B_rank_subset_norm = math.sqrt(optimizer_metrics[f'l2_norm/{B}/{layer}'])
 
