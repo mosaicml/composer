@@ -1,8 +1,8 @@
 name: Code Quality Checks
 on:
-  merge_group:
   push:
     branches:
+      - dev
       - main
       - release/**
   pull_request:
