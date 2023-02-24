@@ -362,9 +362,7 @@ class DecoupledAdamW(AdamW):
 
     def dist_reduce_metrics(self, optimizer_metrics):
         for metric in optimizer_metrics:
-            if metric.startswith('layerwise_lr_scaling'):
-                continue
-            elif metric.startswith('l2_norm'):
+            if metric.startswith('l2_norm'):
                 reduced = optimizer_metrics[metric]
                 if dist.get_world_size() > 1:
                     dist.all_reduce(reduced, reduce_operation='SUM')
@@ -396,9 +394,7 @@ class DecoupledAdamW(AdamW):
         # reduction to work properly
 
         for metric in optimizer_metrics:
-            if metric.startswith('layerwise_lr_scaling'):
-                continue
-            elif metric.startswith('l2_norm'):
+            if metric.startswith('l2_norm'):
                 # l2 norms need to be squared, before they are reduced via summation
                 optimizer_metrics[metric] = optimizer_metrics[metric]**2
             elif metric.startswith('cosine'):
