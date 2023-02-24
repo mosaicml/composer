@@ -311,7 +311,7 @@ class ConvModel(ComposerClassifier):
 
     def __init__(self):
         conv_args = {'kernel_size': (3, 3), 'padding': 1}
-        conv1 = torch.nn.Conv2d(in_channels=3, out_channels=8, stride=2, bias=False, **conv_args)  # stride > 1
+        conv1 = torch.nn.Conv2d(in_channels=32, out_channels=8, stride=2, bias=False, **conv_args)  # stride > 1
         conv2 = torch.nn.Conv2d(in_channels=8, out_channels=32, stride=2, bias=False,
                                 **conv_args)  # stride > 1 but in_channels < 16
         conv3 = torch.nn.Conv2d(in_channels=32, out_channels=64, stride=1, bias=False, **conv_args)  # stride = 1
