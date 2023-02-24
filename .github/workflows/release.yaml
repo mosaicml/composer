@@ -1,0 +1,62 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  code-quality:
+    uses: ./.github/workflows/code-quality.yaml
+
+  pypi-packaging:
+    name: Build and Publish PyPI Packages
+    needs:
+      - code-quality
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: "3.9"
+
+      - name: Build source and wheel distributions
+        run: |
+          if [[ "${{ github.ref }}" =~ refs\/tags\/v ]]; then
+            PYPI_PACKAGE_NAME="mosaicml"
+          else
+            PYPI_PACKAGE_NAME="mosaicml-test-$(date +%Y%m%d%H%M%S)"
+          fi
+
+          python -m pip install --upgrade build twine
+          COMPOSER_PACKAGE_NAME=$PYPI_PACKAGE_NAME python -m build
+          twine check --strict dist/*
+
+      - name: Publish 📦 to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        if: contains(github.ref, 'refs/tags/v')
+        with:
+          user: __token__
+          password: ${{ secrets.PROD_PYPI_API_TOKEN }}
+
+      - name: Publish distribution 📦 to Test PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        if: contains(github.ref, 'refs/head/') || contains(github.ref, 'refs/pull/')
+        with:
+          user: __token__
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          repository_url: https://test.pypi.org/legacy/
+
+  production-docker-images:
+    name: Build and Push Production Docker Images
+    needs:
+      - pypi-packaging
+    uses: ./.github/workflows/release-docker.yaml
+    if: contains(github.ref, 'refs/tags/v')
+    secrets:
+      DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+      DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}

@@ -11,6 +11,13 @@ from composer.core import Precision
 from composer.models import composer_resnet_cifar
 from tests.common import RandomImageDataset
 
+try:
+    import transformer_engine.pytorch as te
+    del te
+    te_installed = True
+except ImportError:
+    te_installed = False
+
 
 def get_trainer(precision: Precision) -> Trainer:
 
@@ -87,3 +94,17 @@ def test_predict_precision_memory(precision: Precision):
     memory_fp32 = predict_and_measure_memory(Precision.FP32)
     memory_half = predict_and_measure_memory(precision)
     assert memory_half < 0.95 * memory_fp32
+
+
+@pytest.mark.gpu
+def test_amp_fp8_path():
+    trainer = get_trainer(Precision.AMP_FP8)
+    if te_installed:
+        if torch.cuda.get_device_capability()[0] < 9:
+            with pytest.raises(RuntimeError, match='AMP_FP8 precision is used but current device does not support it'):
+                trainer.fit()
+        else:
+            trainer.fit()
+    else:
+        with pytest.raises(ImportError, match='AMP_FP8 precision is used but TransformerEngine is not installed'):
+            trainer.fit()

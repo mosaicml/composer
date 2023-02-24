@@ -239,6 +239,10 @@ class WandBLogger(LoggerDestination):
                 # the trainer is evaluating or predicting. Assuming evaluation in this case.
                 metadata.update({f'eval_timestamp/{k}': v for (k, v) in state.eval_timestamp.state_dict().items()})
 
+            # Change the extension so the checkpoint is compatible with W&B's model registry
+            if extension == 'pt':
+                extension = 'model'
+
             wandb_artifact = wandb.Artifact(
                 name=new_remote_file_name,
                 type=extension,

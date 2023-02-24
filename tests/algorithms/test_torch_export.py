@@ -139,6 +139,7 @@ def test_surgery_torchfx_eval(
 @pytest.mark.parametrize('alg_cls', torchscript_algs_with_marks)
 @pytest.mark.filterwarnings(
     r'ignore:Converting a tensor to a Python .* might cause the trace to be incorrect:torch.jit._trace.TracerWarning')
+@pytest.mark.filterwarnings('ignore:__floordiv__ is deprecated')
 def test_surgery_onnx(
     input: Any,
     alg_cls: Type[Algorithm],
