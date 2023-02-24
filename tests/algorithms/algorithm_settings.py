@@ -64,7 +64,7 @@ simple_resnet_settings = {
         'num_classes': 2
     }),
     'dataset': (RandomImageDataset, {
-        'shape': (3, 56, 56),
+        'shape': (3, 224, 224),
     }),
     'kwargs': {},
 }
@@ -117,9 +117,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
         'model': (SimpleConvModel, {
             'norm': 'group',
         }),
-        'dataset': (RandomImageDataset, {
-            'shape': (3, 28, 28)
-        }),
+        'dataset': RandomImageDataset,
         'kwargs': {
             'ghost_batch_size': 2,
         }
@@ -151,7 +149,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
             'num_classes': 2
         }),
         'dataset': (RandomImageDataset, {
-            'shape': (3, 56, 56),
+            'shape': (3, 224, 224),
         }),
         'kwargs': {
             'stochastic_method': 'block',
