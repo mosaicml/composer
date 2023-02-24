@@ -146,7 +146,7 @@ class SimpleConvModel(ComposerClassifier):
         num_classes (int): number of classes (default: 2)
     """
 
-    def __init__(self, num_channels: int = 3, num_classes: int = 2) -> None:
+    def __init__(self, num_channels: int = 3, num_classes: int = 2, norm: str = 'batch') -> None:
 
         self.num_classes = num_classes
         self.num_channels = num_channels
@@ -154,6 +154,17 @@ class SimpleConvModel(ComposerClassifier):
         conv_args = {'kernel_size': (3, 3), 'padding': 1, 'stride': 2}
         conv1 = torch.nn.Conv2d(in_channels=num_channels, out_channels=8, **conv_args)
         conv2 = torch.nn.Conv2d(in_channels=8, out_channels=4, **conv_args)
+        norm_layer = None
+        if norm == 'batch':
+            norm_layer = torch.nn.BatchNorm2d(4)
+        elif norm == 'instance':
+            norm_layer = torch.nn.InstanceNorm2d(4)
+        elif norm == 'layer':
+            norm_layer = torch.nn.LayerNorm(4)
+        elif norm == 'group':
+            norm_layer = torch.nn.GroupNorm(2, 4)
+        else:
+            raise ValueError(f'Unknown norm: {norm}')
         pool = torch.nn.AdaptiveAvgPool2d(1)
         flatten = torch.nn.Flatten()
         fc1 = torch.nn.Linear(4, 16)
@@ -162,6 +173,7 @@ class SimpleConvModel(ComposerClassifier):
         net = torch.nn.Sequential(
             conv1,
             conv2,
+            norm_layer,
             pool,
             flatten,
             fc1,
@@ -295,18 +307,13 @@ class SimpleTransformerClassifier(ComposerClassifier):
 class ConvModel(ComposerClassifier):
     """Convolutional network featuring strided convs, a batchnorm, max pooling, and average pooling."""
 
-    def __init__(self, norm='batchnorm'):
+    def __init__(self):
         conv_args = {'kernel_size': (3, 3), 'padding': 1}
-        conv1 = torch.nn.Conv2d(in_channels=32, out_channels=8, stride=2, bias=False, **conv_args)  # stride > 1
+        conv1 = torch.nn.Conv2d(in_channels=3, out_channels=8, stride=2, bias=False, **conv_args)  # stride > 1
         conv2 = torch.nn.Conv2d(in_channels=8, out_channels=32, stride=2, bias=False,
                                 **conv_args)  # stride > 1 but in_channels < 16
         conv3 = torch.nn.Conv2d(in_channels=32, out_channels=64, stride=1, bias=False, **conv_args)  # stride = 1
-        if norm == 'batchnorm':
-            norm = torch.nn.BatchNorm2d(num_features=64)
-        elif norm == 'groupnorm':
-            norm = torch.nn.GroupNorm(num_groups=2, num_channels=64)
-        else:
-            raise ValueError(f'Unknown norm: {norm}')
+        bn = torch.nn.BatchNorm2d(num_features=64)
         pool1 = torch.nn.MaxPool2d(kernel_size=(2, 2), stride=2, padding=1)
         pool2 = torch.nn.AdaptiveAvgPool2d(1)
         flatten = torch.nn.Flatten()
@@ -317,7 +324,7 @@ class ConvModel(ComposerClassifier):
             conv1,
             conv2,
             conv3,
-            norm,
+            bn,
             pool1,
             pool2,
             flatten,
@@ -331,7 +338,7 @@ class ConvModel(ComposerClassifier):
         self.conv1 = conv1
         self.conv2 = conv2
         self.conv3 = conv3
-        self.norm = norm
+        self.bn = bn
         self.pool1 = pool1
         self.pool2 = pool2
         self.flatten = flatten

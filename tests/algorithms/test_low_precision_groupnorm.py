@@ -10,7 +10,7 @@ from composer.core import Event, State
 from composer.loggers import Logger
 from composer.utils import get_device
 from tests.common import RandomImageDataset
-from tests.common.models import ConvModel
+from tests.common.models import SimpleConvModel
 
 
 def assert_is_lpgn_instance(model):
@@ -24,7 +24,7 @@ def assert_is_lpgn_instance(model):
 
 
 def test_low_precision_groupnorm_functional():
-    model = ConvModel(norm='groupnorm')
+    model = SimpleConvModel(norm='group')
     dataloader = DataLoader(RandomImageDataset(), batch_size=2)
     state = State(
         model=model,
@@ -42,7 +42,7 @@ def test_low_precision_groupnorm_functional():
 
 
 def test_low_precision_groupnorm_algorithm(empty_logger: Logger):
-    model = ConvModel(norm='groupnorm')
+    model = SimpleConvModel(norm='group')
     dataloader = DataLoader(RandomImageDataset(), batch_size=2)
 
     state = State(
