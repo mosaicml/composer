@@ -215,6 +215,14 @@ def _get_initial_device_train_microbatch_size(device_train_microbatch_size: Opti
         raise ValueError("device_train_microbatch_size must be an int or ``'auto'``")
 
 
+def _get_num_alloc_retries():
+    """Returns the number of times the CUDA allocator has retried to allocate memory."""
+    memory_stats = torch.cuda.memory_stats()
+    if 'num_alloc_retries' in memory_stats:
+        return memory_stats['num_alloc_retries']
+    return 0
+
+
 def _is_cuda_oom(e: RuntimeError):
     """Determines if error is CUDA Out of Memory and if auto_microbatching is enabled."""
     if 'CUDA out of memory' in str(e):
@@ -2119,7 +2127,7 @@ class Trainer:
 
             total_loss_dict = {'loss/train/total': self.state.device.tensor_to_device(torch.zeros(size=(1,)))}
             found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
-            num_alloc_retries = torch.cuda.memory_stats()['num_alloc_retries']
+            num_alloc_retries = _get_num_alloc_retries()
             try:
                 assert self.state.scaler is not None
                 if self.state.using_device_microbatch_size:
@@ -2152,7 +2160,7 @@ class Trainer:
                                     optimizer.step()
                 # Raise error if automicrobatching and num_alloc_retries increased, as thrashing
                 # often leads to throughput slowdown
-                if self.state.auto_microbatching and torch.cuda.memory_stats()['num_alloc_retries'] > num_alloc_retries:
+                if self.state.auto_microbatching and _get_num_alloc_retries() > num_alloc_retries:
                     raise RuntimeError('num_alloc_retries > 1 which causes memory thrashing and throughput decrease')
             except RuntimeError as e:
                 if self.state.auto_microbatching and _is_cuda_oom(e):
@@ -2696,7 +2704,7 @@ class Trainer:
                 while True:
                     # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
                     found_cuda_oom = 0
-                    num_alloc_retries = torch.cuda.memory_stats()['num_alloc_retries']
+                    num_alloc_retries = _get_num_alloc_retries()
                     try:
                         for self.state.batch in data_spec._num_microbatches_split_batch(
                                 self.state.batch, self.state.eval_batch_split):
@@ -2736,8 +2744,7 @@ class Trainer:
                                         )
                         # Raise error if automicrobatching and num_alloc_retries increased, as thrashing
                         # often leads to throughput slowdown
-                        if self.state.auto_microbatching and torch.cuda.memory_stats(
-                        )['num_alloc_retries'] > num_alloc_retries:
+                        if self.state.auto_microbatching and _get_num_alloc_retries() > num_alloc_retries:
                             raise RuntimeError(
                                 'num_alloc_retries > 1 which causes memory thrashing and throughput decrease')
                     except RuntimeError as e:
