@@ -146,7 +146,7 @@ class SimpleConvModel(ComposerClassifier):
         num_classes (int): number of classes (default: 2)
     """
 
-    def __init__(self, num_channels: int = 3, num_classes: int = 2, norm_name: str = 'batch') -> None:
+    def __init__(self, num_channels: int = 3, num_classes: int = 2, norm: str = 'batch') -> None:
 
         self.num_classes = num_classes
         self.num_channels = num_channels
@@ -154,15 +154,15 @@ class SimpleConvModel(ComposerClassifier):
         conv_args = {'kernel_size': (3, 3), 'padding': 1, 'stride': 2}
         conv1 = torch.nn.Conv2d(in_channels=num_channels, out_channels=8, **conv_args)
         conv2 = torch.nn.Conv2d(in_channels=8, out_channels=4, **conv_args)
-        norm = None
-        if norm_name == 'batch':
-            norm = torch.nn.BatchNorm2d(4)
-        elif norm_name == 'instance':
-            norm = torch.nn.InstanceNorm2d(4)
-        elif norm_name == 'layer':
-            norm = torch.nn.LayerNorm(4)
-        elif norm_name == 'group':
-            norm = torch.nn.GroupNorm(2, 4)
+        norm_layer = None
+        if norm == 'batch':
+            norm_layer = torch.nn.BatchNorm2d(4)
+        elif norm == 'instance':
+            norm_layer = torch.nn.InstanceNorm2d(4)
+        elif norm == 'layer':
+            norm_layer = torch.nn.LayerNorm(4)
+        elif norm == 'group':
+            norm_layer = torch.nn.GroupNorm(2, 4)
         else:
             raise ValueError(f'Unknown norm: {norm}')
         pool = torch.nn.AdaptiveAvgPool2d(1)
@@ -173,7 +173,7 @@ class SimpleConvModel(ComposerClassifier):
         net = torch.nn.Sequential(
             conv1,
             conv2,
-            norm,
+            norm_layer,
             pool,
             flatten,
             fc1,
