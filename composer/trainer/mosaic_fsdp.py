@@ -20,11 +20,53 @@ sharding_map = {
     'FULL_SHARD': ShardingStrategy.FULL_SHARD,
 }
 
+
+def _get_process_group(pg, process_group_cache):
+    # Return regular process_groups as is, no cacheing
+    if pg is None or isinstance(pg, ProcessGroup):
+        return pg
+
+    # Look for existing key in cache
+    if isinstance(pg, list):
+        pg_key = ','.join([str(i) for i in pg])
+    else:
+        pg_key = pg
+    if pg_key in process_group_cache:
+        warnings.warn(
+            f'Using cached progress group with {pg_key=}. ' +\
+            'If the intended usage was to generate a new progress group with the same ranks, ' +\
+            'use kwarg: `process_group=torch.distributed.new_group(ranks)`'
+        )
+        return process_group_cache[pg_key]
+
+    # Handle str or List[int] process_group cases
+    if pg == 'self':
+        ranks = [get_global_rank()]
+    elif pg == 'node':
+        node_rank = get_node_rank()
+        local_world_size = get_local_world_size()
+        ranks = list(range(node_rank * local_world_size, (node_rank + 1) * local_world_size))
+    elif pg == 'local_rank_across_nodes':
+        local_rank = get_local_rank()
+        local_world_size = get_local_world_size()
+        num_nodes = get_world_size() // get_local_world_size()
+        ranks = [local_rank + local_world_size * n for n in range(num_nodes)]
+    elif isinstance(pg, list):
+        ranks = pg
+    else:
+        raise ValueError(f'Unsure how to setup process_group={pg}')
+
+    group = torch.distributed.new_group(ranks=ranks)  # pyright: ignore [reportGeneralTypeIssues]
+    process_group_cache[pg_key] = group
+    return group
+
+
 def _pro_recursive_wrap(module: nn.Module,
                         auto_wrap_policy: Callable,
                         wrapper_cls: Callable,
                         ignored_modules: Set[nn.Module],
                         ignored_params: Set[nn.Parameter],
+                        process_group_cache: Dict[str, Any],
                         only_wrap_children: bool = False,
                         **kwargs: Any) -> Tuple[nn.Module, int]:
     """
@@ -73,6 +115,7 @@ def _pro_recursive_wrap(module: nn.Module,
                 wrapper_cls=wrapper_cls,
                 ignored_modules=ignored_modules,
                 ignored_params=ignored_params,
+                process_group_cache=process_group_cache,
                 **kwargs,
             )
             setattr(module, name, wrapped_child)
@@ -86,9 +129,9 @@ def _pro_recursive_wrap(module: nn.Module,
             module_kwargs = module_kwargs if isinstance(module_kwargs, dict) else {}
             if 'sharding_strategy' in module_kwargs:
                 module_kwargs['sharding_strategy'] = sharding_map[module_kwargs['sharding_strategy'].upper()]
+            if 'process_group' in module_kwargs:
+                module_kwargs['process_group'] = _get_process_group(module_kwargs['process_group'], process_group_cache)
             final_kwargs = {**kwargs, **module_kwargs}
-
-            print(module.__class__, final_kwargs)
 
             # Leaf node or final wrapping of the remainder both happen here.
             return _wrap(module, wrapper_cls, **final_kwargs), num_params
@@ -131,4 +174,5 @@ class MosaicFullyShardedDataParallel(FullyShardedDataParallel):
                           'instances with mixed precision disabled since some batch norm '
                           'kernels do not support low precision.')
             auto_wrap_kwargs['auto_wrap_policy'] = auto_wrap_policy
+        auto_wrap_kwargs['process_group_cache'] = {}
         _pro_recursive_wrap(**auto_wrap_kwargs, **fsdp_kwargs)
