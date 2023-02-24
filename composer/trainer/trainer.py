@@ -218,6 +218,8 @@ def _is_cuda_oom(e: RuntimeError):
     """Determines if error is CUDA Out of Memory and if auto_microbatching is enabled."""
     if 'CUDA out of memory' in str(e):
         return True
+    if 'num_alloc_retries > 1' in str(e):
+        return True
     # With batch_norm, large batch sizes sometimes result in cuDNN instead of Cuda OOMs.
     if 'cuDNN error: CUDNN_STATUS_NOT_SUPPORTED. This error may appear if you passed in a non-contiguous input.' in str(
             e):
@@ -2112,7 +2114,7 @@ class Trainer:
 
             total_loss_dict = {'loss/train/total': self.state.device.tensor_to_device(torch.zeros(size=(1,)))}
             found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
-            print(f'Retries: {torch.cuda.memory_stats()["num_alloc_retries"]}')
+            num_alloc_retries = torch.cuda.memory_stats()['num_alloc_retries']
             try:
                 assert self.state.scaler is not None
                 if self.state.using_device_microbatch_size:
@@ -2143,13 +2145,17 @@ class Trainer:
                                     xm.optimizer_step(optimizer, barrier=True)
                                 else:
                                     optimizer.step()
+                # Raise error if automicrobatching and num_alloc_retries increased, as thrashing
+                # often leads to throughput slowdown
+                if self.state.auto_microbatching and torch.cuda.memory_stats()['num_alloc_retries'] > num_alloc_retries:
+                    raise RuntimeError(
+                        'num_alloc_retries > 1, which leads to memory thrashing and throughput decrease.')
             except RuntimeError as e:
                 if self.state.auto_microbatching and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     found_cuda_oom = 1
                 else:
                     raise
-            print(f'After Retries: {torch.cuda.memory_stats()["num_alloc_retries"]}')
 
             if self.state.auto_microbatching:
                 # Propagate across all ranks if any rank hit CUDA OOM
@@ -2686,6 +2692,7 @@ class Trainer:
                 while True:
                     # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
                     found_cuda_oom = 0
+                    num_alloc_retries = torch.cuda.memory_stats()['num_alloc_retries']
                     try:
                         for self.state.batch in data_spec._num_microbatches_split_batch(
                                 self.state.batch, self.state.eval_batch_split):
@@ -2723,7 +2730,12 @@ class Trainer:
                                             outputs,
                                             metric,
                                         )
-
+                        # Raise error if automicrobatching and num_alloc_retries increased, as thrashing
+                        # often leads to throughput slowdown
+                        if self.state.auto_microbatching and torch.cuda.memory_stats(
+                        )['num_alloc_retries'] > num_alloc_retries:
+                            raise RuntimeError(
+                                'num_alloc_retries > 1, which leads to memory thrashing and throughput decrease.')
                     except RuntimeError as e:
                         if self.state.auto_microbatching and _is_cuda_oom(e):
                             log.debug((f"Rank {dist.get_global_rank()} OOM'd."))

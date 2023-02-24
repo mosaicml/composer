@@ -288,6 +288,7 @@ class SeqLengthWarmup(Algorithm):
             model_inputs = {k: v[:per_gpu_batch] for k, v in batch_clone.items()}
 
             found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
+            num_alloc_retries = torch.cuda.memory_stats()['num_alloc_retries']
             try:
                 # start by running a forward and backward pass
                 # of the maximum sequence length to allocate cache.
@@ -304,6 +305,11 @@ class SeqLengthWarmup(Algorithm):
                 for optimizer in state.optimizers:
                     optimizer.zero_grad()
 
+                # Raise error if automicrobatching and num_alloc_retries increased, as thrashing
+                # often leads to throughput slowdown
+                if state.auto_microbatching and torch.cuda.memory_stats()['num_alloc_retries'] > num_alloc_retries:
+                    raise RuntimeError(
+                        'num_alloc_retries > 1, which leads to memory thrashing and throughput decrease.')
             # This error/state.grad_accum handling mimics the logic in trainer._train_batch().
             except RuntimeError as e:
                 if state.auto_microbatching and _is_cuda_oom(e):
