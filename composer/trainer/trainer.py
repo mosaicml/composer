@@ -2148,8 +2148,7 @@ class Trainer:
                 # Raise error if automicrobatching and num_alloc_retries increased, as thrashing
                 # often leads to throughput slowdown
                 if self.state.auto_microbatching and torch.cuda.memory_stats()['num_alloc_retries'] > num_alloc_retries:
-                    raise RuntimeError(
-                        'num_alloc_retries > 1, which leads to memory thrashing and throughput decrease.')
+                    raise RuntimeError('num_alloc_retries > 1 which causes memory thrashing and throughput decrease')
             except RuntimeError as e:
                 if self.state.auto_microbatching and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
@@ -2735,7 +2734,7 @@ class Trainer:
                         if self.state.auto_microbatching and torch.cuda.memory_stats(
                         )['num_alloc_retries'] > num_alloc_retries:
                             raise RuntimeError(
-                                'num_alloc_retries > 1, which leads to memory thrashing and throughput decrease.')
+                                'num_alloc_retries > 1 which causes memory thrashing and throughput decrease')
                     except RuntimeError as e:
                         if self.state.auto_microbatching and _is_cuda_oom(e):
                             log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
