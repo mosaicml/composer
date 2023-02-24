@@ -328,9 +328,9 @@ class DecoupledAdamW(AdamW):
                 if amsgrad:
                     max_exp_avg_sqs.append(state['max_exp_avg_sq'])
 
-                # update the steps for each param group update
+                # Update the steps for each param group update
                 state['step'] += 1
-                # record the step after step update
+                # Record the step after step update
                 state_steps.append(state['step'])
 
             self.adamw(params_with_grad,
@@ -382,7 +382,7 @@ class DecoupledAdamW(AdamW):
 
         for metric in optimizer_metrics:
             if metric.startswith('l2_norm'):
-                # l2 norms need to be squared, before they are reduced via summation
+                # L2 norms need to be squared, before they are reduced via summation
                 optimizer_metrics[metric] = optimizer_metrics[metric]**2
             elif metric.startswith('cosine'):
                 _, vectors, layer = tuple(metric.split('/'))

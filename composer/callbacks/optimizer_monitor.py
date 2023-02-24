@@ -102,6 +102,14 @@ class OptimizerMonitor(Callback):
                     optimizer_metrics[f'l2_norm/grad/{name}'] = param_grad_norm
 
         if state.fsdp_enabled and dist.get_world_size() > 0 and self.log_optimizer_metrics:
+            # If FSDP is enabled, the optimizer state lives on different ranks and must be reduced
+            # and combined before we can compute metrics.
+            # Each metric has a different way of being reduced, so the optimizer is responsible for implementing
+            # the reduction process.
+            # It occurs first via a pre-reduce, where the metric on each rank is modified and prepared
+            # then an all-reduce where the modified metric on each rank is combined into the correct metric across all ranks.
+            #
+            # For example, L2 norms are squared on each rank before we apply all_reduce(SUM) and take the sqrt on each rank
             pre_reduce_metrics = getattr(state.optimizers[0], 'pre_reduce_metrics', None)
             if callable(pre_reduce_metrics) and self.log_optimizer_metrics:
                 optimizer_metrics = pre_reduce_metrics(optimizer_metrics)
