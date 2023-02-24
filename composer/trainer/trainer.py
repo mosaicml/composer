@@ -2104,7 +2104,8 @@ class Trainer:
         """
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
 
-        # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
+        # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop.
+        # Any in-place changes to a microbatch will be reflected in the device batch.
         device_batch = self.state.batch
 
         # Retry until we successfully complete training and return loss
@@ -2212,8 +2213,10 @@ class Trainer:
                     except TypeError:
                         optimizer.zero_grad()
 
-            # tracker for gradient accumulation
+            # Tracker for gradient accumulation
             current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(batch) for batch in microbatches])
+            # Cache batch, which will be overwritten by microbatches. Restore after microbatches complete
+            current_batch = self.state.batch
 
             for microbatch_idx, self.state.batch in enumerate(microbatches):
                 is_final_microbatch = microbatch_idx + 1 == len(microbatches)
@@ -2225,6 +2228,9 @@ class Trainer:
                     if loss_key not in total_loss_dict:
                         total_loss_dict[loss_key] = self.state.device.tensor_to_device(torch.zeros(size=(1,)))
                     total_loss_dict[loss_key] += microbatch_loss
+
+            # Restore batch
+            self.state.batch = current_batch
 
             # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
             if use_grad_scaling:
