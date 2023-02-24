@@ -378,7 +378,7 @@ class DecoupledAdamW(AdamW):
         return optimizer_metrics
 
     def pre_reduce_metrics(self, optimizer_metrics):
-        # Some metrics require preprocessing to reduce across ranks correctly
+        '''Preprocess metrics to reduce across ranks correctly.'''
 
         for metric in optimizer_metrics:
             if metric.startswith('l2_norm'):
