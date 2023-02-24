@@ -11,6 +11,7 @@ from typing import Dict, Optional, Sequence, Type, Union
 
 import torch
 import torch.nn.functional as F
+from torch.optim import Optimizer
 
 from composer.algorithms.warnings import NoEffectWarning
 from composer.core import Algorithm, Event, Precision, State
@@ -55,9 +56,9 @@ def to_LPGroupNorm(layer: torch.nn.Module, module_index: int) -> LPGroupNorm:
     return LPGroupNorm(layer)
 
 
-def apply_low_precision_groupnorm(model, optimizers: Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]],
-                                  precision: Precision):
-
+def apply_low_precision_groupnorm(model,
+                                  precision: Optional[Precision] = None,
+                                  optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None):
     if (precision != Precision.AMP_FP16 and precision != Precision.AMP_BF16):
         warnings.warn(NoEffectWarning('Low Precision GroupNorm only applies to AMP_FP16 and AMP_BF16 precisions.'))
         return model

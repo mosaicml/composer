@@ -53,7 +53,7 @@ def test_low_precision_layernorm_functional(model, dataloader, device: str):
     if device == 'gpu':
         state.model = state.model.cuda()  # move the model to gpu
 
-    apply_low_precision_layernorm(state.model, state.optimizers, state._precision)
+    apply_low_precision_layernorm(state.model, state._precision, state.optimizers)
     assert_is_lpln_instance(state.model)
 
 

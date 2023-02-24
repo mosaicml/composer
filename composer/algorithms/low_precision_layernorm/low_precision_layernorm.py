@@ -12,6 +12,7 @@ from typing import Dict, Optional, Sequence, Type, Union
 import torch
 import torch.nn.functional as F
 from packaging import version
+from torch.optim import Optimizer
 
 from composer.algorithms.warnings import NoEffectWarning
 from composer.core import Algorithm, Event, Precision, State
@@ -77,9 +78,9 @@ def to_FusedLayerNorm(layer: torch.nn.Module, module_index: int) -> APEXFusedLay
     return fused_layernorm
 
 
-def apply_low_precision_layernorm(model, optimizers: Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]],
-                                  precision: Precision):
-
+def apply_low_precision_layernorm(model,
+                                  precision: Optional[Precision] = None,
+                                  optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None):
     if (precision != Precision.AMP_FP16 and precision != Precision.AMP_BF16):
         warnings.warn(NoEffectWarning('Low Precision LayerNorm only applies to AMP_FP16 and AMP_BF16 precisions.'))
         return model

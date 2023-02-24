@@ -15,7 +15,7 @@ import torch.fx
 
 from composer.algorithms import (BlurPool, ChannelsLast, Factorize, GhostBatchNorm, LowPrecisionGroupNorm,
                                  LowPrecisionLayerNorm, SqueezeExcite, StochasticDepth)
-from composer.core.algorithm import Algorithm
+from composer.core import Algorithm, Precision
 from composer.functional import (apply_blurpool, apply_channels_last, apply_factorization, apply_ghost_batchnorm,
                                  apply_low_precision_groupnorm, apply_low_precision_layernorm, apply_squeeze_excite,
                                  apply_stochastic_depth)
@@ -24,11 +24,17 @@ from tests.algorithms.algorithm_settings import get_alg_kwargs, get_alg_model, g
 algo_kwargs = {
     apply_stochastic_depth: {
         'stochastic_method': 'block',
-        'target_layer_name': 'ResNetBottleneck'
+        'target_layer_name': 'ResNetBottleneck',
     },
     apply_ghost_batchnorm: {
         'ghost_batch_size': 2
-    }
+    },
+    apply_low_precision_groupnorm: {
+        'precision': Precision.AMP_FP16,
+    },
+    apply_low_precision_layernorm: {
+        'precision': Precision.AMP_FP16,
+    },
 }
 
 

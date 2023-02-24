@@ -37,7 +37,7 @@ def test_low_precision_groupnorm_functional():
         device=get_device('cpu'),
     )
 
-    apply_low_precision_groupnorm(state.model, state.optimizers, state._precision)
+    apply_low_precision_groupnorm(state.model, state._precision, state.optimizers)
     assert_is_lpgn_instance(state.model)
 
 
