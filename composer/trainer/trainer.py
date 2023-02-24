@@ -2112,6 +2112,7 @@ class Trainer:
 
             total_loss_dict = {'loss/train/total': self.state.device.tensor_to_device(torch.zeros(size=(1,)))}
             found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
+            print(f'Retries: {torch.cuda.memory_stats()["num_alloc_retries"]}')
             try:
                 assert self.state.scaler is not None
                 if self.state.using_device_microbatch_size:
@@ -2148,6 +2149,7 @@ class Trainer:
                     found_cuda_oom = 1
                 else:
                     raise
+            print(f'After Retries: {torch.cuda.memory_stats()["num_alloc_retries"]}')
 
             if self.state.auto_microbatching:
                 # Propagate across all ranks if any rank hit CUDA OOM
