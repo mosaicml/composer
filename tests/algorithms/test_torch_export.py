@@ -13,12 +13,8 @@ import pytest
 import torch
 import torch.fx
 
-from composer.algorithms.blurpool.blurpool import BlurPool
-from composer.algorithms.channels_last.channels_last import ChannelsLast
-from composer.algorithms.factorize.factorize import Factorize
-from composer.algorithms.ghost_batchnorm.ghost_batchnorm import GhostBatchNorm
-from composer.algorithms.squeeze_excite.squeeze_excite import SqueezeExcite
-from composer.algorithms.stochastic_depth.stochastic_depth import StochasticDepth
+from composer.algorithms import (BlurPool, ChannelsLast, Factorize, GhostBatchNorm, LowPrecisionGroupNorm,
+                                 LowPrecisionLayerNorm, SqueezeExcite, StochasticDepth)
 from composer.core.algorithm import Algorithm
 from composer.functional import (apply_blurpool, apply_channels_last, apply_factorization, apply_ghost_batchnorm,
                                  apply_squeeze_excite, apply_stochastic_depth)
@@ -135,8 +131,12 @@ def test_surgery_torchfx_eval(
 
 # <--- onnx export --->
 
+onnx_algs_with_marks = torchscript_algs_with_marks + [
+    x for x in get_algs_with_marks() if x.values[0] in (LowPrecisionGroupNorm, LowPrecisionLayerNorm)
+]
 
-@pytest.mark.parametrize('alg_cls', torchscript_algs_with_marks)
+
+@pytest.mark.parametrize('alg_cls', onnx_algs_with_marks)
 @pytest.mark.filterwarnings(
     r'ignore:Converting a tensor to a Python .* might cause the trace to be incorrect:torch.jit._trace.TracerWarning')
 def test_surgery_onnx(
