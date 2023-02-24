@@ -8,6 +8,7 @@ from composer.callbacks import OptimizerMonitor
 from composer.loggers import InMemoryLogger
 from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
+from composer.utils import dist
 from tests.common import device, world_size
 from tests.common.datasets import RandomClassificationDataset
 from tests.common.models import SimpleModel
@@ -55,11 +56,12 @@ def test_fsdp_optimizer_monitor(device, world_size):
     grad_monitor = OptimizerMonitor(log_optimizer_metrics=True)
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     model = SimpleModel()
+    dataset = RandomClassificationDataset()
     # Construct the trainer and train
     trainer = Trainer(model=model,
                       callbacks=grad_monitor,
                       loggers=in_memory_logger,
-                      train_dataloader=DataLoader(RandomClassificationDataset()),
+                      train_dataloader=DataLoader(dataset, sampler=dist.get_sampler(dataset)),
                       optimizers=DecoupledAdamW(model.parameters()),
                       max_duration='3ba',
                       fsdp_config={
@@ -78,14 +80,19 @@ def test_fsdp_optimizer_monitor(device, world_size):
     # Count the logged steps
     grad_norm_calls = len(in_memory_logger.data['l2_norm/grad/global'])
     layer_norm_calls = [len(calls) for (k, calls) in in_memory_logger.data.items() if 'l2_norm/grad' in k]
-    assert 'l2_norm/grad/module.2.weight' in in_memory_logger.data.keys()
-    assert 'l2_norm/moment/module.2.weight' in in_memory_logger.data.keys()
-    assert 'l2_norm_ratio/moment_grad/module.2.weight' in in_memory_logger.data.keys()
-    assert 'cosine/moment_grad/module.2.weight' in in_memory_logger.data.keys()
-    assert 'l2_norm/second_moment_sqrt/module.2.weight' in in_memory_logger.data.keys()
-    assert 'l2_norm/update/module.2.weight' in in_memory_logger.data.keys()
-    assert 'cosine/update_grad/module.2.weight' in in_memory_logger.data.keys()
-    assert 'l2_norm_ratio/update_param/module.2.weight' in in_memory_logger.data.keys()
+    assert 'l2_norm/grad/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param' in in_memory_logger.data.keys(
+    )
+    assert 'l2_norm/moment/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param' in in_memory_logger.data.keys(
+    )
+
+    assert 'cosine/moment_grad/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param' in in_memory_logger.data.keys(
+    )
+    assert 'l2_norm/second_moment_sqrt/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param' in in_memory_logger.data.keys(
+    )
+    assert 'l2_norm/update/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param' in in_memory_logger.data.keys(
+    )
+    assert 'cosine/update_grad/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param' in in_memory_logger.data.keys(
+    )
 
     # Expected to log gradient norm once per step (total batch)
     assert grad_norm_calls == num_train_steps

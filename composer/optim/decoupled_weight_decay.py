@@ -221,7 +221,6 @@ class DecoupledAdamW(AdamW):
         super().__init__(params=params, lr=lr, betas=betas, eps=eps, weight_decay=weight_decay, amsgrad=amsgrad)
         for group in self.param_groups:
             group['initial_lr'] = group['lr']
-        self.layer_to_scale = {}
         self.amsgrad = amsgrad
 
     @staticmethod
@@ -299,6 +298,8 @@ class DecoupledAdamW(AdamW):
             beta1, beta2 = group['betas']
             eps = group['eps']
             lr = group['lr']
+            if 'initial_lr' not in group:
+                group['initial_lr'] = lr
             initial_lr = group['initial_lr']
             weight_decay = group['weight_decay']
 
@@ -378,9 +379,11 @@ class DecoupledAdamW(AdamW):
         return optimizer_metrics
 
     def pre_reduce_metrics(self, optimizer_metrics):
-        '''Preprocess metrics to reduce across ranks correctly.'''
-
-        for metric in optimizer_metrics:
+        """Preprocess metrics to reduce across ranks correctly."""
+        # Sort L2 norms first so they are squared before other metrics, which depend on squared values
+        metrics = optimizer_metrics.keys()
+        metrics = sorted(metrics, key=lambda metric: 0 if 'l2_norm' in metric else 1)
+        for metric in metrics:
             if metric.startswith('l2_norm'):
                 # L2 norms need to be squared, before they are reduced via summation
                 optimizer_metrics[metric] = optimizer_metrics[metric]**2
