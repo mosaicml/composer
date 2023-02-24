@@ -25,7 +25,7 @@ from composer.models import composer_resnet
 from composer.models.base import ComposerModel
 from tests.common import get_module_subclasses
 from tests.common.datasets import RandomImageDataset, SimpleDataset, dummy_bert_lm_dataloader, dummy_gpt_lm_dataloader
-from tests.common.models import (SimpleConvModel, SimpleModelWithDropout, configure_tiny_bert_hf_model,
+from tests.common.models import (ConvModel, SimpleConvModel, SimpleModelWithDropout, configure_tiny_bert_hf_model,
                                  configure_tiny_gpt2_hf_model)
 
 simple_bert_settings = {
@@ -114,12 +114,9 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     FusedLayerNorm: simple_bert_settings,
     GatedLinearUnits: simple_bert_settings,
     GhostBatchNorm: {
-        'model': (composer_resnet, {
-            'model_name': 'resnet18',
-            'num_classes': 2
-        }),
+        'model': ConvModel,
         'dataset': (RandomImageDataset, {
-            'shape': (3, 56, 56)
+            'shape': (3, 28, 28)
         }),
         'kwargs': {
             'ghost_batch_size': 2,
