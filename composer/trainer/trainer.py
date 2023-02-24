@@ -2115,6 +2115,7 @@ class Trainer:
             total_loss_dict = {'loss/train/total': self.state.device.tensor_to_device(torch.zeros(size=(1,)))}
             found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
             num_alloc_retries = torch.cuda.memory_stats()['num_alloc_retries']
+            print(f'num_alloc_retries: {num_alloc_retries}')
             try:
                 assert self.state.scaler is not None
                 if self.state.using_device_microbatch_size:
@@ -2147,6 +2148,7 @@ class Trainer:
                                     optimizer.step()
                 # Raise error if automicrobatching and num_alloc_retries increased, as thrashing
                 # often leads to throughput slowdown
+                print(torch.cuda.memory_stats()['num_alloc_retries'], num_alloc_retries)
                 if self.state.auto_microbatching and torch.cuda.memory_stats()['num_alloc_retries'] > num_alloc_retries:
                     raise RuntimeError('num_alloc_retries > 1 which causes memory thrashing and throughput decrease')
             except RuntimeError as e:
