@@ -114,13 +114,10 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     FusedLayerNorm: simple_bert_settings,
     GatedLinearUnits: simple_bert_settings,
     GhostBatchNorm: {
-        'model': (composer_resnet, {
-            'model_name': 'resnet18',
-            'num_classes': 2
+        'model': (SimpleConvModel, {
+            'norm': 'group',
         }),
-        'dataset': (RandomImageDataset, {
-            'shape': (3, 224, 224)
-        }),
+        'dataset': RandomImageDataset,
         'kwargs': {
             'ghost_batch_size': 2,
         }

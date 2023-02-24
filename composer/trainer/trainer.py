@@ -2022,8 +2022,6 @@ class Trainer:
                     # This happens if the "break" did not trigger above, or if it
                     # did (e.g. duration specified in samples/batches/tokens), but it is still
                     # the end of the dataloader (i.e. next(dataloader) would raise StopIteration)
-                    self.state.timestamp = self.state.timestamp.to_next_epoch()
-
                     if self.state.train_metrics is not None:
                         self._compute_and_log_metrics(
                             dataloader_label='train',
@@ -2033,6 +2031,8 @@ class Trainer:
                     if self._scheduler_step_frequency == TimeUnit.EPOCH:
                         for scheduler in self.state.schedulers:
                             scheduler.step()
+
+                    self.state.timestamp = self.state.timestamp.to_next_epoch()
 
                     self.engine.run_event(Event.EPOCH_END)
 
