@@ -13,12 +13,10 @@ import pytest
 import torch
 import torch.fx
 
-from composer.algorithms import (BlurPool, ChannelsLast, Factorize, GhostBatchNorm, LowPrecisionGroupNorm,
-                                 LowPrecisionLayerNorm, SqueezeExcite, StochasticDepth)
-from composer.core import Algorithm, Precision
+from composer.algorithms import BlurPool, ChannelsLast, Factorize, GhostBatchNorm, SqueezeExcite, StochasticDepth
+from composer.core import Algorithm
 from composer.functional import (apply_blurpool, apply_channels_last, apply_factorization, apply_ghost_batchnorm,
-                                 apply_low_precision_groupnorm, apply_low_precision_layernorm, apply_squeeze_excite,
-                                 apply_stochastic_depth)
+                                 apply_squeeze_excite, apply_stochastic_depth)
 from tests.algorithms.algorithm_settings import get_alg_kwargs, get_alg_model, get_algs_with_marks
 
 algo_kwargs = {
@@ -28,12 +26,6 @@ algo_kwargs = {
     },
     apply_ghost_batchnorm: {
         'ghost_batch_size': 2
-    },
-    apply_low_precision_groupnorm: {
-        'precision': Precision.AMP_FP16,
-    },
-    apply_low_precision_layernorm: {
-        'precision': Precision.AMP_FP16,
     },
 }
 
@@ -65,10 +57,6 @@ def get_surgery_method(alg_cls: Type[Algorithm]) -> Callable:
         return apply_stochastic_depth
     if alg_cls is ChannelsLast:
         return apply_channels_last
-    if alg_cls is LowPrecisionGroupNorm:
-        return apply_low_precision_groupnorm
-    if alg_cls is LowPrecisionLayerNorm:
-        return apply_low_precision_layernorm
     raise ValueError(f'Unknown algorithm class {alg_cls}')
 
 
@@ -142,12 +130,8 @@ def test_surgery_torchfx_eval(
 
 # <--- onnx export --->
 
-onnx_algs_with_marks = torchscript_algs_with_marks + [
-    x for x in get_algs_with_marks() if x.values[0] in (LowPrecisionGroupNorm, LowPrecisionLayerNorm)
-]
 
-
-@pytest.mark.parametrize('alg_cls', onnx_algs_with_marks)
+@pytest.mark.parametrize('alg_cls', torchscript_algs_with_marks)
 @pytest.mark.filterwarnings(
     r'ignore:Converting a tensor to a Python .* might cause the trace to be incorrect:torch.jit._trace.TracerWarning')
 def test_surgery_onnx(
