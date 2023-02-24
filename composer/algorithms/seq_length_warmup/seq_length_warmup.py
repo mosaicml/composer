@@ -309,7 +309,7 @@ class SeqLengthWarmup(Algorithm):
                 # Raise error if automicrobatching and num_alloc_retries increased, as thrashing
                 # often leads to throughput slowdown
                 if state.auto_microbatching and _get_num_alloc_retries() > num_alloc_retries:
-                    raise RuntimeError('num_alloc_retries > 1 which causes memory thrashing and throughput decrease')
+                    raise RuntimeError('num_alloc_retries > 0 which causes memory thrashing and throughput decrease')
             # This error/state.grad_accum handling mimics the logic in trainer._train_batch().
             except RuntimeError as e:
                 if state.auto_microbatching and _is_cuda_oom(e):
