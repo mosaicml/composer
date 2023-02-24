@@ -128,6 +128,8 @@ def _pro_recursive_wrap(module: nn.Module,
                 module_kwargs['process_group'] = _get_process_group(module_kwargs['process_group'], process_group_cache)
             final_kwargs = {**kwargs, **module_kwargs}
 
+            print (module.__class__, final_kwargs)
+
             # Leaf node or final wrapping of the remainder both happen here.
             return _wrap(module, wrapper_cls, **final_kwargs), num_params
         else:
