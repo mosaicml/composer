@@ -2104,7 +2104,8 @@ class Trainer:
         """
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
 
-        # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
+        # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop.
+        # Any in-place changes to a microbatch will be reflected in the device batch.
         device_batch = self.state.batch
 
         # Retry until we successfully complete training and return loss
