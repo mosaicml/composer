@@ -1,0 +1,33 @@
+name: PR GPU tests
+on:
+  pull_request_target:
+    branches:
+      - dev
+      - main
+      - release/**
+  workflow_dispatch:
+# Cancel old runs when a new commit is pushed to the same branch if not on main or dev
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
+jobs:
+  pytest-gpu:
+    uses: ./.github/workflows/pytest-gpu.yaml
+    strategy:
+      matrix:
+        include:
+          - name: 'gpu-3.10-1.13-vision-doctest'
+            container: mosaicml/pytorch_vision:1.13.1_cu117-python3.10-ubuntu20.04
+            markers: 'not daily and not remote and gpu and (vision or not vision) and (doctest or not doctest)'
+            pytest_command: 'coverage run -m pytest'
+    name: ${{ matrix.name }}
+    if: github.repository_owner == 'mosaicml'
+    with:
+      container: ${{ matrix.container }}
+      mcloud-timeout: 1200
+      name: ${{ matrix.name }}
+      pytest-command: ${{ matrix.pytest_command }}
+      pytest-markers: ${{ matrix.markers }}
+      python-version: 3.9
+    secrets:
+      mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}

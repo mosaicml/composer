@@ -15,6 +15,7 @@ import random
 import re
 import time
 import warnings
+from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
@@ -24,7 +25,7 @@ import torch
 import torch.distributed
 import torch.nn as nn
 import torch.utils.data
-from torch.cuda.amp.grad_scaler import GradScaler
+from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
@@ -257,6 +258,8 @@ def _adjust_grad_accum(state: State, device_batch_size: int):
         del state.loss
     for optimizer in state.optimizers:
         optimizer.zero_grad(set_to_none=True)
+    if state.scaler is not None:
+        state.scaler._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
     torch.cuda.empty_cache()
 
 
@@ -285,6 +288,8 @@ def _adjust_device_train_microbatch_size(state: State):
         del state.loss
     for optimizer in state.optimizers:
         optimizer.zero_grad(set_to_none=True)
+    if state.scaler is not None:
+        state.scaler._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
     torch.cuda.empty_cache()
 
 
@@ -1921,7 +1926,7 @@ class Trainer:
             try:
                 if int(self.state.timestamp.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
-                    self.logger.log_metrics({'epoch': int(self.state.timestamp.epoch)})
+                    self.logger.log_metrics({'trainer/epoch': int(self.state.timestamp.epoch)})
 
                 dataloader = self.state.dataloader
                 if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
@@ -2022,8 +2027,6 @@ class Trainer:
                     # This happens if the "break" did not trigger above, or if it
                     # did (e.g. duration specified in samples/batches/tokens), but it is still
                     # the end of the dataloader (i.e. next(dataloader) would raise StopIteration)
-                    self.state.timestamp = self.state.timestamp.to_next_epoch()
-
                     if self.state.train_metrics is not None:
                         self._compute_and_log_metrics(
                             dataloader_label='train',
@@ -2033,6 +2036,8 @@ class Trainer:
                     if self._scheduler_step_frequency == TimeUnit.EPOCH:
                         for scheduler in self.state.schedulers:
                             scheduler.step()
+
+                    self.state.timestamp = self.state.timestamp.to_next_epoch()
 
                     self.engine.run_event(Event.EPOCH_END)
 
@@ -2099,7 +2104,8 @@ class Trainer:
         """
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
 
-        # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
+        # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop.
+        # Any in-place changes to a microbatch will be reflected in the device batch.
         device_batch = self.state.batch
 
         # Retry until we successfully complete training and return loss
@@ -2207,8 +2213,10 @@ class Trainer:
                     except TypeError:
                         optimizer.zero_grad()
 
-            # tracker for gradient accumulation
+            # Tracker for gradient accumulation
             current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(batch) for batch in microbatches])
+            # Cache batch, which will be overwritten by microbatches. Restore after microbatches complete
+            current_batch = self.state.batch
 
             for microbatch_idx, self.state.batch in enumerate(microbatches):
                 is_final_microbatch = microbatch_idx + 1 == len(microbatches)
@@ -2220,6 +2228,9 @@ class Trainer:
                     if loss_key not in total_loss_dict:
                         total_loss_dict[loss_key] = self.state.device.tensor_to_device(torch.zeros(size=(1,)))
                     total_loss_dict[loss_key] += microbatch_loss
+
+            # Restore batch
+            self.state.batch = current_batch
 
             # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
             if use_grad_scaling:
@@ -2554,7 +2565,7 @@ class Trainer:
                 for evaluation.  If not provided, defaults to using the
                 ``eval_dataloader`` provided to the trainer init().
             subset_num_batches (int, optional): Evaluate on this many batches. Default to ``-1`` (the entire
-                dataloader. Can also be provided in the trainer init()as ``eval_subset_num_batches``.
+                dataloader. Can also be provided in the trainer.__init__() as ``eval_subset_num_batches``.
 
         """
         if eval_dataloader is not None:
@@ -2759,9 +2770,6 @@ class Trainer:
                 last_wct = now
 
                 self.engine.run_event(Event.EVAL_BATCH_END)
-
-            self.logger.log_metrics({'epoch': self.state.timestamp.epoch.value})
-            self.logger.log_metrics({'trainer/global_step': self.state.timestamp.batch.value})
 
             self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics)
 
