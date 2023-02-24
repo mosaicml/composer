@@ -260,7 +260,6 @@ def _adjust_grad_accum(state: State, device_batch_size: int):
         del state.loss
     for optimizer in state.optimizers:
         optimizer.zero_grad(set_to_none=True)
-    print('reset state')
     if state.scaler is not None:
         state.scaler._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
     torch.cuda.empty_cache()
@@ -291,6 +290,8 @@ def _adjust_device_train_microbatch_size(state: State):
         del state.loss
     for optimizer in state.optimizers:
         optimizer.zero_grad(set_to_none=True)
+    if state.scaler is not None:
+        state.scaler._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
     torch.cuda.empty_cache()
 
 
