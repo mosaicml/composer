@@ -100,7 +100,6 @@ class RuntimeEstimator(Callback):
         return None
 
     def batch_start(self, state: State, logger: Logger) -> None:
-        print(f'Batch start: {state.timestamp.get("ba")}')
         if self._enabled and self.start_time is None and self.batches_left_to_skip == 0:
             self.start_time = time.time()
             self.start_dur = self.get_elapsed_duration(state)
@@ -116,27 +115,20 @@ class RuntimeEstimator(Callback):
             return
 
         elapsed_dur = self.get_elapsed_duration(state)
-        if elapsed_dur is None:
-            self._enabled = False
-            warnings.warn('`max_duration` is not set. Cannot estimate remaining time.')
-            return
+        assert elapsed_dur is not None, 'max_duration checked as non-None on batch_start'
 
         assert self.start_dur is not None
         assert self.start_time is not None
         if elapsed_dur > self.start_dur:
             elapsed_time = time.time() - self.start_time
             elapsed_time -= self.total_eval_wct  # Subtract time spent evaluating
-            print(
-                f'Elapsed time: {elapsed_time}, elapsed duration: {elapsed_dur}, checkpoint duration: {self.start_dur}')
             rate = elapsed_time / (elapsed_dur - self.start_dur)
             remaining_time = rate * (1 - elapsed_dur)
-
-            print(f'Batch end. train remaining_time: {remaining_time}')
 
             # Add remaining time from each evaluator using known frequencies. We explicitly compute
             # frequency instead of using time interpolation to avoid saw tooth pattern in estimates
             for dataloader_label, eval_wcts in self.eval_wct_per_label.items():
-                # Discard first eval_wct if possible as it often slower due to dataset downloading
+                # Discard first eval_wct if possible as it is often slower due to dataset downloading
                 eval_wct_avg = None
                 num_evals_finished = len(eval_wcts)
                 if num_evals_finished > 1:
@@ -144,16 +136,10 @@ class RuntimeEstimator(Callback):
                 else:
                     eval_wct_avg = sum(eval_wcts) / num_evals_finished
                 eval_rate = self.eval_frequency_per_label[dataloader_label]
-                print(
-                    f'\tdataloader_label: {dataloader_label}, eval_wct_avg: {eval_wct_avg}, eval_rate: {eval_rate}, num_evals_finished: {num_evals_finished}'
-                )
-                if eval_rate > 0:
-                    num_total_evals = 1 / eval_rate
-                    remaining_calls = num_total_evals - num_evals_finished
-                    remaining_time += eval_wct_avg * remaining_calls
-                    print(f'\tEval time: {eval_wct_avg * remaining_calls}')
+                num_total_evals = 1 / eval_rate
+                remaining_calls = num_total_evals - num_evals_finished
+                remaining_time += eval_wct_avg * remaining_calls
 
-            print(f'\tRemaining time: {remaining_time}')
             logger.log_metrics({'wall_clock/remaining_estimate': remaining_time})
 
     def eval_end(self, state: State, logger: Logger) -> None:
@@ -168,11 +154,6 @@ class RuntimeEstimator(Callback):
             self.eval_wct_per_label[state.dataloader_label] = []
         self.eval_wct_per_label[state.dataloader_label].append(state.eval_timestamp.total_wct.total_seconds())
         elapsed_fraction = self.get_elapsed_duration(state)
-        if elapsed_fraction is None:
-            warnings.warn(
-                'Attempting to estimate remaining time but `max_duration` is not set. Skipping adjustment for evaluation time.'
-            )
-        else:
-            self.eval_frequency_per_label[state.dataloader_label] = elapsed_fraction / len(
-                self.eval_wct_per_label[state.dataloader_label])
-            print(f'Eval finished! eval_frequency_per_label: {self.eval_frequency_per_label[state.dataloader_label]}')
+        assert elapsed_fraction is not None, 'max_duration checked as non-None on batch_start'
+        num_evals_finished = len(self.eval_wct_per_label[state.dataloader_label])
+        self.eval_frequency_per_label[state.dataloader_label] = elapsed_fraction / num_evals_finished
