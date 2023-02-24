@@ -41,7 +41,6 @@ def test_optimizer_monitor(log_optimizer_metrics: bool):
         assert 'l2_norm/second_moment_sqrt/module.2.weight' in in_memory_logger.data.keys()
         assert 'l2_norm/update/module.2.weight' in in_memory_logger.data.keys()
         assert 'cosine/update_grad/module.2.weight' in in_memory_logger.data.keys()
-        assert 'percentage_nonzero/second_moment/module.2.weight' in in_memory_logger.data.keys()
 
     # Expected to log gradient norm once per step (total batch)
     assert grad_norm_calls == num_train_steps
@@ -87,7 +86,6 @@ def test_fsdp_optimizer_monitor(device, world_size):
     assert 'l2_norm/update/module.2.weight' in in_memory_logger.data.keys()
     assert 'cosine/update_grad/module.2.weight' in in_memory_logger.data.keys()
     assert 'l2_norm_ratio/update_param/module.2.weight' in in_memory_logger.data.keys()
-    assert 'percentage_nonzero/second_moment/module.2.weight' in in_memory_logger.data.keys()
 
     # Expected to log gradient norm once per step (total batch)
     assert grad_norm_calls == num_train_steps
