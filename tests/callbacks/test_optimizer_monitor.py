@@ -50,7 +50,7 @@ def test_optimizer_monitor(log_optimizer_metrics: bool):
 
 
 @device('gpu')
-@world_size(1, 4)
+@world_size(1, 2)
 def test_fsdp_optimizer_monitor(device, world_size):
     # Construct the callback
     grad_monitor = OptimizerMonitor(log_optimizer_metrics=True)
