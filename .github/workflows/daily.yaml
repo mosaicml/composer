@@ -1,17 +1,17 @@
 name: Daily
 on:
-  schedule:
-    - cron: '30 2 * * *' # 2:30 every day
+  merge_group:
   push:
     branches:
-      - dev
       - main
       - release/**
+  schedule:
+    - cron: '30 2 * * *' # 2:30 every day
   workflow_dispatch:
 # Cancel old runs when a new commit is pushed to the same branch if not on main or dev
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 jobs:
   daily-pytest-cpu:
     uses: ./.github/workflows/pytest-cpu.yaml
