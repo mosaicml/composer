@@ -15,6 +15,7 @@ import random
 import re
 import time
 import warnings
+from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
@@ -24,7 +25,7 @@ import torch
 import torch.distributed
 import torch.nn as nn
 import torch.utils.data
-from torch.cuda.amp.grad_scaler import GradScaler
+from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
@@ -257,6 +258,8 @@ def _adjust_grad_accum(state: State, device_batch_size: int):
         del state.loss
     for optimizer in state.optimizers:
         optimizer.zero_grad(set_to_none=True)
+    if state.scaler is not None:
+        state.scaler._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
     torch.cuda.empty_cache()
 
 
@@ -285,6 +288,8 @@ def _adjust_device_train_microbatch_size(state: State):
         del state.loss
     for optimizer in state.optimizers:
         optimizer.zero_grad(set_to_none=True)
+    if state.scaler is not None:
+        state.scaler._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
     torch.cuda.empty_cache()
 
 
