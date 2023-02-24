@@ -42,11 +42,11 @@ def training_loop(model, train_loader):
 <!--pytest.mark.gpu-->
 <!--
 ```python
-from tests.common.models import SimpleGroupNormConvModel
+from tests.common.models import SimpleConvModel
 from torch.utils.data import DataLoader
 from tests.common import RandomImageDataset
 
-model = SimpleGroupNormConvModel()
+model = SimpleConvModel(norm='group')
 train_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
 eval_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
 ```
