@@ -97,6 +97,7 @@ class OptimizerMonitor(Callback):
                 if callable(metric_reporter) and self.log_optimizer_metrics:
                     optimizer_metrics = metric_reporter(p, name, optimizer_metrics)
 
+                # Always log grad norm as a default metric if it's not specified
                 if f'l2_norm/grad/{name}' not in optimizer_metrics:
                     param_grad_norm = torch.linalg.vector_norm(p.grad)
                     optimizer_metrics[f'l2_norm/grad/{name}'] = param_grad_norm
