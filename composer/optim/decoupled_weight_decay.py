@@ -401,7 +401,7 @@ class DecoupledAdamW(AdamW):
 
                 A, B = tuple(vectors.split('_'))
 
-                # it would've already been squared, so let's undo that
+                # Take square root of squared metrics
                 A_rank_subset_norm = math.sqrt(optimizer_metrics[f'l2_norm/{A}/{layer}'])
                 B_rank_subset_norm = math.sqrt(optimizer_metrics[f'l2_norm/{B}/{layer}'])
 
