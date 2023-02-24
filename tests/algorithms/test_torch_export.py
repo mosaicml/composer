@@ -17,7 +17,8 @@ from composer.algorithms import (BlurPool, ChannelsLast, Factorize, GhostBatchNo
                                  LowPrecisionLayerNorm, SqueezeExcite, StochasticDepth)
 from composer.core.algorithm import Algorithm
 from composer.functional import (apply_blurpool, apply_channels_last, apply_factorization, apply_ghost_batchnorm,
-                                 apply_squeeze_excite, apply_stochastic_depth)
+                                 apply_low_precision_groupnorm, apply_low_precision_layernorm, apply_squeeze_excite,
+                                 apply_stochastic_depth)
 from tests.algorithms.algorithm_settings import get_alg_kwargs, get_alg_model, get_algs_with_marks
 
 algo_kwargs = {
@@ -58,6 +59,10 @@ def get_surgery_method(alg_cls: Type[Algorithm]) -> Callable:
         return apply_stochastic_depth
     if alg_cls is ChannelsLast:
         return apply_channels_last
+    if alg_cls is LowPrecisionGroupNorm:
+        return apply_low_precision_groupnorm
+    if alg_cls is LowPrecisionLayerNorm:
+        return apply_low_precision_layernorm
     raise ValueError(f'Unknown algorithm class {alg_cls}')
 
 
