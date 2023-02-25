@@ -48,6 +48,8 @@ class HealthChecker(Callback):
         wait (int, optional): Seconds to wait for starting to sample. Default: 120.
         slack_webhook_url (str, optional): Slack URL to send alerts. Can also
             be set with the SLACK_WEBHOOK_URL environment variable. Default: None
+        test_mode (bool, optional): If True, will send a test alert at the first check.
+            Default: False
     """
 
     def __init__(
@@ -57,11 +59,13 @@ class HealthChecker(Callback):
         window_size: int = 120,
         wait: int = 120,
         slack_webhook_url: Optional[str] = None,
+        test_mode: bool = False,
     ) -> None:
         self.sample_freq = sample_freq
         self.window_size = window_size
         self.wait = wait
         self.slack_webhook_url = slack_webhook_url
+        self.test_mode = test_mode
 
         if not self.slack_webhook_url:
             self.slack_webhook_url = os.environ.get('SLACK_WEBHOOK_URL', None)
@@ -87,6 +91,9 @@ class HealthChecker(Callback):
         if self._check(state.timestamp):
             for metric in self.metrics:
                 message, alert = metric.check()
+                if self.test_mode:
+                    alert = True
+                    message = '[**THIS IS A TEST**]' + message
                 if alert and not metric.alerted:
                     self._alert(message, state)
                     metric.alerted = True
