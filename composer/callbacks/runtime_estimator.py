@@ -50,13 +50,28 @@ class RuntimeEstimator(Callback):
         skip_batches (int, optional): Number of batches to skip before starting clock to estimate
             remaining time. Typically, the first few batches are slower due to dataloader, cache
             warming, and other reasons. Defaults to 1.
+        time_unit (str, optional): Time unit to use for `wall_clock` logging. Can be one of
+            'seconds', 'minutes', 'hours', or 'days'. Defaults to 'hours'.
     """
 
-    def __init__(self, skip_batches: int = 1) -> None:
+    def __init__(self, skip_batches: int = 1, time_unit: str = 'hours') -> None:
         self._enabled = True
         self.batches_left_to_skip = skip_batches
         self.start_time = None
         self.start_dur = None
+
+        self.divider = 1
+        if time_unit == 'seconds':
+            self.divider = 1
+        elif time_unit == 'minutes':
+            self.divider = 60
+        elif time_unit == 'hours':
+            self.divider = 60 * 60
+        elif time_unit == 'days':
+            self.divider = 60 * 60 * 24
+        else:
+            raise ValueError(
+                f'Invalid time_unit: {time_unit}. Must be one of "seconds", "minutes", "hours", or "days".')
 
         # Keep track of time spent evaluating
         self.total_eval_wct = 0.0
@@ -140,7 +155,7 @@ class RuntimeEstimator(Callback):
                 remaining_calls = num_total_evals - num_evals_finished
                 remaining_time += eval_wct_avg * remaining_calls
 
-            logger.log_metrics({'wall_clock/remaining_estimate': remaining_time})
+            logger.log_metrics({'wall_clock/remaining_estimate': remaining_time / self.divider})
 
     def eval_end(self, state: State, logger: Logger) -> None:
         # If eval is called before training starts, ignore it

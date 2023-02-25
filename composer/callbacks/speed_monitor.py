@@ -208,14 +208,36 @@ class SpeedMonitor(Callback):
     Args:
         window_size (int, optional): Number of batches to use for a rolling average of throughput.
             Defaults to 100.
+        gpu_flops_available (float, optional): Number of flops available on the GPU. If not set,
+            SpeedMonitor will attempt to determine this automatically. Defaults to None.
+        time_unit (str, optional): Time unit to use for `wall_clock` logging. Can be one of
+            'seconds', 'minutes', 'hours', or 'days'. Defaults to 'hours'.
     """
 
-    def __init__(self, window_size: int = 100, gpu_flops_available: Optional[Union[float, int]] = None):
+    def __init__(
+        self,
+        window_size: int = 100,
+        gpu_flops_available: Optional[Union[float, int]] = None,
+        time_unit: str = 'hours',
+    ):
         # Track the batch num samples and wct to compute throughput over a window of batches
         self.history_samples: Deque[int] = deque(maxlen=window_size + 1)
         self.history_wct: Deque[float] = deque(maxlen=window_size + 1)
 
         self.gpu_flops_available = gpu_flops_available
+
+        self.divider = 1
+        if time_unit == 'seconds':
+            self.divider = 1
+        elif time_unit == 'minutes':
+            self.divider = 60
+        elif time_unit == 'hours':
+            self.divider = 60 * 60
+        elif time_unit == 'days':
+            self.divider = 60 * 60 * 24
+        else:
+            raise ValueError(
+                f'Invalid time_unit: {time_unit}. Must be one of "seconds", "minutes", "hours", or "days".')
 
         # Keep track of time spent evaluating
         self.total_eval_wct = 0.0
@@ -281,10 +303,11 @@ class SpeedMonitor(Callback):
 
         # Log the time
         # `state.timestamp` excludes any time spent in evaluation
+        train_wct = state.timestamp.total_wct.total_seconds()
         logger.log_metrics({
-            'wall_clock/train': state.timestamp.total_wct.total_seconds(),
-            'wall_clock/val': self.total_eval_wct,
-            'wall_clock/total': state.timestamp.total_wct.total_seconds() + self.total_eval_wct,
+            'wall_clock/train': train_wct / self.divider,
+            'wall_clock/val': self.total_eval_wct / self.divider,
+            'wall_clock/total': (train_wct + self.total_eval_wct) / self.divider,
         })
 
     def eval_end(self, state: State, logger: Logger):
