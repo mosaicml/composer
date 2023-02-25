@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Log memory usage during training."""
+"""Check GPU Health during training."""
 import logging
 from collections import deque
 from datetime import datetime
@@ -148,7 +148,8 @@ class HealthChecker(Callback):
 
 
 class GPUUtilization:
-
+    """GPU Utilization Metric
+    """
     alerted: bool = False
 
     def __init__(self, threshold=10) -> None:
@@ -186,7 +187,8 @@ class GPUUtilization:
 
 
 class ECCErrors:
-
+    """Metric for ECC counters
+    """
     alerted: bool = False
 
     def __init__(self, threshold=100) -> None:
