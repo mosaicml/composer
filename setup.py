@@ -88,6 +88,7 @@ install_requires = [
     'packaging>=21.3.0,<23',
     'importlib-metadata>=5.0.0,<7',
     'pynvml>=11.5.0,<12',
+    'slack_sdk>=3.19.5,<4',
 ]
 extra_deps = {}
 
