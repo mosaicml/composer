@@ -310,8 +310,8 @@ def test_hf_no_tokenizer_warning(caplog, pass_in_tokenizer: bool, tiny_bert_mode
 
 @pytest.mark.parametrize('checkpoint_upload_path', [None, 's3://checkpoints-bucket/remote-checkpoint.pt'])
 @pytest.mark.parametrize('local_save_filename', [None, 'local-checkpoint.pt'])
-def test_hf_loading_load_save_paths(checkpoint_upload_path: Optional[str], local_save_filename: str, tmp_path: Path,
-                                    tiny_bert_model, tiny_bert_tokenizer):
+def test_hf_loading_load_save_paths(checkpoint_upload_path: Optional[str], local_save_filename: Optional[str],
+                                    tmp_path: Path, tiny_bert_model, tiny_bert_tokenizer):
     pytest.importorskip('transformers')
     from composer.models import HuggingFaceModel
 
@@ -610,3 +610,39 @@ def test_add_eval_metrics(tiny_bert_model, tiny_bert_tokenizer):
     assert hf_model.val_metrics is not None
     assert hf_model.train_metrics.keys() == {'LanguageCrossEntropy'}
     assert hf_model.val_metrics.keys() == {'LanguageCrossEntropy', 'InContextLearningLMAccuracy'}
+
+
+@pytest.mark.parametrize('checkpoint_upload_folder', [None, 's3://checkpoints-bucket/'])
+@pytest.mark.parametrize('local_save_filename', [None, 'local-checkpoint.pt'])
+def test_write_hf_from_composer(checkpoint_upload_folder, local_save_filename, tiny_bert_model, tiny_bert_tokenizer,
+                                tmp_path):
+    transformers = pytest.importorskip('transformers')
+
+    from composer.models.huggingface import write_huggingface_pretrained_from_composer_checkpoint
+
+    if checkpoint_upload_folder is None:
+        checkpoint_upload_folder = tmp_path
+    trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
+    trainer.fit()
+
+    # Just upload to a dummy object store outside of composer to make mocking easier
+    if str(checkpoint_upload_folder).startswith('s3://'):
+        parsed_uri = urlparse(checkpoint_upload_folder)
+        object_store = DummyObjectStore(Path(parsed_uri.netloc))
+        object_store.upload_object(parsed_uri.path + 'hf-checkpoint.pt', str(tmp_path / 'hf-checkpoint.pt'))
+
+    with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
+        checkpoint_path = os.path.join(checkpoint_upload_folder, 'hf-checkpoint.pt')
+        write_huggingface_pretrained_from_composer_checkpoint(checkpoint_path,
+                                                              tmp_path / 'hf-save-pretrained',
+                                                              local_checkpoint_save_location=local_save_filename)
+
+    assert os.path.exists(tmp_path / 'hf-save-pretrained' / 'config.json')
+    assert os.path.exists(tmp_path / 'hf-save-pretrained' / 'pytorch_model.bin')
+
+    loaded_hf_model = transformers.AutoModelForMaskedLM.from_pretrained(tmp_path / 'hf-save-pretrained')
+
+    # set _name_or_path so that the equivalence check passes. It is expected that these are different, because one is loaded from disk, while one is loaded from the hub
+    loaded_hf_model.config._name_or_path = tiny_bert_model.config._name_or_path
+
+    check_hf_model_equivalence(tiny_bert_model, loaded_hf_model)

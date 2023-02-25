@@ -132,6 +132,10 @@ def get_torch_dtype(dtype: Union[Precision, str]):
         return torch.float16
     elif dtype in ['bfloat16', 'bfloat', 'torch.bfloat16', 'bf16', 'amp_bf16']:
         return torch.bfloat16
+    elif dtype in ['amp_fp8']:
+        # We use torch.bfloat16 by default for amp_fp8 as there is no
+        # fp8 datatype in PyTorch yet.
+        return torch.bfloat16
     else:
         raise ValueError(f'Not sure how to convert dtype={dtype} to a torch dtype.')
 
@@ -250,6 +254,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     forward_prefetch = fsdp_config.get('forward_prefetch', False)
     limit_all_gathers = fsdp_config.get('limit_all_gathers', False)
     ignored_modules = fsdp_config.get('ignored_modules', None)
+    state_dict_type = fsdp_config.get('state_dict_type', 'full')
 
     # We choose to not wrap the ComposerModel directly, but instead wrap any submodules like `ComposerModel.model`
     # This makes it safer to call ComposerModel-specific functions like 'eval_forward' that
@@ -397,6 +402,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         print(f'FSDP: Using sync_module_states={sync_module_states}')
         print(f'FSDP: Using forward_prefetch={forward_prefetch}')
         print(f'FSDP: Using limit_all_gathers={limit_all_gathers}')
+        print(f'FSDP: Using state_dict_type={state_dict_type}')
 
     # Rebuild optimizer now that parameters are sharded
     if optimizers:

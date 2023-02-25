@@ -1,40 +1,45 @@
-name: Pytest-GPU
+name: Pytest GPU
 on:
-  pull_request_target:
-    branches:
-      - dev
-      - main
-      - release/**
   workflow_call:
-  workflow_dispatch:
-# Cancel old runs when a new commit is pushed to the same branch if not on main or dev
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
+    inputs:
+      container:
+        required: true
+        type: string
+      mcloud-timeout:
+        required: false
+        type: number
+        default: 1800
+      name:
+        required: true
+        type: string
+      pytest-command:
+        required: true
+        type: string
+      pytest-markers:
+        required: true
+        type: string
+      python-version:
+        required: false
+        type: string
+        default: 3.9
+    secrets:
+      mcloud-api-key:
+        required: true
 jobs:
   pytest-gpu:
-    timeout-minutes: 30
-    runs-on: ubuntu-20.04
-    if: github.repository_owner == 'mosaicml'
-    strategy:
-      matrix:
-        include:
-          - name: 'gpu-3.10-1.13-vision-doctest'
-            container: mosaicml/pytorch_vision:1.13.1_cu117-python3.10-ubuntu20.04
-            markers: 'not daily and not remote and gpu and (vision or not vision) and (doctest or not doctest)'
-            pytest_command: 'coverage run -m pytest'
-    name: ${{ matrix.name }}
+    timeout-minutes: 60 # ${{ inputs.gha-timeout }} for some reason not able to turn this into an input
+    runs-on: ubuntu-latest
     env:
-      MOSAICML_API_KEY: ${{ secrets.MCLOUD_API_KEY }}
+      MOSAICML_API_KEY: ${{ secrets.mcloud-api-key }}
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Setup Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
-          python-version: 3.9
+          python-version: ${{ inputs.python-version }}
       - name: Cache pip
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           # This path is specific to Ubuntu
           path: ~/.cache/pip
@@ -53,5 +58,19 @@ jobs:
         id: tests
         run: |
           set -ex
-          export PR_NUMBER=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
-          python .github/mcp/mcp_pytest.py --image '${{ matrix.container }}' --pr_number $PR_NUMBER --pytest_markers '${{ matrix.markers }}' --pytest_command '${{ matrix.pytest_command }}' --timeout 1200
+
+          PR_NUMBER="$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")"
+          REF_ARGS=""
+
+          # Use the PR number if it exists, commit SHA for protected branches and the branch name otherwise
+          if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
+            if [[ "$GITHUB_REF" =~ "refs/heads/dev" || "$GITHUB_REF" =~ "refs/heads/main" || "$GITHUB_REF" =~ "refs/heads/release" ]]; then
+              REF_ARGS="--git_commit $GITHUB_SHA"
+            else
+              REF_ARGS="--git_branch $GITHUB_REF_NAME"
+            fi
+          else
+            REF_ARGS="--pr_number $PR_NUMBER"
+          fi
+
+          python .github/mcp/mcp_pytest.py --image '${{ inputs.container }}' --pytest_markers '${{ inputs.pytest-markers }}' --pytest_command '${{ inputs.pytest-command }}' --timeout ${{ inputs.mcloud-timeout }} ${REF_ARGS}

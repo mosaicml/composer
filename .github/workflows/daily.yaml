@@ -1,4 +1,4 @@
-name: Pytest-Daily
+name: Daily
 on:
   schedule:
     - cron: '30 2 * * *' # 2:30 every day
@@ -7,19 +7,15 @@ on:
       - dev
       - main
       - release/**
-  workflow_call:
   workflow_dispatch:
 # Cancel old runs when a new commit is pushed to the same branch if not on main or dev
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
 jobs:
-  pytest-cpu:
-    timeout-minutes: 45
-    runs-on: ubuntu-20.04
-    if: github.repository_owner == 'mosaicml'
+  daily-pytest-cpu:
+    uses: ./.github/workflows/pytest-cpu.yaml
     strategy:
-      fail-fast: false
       matrix:
         include:
           - name: 'cpu-3.8-1.11'
@@ -63,71 +59,30 @@ jobs:
             markers: 'daily and (remote or not remote) and not gpu and not vision and doctest'
             pytest_command: 'coverage run -m pytest tests/test_docs.py'
     name: ${{ matrix.name }}
-    container: ${{ matrix.container }}
-    steps:
-      - uses: actions/checkout@v2
-      - name: Setup
-        run: |
-          set -ex
-          export PATH=/composer-python:$PATH
-          python -m pip install --upgrade 'pip<23' wheel
-          python -m pip install --upgrade .[all]
-      - name: Run Tests
-        id: tests
-        run: |
-          set -ex
-          export PATH=/composer-python:$PATH
-          export WANDB_API_KEY='${{ secrets.WANDB_API_KEY }}'
-          export WANDB_ENTITY='mosaicml-public-integration-tests'
-          export WANDB_PROJECT="integration-tests-${{ github.sha }}"
-          export AWS_ACCESS_KEY_ID='${{ secrets.AWS_ACCESS_KEY_ID }}'
-          export AWS_SECRET_ACCESS_KEY='${{ secrets.AWS_SECRET_ACCESS_KEY }}'
-          export S3_BUCKET='mosaicml-internal-integration-testing'
-          export COMMON_ARGS="-v --durations=20 -m '${{ matrix.markers }}' --s3_bucket '$S3_BUCKET'"
-
-          # Necessary to run git diff for doctests
-          git config --global --add safe.directory /__w/composer/composer
-
-          make test PYTEST='${{ matrix.pytest_command }}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
-          make test-dist PYTEST='${{ matrix.pytest_command }}' EXTRA_ARGS="$COMMON_ARGS" WORLD_SIZE=2
-
-          python -m coverage combine
-      - uses: actions/upload-artifact@v3
-        with:
-          name: coverage-${{ github.sha }}-${{ matrix.name }}
-          path: .coverage
+    if: github.repository_owner == 'mosaicml'
+    with:
+      container: ${{ matrix.container }}
+      name: ${{ matrix.name }}
+      pytest-command: ${{ matrix.pytest_command }}
+      pytest-markers: ${{ matrix.markers }}
+      pytest-s3-bucket: 'mosaicml-internal-integration-testing'
+      pytest-wandb-entity: 'mosaicml-public-integration-tests'
+      pytest-wandb-project: "integration-tests-${{ github.sha }}"
+    secrets:
+      aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      wandb-api-key: ${{ secrets.WANDB_API_KEY }}
   coverage:
-    needs: [ pytest-cpu ]
-    timeout-minutes: 30
-    runs-on: ubuntu-20.04
+    uses: ./.github/workflows/coverage.yaml
+    name: Coverage Results
     if: github.repository_owner == 'mosaicml'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Setup
-        run: |
-          set -ex
-          python -m pip install --upgrade 'pip<23' wheel
-          pip install coverage[toml]==6.5.0
-      - name: Download artifacts
-        uses: actions/download-artifact@v3
-        with:
-          path: artifacts
-      - name: Generate coverage report
-        run: |
-          set -ex
+    needs: [ daily-pytest-cpu ]
+    with:
+      download-path: artifacts
 
-          # Flatten the coverage files
-          ls artifacts | while read x; do mv artifacts/$x/.coverage .coverage.$x; done
-
-          python -m coverage combine
-          python -m coverage report
-  pytest-gpu:
-    timeout-minutes: 45
-    runs-on: ubuntu-20.04
-    if: github.repository_owner == 'mosaicml'
+  daily-pytest-gpu:
+    uses: ./.github/workflows/pytest-gpu.yaml
     strategy:
-      fail-fast: false
       matrix:
         # Unlike CPU tests, we run daily tests together with GPU tests to minimize launch time
         # on MCLOUD and not eat up all GPUs at once
@@ -149,33 +104,13 @@ jobs:
             markers: '(daily or not daily) and (remote or not remote) and gpu and (vision or doctest)'
             pytest_command: 'coverage run -m pytest'
     name: ${{ matrix.name }}
-    env:
-      MOSAICML_API_KEY: ${{ secrets.MCLOUD_API_KEY }}
-    steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v2
-      - name: Setup Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.9
-      - name: Cache pip
-        uses: actions/cache@v2
-        with:
-          # This path is specific to Ubuntu
-          path: ~/.cache/pip
-          # Look to see if there is a cache hit for the corresponding requirements file
-          key: ${{ runner.os }}-pip-${{ hashFiles('setup.py') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-            ${{ runner.os }}-
-      - name: Setup MCLI
-        run: |
-          set -ex
-          python -m pip install --upgrade mosaicml-cli
-          mcli init --mcloud
-          mcli version
-      - name: Submit Run
-        id: tests
-        run: |
-          set -ex
-          python .github/mcp/mcp_pytest.py --image '${{ matrix.container }}' --git_commit $GITHUB_SHA --pytest_markers '${{ matrix.markers }}' --pytest_command '${{ matrix.pytest_command }}'
+    if: github.repository_owner == 'mosaicml'
+    with:
+      container: ${{ matrix.container }}
+      mcloud-timeout: 1800
+      name: ${{ matrix.name }}
+      pytest-command: ${{ matrix.pytest_command }}
+      pytest-markers: ${{ matrix.markers }}
+      python-version: 3.9
+    secrets:
+      mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
