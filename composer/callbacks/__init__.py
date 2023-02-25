@@ -15,6 +15,7 @@ from composer.callbacks.lr_monitor import LRMonitor
 from composer.callbacks.memory_monitor import MemoryMonitor
 from composer.callbacks.mlperf import MLPerfCallback
 from composer.callbacks.optimizer_monitor import OptimizerMonitor
+from composer.callbacks.runtime_estimator import RuntimeEstimator
 from composer.callbacks.speed_monitor import SpeedMonitor
 from composer.callbacks.threshold_stopper import ThresholdStopper
 
@@ -30,4 +31,5 @@ __all__ = [
     'ThresholdStopper',
     'ImageVisualizer',
     'HealthChecker',
+    'RuntimeEstimator',
 ]
