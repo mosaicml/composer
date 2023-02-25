@@ -190,44 +190,58 @@ def load_checkpoint(
         Optional[List[Dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
             :attr:`load_weights_only` is not None. Otherwise, None.
     """
-    # download the checkpoint to the node-local folder
-    log.debug('Loading checkpoint at %s', path)
-    # Each node gets one unique folder to store checkpoints that is shared amongst all local ranks in that node.
-    # If fsdp sharded state_dicts is enabled then EVERY rank gets a unique checkpoint folder.
-    tempdir_ctx = (tempfile.TemporaryDirectory() if (state.fsdp_sharded_state_dict_enabled or
-                                                     dist.get_local_rank() == 0) else contextlib.nullcontext(None))
-    with tempdir_ctx as tempdir:
-        try:
-            # Get the path to the proper checkpoint folder corresponding to the current rank's node.
-            # If fsdp_sharded_state_dict_enabled then just use that rank's unique tempdir.
-            node_checkpoint_folder = (tempdir if state.fsdp_sharded_state_dict_enabled else
-                                      _get_node_checkpoint_download_folder(tempdir))
-            assert node_checkpoint_folder is not None
+    # If using DDP or FSDP with sharded loading, then we load a checkpoint here. 
+    # Also, if the global_rank is 0, we load a checkpoint. Otherwise, we are doing FSDP + loading a monolithic file.
+    # This means only global rank 0 needs to load the checkpoint and it will scatter the shards to the other ranks.
+    fsdp_with_monolithic_loading = state.fsdp_enabled and not state.fsdp_sharded_state_dict_enabled
+    if dist.get_global_rank() == 0 or not fsdp_with_monolithic_loading:
+        # download the checkpoint to the node-local folder
+        log.debug('Loading checkpoint at %s', path)
+        # Each node gets one unique folder to store checkpoints that is shared amongst all local ranks in that node.
+        # If fsdp sharded state_dicts is enabled then EVERY rank gets a unique checkpoint folder.
+        tempdir_ctx = (tempfile.TemporaryDirectory() if (state.fsdp_sharded_state_dict_enabled or
+                                                        dist.get_local_rank() == 0) else contextlib.nullcontext(None))
+        with tempdir_ctx as tempdir:
+            try:
+                # Get the path to the proper checkpoint folder corresponding to the current rank's node.
+                # If fsdp_sharded_state_dict_enabled then just use that rank's unique tempdir.
+                node_checkpoint_folder = (tempdir if state.fsdp_sharded_state_dict_enabled else
+                                        _get_node_checkpoint_download_folder(tempdir))
+                assert node_checkpoint_folder is not None
 
-            composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = download_checkpoint(
-                path=path,
-                node_checkpoint_folder=node_checkpoint_folder,
-                object_store=object_store,
-                progress_bar=progress_bar,
-                fsdp_sharded_state_dict_enabled=state.fsdp_sharded_state_dict_enabled,
-            )
-            rng_state_dicts = _restore_checkpoint(
-                state,
-                logger,
-                composer_states_filepath,
-                extracted_rank_n,
-                extracted_checkpoint_folder,
-                load_weights_only=load_weights_only,
-                strict_model_weights=strict_model_weights,
-                ignore_keys=ignore_keys,
-                exclude_algorithms=exclude_algorithms,
-                algorithm_passes=algorithm_passes,
-            )
-        finally:
-            # Wait for all ranks to finish restoring the checkpoint before releasing the tempdir, since tempdir can
-            # be a shared resource between nodes.
-            dist.barrier()
+                composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = download_checkpoint(
+                    path=path,
+                    node_checkpoint_folder=node_checkpoint_folder,
+                    object_store=object_store,
+                    progress_bar=progress_bar,
+                    fsdp_sharded_state_dict_enabled=state.fsdp_sharded_state_dict_enabled,
+                )
+                rng_state_dicts = _restore_checkpoint(
+                    state,
+                    logger,
+                    composer_states_filepath,
+                    extracted_rank_n,
+                    extracted_checkpoint_folder,
+                    load_weights_only=load_weights_only,
+                    strict_model_weights=strict_model_weights,
+                    ignore_keys=ignore_keys,
+                    exclude_algorithms=exclude_algorithms,
+                    algorithm_passes=algorithm_passes,
+                )
+            finally:
+                # Wait for all ranks to finish restoring the checkpoint before releasing the tempdir, since tempdir can
+                # be a shared resource between nodes.
+                dist.barrier()
+    
+    # For FSDP + monolithic case for global_rank != 0, rng_state_dicts will be None.
+    else:
+        rng_state_dicts = None
 
+    # For FSDP + monolithic case gather the global_rank = 0 rng_state_dict and set all ranks's rng_state_dicts to it.
+    if state.fsdp_enabled and not state.fsdp_sharded_state_dict_enabled:
+        global_rank_zero_index = 0
+        all_rng_state_dicts = dist.all_gather_object(rng_state_dicts)
+        rng_state_dicts = all_rng_state_dicts[global_rank_zero_index]
     log.info('%s loaded from %s', 'Model weights' if load_weights_only else 'Trainer checkpoint', path)
     return rng_state_dicts
 

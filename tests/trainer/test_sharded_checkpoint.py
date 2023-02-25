@@ -322,3 +322,19 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
     _compare_model_params_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
 
     _compare_optims_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
+
+
+@pytest.mark.gpu
+@world_size(2)
+def test_fsdp_full_downloads_one_file_only(world_size, tmp_path: pathlib.Path):
+    pytest.skip()
+    # save_folder = tmp_path
+    # save_filename = 'rank{rank}.pt'
+    # trainer1 = get_trainer(save_folder=str(save_folder), save_filename=save_filename, fsdp_state_dict_type='full')
+    # trainer1.fit()
+    # state_dict_from_trainer1 = trainer1.state.state_dict()
+    # trainer1.close()
+    # load_path = str(save_folder / pathlib.Path('rank{rank}.pt'))
+    # trainer2 = get_trainer(fsdp_state_dict_type='full', load_path=load_path)
+    # state_dict_from_trainer2 = trainer2.state.state_dict()
+
