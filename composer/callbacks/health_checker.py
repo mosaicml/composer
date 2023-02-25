@@ -91,7 +91,7 @@ class HealthChecker(Callback):
         if self._check(state.timestamp):
             for metric in self.metrics:
                 message, alert = metric.check()
-                if self.test_mode:
+                if self.test_mode and message:
                     alert = True
                     message = '[**THIS IS A TEST**]' + message
                 if alert and not metric.alerted:
@@ -183,9 +183,11 @@ class GPUUtilization:
         if dist.get_local_rank() == 0:
             average_sample = np.nanmean(list(self.samples), axis=0)
             if np.nanmax(average_sample) - np.nanmin(average_sample) > self.threshold:
-                message = 'Abnormal GPU utilizations: {utils}'
-                return message.format(utils=average_sample,), True
-
+                message = f'Abnormal GPU utilizations: {average_sample}'
+                return message, True
+            else:
+                message = f':+1: Normal GPU utilizations: {average_sample}'
+                return message, False
         return None, False
 
     def clear(self) -> None:
