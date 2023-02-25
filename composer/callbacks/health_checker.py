@@ -4,14 +4,10 @@
 """Log memory usage during training."""
 import logging
 from collections import deque
-from typing import List, Optional
+from datetime import datetime
+from typing import List, Optional, Tuple
 
 import torch
-
-try:
-    import psutil
-except ImportError:
-    psutil = None
 
 try:
     import pynvml
@@ -37,28 +33,33 @@ __all__ = ['HealthChecker']
 class HealthChecker(Callback):
     """Checks for GPU health.
 
-    This callback checks for GPU health by measuring GPU utilization across all
-    involved GPUs/nodes and alerts if the range of utilizations exceeds
-    a certain threshold.
+    This callback checks for GPU health by tracking and alerting for abnormal
+    GPU utilizations.
 
-    For example, if utilization across GPUs for this run are
+    For example, if the average utilization during the observation window is,
     [30, 30, 45], then the range (45-30=15) would exceed a threshold of 10%.
 
-    Only GPUs involved in this training run are checked.
-
+    Args:
+        threshold (float, optional): Threshold of GPU utilization range to
+            trigger an alert. Defaults to 10.
+        sample_freq (int, optional): Sample frequency in seconds. Default: 5.
+        window_size (int, optional): Window size in seconds. HealthChecker will
+            check for abnormalities at this frequency. Default: 120.
+        wait (int, optional): Seconds to wait for starting to sample. Default: 120.
+        slack_webhook_url (str, optional): Slack URL to send alerts. Can also
+            be set with the SLACK_WEBHOOK_URL environment variable. Default: None
     """
 
     def __init__(
         self,
-        threshold=0.10,
-        sample_freq=5,
-        check_freq=120,
-        wait=120,
-        slack_webhook_url=None,
+        threshold: float = 10,
+        sample_freq: int = 5,
+        window_size: int = 120,
+        wait: int = 120,
+        slack_webhook_url: Optional[str] = None,
     ) -> None:
-        self.threshold = threshold
         self.sample_freq = sample_freq
-        self.check_freq = check_freq
+        self.window_size = window_size
         self.wait = wait
         self.slack_webhook_url = slack_webhook_url
 
@@ -70,12 +71,15 @@ class HealthChecker(Callback):
 
         self.metrics = []
         if self._is_available():
-            self.metrics.append(GPUUtilization())
+            self.metrics.append(GPUUtilization(threshold))
 
     def init(self, state: State, logger: Logger) -> None:
         pass
 
     def after_train_batch(self, state: State, logger: Logger):
+        if not self.metrics:
+            return
+
         if self._sample(state.timestamp):
             for metric in self.metrics:
                 metric.sample()
@@ -84,7 +88,7 @@ class HealthChecker(Callback):
             for metric in self.metrics:
                 message, alert = metric.check()
                 if alert and not metric.alerted:
-                    self._alert(message)
+                    self._alert(message, state)
                     metric.alerted = True
                 metric.clear()
 
@@ -94,7 +98,7 @@ class HealthChecker(Callback):
         if now < self.wait:
             return False
 
-        if now - self.last_sample > self.sample_freq:
+        if now - self.last_sample >= self.sample_freq:
             self.last_sample = now
             return True
 
@@ -103,13 +107,23 @@ class HealthChecker(Callback):
     def _check(self, timestamp: Timestamp) -> bool:
         now = timestamp.total_wct.seconds
 
-        if now - self.last_check > self.check_freq:
+        if now - self.last_check >= self.window_size:
             self.last_check = now
             return True
         return False
 
-    def _alert(self, message: str) -> None:
-        message = 'Found a potential issue!'
+    def _alert(self, message: str, state: State) -> None:
+        prefix = '[{now}][{run_name}][node_rank={node_rank}]'.format(
+            now=datetime.now(),
+            run_name=state.run_name,
+            node_rank=dist.get_node_rank(),
+        )
+
+        node_name = os.environ.get('NODENAME', None)
+        if node_name:
+            prefix += f'[node={node_name}]'
+
+        message = prefix + ' : ' + message
 
         logging.warning(message)
         if self.slack_webhook_url:
@@ -142,30 +156,28 @@ class GPUUtilization:
         self.threshold = threshold
 
     def sample(self) -> None:
-        if dist.get_local_rank == 0:
+        if dist.get_local_rank() == 0:
             sample = self._sample()
             if sample is not None:
                 self.samples.append(sample)
 
-    def _sample(self) -> Optional[List[float]]:
-        # TODO: catch NVMLError
-        samples = []
-        device_count = pynvml.nvmlDeviceGetCount()
-        for i in range(device_count):
-            handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-            samples.append(pynvml.nvmlDeviceGetUtilizationRates(handle).gpu)
+    def _sample(self) -> Optional[List]:
+        try:
+            samples = []
+            device_count = pynvml.nvmlDeviceGetCount()  # type: ignore
+            for i in range(device_count):
+                handle = pynvml.nvmlDeviceGetHandleByIndex(i)  # type: ignore
+                samples.append(pynvml.nvmlDeviceGetUtilizationRates(handle).gpu)  # type: ignore
+        except pynvml.NVMLError:  # type: ignore
+            return None
         return samples
 
-    def check(self, state: State) -> Tuple[str, bool]:
-        if dist.get_local_rank == 0:
-            average_sample = np.nanmean(self.samples, axis=0)
+    def check(self) -> Tuple[Optional[str], bool]:
+        if dist.get_local_rank() == 0:
+            average_sample = np.nanmean(list(self.samples), axis=0)
             if np.nanmax(average_sample) - np.nanmin(average_sample) > self.threshold:
-                message = '{run_name} experiencing abnormal GPU utilizations on rank {rank}: {utils}'
-                return message.format(
-                    run_name=state.run_name,
-                    rank=dist.node_rank,
-                    utils=average_sample,
-                ), True
+                message = 'Abnormal GPU utilizations: {utils}'
+                return message.format(utils=average_sample,), True
 
         return None, False
 
@@ -182,28 +194,34 @@ class ECCErrors:
         self.threshold = threshold
 
     def sample(self) -> None:
-        if dist.get_local_rank == 0:
+        if dist.get_local_rank() == 0:
             sample = self._sample()
             if sample is not None:
                 self.samples.append(sample)
 
-    def _sample(self) -> Optional[float]:
-        samples = []
-        device_count = pynvml.nvmlDeviceGetCount()
-        for i in range(device_count):
-            handle = pynvml.nvmlDeviceGetHandleByIndex(i)
-            samples.append(pynvml.nvmlDeviceGetMemoryErrorCounter(handle, 0, 0, 2))
+    def _sample(self) -> Optional[List]:
+        try:
+            samples = []
+            device_count = pynvml.nvmlDeviceGetCount()  # type: ignore
+            for i in range(device_count):
+                handle = pynvml.nvmlDeviceGetHandleByIndex(i)  # type: ignore
+                samples.append(pynvml.nvmlDeviceGetMemoryErrorCounter(handle, 0, 0, 2))  # type: ignore
+        except pynvml.NVMLError:  # type: ignore
+            return None
         return samples
 
-    def check(self, state: State) -> Tuple[str, bool]:
-        if dist.get_local_rank == 0:
-            min_counter = np.min(self.samples, axis=0)
-            max_counter = np.max(self.samples, axis=0)
+    def check(self) -> Tuple[Optional[str], bool]:
+        if dist.get_local_rank() == 0:
+            min_counter = np.min(list(self.samples), axis=0)
+            max_counter = np.max(list(self.samples), axis=0)
             gpus_with_error = np.where(max_counter - min_counter > self.threshold)
             if len(gpus_with_error) > 0:
-                message = '{run_name} reporting high memory ECC error on rank {rank} for GPUs: {gpus}'
+                message = 'High memory ECC error for GPUs : {gpus}'
                 ecc_data = ['GPU: {} ({} -> {})'.format(i, min_counter[i], max_counter[i]) for i in gpus_with_error]
-                return message.format(run_name=state.run_name, rank=dist.node_rank, gpus=ecc_data), True
+                return message.format(
+                    rank=dist.get_node_rank(),
+                    gpus=ecc_data,
+                ), True
 
         return None, False
 

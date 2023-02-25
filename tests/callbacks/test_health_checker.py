@@ -1,44 +1,130 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from unittest.mock import patch
+import datetime
+from unittest.mock import MagicMock, patch
 
 import pytest
-from torch.utils.data import DataLoader
 
+from composer import Timestamp
 from composer.callbacks import HealthChecker
-from composer.callbacks.health_checker import GPUUtilization
-from composer.loggers import InMemoryLogger
-from composer.trainer import Trainer
-from tests.common import RandomClassificationDataset, SimpleModel, device
+from composer.callbacks.health_checker import ECCErrors, GPUUtilization
+from composer.utils import dist
+from tests.common import world_size
 
-# @pytest.mark.gpu
-# def test_health_checker():
-#     # Construct the trainer
-#     health_checker = HealthChecker(wait=0, sample_freq=1, check_freq=2)
-#     in_memory_logger = InMemoryLogger()
-#     trainer = Trainer(
-#         model=SimpleModel(),
-#         callbacks=health_checker,
-#         loggers=in_memory_logger,
-#         train_dataloader=DataLoader(RandomClassificationDataset()),
-#         max_duration='10000ba',
-#         device='gpu',
-#     )
-#     trainer.fit()
+
+class MockUtil:
+
+    def __init__(self, util):
+        self.gpu = util
 
 
 @pytest.mark.gpu
-def test_gpu_utilization():
+@world_size(1, 2)
+def test_gpu_utilization(world_size):
     import pynvml
     HealthChecker._is_available()
 
-    with patch.object(pynvml, 'nvmlDeviceGetUtilizationRates') as mock_method:
-        mock_return = MagicMock()
-        mock_return.gpu = MagicMock(side_effect=[100, 100, 80])
-        mock_method.return_value = mock_return
+    gpu_utilization_values = [
+        MockUtil(100),
+        MockUtil(10),
+        MockUtil(100),
+        MockUtil(100),
+        MockUtil(100),
+        MockUtil(100),
+    ]
+
+    with patch.multiple(pynvml,
+                        nvmlDeviceGetUtilizationRates=MagicMock(side_effect=gpu_utilization_values),
+                        nvmlDeviceGetCount=MagicMock(return_value=world_size)):
+
         gpu_utilization = GPUUtilization()
         gpu_utilization.sample()
         gpu_utilization.sample()
         gpu_utilization.sample()
-        gpu_utilization.check()
+        _, alert = gpu_utilization.check()
+
+        should_alert = dist.get_local_rank() == 0 and world_size > 1
+        assert alert == should_alert
+
+
+@pytest.mark.gpu
+@world_size(1, 2)
+def test_ecc_counters(world_size):
+    import pynvml
+    HealthChecker._is_available()
+
+    ecc_counters = [0, 0, 150, 0, 300, 0]
+
+    with patch.multiple(pynvml,
+                        nvmlDeviceGetMemoryErrorCounter=MagicMock(side_effect=ecc_counters),
+                        nvmlDeviceGetCount=MagicMock(return_value=world_size)):
+
+        ecc_counter = ECCErrors()
+        ecc_counter.sample()
+        ecc_counter.sample()
+        ecc_counter.sample()
+        _, alert = ecc_counter.check()
+
+        # only the local rank 0 alerts
+        assert alert == (dist.get_local_rank() == 0)
+
+
+@pytest.mark.gpu
+@world_size(1, 2)
+def test_health_checker(world_size):
+    import pynvml
+
+    state = MagicMock()
+    state.run_name = 'pytest-mock-run-kwei73'
+    logger = MagicMock()
+
+    health_checker = HealthChecker(
+        sample_freq=1,
+        window_size=3,
+        wait=0,
+    )
+
+    gpu_utilization_values = [
+        MockUtil(100),
+        MockUtil(10),
+        MockUtil(100),
+        MockUtil(100),
+        MockUtil(100),
+        MockUtil(100),
+    ]
+
+    with patch.multiple(pynvml,
+                        nvmlDeviceGetUtilizationRates=MagicMock(side_effect=gpu_utilization_values),
+                        nvmlDeviceGetCount=MagicMock(return_value=world_size)):
+
+        # collect data and checker
+        for seconds in [1, 2, 3]:
+            state.timestamp = Timestamp(total_wct=datetime.timedelta(seconds=seconds))
+            health_checker.after_train_batch(state, logger)
+
+        should_alert = dist.get_local_rank() == 0 and world_size > 1
+        assert health_checker.metrics[0].alerted == should_alert
+
+
+def test_health_checker_sampling():
+    timestamp = Timestamp(total_wct=datetime.timedelta(seconds=0))
+
+    health_checker = HealthChecker(
+        sample_freq=1,
+        window_size=5,
+        wait=10,
+    )
+
+    config = [
+        (5, False),  # before wait
+        (11, True),
+        (11.5, False),  # below sample frequency
+        (12, True),
+        (20, True),
+        (11, False),  # no time travel
+    ]
+
+    for seconds, is_sample in config:
+        timestamp = Timestamp(total_wct=datetime.timedelta(seconds=seconds))
+        assert health_checker._sample(timestamp) == is_sample
