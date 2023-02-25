@@ -270,13 +270,19 @@ class SpeedMonitor(Callback):
                 if not isinstance(model_flops_per_batch, Callable):
                     raise TypeError('flops_per_batch must a callable accepting a batch and '
                                     f'returning an int or float. Instead, got {type(model_flops_per_batch)}.')
-                flops_per_batch = model_flops_per_batch(state.batch)
+                device_flops_per_batch = model_flops_per_batch(state.batch)
+
+                # Sum flops across all ranks since each rank computes the flops for its own batch
+                flops_per_batch_tensor = state.device.tensor_to_device(
+                    torch.tensor(device_flops_per_batch, dtype=torch.int))
+                dist.all_reduce(flops_per_batch_tensor, reduce_operation='SUM')
+                flops_per_batch = flops_per_batch_tensor.item()
+
                 flops_per_sec = flops_per_batch * batches_per_sec
                 logger.log_metrics({'throughput/flops_per_sec': flops_per_sec})
-                dev_flops_per_sec = flops_per_sec / world_size
-                logger.log_metrics({'throughput/device/flops_per_sec': dev_flops_per_sec})
+                logger.log_metrics({'throughput/device/flops_per_sec': device_flops_per_batch})
                 if self.gpu_flops_available:
-                    mfu = dev_flops_per_sec / self.gpu_flops_available
+                    mfu = device_flops_per_batch / self.gpu_flops_available
                     logger.log_metrics({'throughput/device/mfu': mfu})
 
         # Log the time
