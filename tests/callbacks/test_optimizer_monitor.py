@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
+import torch
+from packaging import version
 from torch.utils.data import DataLoader
 
 from composer.callbacks import OptimizerMonitor
@@ -51,6 +53,8 @@ def test_optimizer_monitor(log_optimizer_metrics: bool):
 
 @device('gpu')
 @world_size(1, 2)
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                    reason='requires PyTorch 1.13 or higher')
 def test_fsdp_optimizer_monitor(device, world_size):
     # Construct the callback
     grad_monitor = OptimizerMonitor(log_optimizer_metrics=True)
@@ -80,19 +84,16 @@ def test_fsdp_optimizer_monitor(device, world_size):
     # Count the logged steps
     grad_norm_calls = len(in_memory_logger.data['l2_norm/grad/global'])
     layer_norm_calls = [len(calls) for (k, calls) in in_memory_logger.data.items() if 'l2_norm/grad' in k]
-    assert 'l2_norm/grad/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param' in in_memory_logger.data.keys(
-    )
-    assert 'l2_norm/moment/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param' in in_memory_logger.data.keys(
-    )
-
-    assert 'cosine/moment_grad/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param' in in_memory_logger.data.keys(
-    )
-    assert 'l2_norm/second_moment_sqrt/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param' in in_memory_logger.data.keys(
-    )
-    assert 'l2_norm/update/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param' in in_memory_logger.data.keys(
-    )
-    assert 'cosine/update_grad/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param' in in_memory_logger.data.keys(
-    )
+    test_keys = [
+        'l2_norm/grad/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param',
+        'l2_norm/moment/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param',
+        'cosine/moment_grad/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param',
+        'l2_norm/second_moment_sqrt/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param',
+        'l2_norm/update/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param',
+        'cosine/update_grad/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param',
+    ]
+    for key in test_keys:
+        assert key in in_memory_logger.data.keys()
 
     # Expected to log gradient norm once per step (total batch)
     assert grad_norm_calls == num_train_steps
