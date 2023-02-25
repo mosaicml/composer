@@ -148,8 +148,7 @@ class HealthChecker(Callback):
 
 
 class GPUUtilization:
-    """GPU Utilization Metric
-    """
+    """GPU Utilization Metric."""
     alerted: bool = False
 
     def __init__(self, threshold=10) -> None:
@@ -187,8 +186,7 @@ class GPUUtilization:
 
 
 class ECCErrors:
-    """Metric for ECC counters
-    """
+    """Metric for ECC counters."""
     alerted: bool = False
 
     def __init__(self, threshold=100) -> None:
