@@ -135,6 +135,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/gyro_dropout.md
    method_cards/label_smoothing.md
    method_cards/layer_freezing.md
+   method_cards/low_precision_groupnorm.md
    method_cards/low_precision_layernorm.md
    method_cards/mixup.md
    method_cards/progressive_resizing.md
