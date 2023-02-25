@@ -87,6 +87,7 @@ install_requires = [
     'py-cpuinfo>=8.0.0,<10',
     'packaging>=21.3.0,<23',
     'importlib-metadata>=5.0.0,<7',
+    'pynvml>=11.5.0,<12',
 ]
 extra_deps = {}
 
