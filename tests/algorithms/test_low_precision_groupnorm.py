@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from torch.nn import LayerNorm
+from torch.nn import GroupNorm
 from torch.utils.data import DataLoader
 
 from composer.algorithms.low_precision_groupnorm import LowPrecisionGroupNorm, apply_low_precision_groupnorm
@@ -17,7 +17,7 @@ def assert_is_lpgn_instance(model):
     # ensure that within the entire model, no PyTorch GroupNorm exists, and at least one LPGN does.
     assert model.modules is not None, 'model has .modules method'
     for module_class in model.modules():
-        if isinstance(module_class, LayerNorm):
+        if isinstance(module_class, GroupNorm):
             assert isinstance(module_class, LPGroupNorm)
 
     assert any(isinstance(module_class, LPGroupNorm) for module_class in model.modules())

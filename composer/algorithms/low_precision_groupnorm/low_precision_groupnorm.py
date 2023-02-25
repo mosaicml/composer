@@ -21,11 +21,47 @@ from composer.utils import module_surgery
 log = logging.getLogger(__name__)
 
 
-def _cast_if_autocast_enabled(hidden_states):
-    if not torch.is_autocast_enabled():
-        return hidden_states
-    else:
-        return torch.cuda.amp.autocast_mode._cast(hidden_states, torch.get_autocast_gpu_dtype())
+def apply_low_precision_groupnorm(model,
+                                  precision: Optional[Precision] = None,
+                                  optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None):
+    if (precision != Precision.AMP_FP16 and precision != Precision.AMP_BF16):
+        warnings.warn(NoEffectWarning('Low Precision GroupNorm only applies to AMP_FP16 and AMP_BF16 precisions.'))
+        return model
+
+    policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {torch.nn.GroupNorm: _to_LPGroupNorm}
+
+    replaced_instances = module_surgery.replace_module_classes(module=model, optimizers=optimizers, policies=policy)
+    if len(replaced_instances) == 0:
+        warnings.warn(NoEffectWarning('No instances of torch.nn.GroupNorm found.'))
+    log.info(f'Successfully replaced {len(replaced_instances)} instances of GroupNorm with LowPrecisionGroupNorm')
+
+
+class LowPrecisionGroupNorm(Algorithm):
+    """
+    Replaces all instances of :class:`torch.nn.GroupNorm` with class:`.LPGroupNorm`.
+
+    LPGroupNorm is a thin wrapper around :class:`torch.nn.GroupNorm` which forces the layer to run
+    in lower precision (torch.float16 or torch.bfloat16) if autocast is enabled. This algorithm has
+    no effect in FP32 or DeepSpeed FP16 mode, where autocast is disabled.
+
+    This algorithm is intended to be used instead of Fused GroupNorm. They have similar behavior and performance.
+
+    Args:
+        apply_at (Event): Event where algorithm is applied.
+    """
+
+    def __init__(self, apply_at: Event = Event.INIT):
+        self.apply_at = apply_at
+        if self.apply_at not in {Event.INIT, Event.AFTER_LOAD}:
+            raise ValueError('LowPrecisionGroupNorm only supports application on Event.INIT and Event.AFTER_LOAD.')
+
+    def match(self, event: Event, state: State) -> bool:
+        del state  # unused
+        return event == self.apply_at
+
+    def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
+        del event, logger  # unused
+        apply_low_precision_groupnorm(model=state.model, optimizers=state.optimizers, precision=state._precision)
 
 
 class LPGroupNorm(torch.nn.GroupNorm):
@@ -51,49 +87,14 @@ class LPGroupNorm(torch.nn.GroupNorm):
             return F.group_norm(downcast_x, self.num_groups, downcast_weight, downcast_bias, self.eps)
 
 
-def to_LPGroupNorm(layer: torch.nn.Module, module_index: int) -> LPGroupNorm:
-    assert isinstance(layer, torch.nn.GroupNorm), 'Replacement policy only replaces torch.nn.GroupNorm'
+def _cast_if_autocast_enabled(hidden_states):
+    if not torch.is_autocast_enabled():
+        return hidden_states
+    else:
+        return torch.cuda.amp.autocast_mode._cast(hidden_states, torch.get_autocast_gpu_dtype())
+
+
+def _to_LPGroupNorm(layer: torch.nn.Module, module_index: int) -> LPGroupNorm:
+    if not isinstance(layer, torch.nn.GroupNorm):
+        raise TypeError(f'Expected torch.nn.GroupNorm, got {type(layer)}')
     return LPGroupNorm(layer)
-
-
-def apply_low_precision_groupnorm(model,
-                                  precision: Optional[Precision] = None,
-                                  optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None):
-    if (precision != Precision.AMP_FP16 and precision != Precision.AMP_BF16):
-        warnings.warn(NoEffectWarning('Low Precision GroupNorm only applies to AMP_FP16 and AMP_BF16 precisions.'))
-        return model
-
-    policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {torch.nn.GroupNorm: to_LPGroupNorm}
-
-    replaced_instances = module_surgery.replace_module_classes(module=model, optimizers=optimizers, policies=policy)
-    if len(replaced_instances) == 0:
-        warnings.warn(NoEffectWarning('No instances of torch.nn.GroupNorm found.'))
-    log.info(f'Successfully replaced {len(replaced_instances)} instances of GroupNorm with LowPrecisionGroupNorm')
-
-
-class LowPrecisionGroupNorm(Algorithm):
-    """
-    Replaces all instances of :class:`torch.nn.GroupNorm` with class:`.LPGroupNorm`.
-
-    LPGroupNorm is a thin wrapper around :class:`torch.nn.GroupNorm` which forces the layer to run
-    in lower precision (torch.float16 or torch.bfloat16) if autocast is enabled. This algorithm has
-    no effect in FP32 or DeepSpeed FP16 mode, where autocast is disabled.
-
-    This algorithm is intended to be used instead of Fused GroupNorm. They have similar behavior and performance.
-
-    Args:
-        apply_at (Event, optional): Event where algorithm is applied.
-    """
-
-    def __init__(self, apply_at: Optional[Event] = Event.INIT):
-        self.apply_at = apply_at
-        if self.apply_at not in {Event.INIT, Event.AFTER_LOAD}:
-            raise ValueError('LowPrecisionGroupNorm only supports application on Event.INIT and Event.AFTER_LOAD.')
-
-    def match(self, event: Event, state: State) -> bool:
-        del state  # unused
-        return event == self.apply_at
-
-    def apply(self, event: Event, state: State, logger: Logger) -> Optional[int]:
-        del event, logger  # unused
-        apply_low_precision_groupnorm(model=state.model, optimizers=state.optimizers, precision=state._precision)
