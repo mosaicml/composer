@@ -22,22 +22,26 @@ sharding_map = {
 
 
 def _get_process_group(pg, process_group_cache):
+    warnings.warn(
+        f'Instantiating FSDP with custom process groups is an experimental feature.'
+    )
+
     # Return regular process_groups as is, no cacheing
     if pg is None or isinstance(pg, ProcessGroup):
         return pg
     
     warnings.warn(
-        f'Composer instantiated process groups is an experimental feature.'
+        f'Composer instantiating process groups is an experimental feature.'
     )
 
     # Look for existing key in cache
     if isinstance(pg, (list, tuple)):
-        pg_key = ','.join([str(i) for i in pg])
+        pg_key = tuple(pg)
     else:
         pg_key = pg
     if pg_key in process_group_cache:
         warnings.warn(
-            f'Using cached progress group with {pg_key=}. ' +\
+            f'On rank={dist.get_global_rank()} using cached progress group with {pg_key=}. ' +\
             'Instantiate new process group if this is what was intended.'
         )
         return process_group_cache[pg_key]

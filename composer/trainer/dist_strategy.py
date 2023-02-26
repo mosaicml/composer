@@ -249,6 +249,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         'BACKWARD_POST': BackwardPrefetch.BACKWARD_POST,
     }
     backward_prefetch = backward_prefetch_map[fsdp_config.get('backward_prefetch', 'BACKWARD_POST').upper()]
+    min_params = int(float(fsdp_config.get('min_params', 1e9)))
     activation_checkpointing = fsdp_config.get('activation_checkpointing', False)
     activation_cpu_offload = fsdp_config.get('activation_cpu_offload', False)
     sync_module_states = fsdp_config.get('sync_module_states', False)
@@ -333,17 +334,19 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
             # Choose which modules to FSDP wrap according to the following priority:
             # If module has attribute `module._fsdp_wrap = ...`, always respect it
             # Otherwise wrap if root object `obj.fsdp_wrap_fn(module)` is true
+            # Or if unwrapped params in module in greater than or equal to fsdp_config.min_params
             def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, unwrapped_params: int) -> bool:
                 if recurse:
                     return True
                 else:
                     if hasattr(module, '_fsdp_wrap'):
-                        return module._fsdp_wrap
+                        return bool(module._fsdp_wrap)
 
+                    is_large = unwrapped_params >= min_params
                     if hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
-                        return obj.fsdp_wrap_fn(module)
+                        return obj.fsdp_wrap_fn(module) or is_large
                     else:
-                        return False
+                        return is_large
 
             fsdp_obj = MosaicFullyShardedDataParallel(
                 obj,
@@ -395,6 +398,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         print(f'FSDP: Using cpu_offload={cpu_offload}')
         print(f'FSDP: Using mixed_precision={mixed_precision}')
         print(f'FSDP: Using backward_prefetch={backward_prefetch}')
+        print(f'FSDP: Using min_params={min_params}')
         print(f'FSDP: Using activation_checkpointing={activation_checkpointing}')
         print(f'FSDP: Using activation_cpu_offload={activation_cpu_offload}')
         print(f'FSDP: Using sync_module_states={sync_module_states}')
