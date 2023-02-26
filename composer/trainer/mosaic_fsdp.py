@@ -1,6 +1,9 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+# Released under BSD 3-Clause License,
+# Copyright (c) Facebook, Inc. and its affiliates.
+
 """Updates FSDPs _auto_wrap to enable module_kwargs and custom process_group cache."""
 
 import functools
@@ -90,6 +93,8 @@ def _pro_recursive_wrap(module: nn.Module,
                         **kwargs: Any) -> Tuple[nn.Module, int]:
     """Updates FSDPs _recursive_wrap to enable module_kwargs and custom process_group cache.
 
+    modified version of https://github.com/pytorch/pytorch/blob/release/1.13/torch/distributed/fsdp/wrap.py#L353
+
     Automatically wrap child modules of *module* that meet the given
     criteria with :func:`auto_wrap`. Does not rely on _ConfigAutoWrap.
 
@@ -170,6 +175,9 @@ class MosaicFullyShardedDataParallel(FullyShardedDataParallel):
         fsdp_kwargs: Dict[str, Any],
     ) -> None:
         """Updates _auto_wrap to enalbe module_kwargs.
+
+        modified version of
+        https://github.com/pytorch/pytorch/blob/release/1.13/torch/distributed/fsdp/fully_sharded_data_parallel.py#L1252
 
         Recursively auto wraps the root module given by the key "module" in
         ``auto_wrap_kwargs`` with the arguments in ``auto_wrap_kwargs`` and
