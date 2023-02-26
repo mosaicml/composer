@@ -1799,7 +1799,10 @@ class Trainer:
         """
         self.engine.close()
         dist.barrier()
-        torch.distributed.distributed_c10d.destroy_process_group()
+
+        # destroy all process_groups associated with the model
+        for pg in set([m.process_group for m in self.state.model.modules() if hasattr(m, 'process_group')]):
+            torch.distributed.distributed_c10d.destroy_process_group(pg)
 
     def _ensure_metrics_device_and_dtype(self, metrics: Dict[str, Metric]):
         # HACK: DeepSpeed somehow manages to convert metric internal states to its own dtype. When

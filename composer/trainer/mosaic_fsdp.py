@@ -1,12 +1,14 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Updates FSDPs _auto_wrap to enable module_kwargs and custom process_group cache."""
+
 import functools
 import warnings
 from typing import Any, Callable, Dict, Set, Tuple, cast
 
-import torch
 import torch.nn as nn
+from torch import distributed
 from torch.distributed import ProcessGroup
 from torch.distributed.fsdp import FullyShardedDataParallel, ShardingStrategy
 from torch.distributed.fsdp._utils import _contains_batchnorm, _override_batchnorm_mixed_precision
@@ -22,17 +24,13 @@ sharding_map = {
 
 
 def _get_process_group(pg, process_group_cache):
-    warnings.warn(
-        f'Instantiating FSDP with custom process groups is an experimental feature.'
-    )
+    warnings.warn(f'Instantiating FSDP with custom process groups is an experimental feature.')
 
     # Return regular process_groups as is, no cacheing
     if pg is None or isinstance(pg, ProcessGroup):
         return pg
-    
-    warnings.warn(
-        f'Composer instantiating process groups is an experimental feature.'
-    )
+
+    warnings.warn(f'Composer instantiating process groups is an experimental feature.')
 
     # Look for existing key in cache
     if isinstance(pg, (list, tuple)):
@@ -48,7 +46,7 @@ def _get_process_group(pg, process_group_cache):
 
     # Handle str or List[int] process_group cases
     if pg == 'self':
-        ranks = (dist.get_global_rank(), )
+        ranks = (dist.get_global_rank(),)
     elif pg == 'node':
         node_rank = dist.get_node_rank()
         local_world_size = dist.get_local_world_size()
@@ -64,8 +62,7 @@ def _get_process_group(pg, process_group_cache):
         raise ValueError(f'Unsure how to setup process_group={pg}')
 
     ranks_per_subgroup_list = list(set(dist.all_gather_object(ranks)))
-    current_group, subgroups = torch.distributed.distributed_c10d.new_subgroups_by_enumeration(
-            ranks_per_subgroup_list)
+    current_group, _subgroups = distributed.distributed_c10d.new_subgroups_by_enumeration(ranks_per_subgroup_list)
     process_group_cache[pg_key] = current_group
     return current_group
 
@@ -78,7 +75,8 @@ def _pro_recursive_wrap(module: nn.Module,
                         process_group_cache: Dict[str, Any],
                         only_wrap_children: bool = False,
                         **kwargs: Any) -> Tuple[nn.Module, int]:
-    """
+    """Updates FSDPs _recursive_wrap to enable module_kwargs and custom process_group cache.
+
     Automatically wrap child modules of *module* that meet the given
     criteria with :func:`auto_wrap`. Does not rely on _ConfigAutoWrap.
 
@@ -92,6 +90,7 @@ def _pro_recursive_wrap(module: nn.Module,
         ignored_params (Set[torch.nn.Parameter]): Parameters to ignore when
             wrapping; these should be the parameters contained in the modules
             in ``ignored_modules``.
+
     Returns:
         (nn.Module, int):
             Wrapped module and the number parameters wrapped recursively.
@@ -150,13 +149,15 @@ def _pro_recursive_wrap(module: nn.Module,
 
 
 class MosaicFullyShardedDataParallel(FullyShardedDataParallel):
+    """Updates FSDP's _auto_wrap to enalbe module_kwargs."""
 
     def _auto_wrap(
         self,
         auto_wrap_kwargs: Dict[str, Any],
         fsdp_kwargs: Dict[str, Any],
     ) -> None:
-        """
+        """Updates _auto_wrap to enalbe module_kwargs.
+
         Recursively auto wraps the root module given by the key "module" in
         ``auto_wrap_kwargs`` with the arguments in ``auto_wrap_kwargs`` and
         ``fsdp_kwargs``.
