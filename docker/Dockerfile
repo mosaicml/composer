@@ -155,7 +155,7 @@ RUN add-apt-repository ppa:git-core/ppa && \
 # Install NodeJS (for Pyright)
 ##############################
 RUN \
-    curl -fsSL https://deb.nodesource.com/setup_17.x | bash - && \
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y --no-install-recommends nodejs && \
     apt-get autoclean && \
     apt-get clean && \
