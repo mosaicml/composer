@@ -326,11 +326,11 @@ RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml 
 #########################
 # Upgrade apt packages
 #########################
-RUN sudo apt-get update && \
-    sudo apt-get upgrade -y \
-    sudo apt-get autoclean && \
-    sudo apt-get clean && \
-    sudo rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get upgrade -y \
+    apt-get autoclean && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 
 ######################
@@ -379,11 +379,11 @@ RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_
 #########################
 # Upgrade apt packages
 #########################
-RUN sudo apt-get update && \
-    sudo apt-get upgrade -y \
-    sudo apt-get autoclean && \
-    sudo apt-get clean && \
-    sudo rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get upgrade -y \
+    apt-get autoclean && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 
 ################
