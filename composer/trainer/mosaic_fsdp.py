@@ -56,6 +56,19 @@ def _get_process_group(pg, process_group_cache):
         local_world_size = dist.get_local_world_size()
         num_nodes = dist.get_world_size() // dist.get_local_world_size()
         ranks = tuple(local_rank + local_world_size * n for n in range(num_nodes))
+    elif isinstance(pg, str) and pg.startswith('set'):
+        k = int(pg.strip('set'))
+        world_size = dist.get_world_size()
+        if world_size % k:
+            raise RuntimeError(f'{world_size} must be divisible by set size ({k})')
+        start = dist.get_global_rank() // k * k
+        ranks = tuple(range(start, start + k))
+    elif isinstance(pg, str) and pg.startswith('mod'):
+        k = int(pg.strip('mod'))
+        world_size = dist.get_world_size()
+        if world_size % k:
+            raise RuntimeError(f'{world_size} must be divisible by mod ({k})')
+        ranks = tuple(range(dist.get_global_rank() % k, world_size, k))
     elif isinstance(pg, (list, tuple)):
         ranks = tuple(pg)
     else:
