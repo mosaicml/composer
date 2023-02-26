@@ -323,6 +323,16 @@ RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml 
     usermod -a -G sudo mosaicml && \
     echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
+#########################
+# Upgrade apt packages
+#########################
+RUN sudo apt-get update && \
+    sudo apt-get upgrade -y \
+    sudo apt-get autoclean && \
+    sudo apt-get clean && \
+    sudo rm -rf /var/lib/apt/lists/*
+
+
 ######################
 # PyTorch Vision Image
 ######################
@@ -365,6 +375,15 @@ RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_
     if [ -n "$CUDA_VERSION" ] ; then \
         sudo pip${PYTHON_VERSION} install --no-cache-dir cupy-`echo ${CUDA_VERSION_TAG} | sed "s/cu/cuda/g"`${CUPY_VERSION}; \
     fi
+
+#########################
+# Upgrade apt packages
+#########################
+RUN sudo apt-get update && \
+    sudo apt-get upgrade -y \
+    sudo apt-get autoclean && \
+    sudo apt-get clean && \
+    sudo rm -rf /var/lib/apt/lists/*
 
 
 ################
