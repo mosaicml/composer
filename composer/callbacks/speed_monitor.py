@@ -263,31 +263,37 @@ class SpeedMonitor(Callback):
             except AttributeError:
                 pass
 
-            composer_model = state.model
-            if not isinstance(composer_model, ComposerModel):
-                composer_model = composer_model.module  # Pass through DDP wrapping
-            if hasattr(composer_model, 'flops_per_batch'):
-                model_flops_per_batch = composer_model.flops_per_batch  # type: ignore
-                if not isinstance(model_flops_per_batch, Callable):
-                    raise TypeError('flops_per_batch must a callable accepting a batch and '
-                                    f'returning an int or float. Instead, got {type(model_flops_per_batch)}.')
-                device_flops_per_batch = model_flops_per_batch(state.batch)
+        # Compute flops stats if model has flops_per_batch
+        composer_model = state.model
+        if not isinstance(composer_model, ComposerModel):
+            composer_model = composer_model.module  # Pass through DDP wrapping
+        if hasattr(composer_model, 'flops_per_batch'):
+            model_flops_per_batch = composer_model.flops_per_batch  # type: ignore
+            if not isinstance(model_flops_per_batch, Callable):
+                raise TypeError('flops_per_batch must a callable accepting a batch and '
+                                f'returning an int or float. Instead, got {type(model_flops_per_batch)}.')
+            device_flops_per_batch = model_flops_per_batch(state.batch)
 
-                # Sum flops across all ranks since each rank computes the flops for its own batch
-                flops_per_batch_tensor = state.device.tensor_to_device(
-                    torch.tensor(device_flops_per_batch, dtype=torch.float))
-                dist.all_reduce(flops_per_batch_tensor, reduce_operation='SUM')
-                flops_per_batch = flops_per_batch_tensor.item()
+            # Sum flops across all ranks since each rank computes the flops for its own batch
+            flops_per_batch_tensor = state.device.tensor_to_device(
+                torch.tensor(device_flops_per_batch, dtype=torch.float))
+            dist.all_reduce(flops_per_batch_tensor, reduce_operation='SUM')
+            flops_per_batch = flops_per_batch_tensor.item()
 
-                self.history_flops_per_batch.append(flops_per_batch)
-                if len(self.history_flops_per_batch) == self.history_flops_per_batch.maxlen:
-                    flops_per_sec = sum(self.history_flops_per_batch) / elapsed_wct
-                    device_flops_per_sec = flops_per_sec / world_size
-                    logger.log_metrics({'throughput/flops_per_sec': flops_per_sec})
-                    logger.log_metrics({'throughput/device/flops_per_sec': device_flops_per_sec})
-                    if self.gpu_flops_available:
-                        mfu = device_flops_per_sec / self.gpu_flops_available
-                        logger.log_metrics({'throughput/device/mfu': mfu})
+            print(f'flops_per_batch: {flops_per_batch}, device_flops_per_batch: {device_flops_per_batch}')
+            self.history_flops_per_batch.append(flops_per_batch)
+
+        # Log the flops throughput
+        if len(self.history_flops_per_batch) == self.history_flops_per_batch.maxlen:
+            world_size = dist.get_world_size()
+            elapsed_wct = self.history_wct[-1] - self.history_wct[0]
+            flops_per_sec = sum(self.history_flops_per_batch) / elapsed_wct
+            device_flops_per_sec = flops_per_sec / world_size
+            logger.log_metrics({'throughput/flops_per_sec': flops_per_sec})
+            logger.log_metrics({'throughput/device/flops_per_sec': device_flops_per_sec})
+            if self.gpu_flops_available:
+                mfu = device_flops_per_sec / self.gpu_flops_available
+                logger.log_metrics({'throughput/device/mfu': mfu})
 
         # Log the time
         # `state.timestamp` excludes any time spent in evaluation
