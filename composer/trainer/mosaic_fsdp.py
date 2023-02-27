@@ -124,13 +124,13 @@ def _get_process_group(pg, process_group_cache=None):
     # Handle special str process_group cases
     if pg == 'self':
         pg = 'set1'
-        warnings.warn(f"Converting process_group='self' to process_group={pg}")
+        warnings.warn(f"Converting process_group='self' to process_group='{pg}'")
     elif pg == 'node':
         pg = f'set{world_size}'
-        warnings.warn(f"Converting process_group='node' to process_group={pg}")
+        warnings.warn(f"Converting process_group='node' to process_group='{pg}'")
     elif pg == 'local_rank_across_nodes':
         pg = f'mod{world_size}'
-        warnings.warn(f"Converting process_group='local_rank_across_nodes' to process_group={pg}")
+        warnings.warn(f"Converting process_group='local_rank_across_nodes' to process_group='{pg}'")
 
     # Handle str and Union[List[int], Tuple[int]] process_group cases
     if isinstance(pg, str) and pg.startswith('set'):
@@ -158,7 +158,10 @@ def _get_process_group(pg, process_group_cache=None):
         )
         return process_group_cache[ranks]
 
-    warnings.warn(f'Composer is instantiating custom process groups. This is an experimental feature within Composer.')
+    warnings.warn(
+        f'Composer is instantiating custom process groups with {ranks=} (on rank={dist.get_global_rank()}). ' +\
+        'This is an experimental feature.'
+    )
 
     ranks_per_subgroup_list = list(set(dist.all_gather_object(ranks)))
     current_group, _subgroups = distributed.distributed_c10d.new_subgroups_by_enumeration(ranks_per_subgroup_list)
