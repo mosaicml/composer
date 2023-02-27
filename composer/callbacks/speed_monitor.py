@@ -214,6 +214,7 @@ class SpeedMonitor(Callback):
         # Track the batch num samples and wct to compute throughput over a window of batches
         self.history_samples: Deque[int] = deque(maxlen=window_size + 1)
         self.history_wct: Deque[float] = deque(maxlen=window_size + 1)
+        self.history_flops_per_batch: Deque[float] = deque(maxlen=window_size + 1)
 
         self.gpu_flops_available = gpu_flops_available
 
@@ -278,12 +279,15 @@ class SpeedMonitor(Callback):
                 dist.all_reduce(flops_per_batch_tensor, reduce_operation='SUM')
                 flops_per_batch = flops_per_batch_tensor.item()
 
-                flops_per_sec = flops_per_batch * batches_per_sec
-                logger.log_metrics({'throughput/flops_per_sec': flops_per_sec})
-                logger.log_metrics({'throughput/device/flops_per_sec': device_flops_per_batch})
-                if self.gpu_flops_available:
-                    mfu = device_flops_per_batch / self.gpu_flops_available
-                    logger.log_metrics({'throughput/device/mfu': mfu})
+                self.history_flops_per_batch.append(flops_per_batch)
+                if len(self.history_flops_per_batch) == self.history_flops_per_batch.maxlen:
+                    flops_per_sec = sum(self.history_flops_per_batch) / elapsed_wct
+                    device_flops_per_sec = flops_per_sec / world_size
+                    logger.log_metrics({'throughput/flops_per_sec': flops_per_sec})
+                    logger.log_metrics({'throughput/device/flops_per_sec': device_flops_per_sec})
+                    if self.gpu_flops_available:
+                        mfu = device_flops_per_sec / self.gpu_flops_available
+                        logger.log_metrics({'throughput/device/mfu': mfu})
 
         # Log the time
         # `state.timestamp` excludes any time spent in evaluation
