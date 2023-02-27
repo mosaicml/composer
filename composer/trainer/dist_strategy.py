@@ -138,8 +138,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
     from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (apply_activation_checkpointing,
                                                                              checkpoint_wrapper)
-    from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
-                                        ShardingStrategy)
+    from torch.distributed.fsdp import FullyShardedDataParallel
     from torch.distributed.fsdp.flatten_params_wrapper import FlattenParamsWrapper
 
     from composer.trainer.mosaic_fsdp import (MosaicFullyShardedDataParallel, _get_cpu_offload, _get_mixed_precision,

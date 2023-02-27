@@ -154,14 +154,14 @@ def _get_process_group(pg, process_group_cache):
     return current_group
 
 
-def _pro_recursive_wrap(module: nn.Module,
-                        auto_wrap_policy: Callable,
-                        wrapper_cls: Callable,
-                        ignored_modules: Set[nn.Module],
-                        ignored_params: Set[nn.Parameter],
-                        process_group_cache: Dict[str, Any],
-                        only_wrap_children: bool = False,
-                        **kwargs: Any) -> Tuple[nn.Module, int]:
+def _custom_recursive_wrap(module: nn.Module,
+                           auto_wrap_policy: Callable,
+                           wrapper_cls: Callable,
+                           ignored_modules: Set[nn.Module],
+                           ignored_params: Set[nn.Parameter],
+                           process_group_cache: Dict[Tuple[int], Any],
+                           only_wrap_children: bool = False,
+                           **kwargs: Any) -> Tuple[nn.Module, int]:
     """Updates FSDPs _recursive_wrap to enable module_kwargs and custom process_group cache.
 
     modified version of
@@ -180,6 +180,8 @@ def _pro_recursive_wrap(module: nn.Module,
         ignored_params (Set[torch.nn.Parameter]): Parameters to ignore when
             wrapping; these should be the parameters contained in the modules
             in ``ignored_modules``.
+        process_group_cache (Dict[Tuple[int], Any]): a cache of process_group to
+            use instead of potentially instantiating a new process_group
 
     Returns:
         (nn.Module, int):
@@ -207,7 +209,7 @@ def _pro_recursive_wrap(module: nn.Module,
         for name, child in module.named_children():
             if child in ignored_modules:
                 continue
-            wrapped_child, num_wrapped_params = _pro_recursive_wrap(
+            wrapped_child, num_wrapped_params = _custom_recursive_wrap(
                 module=child,
                 auto_wrap_policy=auto_wrap_policy,
                 wrapper_cls=wrapper_cls,
@@ -290,4 +292,4 @@ class MosaicFullyShardedDataParallel(FullyShardedDataParallel):
                           'kernels do not support low precision.')
             auto_wrap_kwargs['auto_wrap_policy'] = auto_wrap_policy
         auto_wrap_kwargs['process_group_cache'] = {}
-        _pro_recursive_wrap(**auto_wrap_kwargs, **fsdp_kwargs)
+        _custom_recursive_wrap(**auto_wrap_kwargs, **fsdp_kwargs)
