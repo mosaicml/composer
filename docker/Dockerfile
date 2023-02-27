@@ -376,15 +376,6 @@ RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_
         sudo pip${PYTHON_VERSION} install --no-cache-dir cupy-`echo ${CUDA_VERSION_TAG} | sed "s/cu/cuda/g"`${CUPY_VERSION}; \
     fi
 
-#########################
-# Upgrade apt packages
-#########################
-RUN apt-get update && \
-    apt-get upgrade -y && \
-    apt-get autoclean && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
 
 ################
 # Composer Image
