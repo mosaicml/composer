@@ -5,12 +5,13 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from unittest.mock import patch
 from urllib.parse import urlparse
 
 import pytest
 import torch
+from packaging import version
 from torch.utils.data import DataLoader
 from torchmetrics import Metric
 from torchmetrics.classification import Accuracy
@@ -18,7 +19,7 @@ from torchmetrics.classification import Accuracy
 from composer.core import Evaluator
 from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.trainer import Trainer
-from composer.utils import dist
+from composer.utils import dist, is_model_fsdp
 from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset
 from tests.common.models import (configure_tiny_bert_model, configure_tiny_bert_tokenizer, configure_tiny_gpt2_model,
                                  configure_tiny_gpt2_tokenizer)
@@ -232,7 +233,8 @@ def get_lm_trainer(hf_model,
                    save_folder,
                    load_path: Optional[str] = None,
                    is_conditional_generation: bool = False,
-                   do_eval: bool = False):
+                   do_eval: bool = False,
+                   fsdp_config: Optional[Dict[str, Any]] = None):
     transformers = pytest.importorskip('transformers')
     from composer.models import HuggingFaceModel
 
@@ -281,7 +283,8 @@ def get_lm_trainer(hf_model,
                       save_folder=save_folder,
                       save_interval='1ep',
                       save_filename='hf-checkpoint.pt',
-                      load_path=load_path)
+                      load_path=load_path,
+                      fsdp_config=fsdp_config)
     return trainer
 
 
@@ -541,13 +544,31 @@ def test_encoder_decoder(tiny_t5_model, tiny_t5_tokenizer):
     trainer.eval()
 
 
-def test_hf_return_dict_false(tiny_bert_config, tiny_bert_tokenizer):
+@pytest.mark.gpu
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                    reason='requires PyTorch 1.13 or higher')
+@pytest.mark.filterwarnings('ignore::UserWarning')
+def test_hf_fsdp(tiny_bert_config, tiny_bert_tokenizer):
     transformers = pytest.importorskip('transformers')
 
-    tiny_bert_config.return_dict = False
     tiny_bert_model = transformers.AutoModelForMaskedLM.from_config(tiny_bert_config)
-    trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, None, do_eval=True)
 
+    fsdp_config = {
+        'sharding_strategy': 'FULL_SHARD',
+        'min_params': 1e8,
+        'cpu_offload': False,
+        'mixed_precision': 'PURE',
+        'backward_prefetch': 'BACKWARD_PRE',
+        'activation_checkpointing': False,
+        'activation_cpu_offload': False,
+        'verbose': False
+    }
+
+    trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, None, fsdp_config=fsdp_config)
+
+    assert is_model_fsdp(trainer.state.model)
+
+    assert trainer.state.fsdp_enabled
     trainer.fit()
 
 
