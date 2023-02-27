@@ -7,6 +7,7 @@ import torch
 
 from composer.core import Callback, State
 from composer.loggers import Logger
+from composer.utils import dist
 
 __all__ = ['OptimizerMonitor']
 
@@ -87,21 +88,44 @@ class OptimizerMonitor(Callback):
 
     def batch_end(self, state: State, logger: Logger):
         norm = 0.0
-        default_metrics = {}
         optimizer_metrics = {}
 
         for name, p in state.model.named_parameters():
             if p.grad is not None and p.requires_grad:
-                param_grad_norm = torch.linalg.vector_norm(p.grad)
-                default_metrics[f'l2_norm/grad/{name}'] = param_grad_norm
 
-                norm += param_grad_norm**2
                 metric_reporter = getattr(state.optimizers[0], 'report_per_parameter_metrics', None)
                 if callable(metric_reporter) and self.log_optimizer_metrics:
                     optimizer_metrics = metric_reporter(p, name, optimizer_metrics)
 
-        default_metrics['l2_norm/grad/global'] = norm**0.5
+                # Always log grad norm as a default metric if it's not specified
+                if f'l2_norm/grad/{name}' not in optimizer_metrics:
+                    param_grad_norm = torch.linalg.vector_norm(p.grad)
+                    optimizer_metrics[f'l2_norm/grad/{name}'] = param_grad_norm
 
-        logger.log_metrics(default_metrics)
-        if self.log_optimizer_metrics:
-            logger.log_metrics(optimizer_metrics)
+        if state.fsdp_enabled and dist.get_world_size() > 0 and self.log_optimizer_metrics:
+            # If FSDP is enabled, the optimizer state lives on different ranks and must be reduced
+            # and combined before we can compute metrics.
+            # Each metric has a different way of being reduced, so the optimizer is responsible for implementing
+            # the reduction process.
+            # It occurs first via a pre-reduce, where the metric on each rank is modified and prepared
+            # then an all-reduce where the modified metric on each rank is combined into the correct metric across all ranks.
+            #
+            # For example, L2 norms are squared on each rank before we apply all_reduce(SUM) and take the sqrt on each rank
+            pre_reduce_metrics = getattr(state.optimizers[0], 'pre_reduce_metrics', None)
+            if callable(pre_reduce_metrics) and self.log_optimizer_metrics:
+                optimizer_metrics = pre_reduce_metrics(optimizer_metrics)
+
+            dist_reduce_metrics = getattr(state.optimizers[0], 'dist_reduce_metrics', None)
+            if callable(dist_reduce_metrics) and self.log_optimizer_metrics:
+                optimizer_metrics = dist_reduce_metrics(optimizer_metrics)
+
+        for metric in optimizer_metrics:
+            if metric.startswith('l2_norm/grad'):
+                norm += optimizer_metrics[metric]**2
+
+        optimizer_metrics['l2_norm/grad/global'] = norm**0.5
+
+        for metric in optimizer_metrics:
+            if isinstance(optimizer_metrics[metric], torch.Tensor):
+                optimizer_metrics[metric] = optimizer_metrics[metric].item()
+        logger.log_metrics(optimizer_metrics)
