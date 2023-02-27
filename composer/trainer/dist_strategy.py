@@ -162,8 +162,9 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
 
     mixed_precision = fsdp_config.get('mixed_precision', 'DEFAULT')
     keep_low_precision_grads = fsdp_config.get('keep_low_precision_grads', False)
-    mixed_precision, param_dtype, reduce_dtype, buffer_dtype = _get_mixed_precision(
-        precision, mixed_precision=mixed_precision, keep_low_precision_grads=keep_low_precision_grads)
+    mixed_precision, param_dtype, _, _ = _get_mixed_precision(precision,
+                                                              mixed_precision=mixed_precision,
+                                                              keep_low_precision_grads=keep_low_precision_grads)
 
     # Note: FSDP does support the use of torch.float32 with sharding.
     # They just never expected a user to pass in torch.float32 into mixed_precision as a param_dtype.

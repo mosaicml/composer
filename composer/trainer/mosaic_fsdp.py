@@ -22,6 +22,16 @@ from torch.distributed.fsdp.wrap import _or_policy, _wrap, _wrap_batchnorm_indiv
 from composer.core import Precision
 from composer.utils import dist
 
+__all__ = [
+    'sharding_map',
+    'backward_prefetch_map',
+    'get_torch_dtype',
+    '_get_mixed_precision',
+    '_get_cpu_offload',
+    '_get_process_group',
+    'MosaicFullyShardedDataParallel',
+]
+
 sharding_map = {
     'NO_SHARD': ShardingStrategy.NO_SHARD,
     'SHARD_GRAD_OP': ShardingStrategy.SHARD_GRAD_OP,
@@ -53,6 +63,7 @@ def get_torch_dtype(dtype: Union[Precision, str]):
 
 
 def _get_mixed_precision(precision, mixed_precision='DEFAULT', keep_low_precision_grads=False):
+    """Helper fn for configuring mixed_precision."""
     param_dtype = None
     reduce_dtype = None
     buffer_dtype = None
@@ -93,13 +104,15 @@ def _get_mixed_precision(precision, mixed_precision='DEFAULT', keep_low_precisio
 
 
 def _get_cpu_offload(cpu_offload=False):
+    """Helper fn for configuring cpu_offload."""
     cpu_offload = CPUOffload(offload_params=True) if cpu_offload else None
     if cpu_offload is not None:
         raise ValueError('FSDP CPU Offload not supported yet.')
     return cpu_offload
 
 
-def _get_process_group(pg, process_group_cache):
+def _get_process_group(pg, process_group_cache=None):
+    """Helper fn for configuring and/or retrieving process groups."""
     warnings.warn(f'Instantiating FSDP with custom process groups is an experimental feature.')
 
     # Return regular process_groups as is, no cacheing
@@ -138,7 +151,7 @@ def _get_process_group(pg, process_group_cache):
     else:
         raise ValueError(f'Unsure how to setup process_group={pg}')
 
-    if ranks in process_group_cache:
+    if process_group_cache is not None and ranks in process_group_cache:
         warnings.warn(
             f'On rank={dist.get_global_rank()} using cached progress group with {ranks=}. ' +\
             'Instantiate new process group if this is what was intended.'
@@ -150,7 +163,8 @@ def _get_process_group(pg, process_group_cache):
     ranks_per_subgroup_list = list(set(dist.all_gather_object(ranks)))
     current_group, _subgroups = distributed.distributed_c10d.new_subgroups_by_enumeration(ranks_per_subgroup_list)
 
-    process_group_cache[ranks] = current_group
+    if process_group_cache is not None:
+        process_group_cache[ranks] = current_group
     return current_group
 
 
