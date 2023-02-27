@@ -275,7 +275,7 @@ class SpeedMonitor(Callback):
 
                 # Sum flops across all ranks since each rank computes the flops for its own batch
                 flops_per_batch_tensor = state.device.tensor_to_device(
-                    torch.tensor(device_flops_per_batch, dtype=torch.int))
+                    torch.tensor(device_flops_per_batch, dtype=torch.float))
                 dist.all_reduce(flops_per_batch_tensor, reduce_operation='SUM')
                 flops_per_batch = flops_per_batch_tensor.item()
 
