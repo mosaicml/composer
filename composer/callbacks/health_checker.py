@@ -17,7 +17,6 @@ except ImportError:
 import os
 
 import numpy as np
-import pynvml
 from slack_sdk.webhook import WebhookClient
 
 from composer.core import Callback, State
@@ -127,7 +126,7 @@ class HealthChecker(Callback):
         )
 
         node_name = os.environ.get('NODENAME', None)
-        if node_name:
+        if node_name is not None:
             prefix += f'[node={node_name}]'
 
         message = prefix + ' : ' + message
@@ -156,11 +155,11 @@ class HealthChecker(Callback):
 
 class GPUUtilization:
     """GPU Utilization Metric."""
-    alerted: bool = False
 
     def __init__(self, threshold=10) -> None:
         self.samples = deque()
         self.threshold = threshold
+        self.alerted = False
 
     def sample(self) -> None:
         if dist.get_local_rank() == 0:
@@ -196,11 +195,11 @@ class GPUUtilization:
 
 class ECCErrors:
     """Metric for ECC counters."""
-    alerted: bool = False
 
     def __init__(self, threshold=100) -> None:
         self.samples = deque()
         self.threshold = threshold
+        self.alerted = False
 
     def sample(self) -> None:
         if dist.get_local_rank() == 0:
@@ -227,10 +226,7 @@ class ECCErrors:
             if len(gpus_with_error) > 0:
                 message = 'High memory ECC error for GPUs : {gpus}'
                 ecc_data = ['GPU: {} ({} -> {})'.format(i, min_counter[i], max_counter[i]) for i in gpus_with_error]
-                return message.format(
-                    rank=dist.get_node_rank(),
-                    gpus=ecc_data,
-                ), True
+                return message.format(gpus=ecc_data,), True
 
         return None, False
 

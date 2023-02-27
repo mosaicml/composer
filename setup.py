@@ -87,8 +87,6 @@ install_requires = [
     'py-cpuinfo>=8.0.0,<10',
     'packaging>=21.3.0,<23',
     'importlib-metadata>=5.0.0,<7',
-    'pynvml>=11.5.0,<12',
-    'slack_sdk>=3.19.5,<4',
 ]
 extra_deps = {}
 
@@ -136,6 +134,8 @@ extra_deps['dev'] = [
     'cryptography==38.0.4',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
+    'pynvml>=11.5.0,<12',
+    'slack_sdk>=3.19.5,<4',
 ]
 
 extra_deps['deepspeed'] = [

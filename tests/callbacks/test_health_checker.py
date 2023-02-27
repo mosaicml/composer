@@ -12,6 +12,9 @@ from composer.callbacks.health_checker import ECCErrors, GPUUtilization
 from composer.utils import dist
 from tests.common import world_size
 
+pynvml = pytest.importorskip('pynvml')
+pytest.importorskip('slack_sdk')
+
 
 class MockUtil:
 
@@ -22,8 +25,7 @@ class MockUtil:
 @pytest.mark.gpu
 @world_size(1, 2)
 def test_gpu_utilization(world_size):
-    import pynvml
-    HealthChecker._is_available()
+    assert HealthChecker._is_available()
 
     gpu_utilization_values = [
         MockUtil(100),
@@ -51,8 +53,7 @@ def test_gpu_utilization(world_size):
 @pytest.mark.gpu
 @world_size(1, 2)
 def test_ecc_counters(world_size):
-    import pynvml
-    HealthChecker._is_available()
+    assert HealthChecker._is_available()
 
     ecc_counters = [0, 0, 150, 0, 300, 0]
 
@@ -73,7 +74,6 @@ def test_ecc_counters(world_size):
 @pytest.mark.gpu
 @world_size(1, 2)
 def test_health_checker(world_size):
-    import pynvml
 
     state = MagicMock()
     state.run_name = 'pytest-mock-run-kwei73'
