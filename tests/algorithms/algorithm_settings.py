@@ -18,9 +18,10 @@ import composer.algorithms
 from composer import Algorithm
 from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
                                  Factorize, FusedLayerNorm, GatedLinearUnits, GhostBatchNorm, GradientClipping,
-                                 GyroDropout, LabelSmoothing, LayerFreezing, LowPrecisionLayerNorm, MixUp, NoOpModel,
-                                 ProgressiveResizing, RandAugment, SelectiveBackprop, SeqLengthWarmup, SqueezeExcite,
-                                 StochasticDepth, WeightStandardization)
+                                 GyroDropout, LabelSmoothing, LayerFreezing, LowPrecisionGroupNorm,
+                                 LowPrecisionLayerNorm, MixUp, NoOpModel, ProgressiveResizing, RandAugment,
+                                 SelectiveBackprop, SeqLengthWarmup, SqueezeExcite, StochasticDepth,
+                                 WeightStandardization)
 from composer.models import composer_resnet
 from composer.models.base import ComposerModel
 from tests.common import get_module_subclasses
@@ -100,7 +101,7 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     CutMix: {
         'model': SimpleConvModel,
         'dataset': RandomImageDataset,
-        'kwargs': {}
+        'kwargs': {},
     },
     CutOut: simple_vision_settings,
     EMA: {
@@ -114,13 +115,10 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     FusedLayerNorm: simple_bert_settings,
     GatedLinearUnits: simple_bert_settings,
     GhostBatchNorm: {
-        'model': (composer_resnet, {
-            'model_name': 'resnet18',
-            'num_classes': 2
+        'model': (SimpleConvModel, {
+            'norm': 'group',
         }),
-        'dataset': (RandomImageDataset, {
-            'shape': (3, 224, 224)
-        }),
+        'dataset': RandomImageDataset,
         'kwargs': {
             'ghost_batch_size': 2,
         }
@@ -128,6 +126,13 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
     LabelSmoothing: simple_vision_settings,
     LayerFreezing: simple_vision_settings,
     LowPrecisionLayerNorm: simple_bert_settings,
+    LowPrecisionGroupNorm: {
+        'model': (SimpleConvModel, {
+            'norm': 'group',
+        }),
+        'dataset': RandomImageDataset,
+        'kwargs': {},
+    },
     MixUp: simple_vision_settings,
     ProgressiveResizing: simple_vision_settings,
     RandAugment: simple_vision_settings,
