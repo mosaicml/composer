@@ -8,15 +8,18 @@
 
 import functools
 import warnings
-from typing import Any, Callable, Dict, Set, Tuple, cast
+from typing import Any, Callable, Dict, Set, Tuple, Union, cast
 
+import torch
 import torch.nn as nn
 from torch import distributed
 from torch.distributed import ProcessGroup
-from torch.distributed.fsdp import FullyShardedDataParallel, ShardingStrategy
+from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
+                                    ShardingStrategy)
 from torch.distributed.fsdp._utils import _contains_batchnorm, _override_batchnorm_mixed_precision
 from torch.distributed.fsdp.wrap import _or_policy, _wrap, _wrap_batchnorm_individually
 
+from composer.core import Precision
 from composer.utils import dist
 
 sharding_map = {
@@ -24,6 +27,76 @@ sharding_map = {
     'SHARD_GRAD_OP': ShardingStrategy.SHARD_GRAD_OP,
     'FULL_SHARD': ShardingStrategy.FULL_SHARD,
 }
+
+backward_prefetch_map = {
+    'NONE': None,
+    'BACKWARD_PRE': BackwardPrefetch.BACKWARD_PRE,
+    'BACKWARD_POST': BackwardPrefetch.BACKWARD_POST,
+}
+
+
+def get_torch_dtype(dtype: Union[Precision, str]):
+    """Convert common string representations of dtypes to torch dtypes."""
+    dtype = dtype.value if isinstance(dtype, Precision) else dtype
+    if dtype in ['float32', 'torch.float32', 'fp32']:
+        return torch.float32
+    elif dtype in ['float16', 'torch.float16', 'half', 'fp16', 'amp', 'amp_fp16']:
+        return torch.float16
+    elif dtype in ['bfloat16', 'bfloat', 'torch.bfloat16', 'bf16', 'amp_bf16']:
+        return torch.bfloat16
+    elif dtype in ['amp_fp8']:
+        # We use torch.bfloat16 by default for amp_fp8 as there is no
+        # fp8 datatype in PyTorch yet.
+        return torch.bfloat16
+    else:
+        raise ValueError(f'Not sure how to convert dtype={dtype} to a torch dtype.')
+
+
+def _get_mixed_precision(precision, mixed_precision='DEFAULT', keep_low_precision_grads=False):
+    param_dtype = None
+    reduce_dtype = None
+    buffer_dtype = None
+    if isinstance(mixed_precision, dict):
+        param_dtype = mixed_precision.get('param_dtype', None)
+        if param_dtype is not None:
+            param_dtype = get_torch_dtype(param_dtype)
+        reduce_dtype = mixed_precision.get('reduce_dtype', None)
+        if reduce_dtype is not None:
+            reduce_dtype = get_torch_dtype(reduce_dtype)
+        buffer_dtype = mixed_precision.get('buffer_dtype', None)
+        if buffer_dtype is not None:
+            buffer_dtype = get_torch_dtype(buffer_dtype)
+    elif isinstance(mixed_precision, str):
+        mixed_precision = mixed_precision.upper()
+        if mixed_precision == 'FULL':
+            pass
+        elif mixed_precision == 'DEFAULT':
+            reduce_dtype = get_torch_dtype(precision)
+            buffer_dtype = torch.float32
+        elif mixed_precision == 'PURE':
+            param_dtype = get_torch_dtype(precision)
+            reduce_dtype = get_torch_dtype(precision)
+            buffer_dtype = get_torch_dtype(precision)
+        else:
+            raise ValueError(f'Unable to interpret mixed_precision={mixed_precision}')
+    else:
+        raise ValueError(f'Unable to interpret mixed_precision={mixed_precision}')
+
+    mixed_precision = MixedPrecision(
+        param_dtype=param_dtype,
+        reduce_dtype=reduce_dtype,
+        buffer_dtype=buffer_dtype,
+        keep_low_precision_grads=keep_low_precision_grads,
+    )
+
+    return mixed_precision, param_dtype, reduce_dtype, buffer_dtype
+
+
+def _get_cpu_offload(cpu_offload=False):
+    cpu_offload = CPUOffload(offload_params=True) if cpu_offload else None
+    if cpu_offload is not None:
+        raise ValueError('FSDP CPU Offload not supported yet.')
+    return cpu_offload
 
 
 def _get_process_group(pg, process_group_cache):
@@ -33,33 +106,21 @@ def _get_process_group(pg, process_group_cache):
     if pg is None or isinstance(pg, ProcessGroup):
         return pg
 
-    warnings.warn(f'Composer instantiating process groups is an experimental feature.')
+    world_size = dist.get_world_size()
 
-    # Look for existing key in cache
-    if isinstance(pg, (list, tuple)):
-        pg_key = tuple(pg)
-    else:
-        pg_key = pg
-    if pg_key in process_group_cache:
-        warnings.warn(
-            f'On rank={dist.get_global_rank()} using cached progress group with {pg_key=}. ' +\
-            'Instantiate new process group if this is what was intended.'
-        )
-        return process_group_cache[pg_key]
-
-    # Handle str or List[int] process_group cases
+    # Handle special str process_group cases
     if pg == 'self':
-        ranks = (dist.get_global_rank(),)
+        pg = 'set1'
+        warnings.warn(f"Converting process_group='self' to process_group={pg}")
     elif pg == 'node':
-        node_rank = dist.get_node_rank()
-        local_world_size = dist.get_local_world_size()
-        ranks = tuple(range(node_rank * local_world_size, (node_rank + 1) * local_world_size))
+        pg = f'set{world_size}'
+        warnings.warn(f"Converting process_group='node' to process_group={pg}")
     elif pg == 'local_rank_across_nodes':
-        local_rank = dist.get_local_rank()
-        local_world_size = dist.get_local_world_size()
-        num_nodes = dist.get_world_size() // dist.get_local_world_size()
-        ranks = tuple(local_rank + local_world_size * n for n in range(num_nodes))
-    elif isinstance(pg, str) and pg.startswith('set'):
+        pg = f'mod{world_size}'
+        warnings.warn(f"Converting process_group='local_rank_across_nodes' to process_group={pg}")
+
+    # Handle str and Union[List[int], Tuple[int]] process_group cases
+    if isinstance(pg, str) and pg.startswith('set'):
         k = int(pg.strip('set'))
         world_size = dist.get_world_size()
         if world_size % k:
@@ -77,9 +138,19 @@ def _get_process_group(pg, process_group_cache):
     else:
         raise ValueError(f'Unsure how to setup process_group={pg}')
 
+    if ranks in process_group_cache:
+        warnings.warn(
+            f'On rank={dist.get_global_rank()} using cached progress group with {ranks=}. ' +\
+            'Instantiate new process group if this is what was intended.'
+        )
+        return process_group_cache[ranks]
+
+    warnings.warn(f'Composer is instantiating custom process groups. This is an experimental feature within Composer.')
+
     ranks_per_subgroup_list = list(set(dist.all_gather_object(ranks)))
     current_group, _subgroups = distributed.distributed_c10d.new_subgroups_by_enumeration(ranks_per_subgroup_list)
-    process_group_cache[pg_key] = current_group
+
+    process_group_cache[ranks] = current_group
     return current_group
 
 
@@ -154,10 +225,22 @@ def _pro_recursive_wrap(module: nn.Module,
         module_kwargs = auto_wrap_policy(module=module, recurse=False, unwrapped_params=remainder)
         if not only_wrap_children and module_kwargs:
             module_kwargs = module_kwargs if isinstance(module_kwargs, dict) else {}
-            if 'sharding_strategy' in module_kwargs:
+            # backward_prefetch_map
+            if 'sharding_strategy' in module_kwargs and module_kwargs['sharding_strategy'] not in sharding_map.values():
                 module_kwargs['sharding_strategy'] = sharding_map[module_kwargs['sharding_strategy'].upper()]
+            if 'backward_prefetch' in module_kwargs and module_kwargs[
+                    'backward_prefetch'] not in backward_prefetch_map.values():
+                module_kwargs['backward_prefetch'] = backward_prefetch_map[module_kwargs['backward_prefetch'].upper()]
+            if 'cpu_offload' in module_kwargs and not isinstance(module_kwargs['cpu_offload'], CPUOffload):
+                module_kwargs['cpu_offload'] = _get_cpu_offload(cpu_offload=module_kwargs['cpu_offload'].upper())
+            if 'mixed_precision' in module_kwargs and not isinstance(module_kwargs['mixed_precision'], MixedPrecision):
+                # `precision` needs to set `'mixed_precision'`, but `precision` is not part of fsdp kwargs
+                raise NotImplementedError(
+                    f"Automated setting of custom per module mixed_precision is not implemented, but it can be set if `isinstance(module_kwargs['mixed_precision'], MixedPrecision)`"
+                )
             if 'process_group' in module_kwargs:
                 module_kwargs['process_group'] = _get_process_group(module_kwargs['process_group'], process_group_cache)
+
             final_kwargs = {**kwargs, **module_kwargs}
 
             # Leaf node or final wrapping of the remainder both happen here.
