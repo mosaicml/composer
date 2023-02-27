@@ -70,6 +70,13 @@ class LowPrecisionLayerNorm(Algorithm):
         if self.apply_at not in {Event.INIT, Event.AFTER_LOAD}:
             raise ValueError('LowPrecisionLayerNorm only supports application on Event.INIT and Event.AFTER_LOAD.')
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(apply_at={self.apply_at})'
+
+    @staticmethod
+    def required_on_load() -> bool:
+        return True
+
     def match(self, event: Event, state: State) -> bool:
         del state  # unused
         return event == self.apply_at
