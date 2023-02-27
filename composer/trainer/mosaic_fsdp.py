@@ -279,7 +279,7 @@ class MosaicFullyShardedDataParallel(FullyShardedDataParallel):
         auto_wrap_kwargs: Dict[str, Any],
         fsdp_kwargs: Dict[str, Any],
     ) -> None:
-        """Updates _auto_wrap to enalbe module_kwargs.
+        """Updates _auto_wrap to enable module_kwargs.
 
         modified version of
         https://github.com/pytorch/pytorch/blob/d922c29a22e4bf0fba49526f7536395eb8cd66f4/torch/distributed/fsdp/fully_sharded_data_parallel.py#L1252
