@@ -94,11 +94,16 @@ class LPGroupNorm(torch.nn.GroupNorm):
             return F.group_norm(downcast_x, self.num_groups, downcast_weight, downcast_bias, self.eps)
 
 
-def _cast_if_autocast_enabled(hidden_states):
-    if not torch.is_autocast_enabled():
-        return hidden_states
-    else:
-        return torch.cuda.amp.autocast_mode._cast(hidden_states, torch.get_autocast_gpu_dtype())
+def _cast_if_autocast_enabled(tensor):
+    if torch.is_autocast_enabled():
+        if tensor.device.type == 'cuda':
+            dtype = torch.get_autocast_gpu_dtype()
+        elif tensor.device.type == 'cpu':
+            dtype = torch.get_autocast_cpu_dtype()
+        else:
+            raise NotImplementedError()
+        return tensor.to(dtype=dtype)
+    return tensor
 
 
 def _to_LPGroupNorm(layer: torch.nn.Module, module_index: int) -> LPGroupNorm:
