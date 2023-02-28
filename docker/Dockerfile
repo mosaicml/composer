@@ -134,7 +134,6 @@ RUN apt-get update && \
         automake \
         libtool \
         # Development tools
-        vim \
         tmux \
         htop && \
     apt-get autoclean && \
