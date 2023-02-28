@@ -304,7 +304,7 @@ class SpeedMonitor(Callback):
             flops_per_batch = flops_per_batch_tensor.item()
 
             print(f'flops_per_batch: {flops_per_batch}, device_flops_per_batch: {device_flops_per_batch}')
-            self.history_flops.append(flops_per_batch)
+            self.history_flops.append(flops_per_batch + self.history_flops[-1])
 
         # Log the flops throughput
         if len(self.history_flops) == self.history_flops.maxlen:
