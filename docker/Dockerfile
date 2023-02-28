@@ -340,7 +340,7 @@ RUN apt-get update && \
 #########################
 # Upgrade pip packages
 #########################
-RUN pip install --no-cache-dir --upgrade urllib3${URLLIB3_VERSION} && \
+RUN pip install --no-cache-dir --upgrade urllib3${URLLIB3_VERSION} \
         certifi${CERTIFI_VERSION}
 
 
