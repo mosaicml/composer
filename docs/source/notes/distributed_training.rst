@@ -160,9 +160,9 @@ FullyShardedDataParallel (FSDP)
 
 Composer integrates Pytorch's `FullyShardedDataParallel <https://pytorch.org/docs/stable/fsdp.html>`__ engine with some syntactic sugar to make it easy to write custom models that work with Composer + FSDP.
 
-At a high level, when you use the Composer Trainer, you must pass it a :mod:`ComposerModel` like `ComposerGPT <https://github.com/mosaicml/benchmarks/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py#L178>`__ that defines certain functions like :code:`forward`, :code:`eval_forward`, :code:`loss`, etc. that are called during the training loop.
+At a high level, when you use the Composer Trainer, you must pass it a :mod:`ComposerModel` like `ComposerGPT <https://github.com/mosaicml/examples/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py#L178>`__ that defines certain functions like :code:`forward`, :code:`eval_forward`, :code:`loss`, etc. that are called during the training loop.
 
-Inside that :mod:`ComposerModel` you may have one or many submodules, such as a :code:`.model` or :code:`.language_model` or :code:`.classifier` that is the actual :mod:`torch.nn.Module` that you will be deploying at inference time. In our case, this is the `GPT <https://github.com/mosaicml/benchmarks/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py#L102>`__ module that we build and attach :mod:`ComposerGPT.model`.
+Inside that :mod:`ComposerModel` you may have one or many submodules, such as a :code:`.model` or :code:`.language_model` or :code:`.classifier` that is the actual :mod:`torch.nn.Module` that you will be deploying at inference time. In our case, this is the `GPT <https://github.com/mosaicml/examples/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py#L102>`__ module that we build and attach :mod:`ComposerGPT.model`.
 
 When you provide an :code:`fsdp_config={...}` dictionary to the Composer Trainer, then on :code:`__init__`, the Trainer will attempt to wrap **each of the submodules** of your :mod:`ComposerModel` with an FSDP auto wrap policy. This wrapping is recursive, so not only is `GPT` wrapped, but all submodules of `GPT` may/may not be wrapped too. See the `FSDP documentation <https://pytorch.org/docs/stable/fsdp.html>`__ for more details on how auto wrap policies work.
 
@@ -185,6 +185,7 @@ The full spec and defaults for Composer's `fsdp_config` is here:
       'activation_checkpointing': bool = True | False, # Default: False
       'activation_cpu_offload': bool = True | False, # Default: False
       'verbose': bool = True | False,
+      'state_dict_type': str = 'full' | 'local' | 'sharded' # Default: full
     }
 
 All values come with defaults and can be optionally defined in the :code:`fsdp_config`. Most parameters map directly to parameters in the `FSDP documentation <https://pytorch.org/docs/stable/fsdp.html#torch.distributed.fsdp.FullyShardedDataParallel>`__.
@@ -300,12 +301,131 @@ To make auto-wrapping easier on users, Composer uses a custom auto wrap policy t
 
 These rules are meant to make it easy for users to modify existing models for usage with FSDP. You can either add attributes to modules you want to wrap (#1), define a filter (#2), or make no changes at all and just use the size-based policy via :code:`fsdp_config['min_params'] = ...` (#3).
 
-In `gpt.py <https://github.com/mosaicml/benchmarks/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py>`__, you can see that `we used rule #2 <https://github.com/mosaicml/benchmarks/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py#L172>`__ to specify that all :code:`GPTBlock` modules within :code:`GPT` should be wrapped. Alternatively, we could have easily attributed each of the blocks with :code:`block._fsdp_wrap = True` and it would have accomplished the same thing. Whatever style you prefer, it's up to you!
+In `gpt.py <https://github.com/mosaicml/examples/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py>`__, you can see that `we used rule #2 <https://github.com/mosaicml/examples/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py#L172>`__ to specify that all :code:`GPTBlock` modules within :code:`GPT` should be wrapped. Alternatively, we could have easily attributed each of the blocks with :code:`block._fsdp_wrap = True` and it would have accomplished the same thing. Whatever style you prefer, it's up to you!
 
 A very similar auto wrap policy is provided for activation checkpointing, with analogous rule #1 that looks for :code:`module._activation_checkpointing = True | False` and rule #2 that looks for :code:`def activation_checkpointing_fn(module: torch.nn.Module) -> bool`.
 
 
+Saving and Loading Sharded Checkpoints with FSDP
+------------------------------------------------
+To save and load sharded checkpoints with FSDP, you can make use of the field, :code:`state_dict_type` in :code:`fsdp_config`.
+Depending on the value you set for :code:`state_dict_type`, you can get different checkpointing behavior:
 
+1. :code:`state_dict_type='full'`
+The default. Saves one big checkpoint file for the whole model.
+It does this by gathering the model state to the global rank 0 device, unflattening it, and then saving it out.
+Similarly when loading checkpoints, the global rank 0 device will load in the checkpoint file and scatter the
+model state to the other ranks.
+
+2. :code:`state_dict_type='local'`
+The least communication-heavy option because the state dict for saving and loading is exactly what is used in FSDP.
+For save: each rank saves out the flattened model state shard they are
+responsibile for to a distinct checkpoint file. No gather needed. For load, each rank loads in the checkpoint file
+corresponding to their shard. No scatter needed.
+
+3. :code:`state_dict_type='sharded'`
+Each rank saves out an unflattened shard. Useful when using the checkpoint shard files for a non-FSDP use-case.
+Expensive because requires a gather, unflatten, then scatter. For loading, similar to ``state_dict_type='local'``, each rank
+loads in the checkpoint file corresponding to their unflattened shard.
+
+See `The FSDP docs <https://pytorch.org/docs/stable/fsdp.html#torch.distributed.fsdp.FullyShardedDataParallel.state_dict>`__ for more info.
+
+For example, to save local, sharded checkpoints (`state_dict_type='local'`) with FSDP, you can do:
+
+.. code:: python
+
+    import torch.nn as nn
+    from composer import Trainer
+
+    class Block (nn.Module):
+        ...
+
+    class Model(nn.Module):
+        def __init__(self, n_layers):
+            super().__init__()
+            self.blocks = nn.ModuleList([
+                Block(...) for _ in range(n_layers)
+            ]),
+            self.head = nn.Linear(...)
+
+        def forward(self, inputs):
+            ...
+
+        # FSDP Wrap Function
+        def fsdp_wrap_fn(self, module):
+            return isinstance(module, Block)
+
+
+    class MyComposerModel(ComposerModel):
+
+        def __init__(self, n_layers):
+            super().__init__()
+            self.model = Model(n_layers)
+            ...
+
+        def forward(self, batch):
+            ...
+
+        def eval_forward(self, batch, outputs=None):
+            ...
+
+        def loss(self, outputs, batch):
+            ...
+
+        ...
+
+    composer_model = MyComposerModel(n_layers=3)
+
+    fsdp_config = {
+        'sharding_strategy': 'FULL_SHARD',
+        'state_dict_type': 'local',
+    }
+
+
+    trainer = Trainer(
+        model=composer_model,
+        max_duration='2ba'
+        fsdp_config=fsdp_config,
+        save_folder='checkpoints',
+        save_filename='ba{batch}_rank{rank}.pt',
+        save_interval='2ba',
+        ...
+    )
+
+    trainer.fit()
+
+This code will save N checkpoint files to the local directory ``./checkpoints``. For example,
+if you trained with 4 ranks, ```./checkpoints``` would contain 4 files: ``ba2_rank0.pt``, ``ba2_rank1.pt``, ``ba2_rank2.pt``, and ``ba2_rank3.pt``.
+
+To load these checkpoint files, you would need to do something like this:
+
+.. code:: python
+
+    from composer import Trainer
+
+    fsdp_config = {
+        'sharding_strategy': 'FULL_SHARD',
+        'state_dict_type': 'local',
+    }
+
+
+    trainer = Trainer(
+        model=composer_model,
+        max_duration='4ba'
+        fsdp_config=fsdp_config,
+        load_path='./checkpoints/ba2_rank{rank}.pt'
+        ...
+    )
+
+Three things to note in this load example:
+
+1. Instead of setting ``load_path`` to the path to a specific file, we keep the ``{rank}`` placeholder to denote that
+the file to load is different for each rank.
+
+2. We must set ``'state_dict_type': 'local'``, like we did during the save.
+
+3. Composer does not support elastic checkpointing (more ranks than checkpoint files or more files than ranks), so you
+must make sure the number of ranks you run on during load is the same as the number you used during save (the same as the number of files).
 
 
 .. _Pytorch DDP: https://pytorch.org/docs/master/generated/torch.nn.parallel.DistributedDataParallel.html

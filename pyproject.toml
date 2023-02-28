@@ -1,3 +1,7 @@
+# build requirements
+[build-system]
+requires = ["setuptools < 68.0.0"]
+build-backend = "setuptools.build_meta"
 
 # iSort
 [tool.isort]
@@ -61,7 +65,7 @@ reportUnusedCoroutine = "error"
 addopts = "--codeblocks --strict-markers -m 'not gpu and not vision and not doctest and not daily and not remote'"
 
 markers = [
-    # !!!!!!!!!!!IMPORTANT!!!!!!!!!: when updating the markers, also make sure to update .ci/Jenkinsfile and meta.yaml
+    # !!!!!!!!!!!IMPORTANT!!!!!!!!!: when updating the markers, also make sure to update meta.yaml
     # Tests that require a world_size of two should be annotated with `@pytest.mark.world_size(2)`.
     # If not specified, the test will be assumed to have a world-size of one, which is
     # equivalent to `@pytest.mark.world_size(1)`
@@ -112,6 +116,14 @@ filterwarnings = [
     'ignore:Positional args are being deprecated, use kwargs instead.*:UserWarning',
     'ignore:yahp-based workflows are deprecated and will be removed:DeprecationWarning',
     'ignore:Torchmetrics v0.9 introduced a new argument class property:UserWarning',
+    'ignore:torch.distributed._all_gather_base is a private function and will be deprecated.*:UserWarning',
+    'ignore:torch.distributed._reduce_scatter_base is a private function and will be deprecated.*:UserWarning',
+    # Ignore tensorboard deprecation warnings
+    'ignore:Call to deprecated create function Descriptor().*:DeprecationWarning:tensorboard',
+    'ignore:Call to deprecated create function EnumDescriptor().*:DeprecationWarning:tensorboard',
+    'ignore:Call to deprecated create function EnumValueDescriptor().*:DeprecationWarning:tensorboard',
+    'ignore:Call to deprecated create function FieldDescriptor().*:DeprecationWarning:tensorboard',
+    'ignore:Call to deprecated create function FileDescriptor().*:DeprecationWarning:tensorboard',
 ]
 
 # Coverage

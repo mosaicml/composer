@@ -555,25 +555,13 @@ class TestCheckpointResumption:
         pytest.param(1),
         pytest.param(2, marks=pytest.mark.world_size(2)),
     ])
-    @pytest.mark.parametrize(
-        'device,deepspeed_zero_stage',
-        [
-            pytest.param('cpu', None, id='cpu-ddp'),
-            pytest.param('gpu', None, id='gpu-ddp', marks=pytest.mark.gpu),
-            # TODO: Remove filterwarnings after DeepSpeed removes deprecated code
-            pytest.param('gpu',
-                         0,
-                         id='deepspeed-zero0',
-                         marks=[pytest.mark.gpu, pytest.mark.filterwarnings('ignore::UserWarning')]),
-            pytest.param('gpu',
-                         1,
-                         id='deepspeed-zero1',
-                         marks=[pytest.mark.gpu, pytest.mark.filterwarnings('ignore::UserWarning')]),
-            pytest.param('gpu',
-                         2,
-                         id='deepspeed-zero2',
-                         marks=[pytest.mark.gpu, pytest.mark.filterwarnings('ignore::UserWarning')]),
-        ])
+    @pytest.mark.parametrize('device,deepspeed_zero_stage', [
+        pytest.param('cpu', None, id='cpu-ddp'),
+        pytest.param('gpu', None, id='gpu-ddp', marks=pytest.mark.gpu),
+        pytest.param('gpu', 0, id='deepspeed-zero0', marks=pytest.mark.gpu),
+        pytest.param('gpu', 1, id='deepspeed-zero1', marks=pytest.mark.gpu),
+        pytest.param('gpu', 2, id='deepspeed-zero2', marks=pytest.mark.gpu),
+    ])
     @pytest.mark.parametrize(
         'seed,save_interval,save_filename,resume_file,final_checkpoint',
         [
@@ -721,30 +709,9 @@ class TestCheckpointResumption:
 @pytest.mark.parametrize('device,deepspeed_enabled,zero_stage', [
     pytest.param('cpu', False, None, id='cpu-ddp'),
     pytest.param('gpu', False, None, id='gpu-ddp', marks=pytest.mark.gpu),
-    pytest.param('gpu',
-                 True,
-                 0,
-                 id='deepspeed-zero0',
-                 marks=[
-                     pytest.mark.gpu,
-                     pytest.mark.filterwarnings('ignore::UserWarning'),
-                 ]),
-    pytest.param('gpu',
-                 True,
-                 1,
-                 id='deepspeed-zero1',
-                 marks=[
-                     pytest.mark.gpu,
-                     pytest.mark.filterwarnings('ignore::UserWarning'),
-                 ]),
-    pytest.param('gpu',
-                 True,
-                 2,
-                 id='deepspeed-zero2',
-                 marks=[
-                     pytest.mark.gpu,
-                     pytest.mark.filterwarnings('ignore::UserWarning'),
-                 ]),
+    pytest.param('gpu', True, 0, id='deepspeed-zero0', marks=pytest.mark.gpu),
+    pytest.param('gpu', True, 1, id='deepspeed-zero1', marks=pytest.mark.gpu),
+    pytest.param('gpu', True, 2, id='deepspeed-zero2', marks=pytest.mark.gpu),
 ])
 def test_rotate_checkpoints(
     world_size,

@@ -62,7 +62,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    examples/medical_image_segmentation.ipynb
    examples/custom_speedup_methods.ipynb
    examples/ffcv_dataloaders.ipynb
-   examples/huggingface_models.ipynb
+   examples/finetune_huggingface.ipynb
    examples/pretrain_finetune_huggingface.ipynb
    examples/migrate_from_ptl.ipynb
    examples/early_stopping.ipynb
@@ -135,6 +135,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/gyro_dropout.md
    method_cards/label_smoothing.md
    method_cards/layer_freezing.md
+   method_cards/low_precision_groupnorm.md
    method_cards/low_precision_layernorm.md
    method_cards/mixup.md
    method_cards/progressive_resizing.md

@@ -80,7 +80,7 @@ from composer.core.algorithm import Algorithm
 from composer.core.callback import Callback
 from composer.core.event import Event
 from composer.core.state import State
-from composer.loggers import Logger
+from composer.loggers import Logger, LoggerDestination
 from composer.profiler import ProfilerAction
 from composer.utils import ensure_tuple
 
@@ -266,11 +266,19 @@ class Engine():
             # For the INIT event, run the callbacks first to initialize the loggers
             # For other events, run the algorithms first, so the callbacks have the state
             # after algorithms modify it
-            self._run_callbacks(event)
+            self._check_for_still_open_callbacks()
+
+            # Run loggers first, so they can be initialized before any callbacks that may
+            # use them.
+            self._run_loggers(event)
+            self._run_nonlogger_callbacks(event)
             traces = self._run_algorithms(event)
         else:
             traces = self._run_algorithms(event)
-            self._run_callbacks(event)
+            # Run callbacks first, so any log calls from a callback that are executed lazily
+            # get registered before they are flushed by the logger itself.
+            self._run_nonlogger_callbacks(event)
+            self._run_loggers(event)
 
         if event.is_before_event and duration_marker is not None:
             duration_marker.start()
@@ -402,31 +410,37 @@ class Engine():
 
         return algorithms_to_run
 
+    def _check_for_still_open_callbacks(self):
+        # Some callbacks may be open from a previous training run
+        # If so, error and instruct the user that they must call `trainer.close()`
+        # so callbacks can clean up and reset their state properly
+        for cb in self.state.callbacks:
+            # If it's not in the set, then the callback is new, so it's closed by definition
+            if cb in _OPEN_CALLBACKS:
+                raise RuntimeError(
+                    ('Cannot create a new trainer with an open callback or logger from a previous trainer. '
+                     'To fix, call trainer.close() before creating this new trainer to ensure that all '
+                     'callbacks or loggers shut down properly.'))
+            _OPEN_CALLBACKS.add(cb)
+
     def _run_callbacks(
         self,
         event: Union[Event, str],
+        callbacks: Optional[Sequence[Callback]] = None,
     ):
         """Runs a sequence of callbacks by calling the function for an event.
 
         Args:
             event (Event | str): The current :class:`.Event`.
+            callbacks (Callback | Sequence[Callback], optional): The callbacks to run.
+                If None is specified, will use all the callback in state (self.state).
+
         """
         event = Event(event)
 
-        if event == Event.INIT:
-            # Some callbacks may be open from a previous training run
-            # If so, error and instruct the user that they must call `trainer.close()`
-            # so callbacks can clean up and reset their state properly
-            for cb in self.state.callbacks:
-                # If it's not in the set, then the callback is new, so it's closed by definition
-                if cb in _OPEN_CALLBACKS:
-                    raise RuntimeError(
-                        ('Cannot create a new trainer with an open callback or logger from a previous trainer. '
-                         'To fix, call trainer.close() before creating this new trainer to ensure that all '
-                         'callbacks or loggers shut down properly.'))
-                _OPEN_CALLBACKS.add(cb)
+        callbacks = self.state.callbacks if callbacks is None else callbacks
 
-        for cb in self.state.callbacks:
+        for cb in callbacks:
             marker = None
             if self.state.profiler is not None:
                 marker = self.state.profiler.marker(f'callback/{cb.__class__.__name__}/event/{event.value}',
@@ -438,6 +452,14 @@ class Engine():
             with ctx:
                 self._debug_log(event, f'Running callback {type(cb).__name__}')
                 cb.run_event(event, self.state, self.logger)
+
+    def _run_loggers(self, event: Union[Event, str]):
+        loggers = [callback for callback in self.state.callbacks if isinstance(callback, LoggerDestination)]
+        self._run_callbacks(event, loggers)
+
+    def _run_nonlogger_callbacks(self, event: Union[Event, str]):
+        callbacks = [callback for callback in self.state.callbacks if not isinstance(callback, LoggerDestination)]
+        self._run_callbacks(event, callbacks)
 
     def __del__(self):
         global _did_atexit_run
@@ -507,3 +529,9 @@ class Engine():
                     log.error(f'Error running {callback.__class__.__name__}.post_close().', exc_info=e, stack_info=True)
                 else:
                     _OPEN_CALLBACKS.discard(callback)
+
+        # Try to shut down any persistent workers
+        try:
+            state.train_dataloader._iterator._shutdown_workers()  # type: ignore [reportGeneralTypeIssues]
+        except:
+            pass

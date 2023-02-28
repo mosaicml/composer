@@ -1,17 +1,17 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import Tuple
-
 import pytest
 import torch
 from torch.nn.functional import gelu, relu
 
 from composer.algorithms.gated_linear_units import GatedLinearUnits, apply_gated_linear_units
 from composer.algorithms.gated_linear_units.gated_linear_unit_layers import BERTGatedFFOutput
-from composer.core.event import Event
+from composer.core import Event, State
+from composer.devices import DeviceCPU
 from composer.loggers import Logger
-from tests.fixtures.synthetic_hf_state import make_dataset_configs, synthetic_hf_state_maker
+from tests.common.datasets import dummy_bert_lm_dataloader, dummy_text_classification_dataloader
+from tests.common.models import SimpleTransformerClassifier, configure_tiny_bert_hf_model
 
 
 def _layernorm(input_tensor, layernorm_eps):
@@ -49,12 +49,6 @@ def test_glu_outputs(batch_size, seq_length, d_embed, d_ff, dropout_rate, act_fn
     assert torch.allclose(manual_output, model_output)
 
 
-@pytest.fixture()
-def synthetic_bert_state(request: pytest.FixtureRequest):
-    synthetic_config = make_dataset_configs(model_family=['bert'])[0]
-    return synthetic_hf_state_maker(synthetic_config, request.session)
-
-
 def assert_is_glu_instance(model):
     pytest.importorskip('transformers')
     from transformers import BertForMaskedLM, BertForSequenceClassification
@@ -73,16 +67,52 @@ def assert_is_glu_instance(model):
     ), 'composer.algorithms.gated_linear_units.gated_linear_unit_layers.BERTGatedFFOutput is not found in the post-surgery model.'
 
 
-def test_gated_linear_units_functional(synthetic_bert_state: Tuple):
-    state, _, _ = synthetic_bert_state
+@pytest.mark.parametrize('model,dataloader', [
+    (configure_tiny_bert_hf_model, dummy_bert_lm_dataloader),
+    (pytest.param(
+        SimpleTransformerClassifier,
+        dummy_text_classification_dataloader,
+        marks=pytest.mark.xfail(reason='Gated Linear Units does not currently support non-HuggingFace models'))),
+])
+def test_gated_linear_units_functional(model, dataloader):
+    model = model()
+    dataloader = dataloader()
+    state = State(
+        model=model,
+        rank_zero_seed=0,
+        run_name='run_name',
+        device=DeviceCPU(),
+        dataloader=dataloader,
+        dataloader_label='train',
+        max_duration='1ep',
+    )
     apply_gated_linear_units(state.model, state.optimizers)
     assert_is_glu_instance(state.model.model)
 
 
-def test_gated_linear_units_algorithm(synthetic_bert_state: Tuple, empty_logger: Logger):
+@pytest.mark.parametrize('model,dataloader', [
+    (configure_tiny_bert_hf_model, dummy_bert_lm_dataloader),
+    (pytest.param(
+        SimpleTransformerClassifier,
+        dummy_text_classification_dataloader,
+        marks=pytest.mark.xfail(reason='Gated Linear Units does not currently support non-HuggingFace models'))),
+])
+def test_gated_linear_units_algorithm(model, dataloader, empty_logger: Logger):
     pytest.importorskip('transformers')
     from transformers import BertForMaskedLM, BertForSequenceClassification
-    state, _, _ = synthetic_bert_state
+
+    model = model()
+    dataloader = dataloader()
+    state = State(
+        model=model,
+        rank_zero_seed=0,
+        run_name='run_name',
+        device=DeviceCPU(),
+        dataloader=dataloader,
+        dataloader_label='train',
+        max_duration='1ep',
+    )
+
     gated_linear_units = GatedLinearUnits()
 
     # state.model wrapped in HuggingFaceModel wrapped

@@ -1,0 +1,66 @@
+name: PR Docker
+on:
+  pull_request:
+    branches:
+      - dev
+      - main
+      - release/**
+    paths:
+      - .github/bin/gen_docker_matrix.py
+      - .github/workflows/docker-configure-build-push.yaml
+      - .github/workflows/pr-docker.yaml
+      - docker/**
+defaults:
+  run:
+    working-directory: .
+jobs:
+  build-image-matrix:
+    if: github.repository_owner == 'mosaicml'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+      - uses: actions/checkout@v3
+      - id: set-matrix
+        run: |
+          # Install yaml dependency
+          pip install pyyaml
+
+          # Override package install command for Composer image
+          COMPOSER_INSTALL_COMMAND="mosaicml[all]@git+https://github.com/mosaicml/composer.git@${{ github.sha }}"
+
+          # Generate build matrix
+          BUILD_MATRIX=$(python .github/bin/gen_docker_matrix.py docker/build_matrix.yaml -b COMPOSER_INSTALL_COMMAND=$COMPOSER_INSTALL_COMMAND)
+          echo $BUILD_MATRIX >> $GITHUB_OUTPUT
+  stage-docker-build:
+    needs: build-image-matrix
+    uses: ./.github/workflows/docker-configure-build-push.yaml
+    strategy:
+      fail-fast: true
+      matrix: ${{ fromJSON(needs.build-image-matrix.outputs.matrix) }}
+    name: ${{ matrix.IMAGE_NAME }}
+    with:
+      build-args: |
+        AWS_OFI_NCCL_VERSION=${{ matrix.AWS_OFI_NCCL_VERSION }}
+        BASE_IMAGE=${{ matrix.BASE_IMAGE }}
+        CUDA_VERSION=${{ matrix.CUDA_VERSION }}
+        MOFED_VERSION=${{ matrix.MOFED_VERSION }}
+        PYTHON_VERSION=${{ matrix.PYTHON_VERSION }}
+        PYTORCH_VERSION=${{ matrix.PYTORCH_VERSION }}
+        TORCHTEXT_VERSION=${{ matrix.TORCHTEXT_VERSION }}
+        TORCHVISION_VERSION=${{ matrix.TORCHVISION_VERSION }}
+      context: ./docker
+      image-name: ${{ matrix.IMAGE_NAME }}
+      image-uuid: ${{ matrix.UUID }}
+      push: true
+      staging: true
+      staging-repo: mosaicml/ci-staging
+      tags: ${{ matrix.TAGS }}
+      target: ${{ matrix.TARGET }}
+    secrets:
+      username: ${{ secrets.DOCKER_HUB_USERNAME }}
+      password: ${{ secrets.DOCKER_HUB_PASSWORD }}

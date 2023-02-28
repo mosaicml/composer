@@ -2,17 +2,19 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """A collection of common torchmetrics for NLP tasks."""
-from typing import Mapping, Union
+import warnings
+from typing import Mapping, Optional, Union
 
 import torch
 from torch import Tensor
+from torch.nn import functional as F
 from torchmetrics import Metric
 
 from composer.loss import soft_cross_entropy
 
 __all__ = [
     'Perplexity', 'InContextLearningLMAccuracy', 'BinaryF1Score', 'HFCrossEntropy', 'LanguageCrossEntropy',
-    'MaskedAccuracy'
+    'MaskedAccuracy', 'LanguagePerplexity'
 ]
 
 
@@ -76,10 +78,15 @@ class LanguageCrossEntropy(Metric):
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def __init__(self, vocab_size: int, dist_sync_on_step=False, ignore_index: int = -100):
+    def __init__(self, vocab_size: Optional[int] = None, dist_sync_on_step: bool = False, ignore_index: int = -100):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
-        self.vocab_size = vocab_size
+        if vocab_size is not None:
+            warnings.warn(
+                DeprecationWarning(
+                    'The vocab_size argument is deprecated and will be removed in 0.14. It is no longer needed, because the correct shape of output and target is inferred based on the number of target elements.'
+                ))
+
         self.ignore_index = ignore_index
         self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=ignore_index, reduction='sum')
         self.add_state('sum_loss', default=torch.tensor(0.), dist_reduce_fx='sum')
@@ -93,10 +100,16 @@ class LanguageCrossEntropy(Metric):
                 either the Tensor or a Mapping type that contains the loss or model logits.
             target (~torch.Tensor): A Tensor of ground-truth values to compare against.
         """
-        assert isinstance(output, Tensor)
-        output = output.view(-1, self.vocab_size)
+        if isinstance(output, Mapping):
+            logits = output['logits']
+        elif isinstance(output, Tensor):
+            logits = output
+        else:
+            raise Exception(f'Type {type(output)} for the output is unsupported.')
+
         target = target.view(-1)
-        losses = self.loss_fn(output, target)
+        logits = logits.view(target.shape[0], -1)
+        losses = self.loss_fn(logits, target)
 
         total_items = (target != self.ignore_index).sum()
         self.total_items += total_items  #type: ignore (third-party)
@@ -179,6 +192,11 @@ class HFCrossEntropy(Metric):
     full_state_update = False
 
     def __init__(self, dist_sync_on_step=False):
+        warnings.warn(
+            DeprecationWarning(
+                "'HFCrossEntropy' is deprecated and will be removed in 0.14. Please use `LanguageCrossEntropy' instead."
+            ))
+
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
         self.add_state('sum_loss', default=torch.tensor(0.), dist_reduce_fx='sum')
@@ -224,19 +242,52 @@ class HFCrossEntropy(Metric):
 
 
 class Perplexity(HFCrossEntropy):
-    """Subclasses :class:`~composer.models.nlp_metrics.HFLanguageCrossEntropyLoss` to implement perplexity.
+    """Subclasses :class:`~composer.metrics.nlp.HFCrossEntropy` to implement perplexity.
 
     If an algorithm modifies the loss function and it is no longer directly provided in the output, then this could be
     expensive because it'll compute the loss twice.
     """
 
+    def __init__(self, dist_sync_on_step=False):
+        warnings.warn(
+            DeprecationWarning(
+                "'Perplexity' is deprecated and will be removed in 0.14. Please use `LanguagePerplexity' instead."))
+
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+
     def compute(self) -> Tensor:
-        """Returns torch.exp() of the LanguageCrossEntropyLoss."""
+        """Returns torch.exp() of the HFCrossEntropy."""
         avg_loss = super().compute()
         return torch.exp(avg_loss)
 
 
-class InContextLearningLMAccuracy(Metric):
+class LanguagePerplexity(LanguageCrossEntropy):
+    """Subclasses :class:`~composer.metrics.nlp.LanguageCrossEntropy` to implement perplexity."""
+
+    def compute(self) -> Tensor:
+        """Returns torch.exp() of the LanguageCrossEntropy."""
+        avg_loss = super().compute()
+        return torch.exp(avg_loss)
+
+
+class InContextLearningMetric(Metric):
+
+    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
+        """Abstract interface for computing an in-context learning metrics.
+
+        Args:
+            batch (dict): Batch must consist minimally of `input_ids` as well as any other structure needed
+                to compute the metric.
+            output_logits (torch.Tensor): The model outputs evaluated on the batch `input_ids`
+            labels (torch.Tensor): The correct outputs.
+
+        Raises:
+            NotImplementedError: Abstract method must be implemented by subclasses
+        """
+        raise NotImplementedError
+
+
+class InContextLearningLMAccuracy(InContextLearningMetric):
     r"""Computes accuracy for In-context learning (ICL) language modeling (LM) tasks.
 
     ICL LM tasks consist of some number of example language modeling tasks (referred to as the 'context'), followed by a test task where the model must correctly predict all the tokens
@@ -249,8 +300,8 @@ class InContextLearningLMAccuracy(Metric):
     Continuation: `green`
 
     Adds metric state variables:
-        correct (float): The number of examples where the model correctly predicted the whole continuation.
-        total (float): The number of total examples seen.
+        correct (float): The number of instances where the prediction masked the target.
+        total (float): The number of total instances that were predicted.
 
     Args:
         dist_sync_on_step (bool, optional): Synchronize metric state across processes at
@@ -263,18 +314,67 @@ class InContextLearningLMAccuracy(Metric):
     def __init__(self, dist_sync_on_step: bool = False):
         # state from multiple processes
         super().__init__(dist_sync_on_step=dist_sync_on_step)
-        self.add_state('correct', default=torch.tensor(0), dist_reduce_fx='sum')
-        self.add_state('total', default=torch.tensor(0), dist_reduce_fx='sum')
+        self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
-        targets = torch.roll(labels, shifts=-1)
-        targets[:, -1] = -100
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
             cont_tok_pred = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
-            cont_tok_targ = targets[batch_idx].index_select(dim=0, index=cont_idx - 1)
+            cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
 
             self.correct += (cont_tok_pred == cont_tok_targ).all().int()
-            self.total += torch.tensor(1)
+            self.total += torch.tensor(1.0)
+
+    def compute(self):
+        assert isinstance(self.correct, Tensor)
+        assert isinstance(self.total, Tensor)
+        return self.correct / self.total
+
+
+class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
+    r"""Computes accuracy for In-context learning (ICL) multiple choice (MC) tasks.
+
+    ICL MC tasks consists of a series of questions with some number of possible choices (only one of which can be correct).
+    At inference time each possible choice is given to the model as a separate input and the one for which the model assigns
+    the lowest perplexity to the choice is considered the model's choice. The model is correct if it "chooses" the right answer.
+
+    Context: `The dog is->fuzzy\nthe water is->hot\nthe tree is->`
+    Continuation: `green`
+
+    Adds metric state variables:
+        correct (float): The number of instances where the prediction masked the target.
+        total (float): The number of total instances that were predicted.
+
+    Args:
+        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
+            each forward() before returning the value at the step. Default: ``False``.
+    """
+
+    # Make torchmetrics call update only once
+    full_state_update = False
+
+    def __init__(self, dist_sync_on_step: bool = False):
+        # state from multiple processes
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.add_state('correct', default=torch.tensor(0.0), dist_reduce_fx='sum')
+        self.add_state('total', default=torch.tensor(0.0), dist_reduce_fx='sum')
+
+    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
+        perplexities = []
+        for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
+            cont_tok_logits = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1)
+            cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
+            cross_entropy = F.cross_entropy(cont_tok_logits, cont_tok_targ)
+            perplexity = torch.exp(cross_entropy)
+            perplexities.append(perplexity)
+
+        for (start, end), gold_idx in zip(batch['choice_groupings'], batch['gold_indices']):
+            subset = perplexities[start:end]
+            idx_min = subset.index(min(subset))
+
+            if idx_min == gold_idx:
+                self.correct += torch.tensor(1.0)
+            self.total += torch.tensor(1.0)
 
     def compute(self):
         assert isinstance(self.correct, Tensor)

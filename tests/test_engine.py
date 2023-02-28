@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import textwrap
+from pathlib import Path
 from typing import List
 from unittest.mock import Mock
 
@@ -16,7 +17,7 @@ from composer.core import Engine, Event
 from composer.core.algorithm import Algorithm
 from composer.core.callback import Callback
 from composer.core.state import State
-from composer.loggers import Logger
+from composer.loggers import Logger, LoggerDestination
 from tests.common.events import EventCounterCallback
 
 
@@ -45,6 +46,49 @@ def never_match_algorithms():
 def run_event(event: Event, state: State, logger: Logger):
     runner = Engine(state, logger)
     return runner.run_event(event)
+
+
+class DummyCallback(Callback):
+
+    def __init__(self, file_path):
+        self.file_path = file_path
+
+    def init(self, state: State, logger: Logger):
+        with open(self.file_path, 'a') as f:
+            f.write('init callback, ')
+
+    def batch_end(self, state: State, logger: Logger):
+        with open(self.file_path, 'a') as f:
+            f.write('on_batch_end callback, ')
+
+
+class DummyLoggerDestination(LoggerDestination):
+
+    def __init__(self, file_path):
+        self.file_path = file_path
+
+    def init(self, state: State, logger: Logger):
+        with open(self.file_path, 'a') as f:
+            f.write('init logger, ')
+
+    def batch_end(self, state: State, logger: Logger):
+        with open(self.file_path, 'a') as f:
+            f.write('on_batch_end logger, ')
+
+
+def test_engine_runs_callbacks_in_correct_order(dummy_state, tmp_path):
+    file_path = tmp_path / Path('event_check.txt')
+    dummy_state.callbacks = [DummyCallback(file_path), DummyLoggerDestination(file_path)]
+    logger = Logger(dummy_state)
+    engine = Engine(dummy_state, logger)
+    engine.run_event(Event.INIT)
+    engine.run_event(Event.BATCH_END)
+    engine.run_event(Event.EPOCH_END)
+    engine.close()
+    expected_lines = ['init logger, init callback, on_batch_end callback, on_batch_end logger, ']
+    with open(file_path, 'r') as f:
+        actual_lines = f.readlines()
+    assert expected_lines == actual_lines
 
 
 @pytest.mark.parametrize('event', list(Event))
