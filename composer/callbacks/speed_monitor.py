@@ -130,7 +130,7 @@ def get_gpu_flops_available(state: State):
 
 
 class SpeedMonitor(Callback):
-    """Logs the training throughput.
+    """Logs the training throughput and utilization.
 
     The training throughput is logged on the :attr:`.Event.BATCH_END` event once we have reached
     the `window_size` threshold. If a model has `flops_per_batch` attribute, then flops per second
