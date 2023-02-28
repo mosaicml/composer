@@ -55,6 +55,13 @@ class LowPrecisionGroupNorm(Algorithm):
         if self.apply_at not in {Event.INIT, Event.AFTER_LOAD}:
             raise ValueError('LowPrecisionGroupNorm only supports application on Event.INIT and Event.AFTER_LOAD.')
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(apply_at={self.apply_at})'
+
+    @staticmethod
+    def required_on_load() -> bool:
+        return True
+
     def match(self, event: Event, state: State) -> bool:
         del state  # unused
         return event == self.apply_at
@@ -87,11 +94,16 @@ class LPGroupNorm(torch.nn.GroupNorm):
             return F.group_norm(downcast_x, self.num_groups, downcast_weight, downcast_bias, self.eps)
 
 
-def _cast_if_autocast_enabled(hidden_states):
-    if not torch.is_autocast_enabled():
-        return hidden_states
-    else:
-        return torch.cuda.amp.autocast_mode._cast(hidden_states, torch.get_autocast_gpu_dtype())
+def _cast_if_autocast_enabled(tensor):
+    if torch.is_autocast_enabled():
+        if tensor.device.type == 'cuda':
+            dtype = torch.get_autocast_gpu_dtype()
+        elif tensor.device.type == 'cpu':
+            dtype = torch.get_autocast_cpu_dtype()
+        else:
+            raise NotImplementedError()
+        return tensor.to(dtype=dtype)
+    return tensor
 
 
 def _to_LPGroupNorm(layer: torch.nn.Module, module_index: int) -> LPGroupNorm:
