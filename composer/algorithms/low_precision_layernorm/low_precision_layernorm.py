@@ -42,7 +42,7 @@ def apply_low_precision_layernorm(model,
     if version.parse(torch.__version__) < version.parse('1.13') and precision == Precision.AMP_BF16:
         check_if_apex_installed()
         policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
-            torch.nn.LayerNorm: to_FusedLayerNorm
+            torch.nn.LayerNorm: _to_FusedLayerNorm
         }
 
     replaced_instances = module_surgery.replace_module_classes(module=model, optimizers=optimizers, policies=policy)
@@ -70,6 +70,13 @@ class LowPrecisionLayerNorm(Algorithm):
         if self.apply_at not in {Event.INIT, Event.AFTER_LOAD}:
             raise ValueError('LowPrecisionLayerNorm only supports application on Event.INIT and Event.AFTER_LOAD.')
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(apply_at={self.apply_at})'
+
+    @staticmethod
+    def required_on_load() -> bool:
+        return True
+
     def match(self, event: Event, state: State) -> bool:
         del state  # unused
         return event == self.apply_at
@@ -81,14 +88,12 @@ class LowPrecisionLayerNorm(Algorithm):
 
 class LPLayerNorm(torch.nn.LayerNorm):
 
-    def __init__(self, layer):
-        super().__init__(normalized_shape=layer.normalized_shape,
-                         eps=layer.eps,
-                         elementwise_affine=layer.elementwise_affine)
-
-        with torch.no_grad():
-            self.weight.copy_(layer.weight)
-            self.bias.copy_(layer.bias)
+    def __init__(self, normalized_shape, eps=1e-05, elementwise_affine=True, device=None, dtype=None):
+        super().__init__(normalized_shape=normalized_shape,
+                         eps=eps,
+                         elementwise_affine=elementwise_affine,
+                         device=device,
+                         dtype=dtype)
 
     def forward(self, x):
         module_device = x.device
@@ -99,27 +104,38 @@ class LPLayerNorm(torch.nn.LayerNorm):
             return F.layer_norm(downcast_x, self.normalized_shape, downcast_weight, downcast_bias, self.eps)
 
 
-def _cast_if_autocast_enabled(hidden_states):
-    if not torch.is_autocast_enabled():
-        return hidden_states
-    else:
-        return torch.cuda.amp.autocast_mode._cast(hidden_states, torch.get_autocast_gpu_dtype())
+def _cast_if_autocast_enabled(tensor):
+    if torch.is_autocast_enabled():
+        if tensor.device.type == 'cuda':
+            dtype = torch.get_autocast_gpu_dtype()
+        elif tensor.device.type == 'cpu':
+            dtype = torch.get_autocast_cpu_dtype()
+        else:
+            raise NotImplementedError()
+        return tensor.to(dtype=dtype)
+    return tensor
 
 
 def check_if_apex_installed():
     if not APEX_INSTALLED:
         raise ImportError(
-            'https://github.com/NVIDIA/apex is not installed. The Low Precision LayerNorm algorithm cannot be applied. The MosaicML Docker Images (https://hub.docker.com/r/mosaicml/pytorch) contain a copy of APEX for easy use.'
+            'https://github.com/NVIDIA/apex is not installed. The Low Precision LayerNorm algorithm cannot be applied on PyTorch <1.13 without Apex. The MosaicML Docker Images (https://hub.docker.com/r/mosaicml/pytorch) contain a copy of APEX for easy use.'
         )
 
 
 def _to_LPLayerNorm(layer: torch.nn.Module, module_index: int) -> LPLayerNorm:
+    """Defines a replacement policy from a `torch.nn.LayerNorm` to a `LPLayerNorm`"""
     if not isinstance(layer, torch.nn.LayerNorm):
         raise TypeError(f'Expected torch.nn.LayerNorm, got {type(layer)}')
-    return LPLayerNorm(layer)
+    lp_layernorm = LPLayerNorm(layer.normalized_shape, layer.eps, layer.elementwise_affine, layer.weight.device,
+                               layer.weight.dtype)
+    with torch.no_grad():
+        lp_layernorm.weight.copy_(layer.weight)
+        lp_layernorm.bias.copy_(layer.bias)
+    return lp_layernorm
 
 
-def to_FusedLayerNorm(layer: torch.nn.Module, module_index: int) -> APEXFusedLayerNorm:
+def _to_FusedLayerNorm(layer: torch.nn.Module, module_index: int) -> APEXFusedLayerNorm:
     """Defines a replacement policy from a `torch.nn.LayerNorm` to a `apex.normalization.fused_layer_norm`"""
     if not isinstance(layer, torch.nn.LayerNorm):
         raise TypeError(f'Expected torch.nn.LayerNorm, got {type(layer)}')
