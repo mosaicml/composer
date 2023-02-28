@@ -8,7 +8,7 @@ import pytest
 
 from composer import Timestamp
 from composer.callbacks import HealthChecker
-from composer.callbacks.health_checker import ECCErrors, GPUUtilization
+from composer.callbacks.health_checker import GPUUtilization
 from composer.utils import dist
 from tests.common import world_size
 
@@ -48,27 +48,6 @@ def test_gpu_utilization(world_size):
 
         should_alert = dist.get_local_rank() == 0 and world_size > 1
         assert alert == should_alert
-
-
-@pytest.mark.gpu
-@world_size(1, 2)
-def test_ecc_counters(world_size):
-    assert HealthChecker._is_available()
-
-    ecc_counters = [0, 0, 150, 0, 300, 0]
-
-    with patch.multiple(pynvml,
-                        nvmlDeviceGetMemoryErrorCounter=MagicMock(side_effect=ecc_counters),
-                        nvmlDeviceGetCount=MagicMock(return_value=world_size)):
-
-        ecc_counter = ECCErrors()
-        ecc_counter.sample()
-        ecc_counter.sample()
-        ecc_counter.sample()
-        _, alert = ecc_counter.check()
-
-        # only the local rank 0 alerts
-        assert alert == (dist.get_local_rank() == 0)
 
 
 @pytest.mark.gpu
