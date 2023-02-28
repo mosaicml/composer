@@ -45,6 +45,9 @@ ARG MOFED_VERSION=5.5-1.0.3.2
 # Leave blank for no EFA Drivers
 ARG AWS_OFI_NCCL_VERSION=v1.5.0-aws
 
+# Upgrade certifi to resolve CVE-2022-23491
+ARG CERTIFI_VERSION='>=2022.12.7'
+
 # Upgrade urllib to resolve CVE-2021-33503
 ARG URLLIB3_VERSION='>=1.26.5,<2'
 
@@ -337,7 +340,9 @@ RUN apt-get update && \
 #########################
 # Upgrade pip packages
 #########################
-RUN pip install --no-cache-dir --upgrade urllib3${URLLIB3_VERSION} 
+RUN pip install --no-cache-dir --upgrade urllib3${URLLIB3_VERSION} && \
+        certifi${CERTIFI_VERSION}
+
 
 ######################
 # PyTorch Vision Image
