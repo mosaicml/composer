@@ -105,6 +105,7 @@ def _cast_if_autocast_enabled(tensor):
         return tensor.to(dtype=dtype)
     return tensor
 
+
 def _to_LPGroupNorm(layer: torch.nn.Module, module_index: int) -> LPGroupNorm:
     if not isinstance(layer, torch.nn.GroupNorm):
         raise TypeError(f'Expected torch.nn.GroupNorm, got {type(layer)}')
