@@ -25,7 +25,8 @@ from composer.trainer.trainer import Trainer
 from composer.utils import dist, export_with_logger, inference
 from composer.utils.device import get_device
 from tests.common import SimpleTransformerClassifier, device
-from tests.common.datasets import RandomImageDataset, RandomTextClassificationDataset, dummy_tiny_bert_lm_batch, dummy_transformer_classifier_batch
+from tests.common.datasets import (RandomImageDataset, RandomTextClassificationDataset, dummy_tiny_bert_lm_batch,
+                                   dummy_transformer_classifier_batch)
 from tests.common.models import configure_tiny_bert_hf_model
 
 
@@ -342,12 +343,10 @@ def test_export_for_inference_torchscript_ddp(model_cls, sample_input, request: 
 
 @pytest.mark.parametrize(
     'model_cls, dataset',
-    [(partial(composer_resnet, 'resnet18'), RandomImageDataset(shape=(3, 224, 224))),
-     (SimpleTransformerClassifier, RandomTextClassificationDataset(size=8,
-                                                    vocab_size=30522,
-                                                    sequence_length=4,
-                                                    num_classes=2,
-                                                    use_keys=False)), 
+    [
+        (partial(composer_resnet, 'resnet18'), RandomImageDataset(shape=(3, 224, 224))),
+        (SimpleTransformerClassifier,
+         RandomTextClassificationDataset(size=8, vocab_size=30522, sequence_length=4, num_classes=2, use_keys=False)),
     ],
 )
 def test_export_with_file_uploading_logger(model_cls, dataset):
