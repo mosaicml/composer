@@ -223,7 +223,7 @@ class SpeedMonitor(Callback):
         # Track the batch num samples and wct to compute throughput over a window of batches
         self.history_samples: Deque[int] = deque(maxlen=window_size + 1)
         self.history_wct: Deque[float] = deque(maxlen=window_size + 1)
-        self.history_flops_per_batch: Deque[float] = deque(maxlen=window_size + 1)
+        self.history_flops: Deque[float] = deque(maxlen=window_size + 1)
 
         self.gpu_flops_available = gpu_flops_available
 
@@ -304,13 +304,14 @@ class SpeedMonitor(Callback):
             flops_per_batch = flops_per_batch_tensor.item()
 
             print(f'flops_per_batch: {flops_per_batch}, device_flops_per_batch: {device_flops_per_batch}')
-            self.history_flops_per_batch.append(flops_per_batch)
+            self.history_flops.append(flops_per_batch)
 
         # Log the flops throughput
-        if len(self.history_flops_per_batch) == self.history_flops_per_batch.maxlen:
+        if len(self.history_flops) == self.history_flops.maxlen:
             world_size = dist.get_world_size()
+            elapsed_flops = self.history_flops[-1] - self.history_flops[0]
             elapsed_wct = self.history_wct[-1] - self.history_wct[0]
-            flops_per_sec = sum(self.history_flops_per_batch) / elapsed_wct
+            flops_per_sec = elapsed_flops / elapsed_wct
             device_flops_per_sec = flops_per_sec / world_size
             logger.log_metrics({'throughput/flops_per_sec': flops_per_sec})
             logger.log_metrics({'throughput/device/flops_per_sec': device_flops_per_sec})
