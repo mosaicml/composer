@@ -141,8 +141,8 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     from torch.distributed.fsdp import FullyShardedDataParallel
     from torch.distributed.fsdp.flatten_params_wrapper import FlattenParamsWrapper
 
-    from composer.trainer.mosaic_fsdp import (MosaicFullyShardedDataParallel, _get_cpu_offload, _get_mixed_precision,
-                                              backward_prefetch_map, sharding_map)
+    from composer.trainer.mosaic_fsdp import (MosaicFullyShardedDataParallel, backward_prefetch_map, get_cpu_offload,
+                                              get_mixed_precision, sharding_map)
 
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
@@ -158,13 +158,13 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     sharding_map_key = fsdp_config.get('sharding_strategy', 'FULL_SHARD').upper()
     sharding_strategy = sharding_map[sharding_map_key]
 
-    cpu_offload = _get_cpu_offload(cpu_offload=fsdp_config.get('cpu_offload', False))
+    cpu_offload = get_cpu_offload(cpu_offload=fsdp_config.get('cpu_offload', False))
 
     mixed_precision = fsdp_config.get('mixed_precision', 'DEFAULT')
     keep_low_precision_grads = fsdp_config.get('keep_low_precision_grads', False)
-    mixed_precision, param_dtype, _, _ = _get_mixed_precision(precision,
-                                                              mixed_precision=mixed_precision,
-                                                              keep_low_precision_grads=keep_low_precision_grads)
+    mixed_precision, param_dtype, _, _ = get_mixed_precision(precision,
+                                                             mixed_precision=mixed_precision,
+                                                             keep_low_precision_grads=keep_low_precision_grads)
 
     # Note: FSDP does support the use of torch.float32 with sharding.
     # They just never expected a user to pass in torch.float32 into mixed_precision as a param_dtype.

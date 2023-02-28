@@ -26,9 +26,9 @@ __all__ = [
     'sharding_map',
     'backward_prefetch_map',
     'get_torch_dtype',
-    '_get_mixed_precision',
-    '_get_cpu_offload',
-    '_get_process_group',
+    'get_mixed_precision',
+    'get_cpu_offload',
+    'get_process_group',
     'MosaicFullyShardedDataParallel',
 ]
 
@@ -64,8 +64,8 @@ def get_torch_dtype(dtype: Union[Precision, str]):
         raise ValueError(f'Not sure how to convert dtype={dtype} to a torch dtype.')
 
 
-def _get_mixed_precision(precision, mixed_precision='DEFAULT', keep_low_precision_grads=False):
-    """Helper fn for configuring mixed_precision."""
+def get_mixed_precision(precision, mixed_precision='DEFAULT', keep_low_precision_grads=False):
+    """Helper function for configuring mixed_precision."""
     param_dtype = None
     reduce_dtype = None
     buffer_dtype = None
@@ -105,7 +105,7 @@ def _get_mixed_precision(precision, mixed_precision='DEFAULT', keep_low_precisio
     return mixed_precision, param_dtype, reduce_dtype, buffer_dtype
 
 
-def _get_cpu_offload(cpu_offload=False):
+def get_cpu_offload(cpu_offload=False):
     """Helper fn for configuring cpu_offload."""
     cpu_offload = CPUOffload(offload_params=True) if cpu_offload else None
     if cpu_offload is not None:
@@ -113,8 +113,8 @@ def _get_cpu_offload(cpu_offload=False):
     return cpu_offload
 
 
-def _get_process_group(pg, process_group_cache=None):
-    """Helper fn for configuring and/or retrieving process groups."""
+def get_process_group(pg, process_group_cache=None):
+    """Helper function for configuring and/or retrieving process groups."""
     warnings.warn(f'Instantiating FSDP with custom process groups is an experimental feature.')
 
     # Return regular process_groups as is, no cacheing
@@ -122,30 +122,31 @@ def _get_process_group(pg, process_group_cache=None):
         return pg
 
     world_size = dist.get_world_size()
+    local_world_size = dist.get_local_world_size()
 
     # Handle special str process_group cases
     if pg == 'self':
         pg = 'set1'
         warnings.warn(f"Converting process_group='self' to process_group='{pg}'")
     elif pg == 'node':
-        pg = f'set{world_size}'
+        pg = f'set{local_world_size}'
         warnings.warn(f"Converting process_group='node' to process_group='{pg}'")
     elif pg == 'local_rank_across_nodes':
-        pg = f'mod{world_size}'
+        pg = f'mod{local_world_size}'
         warnings.warn(f"Converting process_group='local_rank_across_nodes' to process_group='{pg}'")
 
     # Handle str and Union[List[int], Tuple[int]] process_group cases
     if isinstance(pg, str) and pg.startswith('set'):
         k = int(pg.strip('set'))
         world_size = dist.get_world_size()
-        if world_size % k:
+        if world_size % k != 0:
             raise RuntimeError(f'{world_size} must be divisible by set size ({k})')
         start = dist.get_global_rank() // k * k
         ranks = tuple(range(start, start + k))
     elif isinstance(pg, str) and pg.startswith('mod'):
         k = int(pg.strip('mod'))
         world_size = dist.get_world_size()
-        if world_size % k:
+        if world_size % k != 0:
             raise RuntimeError(f'{world_size} must be divisible by mod ({k})')
         ranks = tuple(range(dist.get_global_rank() % k, world_size, k))
     elif isinstance(pg, (list, tuple)):
@@ -156,7 +157,8 @@ def _get_process_group(pg, process_group_cache=None):
     if process_group_cache is not None and ranks in process_group_cache:
         warnings.warn(
             f'On rank={dist.get_global_rank()} using cached progress group with {ranks=}. ' +\
-            'Instantiate new process group if this is what was intended.'
+            'If the intention was to use a new process group, a new process group can be instantiated and passed' +\
+            "in as an arguement (`'process_group': newly_instantiated_process_group_obect,`)"
         )
         return process_group_cache[ranks]
 
@@ -185,6 +187,10 @@ def _custom_recursive_wrap(module: nn.Module,
 
     modified version of
     https://github.com/pytorch/pytorch/blob/d922c29a22e4bf0fba49526f7536395eb8cd66f4/torch/distributed/fsdp/wrap.py#L353
+    which recursively wraps modules as FSDP modules for parameter sharding.
+    This modification enables the user to pass custom FSDP arguements for every wrapped module.
+    The added process_group_cache enables different FSDP modules to, when appropriate, use the
+    same process group instead of instantiating a new process group.
 
     Automatically wrap child modules of *module* that meet the given
     criteria with :func:`auto_wrap`. Does not rely on _ConfigAutoWrap.
@@ -253,14 +259,14 @@ def _custom_recursive_wrap(module: nn.Module,
                     'backward_prefetch'] not in backward_prefetch_map.values():
                 module_kwargs['backward_prefetch'] = backward_prefetch_map[module_kwargs['backward_prefetch'].upper()]
             if 'cpu_offload' in module_kwargs and not isinstance(module_kwargs['cpu_offload'], CPUOffload):
-                module_kwargs['cpu_offload'] = _get_cpu_offload(cpu_offload=module_kwargs['cpu_offload'].upper())
+                module_kwargs['cpu_offload'] = get_cpu_offload(cpu_offload=module_kwargs['cpu_offload'].upper())
             if 'mixed_precision' in module_kwargs and not isinstance(module_kwargs['mixed_precision'], MixedPrecision):
                 # `precision` needs to set `'mixed_precision'`, but `precision` is not part of fsdp kwargs
                 raise NotImplementedError(
                     f"Automated setting of custom per module mixed_precision is not implemented, but it can be set if `isinstance(module_kwargs['mixed_precision'], MixedPrecision)`"
                 )
             if 'process_group' in module_kwargs:
-                module_kwargs['process_group'] = _get_process_group(module_kwargs['process_group'], process_group_cache)
+                module_kwargs['process_group'] = get_process_group(module_kwargs['process_group'], process_group_cache)
 
             final_kwargs = {**kwargs, **module_kwargs}
 
@@ -283,6 +289,10 @@ class MosaicFullyShardedDataParallel(FullyShardedDataParallel):
 
         modified version of
         https://github.com/pytorch/pytorch/blob/d922c29a22e4bf0fba49526f7536395eb8cd66f4/torch/distributed/fsdp/fully_sharded_data_parallel.py#L1252
+        FSDP's _auto_wrap recursively wraps modules as FSDP modules for parameter sharding.
+        This modification enables the user to pass custom FSDP arguements for every wrapped module.
+        The added process_group_cache enables different FSDP modules to, when appropriate, use the
+        same process group instead of instantiating a new process group.
 
         Recursively auto wraps the root module given by the key "module" in
         ``auto_wrap_kwargs`` with the arguments in ``auto_wrap_kwargs`` and

@@ -306,6 +306,37 @@ In `gpt.py <https://github.com/mosaicml/examples/blob/6972fe3000d5a5480d8757ff71
 A very similar auto wrap policy is provided for activation checkpointing, with analogous rule #1 that looks for :code:`module._activation_checkpointing = True | False` and rule #2 that looks for :code:`def activation_checkpointing_fn(module: torch.nn.Module) -> bool`.
 
 
+**Experimental:** Composer enables the users to specify custom FSDP args for all wrapped modules. This is enabled by returning a dictionary of args instead of returning a bool.
+
+.. code:: python
+    # FSDP Wrap function
+    def fsdp_wrap_fn(self, module):
+        if isinstance(module, Block):
+            return True
+
+        # extends FSDP wrapping to custom args
+        if isinstance(module, BlockWithCustomArgs):
+            return {
+                'process_group': 'node',
+                'mixed_precision': 'FULL',
+            }
+
+        # default to False
+        return False
+
+While the user can instantiate and pass in process groups, Composer enables process groups to be specified using the following options:
+
+1. :code:`'self'`: the degenerate case where all process groups only operate within their current rank (:code:`'self'` == :code:`'set1'`). This is useful when you do not want a layer to be synchonized across accelerators.
+
+2. :code:`'node'`: instantiates process groups which opereate within a node (:code:`'mode'` == :code:`f'set{local_world_size}'`). This is useful for Expert Layers in MoE models.
+
+3. :code:`'local_rank_across_nodes'`: instantiates process groups with the same local rank across all nodes  (:code:`'local_rank_across_nodes'` == :code:`f'mod{local_world_size}'`). This is useful for Tensor Parallel Layers.
+
+4. :code:`'setK'`: (:code:`K` is an integer where world_size must be divisible by :code:`K`) instantiates process groups which opereate within a set of K GPUs. This is useful for Expert Layers in MoE models.
+
+5. :code:`'modK'`: (:code:`K` is an integer where world_size must be divisible by :code:`K`) instantiates process groups which opereate on every Kth GPUs. This is useful for Tensor Parallel Layers.
+
+
 Saving and Loading Sharded Checkpoints with FSDP
 ------------------------------------------------
 To save and load sharded checkpoints with FSDP, you can make use of the field, :code:`state_dict_type` in :code:`fsdp_config`.
