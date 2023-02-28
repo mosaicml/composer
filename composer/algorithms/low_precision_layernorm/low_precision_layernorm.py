@@ -125,8 +125,8 @@ def check_if_apex_installed():
 
 def _to_LPLayerNorm(layer: torch.nn.Module, module_index: int) -> LPLayerNorm:
     """Defines a replacement policy from a `torch.nn.LayerNorm` to a `LPLayerNorm`"""
-    assert isinstance(layer,
-                      torch.nn.LayerNorm), 'The replacement policy will look for all instances of torch.nn.LayerNorm'
+    if not isinstance(layer, torch.nn.LayerNorm):
+        raise TypeError(f'Expected torch.nn.LayerNorm, got {type(layer)}')
     lp_layernorm = LPLayerNorm(layer.normalized_shape, layer.eps, layer.elementwise_affine, layer.weight.device,
                                layer.weight.dtype)
     with torch.no_grad():
