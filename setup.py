@@ -136,6 +136,11 @@ extra_deps['dev'] = [
     'setuptools<=59.5.0',
 ]
 
+extra_deps['health_checker'] = {
+    'pynvml>=11.5.0,<12',
+    'slack_sdk>=3.19.5,<4',
+}
+
 extra_deps['deepspeed'] = [
     'deepspeed==0.7.7',
 ]
