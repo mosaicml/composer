@@ -121,6 +121,8 @@ class GyroDropout(Algorithm):
         self.sigma = sigma
         self.tau = tau
 
+        log.warning('GyroDropout is not implemented in a way that allows correct resumption from checkpoint.')
+
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}()'
 

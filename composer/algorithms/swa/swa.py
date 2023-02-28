@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Dict, List, Optional
-
+import warnings
 import torch
 from torch.optim.swa_utils import SWALR, AveragedModel
 
@@ -114,6 +114,8 @@ class SWA(Algorithm):
                  anneal_strategy: str = 'linear',
                  anneal_steps: int = 10,
                  swa_lr: Optional[float] = None):
+        
+        log.warning('Using SWA when saving then resuming from a checkpoint on multiple gpu''s has issues. To avoid this remove SWA on resumption or set load_weights_only to True')
         self.schedule_swa_lr = schedule_swa_lr
         self.anneal_strategy = anneal_strategy
         self.anneal_steps = anneal_steps
