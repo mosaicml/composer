@@ -153,7 +153,6 @@ class SAM(Algorithm):
         self.epsilon = epsilon
         self.interval = interval
 
-
     def match(self, event: Event, state: State) -> bool:
         return event == Event.INIT
 

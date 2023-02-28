@@ -8,7 +8,7 @@ from __future__ import annotations
 import functools
 import logging
 from typing import Optional, Type, Union
-import warnings
+
 import torch
 from torchvision.models.resnet import Bottleneck
 
@@ -138,7 +138,7 @@ class StochasticDepth(Algorithm):
                  drop_rate: float = 0.2,
                  drop_distribution: str = 'linear',
                  drop_warmup: Union[float, Time, str] = 0.0):
-        
+
         log.warning('Stochastic depth has known issues of weight mismatch when loading from a checkpoint')
 
         if drop_rate == 0.0:
@@ -159,8 +159,6 @@ class StochasticDepth(Algorithm):
                                      drop_rate=self.drop_rate,
                                      drop_distribution=self.drop_distribution,
                                      drop_warmup=str(self.drop_warmup))
-        
-
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(target_layer_name='{self.target_layer_name}',stochastic_method='{self.stochastic_method}',drop_rate={self.drop_rate},drop_distribution='{self.drop_distribution}',drop_warmup={repr(self.drop_warmup)})"
