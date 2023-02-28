@@ -46,7 +46,7 @@ ARG MOFED_VERSION=5.5-1.0.3.2
 ARG AWS_OFI_NCCL_VERSION=v1.5.0-aws
 
 # Upgrade urllib to resolve CVE-2021-33503
-ARG URLLIB3_VERSION='>=1.25.8,<2'
+ARG URLLIB3_VERSION='>=1.26.5,<2'
 
 ########################
 # Vision Image Arguments
