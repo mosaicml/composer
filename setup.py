@@ -134,9 +134,12 @@ extra_deps['dev'] = [
     'cryptography==38.0.4',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
+]
+
+extra_deps['health_checker'] = {
     'pynvml>=11.5.0,<12',
     'slack_sdk>=3.19.5,<4',
-]
+}
 
 extra_deps['deepspeed'] = [
     'deepspeed==0.7.7',
