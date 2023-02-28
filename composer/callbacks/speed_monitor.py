@@ -294,7 +294,6 @@ class SpeedMonitor(Callback):
             if not isinstance(model_flops_per_batch, Callable):
                 raise TypeError('flops_per_batch must a callable accepting a batch and '
                                 f'returning an int or float. Instead, got {type(model_flops_per_batch)}.')
-            print(state.batch['input_ids'].shape)
             device_flops_per_batch = model_flops_per_batch(state.batch)
 
             # Sum flops across all ranks since each rank computes the flops for its own batch
@@ -303,7 +302,6 @@ class SpeedMonitor(Callback):
             dist.all_reduce(flops_per_batch_tensor, reduce_operation='SUM')
             flops_per_batch = flops_per_batch_tensor.item()
 
-            print(f'flops_per_batch: {flops_per_batch}, device_flops_per_batch: {device_flops_per_batch}')
             self.history_flops.append(flops_per_batch)
 
         # Log the flops throughput
