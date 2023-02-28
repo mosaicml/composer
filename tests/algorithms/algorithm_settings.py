@@ -11,7 +11,7 @@ Each algorithm is keyed based on its name in the algorithm registry.
 from typing import Any, Dict, Optional, Type
 
 import pytest
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 
 import composer
 import composer.algorithms
