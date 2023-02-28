@@ -46,6 +46,7 @@ components of training.
 
     ~checkpoint_saver.CheckpointSaver
     ~speed_monitor.SpeedMonitor
+    ~runtime_estimator.RuntimeEstimator
     ~lr_monitor.LRMonitor
     ~optimizer_monitor.OptimizerMonitor
     ~memory_monitor.MemoryMonitor

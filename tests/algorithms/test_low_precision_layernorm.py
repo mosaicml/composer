@@ -7,7 +7,6 @@ from torch.nn import LayerNorm
 from composer.algorithms.low_precision_layernorm import LowPrecisionLayerNorm, apply_low_precision_layernorm
 from composer.algorithms.low_precision_layernorm.low_precision_layernorm import LPLayerNorm
 from composer.core import Event, State
-from composer.core.precision import Precision
 from composer.loggers import Logger
 from composer.models.huggingface import HuggingFaceModel
 from composer.utils import get_device
@@ -24,17 +23,13 @@ def assert_is_lpln_instance(model):
     if isinstance(model, HuggingFaceModel):
         model = model.model
 
-    # ensure that within the entire model, no PyTorch LayerNorm exists, and at least one APEX FLN does.
+    # ensure that within the entire model, no PyTorch LayerNorm exists, and at least one LPLN does.
     assert model.modules is not None, 'model has .modules method'
     for module_class in model.modules():
         if isinstance(module_class, LayerNorm):
-            assert isinstance(
-                module_class,
-                LPLayerNorm), 'A standard torch.nn.LayerNorm should not be found in the model after surgery is applied.'
+            assert isinstance(module_class, LPLayerNorm)
 
-    assert any(
-        isinstance(module_class, LPLayerNorm) for module_class in model.modules()
-    ), 'composer.algorithms.low_precision_layernorm.low_precision_layernorm.LPLayerNorm is not found in the post-surgery model.'
+    assert any(isinstance(module_class, LPLayerNorm) for module_class in model.modules())
 
 
 @device('gpu')
@@ -53,12 +48,12 @@ def test_low_precision_layernorm_functional(model, dataloader, device: str):
         dataloader=dataloader,
         dataloader_label='train',
         max_duration='1ep',
+        precision='amp_fp16',
     )
     if device == 'gpu':
         state.model = state.model.cuda()  # move the model to gpu
-    state._precision = Precision('amp_fp16')
 
-    apply_low_precision_layernorm(state.model, state.optimizers, state._precision)
+    apply_low_precision_layernorm(state.model, state._precision, state.optimizers)
     assert_is_lpln_instance(state.model)
 
 
@@ -78,8 +73,8 @@ def test_low_precision_layernorm_algorithm(model, dataloader, empty_logger: Logg
         dataloader=dataloader,
         dataloader_label='train',
         max_duration='1ep',
+        precision='amp_fp16',
     )
-    state._precision = Precision('amp_fp16')
     low_precision_layernorm = LowPrecisionLayerNorm()
     if device == 'gpu':
         state.model = state.model.cuda()  # move the model to gpu
