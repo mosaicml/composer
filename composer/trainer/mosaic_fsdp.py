@@ -278,7 +278,7 @@ def _custom_recursive_wrap(module: nn.Module,
 
 
 class MosaicFullyShardedDataParallel(FullyShardedDataParallel):
-    """Updates FSDP's _auto_wrap to enalbe module_kwargs."""
+    """Updates FSDP's _auto_wrap to enable module_kwargs."""
 
     def _auto_wrap(
         self,

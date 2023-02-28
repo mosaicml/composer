@@ -306,7 +306,7 @@ In `gpt.py <https://github.com/mosaicml/examples/blob/6972fe3000d5a5480d8757ff71
 A very similar auto wrap policy is provided for activation checkpointing, with analogous rule #1 that looks for :code:`module._activation_checkpointing = True | False` and rule #2 that looks for :code:`def activation_checkpointing_fn(module: torch.nn.Module) -> bool`.
 
 
-**Experimental:** Composer enables the users to specify custom FSDP args for all wrapped modules. This is enabled by returning a dictionary of args instead of returning a bool.
+**Experimental:** Composer enables users to specify custom FSDP args for all wrapped modules. This is enabled by returning a dictionary of args instead of returning a bool.
 
 .. code:: python
 
@@ -352,7 +352,7 @@ While the user can instantiate and pass in process groups, Composer enables proc
 
 1. :code:`'self'`: the degenerate case where all process groups only operate within their current rank (:code:`'self'` == :code:`'set1'`). This is useful when you do not want a layer to be synchonized across accelerators.
 
-2. :code:`'node'`: instantiates process groups which opereate within a node (:code:`'mode'` == :code:`f'set{local_world_size}'`). This is useful for Expert Layers in MoE models.
+2. :code:`'node'`: instantiates process groups which opereate within a node (:code:`'node'` == :code:`f'set{local_world_size}'`). This is useful for Expert Layers in MoE models.
 
 3. :code:`'local_rank_across_nodes'`: instantiates process groups with the same local rank across all nodes  (:code:`'local_rank_across_nodes'` == :code:`f'mod{local_world_size}'`). This is useful for Tensor Parallel Layers.
 
