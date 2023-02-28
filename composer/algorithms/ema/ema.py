@@ -286,7 +286,28 @@ class EMA(Algorithm):
                 state_dict[attribute_name] = getattr(self, attribute_name)
         return state_dict
 
-    def load_state_dict(self, state: Dict[str, Any], strict: bool = False):
+    def load_old_state_dict_format(self, state: Dict[str, Any]):
+        self.ema_started = state['ema_started']
+        self.ema_weights_active = state['ema_weights_active']
+
+        # If EMA weights are active, load training weights into the ema_model storage
+        if state['ema_weights_active'] is True:
+            state_dict = state['training_model']
+        # If EMA weights are not active, load the ema weights into the ema_model storage
+        else:
+            state_dict = state['ema_model']
+
+        # Verify that the ema_model has been initialized. If not, state_dict cannot be loaded correctly.
+        if isinstance(self.ema_model, EMAParameters):
+            for key, value in state_dict.items():
+                if key in self.ema_model.named_parameters_dict:
+                    self.ema_model.named_parameters_dict[key] = value
+                elif key in self.ema_model.named_buffers_dict:
+                    self.ema_model.named_buffers_dict[key] = value
+        else:
+            ValueError(f'ema_model must be initialized before loading an old state_dict format.')
+
+    def load_new_state_dict_format(self, state: Dict[str, Any]):
         for attribute_name, serialized_value in state.items():
             if attribute_name != 'repr':  # skip attribute added by parent class
                 if attribute_name == 'ema_model':
@@ -295,6 +316,13 @@ class EMA(Algorithm):
                     self.ema_model.named_buffers_dict = serialized_value['named_buffers_dict']
                 else:
                     setattr(self, attribute_name, serialized_value)
+
+    def load_state_dict(self, state: Dict[str, Any], strict: bool = False):
+        # Old state dicts also contained the training model, so check for that and load accordingly.
+        if 'training_model' in state:
+            self.load_old_state_dict_format(state)
+        else:
+            self.load_new_state_dict_format(state)
 
     def get_ema_model(self, model: torch.nn.Module) -> torch.nn.Module:
         """Replaces the parameters of the supplied model with the ema parameters if they are not already active.
