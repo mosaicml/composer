@@ -34,8 +34,8 @@ ARG TORCHTEXT_VERSION=0.12.0
 # Pillow is also installed (so it won't override it with a future pip install), a Pillow stub is included
 # PILLOW_PSEUDOVERSION is the Pillow version that pip thinks is installed
 # PILLOW_SIMD_VERSION is the actual version of pillow-simd that is installed.
-ARG PILLOW_PSEUDOVERSION=7.0.0
-ARG PILLOW_SIMD_VERSION=7.0.0.post3
+ARG PILLOW_PSEUDOVERSION=9.0.0
+ARG PILLOW_SIMD_VERSION=9.0.0.post1
 
 # Version of the Mellanox Drivers to install (for InfiniBand support)
 # Leave blank for no Mellanox Drivers
