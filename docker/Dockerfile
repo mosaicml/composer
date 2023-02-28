@@ -45,6 +45,9 @@ ARG MOFED_VERSION=5.5-1.0.3.2
 # Leave blank for no EFA Drivers
 ARG AWS_OFI_NCCL_VERSION=v1.5.0-aws
 
+# Upgrade urllib to resolve CVE-2021-33503
+ARG URLLIB_VERSION='>1.25.8,<2'
+
 ########################
 # Vision Image Arguments
 ########################
@@ -331,6 +334,10 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+#########################
+# Upgrade pip packages
+#########################
+RUN pip install --no-cache-dir --upgrade urllib${URLLIB_VERSION} 
 
 ######################
 # PyTorch Vision Image
