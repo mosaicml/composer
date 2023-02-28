@@ -202,7 +202,7 @@ def test_gpu_huggingface_export_for_inference_onnx():
 
     optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
     apply_gated_linear_units(model, optimizer)
-    apply_low_precision_layernorm(model, optimizer, Precision('amp_fp16'))
+    apply_low_precision_layernorm(model, Precision('amp_fp16'), optimizer)
 
     model.eval()
     orig_out = model(sample_input)
