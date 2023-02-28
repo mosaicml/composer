@@ -323,6 +323,9 @@ A very similar auto wrap policy is provided for activation checkpointing, with a
             super().__init__()
             self.blocks = nn.ModuleList([
                 Block(...) for _ in range(n_layers)
+            ])
+            self.custom_arg_blocks = nn.ModuleList([
+                BlockRequiringCustomArgs(...) for _ in range(n_layers)
             ]),
             self.head = nn.Linear(...)
 
