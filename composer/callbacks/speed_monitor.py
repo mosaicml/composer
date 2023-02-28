@@ -272,6 +272,7 @@ class SpeedMonitor(Callback):
             if not isinstance(model_flops_per_batch, Callable):
                 raise TypeError('flops_per_batch must a callable accepting a batch and '
                                 f'returning an int or float. Instead, got {type(model_flops_per_batch)}.')
+            print(state.batch['input_ids'].shape)
             device_flops_per_batch = model_flops_per_batch(state.batch)
 
             # Sum flops across all ranks since each rank computes the flops for its own batch
