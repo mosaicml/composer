@@ -56,7 +56,7 @@ def get_torch_dtype(dtype: Union[Precision, str]):
         return torch.bfloat16
     elif dtype in ['float8', 'torch.float8', 'fp8', 'amp_fp8']:
         if hasattr(torch, 'float8'):
-            return torch.float8
+            raise NotImplementedError('Torch has enabled float8. This should be updated to `return torch.float8`')
         else:
             warnings.warn('We use torch.bfloat16 by default for amp_fp8 as there is no fp8 datatype in PyTorch yet.')
             return torch.bfloat16

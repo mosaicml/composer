@@ -309,20 +309,44 @@ A very similar auto wrap policy is provided for activation checkpointing, with a
 **Experimental:** Composer enables the users to specify custom FSDP args for all wrapped modules. This is enabled by returning a dictionary of args instead of returning a bool.
 
 .. code:: python
-    # FSDP Wrap function
-    def fsdp_wrap_fn(self, module):
-        if isinstance(module, Block):
-            return True
 
-        # extends FSDP wrapping to custom args
-        if isinstance(module, BlockWithCustomArgs):
-            return {
-                'process_group': 'node',
-                'mixed_precision': 'FULL',
-            }
+    import torch.nn as nn
 
-        # default to False
-        return False
+    class Block(nn.Module):
+        ...
+
+    class BlockRequiringCustomArgs(nn.Module):
+        ...
+
+    class Model(nn.Module):
+        def __init__(self, n_layers):
+            super().__init__()
+            self.blocks = nn.ModuleList([
+                Block(...) for _ in range(n_layers)
+            ]),
+            self.head = nn.Linear(...)
+
+        def forward(self, inputs):
+            ...
+
+        # FSDP Wrap function
+        def fsdp_wrap_fn(self, module):
+            if isinstance(module, Block):
+                return True
+
+            # extends FSDP wrapping to custom args
+            if isinstance(module, BlockRequiringCustomArgs):
+                return {
+                    'process_group': 'node',
+                    'mixed_precision': 'FULL',
+                }
+
+            # default to False
+            return False
+
+        # Activation Checkpointing Function
+        def activation_checkpointing_fn(self, module):
+            return isinstance(module, Block)
 
 While the user can instantiate and pass in process groups, Composer enables process groups to be specified using the following options:
 
