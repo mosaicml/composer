@@ -8,12 +8,11 @@ import pytest
 from torch.utils.data import DataLoader
 
 from composer.core import Callback
-from composer.loggers import LoggerDestination, ProgressBarLogger, ConsoleLogger
+from composer.loggers import ConsoleLogger, LoggerDestination, ProgressBarLogger
 from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
 from composer.trainer import Trainer
 from tests.callbacks.callback_settings import get_cb_kwargs, get_cbs_and_marks
 from tests.common import RandomClassificationDataset, SimpleModel
-
 
 
 @pytest.mark.parametrize('logger_cls', get_cbs_and_marks(loggers=True))
