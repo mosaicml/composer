@@ -44,7 +44,6 @@ class RandomClassificationDataset(Dataset):
         self.num_classes = num_classes
         self.x = None
         self.y = None
-        print(self.y)
 
     def __len__(self):
         return self.size
