@@ -76,8 +76,8 @@ def test_hf_train_eval_predict(num_classes: int, tiny_bert_config):
     trainer.eval()
 
     # Check that there is some train/eval accuracy
-    assert trainer.state.train_metrics['Accuracy'].compute() != 0.0
-    assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
+    assert trainer.state.train_metrics['MulticlassAccuracy'].compute() != 0.0
+    assert trainer.state.eval_metrics['eval']['MulticlassAccuracy'].compute() != 0.0
 
     predictions = trainer.predict(predict_dataloader)
 

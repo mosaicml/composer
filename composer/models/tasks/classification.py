@@ -31,14 +31,17 @@ class ComposerClassifier(ComposerModel):
 
     Args:
         module (torch.nn.Module): A PyTorch neural network module.
+        num_classes (int, optional): The number of output classes. Required if self.module does not have a num_classes parameter.
         train_metrics (Metric | MetricCollection, optional): A torchmetric or collection of torchmetrics to be
-            computed on the training set throughout training. Default: torchmetrics.Accuracy(task='binary')
+            computed on the training set throughout training. Default: torchmetrics.Accuracy(task='binary') if
+            self.module.num_classes is None, otherwise, torchmetrics.Accuracy(task='multiclass', self.module.num_classes)
         val_metrics (Metric | MetricCollection, optional): A torchmetric or collection of torchmetrics to be
             computed on the validation set throughout training.
-            Default: [composer.metrics.CrossEntropy(), torchmetrics.Accuracy(task='binary')]
+            Default: [composer.metrics.CrossEntropy(), torchmetrics.Accuracy(task='binary')] if 
+            self.module.num_classes is None, otherwise, 
+            [composer.metrics.CrossEntropy(), torchmetrics.Accuracy(task='multiclass'), self.module.num_classes]
         loss_fn (Callable, optional): Loss function to use. This loss function should have at least two arguments:
             1) the output of the model and 2) ``target`` i.e. labels from the dataset.
-
     Returns:
         ComposerClassifier: An instance of :class:`.ComposerClassifier`.
 
@@ -57,26 +60,34 @@ class ComposerClassifier(ComposerModel):
 
     def __init__(self,
                  module: torch.nn.Module,
+                 num_classes: Optional[int] = None,
                  train_metrics: Optional[Union[Metric, MetricCollection]] = None,
                  val_metrics: Optional[Union[Metric, MetricCollection]] = None,
                  loss_fn: Callable = soft_cross_entropy) -> None:
         super().__init__()
 
+        self.module = module
+        self._loss_fn = loss_fn
+
+        self.num_classes = num_classes
+        if hasattr(self.module, 'num_classes'):
+            self.num_classes = getattr(self.module, 'num_classes')
+        if self.num_classes == None and (train_metrics is None or val_metrics is None):
+            raise ValueError("Please specify the number of the number of output classes. Either\
+                (1) pass in num_classes to the ComposerClassifier\
+                (2) pass in both train_metrics and val_metrics to Composer Classifier, or\
+                (3) specify a num_classes parameter in the PyTorch network module.")
+                
         # Metrics for training
         if train_metrics is None:
-            train_metrics = Accuracy(task='binary')
+                train_metrics = Accuracy(task='multiclass', num_classes=self.num_classes)
         self.train_metrics = train_metrics
 
         # Metrics for validation
         if val_metrics is None:
-            val_metrics = MetricCollection([CrossEntropy(), Accuracy('binary')])
+                val_metrics = MetricCollection([CrossEntropy(), Accuracy(task='multiclass', num_classes=self.num_classes)])
         self.val_metrics = val_metrics
-
-        self.module = module
-        self._loss_fn = loss_fn
-
-        if hasattr(self.module, 'num_classes'):
-            self.num_classes = getattr(self.module, 'num_classes')
+    
 
     def loss(self, outputs: Tensor, batch: Tuple[Any, Tensor], *args, **kwargs) -> Tensor:
         _, targets = batch

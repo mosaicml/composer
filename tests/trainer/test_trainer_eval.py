@@ -32,7 +32,7 @@ def test_eval():
     trainer.eval()
 
     # Assert that there is some accuracy
-    assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
+    assert trainer.state.eval_metrics['eval']['MulticlassAccuracy'].compute() != 0.0
 
 
 def test_eval_call():
@@ -47,7 +47,7 @@ def test_eval_call():
     ))
 
     # Assert that there is some accuracy
-    assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
+    assert trainer.state.eval_metrics['eval']['MulticlassAccuracy'].compute() != 0.0
 
 
 def test_eval_call_with_trainer_evaluators():
