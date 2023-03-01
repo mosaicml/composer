@@ -147,6 +147,9 @@ class SAM(Algorithm):
         epsilon: float = 1.0e-12,
         interval: int = 1,
     ):
+        log.warning(
+            'SAM has known issues of weight mismatch when loading from a checkpoint, which will cause an error when resuming without `load_weights_only=True`.'
+        )
         """__init__ is constructed from the same fields as in hparams."""
         self.rho = rho
         self.epsilon = epsilon
