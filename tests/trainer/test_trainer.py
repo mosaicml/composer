@@ -974,8 +974,8 @@ class TestTrainerEquivalence():
     def config(self, device: Device, precision: Precision, world_size: int, rank_zero_seed: int):
         """Returns the reference config."""
 
-        train_dataset = RandomClassificationDataset(size=16)
-        eval_dataset = RandomClassificationDataset(size=16)
+        train_dataset = RandomClassificationDataset(size=8)
+        eval_dataset = RandomClassificationDataset(size=8)
 
         return {
             'model':
@@ -983,7 +983,7 @@ class TestTrainerEquivalence():
             'train_dataloader':
                 DataLoader(
                     dataset=train_dataset,
-                    batch_size=4,
+                    batch_size=2,
                     sampler=dist.get_sampler(train_dataset),
                 ),
             'eval_dataloader':
