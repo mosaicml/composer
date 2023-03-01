@@ -71,7 +71,7 @@ test:
     - paramiko>=2.11.0,<3
     - cpuonly >=2.0,<3
     - moto >=3.1.12,<3.2
-    - cryptography >=39.0.1,<40
+    - cryptography >=37.0.2,<38
     - tensorboard>=2.9.1,<3.0.0
     # - mock-ssh-server >=0.9.1,<1 # mock-ssh-server is not available on conda; installing with pip
     - tabulate ==0.8.9  # for auto-generating tables
