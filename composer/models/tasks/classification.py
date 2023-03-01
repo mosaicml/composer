@@ -14,7 +14,7 @@ from typing import Any, Callable, Dict, Optional, Tuple, Union
 import torch
 from torch import Tensor
 from torchmetrics import Metric, MetricCollection
-from torchmetrics.classification import Accuracy
+from torchmetrics.classification import MulticlassAccuracy
 
 from composer.loss import soft_cross_entropy
 from composer.metrics import CrossEntropy
@@ -34,10 +34,10 @@ class ComposerClassifier(ComposerModel):
         module (torch.nn.Module): A PyTorch neural network module.
         num_classes (int, optional): The number of output classes. Required if self.module does not have a num_classes parameter.
         train_metrics (Metric | MetricCollection, optional): A torchmetric or collection of torchmetrics to be
-            computed on the training set throughout training.
+            computed on the training set throughout training. (default: :class:`MulticlassAccuracy`)
         val_metrics (Metric | MetricCollection, optional): A torchmetric or collection of torchmetrics to be
             computed on the validation set throughout training.
-            [composer.metrics.CrossEntropy(), torchmetrics.Accuracy(task='multiclass'), self.module.num_classes]
+            (default: :class:`composer.metrics.CrossEntropy`, :class:`.MulticlassAccuracy`)
         loss_fn (Callable, optional): Loss function to use. This loss function should have at least two arguments:
             1) the output of the model and 2) ``target`` i.e. labels from the dataset.
     Returns:
@@ -79,12 +79,14 @@ class ComposerClassifier(ComposerModel):
 
         # Metrics for training
         if train_metrics is None:
-            train_metrics = Accuracy(task='multiclass', num_classes=self.num_classes)
+            assert self.num_classes is not None
+            train_metrics = MulticlassAccuracy(num_classes=self.num_classes)
         self.train_metrics = train_metrics
 
         # Metrics for validation
         if val_metrics is None:
-            val_metrics = MetricCollection([CrossEntropy(), Accuracy(task='multiclass', num_classes=self.num_classes)])
+            assert self.num_classes is not None
+            val_metrics = MetricCollection([CrossEntropy(), MulticlassAccuracy(num_classes=self.num_classes)])
         self.val_metrics = val_metrics
 
     def loss(self, outputs: Tensor, batch: Tuple[Any, Tensor], *args, **kwargs) -> Tensor:

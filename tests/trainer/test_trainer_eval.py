@@ -6,7 +6,7 @@ from typing import Callable, Optional, Union
 
 import pytest
 from torch.utils.data import DataLoader
-from torchmetrics import Accuracy
+from torchmetrics.classification import MulticlassAccuracy
 
 from composer.core import Algorithm, Event
 from composer.core.evaluator import Evaluator, evaluate_periodically
@@ -96,7 +96,7 @@ def test_trainer_eval_loop():
     trainer._eval_loop(
         dataloader=eval_dataloader,
         dataloader_label='eval',
-        metrics={'Accuracy': Accuracy(task='multiclass', num_classes=2)},
+        metrics={'MulticlassAccuracy': MulticlassAccuracy(num_classes=2)},
     )
 
     # Assert that there is some accuracy

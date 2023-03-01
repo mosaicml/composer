@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import torch
 import torch.nn.functional as F
-from torchmetrics import Accuracy, Metric
+from torchmetrics import Metric
+from torchmetrics.classification import BinaryAccuracy
 
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
@@ -57,7 +58,7 @@ class NoOpModelClass(ComposerModel):
         return y * self.weights
 
     def get_metrics(self, is_train: bool) -> Dict[str, Metric]:
-        return {'Accuracy': Accuracy(task='binary')}
+        return {'BinaryAccuracy': BinaryAccuracy()}
 
     def eval_forward(self, batch: Batch, outputs: Optional[Any] = None):
         x, y = batch

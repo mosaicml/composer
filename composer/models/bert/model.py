@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from torchmetrics import Accuracy, MeanSquaredError
-from torchmetrics.classification import MatthewsCorrCoef
+from torchmetrics import MeanSquaredError
+from torchmetrics.classification import MatthewsCorrCoef, MulticlassAccuracy
 from torchmetrics.regression import SpearmanCorrCoef
 
 from composer.metrics.nlp import BinaryF1Score, LanguageCrossEntropy, MaskedAccuracy
@@ -103,24 +103,24 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
     return HuggingFaceModel(model=model, tokenizer=tokenizer, use_logits=True, metrics=metrics)
 
 
-def create_bert_classification(num_labels: Optional[int] = 2,
-                               use_pretrained: Optional[bool] = False,
+def create_bert_classification(num_labels: int = 2,
+                               use_pretrained: bool = False,
                                pretrained_model_name: Optional[str] = None,
                                model_config: Optional[dict] = None,
                                tokenizer_name: Optional[str] = None,
-                               gradient_checkpointing: Optional[bool] = False):
+                               gradient_checkpointing: bool = False):
     """BERT classification model based on |:hugging_face:| Transformers.
 
     For more information, see `Transformers <https://huggingface.co/transformers/>`_.
 
     Args:
         num_labels (int, optional): The number of classes in the classification task. Default: ``2``.
-        gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
+            gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
         use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights. Default: ``False``.
         model_config (dict): The settings used to create a Hugging Face BertConfig. BertConfig is used to specify the
-        architecture of a Hugging Face model.
+            architecture of a Hugging Face model.
         tokenizer_name (str, optional): Tokenizer name used to preprocess the dataset
-        and validate the models inputs.
+            and validate the models inputs.
 
         .. code-block::
 
@@ -212,8 +212,8 @@ def create_bert_classification(num_labels: Optional[int] = 2,
     else:
         # Metrics for a classification model
         metrics = [
-            Accuracy(task='multiclass', num_classes=num_labels),
-            MatthewsCorrCoef(task='multiclass', num_classes=model.config.num_labels)
+            MulticlassAccuracy(num_classes=num_labels),
+            MatthewsCorrCoef(task='multiclass', num_classes=num_labels)
         ]
         if num_labels == 2:
             metrics.append(BinaryF1Score())
