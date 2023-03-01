@@ -134,8 +134,8 @@ A full example of a validation implementation would be:
         def __init__(self):
             super().__init__()
             self.model = torchvision.models.resnet18()
-            self.train_accuracy = torchmetrics.classification.Accuracy(num_classes=1000)
-            self.val_accuracy = torchmetrics.classification.Accuracy(num_classes=1000)
+            self.train_accuracy = torchmetrics.classification.MulticlassAccuracy(num_classes=1000)
+            self.val_accuracy = torchmetrics.classification.MulticlassAccuracy(num_classes=1000)
 
         ...
 

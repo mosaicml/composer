@@ -70,7 +70,7 @@ class ComposerClassifier(ComposerModel):
         self.num_classes = num_classes
         if hasattr(self.module, 'num_classes'):
             self.num_classes = getattr(self.module, 'num_classes')
-        if self.num_classes == None and (train_metrics is None or val_metrics is None):
+        if self.num_classes is None and (train_metrics is None or val_metrics is None):
             raise ValueError(
                 textwrap.dedent('Please specify the number of output classes. Either: \n (1) pass '
                                 'in num_classes to the ComposerClassifier \n (2) pass in both '
