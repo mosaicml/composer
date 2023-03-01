@@ -100,7 +100,7 @@ def test_trainer_eval_loop():
     )
 
     # Assert that there is some accuracy
-    assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
+    assert trainer.state.eval_metrics['eval']['MultitaskAccuracy'].compute() != 0.0
 
 
 def test_trainer_eval_subset_num_batches():
