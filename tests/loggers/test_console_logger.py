@@ -11,6 +11,7 @@ from torchmetrics import MetricCollection
 
 from composer.callbacks import SpeedMonitor
 from composer.core import Evaluator
+from composer.loggers import ConsoleLogger
 from composer.loggers.console_logger import NUM_EVAL_LOGGING_EVENTS
 from composer.trainer import Trainer
 from tests.common import RandomClassificationDataset, SimpleModel
@@ -163,11 +164,10 @@ def test_console_logger_interval_with_eval(console_logger_test_stream, console_l
 
 def test_log_to_console_and_progress_bar_warning():
     with pytest.warns(Warning):
-        Trainer(model=SimpleModel(),
-                log_to_console=True,
-                progress_bar=True,
-                train_dataloader=DataLoader(RandomClassificationDataset()),
-                max_duration=f'2ep')
+        Trainer(model=SimpleModel(), log_to_console=True, progress_bar=True)
+
+    with pytest.warns(Warning):
+        Trainer(model=SimpleModel(), loggers=ConsoleLogger())
 
 
 @pytest.mark.parametrize('log_interval_unit', ['ba', 'ep'])
