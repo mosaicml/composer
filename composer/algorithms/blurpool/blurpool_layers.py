@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.common_types import _size_2_t
+from torch.nn.modules.utils import _pair
 
 
 def _default_2d_filter():
@@ -30,11 +31,18 @@ def _padding_for_filt_2d_same(filt: torch.Tensor):
     return int(torch.div(h, 2)), int(torch.div(w, 2))
 
 
-def blur_2d(input: torch.Tensor, stride: _size_2_t = 1, filter: Optional[torch.Tensor] = None) -> torch.Tensor:
+def blur_2d(input: torch.Tensor,
+            channels: int = -1,
+            stride: _size_2_t = 1,
+            filter: Optional[torch.Tensor] = None) -> torch.Tensor:
     """Applies a spatial low-pass filter.
 
     Args:
         input (torch.Tensor): A 4d tensor of shape NCHW
+        channels (int, optional): The number of channels in the input tensor.
+            If non-positive, then dynamic control flow is used to determine the number of channels.
+            If positive, then static control flow is used and the filter dimensions should be appropriate for
+            the input size (note: this condition is always satisfied for the default filter and non-zero input size).
         stride (int | tuple, optional): Stride(s) along H and W axes. If a single value is passed, this
             value is used for both dimensions.
         filter (torch.Tensor, optional): A 2d or 4d tensor to be cross-correlated with the input tensor
@@ -54,24 +62,27 @@ def blur_2d(input: torch.Tensor, stride: _size_2_t = 1, filter: Optional[torch.T
     Returns:
         The blurred input
     """
-    _, c, h, w = input.shape
-    n_in_channels = c
 
     if filter is None:
         filter = _default_2d_filter()
-    if (filter.shape[0] == 1) and (n_in_channels > 1):
-        # filt is already a rank 4 tensor
-        filter = filter.repeat((n_in_channels, 1, 1, 1))
-
-    _, _, filter_h, filter_w = filter.shape
+    # The dynamic control flow branch below does not affect the padding as only h and w are used.
     padding = _padding_for_filt_2d_same(filter)
 
-    if h + 2 * padding[0] < filter_h:
-        return input
-    if w + 2 * padding[1] < filter_w:
-        return input
+    if channels < 1:  # Use Dynamic Control Flow
+        _, channels, h, w = input.shape
 
-    return F.conv2d(input, filter, stride=stride, padding=padding, groups=n_in_channels, bias=None)
+        if (filter.shape[0] == 1) and (channels > 1):
+            # assume filt is already a rank 4 tensor
+            filter = filter.repeat((channels, 1, 1, 1))
+
+        _, _, filter_h, filter_w = filter.shape
+        if h + 2 * padding[0] < filter_h:
+            return input
+        if w + 2 * padding[1] < filter_w:
+            return input
+
+    # Call F.conv2d without using keyword arguments as that triggers a bug in fx tracing quantization.
+    return F.conv2d(input, filter, None, _pair(stride), _pair(padding), _pair(1), channels)
 
 
 def blurmax_pool2d(input: torch.Tensor,
@@ -138,7 +149,7 @@ def blurmax_pool2d(input: torch.Tensor,
                         padding=padding,
                         dilation=dilation,
                         ceil_mode=ceil_mode)
-    return blur_2d(maxs, stride=stride, filter=filter)
+    return blur_2d(maxs, channels=-1, stride=stride, filter=filter)
 
 
 class BlurMaxPool2d(nn.Module):
@@ -240,11 +251,11 @@ class BlurConv2d(nn.Module):
             assert stride is not None
             conv_stride = stride
             self.blur_stride = 1
-            blur_nchannels = in_channels
+            self.blur_nchannels = in_channels
         else:
             conv_stride = 1
             self.blur_stride = kernel_size if (stride is None) else stride
-            blur_nchannels = out_channels
+            self.blur_nchannels = out_channels
 
         self.conv = torch.nn.Conv2d(
             in_channels=in_channels,
@@ -261,7 +272,7 @@ class BlurConv2d(nn.Module):
         # this is the full 4d tensor we want; materialize it once, instead
         # of just-in-time during forward; we can do this in this class but
         # not the others because we know in_channels during __init__
-        filt = _default_2d_filter().repeat(blur_nchannels, 1, 1, 1)
+        filt = _default_2d_filter().repeat(self.blur_nchannels, 1, 1, 1)
         self.register_buffer('blur_filter', filt)
 
     def forward(self, input: torch.Tensor):
@@ -269,14 +280,14 @@ class BlurConv2d(nn.Module):
             # blur in place, then apply (probably strided) conv
             # this is roughly the same number of flops as just applying
             # the original conv (though has some memory bandwidth cost)
-            blurred = blur_2d(input, filter=self.blur_filter, stride=self.blur_stride)
+            blurred = blur_2d(input, channels=self.blur_nchannels, filter=self.blur_filter, stride=self.blur_stride)
             return self.conv.forward(blurred)
         else:
             # apply conv with stride of 1, then blur and (probably) downsample;
             # this is much more costly than a strided conv, at least in the
             # compute-bound regime
             activations = self.conv.forward(input)
-            return blur_2d(activations, filter=self.blur_filter, stride=self.blur_stride)
+            return blur_2d(activations, channels=self.blur_nchannels, filter=self.blur_filter, stride=self.blur_stride)
 
     @staticmethod
     def from_conv2d(module: torch.nn.Conv2d, module_index: int = -1, blur_first: bool = True):
@@ -304,11 +315,14 @@ class BlurConv2d(nn.Module):
 class BlurPool2d(nn.Module):
     """This module just calls :func:`.blur_2d` in ``forward`` using the provided arguments."""
 
-    def __init__(self, stride: _size_2_t = 2, padding: _size_2_t = 1) -> None:
+    def __init__(self, channels: int = 0, stride: _size_2_t = 2, padding: _size_2_t = 1) -> None:
         super(BlurPool2d, self).__init__()
+        self.channels = channels
         self.stride = stride
         self.padding = padding
-        self.register_buffer('filt2d', _default_2d_filter())
+        self.register_buffer('blur_filter', _default_2d_filter())
+        if self.channels > 0:
+            self.blur_filter = self.blur_filter.repeat(channels, 1, 1, 1)
 
     def forward(self, input: torch.Tensor):
-        return blur_2d(input, stride=self.stride, filter=self.filt2d)
+        return blur_2d(input, channels=self.channels, stride=self.stride, filter=self.blur_filter)

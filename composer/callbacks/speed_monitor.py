@@ -130,7 +130,7 @@ def get_gpu_flops_available(state: State):
 
 
 class SpeedMonitor(Callback):
-    """Logs the training throughput.
+    """Logs the training throughput and utilization.
 
     The training throughput is logged on the :attr:`.Event.BATCH_END` event once we have reached
     the `window_size` threshold. If a model has `flops_per_batch` attribute, then flops per second
@@ -208,14 +208,37 @@ class SpeedMonitor(Callback):
     Args:
         window_size (int, optional): Number of batches to use for a rolling average of throughput.
             Defaults to 100.
+        gpu_flops_available (float, optional): Number of flops available on the GPU. If not set,
+            SpeedMonitor will attempt to determine this automatically. Defaults to None.
+        time_unit (str, optional): Time unit to use for `wall_clock` logging. Can be one of
+            'seconds', 'minutes', 'hours', or 'days'. Defaults to 'hours'.
     """
 
-    def __init__(self, window_size: int = 100, gpu_flops_available: Optional[Union[float, int]] = None):
+    def __init__(
+        self,
+        window_size: int = 100,
+        gpu_flops_available: Optional[Union[float, int]] = None,
+        time_unit: str = 'hours',
+    ):
         # Track the batch num samples and wct to compute throughput over a window of batches
         self.history_samples: Deque[int] = deque(maxlen=window_size + 1)
         self.history_wct: Deque[float] = deque(maxlen=window_size + 1)
+        self.history_flops: Deque[float] = deque(maxlen=window_size + 1)
 
         self.gpu_flops_available = gpu_flops_available
+
+        self.divider = 1
+        if time_unit == 'seconds':
+            self.divider = 1
+        elif time_unit == 'minutes':
+            self.divider = 60
+        elif time_unit == 'hours':
+            self.divider = 60 * 60
+        elif time_unit == 'days':
+            self.divider = 60 * 60 * 24
+        else:
+            raise ValueError(
+                f'Invalid time_unit: {time_unit}. Must be one of "seconds", "minutes", "hours", or "days".')
 
         # Keep track of time spent evaluating
         self.total_eval_wct = 0.0
@@ -262,29 +285,45 @@ class SpeedMonitor(Callback):
             except AttributeError:
                 pass
 
-            composer_model = state.model
-            if not isinstance(composer_model, ComposerModel):
-                composer_model = composer_model.module  # Pass through DDP wrapping
-            if hasattr(composer_model, 'flops_per_batch'):
-                model_flops_per_batch = composer_model.flops_per_batch  # type: ignore
-                if not isinstance(model_flops_per_batch, Callable):
-                    raise TypeError('flops_per_batch must a callable accepting a batch and '
-                                    f'returning an int or float. Instead, got {type(model_flops_per_batch)}.')
-                flops_per_batch = model_flops_per_batch(state.batch)
-                flops_per_sec = flops_per_batch * batches_per_sec
-                logger.log_metrics({'throughput/flops_per_sec': flops_per_sec})
-                dev_flops_per_sec = flops_per_sec / world_size
-                logger.log_metrics({'throughput/device/flops_per_sec': dev_flops_per_sec})
-                if self.gpu_flops_available:
-                    mfu = dev_flops_per_sec / self.gpu_flops_available
-                    logger.log_metrics({'throughput/device/mfu': mfu})
+        # Compute flops stats if model has flops_per_batch
+        composer_model = state.model
+        if not isinstance(composer_model, ComposerModel):
+            composer_model = composer_model.module  # Pass through DDP wrapping
+        if hasattr(composer_model, 'flops_per_batch'):
+            model_flops_per_batch = composer_model.flops_per_batch  # type: ignore
+            if not isinstance(model_flops_per_batch, Callable):
+                raise TypeError('flops_per_batch must a callable accepting a batch and '
+                                f'returning an int or float. Instead, got {type(model_flops_per_batch)}.')
+            device_flops_per_batch = model_flops_per_batch(state.batch)
+
+            # Sum flops across all ranks since each rank computes the flops for its own batch
+            flops_per_batch_tensor = state.device.tensor_to_device(
+                torch.tensor(device_flops_per_batch, dtype=torch.float))
+            dist.all_reduce(flops_per_batch_tensor, reduce_operation='SUM')
+            flops_per_batch = flops_per_batch_tensor.item()
+
+            self.history_flops.append(flops_per_batch)
+
+        # Log the flops throughput
+        if len(self.history_flops) == self.history_flops.maxlen:
+            world_size = dist.get_world_size()
+            elapsed_flops = sum(self.history_flops) - self.history_flops[0]
+            elapsed_wct = self.history_wct[-1] - self.history_wct[0]
+            flops_per_sec = elapsed_flops / elapsed_wct
+            device_flops_per_sec = flops_per_sec / world_size
+            logger.log_metrics({'throughput/flops_per_sec': flops_per_sec})
+            logger.log_metrics({'throughput/device/flops_per_sec': device_flops_per_sec})
+            if self.gpu_flops_available:
+                mfu = device_flops_per_sec / self.gpu_flops_available
+                logger.log_metrics({'throughput/device/mfu': mfu})
 
         # Log the time
         # `state.timestamp` excludes any time spent in evaluation
+        train_wct = state.timestamp.total_wct.total_seconds()
         logger.log_metrics({
-            'wall_clock/train': state.timestamp.total_wct.total_seconds(),
-            'wall_clock/val': self.total_eval_wct,
-            'wall_clock/total': state.timestamp.total_wct.total_seconds() + self.total_eval_wct,
+            'wall_clock/train': train_wct / self.divider,
+            'wall_clock/val': self.total_eval_wct / self.divider,
+            'wall_clock/total': (train_wct + self.total_eval_wct) / self.divider,
         })
 
     def eval_end(self, state: State, logger: Logger):

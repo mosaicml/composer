@@ -1094,11 +1094,11 @@ class Trainer:
 
         if any(isinstance(x, ProgressBarLogger) for x in loggers):
             warnings.warn(
-                DeprecationWarning(
-                    (f'Specifying the {ProgressBarLogger.__name__} via `loggers` is deprecated. Instead, '
-                     'please specify `progress_bar`, `console_stream` and `log_traces` arguments when '
-                     'constructing the trainer. If specified, these arguments will be ignored, as the '
-                     f'{ProgressBarLogger.__name__} was already created.')))
+                Warning((
+                    f'Specifying the {ProgressBarLogger.__name__} via `loggers` is not recommended as '
+                    'any values set for the following Trainer arguments will be ignored: `progress_bar`, `console_stream`, or `log_traces`. '
+                    'The recommended way of enabling a progress bar is to set `progress_bar` to True instead of '
+                    f'constructing a {ProgressBarLogger.__name__} instance.')))
         else:
             if progress_bar:
                 loggers.append(ProgressBarLogger(stream=console_stream, log_traces=log_traces))
@@ -1106,11 +1106,11 @@ class Trainer:
         # Console Logging
         if any(isinstance(x, ConsoleLogger) for x in loggers):
             warnings.warn(
-                DeprecationWarning((
-                    f'Specifying the {ConsoleLogger.__name__} via `loggers` is deprecated. Instead, '
-                    'please specify `log_to_console`, `console_stream`, `console_log_interval`, and `log_traces` arguments when '
-                    'constructing the trainer. If specified, these arguments will be ignored, as the '
-                    f'{ConsoleLogger.__name__} was already created.')))
+                Warning((
+                    f'Specifying the {ConsoleLogger.__name__} via `loggers` is not recommended as '
+                    'any values set for the following Trainer arguments will be ignored: `log_to_console`, `console_stream`, `log_traces`, and `console_log_interval`. '
+                    'The recommended way of enabling a console logging is to set `log_to_console` to True instead of '
+                    f'constructing a {ConsoleLogger.__name__} instance.')))
         else:
             if log_to_console:
                 loggers.append(
