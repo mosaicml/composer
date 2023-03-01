@@ -36,7 +36,10 @@ def test_early_stopper(metric_sequence: List[float], unit: TimeUnit, device: str
         metric_sequence,
         unit,
         test_device,
-        metric_args={'num_classes': 2},
+        metric_args={
+            'num_classes': 2,
+            'average': 'micro'
+        },
     )
 
     trainer = Trainer(
