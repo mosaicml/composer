@@ -115,6 +115,8 @@ class ConsoleLogger(LoggerDestination):
     def eval_end(self, state: State, logger: Logger) -> None:
         # Log to the console at the end of eval no matter what log interval is selected.
         self.log_to_console(state.eval_metric_values, prefix='Eval ', state=state, is_train=False)
+        # self.log_to_console(self.logged_metrics, prefix='Eval ', state=state, is_train=False)
+        # self.logged_metrics = {}
 
     def fit_start(self, state: State, logger: Logger) -> None:
         if not self.hparams_already_logged_to_console:
