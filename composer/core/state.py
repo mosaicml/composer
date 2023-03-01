@@ -240,7 +240,7 @@ class State(Serializable):
             ... )
             >>> trainer.fit()
             >>> trainer.state.train_metrics
-            {'Accuracy': Accuracy(task='multiclass', num_classes=2)}
+            {'MulticlassAccuracy': MulticlassAccuracy(num_classes=2)}
 
         eval_metrics (Dict[str, Dict[str, Metric]]): The current evaluation metrics, organized
             by dataloader label and then by metric name. If not using an :class:`.Evaluator`,
@@ -249,7 +249,7 @@ class State(Serializable):
             for more information. ``eval_metrics`` will be deep-copied to ensure that each evaluator updates only its ``eval_metrics``.
 
             For example:
-            >>> from torchmetrics import Accuracy
+            >>> from torchmetrics.classification import MulticlassAccuracy
             >>> from composer.metrics.metrics import CrossEntropy
             >>> trainer = Trainer(
             ...     ...,
@@ -258,7 +258,7 @@ class State(Serializable):
             ... )
             >>> trainer.fit()
             >>> trainer.state.eval_metrics
-            {'eval': {'CrossEntropy': CrossEntropy(), 'Accuracy': Accuracy(task='multiclass', num_classes=2)}}
+            {'eval': {'CrossEntropy': CrossEntropy(), 'MulticlassAccuracy': MulticlassAccuracy(num_classes=2)}}
 
             Or, when using an :class:`.Evaluator` for multiple evaluation datasets:
 
@@ -267,7 +267,7 @@ class State(Serializable):
                 eval_1_dl = eval_dataloader
                 eval_2_dl = eval_dataloader
 
-            >>> from torchmetrics import Accuracy
+            >>> from torchmetrics.classification import MulticlassAccuracy
             >>> from composer.core import Evaluator
             >>> trainer = Trainer(
             ...     ...,
@@ -279,7 +279,7 @@ class State(Serializable):
             ... )
             >>> trainer.fit()
             >>> trainer.state.eval_metrics
-            {'eval1': {'Accuracy': Accuracy(task='multiclass', num_classes=2)}, 'eval2': {'Accuracy': Accuracy(task='multiclass', num_classes=2)}}
+            {'eval1': {'Accuracy': MulticlassAccuracy(num_classes=2)}, 'eval2': {'Accuracy': MulticlassAccuracy(num_classes=2)}}
         eval_timestamp (Timestamp): The timestamp for the current evaluation dataloader. This timestamp is reset
             before the dataloader is evaluated. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
             ``0``.
