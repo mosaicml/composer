@@ -53,7 +53,6 @@ class MetricSetterCallback(Callback):
         if self.device is not None:
             self.device.tensor_to_device(metric_tensor)
 
-        print('Metric arguments:', self.metric_args)
         raw_metric = self.metric_cls(**self.metric_args)  # type: ignore
         preds, targets = self._generate_dummy_metric_inputs(metric_val)
         raw_metric.update(preds=preds, target=targets)
