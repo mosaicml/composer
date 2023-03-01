@@ -80,12 +80,6 @@ def test_console_logger_interval(console_logger_test_stream, console_logger_test
     assert actual_num_log_lines == expected_num_lines
 
 
-# @pytest.mark.parametrize('eval_interval_unit', ['ba'])
-# @pytest.mark.parametrize('max_duration_unit', ['ep'])
-# @pytest.mark.parametrize('eval_interval', [5])
-# @pytest.mark.parametrize('max_duration', [1])
-
-
 @pytest.mark.parametrize('eval_interval_unit', ['ba', 'ep'])
 @pytest.mark.parametrize('max_duration_unit', ['ba', 'ep'])
 @pytest.mark.parametrize('eval_interval', [2, 3])
@@ -100,7 +94,6 @@ def test_console_logger_fit(
     max_duration_unit,
     pass_in_fit,
 ):
-
     batch_size = 4
     dataset_size = 17
     eval_batch_size = 2
@@ -178,7 +171,6 @@ def test_console_logger_eval(
     eval_interval_unit,
     max_duration_unit,
 ):
-
     batch_size = 4
     dataset_size = 17
     eval_batch_size = 2
