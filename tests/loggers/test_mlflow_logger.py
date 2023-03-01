@@ -90,7 +90,8 @@ def test_mlflow_logging_works(tmp_path):
 
     # Test metrics logged.
     for metric_name in [
-            'metrics/train/Accuracy', 'metrics/eval/Accuracy', 'metrics/eval/CrossEntropy', 'loss/train/total'
+            'metrics/train/MulticlassAccuracy', 'metrics/eval/MulticlassAccuracy', 'metrics/eval/CrossEntropy',
+            'loss/train/total'
     ]:
         metric_file = run_file_path / Path('metrics') / Path(metric_name)
         with open(metric_file) as f:

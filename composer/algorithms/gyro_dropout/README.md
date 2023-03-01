@@ -85,7 +85,7 @@ class SimpleModelWithDropout(ComposerClassifier):
             torch.nn.Softmax(dim=-1),
         )
 
-        super().__init__(module=net)
+        super().__init__(module=net, num_classes=num_classes)
 
         self.fc1 = fc1
         self.fc2 = fc2

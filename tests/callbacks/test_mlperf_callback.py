@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 import torch
 from torch.utils.data import DataLoader
-from torchmetrics import Accuracy
+from torchmetrics.classification import BinaryAccuracy
 
 from composer import State, Trainer
 from composer.callbacks import MLPerfCallback
@@ -60,8 +60,8 @@ class TestMLPerfCallbackEvents:
     @pytest.fixture
     def mock_state(self):
         """Mocks a state at epoch 1 with Accuracy 0.99."""
-        acc = Accuracy()
-        eval_metrics = {'eval': {'Accuracy': acc}}
+        acc = BinaryAccuracy()
+        eval_metrics = {'eval': {'BinaryAccuracy': acc}}
         acc.update(
             torch.tensor([1, 1], dtype=torch.int8),
             torch.tensor([1, 1], dtype=torch.int8),

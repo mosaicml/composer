@@ -78,12 +78,12 @@ _callback_kwargs: Dict[Type[Callback], Dict[str, Any],] = {
         'num_concurrent_uploads': 1,
     },
     ThresholdStopper: {
-        'monitor': 'Accuracy',
+        'monitor': 'MulticlassAccuracy',
         'dataloader_label': 'train',
         'threshold': 0.99,
     },
     EarlyStopper: {
-        'monitor': 'Accuracy',
+        'monitor': 'MulticlassAccuracy',
         'dataloader_label': 'train',
     },
     ExportForInferenceCallback: {
