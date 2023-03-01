@@ -279,7 +279,7 @@ class State(Serializable):
             ... )
             >>> trainer.fit()
             >>> trainer.state.eval_metrics
-            {'eval1': {'Accuracy': Accuracy(task='binary')}, 'eval2': {'Accuracy': Accuracy(task='binary')}}
+            {'eval1': {'Accuracy': Accuracy(task='multiclass', num_classes=2)}, 'eval2': {'Accuracy': Accuracy(task='multiclass', num_classes=2)}}
         eval_timestamp (Timestamp): The timestamp for the current evaluation dataloader. This timestamp is reset
             before the dataloader is evaluated. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
             ``0``.

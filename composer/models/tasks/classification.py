@@ -33,12 +33,9 @@ class ComposerClassifier(ComposerModel):
         module (torch.nn.Module): A PyTorch neural network module.
         num_classes (int, optional): The number of output classes. Required if self.module does not have a num_classes parameter.
         train_metrics (Metric | MetricCollection, optional): A torchmetric or collection of torchmetrics to be
-            computed on the training set throughout training. Default: torchmetrics.Accuracy(task='binary') if
-            self.module.num_classes is None, otherwise, torchmetrics.Accuracy(task='multiclass', self.module.num_classes)
+            computed on the training set throughout training.
         val_metrics (Metric | MetricCollection, optional): A torchmetric or collection of torchmetrics to be
             computed on the validation set throughout training.
-            Default: [composer.metrics.CrossEntropy(), torchmetrics.Accuracy(task='binary')] if
-            self.module.num_classes is None, otherwise,
             [composer.metrics.CrossEntropy(), torchmetrics.Accuracy(task='multiclass'), self.module.num_classes]
         loss_fn (Callable, optional): Loss function to use. This loss function should have at least two arguments:
             1) the output of the model and 2) ``target`` i.e. labels from the dataset.
