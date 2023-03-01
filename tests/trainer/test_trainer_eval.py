@@ -6,7 +6,7 @@ from typing import Callable, Optional, Union
 
 import pytest
 from torch.utils.data import DataLoader
-from torchmetrics import Accuracy
+from torchmetrics.classification import MulticlassAccuracy
 
 from composer.core import Algorithm, Event
 from composer.core.evaluator import Evaluator, evaluate_periodically
@@ -32,7 +32,7 @@ def test_eval():
     trainer.eval()
 
     # Assert that there is some accuracy
-    assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
+    assert trainer.state.eval_metrics['eval']['MulticlassAccuracy'].compute() != 0.0
 
 
 def test_eval_call():
@@ -47,7 +47,7 @@ def test_eval_call():
     ))
 
     # Assert that there is some accuracy
-    assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
+    assert trainer.state.eval_metrics['eval']['MulticlassAccuracy'].compute() != 0.0
 
 
 def test_eval_call_with_trainer_evaluators():
@@ -96,11 +96,11 @@ def test_trainer_eval_loop():
     trainer._eval_loop(
         dataloader=eval_dataloader,
         dataloader_label='eval',
-        metrics={'Accuracy': Accuracy()},
+        metrics={'MulticlassAccuracy': MulticlassAccuracy(num_classes=2, average='micro')},
     )
 
     # Assert that there is some accuracy
-    assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
+    assert trainer.state.eval_metrics['eval']['MulticlassAccuracy'].compute() != 0.0
 
 
 def test_trainer_eval_subset_num_batches():

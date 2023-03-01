@@ -14,7 +14,7 @@ import torch
 from packaging import version
 from torch.utils.data import DataLoader
 from torchmetrics import Metric
-from torchmetrics.classification import Accuracy
+from torchmetrics.classification import MulticlassAccuracy
 
 from composer.core import Evaluator
 from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
@@ -36,7 +36,7 @@ def test_hf_train_eval_predict(num_classes: int, tiny_bert_config):
     hf_model = transformers.AutoModelForSequenceClassification.from_config(
         tiny_bert_config)  # type: ignore (thirdparty)
 
-    metrics = Accuracy()
+    metrics = MulticlassAccuracy(num_classes=num_classes, average='micro')
     model = HuggingFaceModel(hf_model, metrics=[metrics], use_logits=True)
 
     vocab_size = 30522  # Match bert vocab size
@@ -76,8 +76,8 @@ def test_hf_train_eval_predict(num_classes: int, tiny_bert_config):
     trainer.eval()
 
     # Check that there is some train/eval accuracy
-    assert trainer.state.train_metrics['Accuracy'].compute() != 0.0
-    assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
+    assert trainer.state.train_metrics['MulticlassAccuracy'].compute() != 0.0
+    assert trainer.state.eval_metrics['eval']['MulticlassAccuracy'].compute() != 0.0
 
     predictions = trainer.predict(predict_dataloader)
 
@@ -161,7 +161,7 @@ def test_hf_state_dict_info(tmp_path: Path, pass_in_tokenizer: bool, modify_toke
         tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
         hf_model.resize_token_embeddings(len(tokenizer))
 
-    metrics = Accuracy()
+    metrics = MulticlassAccuracy(num_classes=num_classes, average='micro')
     model = HuggingFaceModel(hf_model, tokenizer=tokenizer, metrics=[metrics], use_logits=True)
 
     vocab_size = 30522  # Match bert vocab size

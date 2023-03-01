@@ -75,7 +75,7 @@ while True:
 install_requires = [
     'pyyaml>=6.0,<7',
     'tqdm>=4.62.3,<5',
-    'torchmetrics>=0.7.0,<0.10.0',
+    'torchmetrics>=0.10.0,<0.12.0',
     'torch_optimizer>=0.3.0,<0.4',
     'torchvision>=0.11.0,<0.15',
     'torch>=1.10.0,<1.14',
@@ -102,7 +102,7 @@ extra_deps['dev'] = [
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.2.1',
     'toml==0.10.2',
-    'ipython==8.8.0',
+    'ipython==8.11.0',
     'ipykernel==6.20.1',
     'jupyter==1.0.0',
     'yamllint==1.28.0',
@@ -186,7 +186,7 @@ extra_deps['mlperf'] = [
 ]
 
 extra_deps['streaming'] = [
-    'mosaicml-streaming<0.3',
+    'mosaicml-streaming<0.4',
     'boto3>=1.21.45,<2',
     'paramiko>=2.11.0,<3',
 ]
