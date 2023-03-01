@@ -294,8 +294,9 @@ class HuggingFaceModel(ComposerModel):
     def eval_forward(self, batch, outputs: Optional[Any] = None):
         if batch.get('mode', None) == 'generate':
             if self.tokenizer is None:
-                raise ValueError('Generation eval cannot be used without providing a tokenizer to the model constructor.')
-            
+                raise ValueError(
+                    'Generation eval cannot be used without providing a tokenizer to the model constructor.')
+
             self.labels = batch.pop('continuations')
             encoded_continuations = self.tokenizer(self.labels)['input_ids']
             max_length = max(len(continuation) for continuation in encoded_continuations)
@@ -397,7 +398,11 @@ class HuggingFaceModel(ComposerModel):
         Defaults to greedy generation. All kwargs are passed along to the HuggingFace generate function.
 
         """
-        return self.model.generate(input_ids, num_beams=num_beams, do_sample=do_sample, max_new_tokens=max_new_tokens, **kwargs)
+        return self.model.generate(input_ids,
+                                   num_beams=num_beams,
+                                   do_sample=do_sample,
+                                   max_new_tokens=max_new_tokens,
+                                   **kwargs)
 
     def add_eval_metrics(self, evaluator):
         warnings.warn(
