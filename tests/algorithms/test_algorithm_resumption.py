@@ -10,21 +10,27 @@ import pytest
 import torch
 
 from composer import Algorithm, Trainer
-from composer.algorithms import SAM, GyroDropout, LayerFreezing, SeqLengthWarmup, StochasticDepth
+from composer.algorithms import SAM, SWA, GyroDropout, LayerFreezing, SeqLengthWarmup, StochasticDepth
+from composer.utils import dist
 from tests.algorithms.algorithm_settings import get_alg_dataloader, get_alg_kwargs, get_alg_model, get_algs_with_marks
 from tests.common import deep_compare
+from tests.common.markers import world_size
 
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('alg_cls', get_algs_with_marks())
 @pytest.mark.filterwarnings('ignore:Detected call of `lr_scheduler.step()'
                            )  # optimizer.step() sometimes skipped when NaN/inf on low batch size
+@world_size(1, 2)
 def test_algorithm_resumption(
     tmp_path: pathlib.Path,
     alg_cls: Type[Algorithm],
+    world_size,
 ):
     folder1 = os.path.join(tmp_path, 'folder1')
     folder2 = os.path.join(tmp_path, 'folder2')
+    os.makedirs(folder1, exist_ok=True)
+    os.makedirs(folder2, exist_ok=True)
 
     model = get_alg_model(alg_cls)
     alg_kwargs = get_alg_kwargs(alg_cls)
@@ -40,20 +46,24 @@ def test_algorithm_resumption(
     if alg_cls is GyroDropout:
         pytest.xfail('GyroDropoutLayer is not implemented in a way that allows correct resumption.')
 
+    if alg_cls is SWA and world_size > 1:
+        pytest.xfail('SWA is not implemented in a way that is compatible correct resumption on multiple devices.')
+
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=5)
 
     shared_config = {
         'max_duration': '2ep',
         'save_filename': 'ep{epoch}-rank{rank}',
-        'train_subset_num_batches': 4,
+        'save_interval': '1ep',
+        'train_subset_num_batches': 2,
         'precision': 'amp_fp16',
     }
-
+    train_dataloader = get_alg_dataloader(alg_cls) if world_size == 1 else get_alg_dataloader(alg_cls, multigpu=True)
     # train model once, saving checkpoints every epoch
     trainer1 = Trainer(
         model=model,
-        train_dataloader=get_alg_dataloader(alg_cls),
+        train_dataloader=train_dataloader,
         optimizers=optimizer,
         schedulers=scheduler,
         save_folder=folder1,
@@ -74,9 +84,11 @@ def test_algorithm_resumption(
     # when reloading.
     if alg_cls is SeqLengthWarmup:
         alg._activated = True  # type: ignore
+
+    train_dataloader = get_alg_dataloader(alg_cls) if world_size == 1 else get_alg_dataloader(alg_cls, multigpu=True)
     trainer2 = Trainer(
         model=copied_model,
-        train_dataloader=get_alg_dataloader(alg_cls),
+        train_dataloader=train_dataloader,
         load_path=os.path.join(folder1, 'ep1-rank{rank}'),
         load_weights_only=False,
         load_strict_model_weights=False,
@@ -87,20 +99,21 @@ def test_algorithm_resumption(
         **shared_config,
     )
     trainer2.fit()
-
     # check that the checkpoints are equal
-    _assert_checkpoints_equal(
-        file1=os.path.join(folder1, 'ep2-rank0'),
-        file2=os.path.join(folder2, 'ep2-rank0'),
-    )
+    if world_size == 1 or dist.get_global_rank() == 0:
+        _assert_checkpoints_equal(
+            file1=os.path.join(folder1, 'ep2-rank0'),
+            file2=os.path.join(folder2, 'ep2-rank0'),
+        )
 
     # check that different epoch checkpoints are _not_ equal
     # this ensures that the model weights are being updated.
-    with pytest.raises(AssertionError):
-        _assert_model_weights_equal(
-            file1=os.path.join(folder1, 'ep1-rank0'),
-            file2=os.path.join(folder1, 'ep2-rank0'),
-        )
+    if world_size == 1 or dist.get_global_rank() == 0:
+        with pytest.raises(AssertionError):
+            _assert_model_weights_equal(
+                file1=os.path.join(folder1, 'ep1-rank0'),
+                file2=os.path.join(folder1, 'ep2-rank0'),
+            )
 
 
 def _assert_checkpoints_equal(file1, file2):
