@@ -240,7 +240,7 @@ class State(Serializable):
             ... )
             >>> trainer.fit()
             >>> trainer.state.train_metrics
-            {'Accuracy': MulticlassAccuracy()}
+            {'MulticlassAccuracy': MulticlassAccuracy()}
 
         eval_metrics (Dict[str, Dict[str, Metric]]): The current evaluation metrics, organized
             by dataloader label and then by metric name. If not using an :class:`.Evaluator`,
@@ -257,7 +257,7 @@ class State(Serializable):
             ... )
             >>> trainer.fit()
             >>> trainer.state.eval_metrics
-            {'eval': {'CrossEntropy': CrossEntropy(), 'Accuracy': MulticlassAccuracy()}}
+            {'eval': {'CrossEntropy': CrossEntropy(), 'MulticlassAccuracy': MulticlassAccuracy()}}
 
             Or, when using an :class:`.Evaluator` for multiple evaluation datasets:
 
