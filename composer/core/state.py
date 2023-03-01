@@ -240,7 +240,7 @@ class State(Serializable):
             ... )
             >>> trainer.fit()
             >>> trainer.state.train_metrics
-            {'Accuracy': MulticlassAccuracy()}
+            {'MulticlassAccuracy': MulticlassAccuracy()}
 
         eval_metrics (Dict[str, Dict[str, Metric]]): The current evaluation metrics, organized
             by dataloader label and then by metric name. If not using an :class:`.Evaluator`,
@@ -279,7 +279,7 @@ class State(Serializable):
             ... )
             >>> trainer.fit()
             >>> trainer.state.eval_metrics
-            {'eval1': {'Accuracy': MulticlassAccuracy()}, 'eval2': {'Accuracy': MulticlassAccuracy()}}
+            {'eval1': {'MulticlassAccuracy': MulticlassAccuracy()}, 'eval2': {'MulticlassAccuracy': MulticlassAccuracy()}}
         eval_timestamp (Timestamp): The timestamp for the current evaluation dataloader. This timestamp is reset
             before the dataloader is evaluated. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
             ``0``.
