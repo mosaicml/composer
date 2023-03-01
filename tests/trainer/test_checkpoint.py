@@ -538,7 +538,7 @@ class TestCheckpointResumption:
             ),
             eval_dataloader=DataLoader(
                 dataset=eval_dataset,
-                batch_size=16,
+                batch_size=2,
                 sampler=dist.get_sampler(eval_dataset),
             ),
             device_train_microbatch_size=train_batch_size // 2,
