@@ -20,7 +20,7 @@ class MetricSetterCallback(Callback):
             metric_sequence: Sequence,
             unit: TimeUnit,
             device: Optional[Device] = None,
-            metric_args: Optional[Dict] = {}):
+            metric_args: Optional[Dict] = None):
         self.monitor = monitor
         self.dataloader_label = dataloader_label
         self.metric_cls = metric_cls
@@ -28,6 +28,8 @@ class MetricSetterCallback(Callback):
         self.unit = unit
         self.device = device
         self.metric_args = metric_args
+        if self.metric_args is None:
+            self.metric_args = {}
 
     def _generate_dummy_metric_inputs(self, target_val) -> Tuple[torch.Tensor, torch.Tensor]:
         """Generate fake set of predictions and target values to satisfy the given target accuracy value."""
@@ -51,8 +53,8 @@ class MetricSetterCallback(Callback):
         if self.device is not None:
             self.device.tensor_to_device(metric_tensor)
 
-        print("Metric arguments:", self.metric_args)
-        raw_metric = self.metric_cls(**self.metric_args)
+        print('Metric arguments:', self.metric_args)
+        raw_metric = self.metric_cls(**self.metric_args) # type: ignore 
         preds, targets = self._generate_dummy_metric_inputs(metric_val)
         raw_metric.update(preds=preds, target=targets)
 
