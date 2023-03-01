@@ -617,7 +617,7 @@ class TestCheckpointResumption:
         )
 
         trainer_1.fit()
-        trainer_1.close()
+        # trainer_1.close()
 
         self._assert_expected_num_checkpoints(
             save_folder=os.path.join(save_folder, 'first'),
@@ -644,7 +644,7 @@ class TestCheckpointResumption:
             load_path=resume_file,  # <-- resume training from file
         )
         trainer_2.fit()
-        trainer_2.close()
+        # trainer_2.close()
 
         self._assert_checkpoints_equivalent(
             save_folder / 'first' / final_checkpoint,
