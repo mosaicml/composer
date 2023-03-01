@@ -115,8 +115,7 @@ class SWA(Algorithm):
                  anneal_steps: int = 10,
                  swa_lr: Optional[float] = None):
 
-        log.warning('Using SWA when saving then resuming from a checkpoint on multiple gpu'
-                    's has issues. To avoid this remove SWA on resumption or set load_weights_only to True')
+        log.warning('SWA has known issues when resuming from a checkpoint on multiple GPUs, which will cause an error when resuming without `load_weights_only=True`.')
         self.schedule_swa_lr = schedule_swa_lr
         self.anneal_strategy = anneal_strategy
         self.anneal_steps = anneal_steps
