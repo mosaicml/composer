@@ -53,7 +53,7 @@ class ComposerClassifier(ComposerModel):
         from composer.models import ComposerClassifier
 
         pytorch_model = torchvision.models.resnet18(pretrained=False)
-        model = ComposerClassifier(pytorch_model)
+        model = ComposerClassifier(pytorch_model, num_classes=1000)
     """
 
     num_classes: Optional[int] = None
@@ -73,10 +73,7 @@ class ComposerClassifier(ComposerModel):
         if hasattr(self.module, 'num_classes'):
             self.num_classes = getattr(self.module, 'num_classes')
         if self.num_classes == None and (train_metrics is None or val_metrics is None):
-            raise ValueError('Please specify the number of the number of output classes. Either\
-                (1) pass in num_classes to the ComposerClassifier\
-                (2) pass in both train_metrics and val_metrics to Composer Classifier, or\
-                (3) specify a num_classes parameter in the PyTorch network module.')
+            raise ValueError('Please specify the number of the number of output classes. Either: \n (1) pass in num_classes to the ComposerClassifier \n (2) pass in both train_metrics and val_metrics to Composer Classifier, or \n (3) specify a num_classes parameter in the PyTorch network module.')
 
         # Metrics for training
         if train_metrics is None:
