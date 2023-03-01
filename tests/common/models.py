@@ -83,7 +83,7 @@ class SimpleWeightTiedModel(ComposerClassifier):
             torch.nn.Softmax(dim=-1),
         )
 
-        super().__init__(module=net, num_classes=2)
+        super().__init__(module=net, num_classes=num_features)
 
         self.mlp = mlp
         self.net = net
@@ -120,7 +120,7 @@ class EmbeddedWeightTiedModel(ComposerClassifier):
             torch.nn.Softmax(dim=-1),
         )
 
-        super().__init__(module=net, num_classes=2)
+        super().__init__(module=net, num_classes=num_features)
 
         self.module.param_init_fn = self.param_init_fn
 
@@ -364,7 +364,7 @@ class SimpleModelWithDropout(ComposerClassifier):
             torch.nn.Softmax(dim=-1),
         )
 
-        super().__init__(module=net, num_classes=10)
+        super().__init__(module=net, num_classes=num_classes)
 
         self.fc1 = fc1
         self.fc2 = fc2
