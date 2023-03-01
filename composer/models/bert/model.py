@@ -7,10 +7,9 @@ from __future__ import annotations
 
 from typing import Optional
 
-from torchmetrics import MeanSquaredError
-from torchmetrics.classification.accuracy import Accuracy
-from torchmetrics.classification.matthews_corrcoef import MatthewsCorrCoef
-from torchmetrics.regression.spearman import SpearmanCorrCoef
+from torchmetrics import Accuracy, MeanSquaredError
+from torchmetrics.classification import MatthewsCorrCoef
+from torchmetrics.regression import SpearmanCorrCoef
 
 from composer.metrics.nlp import BinaryF1Score, LanguageCrossEntropy, MaskedAccuracy
 from composer.models.huggingface import HuggingFaceModel
