@@ -5,7 +5,7 @@ from typing import List
 
 import pytest
 from torch.utils.data import DataLoader
-from torchmetrics import Accuracy
+from torchmetrics.classification import MulticlassAccuracy
 
 from composer import Trainer
 from composer.callbacks.early_stopper import EarlyStopper
@@ -29,16 +29,15 @@ def test_early_stopper(metric_sequence: List[float], unit: TimeUnit, device: str
 
     early_stopper = EarlyStopper('MulticlassAccuracy', dataloader_label, patience=Time(3, unit))
 
-    test_metric_setter = MetricSetterCallback('MulticlassAccuracy',
-                                              dataloader_label,
-                                              Accuracy,
-                                              metric_sequence,
-                                              unit,
-                                              test_device,
-                                              metric_args={
-                                                  'task': 'multiclass',
-                                                  'num_classes': 2
-                                              })
+    test_metric_setter = MetricSetterCallback(
+        'MulticlassAccuracy',
+        dataloader_label,
+        MulticlassAccuracy,
+        metric_sequence,
+        unit,
+        test_device,
+        metric_args={'num_classes': 2},
+    )
 
     trainer = Trainer(
         model=SimpleModel(num_features=5),

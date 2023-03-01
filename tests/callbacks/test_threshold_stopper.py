@@ -5,7 +5,7 @@ from typing import List
 
 import pytest
 from torch.utils.data import DataLoader
-from torchmetrics import Accuracy
+from torchmetrics.classification import MulticlassAccuracy
 
 from composer import Trainer
 from composer.callbacks import ThresholdStopper
@@ -30,22 +30,23 @@ def test_threshold_stopper_eval(metric_sequence: List[float], unit: TimeUnit, de
 
     test_device = DeviceGPU() if device == 'gpu' else DeviceCPU()
 
-    tstop = ThresholdStopper('MulticlassAccuracy',
-                             dataloader_label,
-                             metric_threshold,
-                             comp=None,
-                             stop_on_batch=stop_on_batch)
+    tstop = ThresholdStopper(
+        'MulticlassAccuracy',
+        dataloader_label,
+        metric_threshold,
+        comp=None,
+        stop_on_batch=stop_on_batch,
+    )
 
-    test_metric_setter = MetricSetterCallback('MulticlassAccuracy',
-                                              dataloader_label,
-                                              Accuracy,
-                                              metric_sequence,
-                                              unit,
-                                              test_device,
-                                              metric_args={
-                                                  'task': 'multiclass',
-                                                  'num_classes': 2
-                                              })
+    test_metric_setter = MetricSetterCallback(
+        'MulticlassAccuracy',
+        dataloader_label,
+        MulticlassAccuracy,
+        metric_sequence,
+        unit,
+        test_device,
+        metric_args={'num_classes': 2},
+    )
 
     trainer = Trainer(
         model=SimpleModel(),
