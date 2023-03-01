@@ -30,7 +30,9 @@ def test_early_stopper(metric_sequence: List[float], unit: TimeUnit, device: str
     early_stopper = EarlyStopper('MulticlassAccuracy', dataloader_label, patience=Time(3, unit))
 
     test_metric_setter = MetricSetterCallback('MulticlassAccuracy', dataloader_label, Accuracy, metric_sequence, unit,
-                                              test_device)
+                                              test_device,
+                                              metric_args={'task': 'multiclass',
+                                                       'num_classes': 2})
 
     trainer = Trainer(
         model=SimpleModel(num_features=5),

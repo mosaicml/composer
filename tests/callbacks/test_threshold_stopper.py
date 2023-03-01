@@ -37,7 +37,9 @@ def test_threshold_stopper_eval(metric_sequence: List[float], unit: TimeUnit, de
                              stop_on_batch=stop_on_batch)
 
     test_metric_setter = MetricSetterCallback('MulticlassAccuracy', dataloader_label, Accuracy, metric_sequence, unit,
-                                              test_device)
+                                              test_device,
+                                              metric_args={'task': 'multiclass',
+                                                       'num_classes': 2})
 
     trainer = Trainer(
         model=SimpleModel(),
