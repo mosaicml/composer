@@ -60,7 +60,7 @@ class TestMLPerfCallbackEvents:
     @pytest.fixture
     def mock_state(self):
         """Mocks a state at epoch 1 with Accuracy 0.99."""
-        acc = Accuracy()
+        acc = Accuracy(task='binary')
         eval_metrics = {'eval': {'Accuracy': acc}}
         acc.update(
             torch.tensor([1, 1], dtype=torch.int8),

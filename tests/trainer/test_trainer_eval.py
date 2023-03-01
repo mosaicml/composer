@@ -96,7 +96,7 @@ def test_trainer_eval_loop():
     trainer._eval_loop(
         dataloader=eval_dataloader,
         dataloader_label='eval',
-        metrics={'Accuracy': Accuracy()},
+        metrics={'Accuracy': Accuracy(task='multiclass', num_classes=2)},
     )
 
     # Assert that there is some accuracy

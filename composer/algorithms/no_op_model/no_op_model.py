@@ -58,7 +58,7 @@ class NoOpModelClass(ComposerModel):
         return y * self.weights
 
     def get_metrics(self, is_train: bool) -> Dict[str, Metric]:
-        return {'Accuracy': Accuracy()}
+        return {'Accuracy': Accuracy(task='binary')}
 
     def eval_forward(self, batch: Batch, outputs: Optional[Any] = None):
         x, y = batch

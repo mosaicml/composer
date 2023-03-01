@@ -182,8 +182,8 @@ def _main():
     model.apply(weight_init)
 
     # Performance metrics to log other than training loss
-    train_metrics = Accuracy()
-    val_metrics = MetricCollection([CrossEntropy(), Accuracy()])
+    train_metrics = Accuracy(task='multiclass', num_classes=1000)
+    val_metrics = MetricCollection([CrossEntropy(), Accuracy(task='multiclass', num_classes=1000)])
 
     # Cross entropy loss that can handle both index and one-hot targets
 
