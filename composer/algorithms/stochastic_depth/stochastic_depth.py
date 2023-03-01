@@ -139,7 +139,7 @@ class StochasticDepth(Algorithm):
                  drop_distribution: str = 'linear',
                  drop_warmup: Union[float, Time, str] = 0.0):
 
-        log.warning('Stochastic depth has known issues of weight mismatch when loading from a checkpoint')
+        log.warning('Stochastic depth has known issues of weight mismatch when loading from a checkpoint, which will cause an error when resuming without `load_weights_only=True`.')
 
         if drop_rate == 0.0:
             log.warning('Stochastic Depth will have no effect when drop_rate set to 0')
