@@ -40,13 +40,20 @@ class RandomClassificationDataset(Dataset):
 
     def __init__(self, shape: Sequence[int] = (1, 1, 1), size: int = 100, num_classes: int = 2):
         self.size = size
-        self.x = torch.randn(size, *shape)
-        self.y = torch.randint(0, num_classes, size=(size,))
+        self.shape = shape
+        self.num_classes = num_classes
+        self.x = None
+        self.y = None
+        print(self.y)
 
     def __len__(self):
         return self.size
 
     def __getitem__(self, index: int):
+        if self.x is None:
+            self.x = torch.randn(self.size, *self.shape)
+        if self.y is None:
+            self.y = torch.randint(0, self.num_classes, size=(self.size,))
         return self.x[index], self.y[index]
 
 
