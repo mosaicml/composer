@@ -80,13 +80,14 @@ class ComposerClassifier(ComposerModel):
         # Metrics for training
         if train_metrics is None:
             assert self.num_classes is not None
-            train_metrics = MulticlassAccuracy(num_classes=self.num_classes)
+            train_metrics = MulticlassAccuracy(num_classes=self.num_classes, average='micro')
         self.train_metrics = train_metrics
 
         # Metrics for validation
         if val_metrics is None:
             assert self.num_classes is not None
-            val_metrics = MetricCollection([CrossEntropy(), MulticlassAccuracy(num_classes=self.num_classes)])
+            val_metrics = MetricCollection(
+                [CrossEntropy(), MulticlassAccuracy(num_classes=self.num_classes, average='micro')])
         self.val_metrics = val_metrics
 
     def loss(self, outputs: Tensor, batch: Tuple[Any, Tensor], *args, **kwargs) -> Tensor:

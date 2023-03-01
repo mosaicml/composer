@@ -212,7 +212,7 @@ def create_bert_classification(num_labels: int = 2,
     else:
         # Metrics for a classification model
         metrics = [
-            MulticlassAccuracy(num_classes=num_labels),
+            MulticlassAccuracy(num_classes=num_labels, average='micro'),
             MatthewsCorrCoef(task='multiclass', num_classes=num_labels)
         ]
         if num_labels == 2:

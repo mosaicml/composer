@@ -134,8 +134,8 @@ A full example of a validation implementation would be:
         def __init__(self):
             super().__init__()
             self.model = torchvision.models.resnet18()
-            self.train_accuracy = torchmetrics.classification.MulticlassAccuracy(num_classes=1000)
-            self.val_accuracy = torchmetrics.classification.MulticlassAccuracy(num_classes=1000)
+            self.train_accuracy = torchmetrics.classification.MulticlassAccuracy(num_classes=1000, average='micro')
+            self.val_accuracy = torchmetrics.classification.MulticlassAccuracy(num_classes=1000, average='micro')
 
         ...
 
@@ -228,7 +228,7 @@ and make it compatible with our trainer.
                              num_labels=2)
 
     # list of torchmetrics
-    metrics = [LanguageCrossEntropy(), MulticlassAccuracy(num_classes=2)]
+    metrics = [LanguageCrossEntropy(), MulticlassAccuracy(num_classes=2, average='micro')]
 
     # composer model, ready to be passed to our trainer
     composer_model = HuggingFaceModel(model, metrics=metrics)

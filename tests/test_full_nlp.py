@@ -225,7 +225,7 @@ def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokeni
 
     # finetuning
     if model_type == 'tinybert_hf':
-        finetuning_metric = MulticlassAccuracy(num_classes=3)
+        finetuning_metric = MulticlassAccuracy(num_classes=3, average='micro')
         hf_finetuning_model, _ = HuggingFaceModel.hf_from_composer_checkpoint(
             pretraining_output_path,
             model_instantiation_class='transformers.AutoModelForSequenceClassification',

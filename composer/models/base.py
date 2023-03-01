@@ -189,8 +189,8 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 
             def __init__(self, num_classes):
                 super().__init__()
-                self.train_acc = MulticlassAccuracy(num_classes=num_classes) # torchmetric
-                self.val_acc = MulticlassAccuracy(num_classes=num_classes)
+                self.train_acc = MulticlassAccuracy(num_classes=num_classes, average='micro') # torchmetric
+                self.val_acc = MulticlassAccuracy(num_classes=num_classes, average='micro')
                 self.val_loss = CrossEntropyLoss()
 
             def metrics(self, train: bool = False):

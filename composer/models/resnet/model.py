@@ -112,8 +112,8 @@ def composer_resnet(model_name: str,
     loss_fn = loss_registry[loss_name]
 
     # Create metrics for train and validation
-    train_metrics = MulticlassAccuracy(num_classes=num_classes)
-    val_metrics = MetricCollection([CrossEntropy(), MulticlassAccuracy(num_classes=num_classes)])
+    train_metrics = MulticlassAccuracy(num_classes=num_classes, average='micro')
+    val_metrics = MetricCollection([CrossEntropy(), MulticlassAccuracy(num_classes=num_classes, average='micro')])
 
     # Apply Initializers to model
     for initializer in initializers:
