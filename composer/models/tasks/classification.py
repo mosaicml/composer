@@ -9,6 +9,7 @@ classification training loop with :func:`.soft_cross_entropy` loss and accuracy 
 
 import logging
 import textwrap
+import warnings
 from typing import Any, Callable, Dict, Optional, Tuple, Union
 
 import torch
@@ -69,7 +70,13 @@ class ComposerClassifier(ComposerModel):
 
         self.num_classes = num_classes
         if hasattr(self.module, 'num_classes'):
-            self.num_classes = getattr(self.module, 'num_classes')
+            model_num_classes = getattr(self.module, 'num_classes')
+            if self.num_classes is not None and self.num_classes != model_num_classes:
+                warnings.warn(
+                    textwrap.dedent(
+                        f'Specified num_classes={self.num_classes} does not match model num_classes={model_num_classes}.'
+                        'Using model num_classes.'))
+            self.num_classes = model_num_classes
         if self.num_classes is None and (train_metrics is None or val_metrics is None):
             raise ValueError(
                 textwrap.dedent('Please specify the number of output classes. Either: \n (1) pass '
