@@ -13,13 +13,8 @@ import pytest
 import torch
 import torch.fx
 
-from composer.algorithms.blurpool.blurpool import BlurPool
-from composer.algorithms.channels_last.channels_last import ChannelsLast
-from composer.algorithms.factorize.factorize import Factorize
-from composer.algorithms.ghost_batchnorm.ghost_batchnorm import GhostBatchNorm
-from composer.algorithms.squeeze_excite.squeeze_excite import SqueezeExcite
-from composer.algorithms.stochastic_depth.stochastic_depth import StochasticDepth
-from composer.core.algorithm import Algorithm
+from composer.algorithms import BlurPool, ChannelsLast, Factorize, GhostBatchNorm, SqueezeExcite, StochasticDepth
+from composer.core import Algorithm
 from composer.functional import (apply_blurpool, apply_channels_last, apply_factorization, apply_ghost_batchnorm,
                                  apply_squeeze_excite, apply_stochastic_depth)
 from tests.algorithms.algorithm_settings import get_alg_kwargs, get_alg_model, get_algs_with_marks
@@ -27,11 +22,11 @@ from tests.algorithms.algorithm_settings import get_alg_kwargs, get_alg_model, g
 algo_kwargs = {
     apply_stochastic_depth: {
         'stochastic_method': 'block',
-        'target_layer_name': 'ResNetBottleneck'
+        'target_layer_name': 'ResNetBottleneck',
     },
     apply_ghost_batchnorm: {
         'ghost_batch_size': 2
-    }
+    },
 }
 
 

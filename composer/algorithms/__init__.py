@@ -53,6 +53,7 @@ from composer.algorithms.gradient_clipping import GradientClipping
 from composer.algorithms.gyro_dropout import GyroDropout
 from composer.algorithms.label_smoothing import LabelSmoothing
 from composer.algorithms.layer_freezing import LayerFreezing
+from composer.algorithms.low_precision_groupnorm import LowPrecisionGroupNorm
 from composer.algorithms.low_precision_layernorm import LowPrecisionLayerNorm
 from composer.algorithms.mixup import MixUp
 from composer.algorithms.no_op_model import NoOpModel
@@ -85,6 +86,7 @@ __all__ = [
     'LabelSmoothing',
     'LayerFreezing',
     'LowPrecisionLayerNorm',
+    'LowPrecisionGroupNorm',
     'MixUp',
     'NoOpModel',
     'ProgressiveResizing',

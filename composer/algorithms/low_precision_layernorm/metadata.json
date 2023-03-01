@@ -3,7 +3,7 @@
         "name": "Low Precision LayerNorm",
         "class_name": "LowPrecisionLayerNorm",
         "functional": "apply_low_precision_layernorm",
-        "tldr": "Forces LayerNorm to fp16 or bf16",
+        "tldr": "Forces LayerNorm to use fp16 or bf16",
         "attribution": "",
         "link": "",
         "domains": [

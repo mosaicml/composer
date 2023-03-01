@@ -54,7 +54,7 @@ test:
     - fasteners ==0.17.3,<0.18
     - pytest >=7.1.0,<8
     - toml >=0.10.2,<0.11
-    - ipython >=8.4.0,<9
+    - ipython >=8.11.0,<9
     - ipykernel ==6.13.1,<7
     - jupyter >=1.0.0,<2
     - testbook >=0.4.2,<0.5

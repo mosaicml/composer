@@ -98,11 +98,11 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
     'junitparser==2.8.0',
-    'coverage[toml]==7.1.0',
+    'coverage[toml]==7.2.1',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.2.1',
     'toml==0.10.2',
-    'ipython==8.8.0',
+    'ipython==8.11.0',
     'ipykernel==6.20.1',
     'jupyter==1.0.0',
     'yamllint==1.28.0',
@@ -135,6 +135,11 @@ extra_deps['dev'] = [
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
 ]
+
+extra_deps['health_checker'] = {
+    'pynvml>=11.5.0,<12',
+    'slack_sdk>=3.19.5,<4',
+}
 
 extra_deps['deepspeed'] = [
     'deepspeed==0.7.7',

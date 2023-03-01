@@ -69,7 +69,7 @@ class TestEventCalls:
             pytest.param('gpu',
                          None,
                          True,
-                         'amp',
+                         'amp_fp16',
                          id='gpu-fsdp',
                          marks=[
                              pytest.mark.gpu,
