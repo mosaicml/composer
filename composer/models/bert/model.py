@@ -115,12 +115,12 @@ def create_bert_classification(num_labels: int = 2,
 
     Args:
         num_labels (int, optional): The number of classes in the classification task. Default: ``2``.
-            gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
+        gradient_checkpointing (bool, optional): Use gradient checkpointing. Default: ``False``.
         use_pretrained (bool, optional): Whether to initialize the model with the pretrained weights. Default: ``False``.
         model_config (dict): The settings used to create a Hugging Face BertConfig. BertConfig is used to specify the
-            architecture of a Hugging Face model.
+        architecture of a Hugging Face model.
         tokenizer_name (str, optional): Tokenizer name used to preprocess the dataset
-            and validate the models inputs.
+        and validate the models inputs.
 
         .. code-block::
 
