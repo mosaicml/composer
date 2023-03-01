@@ -73,7 +73,9 @@ class ComposerClassifier(ComposerModel):
         if hasattr(self.module, 'num_classes'):
             self.num_classes = getattr(self.module, 'num_classes')
         if self.num_classes == None and (train_metrics is None or val_metrics is None):
-            raise ValueError('Please specify the number of the number of output classes. Either: \n (1) pass in num_classes to the ComposerClassifier \n (2) pass in both train_metrics and val_metrics to Composer Classifier, or \n (3) specify a num_classes parameter in the PyTorch network module.')
+            raise ValueError(
+                'Please specify the number of the number of output classes. Either: \n (1) pass in num_classes to the ComposerClassifier \n (2) pass in both train_metrics and val_metrics to Composer Classifier, or \n (3) specify a num_classes parameter in the PyTorch network module.'
+            )
 
         # Metrics for training
         if train_metrics is None:
