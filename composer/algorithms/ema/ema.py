@@ -286,8 +286,44 @@ class EMA(Algorithm):
                 state_dict[attribute_name] = getattr(self, attribute_name)
         return state_dict
 
+    def ensure_compatible_state_dict(self, state: Dict[str, Any]):
+        """Ensure state dicts created prior to Composer 0.13.0 are compatible with later versions."""
+        # Version 0.13.0 and later state dicts will not include training_model.
+        if 'training_model' not in state:
+            return state
+
+        # Prior to version 0.13.0, the state dict contained a separate training_model and ema_model.
+        # Only one of these needs to be loaded as the ema_model.
+        if state['ema_weights_active'] is True:
+            # If EMA weights are active, load training weights into the ema_model storage
+            state_dict = state['training_model']
+        else:
+            # If EMA weights are not active, load the ema weights into the ema_model storage
+            state_dict = state['ema_model']
+
+        named_parameters_dict = {}
+        named_buffers_dict = {}
+        # Rewrite the state dict in the newer format.
+        if isinstance(self.ema_model, EMAParameters):
+            for key in self.ema_model.named_parameters_dict.keys():
+                if key in state_dict:
+                    named_parameters_dict[key] = state_dict[key]
+            for key in self.ema_model.named_buffers_dict.keys():
+                if key in state_dict:
+                    named_buffers_dict[key] = state_dict[key]
+        else:
+            ValueError(f'ema_model must be initialized before loading state dicts from versions earlier than 0.13.0')
+
+        # Update the state dict with the new format
+        del state['training_model']
+        state['ema_model'] = {}
+        state['ema_model']['named_parameters_dict'] = named_parameters_dict
+        state['ema_model']['named_buffers_dict'] = named_buffers_dict
+        return state
+
     def load_state_dict(self, state: Dict[str, Any], strict: bool = False):
-        for attribute_name, serialized_value in state.items():
+        state_dict = self.ensure_compatible_state_dict(state)
+        for attribute_name, serialized_value in state_dict.items():
             if attribute_name != 'repr':  # skip attribute added by parent class
                 if attribute_name == 'ema_model':
                     self.ema_model = EMAParameters(None)
