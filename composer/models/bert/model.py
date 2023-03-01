@@ -214,7 +214,7 @@ def create_bert_classification(num_labels: Optional[int] = 2,
         # Metrics for a classification model
         metrics = [
             Accuracy(task='multiclass', num_classes=num_labels),
-            MatthewsCorrCoef(num_classes=model.config.num_labels)
+            MatthewsCorrCoef(task='multiclass', num_classes=model.config.num_labels)
         ]
         if num_labels == 2:
             metrics.append(BinaryF1Score())
