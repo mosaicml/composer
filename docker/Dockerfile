@@ -34,8 +34,8 @@ ARG TORCHTEXT_VERSION=0.12.0
 # Pillow is also installed (so it won't override it with a future pip install), a Pillow stub is included
 # PILLOW_PSEUDOVERSION is the Pillow version that pip thinks is installed
 # PILLOW_SIMD_VERSION is the actual version of pillow-simd that is installed.
-ARG PILLOW_PSEUDOVERSION=7.0.0
-ARG PILLOW_SIMD_VERSION=7.0.0.post3
+ARG PILLOW_PSEUDOVERSION=9.3.0
+ARG PILLOW_SIMD_VERSION=9.0.0.post1
 
 # Version of the Mellanox Drivers to install (for InfiniBand support)
 # Leave blank for no Mellanox Drivers
@@ -44,6 +44,12 @@ ARG MOFED_VERSION=5.5-1.0.3.2
 # Version of EFA Drivers to install (for AWS Elastic Fabric Adapter support)
 # Leave blank for no EFA Drivers
 ARG AWS_OFI_NCCL_VERSION=v1.5.0-aws
+
+# Upgrade certifi to resolve CVE-2022-23491
+ARG CERTIFI_VERSION='>=2022.12.7'
+
+# Upgrade urllib to resolve CVE-2021-33503
+ARG URLLIB3_VERSION='>=1.26.5,<2'
 
 ########################
 # Vision Image Arguments
@@ -134,7 +140,6 @@ RUN apt-get update && \
         automake \
         libtool \
         # Development tools
-        vim \
         tmux \
         htop && \
     apt-get autoclean && \
@@ -155,7 +160,7 @@ RUN add-apt-repository ppa:git-core/ppa && \
 # Install NodeJS (for Pyright)
 ##############################
 RUN \
-    curl -fsSL https://deb.nodesource.com/setup_17.x | bash - && \
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y --no-install-recommends nodejs && \
     apt-get autoclean && \
     apt-get clean && \
@@ -281,7 +286,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
 # Install Flash Attention
 ##########################
 RUN if [ -n "$CUDA_VERSION" ] ; then \
-        pip${PYTHON_VERSION} install --no-cache-dir flash-attn==0.2.2; \
+        pip${PYTHON_VERSION} install --no-cache-dir flash-attn==0.2.8; \
     fi
 
 ###########################
@@ -322,6 +327,22 @@ ENV BASH_ENV=/etc/profile
 RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml && \
     usermod -a -G sudo mosaicml && \
     echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+
+#########################
+# Upgrade apt packages
+#########################
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get autoclean && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+#########################
+# Upgrade pip packages
+#########################
+RUN pip install --no-cache-dir --upgrade urllib3${URLLIB3_VERSION} \
+        certifi${CERTIFI_VERSION}
+
 
 ######################
 # PyTorch Vision Image

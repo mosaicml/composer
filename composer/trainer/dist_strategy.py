@@ -123,19 +123,6 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
                        'with distributed support.')
 
 
-def get_torch_dtype(dtype: Union[Precision, str]):
-    """Convert common string representations of dtypes to torch dtypes."""
-    dtype = dtype.value if isinstance(dtype, Precision) else dtype
-    if dtype in ['float32', 'torch.float32', 'fp32']:
-        return torch.float32
-    elif dtype in ['float16', 'torch.float16', 'half', 'fp16', 'amp', 'amp_fp16']:
-        return torch.float16
-    elif dtype in ['bfloat16', 'bfloat', 'torch.bfloat16', 'bf16', 'amp_bf16']:
-        return torch.bfloat16
-    else:
-        raise ValueError(f'Not sure how to convert dtype={dtype} to a torch dtype.')
-
-
 def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch.optim.Optimizer,
                                                                            Sequence[torch.optim.Optimizer]]],
                         fsdp_config: Dict[str, Any], precision: Precision) -> None:
@@ -151,9 +138,11 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
     from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (apply_activation_checkpointing,
                                                                              checkpoint_wrapper)
-    from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
-                                        ShardingStrategy)
+    from torch.distributed.fsdp import FullyShardedDataParallel
     from torch.distributed.fsdp.flatten_params_wrapper import FlattenParamsWrapper
+
+    from composer.trainer.mosaic_fsdp import (MosaicFullyShardedDataParallel, backward_prefetch_map, get_cpu_offload,
+                                              get_mixed_precision, sharding_map)
 
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
@@ -166,47 +155,16 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         optim.param_groups.clear()
         optim.state.clear()
 
-    sharding_map = {
-        'NO_SHARD': ShardingStrategy.NO_SHARD,
-        'SHARD_GRAD_OP': ShardingStrategy.SHARD_GRAD_OP,
-        'FULL_SHARD': ShardingStrategy.FULL_SHARD,
-    }
     sharding_map_key = fsdp_config.get('sharding_strategy', 'FULL_SHARD').upper()
     sharding_strategy = sharding_map[sharding_map_key]
 
-    cpu_offload = CPUOffload(offload_params=True) if fsdp_config.get('cpu_offload', False) else None
-    if cpu_offload is not None:
-        raise ValueError('FSDP CPU Offload not supported yet.')
+    cpu_offload = get_cpu_offload(cpu_offload=fsdp_config.get('cpu_offload', False))
 
     mixed_precision = fsdp_config.get('mixed_precision', 'DEFAULT')
-    param_dtype = None
-    reduce_dtype = None
-    buffer_dtype = None
-    if isinstance(mixed_precision, dict):
-        param_dtype = mixed_precision.get('param_dtype', None)
-        if param_dtype is not None:
-            param_dtype = get_torch_dtype(param_dtype)
-        reduce_dtype = mixed_precision.get('reduce_dtype', None)
-        if reduce_dtype is not None:
-            reduce_dtype = get_torch_dtype(reduce_dtype)
-        buffer_dtype = mixed_precision.get('buffer_dtype', None)
-        if buffer_dtype is not None:
-            buffer_dtype = get_torch_dtype(buffer_dtype)
-    elif isinstance(mixed_precision, str):
-        mixed_precision = mixed_precision.upper()
-        if mixed_precision == 'FULL':
-            pass
-        elif mixed_precision == 'DEFAULT':
-            reduce_dtype = get_torch_dtype(precision)
-            buffer_dtype = torch.float32
-        elif mixed_precision == 'PURE':
-            param_dtype = get_torch_dtype(precision)
-            reduce_dtype = get_torch_dtype(precision)
-            buffer_dtype = get_torch_dtype(precision)
-        else:
-            raise ValueError(f'Unable to interpret mixed_precision={mixed_precision}')
-    else:
-        raise ValueError(f'Unable to interpret mixed_precision={mixed_precision}')
+    keep_low_precision_grads = fsdp_config.get('keep_low_precision_grads', False)
+    mixed_precision, param_dtype, _, _ = get_mixed_precision(precision,
+                                                             mixed_precision=mixed_precision,
+                                                             keep_low_precision_grads=keep_low_precision_grads)
 
     # Note: FSDP does support the use of torch.float32 with sharding.
     # They just never expected a user to pass in torch.float32 into mixed_precision as a param_dtype.
@@ -228,20 +186,6 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                 f'Consider using `amp` or `bf16` for precision or setting param_dtype in mixed_precision to `None` '
                 f'with sharding strategy `{sharding_map_key}.`')
 
-    keep_low_precision_grads = fsdp_config.get('keep_low_precision_grads', False)
-
-    mixed_precision = MixedPrecision(
-        param_dtype=param_dtype,
-        reduce_dtype=reduce_dtype,
-        buffer_dtype=buffer_dtype,
-        keep_low_precision_grads=keep_low_precision_grads,
-    )
-
-    backward_prefetch_map = {
-        'NONE': None,
-        'BACKWARD_PRE': BackwardPrefetch.BACKWARD_PRE,
-        'BACKWARD_POST': BackwardPrefetch.BACKWARD_POST,
-    }
     backward_prefetch = backward_prefetch_map[fsdp_config.get('backward_prefetch', 'BACKWARD_POST').upper()]
     min_params = int(float(fsdp_config.get('min_params', 1e9)))
     activation_checkpointing = fsdp_config.get('activation_checkpointing', False)
@@ -250,6 +194,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     forward_prefetch = fsdp_config.get('forward_prefetch', False)
     limit_all_gathers = fsdp_config.get('limit_all_gathers', False)
     ignored_modules = fsdp_config.get('ignored_modules', None)
+    state_dict_type = fsdp_config.get('state_dict_type', 'full')
 
     # We choose to not wrap the ComposerModel directly, but instead wrap any submodules like `ComposerModel.model`
     # This makes it safer to call ComposerModel-specific functions like 'eval_forward' that
@@ -341,7 +286,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                     else:
                         return is_large
 
-            fsdp_obj = FullyShardedDataParallel(
+            fsdp_obj = MosaicFullyShardedDataParallel(
                 obj,
                 sharding_strategy=sharding_strategy,
                 auto_wrap_policy=_auto_wrap_policy,
@@ -397,6 +342,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         print(f'FSDP: Using sync_module_states={sync_module_states}')
         print(f'FSDP: Using forward_prefetch={forward_prefetch}')
         print(f'FSDP: Using limit_all_gathers={limit_all_gathers}')
+        print(f'FSDP: Using state_dict_type={state_dict_type}')
 
     # Rebuild optimizer now that parameters are sharded
     if optimizers:

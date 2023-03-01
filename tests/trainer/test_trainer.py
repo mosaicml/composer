@@ -471,7 +471,7 @@ class TestTrainerInitOrFit:
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
     @pytest.mark.gpu
-    @pytest.mark.parametrize('precision', list(Precision))
+    @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])
     @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_deepspeed(
         self,
@@ -496,7 +496,7 @@ class TestTrainerInitOrFit:
     @pytest.mark.gpu
     @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                         reason='requires PyTorch 1.13 or higher')
-    @pytest.mark.parametrize('precision', list(Precision))
+    @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])
     @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_fsdp(
         self,
@@ -578,7 +578,7 @@ class TestTrainerInitOrFit:
         assert all(p.device.type == 'cuda' for p in trainer_2.state.model.parameters())
         map_collection(trainer_2.state.optimizers, _assert_optimizer_is_on_device)
 
-    @pytest.mark.parametrize('precision', list(Precision))
+    @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])
     @pytest.mark.parametrize('device', ['cpu', pytest.param('gpu', marks=pytest.mark.gpu)])
     def test_precision(
         self,

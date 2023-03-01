@@ -150,6 +150,15 @@
    Progressively freezes layers during training.
 
    ---
+   .. link-button:: low_precision_groupnorm.html
+      :text: LowPrecisionGroupNorm
+      :classes: card-title
+
+   :badge:`CV,badge-primary` :badge:`NLP,badge-success`
+   ++++++++++++++
+   Forces GroupNorm to run in lower precision.
+
+   ---
    .. link-button:: low_precision_layernorm.html
       :text: LowPrecisionLayerNorm
       :classes: card-title

@@ -96,13 +96,13 @@ extra_deps['dev'] = [
     # Imports for docs builds and running tests
     # Pinning versions strictly to avoid random test failures.
     # Should manually update dependency versions occassionally.
-    'custom_inherit==2.4.0',
+    'custom_inherit==2.4.1',
     'junitparser==2.8.0',
-    'coverage[toml]==7.1.0',
+    'coverage[toml]==7.2.1',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.2.1',
     'toml==0.10.2',
-    'ipython==8.8.0',
+    'ipython==8.11.0',
     'ipykernel==6.20.1',
     'jupyter==1.0.0',
     'yamllint==1.28.0',
@@ -128,13 +128,18 @@ extra_deps['dev'] = [
     'nbsphinx==0.8.12',
     'pandoc==2.3',
     'pypandoc==1.10',
-    'GitPython==3.1.30',
+    'GitPython==3.1.31',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
     'cryptography==38.0.4',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
 ]
+
+extra_deps['health_checker'] = {
+    'pynvml>=11.5.0,<12',
+    'slack_sdk>=3.19.5,<4',
+}
 
 extra_deps['deepspeed'] = [
     'deepspeed==0.7.7',
@@ -228,9 +233,9 @@ setup(name=package_name,
       packages=setuptools.find_packages(exclude=['docker*', 'examples*', 'scripts*', 'tests*']),
       classifiers=[
           'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.7',
           'Programming Language :: Python :: 3.8',
           'Programming Language :: Python :: 3.9',
+          'Programming Language :: Python :: 3.10',
       ],
       install_requires=install_requires,
       entry_points={
@@ -241,7 +246,7 @@ setup(name=package_name,
       },
       extras_require=extra_deps,
       dependency_links=['https://developer.download.nvidia.com/compute/redist'],
-      python_requires='>=3.7',
+      python_requires='>=3.8',
       ext_package='composer',
       cmdclass={'develop': develop})
 

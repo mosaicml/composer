@@ -110,7 +110,7 @@ def load_checkpoint(
             It can be a path to a file on the local disk, a URL, or if ``object_store`` is set, the object name
             for a checkpoint in a cloud bucket.
 
-            When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, checkpoints are shareded by rank.
+            When using `Deepspeed ZeRO <https://www.deepspeed.ai/tutorials/zero/>`_, checkpoints are sharded by rank.
             Instead of hard-coding the rank in the ``path``, use the following format variables:
 
             +------------------------+-------------------------------------------------------+
@@ -143,7 +143,7 @@ def load_checkpoint(
         object_store (Union[ObjectStore, LoggerDestination], optional): If the ``path`` is in an object store
             (i.e. AWS S3 or Google Cloud Storage), an instance of
             :class:`~.ObjectStore` or :class:`~.LoggerDestination` which will be used
-            to retreive the checkpoint. Otherwise, if the checkpoint is a local filepath, set to ``None``.
+            to retrieve the checkpoint. Otherwise, if the checkpoint is a local filepath, set to ``None``.
             (default: ``None``)
         load_weights_only (bool, optional): Whether or not to only restore the model weights from the checkpoint without
             restoring the associated state. (default: ``False``)
@@ -153,7 +153,7 @@ def load_checkpoint(
             Ignored if the checkpoint is a local file path. (default: ``True``)
         ignore_keys (List[str] | (Dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
             which, when provided, will be ignored from the state_dict before a checkpoint is loaded. Each path is a list
-            of strings specifying the keys to index into ``state_dict`` joined together with `/` as a seperator (as PyTorch
+            of strings specifying the keys to index into ``state_dict`` joined together with `/` as a separator (as PyTorch
             uses `.` in parameter names). If a prefix is provided, all children are also ignored (see Example 2).
             See :mod:`composer.core.state` for the structure of state_dict.
 
@@ -192,15 +192,24 @@ def load_checkpoint(
     """
     # download the checkpoint to the node-local folder
     log.debug('Loading checkpoint at %s', path)
-    tempdir_ctx = tempfile.TemporaryDirectory() if dist.get_local_rank() == 0 else contextlib.nullcontext(None)
+    # Each node gets one unique folder to store checkpoints that is shared amongst all local ranks in that node.
+    # If fsdp sharded state_dicts is enabled then EVERY rank gets a unique checkpoint folder.
+    tempdir_ctx = (tempfile.TemporaryDirectory() if (state.fsdp_sharded_state_dict_enabled or
+                                                     dist.get_local_rank() == 0) else contextlib.nullcontext(None))
     with tempdir_ctx as tempdir:
         try:
-            node_checkpoint_folder = _get_node_checkpoint_download_folder(tempdir)
+            # Get the path to the proper checkpoint folder corresponding to the current rank's node.
+            # If fsdp_sharded_state_dict_enabled then just use that rank's unique tempdir.
+            node_checkpoint_folder = (tempdir if state.fsdp_sharded_state_dict_enabled else
+                                      _get_node_checkpoint_download_folder(tempdir))
+            assert node_checkpoint_folder is not None
+
             composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = download_checkpoint(
                 path=path,
                 node_checkpoint_folder=node_checkpoint_folder,
                 object_store=object_store,
                 progress_bar=progress_bar,
+                fsdp_sharded_state_dict_enabled=state.fsdp_sharded_state_dict_enabled,
             )
             rng_state_dicts = _restore_checkpoint(
                 state,
@@ -237,6 +246,7 @@ def download_checkpoint(
     node_checkpoint_folder: str,
     object_store: Optional[Union[ObjectStore, LoggerDestination]],
     progress_bar: bool,
+    fsdp_sharded_state_dict_enabled: bool = False,
 ) -> Tuple[str, Optional[str], bool]:
     """Download the checkpoint stored at ``path``, potentially in ``object_store``, to ``node_checkpoint_folder``.
 
@@ -259,13 +269,16 @@ def download_checkpoint(
         composer_states_filepath = os.path.join(extracted_checkpoint_folder, _COMPOSER_STATES_FILENAME)
     else:
         # it's not an archive; it's just the composer state dict
-        # and only rank zero has this file
+        # and only rank zero has this file unless fsdp_sharded_state_dict_enabled then
+        # every rank has it's own file.
         extracted_checkpoint_folder = None
-        composer_states_filepath = rank_zero_checkpoint_filepath
+        composer_states_filepath = (rank_n_checkpoint_filepath
+                                    if fsdp_sharded_state_dict_enabled else rank_zero_checkpoint_filepath)
 
     try:
-        if dist.get_local_rank() == 0:
-            # every NODE needs the GLOBAL rank zero checkpoint
+        if ((fsdp_sharded_state_dict_enabled and dist.get_global_rank() == 0) or
+            (not fsdp_sharded_state_dict_enabled and dist.get_local_rank() == 0)):
+            # every NODE needs the GLOBAL rank zero checkpoint unless fsdp_sharded_state_dict_enabled.
             path = _format_path_with_rank_zero(path)
             get_file(destination=rank_zero_checkpoint_filepath,
                      path=path,
@@ -293,7 +306,7 @@ def download_checkpoint(
                          progress_bar=progress_bar)
             except FileNotFoundError:
                 # Allowing not-found errors to be ignored as sometimes there won't be rank-local checkpoints
-                # (e.g. when not using deepspeed)
+                # (e.g. when not using deepspeed nor using fsdp sharded checkpoints)
                 pass
 
             if extracted_checkpoint_folder is not None:
@@ -466,8 +479,8 @@ def save_checkpoint(
     if dirname:
         os.makedirs(dirname, exist_ok=True)
 
-    # only rank 0 saves the state_dict
-    if dist.get_global_rank() == 0:
+    # only rank 0 saves the state_dict unless state.fsdp_sharded_state_dict_enabled=True.
+    if dist.get_global_rank() == 0 or state.fsdp_sharded_state_dict_enabled:
         with open(save_filename, 'wb') as f:
             torch.save(state_dict, f)
 
@@ -480,7 +493,7 @@ def save_checkpoint(
 
     dist.barrier()  # ensure all ranks saved their files
 
-    if dist.get_global_rank() == 0 or is_deepspeed:
+    if dist.get_global_rank() == 0 or is_deepspeed or state.fsdp_sharded_state_dict_enabled:
         assert os.path.exists(save_filename), 'Expected file to have been saved.'
         return save_filename
     else:
