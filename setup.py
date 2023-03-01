@@ -102,7 +102,7 @@ extra_deps['dev'] = [
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.2.1',
     'toml==0.10.2',
-    'ipython==8.8.0',
+    'ipython==8.11.0',
     'ipykernel==6.20.1',
     'jupyter==1.0.0',
     'yamllint==1.28.0',
