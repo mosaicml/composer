@@ -135,7 +135,7 @@ def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, pretra
                                         device=device)
 
     loaded_finetuning_trainer.eval(finetuning_eval_dataloader)
-    
+
     original_acc = finetuning_trainer.state.eval_metrics['eval']['MulticlassAccuracy']
     loaded_acc = loaded_finetuning_trainer.state.eval_metrics['eval']['MulticlassAccuracy']
     assert original_acc.compute() > 0.0
