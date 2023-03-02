@@ -95,6 +95,10 @@ class HuggingFaceModel(ComposerModel):
                         f'This would cause an error during training.'
                         f' Resizing the model embeddings to {len(tokenizer)} from {self.config.vocab_size}.')
             self.model.resize_token_embeddings(len(tokenizer))
+        elif tokenizer is not None and self.config.vocab_size > len(tokenizer):
+            log.warning(
+                f'The number of tokens in the tokenizer is less than the number of tokens in the model.'
+                f'You may want to resize the model embeddings to {len(tokenizer)} from {self.config.vocab_size}.')
 
         self.use_logits = use_logits
 

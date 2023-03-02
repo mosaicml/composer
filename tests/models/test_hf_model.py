@@ -674,7 +674,8 @@ def test_embedding_resizing(tiny_bert_model, tiny_bert_tokenizer, embedding_resi
             # when the embedding size is greater than the tokenizer vocab size,
             # no adjustment is needed. Some embeddings will simply not be used
             assert tiny_bert_model.config.vocab_size == original_size + 100
-            assert len(caplog.messages) == 0
+            assert caplog.messages[0].startswith(
+                'The number of tokens in the tokenizer is less than the number of tokens in the model.')
         elif embedding_resize == 'no_resize':
             assert tiny_bert_model.config.vocab_size == original_size
             assert len(caplog.messages) == 0
