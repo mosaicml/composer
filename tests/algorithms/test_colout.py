@@ -303,9 +303,6 @@ class TestColOutAlgorithm:
 
 @pytest.mark.parametrize('p_row,p_col', [(1.5, 0.15), (0.15, 1.5)])
 def test_invalid_hparams(p_row: float, p_col: float):
-    """Test that invalid hyperparameters error.
-
-    Ideally this could be caught by the Hparams, but that's not yet supported in yahp.
-    """
+    """Test that invalid hyperparameters error."""
     with pytest.raises(ValueError):
         ColOut(p_row, p_col, False)

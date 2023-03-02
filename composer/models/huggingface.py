@@ -10,7 +10,6 @@ import json
 import logging
 import tempfile
 import textwrap
-import warnings
 from collections import UserDict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
@@ -18,7 +17,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 import torch
 from torchmetrics import Metric
 
-from composer.metrics import METRIC_DEFAULT_CTORS, InContextLearningMetric
+from composer.metrics import InContextLearningMetric
 from composer.models.base import ComposerModel
 from composer.utils import MissingConditionalImportError, get_file, import_object
 
@@ -381,16 +380,6 @@ class HuggingFaceModel(ComposerModel):
                         'content': tokenizer_file_content
                     }
         return {'model': model_output, 'tokenizer': tokenizer_output}
-
-    def add_eval_metrics(self, evaluator):
-        warnings.warn(
-            DeprecationWarning('The add_eval_metrics method is deprecated and will be removed in a future release. '
-                               'Please pass in `eval_metrics` directly to the constructor.'))
-        evaluator_metrics = {m: METRIC_DEFAULT_CTORS[m]() for m in evaluator.metric_names}
-        if self.val_metrics is not None:
-            self.val_metrics.update(evaluator_metrics)
-        else:
-            self.val_metrics = evaluator_metrics
 
 
 def _is_registered_causal_lm(model: transformers.PreTrainedModel) -> bool:

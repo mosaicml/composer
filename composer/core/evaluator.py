@@ -6,10 +6,7 @@
 from __future__ import annotations
 
 import math
-import warnings
 from typing import Any, Callable, Dict, Iterable, List, Optional, Union
-
-from torchmetrics import Metric, MetricCollection
 
 from composer.core.data_spec import DataSpec, ensure_data_spec
 from composer.core.event import Event
@@ -148,7 +145,6 @@ class Evaluator:
         label: str,
         dataloader: Union[DataSpec, Iterable, Dict[str, Any]],
         metric_names: Optional[List[str]] = None,
-        metrics: Optional[Union[Metric, MetricCollection]] = None,
         subset_num_batches: Optional[int] = None,
         eval_interval: Optional[Union[int, str, Time, Callable[[State, Event], bool]]] = None,
     ):
@@ -156,18 +152,10 @@ class Evaluator:
         self.dataloader = ensure_data_spec(dataloader)
 
         self.metric_names = []
-        if metric_names is not None and metrics is not None:
-            raise ValueError('only one of ``metrics`` or ``metric_names`` should be specified.')
-        elif metric_names is not None:
+        if metric_names is not None:
             if not isinstance(metric_names, list):
                 raise ValueError(f'``metric_names`` should be a list of strings, not a {type(metric_names)}')
             self.metric_names = metric_names
-        elif metrics is not None:
-            warnings.warn(DeprecationWarning('``metrics`` is deprecated and will be removed in 0.13.0.'))
-            if isinstance(metrics, Metric):
-                self.metric_names = [metrics.__class__.__name__]
-            else:
-                self.metric_names = [str(k) for k, _ in metrics.items()]
 
         self.subset_num_batches = subset_num_batches
         self._eval_interval = None
