@@ -235,7 +235,7 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
     model = HuggingFaceModel(
         model=model,
         tokenizer=None,
-        metrics=[InContextLearningLMAccuracy()],
+        eval_metrics=[InContextLearningLMAccuracy()],
         use_logits=True,
     )
 
@@ -275,7 +275,7 @@ def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenize
     model = HuggingFaceModel(
         model=model,
         tokenizer=None,
-        metrics=[InContextLearningMultipleChoiceAccuracy()],
+        eval_metrics=[InContextLearningMultipleChoiceAccuracy()],
         use_logits=True,
     )
 
