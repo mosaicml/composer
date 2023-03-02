@@ -96,8 +96,10 @@ class ConsoleLogger(LoggerDestination):
 
         if unit == TimeUnit.EPOCH and (cur_epoch % int(self.log_interval) == 0 or cur_epoch == 1):
             self.log_to_console(self.logged_metrics, prefix='Train ', state=state)
-            # Clear logged metrics.
-            self.logged_metrics = {}
+        # Always clear logged metrics so they don't get logged in a subsequent eval call. The
+        # metrics will be recomputed and overridden in future batches so they can be safely
+        # discarded.
+        self.logged_metrics = {}
 
     def batch_end(self, state: State, logger: Logger) -> None:
         cur_batch = int(state.timestamp.batch)
@@ -114,7 +116,8 @@ class ConsoleLogger(LoggerDestination):
 
     def eval_end(self, state: State, logger: Logger) -> None:
         # Log to the console at the end of eval no matter what log interval is selected.
-        self.log_to_console(state.eval_metric_values, prefix='Eval ', state=state, is_train=False)
+        self.log_to_console(self.logged_metrics, prefix='Eval ', state=state, is_train=False)
+        self.logged_metrics = {}
 
     def fit_start(self, state: State, logger: Logger) -> None:
         if not self.hparams_already_logged_to_console:

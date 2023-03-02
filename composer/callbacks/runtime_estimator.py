@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import time
 import warnings
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from composer.core import Callback, State, TimeUnit
 from composer.loggers import Logger
@@ -50,13 +50,28 @@ class RuntimeEstimator(Callback):
         skip_batches (int, optional): Number of batches to skip before starting clock to estimate
             remaining time. Typically, the first few batches are slower due to dataloader, cache
             warming, and other reasons. Defaults to 1.
+        time_unit (str, optional): Time unit to use for `wall_clock` logging. Can be one of
+            'seconds', 'minutes', 'hours', or 'days'. Defaults to 'hours'.
     """
 
-    def __init__(self, skip_batches: int = 1) -> None:
+    def __init__(self, skip_batches: int = 1, time_unit: str = 'hours') -> None:
         self._enabled = True
         self.batches_left_to_skip = skip_batches
         self.start_time = None
         self.start_dur = None
+
+        self.divider = 1
+        if time_unit == 'seconds':
+            self.divider = 1
+        elif time_unit == 'minutes':
+            self.divider = 60
+        elif time_unit == 'hours':
+            self.divider = 60 * 60
+        elif time_unit == 'days':
+            self.divider = 60 * 60 * 24
+        else:
+            raise ValueError(
+                f'Invalid time_unit: {time_unit}. Must be one of "seconds", "minutes", "hours", or "days".')
 
         # Keep track of time spent evaluating
         self.total_eval_wct = 0.0
@@ -65,21 +80,7 @@ class RuntimeEstimator(Callback):
         self.eval_frequency_per_label: Dict[str, float] = {}
         self.last_elapsed_fraction: float = 0.0
 
-    def state_dict(self) -> Dict[str, Any]:
-        return {
-            'total_eval_wct': self.total_eval_wct,
-            'eval_wct_per_label': self.eval_wct_per_label,
-            'eval_frequency_per_label': self.eval_frequency_per_label,
-            'last_elapsed_fraction': self.last_elapsed_fraction,
-        }
-
-    def load_state_dict(self, state: Dict[str, Any]) -> None:
-        self.total_eval_wct = state['total_eval_wct']
-        self.eval_wct_per_label = state['eval_wct_per_label']
-        self.eval_frequency_per_label = state['eval_frequency_per_label']
-        self.last_elapsed_fraction = state['last_elapsed_fraction']
-
-    def get_elapsed_duration(self, state: State) -> Optional[float]:
+    def _get_elapsed_duration(self, state: State) -> Optional[float]:
         """Get the elapsed duration.
 
         Unlike `state.get_elapsed_duration`, this method computes fractional progress in an epoch
@@ -102,7 +103,7 @@ class RuntimeEstimator(Callback):
     def batch_start(self, state: State, logger: Logger) -> None:
         if self._enabled and self.start_time is None and self.batches_left_to_skip == 0:
             self.start_time = time.time()
-            self.start_dur = self.get_elapsed_duration(state)
+            self.start_dur = self._get_elapsed_duration(state)
             if self.start_dur is None:
                 warnings.warn('`max_duration` is not set. Cannot estimate remaining time.')
                 self._enabled = False
@@ -114,8 +115,8 @@ class RuntimeEstimator(Callback):
             self.batches_left_to_skip -= 1
             return
 
-        elapsed_dur = self.get_elapsed_duration(state)
-        assert elapsed_dur is not None, 'max_duration checked as non-None on batch_start'
+        elapsed_dur = self._get_elapsed_duration(state)
+        assert elapsed_dur is not None, 'max_duration checked as non-None on batch_start if enabled'
 
         assert self.start_dur is not None
         assert self.start_time is not None
@@ -140,7 +141,7 @@ class RuntimeEstimator(Callback):
                 remaining_calls = num_total_evals - num_evals_finished
                 remaining_time += eval_wct_avg * remaining_calls
 
-            logger.log_metrics({'wall_clock/remaining_estimate': remaining_time})
+            logger.log_metrics({'wall_clock/remaining_estimate': remaining_time / self.divider})
 
     def eval_end(self, state: State, logger: Logger) -> None:
         # If eval is called before training starts, ignore it
@@ -153,7 +154,9 @@ class RuntimeEstimator(Callback):
         if state.dataloader_label not in self.eval_wct_per_label:
             self.eval_wct_per_label[state.dataloader_label] = []
         self.eval_wct_per_label[state.dataloader_label].append(state.eval_timestamp.total_wct.total_seconds())
-        elapsed_fraction = self.get_elapsed_duration(state)
-        assert elapsed_fraction is not None, 'max_duration checked as non-None on batch_start'
+        elapsed_dur = self._get_elapsed_duration(state)
+        assert elapsed_dur is not None, 'max_duration checked as non-None on batch_start if enabled'
+        assert self.start_dur is not None, 'start_dur is set on batch_start if enabled'
+        elapsed_fraction = elapsed_dur - self.start_dur
         num_evals_finished = len(self.eval_wct_per_label[state.dataloader_label])
         self.eval_frequency_per_label[state.dataloader_label] = elapsed_fraction / num_evals_finished
