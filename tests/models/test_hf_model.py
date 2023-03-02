@@ -16,8 +16,7 @@ from torch.utils.data import DataLoader
 from torchmetrics import Metric
 from torchmetrics.classification import MulticlassAccuracy
 
-from composer.core import Evaluator
-from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
+from composer.metrics import InContextLearningLMAccuracy, LanguageCrossEntropy, MaskedAccuracy
 from composer.trainer import Trainer
 from composer.utils import dist, is_model_fsdp
 from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset
@@ -598,13 +597,12 @@ def test_add_eval_metrics(tiny_bert_model, tiny_bert_tokenizer):
 
     metrics: List[Metric] = [LanguageCrossEntropy(ignore_index=-100)]
 
-    dataset = RandomTextClassificationDataset(size=1, vocab_size=1, sequence_length=1, num_classes=1, use_keys=True)
-
-    dataloader = DataLoader(dataset, batch_size=1, sampler=dist.get_sampler(dataset))
-    evaluator = Evaluator(label='evaluator', dataloader=dataloader, metric_names=['InContextLearningLMAccuracy'])
-
-    hf_model = HuggingFaceModel(tiny_bert_model, tokenizer=tiny_bert_tokenizer, metrics=metrics)
-    hf_model.add_eval_metrics(evaluator)
+    hf_model = HuggingFaceModel(
+        tiny_bert_model,
+        tokenizer=tiny_bert_tokenizer,
+        metrics=metrics,
+        eval_metrics=[InContextLearningLMAccuracy()],
+    )
 
     assert hf_model.train_metrics is not None
     assert hf_model.val_metrics is not None
