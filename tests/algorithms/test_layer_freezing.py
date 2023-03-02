@@ -31,7 +31,7 @@ def _generate_state(request: pytest.FixtureRequest, model_cls, epoch: int, max_e
                   precision=Precision.FP32,
                   dataloader=Mock(__len__=lambda x: 100),
                   dataloader_label='train',
-                  grad_accum=1,
+                  device_train_microbatch_size=1,
                   max_duration=f'{max_epochs}ep')
 
     # fast forward by epochs

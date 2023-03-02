@@ -154,18 +154,6 @@ def _set_evaluator_interval_and_subset_num_batches(
                                  'run forever and never terminate.')
 
 
-def _is_auto_grad_accum(grad_accum: Union[int, str], device: Device):
-    if grad_accum == 'auto':
-        warnings.warn(("Setting `grad_accum='auto'` is an experimental feature which may cause "
-                       'uncaught Cuda Out of Memory errors. In this case, please manually '
-                       'set grad_accum explicitly to an integer instead.'))
-        if not isinstance(device, DeviceGPU):
-            raise ValueError('Can only use adaptive grad_accum on GPU. Please set grad_accum >= 1')
-        return True
-    else:
-        return False
-
-
 def _is_auto_microbatching(device_train_microbatch_size: Union[int, str], device: Device):
     if device_train_microbatch_size == 'auto':
         warnings.warn(("Setting `device_train_microbatch_size='auto'` is an experimental feature which may cause "
@@ -178,15 +166,6 @@ def _is_auto_microbatching(device_train_microbatch_size: Union[int, str], device
         return True
     else:
         return False
-
-
-def _get_initial_grad_accum(grad_accum: Union[int, str]):
-    if grad_accum == 'auto':
-        return 1
-    elif isinstance(grad_accum, int):
-        return grad_accum
-    else:
-        raise ValueError("grad_accum must be an int or ``'auto'``")
 
 
 def _get_initial_device_train_microbatch_size(device_train_microbatch_size: Optional[Union[int, str]],
@@ -228,39 +207,6 @@ def _is_cuda_oom(e: RuntimeError):
                       'error with non-contiguous inputs.')
         return True
     return False
-
-
-def _adjust_grad_accum(state: State, device_batch_size: int):
-    """Adjust grad_accum if we encounter OOM.
-
-    Args:
-        state (State): State of trainer.
-        device_batch_size (int): Batch size.
-    """
-    # If any rank hit CUDA OOM, update grad_accum and retry. Raise runtime error if training 1 sample
-    # at a time still resulted in CUDA out of memory.
-    assert state.grad_accum is not None
-    if state.grad_accum == device_batch_size:
-        raise RuntimeError(('CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
-                            'The GPU does not have enough memory to process even 1 sample during train.'))
-    else:
-        original_grad_accum = state.grad_accum
-        state.grad_accum = min(2 * state.grad_accum, device_batch_size)
-        warnings.warn(
-            RuntimeWarning('CUDA out of memory detected. Gradient Accumulation, the number of train microbatches, '
-                           f'increased from {original_grad_accum} -> {state.grad_accum}, '
-                           'and the batch will be retrained with a '
-                           f'micro-batchsize of {device_batch_size // state.grad_accum}'))
-    # Clear gradients in case failure happened during backwards pass
-    if hasattr(state, 'outputs'):
-        del state.outputs
-    if hasattr(state, 'loss'):
-        del state.loss
-    for optimizer in state.optimizers:
-        optimizer.zero_grad(set_to_none=True)
-    if state.scaler is not None:
-        state.scaler._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
-    torch.cuda.empty_cache()
 
 
 def _adjust_device_train_microbatch_size(state: State):
@@ -784,17 +730,6 @@ class Trainer:
         precision (Precision | str, optional): Numerical precision to use for training. One of ``fp32``, ``amp_bf16``
             or ``amp_fp16`` (recommended). (default: ``Precision.FP32`` if training on CPU; ``Precision.AMP_FP16`` if
             training on GPU)
-        grad_accum (Union[int, str], optional): The number of microbatches to split a per-device batch into. Gradients
-            are summed over the microbatches per device. If set to ``auto``, dynamically increases grad_accum
-            if microbatch is too large for GPU. (default: ``1``)
-
-            .. note:: This is implemented by taking the batch yielded by the ``train_dataloader`` and splitting
-                it into ``grad_accum`` sections. Each section is of size ``train_dataloader // grad_accum``.
-                If the batch size of the dataloader is not divisible by ``grad_accum``,
-                then the last section will be of size ``batch_size mod grad_accum``.
-
-            .. deprecated:: 0.12
-               Please use device_train_microbatch_size.
         device_train_microbatch_size (Union[int, str), optional): The number of samples to process on each device per
             microbatch during training. Gradients are summed over the microbatches per device. If set to ``auto``,
             dynamically decreases device_train_microbatch_size if microbatch is too large for GPU. (default: ``None``)
@@ -918,7 +853,6 @@ class Trainer:
         # System/Numerics
         device: Optional[Union[str, Device]] = None,
         precision: Optional[Union[str, Precision]] = None,
-        grad_accum: Optional[Union[int, str]] = 1,
         device_train_microbatch_size: Optional[Union[int, str]] = None,
 
         # Reproducibility
@@ -1012,43 +946,21 @@ class Trainer:
             optimizers = map_collection(optimizers, device.optimizer_to_device)
 
         # Microbatching
-        # To support backwards compatibility, we currently support both device_train_microbatch_size
-        # and grad_accum. If both are specified with grad_accum=1, we will use device_train_microbatch_size.
-        if device_train_microbatch_size is not None:
-            using_device_microbatch_size = True
-            if grad_accum != 1:
-                raise ValueError(
-                    'Cannot use both device_train_microbatch_size and grad_accum. grad_accum is deprecated '
-                    'so it is recommended to use device_train_microbatch_size.')
-            grad_accum = None
-            auto_microbatching = _is_auto_microbatching(device_train_microbatch_size, device=device)
-            if auto_microbatching and profiler:
-                raise ValueError("`device_train_microbatch_size='auto'` is not compatible with the profiler. It is "
-                                 "recommended to run a mini-run with `device_train_microbatch_size='auto'` to identify "
-                                 'the optimal device_train_microbatch_size value and then manually specify that in a '
-                                 'second run with profiler.')
-            # If auto_microbatching is True, the microbatch size will be determined when dataloader
-            # is specified. train_dataloader is parsed after `Event.INIT` or in fit()
-            device_train_microbatch_size = _get_initial_device_train_microbatch_size(
-                device_train_microbatch_size, auto_microbatching, None)
-        elif grad_accum is not None:
-            using_device_microbatch_size = False
-            if grad_accum != 1:
-                warnings.warn(
-                    DeprecationWarning(
-                        f'grad_accum set to {grad_accum} but is deprecated and will be removed in 0.13. Please use device_train_microbatch_size instead.'
-                    ))
-            auto_microbatching = _is_auto_grad_accum(grad_accum, device=device)
-            if auto_microbatching and profiler:
-                raise ValueError("`grad_accum='auto'` is not compatible with the profiler. It is recommended to run "
-                                 "a mini-run with `grad_accum='auto'` to identify the optimal grad_accum value and "
-                                 'then manually specify that in a second run with profiler.')
-            grad_accum = _get_initial_grad_accum(grad_accum)
-        else:
-            raise ValueError('Either grad_accum or device_train_microbatch_size must be specified. As grad-accum '
-                             'is deprecated, we recommend using device_train_microbatch_size.')
+        if device_train_microbatch_size is None:
+            warnings.warn("device_train_microbatch_size not specified, defaulting to 'auto'.")
+            device_train_microbatch_size = 'auto'
+        auto_microbatching = _is_auto_microbatching(device_train_microbatch_size, device=device)
+        if auto_microbatching and profiler:
+            raise ValueError("`device_train_microbatch_size='auto'` is not compatible with the profiler. It is "
+                             "recommended to run a mini-run with `device_train_microbatch_size='auto'` to identify "
+                             'the optimal device_train_microbatch_size value and then manually specify that in a '
+                             'second run with profiler.')
+        # If auto_microbatching is True, the microbatch size will be determined when dataloader
+        # is specified. train_dataloader is parsed after `Event.INIT` or in fit()
+        device_train_microbatch_size = _get_initial_device_train_microbatch_size(device_train_microbatch_size,
+                                                                                 auto_microbatching, None)
+
         eval_batch_split = 1
-        assert not isinstance(grad_accum, str)
         assert not isinstance(device_train_microbatch_size, str)
 
         # Run Name
@@ -1065,11 +977,9 @@ class Trainer:
             model=model,
             device=device,
             callbacks=callbacks,
-            grad_accum=grad_accum,
             eval_batch_split=eval_batch_split,
             device_train_microbatch_size=device_train_microbatch_size,
             auto_microbatching=auto_microbatching,
-            using_device_microbatch_size=using_device_microbatch_size,
             precision=precision,
             optimizers=optimizers,
             run_name=run_name,
@@ -1250,9 +1160,8 @@ class Trainer:
                 self.state.train_dataloader = pl.MpDeviceLoader(self.state.dataloader, xm.xla_device())
             else:
                 self.state.train_dataloader = self.state.dataloader
-            if self.state.using_device_microbatch_size:
-                self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
-                    self.state.device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
+            self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
+                self.state.device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
 
         # Max Duration
         if max_duration is not None:
@@ -1552,7 +1461,6 @@ class Trainer:
         eval_interval: Union[int, str, Time, Callable[[State, Event], bool]] = 1,
 
         # Numerics
-        grad_accum: Optional[Union[int, str]] = None,
         device_train_microbatch_size: Optional[Union[int, str]] = None,
         precision: Optional[Union[str, Precision]] = None,
     ):
@@ -1661,7 +1569,6 @@ class Trainer:
             eval_dataloader (Iterable | DataSpec | Evaluator | Sequence[Evaluator], optional): See :class:`.Trainer`.
             eval_subset_num_batches (int, optional): See :class:`.Trainer`.
             eval_interval (int | str | Time | (State, Event) -> bool, optional): See :class:`.Trainer`.
-            grad_accum (int | str, optional): See :class:`.Trainer`.
             device_train_microbatch_size (int | str, optional): See :class:`.Trainer`.
             precision (Precision | str, optional): See :class:`.Trainer`.
         """
@@ -1670,9 +1577,8 @@ class Trainer:
             self._train_data_spec = ensure_data_spec(train_dataloader)
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label)
             self.state.train_dataloader = self.state.dataloader
-            if self.state.using_device_microbatch_size:
-                self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
-                    self.state.device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
+            self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
+                self.state.device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
         if self._train_data_spec is None:
             _raise_missing_argument_exception('train_dataloader')
         if train_subset_num_batches is not None:
@@ -1760,9 +1666,7 @@ class Trainer:
             self.state.evaluators = evaluators
 
         # Microbatching
-        if grad_accum is not None and device_train_microbatch_size is not None:
-            raise ValueError('Cannot specify both `grad_accum` and `device_train_microbatch_size`.')
-        elif device_train_microbatch_size is not None:
+        if device_train_microbatch_size is not None:
             self.state.auto_microbatching = _is_auto_microbatching(device_train_microbatch_size,
                                                                    device=self.state.device)
             if self.state.auto_microbatching and self.state.profiler:
@@ -1772,15 +1676,6 @@ class Trainer:
                                  'second run with profiler.')
             self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
                 device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
-            self.state.using_device_microbatch_size = True
-        elif grad_accum is not None:
-            self.state.auto_microbatching = _is_auto_grad_accum(grad_accum, device=self.state.device)
-            if self.state.auto_microbatching and self.state.profiler:
-                raise ValueError("`grad_accum='auto'` is not compatible with the profiler. It is recommended to run "
-                                 "a mini-run with `grad_accum='auto'` to identify the optimal grad_accum value and "
-                                 'then manually specify that in a second run with profiler.')
-            self.state.grad_accum = _get_initial_grad_accum(grad_accum)
-            self.state.using_device_microbatch_size = False
 
         # Precision
         if precision is not None:
@@ -2120,14 +2015,8 @@ class Trainer:
             found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
             try:
                 assert self.state.scaler is not None
-                if self.state.using_device_microbatch_size:
-                    assert self.state.device_train_microbatch_size is not None
-                    microbatches = self._train_data_spec.split_batch(device_batch,
-                                                                     self.state.device_train_microbatch_size)
-                else:
-                    assert self.state.grad_accum is not None
-                    microbatches = self._train_data_spec._num_microbatches_split_batch(
-                        device_batch, self.state.grad_accum)
+                assert self.state.device_train_microbatch_size is not None
+                microbatches = self._train_data_spec.split_batch(device_batch, self.state.device_train_microbatch_size)
                 if self._use_closures():
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
@@ -2160,21 +2049,12 @@ class Trainer:
                 found_cuda_oom = self.state.device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
                 dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
                 if found_cuda_oom.item() == 1:
-                    device_batch_size = self._train_data_spec.get_num_samples_in_batch(device_batch)
-                    if self.state.using_device_microbatch_size:
-                        _adjust_device_train_microbatch_size(self.state)
-                    else:
-                        _adjust_grad_accum(self.state, device_batch_size)
+                    _adjust_device_train_microbatch_size(self.state)
                     # Skip return and rerun after handling oom
                     continue
             # Log microbatch and return loss if we've completed without OOMing.
-            if self.state.using_device_microbatch_size:
-                assert self.state.device_train_microbatch_size is not None
-                self.logger.log_metrics(
-                    {'trainer/device_train_microbatch_size': self.state.device_train_microbatch_size})
-            else:
-                assert self.state.grad_accum is not None
-                self.logger.log_metrics({'trainer/grad_accum': self.state.grad_accum})
+            assert self.state.device_train_microbatch_size is not None
+            self.logger.log_metrics({'trainer/device_train_microbatch_size': self.state.device_train_microbatch_size})
             return total_loss_dict
 
     def _train_microbatches(self,

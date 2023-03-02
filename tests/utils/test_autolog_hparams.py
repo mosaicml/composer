@@ -83,6 +83,7 @@ def test_extract_hparams_trainer():
     trainer = Trainer(
         model=model,
         train_dataloader=train_dl,
+        device_train_microbatch_size=1,
         optimizers=optimizer,
         auto_log_hparams=True,
         progress_bar=False,
@@ -161,8 +162,7 @@ def test_extract_hparams_trainer():
         # System/Numerics
         'device': 'DeviceCPU',
         'precision': 'Precision',
-        'grad_accum': 1,
-        'device_train_microbatch_size': None,
+        'device_train_microbatch_size': 1,
 
         # Reproducibility
         'seed': 3,
@@ -183,7 +183,6 @@ def test_extract_hparams_trainer():
         'latest_remote_file_name': None,
         'num_optimizers': 1,
         'remote_ud_has_format_string': [False],
-        'using_device_microbatch_size': False
     }
 
     assert trainer.local_hparams == expected_hparams

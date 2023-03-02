@@ -116,13 +116,10 @@ class TestEventCalls:
 
         assert state.dataloader_len is not None
         total_steps = num_epochs * int(state.dataloader_len)
-        if state.using_device_microbatch_size:
-            batch_size = state.train_dataloader.batch_size  # type: ignore
-            total_microbatches = total_steps * math.ceil(
-                batch_size / state.device_train_microbatch_size)  # type: ignore
-        else:
-            assert state.grad_accum is not None
-            total_microbatches = total_steps * state.grad_accum
+        batch_size = state.train_dataloader.batch_size  # type: ignore
+        assert batch_size is not None
+        assert state.device_train_microbatch_size is not None
+        total_microbatches = total_steps * math.ceil(batch_size / state.device_train_microbatch_size)
 
         if eval_interval.unit == TimeUnit.BATCH:
             total_evals = total_steps // int(eval_interval)
