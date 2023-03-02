@@ -17,14 +17,14 @@ class ThresholdStopper(Callback):
     Example:
         .. doctest::
 
+            >>> from composer import Evaluator, Trainer
             >>> from composer.callbacks.threshold_stopper import ThresholdStopper
-            >>> from torchmetrics.classification.accuracy import Accuracy
             >>> # constructing trainer object with this callback
-            >>> threshold_stopper = ThresholdStopper("Accuracy", "my_evaluator", 0.7)
+            >>> threshold_stopper = ThresholdStopper('MulticlassAccuracy', 'my_evaluator', 0.7)
             >>> evaluator = Evaluator(
             ...     dataloader = eval_dataloader,
             ...     label = 'my_evaluator',
-            ...     metric_names = ['Accuracy']
+            ...     metric_names = ['MulticlassAccuracy']
             ... )
             >>> trainer = Trainer(
             ...     model=model,
