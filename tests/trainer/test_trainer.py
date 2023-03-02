@@ -300,18 +300,18 @@ class TestTrainerInitOrFit:
             Evaluator(
                 label='eval',
                 dataloader=_get_classification_dataloader(),
-                metric_names=['Accuracy'],
+                metric_names=['MulticlassAccuracy'],
             ),  # an evaluator
             [  # multiple evaluators
                 Evaluator(
                     label='eval1',
                     dataloader=_get_classification_dataloader(),
-                    metric_names=['Accuracy'],
+                    metric_names=['MulticlassAccuracy'],
                 ),
                 Evaluator(
                     label='eval2',
                     dataloader=_get_classification_dataloader(),
-                    metric_names=['Accuracy'],
+                    metric_names=['MulticlassAccuracy'],
                 ),
             ],
         ],
