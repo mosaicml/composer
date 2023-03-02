@@ -90,12 +90,16 @@ class HuggingFaceModel(ComposerModel):
                 'The tokenizer was not provided. This means the tokenizer config will not be saved in the checkpoint.')
 
         if tokenizer is not None and self.config.vocab_size < len(tokenizer):
-            # set model's word embedding matrix and final lm_head to vocab size according to tokenizer
+            # when the embedding size is smaller than the tokenizer vocab size,
+            # the embeddings should get resized to match the tokenizer vocab size
             log.warning(f'The number of tokens in the tokenizer is greater than the number of tokens in the model'
                         f'This would cause an error during training.'
                         f' Resizing the model embeddings to {len(tokenizer)} from {self.config.vocab_size}.')
             self.model.resize_token_embeddings(len(tokenizer))
         elif tokenizer is not None and self.config.vocab_size > len(tokenizer):
+            # when the embedding size is greater than the tokenizer vocab size,
+            # the embeddings do not _need_ to be resized to match the tokenizer vocab size,
+            # and should be done by the user if desired
             log.warning(
                 f'The number of tokens in the tokenizer is less than the number of tokens in the model.'
                 f'You may want to resize the model embeddings to {len(tokenizer)} from {self.config.vocab_size}.')
