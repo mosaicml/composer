@@ -271,8 +271,8 @@ class State(Serializable):
             ...     ...,
             ...     train_dataloader=train_dataloader,
             ...     eval_dataloader=[
-            ...         Evaluator(label='eval1', dataloader=eval_1_dl, metric_names=['MultitaskAccuracy']),
-            ...         Evaluator(label='eval2', dataloader=eval_2_dl, metric_names=['MultitaskAccuracy']),
+            ...         Evaluator(label='eval1', dataloader=eval_1_dl, metric_names=['Accuracy']),
+            ...         Evaluator(label='eval2', dataloader=eval_2_dl, metric_names=['Accuracy']),
             ...     ],
             ... )
             >>> trainer.fit()
