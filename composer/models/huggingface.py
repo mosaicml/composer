@@ -99,12 +99,13 @@ class HuggingFaceModel(ComposerModel):
         self.train_metrics: Optional[Dict] = None
         self.val_metrics: Optional[Dict] = None
 
+        if eval_metrics is not None:
+            self.val_metrics = {metric.__class__.__name__: metric for metric in eval_metrics}
         if metrics is not None:
             self.train_metrics = {metric.__class__.__name__: metric for metric in metrics}
+            # if eval_metrics is None, use the same metrics as train_metrics
             if eval_metrics is None:
                 self.val_metrics = {metric.__class__.__name__: metric for metric in metrics}
-            else:
-                self.val_metrics = {metric.__class__.__name__: metric for metric in eval_metrics}
 
         self.labels: Optional[torch.Tensor] = None  # set in eval_forward() if exists
 
