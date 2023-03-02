@@ -194,7 +194,7 @@ def test_eval_at_fit_end(eval_interval: Union[str, Time, int], max_duration: str
             dataset=eval_dataset,
             sampler=dist.get_sampler(eval_dataset),
         ),
-        metric_names=['Accuracy'],
+        metric_names=['MulticlassAccuracy'],
     )
 
     evaluator.eval_interval = evaluate_periodically(
@@ -234,7 +234,7 @@ def _get_classification_dataloader():
     Evaluator(
         label='eval',
         dataloader=_get_classification_dataloader(),
-        metric_names=['Accuracy'],
+        metric_names=['MulticlassAccuracy'],
     ),
 ])
 @pytest.mark.parametrize(
@@ -287,7 +287,7 @@ def test_eval_params_evaluator():
             dataset=eval_dataset,
             sampler=dist.get_sampler(eval_dataset),
         ),
-        metric_names=['Accuracy'],
+        metric_names=['MulticlassAccuracy'],
         eval_interval=f'{eval_interval_batches}ba',
         subset_num_batches=eval_subset_num_batches,
     )
@@ -373,7 +373,7 @@ def test_eval_batch_can_be_modified(add_algorithm: bool):
         trainer.eval()
 
 
-@pytest.mark.parametrize('metric_names', ['Accuracy', ['Accuracy']])
+@pytest.mark.parametrize('metric_names', ['MulticlassAccuracy', ['MulticlassAccuracy']])
 def test_evaluator_metric_names_string_errors(metric_names):
     eval_dataset = RandomClassificationDataset(size=8)
     eval_dataloader = DataLoader(eval_dataset, batch_size=4, sampler=dist.get_sampler(eval_dataset))

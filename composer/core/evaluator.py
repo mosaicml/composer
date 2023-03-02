@@ -99,16 +99,16 @@ class Evaluator:
     .. doctest::
 
        >>> eval_evaluator = Evaluator(
-       ...     label="myEvaluator",
+       ...     label='myEvaluator',
        ...     dataloader=eval_dataloader,
-       ...     metric_names=['Accuracy']
+       ...     metric_names=['MulticlassAccuracy']
        ... )
        >>> trainer = Trainer(
        ...     model=model,
        ...     train_dataloader=train_dataloader,
        ...     eval_dataloader=eval_evaluator,
        ...     optimizers=optimizer,
-       ...     max_duration="1ep",
+       ...     max_duration='1ep',
        ... )
 
     Args:
@@ -116,7 +116,7 @@ class Evaluator:
         dataloader (DataSpec | Iterable | Dict[str, Any]): Iterable that yields batches, a :class:`.DataSpec`
             for evaluation, or a Dict of :class:`.DataSpec` kwargs.
         metric_names: The list of metric names to compute.
-            Each value in this list can be a regex string (e.g. "Accuracy", "f1" for "BinaryF1Score",
+            Each value in this list can be a regex string (e.g. "MulticlassAccuracy", "f1" for "BinaryF1Score",
             "Top-." for "Top-1", "Top-2", etc). Each regex string will be matched against the keys of the dictionary returned
             by ``model.get_metrics()``. All matching metrics will be evaluated.
 
