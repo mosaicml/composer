@@ -213,7 +213,7 @@ def _main():
     composer_entries = []
 
     # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
-    composer_versions = ['0.12.1']  # Only build images for the latest composer version
+    composer_versions = ['0.13.0']  # Only build images for the latest composer version
     composer_python_versions = [LATEST_PYTHON_VERSION]  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):
