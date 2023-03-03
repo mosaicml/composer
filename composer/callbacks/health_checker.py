@@ -17,12 +17,12 @@ except ImportError:
 import os
 
 import numpy as np
-from slack_sdk.webhook import WebhookClient
 
 from composer.core import Callback, State
 from composer.core.time import Timestamp
 from composer.loggers import Logger
 from composer.utils import dist
+from composer.utils.import_helpers import MissingConditionalImportError
 
 log = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ class HealthChecker(Callback):
         slack_webhook_url (str, optional): Slack URL to send alerts. Can also
             be set with the SLACK_WEBHOOK_URL environment variable. Default: None
         test_mode (bool, optional): If True, will send a test alert at the first check.
-            Default: False
+            Default: True
     """
 
     def __init__(
@@ -58,7 +58,7 @@ class HealthChecker(Callback):
         window_size: int = 120,
         wait: int = 120,
         slack_webhook_url: Optional[str] = None,
-        test_mode: bool = False,
+        test_mode: bool = True,
     ) -> None:
         self.sample_freq = sample_freq
         self.window_size = window_size
@@ -68,6 +68,13 @@ class HealthChecker(Callback):
 
         if not self.slack_webhook_url:
             self.slack_webhook_url = os.environ.get('SLACK_WEBHOOK_URL', None)
+
+        if self.slack_webhook_url:
+            # fail fast if missing import
+            try:
+                import slack_sdk as slack_sdk
+            except ImportError as e:
+                raise MissingConditionalImportError('health_checker', 'slack_sdk') from e
 
         self.last_sample = 0
         self.last_check = 0
@@ -133,6 +140,7 @@ class HealthChecker(Callback):
 
         logging.warning(message)
         if self.slack_webhook_url:
+            from slack_sdk.webhook import WebhookClient
             client = WebhookClient(url=self.slack_webhook_url)
             client.send(text=message)
 
