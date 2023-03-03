@@ -52,8 +52,8 @@ def composer_timm(model_name: str,
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group='timm', conda_package='timm>=0.5.4',
                                             conda_channel=None) from e
-    model = timm.create_model(
-        model_name=model_name,  # type: ignore (third-party)
+    model = timm.create_model(  # type: ignore (third-party)
+        model_name=model_name,
         pretrained=pretrained,
         num_classes=num_classes,
         drop_rate=drop_rate,
