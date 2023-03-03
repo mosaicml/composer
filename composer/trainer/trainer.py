@@ -2520,13 +2520,6 @@ class Trainer:
         The metrics used are defined in your model's ``get_metrics()`` method. For more information,
         see :doc:`/trainer/evaluation`.
 
-        .. note::
-
-            This eval API was recently changed to better much the trainer fit API. Please migrate your
-            code to using the new design here. For backwards compatibility, the old API can still be
-            invoked by calling ``_eval_loop()``, however this is not recommended as this may be
-            removed in the future.
-
         Args:
             eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): Dataloaders
                 for evaluation.  If not provided, defaults to using the
