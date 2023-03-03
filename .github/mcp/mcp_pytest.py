@@ -101,4 +101,5 @@ if __name__ == '__main__':
             break
 
     # Fail if command exited with non-zero exit code or timed out
+    print(run.status)
     assert run.status == RunStatus.COMPLETED
