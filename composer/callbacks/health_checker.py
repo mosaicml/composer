@@ -65,7 +65,8 @@ class HealthChecker(Callback):
         if self.slack_webhook_url:
             # fail fast if missing import
             try:
-                import slack_sdk as slack_sdk
+                import slack_sdk
+                del slack_sdk
             except ImportError as e:
                 raise MissingConditionalImportError('health_checker', 'slack_sdk', None) from e
 
