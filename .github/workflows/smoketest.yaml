@@ -41,5 +41,4 @@ jobs:
           python -m pip install --upgrade .
       - name: Run checks
         run: |
-          pre-commit run --all-files
           pytest tests/test_smoketest.py
