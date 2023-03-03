@@ -240,7 +240,7 @@ class State(Serializable):
             ... )
             >>> trainer.fit()
             >>> trainer.state.train_metrics
-            {'Accuracy': Accuracy()}
+            {'MulticlassAccuracy': MulticlassAccuracy()}
 
         eval_metrics (Dict[str, Dict[str, Metric]]): The current evaluation metrics, organized
             by dataloader label and then by metric name. If not using an :class:`.Evaluator`,
@@ -249,8 +249,7 @@ class State(Serializable):
             for more information. ``eval_metrics`` will be deep-copied to ensure that each evaluator updates only its ``eval_metrics``.
 
             For example:
-            >>> from torchmetrics import Accuracy
-            >>> from composer.metrics.metrics import CrossEntropy
+            >>> from composer.metrics import CrossEntropy
             >>> trainer = Trainer(
             ...     ...,
             ...     train_dataloader=train_dataloader,
@@ -258,7 +257,7 @@ class State(Serializable):
             ... )
             >>> trainer.fit()
             >>> trainer.state.eval_metrics
-            {'eval': {'CrossEntropy': CrossEntropy(), 'Accuracy': Accuracy()}}
+            {'eval': {'CrossEntropy': CrossEntropy(), 'MulticlassAccuracy': MulticlassAccuracy()}}
 
             Or, when using an :class:`.Evaluator` for multiple evaluation datasets:
 
@@ -267,19 +266,18 @@ class State(Serializable):
                 eval_1_dl = eval_dataloader
                 eval_2_dl = eval_dataloader
 
-            >>> from torchmetrics import Accuracy
             >>> from composer.core import Evaluator
             >>> trainer = Trainer(
             ...     ...,
             ...     train_dataloader=train_dataloader,
             ...     eval_dataloader=[
-            ...         Evaluator(label='eval1', dataloader=eval_1_dl, metric_names=['Accuracy']),
-            ...         Evaluator(label='eval2', dataloader=eval_2_dl, metric_names=['Accuracy']),
+            ...         Evaluator(label='eval1', dataloader=eval_1_dl, metric_names=['MulticlassAccuracy']),
+            ...         Evaluator(label='eval2', dataloader=eval_2_dl, metric_names=['MulticlassAccuracy']),
             ...     ],
             ... )
             >>> trainer.fit()
             >>> trainer.state.eval_metrics
-            {'eval1': {'Accuracy': Accuracy()}, 'eval2': {'Accuracy': Accuracy()}}
+            {'eval1': {'MulticlassAccuracy': MulticlassAccuracy()}, 'eval2': {'MulticlassAccuracy': MulticlassAccuracy()}}
         eval_timestamp (Timestamp): The timestamp for the current evaluation dataloader. This timestamp is reset
             before the dataloader is evaluated. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
             ``0``.

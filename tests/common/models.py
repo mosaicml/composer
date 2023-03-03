@@ -39,7 +39,7 @@ class SimpleModel(ComposerClassifier):
             fc2,
             torch.nn.Softmax(dim=-1),
         )
-        super().__init__(module=net)
+        super().__init__(module=net, num_classes=num_classes)
 
         # Important: It is crucial that the FC layers are bound to `self`
         # for the optimizer surgery tests.
@@ -83,7 +83,7 @@ class SimpleWeightTiedModel(ComposerClassifier):
             torch.nn.Softmax(dim=-1),
         )
 
-        super().__init__(module=net)
+        super().__init__(module=net, num_classes=num_features)
 
         self.mlp = mlp
         self.net = net
@@ -120,7 +120,7 @@ class EmbeddedWeightTiedModel(ComposerClassifier):
             torch.nn.Softmax(dim=-1),
         )
 
-        super().__init__(module=net)
+        super().__init__(module=net, num_classes=num_features)
 
         self.module.param_init_fn = self.param_init_fn
 
@@ -181,7 +181,7 @@ class SimpleConvModel(ComposerClassifier):
             fc1,
             fc2,
         )
-        super().__init__(module=net)
+        super().__init__(module=net, num_classes=self.num_classes)
 
         # bind these to class for access during surgery tests
         self.conv1 = conv1
@@ -299,7 +299,7 @@ class SimpleTransformerClassifier(ComposerClassifier):
 
         net = torch.nn.Sequential(transformer_base, pooler, dropout, classifier)
 
-        super().__init__(module=net)
+        super().__init__(module=net, num_classes=num_classes)
 
         self.transformer_base = transformer_base
         self.pooler = pooler
@@ -334,7 +334,7 @@ class ConvModel(ComposerClassifier):
             linear2,
         )
 
-        super().__init__(module=net)
+        super().__init__(module=net, num_classes=10)
 
         # bind these to class for access during surgery tests
         self.conv1 = conv1
@@ -364,7 +364,7 @@ class SimpleModelWithDropout(ComposerClassifier):
             torch.nn.Softmax(dim=-1),
         )
 
-        super().__init__(module=net)
+        super().__init__(module=net, num_classes=num_classes)
 
         self.fc1 = fc1
         self.fc2 = fc2

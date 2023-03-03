@@ -61,13 +61,13 @@ can be specified as in the following example:
     glue_mrpc_task = Evaluator(
         label='glue_mrpc',
         dataloader=mrpc_dataloader,
-        metric_names=['BinaryF1Score', 'Accuracy']
+        metric_names=['BinaryF1Score', 'MulticlassAccuracy']
     )
 
     glue_mnli_task = Evaluator(
         label='glue_mnli',
         dataloader=mnli_dataloader,
-        metric_names=['Accuracy']
+        metric_names=['MulticlassAccuracy']
     )
 
     trainer = Trainer(

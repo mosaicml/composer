@@ -7,7 +7,7 @@ import os
 import pytest
 import torch
 from torch.utils.data import DataLoader
-from torchmetrics.classification import Accuracy
+from torchmetrics.classification import MulticlassAccuracy
 
 from composer.algorithms import GatedLinearUnits
 from composer.loggers import RemoteUploaderDownloader
@@ -136,8 +136,8 @@ def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, pretra
 
     loaded_finetuning_trainer.eval(finetuning_eval_dataloader)
 
-    original_acc = finetuning_trainer.state.eval_metrics['eval']['Accuracy']
-    loaded_acc = loaded_finetuning_trainer.state.eval_metrics['eval']['Accuracy']
+    original_acc = finetuning_trainer.state.eval_metrics['eval']['MulticlassAccuracy']
+    loaded_acc = loaded_finetuning_trainer.state.eval_metrics['eval']['MulticlassAccuracy']
     assert original_acc.compute() > 0.0
     assert original_acc.compute() == loaded_acc.compute()
 
@@ -225,7 +225,7 @@ def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokeni
 
     # finetuning
     if model_type == 'tinybert_hf':
-        finetuning_metric = Accuracy()
+        finetuning_metric = MulticlassAccuracy(num_classes=3, average='micro')
         hf_finetuning_model, _ = HuggingFaceModel.hf_from_composer_checkpoint(
             pretraining_output_path,
             model_instantiation_class='transformers.AutoModelForSequenceClassification',
