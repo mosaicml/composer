@@ -3,20 +3,13 @@
 
 """Check GPU Health during training."""
 import logging
+import os
 from collections import deque
 from datetime import datetime
 from typing import List, Optional, Tuple
 
-import torch
-
-try:
-    import pynvml
-except ImportError:
-    pynvml = None
-
-import os
-
 import numpy as np
+import torch
 
 from composer.core import Callback, State
 from composer.core.time import Timestamp
@@ -48,7 +41,7 @@ class HealthChecker(Callback):
         slack_webhook_url (str, optional): Slack URL to send alerts. Can also
             be set with the SLACK_WEBHOOK_URL environment variable. Default: None
         test_mode (bool, optional): If True, will send a test alert at the first check.
-            Default: True
+            Default: False
     """
 
     def __init__(
@@ -58,7 +51,7 @@ class HealthChecker(Callback):
         window_size: int = 120,
         wait: int = 120,
         slack_webhook_url: Optional[str] = None,
-        test_mode: bool = True,
+        test_mode: bool = False,
     ) -> None:
         self.sample_freq = sample_freq
         self.window_size = window_size
@@ -74,7 +67,7 @@ class HealthChecker(Callback):
             try:
                 import slack_sdk as slack_sdk
             except ImportError as e:
-                raise MissingConditionalImportError('health_checker', 'slack_sdk') from e
+                raise MissingConditionalImportError('health_checker', 'slack_sdk', None) from e
 
         self.last_sample = 0
         self.last_check = 0
@@ -149,12 +142,13 @@ class HealthChecker(Callback):
         if not torch.cuda.is_available():
             return False
         try:
+            import pynvml
             pynvml.nvmlInit()  # type: ignore
             return True
+        except ImportError:
+            raise MissingConditionalImportError('health_checker', 'pynvml', None)
         except pynvml.NVMLError_LibraryNotFound:  # type: ignore
             logging.warning('NVML not found, disabling GPU health checking')
-        except ImportError:
-            logging.warning('pynvml library not found, disabling GPU health checking.')
         except Exception as e:
             logging.warning(f'Error initializing NVML: {e}')
 
@@ -177,12 +171,17 @@ class GPUUtilization:
 
     def _sample(self) -> Optional[List]:
         try:
+            import pynvml
+        except ImportError:
+            raise MissingConditionalImportError('health_checker', 'pynvml', None)
+
+        try:
             samples = []
-            device_count = pynvml.nvmlDeviceGetCount()  # type: ignore
+            device_count = pynvml.nvmlDeviceGetCount()
             for i in range(device_count):
-                handle = pynvml.nvmlDeviceGetHandleByIndex(i)  # type: ignore
-                samples.append(pynvml.nvmlDeviceGetUtilizationRates(handle).gpu)  # type: ignore
-        except pynvml.NVMLError:  # type: ignore
+                handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+                samples.append(pynvml.nvmlDeviceGetUtilizationRates(handle).gpu)
+        except pynvml.NVMLError:
             return None
         return samples
 
