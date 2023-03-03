@@ -100,6 +100,8 @@ if __name__ == '__main__':
             print('[GHA] Run stopped.')
             break
 
+    print('[GHA] Run completed. Waiting for run to finish...')
+    run = wait_for_run_status(run, status='completed')
+
     # Fail if command exited with non-zero exit code or timed out
-    print(run.status)
     assert run.status == RunStatus.COMPLETED
