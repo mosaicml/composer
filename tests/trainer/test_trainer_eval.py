@@ -103,23 +103,27 @@ def test_trainer_eval_loop():
     assert trainer.state.eval_metrics['eval']['MulticlassAccuracy'].compute() != 0.0
 
 
-def test_trainer_eval_subset_num_batches():
-    # Construct the trainer
-    event_counter_callback = EventCounterCallback()
-    trainer = Trainer(
-        model=SimpleModel(),
-        callbacks=[event_counter_callback],
-    )
-
-    # Evaluate the model
+@pytest.mark.parametrize('evaluator_on_init,subset_on_init', [[True, True], [True, False], [False, False]])
+def test_trainer_eval_subset_num_batches(evaluator_on_init: bool, subset_on_init: bool):
     dataset = RandomClassificationDataset()
     eval_dataloader = DataLoader(
         dataset=dataset,
         sampler=dist.get_sampler(dataset),
     )
+
+    # Construct the trainer
+    event_counter_callback = EventCounterCallback()
+    trainer = Trainer(
+        model=SimpleModel(),
+        callbacks=[event_counter_callback],
+        eval_dataloader=eval_dataloader if evaluator_on_init else None,
+        eval_subset_num_batches=1 if subset_on_init else -1,
+    )
+
+    # Evaluate the model
     trainer.eval(
-        eval_dataloader=eval_dataloader,
-        subset_num_batches=1,
+        eval_dataloader=eval_dataloader if not evaluator_on_init else None,
+        subset_num_batches=1 if not subset_on_init else -1,
     )
 
     # Ensure that just one batch was evaluated
