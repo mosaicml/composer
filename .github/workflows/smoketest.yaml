@@ -1,4 +1,4 @@
-name: Code Quality Checks
+name: Smoketest
 on:
   push:
     branches:
