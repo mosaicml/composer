@@ -927,7 +927,6 @@ class State(Serializable):
             # This check is for backwards compatibility, as pre-v0.6.0 checkpoints serialized the state
             # with the `module.` prefix
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
-
         if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
             with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
                 missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)

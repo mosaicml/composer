@@ -236,9 +236,7 @@ def load_checkpoint(
             # Also, if the global_rank is 0, we load a checkpoint. Otherwise, we are doing FSDP + loading a monolithic file.
             # This means only global rank 0 needs to load the checkpoint and it will scatter the shards to the other ranks.
             if cur_rank_needs_to_load_a_file:
-
                 assert node_checkpoint_folder is not None
-
                 composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = download_checkpoint(
                     path=path,
                     node_checkpoint_folder=node_checkpoint_folder,
@@ -246,33 +244,28 @@ def load_checkpoint(
                     progress_bar=progress_bar,
                     fsdp_sharded_state_dict_enabled=state.fsdp_sharded_state_dict_enabled,
                 )
-                rng_state_dicts = _restore_checkpoint(
-                    state,
-                    logger,
-                    composer_states_filepath,
-                    extracted_rank_n,
-                    extracted_checkpoint_folder,
-                    load_weights_only=load_weights_only,
-                    strict_model_weights=strict_model_weights,
-                    ignore_keys=ignore_keys,
-                    exclude_algorithms=exclude_algorithms,
-                    algorithm_passes=algorithm_passes,
-                )
-                log.info('%s loaded from %s', 'Model weights' if load_weights_only else 'Trainer checkpoint', path)
-            # For FSDP + monolithic case for global_rank != 0, rng_state_dicts will be None.
             else:
-                rng_state_dicts = None
+                composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = [None, None, None]
+            rng_state_dicts = _restore_checkpoint(
+                state,
+                logger,
+                composer_states_filepath,
+                extracted_rank_n,
+                extracted_checkpoint_folder,
+                load_weights_only=load_weights_only,
+                strict_model_weights=strict_model_weights,
+                ignore_keys=ignore_keys,
+                exclude_algorithms=exclude_algorithms,
+                algorithm_passes=algorithm_passes,
+            )
+            log.info('%s loaded from %s', 'Model weights' if load_weights_only else 'Trainer checkpoint', path)
+            # For FSDP + monolithic case for global_rank != 0, rng_state_dicts will be None.
         finally:
             # Wait for all ranks to finish restoring the checkpoint before releasing the tempdir, since tempdir can
             # be a shared resource between nodes.
             dist.barrier()
+        
 
-    if fsdp_with_monolithic_loading:
-        all_rng_state_dicts = dist.all_gather_object(rng_state_dicts)
-        # For FSDP + monolithic case gather the global_rank = 0 rng_state_dict and set all ranks's rng_state_dicts to it.
-        if not dist.get_global_rank() == 0:
-            global_rank_zero_index = 0
-            rng_state_dicts = all_rng_state_dicts[global_rank_zero_index]
     return rng_state_dicts
 
 
@@ -437,8 +430,8 @@ def glob_filter(exclude_globs: List[str]) -> Callable[[Dict], None]:
 def _restore_checkpoint(
     state: State,
     logger: Logger,
-    composer_states_filepath: str,
-    extracted_rank_n: bool,
+    composer_states_filepath: Optional[str],
+    extracted_rank_n: Optional[bool],
     extracted_checkpoint_folder: Optional[str],
     load_weights_only: bool,
     strict_model_weights: bool,
@@ -448,7 +441,10 @@ def _restore_checkpoint(
 ) -> Optional[List[Dict[str, Any]]]:
     """Restore a checkpoint into ``state`` and returns the rng state dicts (if ``load_weights_only`` is False)."""
     # Now, all ranks load the checkpoint that local rank zero downloaded
-    state_dict = torch.load(composer_states_filepath, map_location='cpu')
+    if composer_states_filepath is not None:
+        state_dict = torch.load(composer_states_filepath, map_location='cpu')
+    else:
+        state_dict = {'rng': {}, 'state': {'model': {}}}
     if ignore_keys:
         # Filter provided list of key paths
         if not callable(ignore_keys):
@@ -456,7 +452,6 @@ def _restore_checkpoint(
         # Call function to modify state_dict
         ignore_keys(state_dict)
     log.debug(f"Loaded checkpoint with keys {state_dict.keys()} and state keys {state_dict['state'].keys()}")
-
     if is_model_deepspeed(state.model):
         if extracted_checkpoint_folder is None:
             raise RuntimeError('Deepspeed checkpoints require a tarball, not a weights file.')
@@ -477,10 +472,11 @@ def _restore_checkpoint(
         state.load_model_state(
             state_dict['state'],
             logger,
-            strict=strict_model_weights,
+            strict=strict_model_weights if composer_states_filepath is not None else False,
             exclude_algorithms=exclude_algorithms,
             algorithm_passes=algorithm_passes,
         )
+
     if not load_weights_only:
         state.load_state_dict(
             state_dict['state'],

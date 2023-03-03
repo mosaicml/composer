@@ -4,17 +4,20 @@
 import os
 import pathlib
 import textwrap
-
+import contextlib
 import numpy as np
 import pytest
 import torch
 from packaging import version
 from torch.utils.data import DataLoader
-
+import tempfile
 from composer.trainer.trainer import Trainer
 from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel
 from tests.common.markers import world_size
+from unittest.mock import MagicMock
+from functools import partial
+
 
 
 def get_trainer(save_folder=None,
@@ -328,15 +331,42 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
 
 @pytest.mark.gpu
 @world_size(2)
-def test_fsdp_full_downloads_one_file_only(world_size, tmp_path: pathlib.Path):
-    pytest.skip()
-    # save_folder = tmp_path
-    # save_filename = 'rank{rank}.pt'
-    # trainer1 = get_trainer(save_folder=str(save_folder), save_filename=save_filename, fsdp_state_dict_type='full')
-    # trainer1.fit()
-    # state_dict_from_trainer1 = trainer1.state.state_dict()
-    # trainer1.close()
-    # load_path = str(save_folder / pathlib.Path('rank{rank}.pt'))
-    # trainer2 = get_trainer(fsdp_state_dict_type='full', load_path=load_path)
-    # state_dict_from_trainer2 = trainer2.state.state_dict()
+def test_fsdp_full_downloads_one_file_only(world_size, tmp_path: pathlib.Path, monkeypatch):
+    save_folder = tmp_path
+    save_filename = 'rank{rank}.pt'
+    num_features = 3
+    num_classes = 2
+    download_folder = os.path.join(tmp_path, f'rank_{dist.get_global_rank()}_download_folder')
+    trainer = get_trainer(save_folder=str(save_folder),
+                          save_filename=save_filename,
+                          num_features=num_features,
+                          num_classes=num_classes,
+                          fsdp_state_dict_type='full')
+
+    trainer.fit()
+    trainer.close()
+    load_path = str(save_folder / pathlib.Path('rank0.pt'))
+    trainer2 = get_trainer(fsdp_state_dict_type='full', load_path=load_path)
+
+    # with monkeypatch.context() as m:
+    #     m.setattr(tempfile, 'TemporaryDirectory', partial(contextlib.nullcontext, enter_result=download_folder))
+    #     spoof_get_global_rank = MagicMock(return_value=0)
+    #     spoof_get_local_rank = MagicMock(return_value=0)
+    #     m.setattr(dist, 'get_global_rank', spoof_get_global_rank)
+    #     m.setattr(dist, 'get_local_rank', spoof_get_local_rank)
+    #     load_path = str(save_folder / pathlib.Path('rank0.pt'))
+    #     trainer2 = get_trainer(fsdp_state_dict_type='full', load_path=load_path)
+    #     trainer2.close()
+    
+    # downloaded_chkpt_path = os.path.join(download_folder, 'rank0_checkpoint' )
+    # assert not os.path.exists(downloaded_chkpt_path)
+        
+    # else:
+    #     with monkeypatch.context() as m:
+    #         m.setattr(tempfile, 'TemporaryDirectory', partial(contextlib.nullcontext, enter_result=download_folder))
+    #         load_path = str(save_folder / pathlib.Path('rank{rank}.pt'))
+    #         get_trainer(fsdp_state_dict_type='full', load_path=load_path)
+    #         dist.barrier()
+    #     downloaded_chkpt_path = os.path.join(download_folder, 'rank0_checkpoint' )
+    #     assert not os.path.exists(downloaded_chkpt_path)
 
