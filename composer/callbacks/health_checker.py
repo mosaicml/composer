@@ -14,7 +14,7 @@ import torch
 from composer.core import Callback, State
 from composer.core.time import Timestamp
 from composer.loggers import Logger
-from composer.utils import dist, MissingConditionalImportError
+from composer.utils import MissingConditionalImportError, dist
 
 log = logging.getLogger(__name__)
 
