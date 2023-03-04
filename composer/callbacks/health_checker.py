@@ -90,7 +90,7 @@ class HealthChecker(Callback):
         if self._check(state.timestamp):
             for metric in self.metrics:
                 message, alert = metric.check()
-                if self.test_mode and message:
+                if self.test_mode and message and dist.get_global_rank() == 0:
                     alert = True
                     message = '[**THIS IS A TEST**]' + message
                 if alert and not metric.alerted:
