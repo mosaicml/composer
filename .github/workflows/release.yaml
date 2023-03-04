@@ -11,7 +11,7 @@ jobs:
     uses: ./.github/workflows/code-quality.yaml
 
   pypi-packaging:
-    name: Build and Publish PyPI Packages
+    name: Build and Publish mosaicml PyPI Package
     needs:
       - code-quality
     runs-on: ubuntu-latest
@@ -52,7 +52,7 @@ jobs:
           repository_url: https://test.pypi.org/legacy/
   
   pypi-composer-packaging:
-    name: Build and Publish composer PyPI Packages
+    name: Build and Publish composer PyPI Package
     needs:
       - code-quality
     if: contains(github.ref, 'refs/tags/v')
