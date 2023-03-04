@@ -46,6 +46,7 @@ class HuggingFaceModel(ComposerModel):
         metrics (list[Metric], optional): list of torchmetrics to apply to the output of `eval_forward` during training. If ``eval_metrics`` is ``None``, these will also be used as ``eval_metrics``.  Default: ``None``.
         eval_metrics (list[Metric], optional): list of torchmetrics to compute on the eval_dataloader, or be accessible to :class:`Evaluator`s. Default: ``None``.
         shift_labels (bool, optional): If True, the batch's labels will be shifted before being used to calculate metrics. This should be set to true for CausalLM models and false otherwise. If not specified, `shift_labels` will be set automatically based on the model class name. Default: ``None``.
+        allow_embedding_resizing (bool, optional): If True, the model's embeddings will be automatically resized when they are smaller than the tokenizer vocab size. Default: ``False``.
 
         .. note:: To ensure correct behavior, set `shift_labels` manually if using a custom model (i.e., if `model` is not
         an instance of a registered 🤗 Transformers class).
@@ -70,7 +71,8 @@ class HuggingFaceModel(ComposerModel):
                  use_logits: Optional[bool] = False,
                  metrics: Optional[List[Metric]] = None,
                  eval_metrics: Optional[List[Metric]] = None,
-                 shift_labels: Optional[bool] = None) -> None:
+                 shift_labels: Optional[bool] = None,
+                 allow_embedding_resizing: bool = False) -> None:
         try:
             import transformers
             del transformers  # unused
@@ -90,12 +92,20 @@ class HuggingFaceModel(ComposerModel):
                 'The tokenizer was not provided. This means the tokenizer config will not be saved in the checkpoint.')
 
         if tokenizer is not None and self.config.vocab_size < len(tokenizer):
-            # when the embedding size is smaller than the tokenizer vocab size,
-            # the embeddings should get resized to match the tokenizer vocab size
-            log.warning(f'The number of tokens in the tokenizer is greater than the number of tokens in the model.'
-                        f' This would cause an error during training.'
-                        f' Resizing the model embeddings to {len(tokenizer)} from {self.config.vocab_size}.')
-            self.model.resize_token_embeddings(len(tokenizer))
+            if allow_embedding_resizing:
+                # when the embedding size is smaller than the tokenizer vocab size,
+                # the embeddings should get resized to match the tokenizer vocab size
+                log.warning(f'The number of tokens in the tokenizer is greater than the number of tokens in the model.'
+                            f' This would cause an error during training.'
+                            f' Resizing the model embeddings to {len(tokenizer)} from {self.config.vocab_size}.')
+                self.model.resize_token_embeddings(len(tokenizer))
+            else:
+                raise ValueError(
+                    f'The number of tokens in the tokenizer is greater than the number of tokens in the model.'
+                    f' This would cause an error during training.'
+                    f' You can resize the model embeddings to {len(tokenizer)} from {self.config.vocab_size}'
+                    f' by calling `model.resize_token_embeddings(len(tokenizer))` before calling the `HuggingFaceModel`'
+                    f' constructor, or pass `allow_embedding_resizing=True` to have it done automatically.')
         elif tokenizer is not None and self.config.vocab_size > len(tokenizer):
             # when the embedding size is greater than the tokenizer vocab size,
             # the embeddings do not _need_ to be resized to match the tokenizer vocab size,
