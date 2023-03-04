@@ -39,7 +39,7 @@ jobs:
           set -ex
           python -m pip install --upgrade 'pip<23' wheel
           python -m pip install --upgrade .
-          python -m pip install pytest
+          python -m pip install pytest==7.2.1 pytest_codeblocks==0.16.1
       - name: Run checks
         run: |
           pytest tests/test_smoketest.py
