@@ -2415,13 +2415,13 @@ class Trainer:
             glue_mrpc_task = Evaluator(
                 label='glue_mrpc',
                 dataloader=mrpc_dataloader,
-                metric_names=['BinaryF1Score', 'Accuracy']
+                metric_names=['BinaryF1Score', 'MulticlassAccuracy']
             )
 
             glue_mnli_task = Evaluator(
                 label='glue_mnli',
                 dataloader=mnli_dataloader,
-                metric_names=['Accuracy']
+                metric_names=['MulticlassAccuracy']
             )
 
             trainer = Trainer(
@@ -2484,10 +2484,11 @@ class Trainer:
             evaluators = self.state.evaluators
 
         for evaluator in evaluators:
+            eval_subset_num_batches = evaluator.subset_num_batches if subset_num_batches == -1 else subset_num_batches
             self._eval_loop(
                 dataloader=evaluator.dataloader,
                 dataloader_label=evaluator.label,
-                subset_num_batches=subset_num_batches,
+                subset_num_batches=eval_subset_num_batches,
                 metrics=self.state.eval_metrics[evaluator.label],
             )
             if eval_passed_in:

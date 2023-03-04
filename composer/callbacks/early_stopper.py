@@ -27,11 +27,11 @@ class EarlyStopper(Callback):
         >>> from composer import Evaluator, Trainer
         >>> from composer.callbacks.early_stopper import EarlyStopper
         >>> # constructing trainer object with this callback
-        >>> early_stopper = EarlyStopper("Accuracy", "my_evaluator", patience=1)
+        >>> early_stopper = EarlyStopper('MulticlassAccuracy', 'my_evaluator', patience=1)
         >>> evaluator = Evaluator(
         ...     dataloader = eval_dataloader,
         ...     label = 'my_evaluator',
-        ...     metric_names = ['Accuracy']
+        ...     metric_names = ['MulticlassAccuracy']
         ... )
         >>> trainer = Trainer(
         ...     model=model,
