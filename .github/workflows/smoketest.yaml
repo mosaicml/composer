@@ -1,4 +1,4 @@
-name: Code Quality Checks
+name: Smoketest
 on:
   push:
     branches:
@@ -20,7 +20,7 @@ defaults:
   run:
     working-directory: .
 jobs:
-  code-quality:
+  smoketest:
     runs-on: ubuntu-20.04
     timeout-minutes: 10
     strategy:
@@ -29,8 +29,6 @@ jobs:
           - "3.8"
           - "3.9"
           - "3.10"
-        pip_deps:
-          - "[dev]"
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
@@ -40,7 +38,8 @@ jobs:
         run: |
           set -ex
           python -m pip install --upgrade 'pip<23' wheel
-          python -m pip install --upgrade .${{ matrix.pip_deps }}
+          python -m pip install --upgrade .
+          python -m pip install pytest==7.2.1 pytest_codeblocks==0.16.1
       - name: Run checks
         run: |
-          pre-commit run --all-files
+          pytest tests/test_smoketest.py
