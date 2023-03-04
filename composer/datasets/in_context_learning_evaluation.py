@@ -70,6 +70,145 @@ def _get_fewshot_sample_idxs(dataset_size, num_fewshot, sample_idx):
     return fewshot_idxs
 
 
+class InContextLearningQATaskDataset(Dataset):
+    """A dataset that construct batches for in-context learning language modeling evaluation
+
+    Args:
+        dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
+            supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "context",
+            and "continuation". See tests/datasets/local_data/lambada_small.jsonl.
+        tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to transform data into batches
+        batch_size (int): Size of a batch used for eval
+        max_seq_len (int): The sequence length expected by the model
+        pad_tok_id (int): The special token reserved for padding the ends of batches
+        num_fewshot (int): The number of complete fewshot examples to prepend before each test example
+        prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
+        example_delimiter (str): Separator that goes between individual (context, continuation) pairs (e.g. '\n')        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
+        destination_path (str): Temporary path to store downloaded datasets
+    """
+
+    def __init__(
+        self,
+        dataset_uri: str,
+        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
+        max_seq_len: int,
+        pad_tok_id: int,
+        num_fewshot: int,
+        prompt_string: str,
+        example_delimiter: str,
+        continuation_delimiter: str,
+        destination_path: str,
+    ):
+        try:
+            from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='nlp',
+                                                conda_package='datasets',
+                                                conda_channel='conda-forge') from e
+        with dist.local_rank_zero_download_and_wait(destination_path):
+            get_file(dataset_uri, destination_path, overwrite=True)
+        dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
+        self.samples = list(
+            dataset.map(lambda examples: {
+                'context': examples['context'],
+                'answer': examples['answer'],
+                'aliases': examples['aliases']
+            }))
+        self.tokenizer = tokenizer
+        self.max_seq_len = max_seq_len
+        self.pad_tok_id = pad_tok_id
+        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter)
+
+    def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str):
+        """Prepares a set of language modeling tasks into tokenized format with prompt and fewshot examples.
+
+        Each task consists of a context and a continuation as well as an optional prompt and optional list of
+        example context/continuation pairs which precede the test context/continuation pair.
+
+        Args:
+            num_fewshot (int): Number of examples context/continuation pairs to prepend to the test pair
+            prompt_string (str): The prompt to prepend to all inputs
+            example_delimiter (str): The delimiter used to separate each individual context/continuation pair
+            continuation_delimiter (str): The delimiter used to separate each context from its continuation
+
+        Returns:
+            dict: Contains the context, the continuation, and the preamble (prompt + fewshot examples)
+        """
+        examples = []
+        for sample_idx in tqdm(range(len(self.samples))):
+            encoded_example = {}
+
+            preamble = prompt_string
+
+            if num_fewshot > 0:
+                fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx)
+                for fewshot_idx in fewshot_idxs:
+                    ctxt, cont = self.samples[fewshot_idx]['context'], self.samples[fewshot_idx]['answer']
+                    if len(preamble) > 0:
+                        ctxt = f'{example_delimiter}{ctxt}'
+                    preamble += f'{ctxt}{continuation_delimiter}{cont}'
+
+            ctxt, cont = self.samples[sample_idx]['context'], self.samples[sample_idx]['answer']
+            if len(preamble) > 0:
+                ctxt = f'{example_delimiter}{ctxt}'
+
+            ctxt = f'{ctxt}{continuation_delimiter}'
+
+            # if the preamble is empty then this will be a 0-length list, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
+            encoded_example['preamble'] = self.tokenizer(preamble)
+            # if there is an EOS token added, we need to remove it so it is not in the middle of the prompt
+            if self.tokenizer.eos_token_id is not None and encoded_example[-1] == self.tokenizer.eos_token_id:
+                encoded_example['preamble'] = encoded_example['preamble'][:-1]
+
+            encoded_example['context'] = self.tokenizer(ctxt, add_special_tokens=False)
+            encoded_example['aliases'] = self.samples[sample_idx]['aliases']
+
+            examples.append(encoded_example)
+
+        return examples
+
+    def __getitem__(self, index):
+        return self.encoded_dataset[index]
+
+    def __len__(self):
+        return len(self.encoded_dataset)
+
+    def collate_fn(self, data):
+        if len(data) != 1:
+            raise ValueError(
+                'InContextLearningQATaskDataset does not support batch size > 1, because it needs to call generate, which cannot be done in a batched manner.'
+            )
+
+        # TODO: produce the output here, save max length in prep examples and propagate it here, finish the metric
+
+        inputs = []
+        continuation_indices = []
+        for data_pair in data:
+            preamble, context, aliases = (data_pair['preamble'], data_pair['context'], data_pair['aliases'])
+
+            context_enc = preamble['input_ids'] + context['input_ids']
+            continuation_enc = continuation['input_ids']
+
+            inp, continuation_span = _make_padded_input(context_enc, continuation_enc, self.max_seq_len,
+                                                        self.pad_tok_id)
+
+            inputs.append(inp)
+            continuation_indices.append(continuation_span)
+
+        batch = {
+            'input_ids': torch.stack(inputs),
+            'continuation_indices': continuation_indices,
+            'mode': 'icl_task',
+            'labels': torch.stack(inputs),
+        }
+
+        batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
+        return batch
+
+    def get_num_samples_in_batch(self, batch) -> int:
+        return batch['input_ids'].shape[0]
+
+
 class InContextLearningLMTaskDataset(Dataset):
     """A dataset that construct batches for in-context learning language modeling evaluation
 
