@@ -107,7 +107,8 @@ def soft_cross_entropy(input: Tensor,
                                ignore_index=ignore_index,
                                reduction=reduction)
     elif target_type == 'one_hot':
-        assert reduction in ['sum', 'mean', 'none'], f'{reduction} reduction not supported.'
+        if reduction not in ['sum', 'mean', 'none']:
+            raise ValueError(f'{reduction} reduction not supported.')
         if ignore_index != -100:
             warnings.warn('ignore_index not supported when using dense labels. Ignoring targets with 0 probability.')
         xentropy = -(target * F.log_softmax(input, dim=1))
