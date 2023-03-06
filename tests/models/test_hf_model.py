@@ -4,6 +4,7 @@ import copy
 import json
 import os
 import tempfile
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from unittest.mock import patch
@@ -508,6 +509,7 @@ def test_hf_auto_shift_labels(caplog, model, tokenizer):
 def test_hf_causal_shift_labels(tiny_gpt2_model, tiny_gpt2_tokenizer):
     pytest.importorskip('transformers')
 
+    tiny_gpt2_model.resize_token_embeddings(len(tiny_gpt2_tokenizer))
     model = HuggingFaceModel(tiny_gpt2_model, tokenizer=tiny_gpt2_tokenizer, use_logits=True)
 
     batch = tiny_gpt2_tokenizer('a b c d e f g h i j k', return_tensors='pt')
@@ -622,3 +624,45 @@ def test_write_hf_from_composer(checkpoint_upload_folder, local_save_filename, t
     loaded_hf_model.config._name_or_path = tiny_bert_model.config._name_or_path
 
     check_hf_model_equivalence(tiny_bert_model, loaded_hf_model)
+
+
+@pytest.mark.parametrize('embedding_resize', ['higher', 'lower', 'no_resize'])
+@pytest.mark.parametrize('allow_embedding_resizing', [True, False])
+def test_embedding_resizing(tiny_bert_model, tiny_bert_tokenizer, embedding_resize, allow_embedding_resizing, caplog):
+    pytest.importorskip('transformers')
+
+    import logging
+
+    from composer.models import HuggingFaceModel
+
+    original_size = tiny_bert_model.config.vocab_size
+    if embedding_resize == 'higher':
+        tiny_bert_model.resize_token_embeddings(original_size + 100)
+    elif embedding_resize == 'lower':
+        tiny_bert_model.resize_token_embeddings(original_size - 100)
+
+    error_context = pytest.raises(ValueError) if (not allow_embedding_resizing and
+                                                  embedding_resize == 'lower') else nullcontext()
+    with caplog.at_level(logging.WARNING, logger='composer'):
+        with error_context:
+            _ = HuggingFaceModel(tiny_bert_model,
+                                 tokenizer=tiny_bert_tokenizer,
+                                 allow_embedding_resizing=allow_embedding_resizing)
+        if embedding_resize == 'lower':
+            if allow_embedding_resizing:
+                # when the embedding size is smaller than the tokenizer vocab size,
+                # the embeddings should get resized to match the tokenizer vocab size
+                assert tiny_bert_model.config.vocab_size == len(tiny_bert_tokenizer)
+                assert caplog.messages[0].startswith(
+                    'The number of tokens in the tokenizer is greater than the number of tokens in the model')
+        elif embedding_resize == 'higher':
+            # when the embedding size is greater than the tokenizer vocab size,
+            # no adjustment is needed. Some embeddings will simply not be used
+            assert tiny_bert_model.config.vocab_size == original_size + 100
+            assert caplog.messages[0].startswith(
+                'The number of tokens in the tokenizer is less than the number of tokens in the model.')
+        elif embedding_resize == 'no_resize':
+            assert tiny_bert_model.config.vocab_size == original_size
+            assert len(caplog.messages) == 0
+        else:
+            raise ValueError(f'Unknown embedding_resize: {embedding_resize}')
