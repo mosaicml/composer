@@ -244,7 +244,7 @@ def _is_auto_microbatching(device_eval_microbatch_size: Optional[Union[int, str]
 
 
 def _get_initial_device_eval_microbatch_size(device_eval_microbatch_size: Optional[Union[int, str]],
-                                             auto_microbatching: bool, dataloader: Iterable) -> Optional[int]:
+                                             auto_microbatching: bool, dataloader: Iterable) -> int:
     """Sets initial value of device_eval_microbatch_size.
 
     If auto_microbatching, sets initial `device_eval_microbatch_size` to per rank batch size.
