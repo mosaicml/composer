@@ -18,7 +18,7 @@ from composer.core.state import State
 from composer.core.time import Time, TimeUnit
 from composer.devices import Device, DeviceGPU
 
-__all__ = ['Evaluator', 'evaluate_periodically', 'ensure_evaluator']
+__all__ = ['Evaluator', 'evaluate_periodically', 'ensure_evaluator', 'validate_eval_automicrobatching']
 
 
 def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end: bool = True):
@@ -221,15 +221,23 @@ def ensure_evaluator(evaluator: Union[Evaluator, DataSpec, Iterable, Dict[str, A
         )
 
 
-def _is_auto_microbatching(device_eval_microbatch_size: Union[int, str], device: Device):
+def validate_eval_automicrobatching(auto_microbatching: bool, device: Device):
+    """Ensure automicrobatching is only on GPU.
+
+    Unlike `device_train_microbatch_size`, this validation must be done separately from the
+    `_is_auto_microbatching` check because `device` is not available during `Evaluator`
+    initialization.
+    """
+    if auto_microbatching and not isinstance(device, DeviceGPU):
+        raise ValueError(
+            'Can only use adaptive device_eval_microbatch_size on GPU. Please set device_eval_microbatch_size >= 1.')
+
+
+def _is_auto_microbatching(device_eval_microbatch_size: Optional[Union[int, str]]):
     if device_eval_microbatch_size == 'auto':
         warnings.warn(("Setting `device_eval_microbatch_size='auto'` is an experimental feature which may cause "
                        'uncaught Cuda Out of Memory errors. In this case, please manually '
                        'set device_eval_microbatch_size explicitly to an integer instead.'))
-        if not isinstance(device, DeviceGPU):
-            raise ValueError(
-                'Can only use adaptive device_eval_microbatch_size on GPU. Please set device_eval_microbatch_size >= 1.'
-            )
         return True
     else:
         return False

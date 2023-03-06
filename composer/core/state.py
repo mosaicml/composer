@@ -190,8 +190,6 @@ class State(Serializable):
             ``rank_zero_seed + dist.get_global_rank()``.
         run_name (str): The name for this training run.
         device (Device): The device used by this process. The trainer moves the model and loaded data to this device.
-        eval_batch_split (int, optional): The mirror of grad_accum for eval. With this argument, micro batch
-            size for each device becomes ``microbatch_size = eval_batch_size / (num_devices * eval_batch_split)``.
         device_train_microbatch_size (int, optional): The microbatch size for each device during training.
         auto_microbatching (bool, optional): Whether automatic microbatching is enabled.
         train_dataloader (Iterable, optional): Dataloader used for training
@@ -351,7 +349,6 @@ class State(Serializable):
         max_duration: Optional[Union[str, Time[int]]] = None,
 
         # data configurations
-        eval_batch_split: int = 1,
         device_train_microbatch_size: Optional[int] = 1,
         auto_microbatching: bool = False,
 
@@ -388,7 +385,6 @@ class State(Serializable):
         self.model = model
         self.run_name = run_name
         self.device = device
-        self.eval_batch_split = eval_batch_split
         self.device_train_microbatch_size = device_train_microbatch_size
         self.auto_microbatching = auto_microbatching
         self._dataloader_len = None

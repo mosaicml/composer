@@ -33,7 +33,8 @@ from torchmetrics import Metric
 from composer.callbacks import CheckpointSaver, OptimizerMonitor
 from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException, Callback, DataSpec, Engine, Evaluator,
                            Event, Precision, PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode,
-                           ensure_data_spec, ensure_evaluator, ensure_time, get_precision_context)
+                           ensure_data_spec, ensure_evaluator, ensure_time, get_precision_context,
+                           validate_eval_automicrobatching)
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, ProgressBarLogger, RemoteUploaderDownloader,
                               WandBLogger)
@@ -159,7 +160,9 @@ def _is_auto_microbatching(device_train_microbatch_size: Union[int, str], device
         warnings.warn(("Setting `device_train_microbatch_size='auto'` is an experimental feature which may cause "
                        'uncaught Cuda Out of Memory errors. In this case, please manually '
                        'set device_train_microbatch_size explicitly to an integer instead.'))
-        if not isinstance(device, DeviceGPU):  # TODO: Instead of checking here, we should have a validate fn called at start of fit and eval
+        if not isinstance(
+                device, DeviceGPU
+        ):  # TODO: Instead of checking here, we should have a validate fn called at start of fit and eval
             raise ValueError(
                 'Can only use adaptive device_train_microbatch_size on GPU. Please set device_train_microbatch_size >= 1.'
             )
@@ -239,26 +242,24 @@ def _adjust_device_train_microbatch_size(state: State):
     torch.cuda.empty_cache()
 
 
-def _adjust_eval_batch_split(state: State, device_batch_size: int):
-    """Adjust eval_batch_split if we encounter OOM.
+def _adjust_device_eval_microbatch_size(evaluator: Evaluator):
+    """Adjust device_eval_microbatch_size if we encounter OOM.
 
     Args:
-        state (State): State of trainer.
-        device_batch_size (int): Batch size.
+        evaluator (State): Current evaluator
     """
-    # If any rank hit CUDA OOM, update grad_accum and retry. Raise runtime error if training 1 sample
-    # at a time still resulted in CUDA out of memory.
-    if state.eval_batch_split == device_batch_size:
-        raise RuntimeError(('CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
-                            'The GPU does not have enough memory to process even 1 sample in eval. '))
+    # If any rank hit CUDA OOM, update device_eval_microbatch_size and retry. Raise runtime error
+    # if evaluating 1 sample at a time still resulted in CUDA out of memory.
+    assert evaluator.device_eval_microbatch_size is not None
+    if evaluator.device_eval_microbatch_size == 1:
+        raise RuntimeError(('CUDA out of memory. The eval loop failed with an internal microbatch of size 1.'
+                            'The GPU does not have enough memory to process even 1 sample during train.'))
     else:
-        original_eval_batch_split = state.eval_batch_split
-        state.eval_batch_split = min(2 * state.eval_batch_split, device_batch_size)
+        original_microbatch_size = evaluator.device_eval_microbatch_size
+        evaluator.device_eval_microbatch_size = max(int(original_microbatch_size / 2), 1)
         warnings.warn(
-            RuntimeWarning('CUDA out of memory detected. Number of eval microbatches '
-                           f'increased from {original_eval_batch_split} -> {state.eval_batch_split}, '
-                           'and the batch will be retrained with a '
-                           f'micro-batchsize of {device_batch_size // state.eval_batch_split}'))
+            RuntimeWarning('CUDA out of memory detected. Train microbatch size will be decreased from '
+                           f'{original_microbatch_size} -> {evaluator.device_eval_microbatch_size}.'))
     torch.cuda.empty_cache()
 
 
@@ -960,7 +961,6 @@ class Trainer:
         device_train_microbatch_size = _get_initial_device_train_microbatch_size(device_train_microbatch_size,
                                                                                  auto_microbatching, None)
 
-        eval_batch_split = 1
         assert not isinstance(device_train_microbatch_size, str)
 
         # Run Name
@@ -977,7 +977,6 @@ class Trainer:
             model=model,
             device=device,
             callbacks=callbacks,
-            eval_batch_split=eval_batch_split,
             device_train_microbatch_size=device_train_microbatch_size,
             auto_microbatching=auto_microbatching,
             precision=precision,
@@ -1137,6 +1136,9 @@ class Trainer:
                 eval_interval=eval_interval,
                 subset_num_batches=eval_subset_num_batches,
             )
+
+            for evaluator in evaluators:
+                validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
         if len(evaluators) == 0:
             if eval_subset_num_batches != -1:
                 raise ValueError(
@@ -1657,6 +1659,10 @@ class Trainer:
                 eval_interval=eval_interval,
                 subset_num_batches=eval_subset_num_batches,
             )
+
+            for evaluator in evaluators:
+                validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
+
             if len(evaluators) == 0:
                 if eval_subset_num_batches != -1:
                     raise ValueError('Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.')
@@ -1981,10 +1987,11 @@ class Trainer:
             assert evaluator.eval_interval is not None, 'eval_interval should have been set on __init__() or fit()'
             assert evaluator.subset_num_batches is not None, 'subset_num_batches should have been set on __init__() or fit()'
             if evaluator.eval_interval(self.state, event):
-                self._eval_loop(dataloader=evaluator.dataloader,
-                                dataloader_label=evaluator.label,
-                                subset_num_batches=evaluator.subset_num_batches,
-                                metrics=self.state.eval_metrics[evaluator.label])
+                self._eval_loop(
+                    evaluator=evaluator,
+                    subset_num_batches=evaluator.subset_num_batches,
+                    metrics=self.state.eval_metrics[evaluator.label],
+                )
 
     def _train_batch(self, use_grad_scaling: bool) -> Dict[str, torch.Tensor]:
         """Compute loss by training on a full batch of data.
@@ -2476,6 +2483,10 @@ class Trainer:
                 eval_interval='1ep',  # ignored
                 subset_num_batches=subset_num_batches,
             )
+
+            for evaluator in evaluators:
+                validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
+
             self.state.evaluators.extend(evaluators)  # Add evaluators to state.evaluators
         else:
             eval_passed_in = False
@@ -2486,35 +2497,26 @@ class Trainer:
         for evaluator in evaluators:
             eval_subset_num_batches = evaluator.subset_num_batches if subset_num_batches == -1 else subset_num_batches
             self._eval_loop(
-                dataloader=evaluator.dataloader,
-                dataloader_label=evaluator.label,
-                subset_num_batches=eval_subset_num_batches,
+                evaluator=evaluator,
                 metrics=self.state.eval_metrics[evaluator.label],
+                subset_num_batches=eval_subset_num_batches,
             )
             if eval_passed_in:
                 self.state.evaluators.remove(evaluator)  # Remove them from state once eval is finished.
 
     def _eval_loop(
         self,
-        dataloader: Union[Iterable, DataSpec, dict],
-        dataloader_label: str = 'eval',
-        *,
+        evaluator: Evaluator,
         metrics: Dict[str, Metric],
         subset_num_batches: Optional[int] = None,
     ):
         """Evaluate the model and log appropriate metrics.
 
         Args:
-            dataloader (DataLoader | DataSpec | dict): The class:`.DataLoader`, :class:`.DataSpec`, or
-                dict of :class:`.DataSpec` kwargs to use for evaluation
-            dataloader_label (str, optional): The dataloader label to use for logging metrics. Defaults to ``'eval'``.
+            evaluator (Evaluator): The evaluator to use for evaluation.
             metrics (Dict[str, Metric]): Dictionary mapping metric names to metrics to evaluate against.
             subset_num_batches (int, optional): If specified, evaluate on this many batches. Defaults to ``-1``,
                 which means to iterate over the entire dataloader.
-
-                This parameter has no effect if ``eval_dataloader`` is not specified, it is greater than
-                ``len(eval_dataloader)``, or ``eval_dataloader`` is an :class:`.Evaluator` (which is via
-                ``Evaluator(subset_num_batches=...)``.)
         """
         if subset_num_batches is None:
             subset_num_batches = -1
@@ -2524,13 +2526,8 @@ class Trainer:
         original_dataloader_label = self.state.dataloader_label
         original_num_batches = self.state.dataloader_len
 
-        # Unpack the dataloader
-        if isinstance(dataloader, dict):
-            # treat as DataSpec kwargs
-            dataloader = DataSpec(**dataloader)
-        if not isinstance(dataloader, DataSpec):
-            dataloader = DataSpec(dataloader)
-        data_spec = dataloader
+        # Unpack data_spec
+        data_spec = evaluator.dataloader
 
         # Reset the eval timestamp
         self.state.eval_timestamp = Timestamp()
@@ -2538,7 +2535,7 @@ class Trainer:
         last_wct = datetime.datetime.now()
 
         with torch.no_grad(), model_eval_mode(self.state.model):
-            self.state.set_dataloader(data_spec.dataloader, dataloader_label, subset_num_batches)
+            self.state.set_dataloader(data_spec.dataloader, evaluator.label, subset_num_batches)
             assert self.state.dataloader is not None, 'dataloader is set'
 
             self.engine.run_event(Event.EVAL_START)
@@ -2577,8 +2574,8 @@ class Trainer:
                     # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
                     found_cuda_oom = 0
                     try:
-                        for self.state.batch in data_spec._num_microbatches_split_batch(
-                                self.state.batch, self.state.eval_batch_split):
+                        for self.state.batch in data_spec.split_batch(device_batch,
+                                                                      evaluator.device_eval_microbatch_size):
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
                             with _get_precision_context(self.state.precision, self.deepspeed_enabled):
                                 if hasattr(self._original_model, 'validate'):  # backwards compatibility check
@@ -2615,19 +2612,18 @@ class Trainer:
                                         )
 
                     except RuntimeError as e:
-                        if self.state.auto_microbatching and _is_cuda_oom(e):
+                        if evaluator.auto_microbatching and _is_cuda_oom(e):
                             log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                             found_cuda_oom = 1
                         else:
                             raise
-                    if self.state.auto_microbatching:
+                    if evaluator.auto_microbatching:
                         # Propagate across all ranks if any rank hit CUDA OOM
                         found_cuda_oom = self.state.device.tensor_to_device(
                             torch.tensor([found_cuda_oom], dtype=torch.uint8))
                         dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
                         if found_cuda_oom.item() == 1:
-                            device_batch_size = data_spec.get_num_samples_in_batch(device_batch)
-                            _adjust_eval_batch_split(self.state, device_batch_size)
+                            _adjust_device_eval_microbatch_size(evaluator)
                             # Skip return and rerun after handling oom
                             continue
                     # Break if we've successfully completed eval without OOMing.
@@ -2652,7 +2648,7 @@ class Trainer:
 
                 self.engine.run_event(Event.EVAL_BATCH_END)
 
-            self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics)
+            self._compute_and_log_metrics(dataloader_label=evaluator.label, metrics=metrics)
 
             self.engine.run_event(Event.EVAL_END)
 
