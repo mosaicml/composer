@@ -526,6 +526,7 @@ def test_hf_causal_shift_labels(tiny_gpt2_model, tiny_gpt2_tokenizer):
     pytest.importorskip('transformers')
 
     from composer.models import HuggingFaceModel
+    tiny_gpt2_model.resize_token_embeddings(len(tiny_gpt2_tokenizer))
     model = HuggingFaceModel(tiny_gpt2_model, tokenizer=tiny_gpt2_tokenizer, use_logits=True)
 
     batch = tiny_gpt2_tokenizer('a b c d e f g h i j k', return_tensors='pt')
