@@ -100,7 +100,7 @@ extra_deps['dev'] = [
     'junitparser==2.8.0',
     'coverage[toml]==7.2.1',
     'fasteners==0.18',  # object store tests require fasteners
-    'pytest==7.2.1',
+    'pytest==7.2.2',
     'toml==0.10.2',
     'ipython==8.11.0',
     'ipykernel==6.20.1',
@@ -127,7 +127,7 @@ extra_deps['dev'] = [
     'traitlets==5.9.0',
     'nbsphinx==0.8.12',
     'pandoc==2.3',
-    'pypandoc==1.10',
+    'pypandoc==1.11',
     'GitPython==3.1.31',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
