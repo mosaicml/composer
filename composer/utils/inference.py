@@ -168,10 +168,10 @@ def export_for_inference(
         # download checkpoint and load weights only
         log.debug('Loading checkpoint at %s', load_path)
         with tempfile.TemporaryDirectory() as tempdir:
-            composer_states_filepath, _, _ = download_checkpoint(path=load_path,
-                                                                 node_checkpoint_folder=tempdir,
-                                                                 object_store=load_object_store,
-                                                                 progress_bar=True)
+            composer_states_filepath, _ = download_checkpoint(path=load_path,
+                                                              node_checkpoint_folder=tempdir,
+                                                              object_store=load_object_store,
+                                                              progress_bar=True)
             state_dict = torch.load(composer_states_filepath, map_location='cpu')
             missing_keys, unexpected_keys = model.load_state_dict(state_dict['state']['model'], strict=load_strict)
             if len(missing_keys) > 0:
