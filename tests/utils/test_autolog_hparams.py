@@ -179,7 +179,6 @@ def test_extract_hparams_trainer():
         'python_log_level': None,
         'auto_microbatching': False,
         'rank_zero_seed': 3,
-        'eval_batch_split': 1,
         'latest_remote_file_name': None,
         'num_optimizers': 1,
         'remote_ud_has_format_string': [False],
