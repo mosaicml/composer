@@ -25,7 +25,8 @@ __all__ = ['DataSpec', 'ensure_data_spec']
 def _split_list(l, microbatch_size: int):
     if len(l) < microbatch_size:
         warnings.warn(f'Cannot split list of length {len(l)} into batches of size {microbatch_size}. '
-                      'As it is smaller, no splitting will be done.')
+                      'As it is smaller, no splitting will be done. This may happen on the last batch '
+                      'of a dataset if it is a smaller size than the microbatch size.')
         microbatch_size = len(l)
     num_microbatches = math.ceil(len(l) / microbatch_size)
     # Note: this is to match the behavior of tensor.chunk, which is used in _split_tensor
@@ -36,7 +37,8 @@ def _split_list(l, microbatch_size: int):
 def _split_tensor(t, microbatch_size: int):
     if len(t) < microbatch_size:
         warnings.warn(f'Cannot split tensor of length {len(t)} into batches of size {microbatch_size}. '
-                      'As it is smaller, no splitting will be done.')
+                      'As it is smaller, no splitting will be done. This may happen on the last batch '
+                      'of a dataset if it is a smaller size than the microbatch size.')
         microbatch_size = len(t)
     num_microbatches = math.ceil(len(t) / microbatch_size)
     return t.chunk(num_microbatches)

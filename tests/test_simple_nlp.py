@@ -14,7 +14,7 @@ def test_simple_nlp_classification():
     vocab_size = 100
     sequence_length = 32
     num_classes = 2
-    size = 100
+    size = 96
     batch_size = 8
 
     train_dataset = RandomTextClassificationDataset(size=size,
@@ -63,7 +63,7 @@ def test_simple_nlp_mlm(tiny_bert_tokenizer, tiny_bert_model):
 
     vocab_size = tiny_bert_tokenizer.vocab_size
     sequence_length = 32
-    size = 100
+    size = 96
     batch_size = 8
 
     train_dataset = RandomTextLMDataset(size=size,
