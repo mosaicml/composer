@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """A collection of common torchmetrics for NLP tasks."""
+import re
+import string
 import warnings
 from typing import Mapping, Optional, Union
 
@@ -316,13 +318,40 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
-    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
-        for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
-            cont_tok_pred = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
-            cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
+    def normalize_answer(self, answer: str):
+        """Lower text and remove punctuation, articles and extra whitespace.
+        
+        Copied from https://github.com/mandarjoshi90/triviaqa/blob/master/evaluation/triviaqa_evaluation.py
+        """
 
-            self.correct += (cont_tok_pred == cont_tok_targ).all().int()
-            self.total += torch.tensor(1.0)
+        def remove_articles(text):
+            return re.sub(r'\b(a|an|the)\b', ' ', text)
+
+        def white_space_fix(text):
+            return ' '.join(text.split())
+
+        def handle_punc(text):
+            exclude = set(string.punctuation + "".join([u"‘", u"’", u"´", u"`"]))
+            return ''.join(ch if ch not in exclude else ' ' for ch in text)
+
+        def lower(text):
+            return text.lower()
+
+        def replace_underscore(text):
+            return text.replace('_', ' ')
+
+        return white_space_fix(remove_articles(handle_punc(lower(replace_underscore(answer))))).strip()
+
+    def update(self, outputs: torch.Tensor, labels: torch.Tensor):
+        print(outputs, labels)
+        for sample_output, sample_labels in zip(outputs, labels):
+            cleaned_sample_output = self.normalize_answer(sample_output)
+            cleaned_sample_labels = set(self.normalize_answer(label) for label in sample_labels)
+            if any(cleaned_sample_output.startswith(label) for label in cleaned_sample_labels):
+                print('correct')
+                self.correct += 1
+            print('total')
+            self.total += 1
 
     def compute(self):
         assert isinstance(self.correct, Tensor)

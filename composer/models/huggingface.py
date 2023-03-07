@@ -297,10 +297,9 @@ class HuggingFaceModel(ComposerModel):
                 raise ValueError(
                     'Generation eval cannot be used without providing a tokenizer to the model constructor.')
 
-            self.labels = batch.pop('continuations')
-            encoded_continuations = self.tokenizer(self.labels)['input_ids']
-            max_length = max(len(continuation) for continuation in encoded_continuations)
-            return self.generate(batch['input_ids'], max_new_tokens=max_length)
+            self.labels = batch.pop('labels')
+            generation = self.generate(batch['input_ids'], max_new_tokens=batch['generation_length'])
+            return self.tokenizer.batch_decode(generation[:, -batch['generation_length']:])
 
         if self.use_logits or batch.get('mode', None) == 'icl_task':
             # pop labels first to avoid computing loss
@@ -402,6 +401,7 @@ class HuggingFaceModel(ComposerModel):
                                    num_beams=num_beams,
                                    do_sample=do_sample,
                                    max_new_tokens=max_new_tokens,
+                                   pad_token_id=self.tokenizer.eos_token_id,
                                    **kwargs)
 
     def add_eval_metrics(self, evaluator):

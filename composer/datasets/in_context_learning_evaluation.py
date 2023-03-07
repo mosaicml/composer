@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 __all__ = ['InContextLearningLMTaskDataset', 'InContextLearningMultipleChoiceTaskDataset', 'get_icl_task_dataloader']
 
 
-def _make_padded_input(context_enc, continuation_enc, max_seq_len, pad_tok_id):
+def _make_padded_input(context_enc, continuation_enc, max_seq_len, pad_tok_id, padding_side='right'):
     if len(continuation_enc) + len(context_enc) > max_seq_len:
         # clip from the end
         context_max_subseq_len = max_seq_len - len(continuation_enc)
@@ -41,13 +41,24 @@ def _make_padded_input(context_enc, continuation_enc, max_seq_len, pad_tok_id):
     (inp_len,) = inp.shape
 
     # pad length from seq to padding_length
-    inp = torch.cat(
-        [
-            inp,  # [seq]
-            torch.LongTensor((max_seq_len - inp_len) * [pad_tok_id]),
-        ],
-        dim=0,
-    )
+    if padding_side == 'right':
+        inp = torch.cat(
+            [
+                inp,  # [seq]
+                torch.LongTensor((max_seq_len - inp_len) * [pad_tok_id]),
+            ],
+            dim=0,
+        )
+    elif padding_side == 'left':
+        inp = torch.cat(
+            [
+                torch.LongTensor((max_seq_len - inp_len) * [pad_tok_id]),
+                inp,  # [seq]
+            ],
+            dim=0,
+        )
+    else:
+        raise ValueError(f'Unknown padding_side {padding_side}')
 
     return inp, continuation_span
 
@@ -113,10 +124,11 @@ class InContextLearningQATaskDataset(Dataset):
                 'context': examples['context'],
                 'answer': examples['answer'],
                 'aliases': examples['aliases']
-            }))
+            }))[:20]
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
+        self.max_answer_length = None
         self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter)
 
     def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str):
@@ -134,6 +146,7 @@ class InContextLearningQATaskDataset(Dataset):
         Returns:
             dict: Contains the context, the continuation, and the preamble (prompt + fewshot examples)
         """
+        max_answer_length = 0
         examples = []
         for sample_idx in tqdm(range(len(self.samples))):
             encoded_example = {}
@@ -152,12 +165,10 @@ class InContextLearningQATaskDataset(Dataset):
             if len(preamble) > 0:
                 ctxt = f'{example_delimiter}{ctxt}'
 
-            ctxt = f'{ctxt}{continuation_delimiter}'
-
             # if the preamble is empty then this will be a 0-length list, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
             encoded_example['preamble'] = self.tokenizer(preamble)
             # if there is an EOS token added, we need to remove it so it is not in the middle of the prompt
-            if self.tokenizer.eos_token_id is not None and encoded_example[-1] == self.tokenizer.eos_token_id:
+            if self.tokenizer.eos_token_id is not None and encoded_example['preamble'][-1] == self.tokenizer.eos_token_id:
                 encoded_example['preamble'] = encoded_example['preamble'][:-1]
 
             encoded_example['context'] = self.tokenizer(ctxt, add_special_tokens=False)
@@ -165,6 +176,9 @@ class InContextLearningQATaskDataset(Dataset):
 
             examples.append(encoded_example)
 
+            max_answer_length = max(max_answer_length, max(map(lambda x: len(self.tokenizer(x)['input_ids']), self.samples[sample_idx]['aliases'])))
+
+        self.max_answer_length = max_answer_length
         return examples
 
     def __getitem__(self, index):
@@ -174,32 +188,22 @@ class InContextLearningQATaskDataset(Dataset):
         return len(self.encoded_dataset)
 
     def collate_fn(self, data):
-        if len(data) != 1:
-            raise ValueError(
-                'InContextLearningQATaskDataset does not support batch size > 1, because it needs to call generate, which cannot be done in a batched manner.'
-            )
-
-        # TODO: produce the output here, save max length in prep examples and propagate it here, finish the metric
-
-        inputs = []
-        continuation_indices = []
-        for data_pair in data:
-            preamble, context, aliases = (data_pair['preamble'], data_pair['context'], data_pair['aliases'])
-
+        inputs, answers = [], []
+        for sample in data:
+            preamble, context, aliases = (sample['preamble'], sample['context'], sample['aliases'])
             context_enc = preamble['input_ids'] + context['input_ids']
-            continuation_enc = continuation['input_ids']
-
-            inp, continuation_span = _make_padded_input(context_enc, continuation_enc, self.max_seq_len,
-                                                        self.pad_tok_id)
+            # inp, _ = _make_padded_input(context_enc, [], self.max_seq_len - self.max_answer_length,
+            #                                             self.pad_tok_id, padding_side='left')
+            inp = torch.tensor(context_enc, dtype=torch.long)
 
             inputs.append(inp)
-            continuation_indices.append(continuation_span)
+            answers.append(aliases)
 
         batch = {
             'input_ids': torch.stack(inputs),
-            'continuation_indices': continuation_indices,
-            'mode': 'icl_task',
-            'labels': torch.stack(inputs),
+            'mode': 'generate',
+            'labels': answers,
+            'generation_length': self.max_answer_length
         }
 
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
@@ -576,6 +580,17 @@ def get_icl_task_dataloader(
         effective_batchsize = batch_size // dataset.num_choices
     elif icl_task_type == 'language_modeling':
         dataset = InContextLearningLMTaskDataset(dataset_uri,
+                                                 tokenizer,
+                                                 max_seq_len,
+                                                 pad_tok_id,
+                                                 num_fewshot,
+                                                 prompt_string,
+                                                 example_delimiter,
+                                                 continuation_delimiter,
+                                                 destination_path=destination_path)
+        effective_batchsize = batch_size
+    elif icl_task_type == 'question_answering':
+        dataset = InContextLearningQATaskDataset(dataset_uri,
                                                  tokenizer,
                                                  max_seq_len,
                                                  pad_tok_id,
