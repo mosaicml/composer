@@ -349,7 +349,7 @@ class State(Serializable):
         max_duration: Optional[Union[str, Time[int]]] = None,
 
         # data configurations
-        device_train_microbatch_size: Optional[int] = 1,
+        device_train_microbatch_size: Optional[int] = None,
         auto_microbatching: bool = False,
 
         # dataloaders

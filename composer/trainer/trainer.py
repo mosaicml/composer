@@ -155,14 +155,14 @@ def _set_evaluator_interval_and_subset_num_batches(
                                  'run forever and never terminate.')
 
 
-def _is_auto_microbatching(device_train_microbatch_size: Union[int, str], device: Device):
-    if device_train_microbatch_size == 'auto':
+def _is_auto_microbatching(device_train_microbatch_size: Optional[Union[int, str]], device: Device):
+    if device_train_microbatch_size is None:
+        return False
+    elif device_train_microbatch_size == 'auto':
         warnings.warn(("Setting `device_train_microbatch_size='auto'` is an experimental feature which may cause "
                        'uncaught Cuda Out of Memory errors. In this case, please manually '
                        'set device_train_microbatch_size explicitly to an integer instead.'))
-        if not isinstance(
-                device, DeviceGPU
-        ):  # TODO: Instead of checking here, we should have a validate fn called at start of fit and eval
+        if not isinstance(device, DeviceGPU):
             raise ValueError(
                 'Can only use adaptive device_train_microbatch_size on GPU. Please set device_train_microbatch_size >= 1.'
             )
@@ -180,13 +180,20 @@ def _get_initial_device_train_microbatch_size(device_train_microbatch_size: Opti
     `train_dataloader` is not set yet, returns None and this function will be called again when
     `train_dataloader` is set, such as when `fit()` is called.
     """
-    if auto_microbatching:
+    if device_train_microbatch_size is None or auto_microbatching:
         # Return None, this function will be called again when `train_dataloader` is set
         if train_dataloader is None:
             return None
         try:
             batch_size = getattr(train_dataloader, 'batch_size')
         except AttributeError as e:
+            # Error message when `device_train_microbatch_size` is None
+            # Note: This code path will be removed after `auto` is made default
+            if device_train_microbatch_size is None:
+                raise ValueError(
+                    '`device_train_microbatch_size` must be set when `state.train_dataloader` does not have a `batch_size` attribute.'
+                ) from e
+            # Error message when `device_train_microbatch_size` is 'auto'
             raise AttributeError(
                 "`device_train_microbatch_size='auto'` requires the `state.train_dataloader` to have a `batch_size` attribute."
             ) from e
@@ -947,17 +954,15 @@ class Trainer:
             optimizers = map_collection(optimizers, device.optimizer_to_device)
 
         # Microbatching
-        if device_train_microbatch_size is None:
-            warnings.warn("device_train_microbatch_size not specified, defaulting to 'auto'.")
-            device_train_microbatch_size = 'auto'
         auto_microbatching = _is_auto_microbatching(device_train_microbatch_size, device=device)
         if auto_microbatching and profiler:
             raise ValueError("`device_train_microbatch_size='auto'` is not compatible with the profiler. It is "
                              "recommended to run a mini-run with `device_train_microbatch_size='auto'` to identify "
                              'the optimal device_train_microbatch_size value and then manually specify that in a '
                              'second run with profiler.')
-        # If auto_microbatching is True, the microbatch size will be determined when dataloader
-        # is specified. train_dataloader is parsed after `Event.INIT` or in fit()
+        # If auto_microbatching is True or `device_train_microbatch_size` is not specified, the microbatch size
+        # will be determined when dataloader is specified. train_dataloader is parsed after `Event.INIT` or in
+        # fit()
         device_train_microbatch_size = _get_initial_device_train_microbatch_size(device_train_microbatch_size,
                                                                                  auto_microbatching, None)
 
