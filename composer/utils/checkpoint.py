@@ -235,7 +235,7 @@ def download_checkpoint(
     progress_bar: bool,
     fsdp_sharded_state_dict_enabled: bool = False,
     deepspeed_checkpoint: bool = False,
-) -> Tuple[str, Optional[str], bool]:
+) -> Tuple[str, Optional[str]]:
     """Download the checkpoint stored at ``path``, potentially in ``object_store``, to ``node_checkpoint_folder``.
 
     Returns a tuple of  (``composer_states_filepath``, ``extracted_checkpoint_folder``, ``extracted_rank_n``).
@@ -269,9 +269,9 @@ def download_checkpoint(
     local_path = _format_path_with_current_rank(path)
     local_rank_zero_path = _get_local_rank_zero_path(local_path)
 
-    # Download on local rank 0 or if path is different from local rank 0
-    if dist.get_local_rank() == 0 or local_path != local_rank_zero_path:
-        try:
+    try:
+        # Download on local rank 0 or if path is different from local rank 0
+        if dist.get_local_rank() == 0 or local_path != local_rank_zero_path:
             get_file_succeeded = True
             try:
                 get_file(
@@ -291,16 +291,18 @@ def download_checkpoint(
                 pass
 
             # Extract tarballs, which happens for DeepSpeed or compression
-            if get_file_succeeded and is_tar(path):
+            if get_file_succeeded and extracted_tar_checkpoint_folder is not None:
                 with tarfile.open(rank_n_checkpoint_filepath) as tarball:
                     tarball.extractall(extracted_tar_checkpoint_folder)
-        finally:
-            # Wait for all checkpoints on the node to finish downloading
-            # Putting the barrier in a finally so the rank will always block on the barrier,
-            # even if it has an exception.
-            # Any exception will be re-raised after the barrier passes. The launcher script
-            # will detect the process crash and terminate the other ranks
-            dist.barrier()
+    finally:
+        # Wait for all checkpoints on the node to finish downloading. First, we busy wait until
+        # file exists, ensuring synchronization intra-node. Next, we use `dist.barrier()` to
+        # sync across nodes. This is necessary to avoid timing out on the barrier when downloading
+        # large checkpoints, which may exceed the normal timeout. Now, a timeout is only
+        # encountered if the difference between checkpoint download times on the slowest and
+        # fastest nodes exceeds the timeout.
+        dist.local_rank_zero_download_and_wait(composer_states_filepath)
+        dist.barrier()
 
     return composer_states_filepath, extracted_tar_checkpoint_folder
 
