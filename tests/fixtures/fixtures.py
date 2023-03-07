@@ -175,6 +175,7 @@ def tiny_gpt2_config_helper():
         'n_embd': 2,
         'n_head': 2,
         'n_layer': 2,
+        'vocab_size': 50258  # 50257 + 1 for pad token
     }
     return transformers.AutoConfig.from_pretrained('gpt2', **tiny_overrides)
 
