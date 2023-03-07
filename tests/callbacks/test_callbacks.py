@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 
 from composer.core import Callback, Engine, Event, State
 from composer.core.time import Time
-from composer.loggers import ConsoleLogger, Logger, LoggerDestination, ProgressBarLogger
+from composer.loggers import Logger, LoggerDestination
 from composer.profiler import Profiler, ProfilerAction
 from composer.trainer import Trainer
 from tests.callbacks.callback_settings import get_cb_kwargs, get_cbs_and_marks
@@ -131,8 +131,6 @@ class TestCallbackTrains:
         )
 
     def test_trains(self, cb_cls: Type[Callback], device_train_microbatch_size: int, _remote: bool):
-        if cb_cls in [ProgressBarLogger, ConsoleLogger]:
-            pytest.skip()
         del _remote  # unused. `_remote` must be passed through to parameterize the test markers.
         cb_kwargs = get_cb_kwargs(cb_cls)
         cb = cb_cls(**cb_kwargs)
@@ -145,8 +143,6 @@ class TestCallbackTrains:
         Note: future functional tests should test for
         idempotency (e.g functionally)
         """
-        if cb_cls in [ProgressBarLogger, ConsoleLogger]:
-            pytest.skip()
         del _remote  # unused. `_remote` must be passed through to parameterize the test markers.
         cb_kwargs = get_cb_kwargs(cb_cls)
         cb = cb_cls(**cb_kwargs)

@@ -514,13 +514,6 @@ class State(Serializable):
             self.dataset_state['train'] = None
 
     @property
-    def current_metrics(self):
-        warnings.warn(
-            'The ``current_metrics`` argument for a :class:`Trainer`. state is deprecated and will be removed in the future. Please use ``train_metrics`` and'
-            '``eval_metrics`` instead.')
-        return {'train': self.train_metrics, **self.eval_metrics}
-
-    @property
     def seed(self):
         """The seed for the current rank."""
         return self.rank_zero_seed + dist.get_global_rank()

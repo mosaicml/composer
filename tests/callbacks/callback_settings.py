@@ -13,9 +13,8 @@ from composer import Callback
 from composer.callbacks import EarlyStopper, ImageVisualizer, MemoryMonitor, SpeedMonitor, ThresholdStopper
 from composer.callbacks.export_for_inference import ExportForInferenceCallback
 from composer.callbacks.mlperf import MLPerfCallback
-from composer.loggers import CometMLLogger, MLFlowLogger, RemoteUploaderDownloader, TensorboardLogger, WandBLogger
-from composer.loggers.logger_destination import LoggerDestination
-from composer.loggers.progress_bar_logger import ProgressBarLogger
+from composer.loggers import (CometMLLogger, ConsoleLogger, LoggerDestination, MLFlowLogger, ProgressBarLogger,
+                              RemoteUploaderDownloader, TensorboardLogger, WandBLogger)
 from tests.common import get_module_subclasses
 
 try:
@@ -117,7 +116,10 @@ _callback_marks: Dict[Type[Callback], List[pytest.MarkDecorator],] = {
     ],
     ProgressBarLogger: [
         pytest.mark.filterwarnings(
-            r'ignore:Specifying the ProgressBarLogger via `loggers` is deprecated:DeprecationWarning')
+            r'ignore:Specifying the ProgressBarLogger via `loggers` is not recommended as.*:Warning')
+    ],
+    ConsoleLogger: [
+        pytest.mark.filterwarnings(r'ignore:Specifying the ConsoleLogger via `loggers` is not recommended as.*:Warning')
     ],
     CometMLLogger: [pytest.mark.skipif(not _COMETML_INSTALLED, reason='comet_ml is optional'),],
     TensorboardLogger: [pytest.mark.skipif(not _TENSORBOARD_INSTALLED, reason='Tensorboard is optional'),],
