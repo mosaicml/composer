@@ -214,7 +214,6 @@ intersphinx_mapping = {
     'python': ('https://docs.python.org/3/', None),
     'numpy': ('https://numpy.org/doc/stable/', None),
     'torch': ('https://pytorch.org/docs/stable/', None),
-    'yapf': ('https://docs.mosaicml.com/projects/yahp/en/stable/', None),
     'torchvision': ('https://pytorch.org/vision/stable/', None),
     'torchtext': ('https://pytorch.org/text/stable/', None),
     'torchmetrics': ('https://torchmetrics.readthedocs.io/en/latest/', None),
@@ -319,7 +318,7 @@ def _auto_rst_for_module(module: types.ModuleType, exclude_members: List[Any]) -
     """Generate the content of an rst file documenting a module.
 
     Includes the module docstring, followed by tables for the functions,
-    classes, yahp hparams, and exceptions
+    classes, and exceptions
 
     Args:
         module: The module object to document
@@ -534,11 +533,9 @@ class PatchedHTMLTranslator(HTML5Translator):
             # ---------------------------------------------------------
             # Customize behavior (open in new tab, secure linking site)
             if 'refid' not in node and (not any(node['refuri'].startswith(x)
-                                                for x in ('/', 'https://docs.mosaicml.com', '#')) or
-                                        node['refuri'].startswith('https://docs.mosaicml.com/projects/yahp')):
+                                                for x in ('/', 'https://docs.mosaicml.com', '#'))):
                 # If there's a refid, or the refuri starts with a non-external uri scheme, then it's an internal
                 # (hardcoded) link, so don't open that in a new tab
-                # Treat yahp links as external
                 # Otherwise, it's really an external link. Open it in a new tab.
                 atts['target'] = '_blank'
                 atts['rel'] = 'noopener noreferrer'

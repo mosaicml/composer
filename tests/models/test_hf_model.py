@@ -17,8 +17,8 @@ from torch.utils.data import DataLoader
 from torchmetrics import Metric
 from torchmetrics.classification import MulticlassAccuracy
 
-from composer.core import Evaluator
-from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
+from composer.metrics import InContextLearningLMAccuracy, LanguageCrossEntropy, MaskedAccuracy
+from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
 from composer.utils import dist, is_model_fsdp
 from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset
@@ -30,8 +30,6 @@ from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
 @pytest.mark.parametrize('num_classes', [2, 3])
 def test_hf_train_eval_predict(num_classes: int, tiny_bert_config):
     transformers = pytest.importorskip('transformers')
-
-    from composer.models import HuggingFaceModel
 
     tiny_bert_config.num_labels = num_classes
     hf_model = transformers.AutoModelForSequenceClassification.from_config(
@@ -145,8 +143,6 @@ def test_hf_state_dict_info(tmp_path: Path, pass_in_tokenizer: bool, modify_toke
                             tiny_bert_tokenizer, tiny_bert_config):
     transformers = pytest.importorskip('transformers')
 
-    from composer.models import HuggingFaceModel
-
     if not pass_in_tokenizer and modify_tokenizer:
         pytest.skip("Invalid parametrization. Cannot modify the tokenizer if it doesn't exist.")
 
@@ -237,7 +233,6 @@ def get_lm_trainer(hf_model,
                    do_eval: bool = False,
                    fsdp_config: Optional[Dict[str, Any]] = None):
     transformers = pytest.importorskip('transformers')
-    from composer.models import HuggingFaceModel
 
     metrics: List[Metric] = [LanguageCrossEntropy(ignore_index=-100)]
     if not is_conditional_generation:
@@ -294,8 +289,6 @@ def test_hf_no_tokenizer_warning(caplog, pass_in_tokenizer: bool, tiny_bert_mode
     pytest.importorskip('transformers')
     import logging
 
-    from composer.models import HuggingFaceModel
-
     with caplog.at_level(logging.WARNING, logger='composer'):
         _ = HuggingFaceModel(tiny_bert_model,
                              tokenizer=tiny_bert_tokenizer if pass_in_tokenizer else None,
@@ -314,7 +307,6 @@ def test_hf_no_tokenizer_warning(caplog, pass_in_tokenizer: bool, tiny_bert_mode
 def test_hf_loading_load_save_paths(checkpoint_upload_path: Optional[str], local_save_filename: Optional[str],
                                     tmp_path: Path, tiny_bert_model, tiny_bert_tokenizer):
     pytest.importorskip('transformers')
-    from composer.models import HuggingFaceModel
 
     trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
     trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
@@ -353,7 +345,6 @@ def test_hf_loading_load_save_paths(checkpoint_upload_path: Optional[str], local
 @pytest.mark.parametrize('modify_tokenizer', [False, True])
 def test_hf_loading_tokenizer(modify_tokenizer: bool, tmp_path: Path, tiny_bert_model, tiny_bert_tokenizer):
     pytest.importorskip('transformers')
-    from composer.models import HuggingFaceModel
 
     if modify_tokenizer:
         assert tiny_bert_tokenizer is not None  # pyright
@@ -378,8 +369,6 @@ def test_hf_loading_tokenizer(modify_tokenizer: bool, tmp_path: Path, tiny_bert_
 def test_hf_loading_model_classes(model_class_name: str, num_classes: Optional[int], tmp_path: Path, tiny_bert_model,
                                   tiny_bert_tokenizer):
     transformers = pytest.importorskip('transformers')
-
-    from composer.models import HuggingFaceModel
 
     if num_classes is not None and model_class_name not in {'autoseq', 'bertseq', 'customseq'}:
         pytest.skip('Invalid parametrization. num_classes is only for loading sequence classification models.')
@@ -442,7 +431,6 @@ def test_hf_loading_model_classes(model_class_name: str, num_classes: Optional[i
 
 def test_hf_loading_full_model_equivalence(tmp_path: Path, tiny_bert_model, tiny_bert_tokenizer):
     pytest.importorskip('transformers')
-    from composer.models import HuggingFaceModel
 
     trainer1 = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
     trainer1.fit()
@@ -463,8 +451,6 @@ def test_hf_loading_full_model_equivalence(tmp_path: Path, tiny_bert_model, tiny
 @pytest.mark.parametrize('model_class_name', ['gpt', 'not_a_module', 'not_a_class'])
 def test_hf_loading_errors(tiny_bert_model, tiny_bert_tokenizer, model_class_name, tmp_path):
     transformers = pytest.importorskip('transformers')
-
-    from composer.models import HuggingFaceModel
 
     trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
     trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
@@ -491,8 +477,6 @@ def test_hf_loading_errors(tiny_bert_model, tiny_bert_tokenizer, model_class_nam
                                              (configure_tiny_bert_model, configure_tiny_bert_tokenizer)])
 def test_hf_auto_shift_labels(caplog, model, tokenizer):
     pytest.importorskip('transformers')
-
-    from composer.models import HuggingFaceModel
 
     hf_model = model()
     hf_tokenizer = tokenizer()
@@ -525,7 +509,6 @@ def test_hf_auto_shift_labels(caplog, model, tokenizer):
 def test_hf_causal_shift_labels(tiny_gpt2_model, tiny_gpt2_tokenizer):
     pytest.importorskip('transformers')
 
-    from composer.models import HuggingFaceModel
     tiny_gpt2_model.resize_token_embeddings(len(tiny_gpt2_tokenizer))
     model = HuggingFaceModel(tiny_gpt2_model, tokenizer=tiny_gpt2_tokenizer, use_logits=True)
 
@@ -577,41 +560,17 @@ def test_hf_fsdp(tiny_bert_config, tiny_bert_tokenizer):
 def test_separate_eval_metrics(tiny_bert_model, tiny_bert_tokenizer):
     pytest.importorskip('transformers')
 
-    from composer.models import HuggingFaceModel
-
-    metrics: List[Metric] = [LanguageCrossEntropy(ignore_index=-100)]
-    eval_metrics: List[Metric] = [MaskedAccuracy(ignore_index=-100)]
-
-    hf_model = HuggingFaceModel(tiny_bert_model,
-                                tokenizer=tiny_bert_tokenizer,
-                                metrics=metrics,
-                                eval_metrics=eval_metrics)
+    hf_model = HuggingFaceModel(
+        tiny_bert_model,
+        tokenizer=tiny_bert_tokenizer,
+        metrics=[LanguageCrossEntropy()],
+        eval_metrics=[MaskedAccuracy(), InContextLearningLMAccuracy()],
+    )
 
     assert hf_model.train_metrics is not None
     assert hf_model.val_metrics is not None
     assert hf_model.train_metrics.keys() == {'LanguageCrossEntropy'}
-    assert hf_model.val_metrics.keys() == {'MaskedAccuracy'}
-
-
-def test_add_eval_metrics(tiny_bert_model, tiny_bert_tokenizer):
-    pytest.importorskip('transformers')
-
-    from composer.models import HuggingFaceModel
-
-    metrics: List[Metric] = [LanguageCrossEntropy(ignore_index=-100)]
-
-    dataset = RandomTextClassificationDataset(size=1, vocab_size=1, sequence_length=1, num_classes=1, use_keys=True)
-
-    dataloader = DataLoader(dataset, batch_size=1, sampler=dist.get_sampler(dataset))
-    evaluator = Evaluator(label='evaluator', dataloader=dataloader, metric_names=['InContextLearningLMAccuracy'])
-
-    hf_model = HuggingFaceModel(tiny_bert_model, tokenizer=tiny_bert_tokenizer, metrics=metrics)
-    hf_model.add_eval_metrics(evaluator)
-
-    assert hf_model.train_metrics is not None
-    assert hf_model.val_metrics is not None
-    assert hf_model.train_metrics.keys() == {'LanguageCrossEntropy'}
-    assert hf_model.val_metrics.keys() == {'LanguageCrossEntropy', 'InContextLearningLMAccuracy'}
+    assert hf_model.val_metrics.keys() == {'InContextLearningLMAccuracy', 'MaskedAccuracy'}
 
 
 @pytest.mark.parametrize('checkpoint_upload_folder', [None, 's3://checkpoints-bucket/'])
