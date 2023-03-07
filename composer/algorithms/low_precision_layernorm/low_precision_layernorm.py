@@ -99,7 +99,7 @@ class LPLayerNorm(torch.nn.LayerNorm):
         module_device = x.device
         downcast_x = _cast_if_autocast_enabled(x)
         downcast_weight = _cast_if_autocast_enabled(self.weight)
-        downcast_bias = _cast_if_autocast_enabled(self.bias)
+        downcast_bias = _cast_if_autocast_enabled(self.bias) if self.bias is not None else self.bias
         with torch.autocast(enabled=False, device_type=module_device.type):
             return F.layer_norm(downcast_x, self.normalized_shape, downcast_weight, downcast_bias, self.eps)
 

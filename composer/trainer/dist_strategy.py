@@ -137,7 +137,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     if version.parse(torch.__version__) < version.parse('1.13.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
     from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (apply_activation_checkpointing,
-                                                                             checkpoint_wrapper)
+                                                                             checkpoint_wrapper, CheckpointImpl)
     from torch.distributed.fsdp import FullyShardedDataParallel
     from torch.distributed.fsdp.flatten_params_wrapper import FlattenParamsWrapper
 
@@ -303,8 +303,8 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
 
             # Activation Checkpointing
             if activation_checkpointing or activation_cpu_offload:
-                first_wrap_fn = checkpoint_wrapper if activation_checkpointing else (lambda module: module)
-                second_wrap_fn = (lambda module: checkpoint_wrapper(first_wrap_fn(module), offload_to_cpu=True)
+                first_wrap_fn = lambda m: checkpoint_wrapper(m, checkpoint_impl=CheckpointImpl.NO_REENTRANT) if activation_checkpointing else (lambda module: module)
+                second_wrap_fn = (lambda module: checkpoint_wrapper(first_wrap_fn(module), checkpoint_impl=CheckpointImpl.NO_REENTRANT, offload_to_cpu=True)
                                  ) if activation_cpu_offload else first_wrap_fn
 
                 # Choose which modules to activation checkpoint according to the following priority:
