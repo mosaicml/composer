@@ -165,6 +165,9 @@ def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
                     serialized_value[metric_name] = metric
         state[attribute_name] = serialized_value
     # print(state['train_metrics'])
+    print('\n\n\n LOADING STATE DICT \n\n\n')
+    print(state['train_metrics'])
+    print(state['eval_metrics'])
     for metric in state['train_metrics']:
         print(hasattr(metric, 'distributed_available_fn'), metric)
     return state
