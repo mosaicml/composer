@@ -159,17 +159,11 @@ def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
         if attribute_name == 'train_metrics' or attribute_name == 'eval_metrics':
             for metric_name in serialized_value.keys():
                 metric = serialized_value[metric_name]
-                if hasattr(metric, 'distributed_available_fn'):
+                if not hasattr(metric, 'distributed_available_fn'):
                     # serialized_value[metric_name]['distributed_available_fn'] = jit_distributed_available
                     setattr(metric, 'distributed_available_fn', jit_distributed_available)
                     serialized_value[metric_name] = metric
         state[attribute_name] = serialized_value
-    # print(state['train_metrics'])
-    print('\n\n\n LOADING STATE DICT \n\n\n')
-    print(state['train_metrics'])
-    print(state['eval_metrics'])
-    for metric in state['train_metrics']:
-        print(hasattr(metric, 'distributed_available_fn'), metric)
     return state
 
 
