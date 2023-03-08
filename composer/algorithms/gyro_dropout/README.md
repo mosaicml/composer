@@ -43,6 +43,7 @@ def training_loop(model, train_loader):
 ### Composer Trainer
 
 <!--pytest.mark.gpu-->
+<!--pytest.mark.filterwarnings('ignore:GyroDropout is not implemented in a way that allows correct resumption.*:UserWarning')-->
 <!--
 ```python
 import torch

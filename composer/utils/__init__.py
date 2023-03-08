@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Helper utilities."""
-import warnings
 
 from composer.utils.auto_log_hparams import (convert_flat_dict_to_nested_dict, convert_nested_dict_to_flat_dict,
                                              extract_hparams)
@@ -24,16 +23,6 @@ from composer.utils.object_store import (LibcloudObjectStore, ObjectStore, Objec
                                          S3ObjectStore, SFTPObjectStore)
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
-
-
-def warn_yahp_deprecation() -> None:
-    warnings.warn(
-        'yahp-based workflows are deprecated and will be removed in a future release. Please'
-        'migrate to using other configuration managers and create the Trainer objects directly.'
-        'v0.10 will be the last release to support yahp.',
-        DeprecationWarning,
-        stacklevel=2)
-
 
 __all__ = [
     'ensure_tuple',
