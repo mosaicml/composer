@@ -86,7 +86,7 @@ class LanguageCrossEntropy(Metric):
         if vocab_size is not None:
             warnings.warn(
                 DeprecationWarning(
-                    'The vocab_size argument is deprecated and will be removed in 0.14. It is no longer needed, because the correct shape of output and target is inferred based on the number of target elements.'
+                    'The vocab_size argument is deprecated and will be removed in 0.15. It is no longer needed, because the correct shape of output and target is inferred based on the number of target elements.'
                 ))
 
         self.ignore_index = ignore_index
@@ -196,7 +196,7 @@ class HFCrossEntropy(Metric):
     def __init__(self, dist_sync_on_step=False):
         warnings.warn(
             DeprecationWarning(
-                "'HFCrossEntropy' is deprecated and will be removed in 0.14. Please use `LanguageCrossEntropy' instead."
+                "'HFCrossEntropy' is deprecated and will be removed in 0.15. Please use `LanguageCrossEntropy' instead."
             ))
 
         super().__init__(dist_sync_on_step=dist_sync_on_step)
@@ -253,7 +253,7 @@ class Perplexity(HFCrossEntropy):
     def __init__(self, dist_sync_on_step=False):
         warnings.warn(
             DeprecationWarning(
-                "'Perplexity' is deprecated and will be removed in 0.14. Please use `LanguagePerplexity' instead."))
+                "'Perplexity' is deprecated and will be removed in 0.15. Please use `LanguagePerplexity' instead."))
 
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 

@@ -184,13 +184,13 @@ class ComposerModel(torch.nn.Module, abc.ABC):
 
         .. code-block:: python
 
-            from torchmetrics.classification import Accuracy
+            from torchmetrics.classification import MulticlassAccuracy
             from composer.models.loss import CrossEntropyLoss
 
-            def __init__(self):
+            def __init__(self, num_classes):
                 super().__init__()
-                self.train_acc = Accuracy() # torchmetric
-                self.val_acc = Accuracy()
+                self.train_acc = MulticlassAccuracy(num_classes=num_classes, average='micro') # torchmetric
+                self.val_acc = MulticlassAccuracy(num_classes=num_classes, average='micro')
                 self.val_loss = CrossEntropyLoss()
 
             def metrics(self, train: bool = False):

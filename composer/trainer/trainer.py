@@ -354,25 +354,6 @@ def _get_precision_context(precision: Precision, deepspeed_enabled: bool):
     return get_precision_context(precision)
 
 
-def _get_backwards_compatible_precision(precision: str):
-    if precision == 'fp16':
-        warnings.warn(
-            DeprecationWarning(
-                "'fp16' is deprecated as the naming is unclear and will be removed in 0.13. Use 'amp_fp16' instead."))
-        return Precision.AMP_FP16
-    if precision == 'amp':
-        warnings.warn(
-            DeprecationWarning(
-                "'amp' is deprecated as the naming is unclear and will be removed in 0.13. Use 'amp_fp16' instead."))
-        return Precision.AMP_FP16
-    if precision == 'bf16':
-        warnings.warn(
-            DeprecationWarning(
-                "'bf16' is deprecated as the naming is unclear and will be removed in 0.13. Use 'amp_bf16' instead."))
-        return Precision.AMP_BF16
-    return precision
-
-
 def _generate_run_name() -> str:
     # change coolname randomness for different names with same seed
     coolname.replace_random(random.Random(os.urandom(128)))
@@ -963,8 +944,7 @@ class Trainer:
         # Precision
         if precision is None:
             precision = Precision.AMP_FP16 if isinstance(device, DeviceGPU) else Precision.FP32
-        if isinstance(precision, str):
-            precision = _get_backwards_compatible_precision(precision)
+        elif isinstance(precision, str):
             precision = Precision(precision)
         _validate_precision(precision, device)
 
@@ -1094,11 +1074,11 @@ class Trainer:
 
         if any(isinstance(x, ProgressBarLogger) for x in loggers):
             warnings.warn(
-                DeprecationWarning(
-                    (f'Specifying the {ProgressBarLogger.__name__} via `loggers` is deprecated. Instead, '
-                     'please specify `progress_bar`, `console_stream` and `log_traces` arguments when '
-                     'constructing the trainer. If specified, these arguments will be ignored, as the '
-                     f'{ProgressBarLogger.__name__} was already created.')))
+                Warning((
+                    f'Specifying the {ProgressBarLogger.__name__} via `loggers` is not recommended as '
+                    'any values set for the following Trainer arguments will be ignored: `progress_bar`, `console_stream`, or `log_traces`. '
+                    'The recommended way of enabling a progress bar is to set `progress_bar` to True instead of '
+                    f'constructing a {ProgressBarLogger.__name__} instance.')))
         else:
             if progress_bar:
                 loggers.append(ProgressBarLogger(stream=console_stream, log_traces=log_traces))
@@ -1106,11 +1086,11 @@ class Trainer:
         # Console Logging
         if any(isinstance(x, ConsoleLogger) for x in loggers):
             warnings.warn(
-                DeprecationWarning((
-                    f'Specifying the {ConsoleLogger.__name__} via `loggers` is deprecated. Instead, '
-                    'please specify `log_to_console`, `console_stream`, `console_log_interval`, and `log_traces` arguments when '
-                    'constructing the trainer. If specified, these arguments will be ignored, as the '
-                    f'{ConsoleLogger.__name__} was already created.')))
+                Warning((
+                    f'Specifying the {ConsoleLogger.__name__} via `loggers` is not recommended as '
+                    'any values set for the following Trainer arguments will be ignored: `log_to_console`, `console_stream`, `log_traces`, and `console_log_interval`. '
+                    'The recommended way of enabling a console logging is to set `log_to_console` to True instead of '
+                    f'constructing a {ConsoleLogger.__name__} instance.')))
         else:
             if log_to_console:
                 loggers.append(
@@ -1784,8 +1764,6 @@ class Trainer:
 
         # Precision
         if precision is not None:
-            if isinstance(precision, str):
-                precision = _get_backwards_compatible_precision(precision)
             if Precision(precision) != self.state.precision:
                 if self.deepspeed_enabled:
                     raise ValueError('Changing the precision when using DeepSpeed is not supported')
@@ -2061,24 +2039,13 @@ class Trainer:
         with torch.no_grad(),\
                 model_eval_mode(self.state.model),\
                 _get_precision_context(self.state.precision, self.deepspeed_enabled):
-            if hasattr(self._original_model, 'validate'):  # backwards compatibility check
-                warnings.warn(
-                    DeprecationWarning(
-                        'Using validate() is deprecated and will be removed in 0.13. Please use eval_forward() instead.'
-                    ))
-                assert isinstance(self._original_model.validate, Callable)
-                eval_outputs, target = self._original_model.validate(device_batch)
-
-                for _, metric in self.state.train_metrics.items():
-                    metric.update(eval_outputs, target)
-            else:
-                eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
-                for _, metric in self.state.train_metrics.items():
-                    self._original_model.update_metric(
-                        device_batch,
-                        eval_outputs,
-                        metric,
-                    )
+            eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
+            for _, metric in self.state.train_metrics.items():
+                self._original_model.update_metric(
+                    device_batch,
+                    eval_outputs,
+                    metric,
+                )
 
     def _run_evaluators(self, event: Event):
         """Runs evaluators periodically during training."""
@@ -2535,13 +2502,13 @@ class Trainer:
             glue_mrpc_task = Evaluator(
                 label='glue_mrpc',
                 dataloader=mrpc_dataloader,
-                metric_names=['BinaryF1Score', 'Accuracy']
+                metric_names=['BinaryF1Score', 'MulticlassAccuracy']
             )
 
             glue_mnli_task = Evaluator(
                 label='glue_mnli',
                 dataloader=mnli_dataloader,
-                metric_names=['Accuracy']
+                metric_names=['MulticlassAccuracy']
             )
 
             trainer = Trainer(
@@ -2552,13 +2519,6 @@ class Trainer:
 
         The metrics used are defined in your model's ``get_metrics()`` method. For more information,
         see :doc:`/trainer/evaluation`.
-
-        .. note::
-
-            This eval API was recently changed to better much the trainer fit API. Please migrate your
-            code to using the new design here. For backwards compatibility, the old API can still be
-            invoked by calling ``_eval_loop()``, however this is not recommended as this may be
-            removed in the future.
 
         Args:
             eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): Dataloaders
@@ -2604,10 +2564,11 @@ class Trainer:
             evaluators = self.state.evaluators
 
         for evaluator in evaluators:
+            eval_subset_num_batches = evaluator.subset_num_batches if subset_num_batches == -1 else subset_num_batches
             self._eval_loop(
                 dataloader=evaluator.dataloader,
                 dataloader_label=evaluator.label,
-                subset_num_batches=subset_num_batches,
+                subset_num_batches=eval_subset_num_batches,
                 metrics=self.state.eval_metrics[evaluator.label],
             )
             if eval_passed_in:
@@ -2700,16 +2661,8 @@ class Trainer:
                                 self.state.batch, self.state.eval_batch_split):
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
                             with _get_precision_context(self.state.precision, self.deepspeed_enabled):
-                                if hasattr(self._original_model, 'validate'):  # backwards compatibility check
-                                    warnings.warn(
-                                        DeprecationWarning(
-                                            'Using validate() is deprecated and will be removed in 0.13. Please use eval_forward() instead.'
-                                        ))
-                                    assert isinstance(self._original_model.validate, Callable)
-                                    self.state.outputs, target = self._original_model.validate(self.state.batch)
-                                else:
-                                    self.state.outputs = self._original_model.eval_forward(self.state.batch)
-                                    target = None
+                                self.state.outputs = self._original_model.eval_forward(self.state.batch)
+                                target = None
 
                             self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 

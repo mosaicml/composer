@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+import warnings
 from typing import Optional
 
 import torch
@@ -147,7 +148,9 @@ class SAM(Algorithm):
         epsilon: float = 1.0e-12,
         interval: int = 1,
     ):
-        """__init__ is constructed from the same fields as in hparams."""
+        warnings.warn(
+            'SAM has known issues of weight mismatch when loading from a checkpoint, which will cause an error when resuming without `load_weights_only=True`.'
+        )
         self.rho = rho
         self.epsilon = epsilon
         self.interval = interval
