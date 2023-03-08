@@ -164,7 +164,9 @@ def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
                     setattr(metric, 'distributed_available_fn', jit_distributed_available)
                     serialized_value[metric_name] = metric
         state[attribute_name] = serialized_value
-
+    # print(state['train_metrics'])
+    for metric in state['train_metrics']:
+        print(hasattr(metric, 'distributed_available_fn'), metric)
     return state
 
 
