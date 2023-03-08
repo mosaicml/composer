@@ -44,6 +44,7 @@ import functools
 import json
 import sys
 import time
+from importlib import util as importlib_util
 from typing import NamedTuple, Optional, TextIO
 
 import cpuinfo
@@ -104,7 +105,14 @@ class ComposerEnv(NamedTuple):
 def get_composer_commit_hash() -> Optional[str]:
     # Use PEP-610 to get the commit hash
     # See https://packaging.python.org/en/latest/specifications/direct-url/
-    files = importlib_metadata.files('mosaicml')
+    # try both package names that composer is released under
+    if importlib_util.find_spec('mosaicml') is not None:
+        files = importlib_metadata.files('mosaicml')
+    elif importlib_util.find_spec('composer') is not None:
+        files = importlib_metadata.files('composer')
+    else:
+        return
+
     if files is None:
         return
     files = [f for f in files if str(f).endswith('direct_url.json')]
