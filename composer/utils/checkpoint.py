@@ -14,6 +14,7 @@ import tarfile
 import tempfile
 import textwrap
 import warnings
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
@@ -399,6 +400,20 @@ def glob_filter(exclude_globs: List[str]) -> Callable[[Dict], None]:
     return filter_func
 
 
+def safe_torch_load(composer_states_filepath: Union[Path, str]):
+    """Load a torch checkpoint, catching errors due to backwards compatibility issues."""
+    try:
+        state_dict = torch.load(composer_states_filepath, map_location='cpu')
+        return state_dict
+    except TypeError as e:
+        if 'Accuracy.__new__() missing 1 required positional argument' in str(e):
+            raise Exception('As of v0.10.0, torchmetrics introduces a new required argument to Accuracy which '
+                            'breaks backwards compatibility. Unfortunately, this means that older checkpoints '
+                            'cannot be loaded with the metrics. In order to successfully load this model, please '
+                            'pass `load_ignore_keys = ["state/train_metrics/*", "state/eval_metrics/*"]`.')
+        raise
+
+
 def _restore_checkpoint(
     state: State,
     logger: Logger,
@@ -413,7 +428,7 @@ def _restore_checkpoint(
 ) -> Optional[List[Dict[str, Any]]]:
     """Restore a checkpoint into ``state`` and returns the rng state dicts (if ``load_weights_only`` is False)."""
     # Now, all ranks load the checkpoint that local rank zero downloaded
-    state_dict = torch.load(composer_states_filepath, map_location='cpu')
+    state_dict = safe_torch_load(composer_states_filepath)
     if ignore_keys:
         # Filter provided list of key paths
         if not callable(ignore_keys):
