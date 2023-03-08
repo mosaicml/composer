@@ -53,7 +53,7 @@ jobs:
       name: ${{ matrix.name }}
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
-      composer_package_name: ${{ matrix.composer_package_name}}
+      composer_package_name: ${{ matrix.composer_package_name }}
   coverage:
     uses: ./.github/workflows/coverage.yaml
     name: Coverage Results
