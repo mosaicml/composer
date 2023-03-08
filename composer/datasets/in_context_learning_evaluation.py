@@ -109,6 +109,7 @@ class InContextLearningQATaskDataset(Dataset):
         example_delimiter: str,
         continuation_delimiter: str,
         destination_path: str,
+        question_prelimiter: str
     ):
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
@@ -124,14 +125,14 @@ class InContextLearningQATaskDataset(Dataset):
                 'context': examples['context'],
                 'answer': examples['answer'],
                 'aliases': examples['aliases']
-            }))[:20]
+            }))
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
         self.max_answer_length = None
-        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter)
+        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter, question_prelimiter)
 
-    def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str):
+    def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str, question_prelimiter: str):
         """Prepares a set of language modeling tasks into tokenized format with prompt and fewshot examples.
 
         Each task consists of a context and a continuation as well as an optional prompt and optional list of
@@ -142,6 +143,7 @@ class InContextLearningQATaskDataset(Dataset):
             prompt_string (str): The prompt to prepend to all inputs
             example_delimiter (str): The delimiter used to separate each individual context/continuation pair
             continuation_delimiter (str): The delimiter used to separate each context from its continuation
+            question_prelimiter (str): The text to prepend to each question
 
         Returns:
             dict: Contains the context, the continuation, and the preamble (prompt + fewshot examples)
@@ -157,18 +159,24 @@ class InContextLearningQATaskDataset(Dataset):
                 fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx)
                 for fewshot_idx in fewshot_idxs:
                     ctxt, cont = self.samples[fewshot_idx]['context'], self.samples[fewshot_idx]['answer']
+                    ctxt = f'{question_prelimiter}{ctxt}'
                     if len(preamble) > 0:
                         ctxt = f'{example_delimiter}{ctxt}'
                     preamble += f'{ctxt}{continuation_delimiter}{cont}'
 
-            ctxt, cont = self.samples[sample_idx]['context'], self.samples[sample_idx]['answer']
+            ctxt = self.samples[sample_idx]['context']
+            ctxt = f'{question_prelimiter}{ctxt}'
             if len(preamble) > 0:
                 ctxt = f'{example_delimiter}{ctxt}'
+
+            # rstrip the continuation delimiter, because the prompt ending in a space results in degenerate output
+            continuation_delimiter_stripped = continuation_delimiter.rstrip()
+            ctxt = f'{ctxt}{continuation_delimiter_stripped}'
 
             # if the preamble is empty then this will be a 0-length list, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
             encoded_example['preamble'] = self.tokenizer(preamble)
             # if there is an EOS token added, we need to remove it so it is not in the middle of the prompt
-            if self.tokenizer.eos_token_id is not None and encoded_example['preamble'][-1] == self.tokenizer.eos_token_id:
+            if self.tokenizer.eos_token_id is not None and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
                 encoded_example['preamble'] = encoded_example['preamble'][:-1]
 
             encoded_example['context'] = self.tokenizer(ctxt, add_special_tokens=False)
@@ -522,6 +530,7 @@ def get_icl_task_dataloader(
     example_delimiter: str,  # e.g. '\n'
     continuation_delimiter: str,  # e.g. ''
     destination_path: str,
+    question_prelimiter: str = '' # e.g. 'Question: '
 ) -> DataSpec:
     """This constructs a dataloader capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
 
@@ -598,7 +607,8 @@ def get_icl_task_dataloader(
                                                  prompt_string,
                                                  example_delimiter,
                                                  continuation_delimiter,
-                                                 destination_path=destination_path)
+                                                 destination_path=destination_path,
+                                                 question_prelimiter=question_prelimiter)
         effective_batchsize = batch_size
     else:
         raise Exception(f'Unrecognized ICL task type: {icl_task_type}')

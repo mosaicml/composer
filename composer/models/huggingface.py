@@ -116,6 +116,11 @@ class HuggingFaceModel(ComposerModel):
                         ' HuggingFace Causal LM. This may lead to incorrect behavior.')
             # Note: No warning if shift_labels and not is_causal_lm, since the model may simply be a custom class.
 
+        # We need to call forward once in order for FSDP + generate to work
+        # See https://github.com/huggingface/accelerate/issues/570, https://github.com/huggingface/accelerate/issues/947,
+        # and https://github.com/pytorch/pytorch/issues/82461 for more info
+        self.dummy_forward_called = False
+
     @staticmethod
     def hf_from_composer_checkpoint(
         checkpoint_path: str,
@@ -298,7 +303,7 @@ class HuggingFaceModel(ComposerModel):
                     'Generation eval cannot be used without providing a tokenizer to the model constructor.')
 
             self.labels = batch.pop('labels')
-            generation = self.generate(batch['input_ids'], max_new_tokens=batch['generation_length'])
+            generation = self.generate(batch['input_ids'], max_new_tokens=batch['generation_length'], synced_gpus=True)
             return self.tokenizer.batch_decode(generation[:, -batch['generation_length']:])
 
         if self.use_logits or batch.get('mode', None) == 'icl_task':
@@ -335,6 +340,19 @@ class HuggingFaceModel(ComposerModel):
                 output = output.squeeze(dim=1)
         else:
             output = outputs if outputs else self.forward(batch)
+        
+        print(1)
+        import gc
+        import time
+        torch.cuda.empty_cache()     
+        gc.collect()                  #just in case
+        torch.cuda.synchronize()
+        time.sleep(2)
+        mem_stats = torch.cuda.memory_stats()
+        print (f"allocated bytes: {mem_stats['allocated_bytes.all.current'] / 1e9:.4f}")
+        print (f"active bytes: {mem_stats['active_bytes.all.current'] / 1e9:.4f}")
+        print (f"reserved bytes: {mem_stats['reserved_bytes.all.current'] / 1e9:.4f}")
+        print()
 
         return output
 
@@ -397,6 +415,37 @@ class HuggingFaceModel(ComposerModel):
         Defaults to greedy generation. All kwargs are passed along to the HuggingFace generate function.
 
         """
+        print(2)
+        import gc
+        import time
+        torch.cuda.empty_cache()     
+        gc.collect()                  #just in case
+        torch.cuda.synchronize()
+        time.sleep(2)
+        mem_stats = torch.cuda.memory_stats()
+        print (f"allocated bytes: {mem_stats['allocated_bytes.all.current'] / 1e9:.4f}")
+        print (f"active bytes: {mem_stats['active_bytes.all.current'] / 1e9:.4f}")
+        print (f"reserved bytes: {mem_stats['reserved_bytes.all.current'] / 1e9:.4f}")
+        print()
+
+        if not self.dummy_forward_called:
+            with torch.no_grad():
+                self.model(input_ids=torch.tensor([[31373]], dtype=torch.long, device=torch.cuda.current_device()))
+            self.dummy_forward_called = True
+
+            print(3)
+            import gc
+            import time
+            torch.cuda.empty_cache()     
+            gc.collect()                  #just in case
+            torch.cuda.synchronize()
+            time.sleep(2)
+            mem_stats = torch.cuda.memory_stats()
+            print (f"allocated bytes: {mem_stats['allocated_bytes.all.current'] / 1e9:.4f}")
+            print (f"active bytes: {mem_stats['active_bytes.all.current'] / 1e9:.4f}")
+            print (f"reserved bytes: {mem_stats['reserved_bytes.all.current'] / 1e9:.4f}")
+            print()
+
         return self.model.generate(input_ids,
                                    num_beams=num_beams,
                                    do_sample=do_sample,
