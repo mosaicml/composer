@@ -157,10 +157,12 @@ def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
             attribute_name = attribute_name[1:]
         # Torchmetrics adds a new attribute as of 0.11 which must be added to deserialized metrics
         if attribute_name == 'train_metrics' or attribute_name == 'eval_metrics':
-            serialized_value_items = serialized_value.items()
-            for metric_name, metric in serialized_value_items:
-                if 'distributed_available_fn' not in metric:
-                    serialized_value[metric_name]['distributed_available_fn'] = jit_distributed_available
+            for metric_name in serialized_value.keys():
+                metric = serialized_value[metric_name]
+                if hasattr(metric, 'distributed_available_fn'):
+                    # serialized_value[metric_name]['distributed_available_fn'] = jit_distributed_available
+                    setattr(metric, 'distributed_available_fn', jit_distributed_available)
+                    serialized_value[metric_name] = metric
         state[attribute_name] = serialized_value
 
     return state
