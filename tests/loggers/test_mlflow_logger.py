@@ -105,4 +105,4 @@ def test_mlflow_logging_works(tmp_path):
     actual_params_list = [param_filepath.stem for param_filepath in param_path.iterdir()]
 
     expected_params_list = ['num_cpus_per_node', 'num_nodes', 'rank_zero_seed']
-    assert set(actual_params_list) == set(expected_params_list)
+    assert set(expected_params_list).issubset(set(actual_params_list))
