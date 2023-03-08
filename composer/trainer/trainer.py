@@ -1103,6 +1103,7 @@ class Trainer:
 
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
+        self.logger.log_hyperparameters({'NODENAME': os.environ.get('NODENAME', '')})
 
         if save_latest_filename is not None:
             remote_ud_has_format_string = [
