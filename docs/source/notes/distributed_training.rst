@@ -208,7 +208,7 @@ One Composer-specific pattern is that if :code:`mixed_precision` is provided as 
     )
     # If mixed_precision = 'pure'
     mixed_precision = MixedPrecision(
-      param_dtype=autocast_precision,  # Master weigths stored in fp32 but are downcast to autocast_precision before the dist all_gather
+      param_dtype=autocast_precision,  # Master weights stored in fp32 but are downcast to autocast_precision before the dist all_gather
       reduce_dtype=autocast_precision,  # gradient dist all_reduce in autocast_precision
       buffer_dtype=autocast_precision,  # Buffers stored in fp32 but are downcast to autocast_precision before the dist all_gather
     )
