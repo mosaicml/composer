@@ -959,6 +959,7 @@ class State(Serializable):
                 continue
             optim_state_dict = serialized_value[type(optimizer).__qualname__]
             if self.fsdp_enabled:
+                log.debug(f'Loading FSDP optimizer with fsdp_state_dict_type={self.fsdp_state_dict_type}')
                 if self.fsdp_state_dict_type == 'sharded':
                     if version.parse(torch.__version__) < version.parse('1.13.0'):
                         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
@@ -981,6 +982,7 @@ class State(Serializable):
                     optimizer.load_state_dict(sharded_optim_state_dict)
             # No FSDP, so just load the optim state dict.
             else:
+                log.debug(f'Loading optimizer state dict')
                 optimizer.load_state_dict(optim_state_dict)
 
     def _load_dataset_state(self, obj: Dict[str, Any]) -> None:
