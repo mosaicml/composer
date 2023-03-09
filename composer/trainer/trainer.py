@@ -803,7 +803,7 @@ class Trainer:
 
             .. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility.
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
-            (default: ``1800.0``)
+            (default: ``600.0``)
         ddp_sync_strategy (str | DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
             Leave unset to let the trainer auto-configure this. See :class:`.DDPSyncStrategy`
             for more details.
@@ -907,7 +907,7 @@ class Trainer:
         deterministic_mode: bool = False,
 
         # Distributed Training
-        dist_timeout: float = 1800.0,
+        dist_timeout: float = 600.0,
         ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
 
         # Profiling
