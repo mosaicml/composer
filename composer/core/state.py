@@ -162,7 +162,8 @@ def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
                 print(metric_name, metric)
                 if not hasattr(metric, 'distributed_available_fn'):
                     # serialized_value[metric_name]['distributed_available_fn'] = jit_distributed_available
-                    setattr(metric, 'distributed_available_fn', jit_distributed_available)
+                    # setattr(metric, 'distributed_available_fn', jit_distributed_available)
+                    metric.distributed_available_fn = jit_distributed_available
                     serialized_value[metric_name] = metric
         state[attribute_name] = serialized_value
     return state
