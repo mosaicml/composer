@@ -11,6 +11,9 @@ on:
       pytest-command:
         required: true
         type: string
+      composer_package_name:
+        required: true
+        type: string
       pytest-markers:
         required: true
         type: string
@@ -42,6 +45,7 @@ jobs:
         run: |
           set -ex
           export PATH=/composer-python:$PATH
+          export COMPOSER_PACKAGE_NAME='${{ inputs.composer_package_name }}'
           python -m pip install --upgrade 'pip<23' wheel
           python -m pip install --upgrade .[all]
       - name: Run Tests
