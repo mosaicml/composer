@@ -272,7 +272,6 @@ def download_checkpoint(
     local_rank_zero_path = _get_local_rank_zero_path(local_path)
     logging.log(logging.WARN, f'local_path={local_path}, local_rank_zero_path={local_rank_zero_path}')
 
-    raise Exception(f'local_path={local_path}, local_rank_zero_path={local_rank_zero_path}')
     try:
         # Download on local rank 0 or if path is different from local rank 0
         if dist.get_local_rank() == 0 or local_path != local_rank_zero_path:
