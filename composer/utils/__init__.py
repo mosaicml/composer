@@ -7,7 +7,7 @@ import warnings
 from composer.utils.auto_log_hparams import (convert_flat_dict_to_nested_dict, convert_nested_dict_to_flat_dict,
                                              extract_hparams)
 from composer.utils.batch_helpers import batch_get, batch_set
-from composer.utils.checkpoint import PartialFilePath, load_checkpoint, save_checkpoint
+from composer.utils.checkpoint import PartialFilePath, load_checkpoint, safe_torch_load, save_checkpoint
 from composer.utils.collect_env import (configure_excepthook, disable_env_report, enable_env_report,
                                         get_composer_env_dict, print_env)
 from composer.utils.device import get_device, is_tpu_installed
@@ -59,6 +59,7 @@ __all__ = [
     'StringEnum',
     'load_checkpoint',
     'save_checkpoint',
+    'safe_torch_load',
     'ensure_folder_is_empty',
     'ensure_folder_has_no_conflicting_files',
     'export_for_inference',
