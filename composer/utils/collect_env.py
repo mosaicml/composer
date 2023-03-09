@@ -44,7 +44,6 @@ import functools
 import json
 import sys
 import time
-from importlib import util as importlib_util
 from typing import NamedTuple, Optional, TextIO
 
 import cpuinfo
@@ -106,12 +105,13 @@ def get_composer_commit_hash() -> Optional[str]:
     # Use PEP-610 to get the commit hash
     # See https://packaging.python.org/en/latest/specifications/direct-url/
     # try both package names that composer is released under
-    if importlib_util.find_spec('mosaicml') is not None:
+    try:
         files = importlib_metadata.files('mosaicml')
-    elif importlib_util.find_spec('composer') is not None:
-        files = importlib_metadata.files('composer')
-    else:
-        return
+    except importlib_metadata.PackageNotFoundError:
+        try:
+            files = importlib_metadata.files('composer')
+        except importlib_metadata.PackageNotFoundError:
+            return
 
     if files is None:
         return
