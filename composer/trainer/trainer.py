@@ -1490,7 +1490,7 @@ class Trainer:
 
             # avoid the collective call until the checkpoint has been downloaded by local rank zero
             # so that we don't timeout for large downloads
-            with local_rank_zero_download_and_wait(latest_checkpoint_path):
+            with dist.local_rank_zero_download_and_wait(latest_checkpoint_path):
                 dist.barrier()
 
                 # list of whether the checkpoint exists on each rank
