@@ -272,6 +272,7 @@ def download_checkpoint(
     logging.log(logging.WARN, f'local_path={local_path}, local_rank_zero_path={local_rank_zero_path}')
 
     try:
+        print(f'local_path={local_path}, local_rank_zero_path={local_rank_zero_path}')
         # Download on local rank 0 or if path is different from local rank 0
         if dist.get_local_rank() == 0 or local_path != local_rank_zero_path:
             get_file_succeeded = True
