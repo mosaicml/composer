@@ -67,7 +67,7 @@ class RandomImageDataset(VisionDataset):
         is_PIL (bool): if true, will emit image in PIL format (default: False)
     """
 
-    def __init__(self, shape: Sequence[int] = (3, 32, 32), size: int = 100, num_classes: int = 2, is_PIL: bool = False):
+    def __init__(self, shape: Sequence[int] = (3, 32, 32), size: int = 128, num_classes: int = 2, is_PIL: bool = False):
         self.is_PIL = is_PIL
         if is_PIL:  # PIL expects HWC
             shape = (shape[1], shape[2], shape[0])
