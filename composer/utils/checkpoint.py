@@ -184,7 +184,6 @@ def load_checkpoint(
     """
     # download the checkpoint to the node-local folder
     log.debug('Loading checkpoint at %s', path)
-    print(f'Loading checkpoint at {path}')
     # Each node gets one unique folder to store checkpoints that is shared amongst all local ranks in that node
     tempdir_ctx = tempfile.TemporaryDirectory() if dist.get_local_rank() == 0 else contextlib.nullcontext(None)
     with tempdir_ctx as tempdir:
