@@ -400,18 +400,23 @@ def glob_filter(exclude_globs: List[str]) -> Callable[[Dict], None]:
     return filter_func
 
 
-def safe_torch_load(composer_states_filepath: Union[Path, str]):
-    """Load a torch checkpoint, catching errors due to backwards compatibility issues."""
+def safe_torch_load(composer_states_filepath: Union[Path, str], map_location: str = 'cpu'):
+    """Load a torch checkpoint, catching errors due to backwards compatibility issues.
+
+    Args:
+        composer_states_filepath: The path to the checkpoint file.
+        map_location: The location to load the checkpoint to.
+    """
     try:
-        state_dict = torch.load(composer_states_filepath, map_location='cpu')
+        state_dict = torch.load(composer_states_filepath, map_location=map_location)
         return state_dict
     except TypeError as e:
         if 'Accuracy.__new__() missing 1 required positional argument' in str(e):
             raise Exception('As of v0.10.0, torchmetrics introduces a new required argument to Accuracy which '
                             'breaks backwards compatibility. Unfortunately, this means that older checkpoints '
                             'cannot be loaded with the metrics. In order to successfully load this model, please '
-                            'pass `load_ignore_keys = ["state/train_metrics/*", "state/eval_metrics/*"]`.')
-        raise
+                            'pass `load_ignore_keys = ["state/train_metrics/*", "state/eval_metrics/*"]`.') from e
+        raise e
 
 
 def _restore_checkpoint(
