@@ -1174,6 +1174,7 @@ class Trainer:
         self.logger.log_hyperparameters({
             'num_nodes': int(dist.get_world_size() / dist.get_local_world_size()),
             f'num_{device_name}s_per_node': dist.get_local_world_size(),
+            'node_name': os.environ.get('NODENAME', 'unknown because NODENAME environment variable not set')
         })
 
         if not isinstance(self.state.model, ComposerModel):
