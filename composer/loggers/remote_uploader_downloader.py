@@ -276,11 +276,13 @@ class RemoteUploaderDownloader(LoggerDestination):
                                            multiprocessing.JoinableQueue[Tuple[str, str,
                                                                                bool]],] = mp_ctx.JoinableQueue()
             self._completed_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str],] = mp_ctx.JoinableQueue()
+            self._exception_queue: Union[queue.Queue[Exception], multiprocessing.JoinableQueue[Exception],] = mp_ctx.JoinableQueue()
             self._finished_cls: Union[Callable[[], multiprocessing._EventType], Type[threading.Event]] = mp_ctx.Event
             self._proc_class = mp_ctx.Process
         else:
             self._file_upload_queue = queue.Queue()
             self._completed_queue = queue.Queue()
+            self._exception_queue = queue.Queue()
             self._finished_cls = threading.Event
             self._proc_class = threading.Thread
         self._worker_flag: Optional[Union[multiprocessing._EventType, threading.Event]] = None
@@ -322,6 +324,7 @@ class RemoteUploaderDownloader(LoggerDestination):
                     'backend_kwargs': self.backend_kwargs,
                     'num_attempts': self.num_attempts,
                     'completed_queue': self._completed_queue,
+                    'exception_queue': self._exception_queue,
                 },
                 # The worker threads are joined in the shutdown procedure, so it is OK to set the daemon status
                 # Setting daemon status prevents the process from hanging if close was never called (e.g. in doctests)
@@ -349,7 +352,11 @@ class RemoteUploaderDownloader(LoggerDestination):
         #   a) A file could not be uploaded, and the retry counter failed, or
         #   b) allow_overwrite=False, but the file already exists,
         if not self._all_workers_alive:
-            raise RuntimeError('Upload worker crashed. Please check the logs.')
+            if not self._exception_queue.empty():
+                exception = self._exception_queue.get_nowait()
+                raise exception
+            else:
+                raise RuntimeError('Upload worker crashed. Please check the logs.')
 
     def upload_file(
         self,
@@ -554,6 +561,7 @@ def _validate_credentials(
 def _upload_worker(
     file_queue: Union[queue.Queue[Tuple[str, str, bool]], multiprocessing.JoinableQueue[Tuple[str, str, bool]]],
     completed_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str]],
+    exception_queue: Union[queue.Queue[Exception], multiprocessing.JoinableQueue[Exception]],
     is_finished: Union[multiprocessing._EventType, threading.Event],
     remote_backend_name: str,
     backend_kwargs: Dict[str, Any],
@@ -586,12 +594,18 @@ def _upload_worker(
                     pass
                 else:
                     # Exceptions will be detected on the next batch_end or epoch_end event
-                    raise FileExistsError(f'Object {uri} already exists, but allow_overwrite was set to False.')
+                    e = FileExistsError(f'Object {uri} already exists, but allow_overwrite was set to False.')
+                    exception_queue.put_nowait(e)
+                    raise e
             log.info('Uploading file %s to %s', file_path_to_upload, uri)
-            remote_backend.upload_object(
-                object_name=remote_file_name,
-                filename=file_path_to_upload,
-            )
+            try: 
+                remote_backend.upload_object(
+                    object_name=remote_file_name,
+                    filename=file_path_to_upload,
+                )
+            except Exception as e:
+                exception_queue.put_nowait(e)
+                raise e
             os.remove(file_path_to_upload)
             file_queue.task_done()
             completed_queue.put_nowait(remote_file_name)
