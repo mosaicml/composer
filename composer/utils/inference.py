@@ -22,7 +22,7 @@ from composer.utils import dist
 from composer.utils.checkpoint import download_checkpoint
 from composer.utils.device import get_device
 from composer.utils.iter_helpers import ensure_tuple
-from composer.utils.misc import is_model_ddp, is_model_deepspeed, model_eval_mode
+from composer.utils.misc import is_model_ddp, is_model_deepspeed, is_model_fsdp, model_eval_mode
 from composer.utils.object_store import ObjectStore
 from composer.utils.string_enum import StringEnum
 
@@ -141,6 +141,10 @@ def export_for_inference(
     if is_model_ddp(model):
         raise ValueError(
             f'Directly exporting a DistributedDataParallel model is not supported. Export the module instead.')
+
+    if is_model_fsdp(model):
+        raise ValueError(
+            'Directly exporting a FSDP wrapped module is not supported. Load the model without FSDP wrapping.')
 
     # Only rank0 exports the model
     if dist.get_global_rank() != 0:
