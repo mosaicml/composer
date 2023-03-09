@@ -25,8 +25,6 @@ def test_fsdp_device_initialization(model: ComposerClassifier, mixed_precision: 
     'meta' devices. This is because 'meta' will result in deferred initialization until FSDP is initialized
 
     """
-    from torch.distributed.fsdp import FullyShardedDataParallel
-
     num_classes = 10
     model = model(num_features=num_classes, device=device)
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
@@ -43,14 +41,14 @@ def test_fsdp_device_initialization(model: ComposerClassifier, mixed_precision: 
 
     trainer.fit()
     if isinstance(model, SimpleWeightTiedModel):
-        with FullyShardedDataParallel.summon_full_params(model):
+        with trainer.state.model.module.summon_full_params(trainer.state.model.module):  # type: ignore
             weight_1 = model.mlp.fc1.weight
             weight_2 = model.mlp.fc2.weight
             assert (id(weight_1) == id(weight_2))
             assert (torch.equal(weight_1, weight_2))
 
     if isinstance(model, EmbeddedWeightTiedModel):
-        with FullyShardedDataParallel.summon_full_params(model):
+        with trainer.state.model.module.summon_full_params(trainer.state.model.module):  # type: ignore
             weight_1 = model.net1.fc1.weight
             weight_2 = model.net2.fc1.weight
             assert (id(weight_1) == id(weight_2))
