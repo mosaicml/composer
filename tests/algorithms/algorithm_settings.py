@@ -268,6 +268,18 @@ def get_algs_with_marks():
             marks.append(
                 pytest.mark.filterwarnings(
                     r'ignore:Detected call of `lr_scheduler.step\(\)` before `optimizer.step\(\)`:UserWarning'))
+            marks.append(
+                pytest.mark.filterwarnings('ignore:SWA has known issues when resuming from a checkpoint.*:UserWarning'))
+
+        if alg_cls == GyroDropout:
+            marks.append(
+                pytest.mark.filterwarnings(
+                    'ignore:GyroDropout is not implemented in a way that allows correct resumption.*:UserWarning'))
+
+        if alg_cls == SAM:
+            marks.append(
+                pytest.mark.filterwarnings(
+                    'ignore:SAM has known issues of weight mismatch when loading from a checkpoint.*:UserWarning'))
 
         if alg_cls == MixUp:
             # TODO(Landen): Fix

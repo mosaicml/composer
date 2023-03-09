@@ -354,25 +354,6 @@ def _get_precision_context(precision: Precision, deepspeed_enabled: bool):
     return get_precision_context(precision)
 
 
-def _get_backwards_compatible_precision(precision: str):
-    if precision == 'fp16':
-        warnings.warn(
-            DeprecationWarning(
-                "'fp16' is deprecated as the naming is unclear and will be removed in 0.13. Use 'amp_fp16' instead."))
-        return Precision.AMP_FP16
-    if precision == 'amp':
-        warnings.warn(
-            DeprecationWarning(
-                "'amp' is deprecated as the naming is unclear and will be removed in 0.13. Use 'amp_fp16' instead."))
-        return Precision.AMP_FP16
-    if precision == 'bf16':
-        warnings.warn(
-            DeprecationWarning(
-                "'bf16' is deprecated as the naming is unclear and will be removed in 0.13. Use 'amp_bf16' instead."))
-        return Precision.AMP_BF16
-    return precision
-
-
 def _generate_run_name() -> str:
     # change coolname randomness for different names with same seed
     coolname.replace_random(random.Random(os.urandom(128)))
@@ -963,8 +944,7 @@ class Trainer:
         # Precision
         if precision is None:
             precision = Precision.AMP_FP16 if isinstance(device, DeviceGPU) else Precision.FP32
-        if isinstance(precision, str):
-            precision = _get_backwards_compatible_precision(precision)
+        elif isinstance(precision, str):
             precision = Precision(precision)
         _validate_precision(precision, device)
 
@@ -1194,6 +1174,7 @@ class Trainer:
         self.logger.log_hyperparameters({
             'num_nodes': int(dist.get_world_size() / dist.get_local_world_size()),
             f'num_{device_name}s_per_node': dist.get_local_world_size(),
+            'node_name': os.environ.get('NODENAME', 'unknown because NODENAME environment variable not set')
         })
 
         if not isinstance(self.state.model, ComposerModel):
@@ -1784,8 +1765,6 @@ class Trainer:
 
         # Precision
         if precision is not None:
-            if isinstance(precision, str):
-                precision = _get_backwards_compatible_precision(precision)
             if Precision(precision) != self.state.precision:
                 if self.deepspeed_enabled:
                     raise ValueError('Changing the precision when using DeepSpeed is not supported')
@@ -2061,24 +2040,13 @@ class Trainer:
         with torch.no_grad(),\
                 model_eval_mode(self.state.model),\
                 _get_precision_context(self.state.precision, self.deepspeed_enabled):
-            if hasattr(self._original_model, 'validate'):  # backwards compatibility check
-                warnings.warn(
-                    DeprecationWarning(
-                        'Using validate() is deprecated and will be removed in 0.13. Please use eval_forward() instead.'
-                    ))
-                assert isinstance(self._original_model.validate, Callable)
-                eval_outputs, target = self._original_model.validate(device_batch)
-
-                for _, metric in self.state.train_metrics.items():
-                    metric.update(eval_outputs, target)
-            else:
-                eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
-                for _, metric in self.state.train_metrics.items():
-                    self._original_model.update_metric(
-                        device_batch,
-                        eval_outputs,
-                        metric,
-                    )
+            eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
+            for _, metric in self.state.train_metrics.items():
+                self._original_model.update_metric(
+                    device_batch,
+                    eval_outputs,
+                    metric,
+                )
 
     def _run_evaluators(self, event: Event):
         """Runs evaluators periodically during training."""
@@ -2553,13 +2521,6 @@ class Trainer:
         The metrics used are defined in your model's ``get_metrics()`` method. For more information,
         see :doc:`/trainer/evaluation`.
 
-        .. note::
-
-            This eval API was recently changed to better much the trainer fit API. Please migrate your
-            code to using the new design here. For backwards compatibility, the old API can still be
-            invoked by calling ``_eval_loop()``, however this is not recommended as this may be
-            removed in the future.
-
         Args:
             eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): Dataloaders
                 for evaluation.  If not provided, defaults to using the
@@ -2701,16 +2662,8 @@ class Trainer:
                                 self.state.batch, self.state.eval_batch_split):
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
                             with _get_precision_context(self.state.precision, self.deepspeed_enabled):
-                                if hasattr(self._original_model, 'validate'):  # backwards compatibility check
-                                    warnings.warn(
-                                        DeprecationWarning(
-                                            'Using validate() is deprecated and will be removed in 0.13. Please use eval_forward() instead.'
-                                        ))
-                                    assert isinstance(self._original_model.validate, Callable)
-                                    self.state.outputs, target = self._original_model.validate(self.state.batch)
-                                else:
-                                    self.state.outputs = self._original_model.eval_forward(self.state.batch)
-                                    target = None
+                                self.state.outputs = self._original_model.eval_forward(self.state.batch)
+                                target = None
 
                             self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
