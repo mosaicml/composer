@@ -104,7 +104,7 @@ class ComposerEnv(NamedTuple):
 def get_composer_commit_hash() -> Optional[str]:
     # Use PEP-610 to get the commit hash
     # See https://packaging.python.org/en/latest/specifications/direct-url/
-    # try both package names that composer is released under
+    # Try both package names that Composer is released under
     try:
         files = importlib_metadata.files('mosaicml')
     except importlib_metadata.PackageNotFoundError:
