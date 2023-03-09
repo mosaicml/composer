@@ -200,9 +200,8 @@ class InContextLearningQATaskDataset(Dataset):
         for sample in data:
             preamble, context, aliases = (sample['preamble'], sample['context'], sample['aliases'])
             context_enc = preamble['input_ids'] + context['input_ids']
-            # inp, _ = _make_padded_input(context_enc, [], self.max_seq_len - self.max_answer_length,
-            #                                             self.pad_tok_id, padding_side='left')
-            inp = torch.tensor(context_enc, dtype=torch.long)
+            inp, _ = _make_padded_input(context_enc, [], self.max_seq_len - self.max_answer_length,
+                                                        self.pad_tok_id, padding_side='left')
 
             inputs.append(inp)
             answers.append(aliases)

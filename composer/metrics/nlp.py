@@ -343,14 +343,11 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
         return white_space_fix(remove_articles(handle_punc(lower(replace_underscore(answer))))).strip()
 
     def update(self, outputs: torch.Tensor, labels: torch.Tensor):
-        print(outputs, labels)
         for sample_output, sample_labels in zip(outputs, labels):
             cleaned_sample_output = self.normalize_answer(sample_output)
             cleaned_sample_labels = set(self.normalize_answer(label) for label in sample_labels)
             if any(cleaned_sample_output.startswith(label) for label in cleaned_sample_labels):
-                print('correct')
                 self.correct += 1
-            print('total')
             self.total += 1
 
     def compute(self):

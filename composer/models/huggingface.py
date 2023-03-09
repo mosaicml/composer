@@ -361,19 +361,6 @@ class HuggingFaceModel(ComposerModel):
                 output = output.squeeze(dim=1)
         else:
             output = outputs if outputs else self.forward(batch)
-        
-        print(1)
-        import gc
-        import time
-        torch.cuda.empty_cache()     
-        gc.collect()                  #just in case
-        torch.cuda.synchronize()
-        time.sleep(2)
-        mem_stats = torch.cuda.memory_stats()
-        print (f"allocated bytes: {mem_stats['allocated_bytes.all.current'] / 1e9:.4f}")
-        print (f"active bytes: {mem_stats['active_bytes.all.current'] / 1e9:.4f}")
-        print (f"reserved bytes: {mem_stats['reserved_bytes.all.current'] / 1e9:.4f}")
-        print()
 
         return output
 
@@ -436,36 +423,10 @@ class HuggingFaceModel(ComposerModel):
         Defaults to greedy generation. All kwargs are passed along to the HuggingFace generate function.
 
         """
-        print(2)
-        import gc
-        import time
-        torch.cuda.empty_cache()     
-        gc.collect()                  #just in case
-        torch.cuda.synchronize()
-        time.sleep(2)
-        mem_stats = torch.cuda.memory_stats()
-        print (f"allocated bytes: {mem_stats['allocated_bytes.all.current'] / 1e9:.4f}")
-        print (f"active bytes: {mem_stats['active_bytes.all.current'] / 1e9:.4f}")
-        print (f"reserved bytes: {mem_stats['reserved_bytes.all.current'] / 1e9:.4f}")
-        print()
-
         if not self.dummy_forward_called:
             with torch.no_grad():
                 self.model(input_ids=torch.tensor([[31373]], dtype=torch.long, device=torch.cuda.current_device()))
             self.dummy_forward_called = True
-
-            print(3)
-            import gc
-            import time
-            torch.cuda.empty_cache()     
-            gc.collect()                  #just in case
-            torch.cuda.synchronize()
-            time.sleep(2)
-            mem_stats = torch.cuda.memory_stats()
-            print (f"allocated bytes: {mem_stats['allocated_bytes.all.current'] / 1e9:.4f}")
-            print (f"active bytes: {mem_stats['active_bytes.all.current'] / 1e9:.4f}")
-            print (f"reserved bytes: {mem_stats['reserved_bytes.all.current'] / 1e9:.4f}")
-            print()
 
         return self.model.generate(input_ids,
                                    num_beams=num_beams,
@@ -473,16 +434,6 @@ class HuggingFaceModel(ComposerModel):
                                    max_new_tokens=max_new_tokens,
                                    pad_token_id=self.tokenizer.eos_token_id,
                                    **kwargs)
-
-    def add_eval_metrics(self, evaluator):
-        warnings.warn(
-            DeprecationWarning('The add_eval_metrics method is deprecated and will be removed in a future release. '
-                               'Please pass in `eval_metrics` directly to the constructor.'))
-        evaluator_metrics = {m: METRIC_DEFAULT_CTORS[m]() for m in evaluator.metric_names}
-        if self.val_metrics is not None:
-            self.val_metrics.update(evaluator_metrics)
-        else:
-            self.val_metrics = evaluator_metrics
 
 
 def _is_registered_causal_lm(model: transformers.PreTrainedModel) -> bool:
