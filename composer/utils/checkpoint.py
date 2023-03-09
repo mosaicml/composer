@@ -239,7 +239,7 @@ def download_checkpoint(
 ) -> Tuple[str, Optional[str]]:
     """Download the checkpoint stored at ``path``, potentially in ``object_store``, to ``node_checkpoint_folder``.
 
-    Returns a tuple of  (``composer_states_filepath``, ``extracted_checkpoint_folder``, ``extracted_rank_n``).
+    Returns a tuple of  (``composer_states_filepath``, ``extracted_checkpoint_folder``).
 
     *   The ``composer_states_filepath``, is the path to the composer states, which can be passed into
         :meth:`torch.load`.
@@ -269,7 +269,6 @@ def download_checkpoint(
 
     local_path = _format_path_with_current_rank(path)
     local_rank_zero_path = _get_local_rank_zero_path(local_path)
-    logging.log(logging.WARN, f'local_path={local_path}, local_rank_zero_path={local_rank_zero_path}')
 
     try:
         # Download on local rank 0 or if path is different from local rank 0
