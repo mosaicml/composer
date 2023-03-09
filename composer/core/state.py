@@ -1053,6 +1053,8 @@ class State(Serializable):
             if attribute_name == 'metadata':
                 continue
 
+            log.debug(f'Loading {attribute_name} into state.')
+
             # Restructure algorithms serialized_value from list to dict
             if attribute_name == 'algorithms' and isinstance(serialized_value, list):
                 serialized_value = {algo_name: algo_serialized for algo_name, algo_serialized in serialized_value}
