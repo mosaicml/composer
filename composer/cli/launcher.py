@@ -502,7 +502,8 @@ def main():
         _cleanup_processes(processes)
         log_tmpdir.cleanup()
         return_code = _aggregate_process_returncode(processes)
-        os.system('pkill python')
+        if args.kill_python_zombies:
+            os.system('pkill python')
         return return_code
 
 
