@@ -1497,15 +1497,17 @@ class Trainer:
                 dist.barrier()
 
             # At this point the rank 0 filepath should exist on all ranks
-            latest_checkpoint_exists_on_all_ranks = self.state.device.tensor_to_device(
-                torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
-            dist.all_reduce(latest_checkpoint_exists_on_all_ranks, reduce_operation='MIN')
+            # list of whether the checkpoint exists on each rank
+            latest_checkpoint_exists = dist.all_gather_object(os.path.exists(latest_checkpoint_path))
 
             log.debug(
                 f'Checkpoint {latest_checkpoint_path} exists on rank {dist.get_global_rank()}? {os.path.exists(latest_checkpoint_path)}'
             )
 
-            if int(latest_checkpoint_exists_on_all_ranks.item()) == 0:
+            if not latest_checkpoint_exists[0]:
+                # If the checkpoint doesn't exist on rank 0, don't crash, so the initial autoresume run can succeed
+                return None
+            elif not all(latest_checkpoint_exists):
                 raise RuntimeError('Downloading the checkpoint to all nodes failed')
 
             return latest_checkpoint_path
