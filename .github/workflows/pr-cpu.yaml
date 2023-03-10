@@ -49,11 +49,11 @@ jobs:
     name: ${{ matrix.name }}
     if: github.repository_owner == 'mosaicml'
     with:
+      composer_package_name: ${{ matrix.composer_package_name }}
       container: ${{ matrix.container }}
       name: ${{ matrix.name }}
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
-      composer_package_name: ${{ matrix.composer_package_name }}
   coverage:
     uses: ./.github/workflows/coverage.yaml
     name: Coverage Results
