@@ -18,23 +18,25 @@ __all__ = ['OCIObjectStore']
 
 def _reraise_oci_errors(uri: str, e: Exception):
     import oci
+
     # If it's an oci service error with code: ObjectNotFound or status 404
     if isinstance(e, oci.exceptions.ServiceError):
-        if e.status == 404: # type: ignore
+        if e.status == 404:  # type: ignore
             if e.code == 'ObjectNotFound':  # type: ignore
-                raise FileNotFoundError(f'Object {uri} not found. {e.message}') from e
-            if e.code == 'BucketNotFound':
-                raise ValueError(f'Bucket specified in {uri} not found. {e.message}') from e
+                raise FileNotFoundError(f'Object {uri} not found. {e.message}') from e  # type: ignore
+            if e.code == 'BucketNotFound':  # type: ignore
+                raise ValueError(f'Bucket specified in {uri} not found. {e.message}') from e  # type: ignore
             raise e
-        
-    # Client errors 
+
+    # Client errors
     if isinstance(e, oci.exceptions.ClientError):
-        raise ValueError(f"Error with using your OCI config file for uri {uri}") from e
+        raise ValueError(f'Error with using your OCI config file for uri {uri}') from e
     if isinstance(e, oci.exceptions.MultipartUploadError):
         raise ValueError(f'Error when uploading {uri} using OCI parallelized uploading') from e
 
     # Otherwise just raise the original error.
     raise e
+
 
 class OCIObjectStore(ObjectStore):
     """Utility for uploading to and downloading from an OCI bucket.
@@ -69,7 +71,7 @@ class OCIObjectStore(ObjectStore):
                 config = oci.config.from_file()
 
             self.client = oci.object_storage.ObjectStorageClient(config=config,
-                                                                retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
+                                                                 retry_strategy=oci.retry.DEFAULT_RETRY_STRATEGY)
         except Exception as e:
             _reraise_oci_errors(self.get_uri(object_name=''), e)
 
@@ -103,7 +105,7 @@ class OCIObjectStore(ObjectStore):
                                             bucket_name=self.bucket,
                                             object_name=object_name,
                                             file_path=filename)
-            
+
         except Exception as e:
             _reraise_oci_errors(self.get_uri(object_name), e)
 

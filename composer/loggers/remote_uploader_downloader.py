@@ -276,7 +276,8 @@ class RemoteUploaderDownloader(LoggerDestination):
                                            multiprocessing.JoinableQueue[Tuple[str, str,
                                                                                bool]],] = mp_ctx.JoinableQueue()
             self._completed_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str],] = mp_ctx.JoinableQueue()
-            self._exception_queue: Union[queue.Queue[Exception], multiprocessing.JoinableQueue[Exception],] = mp_ctx.JoinableQueue()
+            self._exception_queue: Union[queue.Queue[Exception],
+                                         multiprocessing.JoinableQueue[Exception],] = mp_ctx.JoinableQueue()
             self._finished_cls: Union[Callable[[], multiprocessing._EventType], Type[threading.Event]] = mp_ctx.Event
             self._proc_class = mp_ctx.Process
         else:
@@ -602,7 +603,7 @@ def _upload_worker(
                     exception_queue.put_nowait(e)
                     raise e
             log.info('Uploading file %s to %s', file_path_to_upload, uri)
-            try: 
+            try:
                 remote_backend.upload_object(
                     object_name=remote_file_name,
                     filename=file_path_to_upload,
