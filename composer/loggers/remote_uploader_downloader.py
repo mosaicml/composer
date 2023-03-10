@@ -457,14 +457,18 @@ class RemoteUploaderDownloader(LoggerDestination):
         during this time will error.
         """
         # Verify enqueue thread has processed all tasks
-        while True:
+        # But make sure to only enter this loop if a worker somewhere else hasn't thrown a fatal exception.
+        while self._exception_queue.empty():
             with self._object_lock:
                 if len(self._logged_objects) == 0:
                     break
             time.sleep(0.2)  # Yield lock for enqueue thread
-        # Verify all tasks have been completed
-        while not self._file_upload_queue.empty():
+        # Verify all tasks have been completed unless there are exceptions that have been thrown.
+        while not self._file_upload_queue.empty() and self._exception_queue.empty():
             time.sleep(0.2)
+        if not self._exception_queue.empty():
+            e = self._exception_queue.get_nowait()
+            raise e
 
     def post_close(self):
         # Shutdown logic:
