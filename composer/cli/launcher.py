@@ -83,8 +83,10 @@ def _get_parser():
     parser.add_argument('-k',
                         '--kill_python_zombies',
                         action='store_true',
-                        help=('If set, at the end of composer, it will run ``kill python``'
-                              'which will kill all python processes.'))
+                        help=('If set, at the end of composer, it will run ``kill python`` '
+                              'which will kill all python processes. This can help in the case '
+                              'of NCCL timeouts where child processes become zombies and are '
+                              'not cleaned up.'))
 
     multinode_args = parser.add_argument_group(
         'multi-node arguments',
