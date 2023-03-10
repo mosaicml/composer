@@ -1,6 +1,5 @@
 name: Daily
 on:
-  pull_request:
   schedule:
     - cron: '30 2 * * *' # 2:30 every day
   push:
@@ -119,7 +118,7 @@ jobs:
             markers: '(daily or not daily) and (remote or not remote) and gpu and not vision and not doctest'
             pytest_command: 'coverage run -m pytest'
             composer_package_name: 'mosaicml'
-          - name: 'gpu-3.10-1.13'
+          - name: 'gpu-3.10-1.13-composer'
             container: mosaicml/pytorch:1.13.1_cu117-python3.10-ubuntu20.04
             markers: '(daily or not daily) and (remote or not remote) and gpu and not vision and not doctest'
             pytest_command: 'coverage run -m pytest'
