@@ -41,7 +41,7 @@ class DummyObjectStore(ObjectStore):
         callback: Optional[Callable[[int, int], None]] = None,
     ) -> None:
         if self.always_fail and object_name != '.credentials_validated_successfully':
-            raise RuntimeError
+            raise RuntimeError('Crash because you set always_fail to true!')
         time.sleep(random.random() * 0.5)  # random sleep to simulate random network latency
         shutil.copy2(filename, self._get_abs_path(object_name))
 
@@ -51,7 +51,7 @@ class DummyObjectStore(ObjectStore):
                         overwrite: bool = False,
                         callback: Optional[Callable[[int, int], None]] = None) -> None:
         if self.always_fail:
-            raise RuntimeError
+            raise RuntimeError('Crash because you set always_fail to true!')
         if not overwrite and os.path.exists(filename):
             raise FileExistsError
         return shutil.copy2(self._get_abs_path(object_name), filename)
@@ -119,15 +119,21 @@ def object_store_test_helper(
                     # Give it some time to finish the second upload
                     # (Since the upload is really a file copy, it should be fast)
                     time.sleep(2)
-                    # Then, crashes are detected on the next batch end / epoch end event
-                    with pytest.raises(RuntimeError):
+                    # Then, crashes are detected on the next batch end, but
+                    # should be a FileExistsError not a runtime error because the parent will raise
+                    # the fatal exception that the worker throws.
+                    with pytest.raises(
+                            FileExistsError,
+                            match=
+                            f'Object local://{remote_file_name} already exists, but allow_overwrite was set to False.'):
                         remote_uploader_downloader.run_event(Event.BATCH_END, dummy_state, logger)
 
-                    with pytest.raises(RuntimeError):
-                        remote_uploader_downloader.run_event(Event.EPOCH_END, dummy_state, logger)
                 else:
                     # Otherwise, if no delay, it should error when being enqueued
-                    with pytest.raises(FileExistsError):
+                    with pytest.raises(
+                            FileExistsError,
+                            match=f'Object {remote_file_name} was already enqueued to be uploaded, but overwrite=False.'
+                    ):
                         logger.upload_file(remote_file_name, file_path_2, overwrite=overwrite)
 
             remote_uploader_downloader.close(dummy_state, logger)
@@ -287,3 +293,45 @@ def test_valid_backend_names():
         remote_uploader_downloader = RemoteUploaderDownloader(bucket_uri='magicloud://not-a-real-bucket')
         # Access the remote_backend property so that it is built
         _ = remote_uploader_downloader.remote_backend
+
+
+@pytest.mark.filterwarnings(r'ignore:Exception in thread:pytest.PytestUnhandledThreadExceptionWarning')
+def test_exception_queue_works(tmp_path: pathlib.Path, dummy_state: State):
+    """Test that exceptions get put on the exception queue and get thrown"""
+
+    with patch('composer.loggers.remote_uploader_downloader.S3ObjectStore', DummyObjectStore):
+        # Create the object store logger
+        remote_uploader_downloader = RemoteUploaderDownloader(
+            bucket_uri=f"s3://{tmp_path}/'object_store_backend",
+            backend_kwargs={
+                'dir': tmp_path / 'object_store_backend',
+                'always_fail': True,
+            },
+            num_concurrent_uploads=1,
+            use_procs=False,
+            upload_staging_folder=str(tmp_path / 'staging_folder'),
+            num_attempts=1,
+        )
+
+        # Enqueue a file. Because `always_fail` is True, it will cause the worker to crash
+
+        tmpfile_path = tmp_path / 'dummy_file'
+        with open(tmpfile_path, 'w+') as f:
+            f.write('hi')
+
+        logger = Logger(dummy_state, destinations=[remote_uploader_downloader])
+
+        remote_uploader_downloader.run_event(Event.INIT, dummy_state, logger)
+
+        logger.upload_file('dummy_remote_file_name', tmpfile_path)
+
+        # Wait enough time for the file to be enqueued and the exception to be enqueued
+        time.sleep(2.0)
+
+        # Make sure the exception got enqueued.
+        assert not remote_uploader_downloader._exception_queue.empty()
+
+        # Assert that the worker crashed with the worker's error not the general
+        # 'Upload worker crashed. Please check the logs.' error.
+        with pytest.raises(RuntimeError, match='Crash because you set*'):
+            remote_uploader_downloader.run_event(Event.EPOCH_END, dummy_state, logger)
