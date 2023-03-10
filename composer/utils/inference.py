@@ -19,7 +19,7 @@ import torch
 import torch.nn as nn
 
 from composer.utils import dist
-from composer.utils.checkpoint import download_checkpoint
+from composer.utils.checkpoint import download_checkpoint, safe_torch_load
 from composer.utils.device import get_device
 from composer.utils.iter_helpers import ensure_tuple
 from composer.utils.misc import is_model_ddp, is_model_deepspeed, is_model_fsdp, model_eval_mode
@@ -173,11 +173,11 @@ def export_for_inference(
         # download checkpoint and load weights only
         log.debug('Loading checkpoint at %s', load_path)
         with tempfile.TemporaryDirectory() as tempdir:
-            composer_states_filepath, _, _ = download_checkpoint(path=load_path,
-                                                                 node_checkpoint_folder=tempdir,
-                                                                 object_store=load_object_store,
-                                                                 progress_bar=True)
-            state_dict = torch.load(composer_states_filepath, map_location='cpu')
+            composer_states_filepath, _ = download_checkpoint(path=load_path,
+                                                              node_checkpoint_folder=tempdir,
+                                                              object_store=load_object_store,
+                                                              progress_bar=True)
+            state_dict = safe_torch_load(composer_states_filepath)
             missing_keys, unexpected_keys = model.load_state_dict(state_dict['state']['model'], strict=load_strict)
             if len(missing_keys) > 0:
                 log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")

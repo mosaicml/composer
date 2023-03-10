@@ -10,7 +10,6 @@ import json
 import logging
 import tempfile
 import textwrap
-import warnings
 from collections import UserDict
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
@@ -18,9 +17,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
 import torch
 from torchmetrics import Metric
 
-from composer.metrics import METRIC_DEFAULT_CTORS, InContextLearningMetric
+from composer.metrics import InContextLearningMetric
 from composer.models.base import ComposerModel
-from composer.utils import MissingConditionalImportError, get_file, import_object
+from composer.utils import MissingConditionalImportError, get_file, import_object, safe_torch_load
 
 if TYPE_CHECKING:
     import transformers
@@ -121,12 +120,13 @@ class HuggingFaceModel(ComposerModel):
         self.train_metrics: Optional[Dict] = None
         self.val_metrics: Optional[Dict] = None
 
+        if eval_metrics is not None:
+            self.val_metrics = {metric.__class__.__name__: metric for metric in eval_metrics}
         if metrics is not None:
             self.train_metrics = {metric.__class__.__name__: metric for metric in metrics}
+            # if eval_metrics is None, use the same metrics as train_metrics
             if eval_metrics is None:
                 self.val_metrics = {metric.__class__.__name__: metric for metric in metrics}
-            else:
-                self.val_metrics = {metric.__class__.__name__: metric for metric in eval_metrics}
 
         self.labels: Optional[torch.Tensor] = None  # set in eval_forward() if exists
 
@@ -226,7 +226,7 @@ class HuggingFaceModel(ComposerModel):
         get_file(checkpoint_path, str(local_checkpoint_save_location))
 
         # load the state dict in
-        loaded_state_dict = torch.load(local_checkpoint_save_location, map_location='cpu')
+        loaded_state_dict = safe_torch_load(local_checkpoint_save_location)
 
         hf_state = loaded_state_dict['state']['integrations']['huggingface']
         hf_model_state = hf_state['model']
@@ -403,16 +403,6 @@ class HuggingFaceModel(ComposerModel):
                     }
         return {'model': model_output, 'tokenizer': tokenizer_output}
 
-    def add_eval_metrics(self, evaluator):
-        warnings.warn(
-            DeprecationWarning('The add_eval_metrics method is deprecated and will be removed in a future release. '
-                               'Please pass in `eval_metrics` directly to the constructor.'))
-        evaluator_metrics = {m: METRIC_DEFAULT_CTORS[m]() for m in evaluator.metric_names}
-        if self.val_metrics is not None:
-            self.val_metrics.update(evaluator_metrics)
-        else:
-            self.val_metrics = evaluator_metrics
-
 
 def _is_registered_causal_lm(model: transformers.PreTrainedModel) -> bool:
     """Return True if model class is either a registered 🤗 Causal LM or a subclass of one"""
@@ -522,7 +512,7 @@ def write_huggingface_pretrained_from_composer_checkpoint(
     # download the checkpoint file
     get_file(str(checkpoint_path), str(local_checkpoint_save_location))
 
-    composer_state_dict = torch.load(local_checkpoint_save_location, map_location='cpu')
+    composer_state_dict = safe_torch_load(local_checkpoint_save_location)
 
     config = get_hf_config_from_composer_state_dict(composer_state_dict)
     config.save_pretrained(output_folder)
