@@ -49,7 +49,10 @@ simple_gpt2_settings = {
 simple_vision_settings = {
     'model': SimpleConvModel,
     'dataset': RandomImageDataset,
-    'kwargs': {},
+    'kwargs': {
+        'size': 10,
+        'shape': (3, 8, 8)
+    },
 }
 
 simple_vision_pil_settings = {
