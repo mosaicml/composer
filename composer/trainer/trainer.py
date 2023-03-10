@@ -1464,6 +1464,9 @@ class Trainer:
                 self._try_checkpoint_download(latest_checkpoint_path, save_latest_remote_file_name, loggers,
                                               load_progress_bar)
 
+            # list of whether the checkpoint exists on each rank
+            latest_checkpoint_exists = dist.all_gather_object(os.path.exists(latest_checkpoint_path))
+
             # Require all ranks to have their own local checkpoint if we wish to restore from it for deepspeed
             if not all(latest_checkpoint_exists):
                 missing_ranks = [n for (n, exist) in enumerate(latest_checkpoint_exists) if not exist]
