@@ -1496,9 +1496,6 @@ class Trainer:
             with dist.local_rank_zero_download_and_wait(latest_checkpoint_path):
                 dist.barrier()
 
-                # list of whether the checkpoint exists on each rank
-                latest_checkpoint_exists = dist.all_gather_object(os.path.exists(latest_checkpoint_path))
-
             # At this point the rank 0 filepath should exist on all ranks
             latest_checkpoint_exists_on_all_ranks = self.state.device.tensor_to_device(
                 torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
