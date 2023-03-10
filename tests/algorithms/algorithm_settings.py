@@ -75,6 +75,7 @@ simple_resnet_settings = {
 }
 
 _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
+    WeightStandardization: simple_vision_settings,
     GradientClipping: {
         'model': SimpleConvModel,
         'dataset': RandomImageDataset,
@@ -181,7 +182,6 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
             'schedule_swa_lr': True,
         }
     },
-    WeightStandardization: simple_vision_settings,
     GyroDropout: {
         'model': SimpleModelWithDropout,
         'dataloader': (DataLoader, {
