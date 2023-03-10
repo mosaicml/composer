@@ -463,7 +463,7 @@ class RemoteUploaderDownloader(LoggerDestination):
                 if len(self._logged_objects) == 0:
                     break
             time.sleep(0.2)  # Yield lock for enqueue thread
-        # Verify all tasks have been completed unless there are exceptions that have been thrown.
+        # Verify all tasks have been completed unless a worker threw an exception
         while not self._file_upload_queue.empty() and self._exception_queue.empty():
             time.sleep(0.2)
         if not self._exception_queue.empty():
