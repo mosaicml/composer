@@ -18,6 +18,7 @@ if __name__ == '__main__':
     parser.add_argument('--image', type=str, default='mosaicml/pytorch:latest', help='Docker image to use')
     parser.add_argument('--git_branch', type=str, help='Git branch to check out')
     parser.add_argument('--git_commit', type=str, help='Git commit to check out. Overrides git_branch if specified')
+    parser.add_argument('--pip_package_name', type=str, help='Name of pip package to install before running tests')
     parser.add_argument('--pr_number',
                         type=int,
                         help='PR number to check out. Overrides git_branch/git_commit if specified')
@@ -57,6 +58,8 @@ if __name__ == '__main__':
         name = name[:56]
 
     command += f'''
+
+    export COMPOSER_PACKAGE_NAME='{args.pip_package_name}'
 
     pip install --upgrade --user .[all]
 
