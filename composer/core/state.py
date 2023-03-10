@@ -18,6 +18,7 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
 from torchmetrics import Metric
+from torchmetrics.metric import jit_distributed_available
 
 from composer.core.data_spec import DataSpec
 from composer.core.event import Event
@@ -149,12 +150,26 @@ def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
     # v0.4.1 removed the leading underscores for the keys in the state_dict
     # It also renamed _is_model_ddp_wrapped to is_model_ddp
     state = {}
-    for k, v in state_dict.items():
-        if k == '_is_model_ddp_wrapped':
-            k = 'is_model_ddp'
-        if k.startswith('_'):
-            k = k[1:]
-        state[k] = v
+    for attribute_name, serialized_value in state_dict.items():
+        if attribute_name == '_is_model_ddp_wrapped':
+            attribute_name = 'is_model_ddp'
+        if attribute_name.startswith('_'):
+            attribute_name = attribute_name[1:]
+        # Torchmetrics adds a new attribute as of 0.11 which must be added to deserialized metrics
+        if attribute_name == 'train_metrics':
+            for metric_name in serialized_value.keys():
+                metric = serialized_value[metric_name]
+                if not hasattr(metric, 'distributed_available_fn'):
+                    metric.distributed_available_fn = jit_distributed_available
+                    serialized_value[metric_name] = metric
+        elif attribute_name == 'eval_metrics':
+            for evaluator_name, eval_metrics in serialized_value.items():
+                for metric_name in eval_metrics.keys():
+                    metric = eval_metrics[metric_name]
+                    if not hasattr(metric, 'distributed_available_fn'):
+                        metric.distributed_available_fn = jit_distributed_available
+                        serialized_value[evaluator_name][metric_name] = metric
+        state[attribute_name] = serialized_value
     return state
 
 
@@ -1049,14 +1064,14 @@ class State(Serializable):
             elif attribute_name == 'train_metrics':
                 state_field_value = getattr(self, attribute_name)
                 for metric_name, metric in serialized_value.items():
-                    state_field_value[metric_name] = metric
                     metric._device = self.device._device
+                    state_field_value[metric_name] = metric
             elif attribute_name == 'eval_metrics':
                 state_field_value = getattr(self, attribute_name)
                 for eval_key, eval_metrics in serialized_value.items():
                     for metric_name, metric in eval_metrics.items():
-                        state_field_value[eval_key][metric_name] = metric
                         metric._device = self.device._device
+                        state_field_value[eval_key][metric_name] = metric
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                 state_field_value = getattr(self, attribute_name)
                 for target in ensure_tuple(state_field_value):
