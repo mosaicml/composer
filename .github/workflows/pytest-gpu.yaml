@@ -2,6 +2,9 @@ name: Pytest GPU
 on:
   workflow_call:
     inputs:
+      composer_package_name:
+        required: true
+        type: string
       container:
         required: true
         type: string
@@ -73,4 +76,4 @@ jobs:
             REF_ARGS="--pr_number $PR_NUMBER"
           fi
 
-          python .github/mcp/mcp_pytest.py --image '${{ inputs.container }}' --pytest_markers '${{ inputs.pytest-markers }}' --pytest_command '${{ inputs.pytest-command }}' --timeout ${{ inputs.mcloud-timeout }} ${REF_ARGS}
+          python .github/mcp/mcp_pytest.py --image '${{ inputs.container }}' --pip_package_name '${{ inputs.composer_package_name }}' --pytest_markers '${{ inputs.pytest-markers }}' --pytest_command '${{ inputs.pytest-command }}' --timeout ${{ inputs.mcloud-timeout }} ${REF_ARGS}
