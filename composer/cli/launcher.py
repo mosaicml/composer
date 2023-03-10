@@ -83,7 +83,8 @@ def _get_parser():
     parser.add_argument('-k',
                         '--kill_python_zombies',
                         action='store_true',
-                        help=('If set, at the end of composer, it will run '))
+                        help=('If set, at the end of composer, it will run ``kill python``'
+                              'which will kill all python processes.'))
 
     multinode_args = parser.add_argument_group(
         'multi-node arguments',
