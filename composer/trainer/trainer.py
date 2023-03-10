@@ -1484,7 +1484,7 @@ class Trainer:
             dist.broadcast_object_list(save_latest_remote_file_name_list, src=0)
             save_latest_remote_file_name = save_latest_remote_file_name_list[0]
 
-            # download the checkpoint on local rank 0 of all nodes
+            # try to download the checkpoint on local rank 0 of all nodes
             if dist.get_local_rank() == 0 and not os.path.exists(latest_checkpoint_path):
                 log.debug(f'Attempting to download the checkpoint {save_latest_remote_file_name} on to all nodes')
                 os.makedirs(save_folder, exist_ok=True)
@@ -1497,12 +1497,12 @@ class Trainer:
                 with open(signal_file_path, 'wb') as f:
                     f.write(b'local_rank0_completed_autoresume')
 
-            # avoid the collective call until the checkpoint has been downloaded by local rank zero
+            # avoid the collective call until the local rank zero has finished trying to download the checkpoint
             # so that we don't timeout for large downloads
             with dist.local_rank_zero_download_and_wait(signal_file_path):
                 dist.barrier()
 
-            # At this point the rank 0 filepath should exist on all ranks
+            # At this point the rank 0 filepath should exist on all ranks if the download succeeded
             # list of whether the checkpoint exists on each rank
             latest_checkpoint_exists = dist.all_gather_object(os.path.exists(latest_checkpoint_path))
 

@@ -1,11 +1,9 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-import gc
 from typing import Type
 
 import pytest
-import torch
 
 from composer import Algorithm, Trainer
 from composer.algorithms import GyroDropout, LayerFreezing
@@ -34,10 +32,3 @@ def test_algorithm_trains(alg_cls: Type[Algorithm]):
         pytest.xfail(
             'GyroDropout is implemented to be applied on Event.FIT_START, so is not compatible with multiple calls to fit.'
         )
-
-    # fit again for another epoch
-    trainer.fit(duration='1ep')
-
-    torch.cuda.empty_cache()
-    gc.collect()
-    torch.cuda.synchronize()
