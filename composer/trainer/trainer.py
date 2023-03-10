@@ -1491,9 +1491,15 @@ class Trainer:
                 self._try_checkpoint_download(latest_checkpoint_path, save_latest_remote_file_name, loggers,
                                               load_progress_bar)
 
+            signal_file_path = os.path.join(os.path.dirname(latest_checkpoint_path),
+                                            '.local_rank0_completed_autoresume')
+            if dist.get_local_rank() == 0:
+                with open(signal_file_path, 'wb') as f:
+                    f.write(b'local_rank0_completed_autoresume')
+
             # avoid the collective call until the checkpoint has been downloaded by local rank zero
             # so that we don't timeout for large downloads
-            with dist.local_rank_zero_download_and_wait(latest_checkpoint_path):
+            with dist.local_rank_zero_download_and_wait(signal_file_path):
                 dist.barrier()
 
             # At this point the rank 0 filepath should exist on all ranks
