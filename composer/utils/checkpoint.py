@@ -322,15 +322,12 @@ def download_checkpoint(
                     pass
 
     finally:
-        # Wait for all checkpoints on the node to finish downloading. First, we busy wait until
-        # file exists, ensuring synchronization intra-node. Next, we use `dist.barrier()` to
-        # sync across nodes. This is necessary to avoid timing out on the barrier when downloading
-        # large checkpoints, which may exceed the normal timeout. Now, a timeout is only
-        # encountered if the difference between checkpoint download times on the slowest and
-        # fastest nodes exceeds the timeout.
-        with dist.local_rank_zero_download_and_wait(composer_states_filepath):
-            print('composer filepath is: ', composer_states_filepath, os.path.exists(composer_states_filepath))
-            dist.barrier()
+        # Wait for all checkpoints on the node to finish downloading
+        # Putting the barrier in a finally so the rank will always block on the barrier,
+        # even if it has an exception.
+        # Any exception will be re-raised after the barrier passes. The launcher script
+        # will detect the process crash and terminate the other ranks
+        dist.barrier()
 
     return composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n
 

@@ -80,6 +80,10 @@ def _get_parser():
         help=('If set, run the training script as a command (i.e. without `python`). '
               'Cannot be used in conjunction with `module_mode`.'),
     )
+    parser.add_argument('-k',
+                        '--kill_python_zombies',
+                        action='store_true',
+                        help=('If set, at the end of composer, it will run '))
 
     multinode_args = parser.add_argument_group(
         'multi-node arguments',
@@ -494,11 +498,12 @@ def main():
         # what failed. No need to re-raise the exception, as `aggregate_process_returncode`
         # will return an appropriate error code, which will cause the script to exit.
         traceback.print_exc()
-        print('Killing training processes')
     finally:
         _cleanup_processes(processes)
         log_tmpdir.cleanup()
-        return _aggregate_process_returncode(processes)
+        return_code = _aggregate_process_returncode(processes)
+        os.system('pkill python')
+        return return_code
 
 
 if __name__ == '__main__':
