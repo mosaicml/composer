@@ -136,6 +136,8 @@ def get_fsdp_sharded_optim_state_dict(full_optim_state_dict: Dict[str, Any], mod
     if version.parse(torch.__version__) < version.parse('1.13.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+    log.debug(
+        f'Scattering optimizer state dict with keys {full_optim_state_dict.keys()} and model of type {type(model)}')
     return FSDP.scatter_full_optim_state_dict(full_optim_state_dict=full_optim_state_dict, model=model)
 
 
@@ -947,6 +949,7 @@ class State(Serializable):
                 continue
             optim_state_dict = serialized_value[type(optimizer).__qualname__]
             if self.fsdp_enabled:
+                log.debug(f'Loading FSDP optimizer with fsdp_state_dict_type={self.fsdp_state_dict_type}')
                 if self.fsdp_state_dict_type == 'sharded':
                     if version.parse(torch.__version__) < version.parse('1.13.0'):
                         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
@@ -966,9 +969,11 @@ class State(Serializable):
                     # is a full state dict and we must shard and flatten it first before loading it.
                     sharded_optim_state_dict = get_fsdp_sharded_optim_state_dict(full_optim_state_dict=optim_state_dict,
                                                                                  model=self.model)
+                    log.debug(f'optimizer.load_state_dict call with fsdp_state_dict_type=full')
                     optimizer.load_state_dict(sharded_optim_state_dict)
             # No FSDP, so just load the optim state dict.
             else:
+                log.debug(f'Loading optimizer state dict')
                 optimizer.load_state_dict(optim_state_dict)
 
     def _load_dataset_state(self, obj: Dict[str, Any]) -> None:
@@ -1040,6 +1045,8 @@ class State(Serializable):
             # Skip metadata, which is not an attribute on State
             if attribute_name == 'metadata':
                 continue
+
+            log.debug(f'Loading {attribute_name} into state.')
 
             # Restructure algorithms serialized_value from list to dict
             if attribute_name == 'algorithms' and isinstance(serialized_value, list):
