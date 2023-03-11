@@ -1456,17 +1456,17 @@ class Trainer:
             f'Looking for autoresume checkpoint: {save_latest_remote_file_name} (remote), {latest_checkpoint_path} (local)'
         )
 
-        # If latest checkpoint is not saved locally, try to fetch from loggers
-        if not os.path.exists(latest_checkpoint_path) and (dist.get_global_rank() == 0 or self.deepspeed_enabled):
-            log.debug(f'Attempting to download the checkpoint on to rank {dist.get_global_rank()}')
-            os.makedirs(save_folder, exist_ok=True)
-            self._try_checkpoint_download(latest_checkpoint_path, save_latest_remote_file_name, loggers,
-                                          load_progress_bar)
-
-        # list of whether the checkpoint exists on each rank
-        latest_checkpoint_exists = dist.all_gather_object(os.path.exists(latest_checkpoint_path))
-
         if self.deepspeed_enabled:
+            # If latest checkpoint is not saved locally, try to fetch from loggers
+            if not os.path.exists(latest_checkpoint_path):
+                log.debug(f'Attempting to download the checkpoint on to rank {dist.get_global_rank()}')
+                os.makedirs(save_folder, exist_ok=True)
+                self._try_checkpoint_download(latest_checkpoint_path, save_latest_remote_file_name, loggers,
+                                              load_progress_bar)
+
+            # list of whether the checkpoint exists on each rank
+            latest_checkpoint_exists = dist.all_gather_object(os.path.exists(latest_checkpoint_path))
+
             # Require all ranks to have their own local checkpoint if we wish to restore from it for deepspeed
             if not all(latest_checkpoint_exists):
                 missing_ranks = [n for (n, exist) in enumerate(latest_checkpoint_exists) if not exist]
@@ -1474,10 +1474,6 @@ class Trainer:
 
             return latest_checkpoint_path
         else:
-            # The checkpoint must at least exist for rank zero
-            if not latest_checkpoint_exists[0]:
-                return None
-
             # broadcast the local checkpoint path to all ranks
             latest_checkpoint_path_list = [os.path.abspath(latest_checkpoint_path)]
             dist.broadcast_object_list(latest_checkpoint_path_list, src=0)
@@ -1488,23 +1484,36 @@ class Trainer:
             dist.broadcast_object_list(save_latest_remote_file_name_list, src=0)
             save_latest_remote_file_name = save_latest_remote_file_name_list[0]
 
-            # download the checkpoint on local rank 0 of all nodes
+            # try to download the checkpoint on local rank 0 of all nodes
             if dist.get_local_rank() == 0 and not os.path.exists(latest_checkpoint_path):
                 log.debug(f'Attempting to download the checkpoint {save_latest_remote_file_name} on to all nodes')
                 os.makedirs(save_folder, exist_ok=True)
                 self._try_checkpoint_download(latest_checkpoint_path, save_latest_remote_file_name, loggers,
                                               load_progress_bar)
-            dist.barrier()
-            # At this point the rank 0 filepath should exist on all ranks
-            latest_checkpoint_exists_on_all_ranks = self.state.device.tensor_to_device(
-                torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
-            dist.all_reduce(latest_checkpoint_exists_on_all_ranks, reduce_operation='MIN')
+
+            signal_file_path = os.path.join(os.path.dirname(latest_checkpoint_path),
+                                            '.local_rank0_completed_autoresume')
+            if dist.get_local_rank() == 0:
+                with open(signal_file_path, 'wb') as f:
+                    f.write(b'local_rank0_completed_autoresume')
+
+            # avoid the collective call until the local rank zero has finished trying to download the checkpoint
+            # so that we don't timeout for large downloads
+            with dist.local_rank_zero_download_and_wait(signal_file_path):
+                dist.barrier()
+
+            # At this point the rank 0 filepath should exist on all ranks if the download succeeded
+            # list of whether the checkpoint exists on each rank
+            latest_checkpoint_exists = dist.all_gather_object(os.path.exists(latest_checkpoint_path))
 
             log.debug(
                 f'Checkpoint {latest_checkpoint_path} exists on rank {dist.get_global_rank()}? {os.path.exists(latest_checkpoint_path)}'
             )
 
-            if int(latest_checkpoint_exists_on_all_ranks.item()) == 0:
+            if not latest_checkpoint_exists[0]:
+                # If the checkpoint doesn't exist on rank 0, don't crash, so the initial autoresume run can succeed
+                return None
+            elif not all(latest_checkpoint_exists):
                 raise RuntimeError('Downloading the checkpoint to all nodes failed')
 
             return latest_checkpoint_path
