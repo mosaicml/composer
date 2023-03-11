@@ -40,9 +40,9 @@ from all the ranks, use ``--stdout`` and ``--stderr``:
 
 .. code:: python
 
-    >>> composer -n 8 --stdout stdout_{rank}.log --stderr stderr_{rank}.log my_training_script.py
+    >>> composer -n 8 --stdout stdout_{rank}.log --stderr stderr_{rank}.log script.py
 
-The stdout for each rank will then be available at ``stdout_0.log``, ``stdout_1.log``, and so forth.
+The stdout for each rank will then be available at ``stdout_1.log``, ``stdout_2.log``, and so forth.
 The filename is customizable, see the command help for more details.
 
 Alternatively, the logs can also be captured using our :class:`.FileLogger`.
