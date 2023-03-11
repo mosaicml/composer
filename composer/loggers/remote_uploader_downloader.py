@@ -457,8 +457,7 @@ class RemoteUploaderDownloader(LoggerDestination):
         post_close logic ensures existing uploads are completed, trying to schedule new uploads
         during this time will error.
         """
-        # Verify enqueue thread has processed all tasks
-        # But make sure to only enter this loop if a worker somewhere else hasn't thrown a fatal exception.
+        # Verify enqueue thread has processed all tasks unless a worker threw an exception
         while self._exception_queue.empty():
             with self._object_lock:
                 if len(self._logged_objects) == 0:

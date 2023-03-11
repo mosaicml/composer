@@ -17,7 +17,11 @@ __all__ = ['OCIObjectStore']
 
 
 def _reraise_oci_errors(uri: str, e: Exception):
-    import oci
+    try:
+        import oci
+    except ImportError as e:
+        raise MissingConditionalImportError(conda_package='oci', extra_deps_group='oci',
+                                            conda_channel='conda-forge') from e
 
     # If it's an oci service error with code: ObjectNotFound or status 404
     if isinstance(e, oci.exceptions.ServiceError):
@@ -91,7 +95,10 @@ class OCIObjectStore(ObjectStore):
         except Exception as e:
             _reraise_oci_errors(self.get_uri(object_name), e)
 
-        return int(response.data.headers['Content-Length'])
+        if response.status == 200:
+            return int(response.data.headers['Content-Length'])
+        else:
+            raise ValueError(f'OCI get_object was not successful with a {response.status} status code.')
 
     def upload_object(
         self,
