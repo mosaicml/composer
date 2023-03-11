@@ -295,6 +295,7 @@ def test_valid_backend_names():
         _ = remote_uploader_downloader.remote_backend
 
 
+# We put this filter here because when the worker raises an exception, pytest throws a warning which fails the test.
 @pytest.mark.filterwarnings(r'ignore:Exception in thread:pytest.PytestUnhandledThreadExceptionWarning')
 def test_exception_queue_works(tmp_path: pathlib.Path, dummy_state: State):
     """Test that exceptions get put on the exception queue and get thrown"""
