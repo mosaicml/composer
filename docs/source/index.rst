@@ -53,7 +53,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
 
 .. toctree::
    :hidden:
-   :maxdepth: 0
+   :maxdepth: 1
    :caption: Tutorials
 
 
@@ -114,7 +114,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
 
 .. toctree::
    :hidden:
-   :maxdepth: 0
+   :maxdepth: 1
    :caption: Methods Library
 
    method_cards/methods_overview.rst
@@ -152,7 +152,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
 
 .. toctree::
    :hidden:
-   :maxdepth: 0
+   :maxdepth: 1
    :caption: Model Library
 
    model_cards/BERT.md
@@ -166,7 +166,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
 .. toctree::
    :hidden:
    :caption: API Reference
-   :maxdepth: 0
+   :maxdepth: 1
    :glob:
 
    api_reference/*
