@@ -8,13 +8,6 @@ import pytest
 
 from composer.utils import OCIObjectStore
 
-try:
-    import oci
-    _OCI_INSTALLED = True
-    del oci  # unused
-except ImportError:
-    _OCI_INSTALLED = False
-
 
 @pytest.fixture
 def mock_bucket_name():
@@ -41,10 +34,9 @@ def test_oci_obj_store(mock_bucket_name, monkeypatch):
     return oci_os
 
 
-@pytest.mark.skipif(not _OCI_INSTALLED, reason='You must have oci installed to run this test')
 @pytest.mark.parametrize('result', ['success', 'bucket_not_found'])
 def test_upload_object(test_oci_obj_store, monkeypatch, tmp_path, mock_bucket_name, result: str):
-    import oci
+    oci = pytest.importorskip('oci')
     oci_os = test_oci_obj_store
     mock_object_name = 'my_object'
 
@@ -75,10 +67,9 @@ def test_upload_object(test_oci_obj_store, monkeypatch, tmp_path, mock_bucket_na
                 oci_os.upload_object(mock_object_name, filename=file_to_upload)
 
 
-@pytest.mark.skipif(not _OCI_INSTALLED, reason='You must have oci installed to run this test')
 @pytest.mark.parametrize('result', ['success', 'file_exists', 'obj_not_found', 'bucket_not_found'])
 def test_download_object(test_oci_obj_store, monkeypatch, tmp_path, mock_bucket_name, result: str):
-    import oci
+    oci = pytest.importorskip('oci')
     oci_os = test_oci_obj_store
     mock_object_name = 'my_object'
 
@@ -133,10 +124,9 @@ def test_download_object(test_oci_obj_store, monkeypatch, tmp_path, mock_bucket_
                 oci_os.download_object(mock_object_name, filename=file_to_download_to)
 
 
-@pytest.mark.skipif(not _OCI_INSTALLED, reason='You must have oci installed to run this test')
 @pytest.mark.parametrize('result', ['success', 'obj_not_found', 'bucket_not_found'])
 def test_get_object_size(test_oci_obj_store, mock_bucket_name, monkeypatch, result: str):
-    import oci
+    oci = pytest.importorskip('oci')
     oci_os = test_oci_obj_store
     mock_object_name = 'my_object'
     mock_object_size = 11
