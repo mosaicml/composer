@@ -67,6 +67,7 @@ def object_store_test_helper(
     use_procs: bool = False,
     overwrite: bool = True,
     overwrite_delay: bool = False,
+    event_to_test: Event = Event.BATCH_END,
 ):
     remote_dir = str(tmp_path / 'object_store')
     os.makedirs(remote_dir, exist_ok=True)
@@ -126,7 +127,7 @@ def object_store_test_helper(
                             FileExistsError,
                             match=
                             f'Object local://{remote_file_name} already exists, but allow_overwrite was set to False.'):
-                        remote_uploader_downloader.run_event(Event.BATCH_END, dummy_state, logger)
+                        remote_uploader_downloader.run_event(event_to_test, dummy_state, logger)
 
                 else:
                     # Otherwise, if no delay, it should error when being enqueued
@@ -169,11 +170,16 @@ def test_remote_uploader_downloader_use_procs(tmp_path: pathlib.Path, dummy_stat
 
 @pytest.mark.filterwarnings(r'ignore:((.|\n)*)FileExistsError((.|\n)*):pytest.PytestUnhandledThreadExceptionWarning')
 @pytest.mark.parametrize('overwrite_delay', [True, False])
-def test_remote_uploader_downloader_no_overwrite(tmp_path: pathlib.Path, dummy_state: State, overwrite_delay: bool):
+@pytest.mark.parametrize('event_to_test', [Event.BATCH_END, Event.EPOCH_END])
+def test_remote_uploader_downloader_no_overwrite(tmp_path: pathlib.Path, dummy_state: State, overwrite_delay: bool,
+                                                 event_to_test: Event):
+    if not overwrite_delay and event_to_test == Event.EPOCH_END:
+        pytest.skip('event_to_test does not affect the overwrite_delay=False part of the test')
     object_store_test_helper(tmp_path=tmp_path,
                              dummy_state=dummy_state,
                              overwrite=False,
-                             overwrite_delay=overwrite_delay)
+                             overwrite_delay=overwrite_delay,
+                             event_to_test=event_to_test)
 
 
 @pytest.mark.parametrize('use_procs', [True, False])
