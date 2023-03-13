@@ -20,7 +20,7 @@ class ActivationMonitor(Callback):
     def __init__(self,
                  recompute_attention_softmax: bool = True,
                  interval: Union[int, str, Time] = '100ba',
-                 ignore_module_types: Optional[List[str]] = [],
+                 ignore_module_types: Optional[List[str]] = None,
                  only_log_wandb: bool = True):
         """Logs stats of activation inputs and outputs.
 
@@ -76,7 +76,7 @@ class ActivationMonitor(Callback):
             if not self.module_names:
                 self.create_module_names(state.model)
 
-            self.attach_forward_hook(state, logger)
+            self.attach_forward_hooks(state, logger)
 
     def after_forward(self, state: State, logger: Logger):
         current_time_value = state.timestamp.get(self.interval.unit).value
@@ -85,8 +85,9 @@ class ActivationMonitor(Callback):
             self.last_train_time_value_logged = current_time_value
             self.remove_forward_hooks()
 
-    def attach_forward_hook(self, state: State, logger: Logger):
-        self.register_forward_hook(state.model, logger)
+    def attach_forward_hooks(self, state: State, logger: Logger):
+        step = state.timestamp.batch.value
+        self.register_forward_hook(state.model, logger, step)
 
     def remove_forward_hooks(self):
         for handle in self.handles:
@@ -94,18 +95,20 @@ class ActivationMonitor(Callback):
         # Resetting handles we track
         self.handles = []
 
-    def register_forward_hook(self, model: torch.nn.Module, logger: Logger):
-        model.apply(partial(self._register_forward_hook, logger))
+    def register_forward_hook(self, model: torch.nn.Module, logger: Logger, step: Optional[int]):
+        model.apply(partial(self._register_forward_hook, logger, step))
 
-    def _register_forward_hook(self, logger: Logger, module: torch.nn.Module):
-        self.handles.append(module.register_forward_hook(partial(self.forward_hook, logger)))
+    def _register_forward_hook(self, logger: Logger, step: Optional[int], module: torch.nn.Module):
+        self.handles.append(module.register_forward_hook(partial(self.forward_hook, logger, step)))
 
-    def forward_hook(self, logger: Logger, module: torch.nn.Module, input: Sequence, output: Sequence):
+    def forward_hook(self, logger: Logger, step: Optional[int], module: torch.nn.Module, input: Sequence,
+                     output: Sequence):
         module_name = self.module_names[module]
 
-        for ignore_module_type in self.ignore_module_types:
-            if ignore_module_type in module_name:
-                return
+        if self.ignore_module_types is not None:
+            for ignore_module_type in self.ignore_module_types:
+                if ignore_module_type in module_name:
+                    return
 
         metrics = {}
 
@@ -121,16 +124,18 @@ class ActivationMonitor(Callback):
 
         if self.only_log_wandb:
             wandb_logger = [ld for ld in logger.destinations if isinstance(ld, WandBLogger)][0]
-            wandb_logger.log_metrics(metrics)
+            wandb_logger.log_metrics(metrics, step)
         else:
             logger.log_metrics(metrics)
 
     def add_metrics(self, metrics: dict, name: str, suffix: str, value: torch.Tensor):
+        # We shouldn't log booleans
+        if value.dtype == torch.bool:
+            return
         if value.is_floating_point() or value.is_complex():
             metrics[f'activations/l2_norm/{name}{suffix}'] = torch.linalg.vector_norm(value).item()
             metrics[f'activations/average/{name}{suffix}'] = value.mean().item()
         metrics[f'activations/max/{name}{suffix}'] = value.max().item()
-
 
     def create_module_names(self, model: torch.nn.Module):
         self.module_names = {m: name for name, m in model.named_modules()}
