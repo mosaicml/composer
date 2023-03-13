@@ -181,6 +181,50 @@ def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
     assert tokenizer.decode(batch['input_ids'][0][0:min_idx]).count('</s>') == 1
 
 
+@pytest.mark.parametrize('dataset_uri', ['triviaqa_small.jsonl'])
+@pytest.mark.parametrize('num_fewshot', [0, 1, 2])
+def test_qa_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fewshot):
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+
+    tokenizer = tiny_gpt2_tokenizer
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    batch_size = 2
+    seqlen = 2048
+    # empirical number from the small test dataset
+    maximum_answer_length = 9
+    dl = get_icl_task_dataloader('question_answering',
+                                 dataset_uri,
+                                 tokenizer,
+                                 batch_size,
+                                 max_seq_len=seqlen,
+                                 pad_tok_id=tokenizer.eos_token_id,
+                                 num_fewshot=num_fewshot,
+                                 prompt_string='I am a prompt',
+                                 example_delimiter='\n',
+                                 question_prelimiter='Q: ',
+                                 continuation_delimiter='\nA:',
+                                 destination_path=str(tmp_path / f'icl_{num_fewshot}.jsonl'))
+
+    assert isinstance(dl.dataloader, DataLoader)  # pyright
+    batch = next(dl.dataloader._get_iterator())
+
+    assert tuple(batch['input_ids'].shape) == (batch_size, seqlen - maximum_answer_length)
+    assert tuple(batch['attention_mask'].shape) == (batch_size, seqlen - maximum_answer_length)
+    assert batch['mode'] == 'generate'
+    # the maximum generation length from the small test data
+    assert batch['generation_length'] == maximum_answer_length
+
+    decoded_batch = tokenizer.batch_decode(batch['input_ids'])
+    assert all([item.count('Q: ') == num_fewshot + 1 for item in decoded_batch])
+    assert all([item.count('\nA:') == num_fewshot + 1 for item in decoded_batch])
+    assert all([item.count('I am a prompt') == 1 for item in decoded_batch])
+
+    assert batch['labels'] == [['David Seville'], ['Scorpio', 'Skorpio']]
+
+    assert decoded_batch[0].endswith('Q: Who was the man behind The Chipmunks?\nA:')
+    assert decoded_batch[1].endswith('Q: What star sign is Jamie Lee Curtis?\nA:')
+
+
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl'])
 def test_mc_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
