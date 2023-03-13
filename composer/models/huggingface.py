@@ -431,14 +431,13 @@ class HuggingFaceModel(ComposerModel):
         """
         if not self.dummy_forward_called:
             with torch.no_grad():
-                self.model(input_ids=torch.tensor([[31373]], dtype=torch.long, device=torch.cuda.current_device()))
+                self.model(input_ids=torch.tensor([[0]], dtype=torch.long, device=torch.cuda.current_device()))
             self.dummy_forward_called = True
 
         return self.model.generate(input_ids,
                                    num_beams=num_beams,
                                    do_sample=do_sample,
                                    max_new_tokens=max_new_tokens,
-                                   pad_token_id=self.tokenizer.eos_token_id,
                                    **kwargs)
 
 

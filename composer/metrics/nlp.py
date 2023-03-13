@@ -5,7 +5,7 @@
 import re
 import string
 import warnings
-from typing import Mapping, Optional, Union
+from typing import List, Mapping, Optional, Union
 
 import torch
 from torch import Tensor
@@ -324,33 +324,33 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
         Copied from https://github.com/mandarjoshi90/triviaqa/blob/master/evaluation/triviaqa_evaluation.py
         """
 
-        def remove_articles(text):
+        def remove_articles(text: str) -> str:
             return re.sub(r'\b(a|an|the)\b', ' ', text)
 
-        def white_space_fix(text):
+        def white_space_fix(text: str) -> str:
             return ' '.join(text.split())
 
-        def handle_punc(text):
+        def handle_punc(text: str) -> str:
             exclude = set(string.punctuation + ''.join([u'‘', u'’', u'´', u'`']))
             return ''.join(ch if ch not in exclude else ' ' for ch in text)
 
-        def lower(text):
+        def lower(text: str) -> str:
             return text.lower()
 
-        def replace_underscore(text):
+        def replace_underscore(text: str) -> str:
             return text.replace('_', ' ')
 
         return white_space_fix(remove_articles(handle_punc(lower(replace_underscore(answer))))).strip()
 
-    def update(self, outputs: torch.Tensor, labels: torch.Tensor):
+    def update(self, outputs: List[str], labels: List[List[str]]):
         for sample_output, sample_labels in zip(outputs, labels):
             cleaned_sample_output = self.normalize_answer(sample_output)
             cleaned_sample_labels = set(self.normalize_answer(label) for label in sample_labels)
             print(any(cleaned_sample_output.startswith(label) for label in cleaned_sample_labels), sample_output,
                   sample_labels)
             if any(cleaned_sample_output.startswith(label) for label in cleaned_sample_labels):
-                self.correct += 1
-            self.total += 1
+                self.correct += torch.tensor(1.0)
+            self.total += torch.tensor(1.0)
 
     def compute(self):
         assert isinstance(self.correct, Tensor)

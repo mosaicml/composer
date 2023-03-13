@@ -120,7 +120,7 @@ class InContextLearningQATaskDataset(Dataset):
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
-        self.max_answer_length = None
+        self.max_answer_length = 0
         self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
                                                   question_prelimiter)
 
