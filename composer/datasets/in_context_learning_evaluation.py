@@ -98,19 +98,10 @@ class InContextLearningQATaskDataset(Dataset):
         destination_path (str): Temporary path to store downloaded datasets
     """
 
-    def __init__(
-        self,
-        dataset_uri: str,
-        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
-        max_seq_len: int,
-        pad_tok_id: int,
-        num_fewshot: int,
-        prompt_string: str,
-        example_delimiter: str,
-        continuation_delimiter: str,
-        destination_path: str,
-        question_prelimiter: str
-    ):
+    def __init__(self, dataset_uri: str, tokenizer: Union[transformers.PreTrainedTokenizer,
+                                                          transformers.PreTrainedTokenizerFast], max_seq_len: int,
+                 pad_tok_id: int, num_fewshot: int, prompt_string: str, example_delimiter: str,
+                 continuation_delimiter: str, destination_path: str, question_prelimiter: str):
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
         except ImportError as e:
@@ -130,9 +121,11 @@ class InContextLearningQATaskDataset(Dataset):
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
         self.max_answer_length = None
-        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter, question_prelimiter)
+        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
+                                                  question_prelimiter)
 
-    def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str, question_prelimiter: str):
+    def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
+                      question_prelimiter: str):
         """Prepares a set of language modeling tasks into tokenized format with prompt and fewshot examples.
 
         Each task consists of a context and a continuation as well as an optional prompt and optional list of
@@ -176,7 +169,8 @@ class InContextLearningQATaskDataset(Dataset):
             # if the preamble is empty then this will be a 0-length list, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
             encoded_example['preamble'] = self.tokenizer(preamble)
             # if there is an EOS token added, we need to remove it so it is not in the middle of the prompt
-            if self.tokenizer.eos_token_id is not None and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
+            if self.tokenizer.eos_token_id is not None and encoded_example['preamble']['input_ids'][
+                    -1] == self.tokenizer.eos_token_id:
                 encoded_example['preamble'] = encoded_example['preamble']['input_ids'][:-1]
 
             encoded_example['context'] = self.tokenizer(ctxt, add_special_tokens=False)
@@ -184,7 +178,9 @@ class InContextLearningQATaskDataset(Dataset):
 
             examples.append(encoded_example)
 
-            max_answer_length = max(max_answer_length, max(map(lambda x: len(self.tokenizer(x)['input_ids']), self.samples[sample_idx]['aliases'])))
+            max_answer_length = max(
+                max_answer_length,
+                max(map(lambda x: len(self.tokenizer(x)['input_ids']), self.samples[sample_idx]['aliases'])))
 
         self.max_answer_length = max_answer_length
         return examples
@@ -200,8 +196,10 @@ class InContextLearningQATaskDataset(Dataset):
         for sample in data:
             preamble, context, aliases = (sample['preamble'], sample['context'], sample['aliases'])
             context_enc = preamble['input_ids'] + context['input_ids']
-            inp, _ = _make_padded_input(context_enc, [], self.max_seq_len - self.max_answer_length,
-                                                        self.pad_tok_id, padding_side='left')
+            inp, _ = _make_padded_input(context_enc, [],
+                                        self.max_seq_len - self.max_answer_length,
+                                        self.pad_tok_id,
+                                        padding_side='left')
 
             inputs.append(inp)
             answers.append(aliases)
@@ -518,18 +516,18 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
 
 
 def get_icl_task_dataloader(
-    icl_task_type: str,
-    dataset_uri: str,
-    tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
-    batch_size: int,
-    max_seq_len: int,
-    pad_tok_id: int,
-    num_fewshot: int,
-    prompt_string: str,  # e.g. 'translate english to french:'
-    example_delimiter: str,  # e.g. '\n'
-    continuation_delimiter: str,  # e.g. ''
-    destination_path: str,
-    question_prelimiter: str = '' # e.g. 'Question: '
+        icl_task_type: str,
+        dataset_uri: str,
+        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
+        batch_size: int,
+        max_seq_len: int,
+        pad_tok_id: int,
+        num_fewshot: int,
+        prompt_string: str,  # e.g. 'translate english to french:'
+        example_delimiter: str,  # e.g. '\n'
+        continuation_delimiter: str,  # e.g. ''
+        destination_path: str,
+        question_prelimiter: str = ''  # e.g. 'Question: '
 ) -> DataSpec:
     """This constructs a dataloader capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
 
