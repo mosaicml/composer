@@ -320,7 +320,7 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
 
     def normalize_answer(self, answer: str):
         """Lower text and remove punctuation, articles and extra whitespace.
-        
+
         Copied from https://github.com/mandarjoshi90/triviaqa/blob/master/evaluation/triviaqa_evaluation.py
         """
 
@@ -331,7 +331,7 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
             return ' '.join(text.split())
 
         def handle_punc(text):
-            exclude = set(string.punctuation + "".join([u"‘", u"’", u"´", u"`"]))
+            exclude = set(string.punctuation + ''.join([u'‘', u'’', u'´', u'`']))
             return ''.join(ch if ch not in exclude else ' ' for ch in text)
 
         def lower(text):
