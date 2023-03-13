@@ -10,6 +10,7 @@ import torch
 
 from composer.core import Callback, State, Time, TimeUnit
 from composer.loggers import Logger
+from composer.loggers.wandb_logger import WandBLogger
 
 __all__ = ['ActivationMonitor']
 
@@ -19,7 +20,8 @@ class ActivationMonitor(Callback):
     def __init__(self,
                  recompute_attention_softmax: bool = True,
                  interval: Union[int, str, Time] = '100ba',
-                 ignore_module_types: Optional[List[str]] = []):
+                 ignore_module_types: Optional[List[str]] = [],
+                 only_log_wandb: bool = True):
         """Logs stats of activation inputs and outputs.
 
         This callback triggers at a user defined interval, and logs some simple statistics of the inputs, outputs for every
@@ -49,6 +51,7 @@ class ActivationMonitor(Callback):
         self.interval = interval
         self.recompute_attention_softmax = recompute_attention_softmax
         self.ignore_module_types = ignore_module_types
+        self.only_log_wandb = only_log_wandb
 
         self.handles = []
 
@@ -104,26 +107,30 @@ class ActivationMonitor(Callback):
             if ignore_module_type in module_name:
                 return
 
-        metric_name = f'activations/{module_name}'
         metrics = {}
 
         for i, val in enumerate(input):
             if val is None or isinstance(val, dict):
                 continue
-            self.add_metrics(metrics, f'{metric_name}_input_{i}', val)
+            self.add_metrics(metrics, module_name, f'_input_{i}', val)
 
         for i, val in enumerate(output):
             if val is None or isinstance(val, dict):
                 continue
-            self.add_metrics(metrics, f'{metric_name}_output_{i}', val)
+            self.add_metrics(metrics, module_name, f'_output_{i}', val)
 
-        logger.log_metrics(metrics)
+        if self.only_log_wandb:
+            wandb_logger = [ld for ld in logger.destinations if isinstance(ld, WandBLogger)][0]
+            wandb_logger.log_metrics(metrics)
+        else:
+            logger.log_metrics(metrics)
+
+    def add_metrics(self, metrics: dict, name: str, suffix: str, value: torch.Tensor):
+        if value.is_floating_point() or value.is_complex():
+            metrics[f'activations/l2_norm/{name}{suffix}'] = torch.linalg.vector_norm(value).item()
+            metrics[f'activations/average/{name}{suffix}'] = value.mean().item()
+        metrics[f'activations/max/{name}{suffix}'] = value.max().item()
+
 
     def create_module_names(self, model: torch.nn.Module):
         self.module_names = {m: name for name, m in model.named_modules()}
-
-    def add_metrics(self, metrics: dict, name: str, value: torch.Tensor):
-        if value.is_floating_point() or value.is_complex():
-            metrics[f'{name}_l2_norm'] = torch.linalg.vector_norm(value).item()
-            metrics[f'{name}_average'] = value.mean().item()
-        metrics[f'{name}_max'] = value.max().item()
