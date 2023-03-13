@@ -103,7 +103,7 @@ extra_deps['dev'] = [
     'pytest==7.2.2',
     'toml==0.10.2',
     'ipython==8.11.0',
-    'ipykernel==6.20.1',
+    'ipykernel==6.21.3',
     'jupyter==1.0.0',
     'yamllint==1.28.0',
     'recommonmark==0.7.1',
