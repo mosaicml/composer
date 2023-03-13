@@ -192,7 +192,7 @@ def load_checkpoint(
             node_checkpoint_folder = _get_local_rank_zero_path(tempdir)
             assert node_checkpoint_folder is not None
 
-            composer_states_filepath, _, extracted_tar_checkpoint_folder = download_checkpoint(
+            composer_states_filepath, extracted_tar_checkpoint_folder = download_checkpoint(
                 path=path,
                 node_checkpoint_folder=node_checkpoint_folder,
                 object_store=object_store,
@@ -236,8 +236,7 @@ def download_checkpoint(
     progress_bar: bool,
     fsdp_sharded_state_dict_enabled: bool = False,
     deepspeed_checkpoint: bool = False,
-    untar_checkpoint: bool = True,
-) -> Tuple[str, str, Optional[str]]:
+) -> Tuple[str, Optional[str]]:
     """Download the checkpoint stored at ``path``, potentially in ``object_store``, to ``node_checkpoint_folder``.
 
     Args:
@@ -247,21 +246,17 @@ def download_checkpoint(
         progress_bar (bool): Whether to display a progress bar.
         fsdp_sharded_state_dict_enabled (bool, optional): Whether to enable FSDP sharded state dict. (default: ``False``)
         deepspeed_checkpoint (bool, optional): Whether the checkpoint is a DeepSpeed checkpoint. (default: ``False``)
-        untar_checkpoint (bool, optional): Whether to untar the checkpoint. (default: ``True``)
 
-    Returns a tuple of  (``composer_states_filepath``, ``checkpoint_download_path``, ``extracted_tar_checkpoint_folder``).
+    Returns a tuple of  (``composer_states_filepath``, ``extracted_checkpoint_folder``).
 
-    *   The ``composer_states_filepath`` is the path to the composer states, which can be passed into
+    *   The ``composer_states_filepath``, is the path to the composer states, which can be passed into
         :meth:`torch.load`.
-    *   The ``checkpoint_download_path`` is the path to the downloaded, uncompressed checkpoint.
     *   The ``extracted_tar_checkpoint_folder`` is the path to the checkpoint folder, which can be passed into
         :meth:`deepspeed.DeepSpeedEngine.load_checkpoint`.
     """
     log.debug('Downloading checkpoint to folder %s', node_checkpoint_folder)
     # Files do not have extensions as it could be .tar, .pt, or something else
     rank_n_checkpoint_filepath = os.path.join(node_checkpoint_folder, f'rank{dist.get_local_rank()}_checkpoint')
-    rank_0_checkpoint_filepath = os.path.join(node_checkpoint_folder, 'rank0_checkpoint')
-    checkpoint_download_path = None
     extracted_tar_checkpoint_folder = None
 
     # DeepSpeed checkpoints must be tarballs
@@ -269,23 +264,16 @@ def download_checkpoint(
         raise ValueError(f'Checkpoint at {path} is not a tarball, which is needed for DeepSpeed checkpoint')
 
     # Determine where checkpoint will be after downloading
-    if is_tar(path) and deepspeed_checkpoint:
+    if is_tar(path):
         # DeepSpeed checkpoints OR checkpoints of all formats with compression
         extracted_tar_checkpoint_folder = os.path.join(node_checkpoint_folder, 'checkpoint')
         composer_states_filepath = os.path.join(extracted_tar_checkpoint_folder, _COMPOSER_STATES_FILENAME)
-        # Compressed checkpoints only download on all ranks if using DeepSpeed or FSDP sharded state dict
-        if deepspeed_checkpoint or fsdp_sharded_state_dict_enabled:
-            checkpoint_download_path = rank_n_checkpoint_filepath
-        else:
-            checkpoint_download_path = rank_0_checkpoint_filepath
     elif fsdp_sharded_state_dict_enabled:
         # FSDP sharded state dict has a Composer state dict per rank
         composer_states_filepath = rank_n_checkpoint_filepath
-        checkpoint_download_path = rank_n_checkpoint_filepath
     else:
         # Vanilla Composer has a single Composer state dict on local rank zero
-        composer_states_filepath = rank_0_checkpoint_filepath
-        checkpoint_download_path = rank_0_checkpoint_filepath
+        composer_states_filepath = os.path.join(node_checkpoint_folder, 'rank0_checkpoint')
 
     local_path = _format_path_with_current_rank(path)
     local_rank_zero_path = _get_local_rank_zero_path(local_path)
@@ -312,7 +300,7 @@ def download_checkpoint(
                 pass
 
             # Extract tarballs, which happens for DeepSpeed or compression
-            if untar_checkpoint and get_file_succeeded and extracted_tar_checkpoint_folder is not None:
+            if get_file_succeeded and extracted_tar_checkpoint_folder is not None:
                 with tarfile.open(rank_n_checkpoint_filepath) as tarball:
                     tarball.extractall(extracted_tar_checkpoint_folder)
     finally:
@@ -323,14 +311,15 @@ def download_checkpoint(
         # encountered if the difference between checkpoint download times on the slowest and
         # fastest nodes exceeds the timeout.
         signal_file_path = local_rank_zero_path + '.local_rank0_completed'
-        with open(signal_file_path, 'wb') as f:
-            f.write(b'local_rank0_completed_autoresume')
+        if dist.get_local_rank() == 0:
+            with open(signal_file_path, 'wb') as f:
+                f.write(b'local_rank0_completed')
         dist.local_rank_zero_download_and_wait(signal_file_path)
         os.remove(signal_file_path)
 
         dist.barrier()
 
-    return composer_states_filepath, checkpoint_download_path, extracted_tar_checkpoint_folder
+    return composer_states_filepath, extracted_tar_checkpoint_folder
 
 
 def _flatten_keys(obj: Any, paths: List[str], existing_path: str):
