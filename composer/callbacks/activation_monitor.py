@@ -48,7 +48,6 @@ class ActivationMonitor(Callback):
 
         """
 
-        self.interval = interval
         self.recompute_attention_softmax = recompute_attention_softmax
         self.ignore_module_types = ignore_module_types
         self.only_log_wandb = only_log_wandb
@@ -58,8 +57,10 @@ class ActivationMonitor(Callback):
         # Check that the interval timestring is parsable and convert into time object
         if isinstance(interval, int):
             self.interval = Time(interval, TimeUnit.BATCH)
-        if isinstance(interval, str):
+        elif isinstance(interval, str):
             self.interval = Time.from_timestring(interval)
+        elif isinstance(interval, Time):
+            self.interval = interval
 
         # Verify that the interval has supported units
         if self.interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
