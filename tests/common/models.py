@@ -146,7 +146,11 @@ class SimpleConvModel(ComposerClassifier):
         num_classes (int): number of classes (default: 2)
     """
 
-    def __init__(self, num_channels: int = 3, num_classes: int = 2, norm: Optional[str] = None) -> None:
+    def __init__(self,
+                 num_channels: int = 3,
+                 num_classes: int = 2,
+                 norm: Optional[str] = None,
+                 norm_affine: bool = True) -> None:
 
         self.num_classes = num_classes
         self.num_channels = num_channels
@@ -158,13 +162,13 @@ class SimpleConvModel(ComposerClassifier):
         if norm is None:
             norm_layer = torch.nn.Identity()
         elif norm == 'batch':
-            norm_layer = torch.nn.BatchNorm2d(4)
+            norm_layer = torch.nn.BatchNorm2d(4, affine=norm_affine)
         elif norm == 'instance':
-            norm_layer = torch.nn.InstanceNorm2d(4)
+            norm_layer = torch.nn.InstanceNorm2d(4, affine=norm_affine)
         elif norm == 'layer':
-            norm_layer = torch.nn.LayerNorm(4)
+            norm_layer = torch.nn.LayerNorm(4, elementwise_affine=norm_affine)
         elif norm == 'group':
-            norm_layer = torch.nn.GroupNorm(2, 4)
+            norm_layer = torch.nn.GroupNorm(2, 4, affine=norm_affine)
         else:
             raise ValueError(f'Unknown norm: {norm}')
         pool = torch.nn.AdaptiveAvgPool2d(1)
