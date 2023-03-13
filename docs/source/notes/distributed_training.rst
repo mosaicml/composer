@@ -35,6 +35,18 @@ here <https://github.com/mosaicml/composer/blob/dev/composer/cli/launcher.py>`__
 sets the required :mod:`torch.distributed` environment variables, launches
 the processes, and runs the script on each process.
 
+By default, only the rank zero logs will be sent to the console. To save the logs
+from all the ranks, use ``--stdout`` and ``--stderr``:
+
+.. code:: python
+
+    >>> composer -n 8 --stdout stdout_{rank}.log --stderr stderr_{rank}.log script.py
+
+The stdout for each rank will then be available at ``stdout_1.log``, ``stdout_2.log``, and so forth.
+The filename is customizable, see the command help for more details.
+
+Alternatively, the logs can also be captured using our :class:`.FileLogger`.
+
 .. note::
     The ``batch_size`` passed to your dataloader should be the per-device
     *mini*\ batch size. We further split this into smaller microbatches with
