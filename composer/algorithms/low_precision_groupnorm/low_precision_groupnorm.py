@@ -82,8 +82,14 @@ class LPGroupNorm(torch.nn.GroupNorm):
         )
 
         with torch.no_grad():
-            self.weight.copy_(layer.weight)
-            self.bias.copy_(layer.bias)
+            if layer.weight is None:
+                self.weight = None
+            else:
+                self.weight.copy_(layer.weight)  # type: ignore
+            if layer.bias is None:
+                self.bias = None
+            else:
+                self.bias.copy_(layer.bias)  # type: ignore
 
     def forward(self, x):
         module_device = x.device
