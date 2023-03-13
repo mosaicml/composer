@@ -315,7 +315,8 @@ def download_checkpoint(
             with open(signal_file_path, 'wb') as f:
                 f.write(b'local_rank0_completed')
         dist.local_rank_zero_download_and_wait(signal_file_path)
-        os.remove(signal_file_path)
+        if dist.get_local_rank() == 0:
+            os.remove(signal_file_path)
 
         dist.barrier()
 

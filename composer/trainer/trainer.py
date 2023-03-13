@@ -1500,9 +1500,11 @@ class Trainer:
                     f.write(b'local_rank0_completed_autoresume')
 
             # Avoid the collective call until the local rank zero has finished trying to download the checkpoint
-            # so that we don't timeout for large downloads
+            # so that we don't timeout for large downloads. Instead, we busy wait for the signal file to ensure
+            # synchronization intra-node before the collective call for inter-node synchronization.
             dist.local_rank_zero_download_and_wait(signal_file_path)
-            os.remove(signal_file_path)
+            if dist.get_local_rank() == 0:
+                os.remove(signal_file_path)
             dist.barrier()
 
             # At this point the rank 0 filepath should exist on all ranks if the download succeeded
