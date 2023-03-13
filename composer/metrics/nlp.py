@@ -346,7 +346,8 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
         for sample_output, sample_labels in zip(outputs, labels):
             cleaned_sample_output = self.normalize_answer(sample_output)
             cleaned_sample_labels = set(self.normalize_answer(label) for label in sample_labels)
-            print(sample_output, sample_labels, cleaned_sample_output, cleaned_sample_labels)
+            print(any(cleaned_sample_output.startswith(label) for label in cleaned_sample_labels), sample_output,
+                  sample_labels)
             if any(cleaned_sample_output.startswith(label) for label in cleaned_sample_labels):
                 self.correct += 1
             self.total += 1
