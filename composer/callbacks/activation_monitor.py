@@ -104,18 +104,18 @@ class ActivationMonitor(Callback):
             if ignore_module_type in module_name:
                 return
 
-        metric_name = f'activation/{module_name}'
+        metric_name = f'activations/{module_name}'
         metrics = {}
 
         for i, val in enumerate(input):
             if val is None or isinstance(val, dict):
                 continue
-            self.add_metrics(metrics, f'{metric_name}/input_{i}', val)
+            self.add_metrics(metrics, f'{metric_name}_input_{i}', val)
 
         for i, val in enumerate(output):
             if val is None or isinstance(val, dict):
                 continue
-            self.add_metrics(metrics, f'{metric_name}/output_{i}', val)
+            self.add_metrics(metrics, f'{metric_name}_output_{i}', val)
 
         logger.log_metrics(metrics)
 
