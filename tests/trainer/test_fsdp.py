@@ -37,7 +37,7 @@ def test_fsdp_device_initialization(model: ComposerClassifier, mixed_precision: 
         optimizers=optimizer,
         train_dataloader=dataloader,
         fsdp_config={
-          'reentrant': reentrant,
+          'activation_checkpointing_reentrant': reentrant,
           'mixed_precision': mixed_precision
         },
         max_duration='3ba',
