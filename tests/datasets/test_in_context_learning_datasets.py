@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import contextlib
 import os
 
 import pytest
@@ -40,19 +41,22 @@ def test_batch_padding_logic(tiny_gpt2_tokenizer):
     assert continuation_spans[0] == 48 and continuation_spans[-1] == 2047
 
 
-@pytest.mark.parametrize('padding_side', ['left', 'right'])
+@pytest.mark.parametrize('padding_side', ['left', 'right', 'middle'])
 def test_make_padding(tiny_gpt2_tokenizer, padding_side):
     context = tiny_gpt2_tokenizer(' cat' * 2000)['input_ids']
     padding_id = tiny_gpt2_tokenizer.eos_token_id
-    input_ids, _ = _make_padded_input(context, [], 2048, padding_id, padding_side=padding_side)
 
-    assert input_ids[500] == context[0]
-    if padding_side == 'left':
-        assert input_ids[0] == tiny_gpt2_tokenizer.eos_token_id
-    elif padding_side == 'right':
-        assert input_ids[-1] == tiny_gpt2_tokenizer.eos_token_id
-    else:
-        raise ValueError(f'Invalid padding_side: {padding_side}')
+    error_context = contextlib.nullcontext() if padding_side in {'left', 'right'} else pytest.raises(ValueError)
+
+    with error_context:
+        input_ids, _ = _make_padded_input(context, [], 2048, padding_id, padding_side=padding_side)
+
+        if padding_side == 'left':
+            assert input_ids[0] == tiny_gpt2_tokenizer.eos_token_id
+            assert input_ids[48:].tolist() == context
+        elif padding_side == 'right':
+            assert input_ids[-1] == tiny_gpt2_tokenizer.eos_token_id
+            assert input_ids[:-48].tolist() == context
 
 
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
