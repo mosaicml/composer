@@ -325,7 +325,11 @@ class HuggingFaceModel(ComposerModel):
 
             self.labels = batch.pop('labels')
             print(self.tokenizer.batch_decode(batch['input_ids'][:, -300:]))
-            generation = self.generate(batch['input_ids'], max_new_tokens=batch['generation_length'], synced_gpus=True, **batch.get('generation_kwargs', {}))
+            generation = self.generate(batch['input_ids'],
+                                       attention_mask=batch['attention_mask'],
+                                       max_new_tokens=batch['generation_length'],
+                                       synced_gpus=True,
+                                       **batch.get('generation_kwargs', {}))
             return self.tokenizer.batch_decode(generation[:, -batch['generation_length']:])
 
         if self.use_logits or batch.get('mode', None) == 'icl_task':
