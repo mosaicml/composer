@@ -177,7 +177,7 @@ class InContextLearningQATaskDataset(Dataset):
             encoded_example['preamble'] = self.tokenizer(preamble)
             # if there is an EOS token added, we need to remove it so it is not in the middle of the prompt
             if self.tokenizer.eos_token_id is not None and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
-                encoded_example['preamble'] = encoded_example['preamble'][:-1]
+                encoded_example['preamble'] = encoded_example['preamble']['input_ids'][:-1]
 
             encoded_example['context'] = self.tokenizer(ctxt, add_special_tokens=False)
             encoded_example['aliases'] = self.samples[sample_idx]['aliases']
