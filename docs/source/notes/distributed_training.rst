@@ -35,6 +35,18 @@ here <https://github.com/mosaicml/composer/blob/dev/composer/cli/launcher.py>`__
 sets the required :mod:`torch.distributed` environment variables, launches
 the processes, and runs the script on each process.
 
+By default, only the rank zero logs will be sent to the console. To save the logs
+from all the ranks, use ``--stdout`` and ``--stderr``:
+
+.. code:: python
+
+    >>> composer -n 8 --stdout stdout_{rank}.log --stderr stderr_{rank}.log script.py
+
+The stdout for each rank will then be available at ``stdout_1.log``, ``stdout_2.log``, and so forth.
+The filename is customizable, see the command help for more details.
+
+Alternatively, the logs can also be captured using our :class:`.FileLogger`.
+
 .. note::
     The ``batch_size`` passed to your dataloader should be the per-device
     *mini*\ batch size. We further split this into smaller microbatches with
@@ -200,18 +212,17 @@ One Composer-specific pattern is that if :code:`mixed_precision` is provided as 
       reduce_dtype=torch.float32,
       buffer_dtype=torch.float32,
     )
-    # If mixed_precision = 'default'
+    # If mixed_precision = 'default'; emulates automatic mixed precision training.
     mixed_precision = MixedPrecision(
-      param_dtype=torch.float32,
-      reduce_dtype=autocast_precision, # Low precision gradient communication
-      buffer_dtype=torch.float32,
+      param_dtype=autocast_precision,  # Master weights stored in fp32 but are downcast to autocast_precision before the dist all_gather
+      reduce_dtype=torch.float32,  # Gradient dist all_reduce in fp32
+      buffer_dtype=autocast_precision,  # Buffers stored in fp32 but are downcast to autocast_precision before the dist all_gather
     )
-
     # If mixed_precision = 'pure'
     mixed_precision = MixedPrecision(
-      param_dtype=autocast_precision, # Low precision master weights
-      reduce_dtype=autocast_precision, # Low precision gradient communication
-      buffer_dtype=autocast_precision, # Low precision buffers
+      param_dtype=autocast_precision,  # Master weights stored in fp32 but are downcast to autocast_precision before the dist all_gather
+      reduce_dtype=autocast_precision,  # Gradient dist all_reduce in autocast_precision
+      buffer_dtype=autocast_precision,  # Buffers stored in fp32 but are downcast to autocast_precision before the dist all_gather
     )
 
 An example code snippet for using FSDP with composer is provided below:

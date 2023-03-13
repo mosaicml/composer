@@ -121,7 +121,7 @@ class GyroDropout(Algorithm):
         self.sigma = sigma
         self.tau = tau
 
-        log.warning(
+        warnings.warn(
             'GyroDropout is not implemented in a way that allows correct resumption from checkpoint, which may lead to incorrect behavior.'
         )
 

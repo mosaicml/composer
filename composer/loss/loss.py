@@ -22,8 +22,6 @@ def binary_cross_entropy_with_logits(
     input: Tensor,
     target: Tensor,
     weight: Optional[Tensor] = None,
-    size_average: Optional[bool] = None,
-    reduce: Optional[bool] = None,
     reduction: str = 'sum',
     pos_weight: Optional[Tensor] = None,
     scale_by_batch_size: Optional[bool] = True,
@@ -47,21 +45,10 @@ def binary_cross_entropy_with_logits(
             same shape as the input.
         weight (torch.Tensor, optional): a manual rescaling weight given to each
             class. If given, has to be a Tensor of size `C`. Default: ``None``.
-        size_average (bool, optional): Deprecated (see `reduction`). By default,
-            the losses are averaged over each loss element in the batch. Note that for
-            some losses, there multiple elements per sample. If the field ``size_average``
-            is set to ``False``, the losses are instead summed for each minibatch. Ignored
-            when reduce is ``False``. Default: ``True``
-        reduce (bool, optional): Deprecated (see ``reduction``). By default, the
-            losses are averaged or summed over observations for each minibatch depending
-            on `size_average`. When ``reduce`` is ``False``, returns a loss per
-            batch element instead and ignores `size_average`. Default: ``True``
         reduction (str, optional): Specifies the reduction to apply to the output:
             ``'none'`` | ``'mean'`` | ``'sum'``. ``'none'``: no reduction will be applied,
             ``'mean'``: the sum of the output will be divided by the number of
-            elements in the output, ``'sum'``: the output will be summed. Note: ``size_average``
-            and ``reduce`` are in the process of being deprecated, and in the meantime,
-            specifying either of those two args will override ``reduction``. Default:
+            elements in the output, ``'sum'``: the output will be summed. Default:
             ``'sum'``
         pos_weight (Tensor, optional): a weight of positive examples.
                 Must be a vector with length equal to the number of classes.
@@ -69,7 +56,11 @@ def binary_cross_entropy_with_logits(
             (i.e. input.shape[0]). Default: ``True``.
     """
     target = ensure_targets_one_hot(input, target)
-    bce = F.binary_cross_entropy_with_logits(input, target, weight, size_average, reduce, reduction, pos_weight)
+    bce = F.binary_cross_entropy_with_logits(input=input,
+                                             target=target,
+                                             weight=weight,
+                                             reduction=reduction,
+                                             pos_weight=pos_weight)
     if scale_by_batch_size:
         bce /= torch.tensor(input.shape[0])
     return bce
@@ -78,9 +69,7 @@ def binary_cross_entropy_with_logits(
 def soft_cross_entropy(input: Tensor,
                        target: Tensor,
                        weight: Optional[Tensor] = None,
-                       size_average: Optional[bool] = None,
                        ignore_index: int = -100,
-                       reduce: Optional[bool] = None,
                        reduction: str = 'mean'):
     r"""Drop-in replacement for :class:`~.F.cross_entropy` that handles class indices or one-hot labels.
 
@@ -99,35 +88,27 @@ def soft_cross_entropy(input: Tensor,
             same shape as the input.
         weight (torch.Tensor, optional): a manual rescaling weight given to each
             class. If given, has to be a Tensor of size `C`. Default: ``None``.
-        size_average (bool, optional): Deprecated (see `reduction`). By default,
-            the losses are averaged over each loss element in the batch. Note that for
-            some losses, there multiple elements per sample. If the field ``size_average``
-            is set to ``False``, the losses are instead summed for each minibatch. Ignored
-            when reduce is ``False``. Default: ``True``
         ignore_index (int, optional): Specifies a target value that is ignored
             and does not contribute to the input gradient. When ``size_average`` is
             ``True``, the loss is averaged over non-ignored targets. Note that
             ``ignore_index`` is only applicable when the target contains class indices.
             Default: ``-100``
-        reduce (bool, optional): Deprecated (see ``reduction``). By default, the
-            losses are averaged or summed over observations for each minibatch depending
-            on `size_average`. When ``reduce`` is ``False``, returns a loss per
-            batch element instead and ignores `size_average`. Default: ``True``
         reduction (str, optional): Specifies the reduction to apply to the output:
             ``'none'`` | ``'mean'`` | ``'sum'``. ``'none'``: no reduction will be applied,
             ``'mean'``: the sum of the output will be divided by the number of
-            elements in the output, ``'sum'``: the output will be summed. Note: ``size_average``
-            and ``reduce`` are in the process of being deprecated, and in the meantime,
-            specifying either of those two args will override ``reduction``. Default: ``'mean'``
+            elements in the output, ``'sum'``: the output will be summed. Default: ``'mean'``
     """
     target_type = infer_target_type(input, target)
 
     if target_type == 'indices':
-        return F.cross_entropy(input, target, weight, size_average, ignore_index, reduce, reduction)
+        return F.cross_entropy(input=input,
+                               target=target,
+                               weight=weight,
+                               ignore_index=ignore_index,
+                               reduction=reduction)
     elif target_type == 'one_hot':
-        assert reduction in ['sum', 'mean', 'none'], f'{reduction} reduction not supported.'
-        assert size_average is None, 'size_average is deprecated'
-        assert reduce is None, 'reduce is deprecated'
+        if reduction not in ['sum', 'mean', 'none']:
+            raise ValueError(f'{reduction} reduction not supported.')
         if ignore_index != -100:
             warnings.warn('ignore_index not supported when using dense labels. Ignoring targets with 0 probability.')
         xentropy = -(target * F.log_softmax(input, dim=1))

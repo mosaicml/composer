@@ -18,6 +18,7 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
 from torchmetrics import Metric
+from torchmetrics.metric import jit_distributed_available
 
 from composer.core.data_spec import DataSpec
 from composer.core.event import Event
@@ -135,6 +136,8 @@ def get_fsdp_sharded_optim_state_dict(full_optim_state_dict: Dict[str, Any], mod
     if version.parse(torch.__version__) < version.parse('1.13.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+    log.debug(
+        f'Scattering optimizer state dict with keys {full_optim_state_dict.keys()} and model of type {type(model)}')
     return FSDP.scatter_full_optim_state_dict(full_optim_state_dict=full_optim_state_dict, model=model)
 
 
@@ -149,12 +152,26 @@ def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
     # v0.4.1 removed the leading underscores for the keys in the state_dict
     # It also renamed _is_model_ddp_wrapped to is_model_ddp
     state = {}
-    for k, v in state_dict.items():
-        if k == '_is_model_ddp_wrapped':
-            k = 'is_model_ddp'
-        if k.startswith('_'):
-            k = k[1:]
-        state[k] = v
+    for attribute_name, serialized_value in state_dict.items():
+        if attribute_name == '_is_model_ddp_wrapped':
+            attribute_name = 'is_model_ddp'
+        if attribute_name.startswith('_'):
+            attribute_name = attribute_name[1:]
+        # Torchmetrics adds a new attribute as of 0.11 which must be added to deserialized metrics
+        if attribute_name == 'train_metrics':
+            for metric_name in serialized_value.keys():
+                metric = serialized_value[metric_name]
+                if not hasattr(metric, 'distributed_available_fn'):
+                    metric.distributed_available_fn = jit_distributed_available
+                    serialized_value[metric_name] = metric
+        elif attribute_name == 'eval_metrics':
+            for evaluator_name, eval_metrics in serialized_value.items():
+                for metric_name in eval_metrics.keys():
+                    metric = eval_metrics[metric_name]
+                    if not hasattr(metric, 'distributed_available_fn'):
+                        metric.distributed_available_fn = jit_distributed_available
+                        serialized_value[evaluator_name][metric_name] = metric
+        state[attribute_name] = serialized_value
     return state
 
 
@@ -524,13 +541,6 @@ class State(Serializable):
                 dataset.load_state_dict(self.dataset_state['train'])  # pyright: ignore
                 self.dataset_resumption['train'] = True
             self.dataset_state['train'] = None
-
-    @property
-    def current_metrics(self):
-        warnings.warn(
-            'The ``current_metrics`` argument for a :class:`Trainer`. state is deprecated and will be removed in the future. Please use ``train_metrics`` and'
-            '``eval_metrics`` instead.')
-        return {'train': self.train_metrics, **self.eval_metrics}
 
     @property
     def seed(self):
@@ -951,6 +961,7 @@ class State(Serializable):
                 continue
             optim_state_dict = serialized_value[type(optimizer).__qualname__]
             if self.fsdp_enabled:
+                log.debug(f'Loading FSDP optimizer with fsdp_state_dict_type={self.fsdp_state_dict_type}')
                 if self.fsdp_state_dict_type == 'sharded':
                     if version.parse(torch.__version__) < version.parse('1.13.0'):
                         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
@@ -970,9 +981,11 @@ class State(Serializable):
                     # is a full state dict and we must shard and flatten it first before loading it.
                     sharded_optim_state_dict = get_fsdp_sharded_optim_state_dict(full_optim_state_dict=optim_state_dict,
                                                                                  model=self.model)
+                    log.debug(f'optimizer.load_state_dict call with fsdp_state_dict_type=full')
                     optimizer.load_state_dict(sharded_optim_state_dict)
             # No FSDP, so just load the optim state dict.
             else:
+                log.debug(f'Loading optimizer state dict')
                 optimizer.load_state_dict(optim_state_dict)
 
     def _load_dataset_state(self, obj: Dict[str, Any]) -> None:
@@ -1045,6 +1058,8 @@ class State(Serializable):
             if attribute_name == 'metadata':
                 continue
 
+            log.debug(f'Loading {attribute_name} into state.')
+
             # Restructure algorithms serialized_value from list to dict
             if attribute_name == 'algorithms' and isinstance(serialized_value, list):
                 serialized_value = {algo_name: algo_serialized for algo_name, algo_serialized in serialized_value}
@@ -1056,14 +1071,14 @@ class State(Serializable):
             elif attribute_name == 'train_metrics':
                 state_field_value = getattr(self, attribute_name)
                 for metric_name, metric in serialized_value.items():
-                    state_field_value[metric_name] = metric
                     metric._device = self.device._device
+                    state_field_value[metric_name] = metric
             elif attribute_name == 'eval_metrics':
                 state_field_value = getattr(self, attribute_name)
                 for eval_key, eval_metrics in serialized_value.items():
                     for metric_name, metric in eval_metrics.items():
-                        state_field_value[eval_key][metric_name] = metric
                         metric._device = self.device._device
+                        state_field_value[eval_key][metric_name] = metric
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                 state_field_value = getattr(self, attribute_name)
                 for target in ensure_tuple(state_field_value):

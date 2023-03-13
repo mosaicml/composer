@@ -130,10 +130,7 @@ class TestResizeInputs:
                           ('resize', 0.5, 0.6, 0.5, 8)])
 def test_invalid_hparams(mode: str, initial_scale: float, finetune_fraction: float, delay_fraction: float,
                          size_increment: int):
-    """Test that invalid hyperparameters error.
-
-    Ideally this could be caught by the Hparams, but that's not yet supported in yahp.
-    """
+    """Test that invalid hyperparameters error."""
     with pytest.raises(ValueError):
         ProgressiveResizing(mode, initial_scale, finetune_fraction, delay_fraction, size_increment, False)
 
