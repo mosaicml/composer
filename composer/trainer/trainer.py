@@ -2574,7 +2574,6 @@ class Trainer:
             evaluators = self.state.evaluators
 
         for evaluator in evaluators:
-            print(evaluator.label, self.state.eval_metrics[evaluator.label])
             eval_subset_num_batches = evaluator.subset_num_batches if subset_num_batches == -1 else subset_num_batches
             self._eval_loop(
                 dataloader=evaluator.dataloader,
