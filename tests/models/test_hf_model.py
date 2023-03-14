@@ -22,6 +22,7 @@ from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
 from composer.utils import dist, is_model_fsdp
 from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset
+from tests.common.markers import device, world_size
 from tests.common.models import (configure_tiny_bert_model, configure_tiny_bert_tokenizer, configure_tiny_gpt2_model,
                                  configure_tiny_gpt2_tokenizer)
 from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
@@ -649,3 +650,48 @@ def test_embedding_resizing(tiny_bert_model, tiny_bert_tokenizer, embedding_resi
             assert len(caplog.messages) == 0
         else:
             raise ValueError(f'Unknown embedding_resize: {embedding_resize}')
+
+
+@device('cpu', 'gpu')
+@world_size(1, 2)
+@pytest.mark.parametrize('use_fsdp', [True, False])
+def test_generate(device, world_size, tiny_gpt2_model, tiny_gpt2_tokenizer, use_fsdp):
+    if (world_size == 1 or device == 'cpu') and use_fsdp:
+        pytest.xfail((
+            'Generation with world size 1 and FSDP fails with '
+            '`RuntimeError: The tensor has a non-zero number of elements, '
+            'but its data is not allocated yet. Caffe2 uses a lazy allocation, '
+            'so you will need to call mutable_data() or raw_mutable_data() to actually allocate memory.` '
+            'This issue is resolved with world size > 1 by a dummy call to forward (see HuggingFaceModel.dummy_forward_called), '
+            'but for some reason fails with world size 1.'))
+
+    fsdp_config = None
+    if use_fsdp:
+        fsdp_config = {
+            'sharding_strategy': 'FULL_SHARD',
+        }
+
+    model = HuggingFaceModel(tiny_gpt2_model, tokenizer=tiny_gpt2_tokenizer, use_logits=True)
+
+    # just instantiating Trainer to go through the normal FSDP code path
+    trainer = Trainer(model=model, fsdp_config=fsdp_config)
+
+    device = trainer.state.device
+
+    tiny_gpt2_tokenizer.padding_side = 'left'
+    input_dict = tiny_gpt2_tokenizer(['hello', 'goodbye'], return_tensors='pt', padding=True)
+    for k, v in input_dict.items():
+        input_dict[k] = device.tensor_to_device(v)
+
+    generation1 = model.generate(**input_dict, max_new_tokens=5, pad_token_id=tiny_gpt2_tokenizer.pad_token_id)
+    generation2 = model.generate(**input_dict, max_new_tokens=3, pad_token_id=tiny_gpt2_tokenizer.pad_token_id)
+
+    assert generation1.shape == (2, 2 + 5)
+    assert generation2.shape == (2, 2 + 3)
+
+    decoded_generation1 = tiny_gpt2_tokenizer.batch_decode(generation1)
+    decoded_generation2 = tiny_gpt2_tokenizer.batch_decode(generation2)
+
+    assert len(decoded_generation1) == len(decoded_generation2) == 2
+    assert all(isinstance(decoded_generation, str) for decoded_generation in decoded_generation1)
+    assert all(isinstance(decoded_generation, str) for decoded_generation in decoded_generation2)

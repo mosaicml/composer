@@ -436,6 +436,7 @@ class HuggingFaceModel(ComposerModel):
                                    num_beams=num_beams,
                                    do_sample=do_sample,
                                    max_new_tokens=max_new_tokens,
+                                   pad_token_id=kwargs.get('pad_token_id', self.tokenizer.pad_token_id),
                                    **kwargs)
 
 
