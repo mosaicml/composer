@@ -82,20 +82,27 @@ def _get_fewshot_sample_idxs(dataset_size, num_fewshot, sample_idx):
 
 
 class InContextLearningQATaskDataset(Dataset):
-    """A dataset that construct batches for in-context learning language modeling evaluation
+    """A dataset that construct batches for in-context learning question answering evaluation
+
+    The input format is expected to be a jsonl file with the following fields:
+    - context: the question
+    - answer: the preferred answer to the question
+    - aliases: a list of aliases for the answer
 
     Args:
         dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
             supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "context",
-            and "continuation". See tests/datasets/local_data/lambada_small.jsonl.
-        tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to transform data into batches
+            "answer", and "aliases". See tests/datasets/local_data/triviaqa_small.jsonl.
+        tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to map between strings and token ids
         batch_size (int): Size of a batch used for eval
-        max_seq_len (int): The sequence length expected by the model
-        pad_tok_id (int): The special token reserved for padding the ends of batches
+        max_seq_len (int): The maximum sequence length supported by the model
+        pad_tok_id (int): The special token reserved for padding batches
         num_fewshot (int): The number of complete fewshot examples to prepend before each test example
         prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
-        example_delimiter (str): Separator that goes between individual (context, continuation) pairs (e.g. '\n')        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
+        example_delimiter (str): Separator that goes between individual (context, answer) pairs (e.g. '\n')
+        continuation_delimiter: (str): Separator that goes between context and answer in each example (e.g. '\nA: ')
         destination_path (str): Temporary path to store downloaded datasets
+        question_prelimiter (str): String to put before each question (e.g. 'Q: ')
     """
 
     def __init__(self, dataset_uri: str, tokenizer: Union[transformers.PreTrainedTokenizer,
