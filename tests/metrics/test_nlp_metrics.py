@@ -317,7 +317,7 @@ def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):
     logits[1][start:end] = logits[0][start:end].clone()
 
     # for the last two, the correct answer is continuation 3
-    # make the answer incorrect by main continuation 2 more likely for both answers
+    # make the answer incorrect by making continuation 2 more likely for both answers
     start, end = cont_idxs[3].tolist()[0], cont_idxs[3].tolist()[-1]
     logits[3][start:end] = logits[2][start:end].clone()
 
