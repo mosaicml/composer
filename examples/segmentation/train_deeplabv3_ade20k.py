@@ -87,9 +87,8 @@ parser.add_argument('--image_viz', help='Whether or not to log images using Imag
 
 # Trainer arguments
 parser.add_argument('--device_train_microbatch_size',
-                    help='Size of train microbatch size if running on CPU',
-                    type=int,
-                    default=1)
+                    help='Size of train microbatch size if running on GPU',
+                    default='auto')
 parser.add_argument('--run_name', help='Name of the training run used for checkpointing and logging', type=str)
 parser.add_argument('--seed', help='Random seed', type=int, default=17)
 parser.add_argument('--max_duration',

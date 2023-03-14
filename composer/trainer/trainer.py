@@ -260,7 +260,7 @@ def _adjust_device_eval_microbatch_size(evaluator: Evaluator):
     assert evaluator.device_eval_microbatch_size is not None
     if evaluator.device_eval_microbatch_size == 1:
         raise RuntimeError(('CUDA out of memory. The eval loop failed with an internal microbatch of size 1.'
-                            'The GPU does not have enough memory to process even 1 sample during train.'))
+                            'The GPU does not have enough memory to process even 1 sample during eval.'))
     else:
         original_microbatch_size = evaluator.device_eval_microbatch_size
         evaluator.device_eval_microbatch_size = max(int(original_microbatch_size / 2), 1)

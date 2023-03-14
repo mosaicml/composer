@@ -83,7 +83,7 @@ def test_extract_hparams_trainer():
     trainer = Trainer(
         model=model,
         train_dataloader=train_dl,
-        device_train_microbatch_size=1,
+        device_train_microbatch_size=16,
         optimizers=optimizer,
         auto_log_hparams=True,
         progress_bar=False,

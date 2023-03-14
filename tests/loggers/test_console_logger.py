@@ -27,6 +27,7 @@ def console_logger_test_stream(console_logger_test_file_path):
     return open(console_logger_test_file_path, 'w')
 
 
+@pytest.mark.filterwarnings('ignore:Cannot split tensor of length .* into batches of size .*:UserWarning')
 @pytest.mark.parametrize('log_interval_unit', ['ba', 'ep'])
 @pytest.mark.parametrize('max_duration_unit', ['ba', 'ep'])
 @pytest.mark.parametrize('log_interval', [1, 2, 3])
@@ -35,7 +36,7 @@ def test_console_logger_interval(console_logger_test_stream, console_logger_test
                                  log_interval_unit, max_duration_unit):
 
     batch_size = 4
-    dataset_size = 16
+    dataset_size = 17
     batches_per_epoch = math.ceil(dataset_size / batch_size)
 
     model = SimpleModel()
