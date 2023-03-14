@@ -210,7 +210,10 @@ class InContextLearningQATaskDataset(Dataset):
             'input_ids': torch.stack(inputs),
             'mode': 'generate',
             'labels': answers,
-            'generation_length': self.max_answer_length
+            'generation_length': self.max_answer_length,
+            'generation_kwargs': {
+                'pad_token_id': self.pad_tok_id
+            }
         }
 
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
