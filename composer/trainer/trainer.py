@@ -1468,12 +1468,17 @@ class Trainer:
             # List of whether the checkpoint exists on each rank
             latest_checkpoint_exists = dist.all_gather_object(os.path.exists(latest_checkpoint_path))
 
-            # Require all ranks to have their own local checkpoint if we wish to restore from it for deepspeed
-            if not all(latest_checkpoint_exists):
+            if all(latest_checkpoint_exists):  # All paths exist, so return the path.
+                return latest_checkpoint_path
+            # Require all ranks to have their own local checkpoint if we wish to restore from it for
+            # deepspeed or fsdp + sharding
+            elif any(latest_checkpoint_exists):  # Some but not all exist, which is very bad.
                 missing_ranks = [n for (n, exist) in enumerate(latest_checkpoint_exists) if not exist]
-                raise RuntimeError(f'Deepspeed was enabled, but checkpoints missing on ranks: {missing_ranks}')
+                mode = 'Deepspeed' if self.deepspeed_enabled else 'FSDP sharding'
+                raise RuntimeError(f'{mode} was enabled, but checkpoints missing on ranks: {missing_ranks}')
+            else:  # None of the paths exists, so no autoresume necessary.
+                return None
 
-            return latest_checkpoint_path
         # Otherwise, only local rank 0 saves checkpoints
         else:
             # Broadcast the local checkpoint path to all ranks
