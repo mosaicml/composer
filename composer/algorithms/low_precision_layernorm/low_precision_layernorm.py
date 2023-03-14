@@ -133,11 +133,11 @@ def _to_LPLayerNorm(layer: torch.nn.Module, module_index: int) -> LPLayerNorm:
 
     with torch.no_grad():
         if layer.weight is None:
-            lp_layernorm.weight = None  # type: ignore
+            lp_layernorm.register_parameter('weight', None)
         else:
             lp_layernorm.weight.copy_(layer.weight)  # type: ignore
         if layer.bias is None:
-            lp_layernorm.bias = None  # type: ignore
+            lp_layernorm.register_parameter('bias', None)
         else:
             lp_layernorm.bias.copy_(layer.bias)  # type: ignore
 

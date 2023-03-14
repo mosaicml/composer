@@ -112,11 +112,11 @@ def _to_LPGroupNorm(layer: torch.nn.Module, module_index: int) -> LPGroupNorm:
 
     with torch.no_grad():
         if layer.weight is None:
-            lp_groupnorm.weight = None  # type: ignore
+            lp_groupnorm.register_parameter('weight', None)
         else:
             lp_groupnorm.weight.copy_(layer.weight)  # type: ignore
         if layer.bias is None:
-            lp_groupnorm.bias = None  # type: ignore
+            lp_groupnorm.register_parameter('bias', None)
         else:
             lp_groupnorm.bias.copy_(layer.bias)  # type: ignore
 
