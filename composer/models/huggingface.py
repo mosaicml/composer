@@ -432,7 +432,7 @@ class HuggingFaceModel(ComposerModel):
                 self.model(input_ids=torch.tensor([[0]], dtype=torch.long, device=input_ids.device))
             self.dummy_forward_called = True
 
-        pad_token_id = kwargs.pop('pad_token_id', self.tokenizer.pad_token_id)
+        pad_token_id = kwargs.pop('pad_token_id', self.tokenizer.pad_token_id if self.tokenizer is not None else None)
         return self.model.generate(input_ids,
                                    num_beams=num_beams,
                                    do_sample=do_sample,
