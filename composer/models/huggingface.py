@@ -137,9 +137,6 @@ class HuggingFaceModel(ComposerModel):
                         ' HuggingFace Causal LM. This may lead to incorrect behavior.')
             # Note: No warning if shift_labels and not is_causal_lm, since the model may simply be a custom class.
 
-        # We need to call forward once in order for FSDP + generate to work
-        # See https://github.com/huggingface/accelerate/issues/570, https://github.com/huggingface/accelerate/issues/947,
-        # and https://github.com/pytorch/pytorch/issues/82461 for more info
         self.dummy_forward_called = False
 
     @staticmethod
@@ -318,6 +315,9 @@ class HuggingFaceModel(ComposerModel):
             return outputs[0]
 
     def eval_forward(self, batch, outputs: Optional[Any] = None):
+        # If the batch model is generate, we will generate a requested number of tokens using the underlying
+        # model's generate function. Extra generation kwargs can be passed in via the batch. Strings will
+        # be returned from eval_forward
         if batch.get('mode', None) == 'generate':
             if self.tokenizer is None:
                 raise ValueError(
@@ -427,6 +427,9 @@ class HuggingFaceModel(ComposerModel):
         Defaults to greedy generation. All kwargs are passed along to the HuggingFace generate function.
 
         """
+        # We need to call forward once in order for FSDP + generate to work
+        # See https://github.com/huggingface/accelerate/issues/570, https://github.com/huggingface/accelerate/issues/947,
+        # and https://github.com/pytorch/pytorch/issues/82461 for more info
         if not self.dummy_forward_called:
             with torch.no_grad():
                 self.model(input_ids=torch.tensor([[0]], dtype=torch.long, device=input_ids.device))
