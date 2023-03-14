@@ -298,10 +298,12 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
     For example, the model may be provided the context below and evaluated on its ability to correctly predict the continuation.
 
     Context: `Question: Who was president of the United States in 2012?\nAnswer: Barack Obama\nQuestion: Is water wet?\nAnswer: `
-    Continuation: `yes` or `no`
+    Continuation: [`yes`, `no`]
+
+    Both predictions and answers will be normalized before comparison.
 
     Adds metric state variables:
-        correct (float): The number of instances where the prediction masked the target.
+        correct (float): The number of instances where the prediction was a prefix for any of the answer aliases.
         total (float): The number of total instances that were predicted.
 
     Args:
