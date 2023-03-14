@@ -19,7 +19,7 @@ from torchmetrics import Metric
 
 from composer.metrics import InContextLearningMetric
 from composer.models.base import ComposerModel
-from composer.utils import MissingConditionalImportError, get_file, import_object, safe_torch_load, dist
+from composer.utils import MissingConditionalImportError, dist, get_file, import_object, safe_torch_load
 
 if TYPE_CHECKING:
     import transformers
