@@ -3,6 +3,7 @@
 
 import contextlib
 import os
+from pathlib import Path
 
 import pytest
 import transformers
@@ -17,6 +18,7 @@ from composer.metrics import (InContextLearningLMAccuracy, InContextLearningMult
                               InContextLearningQAAccuracy)
 from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
+from composer.utils import dist
 from tests.common import device, world_size
 
 
@@ -363,42 +365,50 @@ def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenize
     assert in_memory_logger.data['metrics/lambada/InContextLearningMultipleChoiceAccuracy'][0][1].item() > 0
 
 
+# @device('gpu')
+# @world_size(1, 2)
+# def test_fake
+
+
 @pytest.mark.parametrize('dataset_uri', ['triviaqa_small.jsonl'])
 @device('gpu')
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [0, 5])
-def test_qa_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tmp_path):
+def test_qa_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tiny_gpt2_model,
+                            tmp_path):
     pytest.importorskip('datasets')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_gpt2_tokenizer
+
+    tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
+    gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
     dl = get_icl_task_dataloader(
         'question_answering',
         dataset_uri,
         tokenizer,
-        8,
-        max_seq_len=2048,
+        2,
+        max_seq_len=1024,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
         prompt_string='',
         example_delimiter='\n',
         continuation_delimiter=': ',
-        destination_path=str(tmp_path / 'icl.jsonl'),
+        destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
     )
 
     evaluator = Evaluator(label='triviaqa', dataloader=dl, metric_names=['InContextLearningQAAccuracy'])
 
-    config = transformers.AutoConfig.from_pretrained('EleutherAI/gpt-neo-125M')
-    model = transformers.AutoModelForCausalLM.from_config(config)
     model = HuggingFaceModel(
-        model=model,
-        tokenizer=None,
+        model=tiny_gpt2_model,
+        tokenizer=tiny_gpt2_tokenizer,
         eval_metrics=[InContextLearningQAAccuracy()],
         use_logits=True,
     )
 
     trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
+
     trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
-    assert 'metrics/lambada/InContextLearningQAAccuracy' in in_memory_logger.data.keys()
-    assert in_memory_logger.data['metrics/lambada/InContextLearningQAAccuracy'][0][1].item() == 0
+    assert 'metrics/triviaqa/InContextLearningQAAccuracy' in in_memory_logger.data.keys()
+    assert in_memory_logger.data['metrics/triviaqa/InContextLearningQAAccuracy'][0][1].item() == 0
