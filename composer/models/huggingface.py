@@ -19,7 +19,7 @@ from torchmetrics import Metric
 
 from composer.metrics import InContextLearningMetric
 from composer.models.base import ComposerModel
-from composer.utils import MissingConditionalImportError, get_file, import_object, safe_torch_load
+from composer.utils import MissingConditionalImportError, get_file, import_object, safe_torch_load, dist
 
 if TYPE_CHECKING:
     import transformers
@@ -327,7 +327,7 @@ class HuggingFaceModel(ComposerModel):
             generation = self.generate(batch['input_ids'],
                                        attention_mask=batch['attention_mask'],
                                        max_new_tokens=batch['generation_length'],
-                                       synced_gpus=True,
+                                       synced_gpus=dist.get_world_size() > 1,
                                        **batch.get('generation_kwargs', {}))
             return self.tokenizer.batch_decode(generation[:, -batch['generation_length']:])
 
