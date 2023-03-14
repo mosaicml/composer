@@ -89,7 +89,13 @@ class LowPrecisionLayerNorm(Algorithm):
 class LPLayerNorm(torch.nn.LayerNorm):
 
     def __init__(self, normalized_shape, eps=1e-05, elementwise_affine=True, device=None, dtype=None):
-        super().__init__(normalized_shape=normalized_shape, eps=eps, elementwise_affine=elementwise_affine, device=device, dtype=dtype)
+        super().__init__(
+            normalized_shape=normalized_shape,
+            eps=eps,
+            elementwise_affine=elementwise_affine,
+            device=device,
+            dtype=dtype,
+        )
 
     def forward(self, x):
         module_device = x.device
