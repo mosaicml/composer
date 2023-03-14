@@ -162,7 +162,7 @@ def test_extract_hparams_trainer():
         # System/Numerics
         'device': 'DeviceCPU',
         'precision': 'Precision',
-        'device_train_microbatch_size': 1,
+        'device_train_microbatch_size': 16,
 
         # Reproducibility
         'seed': 3,
