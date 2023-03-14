@@ -656,7 +656,9 @@ def test_embedding_resizing(tiny_bert_model, tiny_bert_tokenizer, embedding_resi
 @world_size(1, 2)
 @pytest.mark.parametrize('use_fsdp', [True, False])
 def test_generate(device, world_size, tiny_gpt2_model, tiny_gpt2_tokenizer, use_fsdp):
-    if (world_size == 1 or device == 'cpu') and use_fsdp:
+    if device == 'cpu' and use_fsdp:
+        pytest.skip('FSDP is not supported on CPU.')
+    if world_size == 1 and use_fsdp:
         pytest.xfail((
             'Generation with world size 1 and FSDP fails with '
             '`RuntimeError: The tensor has a non-zero number of elements, '
@@ -674,7 +676,7 @@ def test_generate(device, world_size, tiny_gpt2_model, tiny_gpt2_tokenizer, use_
     model = HuggingFaceModel(tiny_gpt2_model, tokenizer=tiny_gpt2_tokenizer, use_logits=True)
 
     # just instantiating Trainer to go through the normal FSDP code path
-    trainer = Trainer(model=model, fsdp_config=fsdp_config)
+    trainer = Trainer(model=model, fsdp_config=fsdp_config, device=device)
 
     device = trainer.state.device
 
@@ -695,3 +697,52 @@ def test_generate(device, world_size, tiny_gpt2_model, tiny_gpt2_tokenizer, use_
     assert len(decoded_generation1) == len(decoded_generation2) == 2
     assert all(isinstance(decoded_generation, str) for decoded_generation in decoded_generation1)
     assert all(isinstance(decoded_generation, str) for decoded_generation in decoded_generation2)
+
+
+@device('cpu', 'gpu')
+@world_size(1, 2)
+@pytest.mark.parametrize('use_fsdp', [True, False])
+def test_eval_forward_generate(device, world_size, tiny_gpt2_model, tiny_gpt2_tokenizer, use_fsdp):
+    if device == 'cpu' and use_fsdp:
+        pytest.skip('FSDP is not supported on CPU.')
+    if world_size == 1 and use_fsdp:
+        pytest.xfail((
+            'Generation with world size 1 and FSDP fails with '
+            '`RuntimeError: The tensor has a non-zero number of elements, '
+            'but its data is not allocated yet. Caffe2 uses a lazy allocation, '
+            'so you will need to call mutable_data() or raw_mutable_data() to actually allocate memory.` '
+            'This issue is resolved with world size > 1 by a dummy call to forward (see HuggingFaceModel.dummy_forward_called), '
+            'but for some reason fails with world size 1.'))
+
+    fsdp_config = None
+    if use_fsdp:
+        fsdp_config = {
+            'sharding_strategy': 'FULL_SHARD',
+        }
+
+    model = HuggingFaceModel(tiny_gpt2_model, tokenizer=tiny_gpt2_tokenizer, use_logits=True)
+
+    # just instantiating Trainer to go through the normal FSDP code path
+    trainer = Trainer(model=model, fsdp_config=fsdp_config, device=device)
+
+    device = trainer.state.device
+
+    tiny_gpt2_tokenizer.padding_side = 'left'
+    input_dict = tiny_gpt2_tokenizer(['hello', 'goodbye'], return_tensors='pt', padding=True)
+    for k, v in input_dict.items():
+        input_dict[k] = device.tensor_to_device(v)
+    input_dict['mode'] = 'generate'
+
+    input_dict['generation_length'] = 5
+    input_dict['labels'] = [['answer1'], ['answer2']]
+    generation1 = model.eval_forward(input_dict, None)
+    input_dict['generation_length'] = 3
+    input_dict['labels'] = [['answer1'], ['answer2']]
+    generation2 = model.eval_forward(input_dict, None)
+
+    assert len(generation1) == len(generation2) == 2
+    assert all(isinstance(decoded_generation, str) for decoded_generation in generation1)
+    assert all(isinstance(decoded_generation, str) for decoded_generation in generation2)
+
+    assert tiny_gpt2_tokenizer(generation1, return_tensors='pt')['input_ids'].shape == (2, 5)
+    assert tiny_gpt2_tokenizer(generation2, return_tensors='pt')['input_ids'].shape == (2, 3)
