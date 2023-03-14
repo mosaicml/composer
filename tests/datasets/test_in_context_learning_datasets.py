@@ -365,11 +365,6 @@ def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenize
     assert in_memory_logger.data['metrics/lambada/InContextLearningMultipleChoiceAccuracy'][0][1].item() > 0
 
 
-# @device('gpu')
-# @world_size(1, 2)
-# def test_fake
-
-
 @pytest.mark.parametrize('dataset_uri', ['triviaqa_small.jsonl'])
 @device('gpu')
 @world_size(1, 2)
