@@ -424,8 +424,15 @@ class HuggingFaceModel(ComposerModel):
     def generate(self, input_ids, num_beams=1, do_sample=False, max_new_tokens=20, **kwargs):
         """Generate from the underlying HuggingFace model.
 
-        Defaults to greedy generation. All kwargs are passed along to the HuggingFace generate function.
+        Except for ``pad_token_id``, which is optionally read from ``self.tokenizer``, all args are passed along
+        to :meth:`transformers.GenerationMixin.generate` function.
 
+        Args:
+            input_ids (torch.Tensor): Input ids to generate from.
+            num_beams (int, optional): Number of beams to use for beam search. Defaults to 1.
+            do_sample (bool, optional): Whether to sample during generation. Defaults to False.
+            max_new_tokens (int, optional): Maximum number of new tokens to generate. Defaults to 20.
+            **kwargs: Additional arguments passed to :meth:`transformers.GenerationMixin.generate` function.
         """
         # We need to call forward once in order for FSDP + generate to work
         # See https://github.com/huggingface/accelerate/issues/570, https://github.com/huggingface/accelerate/issues/947,
