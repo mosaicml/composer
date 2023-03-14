@@ -156,9 +156,7 @@ def _set_evaluator_interval_and_subset_num_batches(
 
 
 def _is_auto_microbatching(device_train_microbatch_size: Optional[Union[int, str]], device: Device):
-    if device_train_microbatch_size is None:
-        return False
-    elif device_train_microbatch_size == 'auto':
+    if device_train_microbatch_size == 'auto':
         warnings.warn(("Setting `device_train_microbatch_size='auto'` is an experimental feature which may cause "
                        'uncaught Cuda Out of Memory errors. In this case, please manually '
                        'set device_train_microbatch_size explicitly to an integer instead.'))
