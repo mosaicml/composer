@@ -15,11 +15,12 @@ from tests.common import EmbeddedWeightTiedModel, RandomClassificationDataset, S
 @pytest.mark.parametrize('model', [SimpleWeightTiedModel, EmbeddedWeightTiedModel])
 @pytest.mark.parametrize('mixed_precision', ['FULL', 'DEFAULT', 'PURE'])
 @pytest.mark.parametrize('device', ['cpu', 'meta'])
+@pytest.mark.parametrize('reentrant', [True, False])
 @pytest.mark.filterwarnings('ignore::UserWarning')
 @pytest.mark.gpu
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
-def test_fsdp_device_initialization(model: ComposerClassifier, mixed_precision: str, device: str):
+def test_fsdp_device_initialization(model: ComposerClassifier, mixed_precision: str, device: str, reentrant: bool):
     """test FSDP device initialization for a simple model with weight tying and a model where two modules
     from separate submodules have weight tying applied. This test also covers both 'cpu' and
     'meta' devices. This is because 'meta' will result in deferred initialization until FSDP is initialized
@@ -35,7 +36,10 @@ def test_fsdp_device_initialization(model: ComposerClassifier, mixed_precision: 
         model=model,
         optimizers=optimizer,
         train_dataloader=dataloader,
-        fsdp_config={'mixed_precision': mixed_precision},
+        fsdp_config={
+            'activation_checkpointing_reentrant': reentrant,
+            'mixed_precision': mixed_precision
+        },
         max_duration='3ba',
     )
 

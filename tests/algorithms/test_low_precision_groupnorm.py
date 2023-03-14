@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import pytest
 from torch.nn import GroupNorm
 from torch.utils.data import DataLoader
 
@@ -23,8 +24,9 @@ def assert_is_lpgn_instance(model):
     assert any(isinstance(module_class, LPGroupNorm) for module_class in model.modules())
 
 
-def test_low_precision_groupnorm_functional():
-    model = SimpleConvModel(norm='group')
+@pytest.mark.parametrize('affine', [True, False])
+def test_low_precision_groupnorm_functional(affine):
+    model = SimpleConvModel(norm='group', norm_affine=affine)
     dataloader = DataLoader(RandomImageDataset(), batch_size=2)
     state = State(
         model=model,
@@ -41,8 +43,9 @@ def test_low_precision_groupnorm_functional():
     assert_is_lpgn_instance(state.model)
 
 
-def test_low_precision_groupnorm_algorithm(empty_logger: Logger):
-    model = SimpleConvModel(norm='group')
+@pytest.mark.parametrize('affine', [True, False])
+def test_low_precision_groupnorm_algorithm(affine, empty_logger: Logger):
+    model = SimpleConvModel(norm='group', norm_affine=affine)
     dataloader = DataLoader(RandomImageDataset(), batch_size=2)
 
     state = State(
