@@ -190,7 +190,8 @@ def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
 
 @pytest.mark.parametrize('dataset_uri', ['triviaqa_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 1, 2])
-def test_qa_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fewshot):
+@pytest.mark.parametrize('prompt_string', ['I am a prompt', ''])
+def test_qa_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fewshot, prompt_string):
     pytest.importorskip('datasets')
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -208,7 +209,7 @@ def test_qa_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fews
                                  max_seq_len=seqlen,
                                  pad_tok_id=tokenizer.eos_token_id,
                                  num_fewshot=num_fewshot,
-                                 prompt_string='I am a prompt',
+                                 prompt_string=prompt_string,
                                  example_delimiter='\n',
                                  question_prelimiter='Q: ',
                                  continuation_delimiter='\nA:',
@@ -227,7 +228,9 @@ def test_qa_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fews
     decoded_batch = tokenizer.batch_decode(batch['input_ids'])
     assert all([item.count('Q: ') == num_fewshot + 1 for item in decoded_batch])
     assert all([item.count('\nA:') == num_fewshot + 1 for item in decoded_batch])
-    assert all([item.count('I am a prompt') == 1 for item in decoded_batch])
+
+    if len(prompt_string) > 0:
+        assert all([item.count('I am a prompt') == 1 for item in decoded_batch])
 
     assert batch['labels'] == [['David Seville'], ['Scorpio', 'Skorpio']]
 
