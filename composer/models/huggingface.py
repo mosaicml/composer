@@ -315,7 +315,7 @@ class HuggingFaceModel(ComposerModel):
             return outputs[0]
 
     def eval_forward(self, batch, outputs: Optional[Any] = None):
-        # If the batch model is generate, we will generate a requested number of tokens using the underlying
+        # If the batch mode is generate, we will generate a requested number of tokens using the underlying
         # model's generate function. Extra generation kwargs can be passed in via the batch. Strings will
         # be returned from eval_forward
         if batch.get('mode', None) == 'generate':
@@ -421,7 +421,12 @@ class HuggingFaceModel(ComposerModel):
                     }
         return {'model': model_output, 'tokenizer': tokenizer_output}
 
-    def generate(self, input_ids, num_beams=1, do_sample=False, max_new_tokens=20, **kwargs):
+    def generate(self,
+                 input_ids: torch.Tensor,
+                 num_beams: int = 1,
+                 do_sample: bool = False,
+                 max_new_tokens: int = 20,
+                 **kwargs):
         """Generate from the underlying HuggingFace model.
 
         Except for ``pad_token_id``, which is optionally read from ``self.tokenizer``, all args are passed along
