@@ -257,6 +257,7 @@ def download_checkpoint(
     log.debug('Downloading checkpoint to folder %s', node_checkpoint_folder)
     # Files do not have extensions as it could be .tar, .pt, or something else
     rank_n_checkpoint_filepath = os.path.join(node_checkpoint_folder, f'rank{dist.get_local_rank()}_checkpoint')
+    rank_0_checkpoint_filepath = os.path.join(node_checkpoint_folder, 'rank0_checkpoint')
     extracted_tar_checkpoint_folder = None
 
     # DeepSpeed checkpoints must be tarballs
@@ -273,7 +274,7 @@ def download_checkpoint(
         composer_states_filepath = rank_n_checkpoint_filepath
     else:
         # Vanilla Composer has a single Composer state dict on local rank zero
-        composer_states_filepath = os.path.join(node_checkpoint_folder, 'rank0_checkpoint')
+        composer_states_filepath = rank_0_checkpoint_filepath
 
     local_path = _format_path_with_current_rank(path)
     local_rank_zero_path = _get_local_rank_zero_path(local_path)
@@ -310,7 +311,7 @@ def download_checkpoint(
         # large checkpoints, which may exceed the normal timeout. Now, a timeout is only
         # encountered if the difference between checkpoint download times on the slowest and
         # fastest nodes exceeds the timeout.
-        signal_file_path = local_rank_zero_path + '.local_rank0_completed'
+        signal_file_path = rank_0_checkpoint_filepath + '.local_rank0_completed'
         if dist.get_local_rank() == 0:
             with open(signal_file_path, 'wb') as f:
                 f.write(b'local_rank0_completed')
