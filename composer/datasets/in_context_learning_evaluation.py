@@ -5,20 +5,23 @@
 from __future__ import annotations
 
 import random
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import torch
 import transformers
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
-from composer.core import DataSpec
+from composer.core import DataSpec, Evaluator
 from composer.utils import MissingConditionalImportError, dist, get_file
 
 if TYPE_CHECKING:
     import transformers
 
-__all__ = ['InContextLearningLMTaskDataset', 'InContextLearningMultipleChoiceTaskDataset', 'get_icl_task_dataloader']
+__all__ = [
+    'InContextLearningLMTaskDataset', 'InContextLearningMultipleChoiceTaskDataset', 'get_icl_task_dataloaders',
+    'make_evaluators'
+]
 
 
 def _make_padded_input(context_enc, continuation_enc, max_seq_len, pad_tok_id):
@@ -85,6 +88,7 @@ class InContextLearningLMTaskDataset(Dataset):
         prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
         example_delimiter (str): Separator that goes between individual (context, continuation) pairs (e.g. '\n')        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
         destination_path (str): Temporary path to store downloaded datasets
+        category (Optional[str])
     """
 
     def __init__(
@@ -98,6 +102,7 @@ class InContextLearningLMTaskDataset(Dataset):
         example_delimiter: str,
         continuation_delimiter: str,
         destination_path: str,
+        category: Optional[str],
     ):
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
@@ -108,15 +113,119 @@ class InContextLearningLMTaskDataset(Dataset):
         with dist.local_rank_zero_download_and_wait(destination_path):
             get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
-        self.samples = list(
-            dataset.map(lambda examples: {
-                'continuation': examples['continuation'],
-                'context': examples['context'],
-            }))
+
+        if category is not None and len(category) > 0:
+            if 'category' not in next(iter(dataset)):
+                raise Exception('Attempted to select sub-category of dataset with no category information.')
+            if 'entity' in next(iter(dataset)):
+                self.samples = {}
+                for entry in dataset:
+                    if entry['category'] != category:
+                        continue
+                    entity = entry.get('entity', None)
+
+                    if entity not in self.samples:
+                        self.samples[entity] = []
+
+                    self.samples[entity].append({
+                        'continuation': entry['continuation'],
+                        'context': entry['context'],
+                        'entity': entry.get('entity', None),
+                    })
+            else:
+                self.samples = []
+                for entry in dataset:
+                    if entry['category'] != category:
+                        continue
+                    entity = entry.get('entity', None)
+                    self.samples.append({
+                        'continuation': entry['continuation'],
+                        'context': entry['context'],
+                        'entity': entry.get('entity', None),
+                    })
+        else:
+            self.samples = list(
+                dataset.map(lambda examples: {
+                    'context': examples['context'],
+                    'continuation': examples['continuation'],
+                }))
+
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
-        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter)
+        if category is not None and isinstance(self.samples, dict):
+            self.encoded_dataset = self.prep_examples_with_entities(num_fewshot, prompt_string, example_delimiter,
+                                                                    continuation_delimiter)
+        else:
+            self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter,
+                                                      continuation_delimiter)
+
+    def prep_examples_with_entities(self, num_fewshot: int, prompt_string: str, example_delimiter: str,
+                                    continuation_delimiter: str):
+        """Prepares a set of language modeling tasks into tokenized format with prompt and fewshot examples.
+
+        Each task consists of a context and a continuation as well as an optional prompt and optional list of
+        example context/continuation pairs which precede the test context/continuation pair.
+
+        Args:
+            num_fewshot (int): Number of examples context/continuation pairs to prepend to the test pair
+            prompt_string (str): The prompt to prepend to all inputs
+            example_delimiter (str): The delimiter used to separate each individual context/continuation pair
+            continuation_delimiter (str): The delimiter used to separate each context from its continuation
+
+        Returns:
+            dict: Contains the context, the continuation, and the preamble (prompt + fewshot examples)
+        """
+        examples = []
+
+        for entity in self.samples:
+            for sample_idx, entry in enumerate(self.samples[entity]):
+                encoded_example = {}
+                preamble = prompt_string
+
+                if num_fewshot > 0:
+                    viable_candidates = []
+                    if entity is None:
+                        for e in self.samples:
+                            for idx, sample in enumerate(self.samples[e]):
+                                if e == entity and idx == sample_idx:
+                                    continue
+                                viable_candidates.append(sample)
+
+                        viable_candidates = [
+                            sample for e in self.samples for idx, sample in enumerate(self.samples[e])
+                            if idx != sample_idx
+                        ]
+                    else:
+                        for e in self.samples:
+                            if e == entity:
+                                continue
+                            for _, sample in enumerate(self.samples[e]):
+                                viable_candidates.append(sample)
+
+                    fewshot_idxs = _get_fewshot_sample_idxs(len(viable_candidates), num_fewshot, -1)
+                    for fewshot_idx in fewshot_idxs:
+                        ctxt, cont = viable_candidates[fewshot_idx]['context'], viable_candidates[fewshot_idx][
+                            'continuation']
+                        if len(preamble) > 0:
+                            ctxt = f'{example_delimiter}{ctxt}'
+                        preamble += f'{ctxt}{continuation_delimiter}{cont}'
+
+                ctxt, cont = entry['context'], entry['continuation']
+                if len(preamble) > 0:
+                    ctxt = f'{example_delimiter}{ctxt}'
+
+                cont = f'{continuation_delimiter}{cont}'
+
+                encoded_example['preamble'] = self.tokenizer(
+                    preamble
+                )  # if the preamble is empty then these will be 0-length lists, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
+                encoded_example['context'] = self.tokenizer(ctxt, add_special_tokens=False)
+                encoded_example['continuation'] = self.tokenizer(cont, add_special_tokens=False)
+
+                examples.append(encoded_example)
+
+        return examples
 
     def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str):
         """Prepares a set of language modeling tasks into tokenized format with prompt and fewshot examples.
@@ -136,10 +245,10 @@ class InContextLearningLMTaskDataset(Dataset):
         examples = []
         for sample_idx in tqdm(range(len(self.samples))):
             encoded_example = {}
-
             preamble = prompt_string
 
             if num_fewshot > 0:
+
                 fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx)
                 for fewshot_idx in fewshot_idxs:
                     ctxt, cont = self.samples[fewshot_idx]['context'], self.samples[fewshot_idx]['continuation']
@@ -228,18 +337,10 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         destination_path (str): Temporary path to store downloaded datasets
     """
 
-    def __init__(
-        self,
-        dataset_uri: str,
-        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
-        max_seq_len: int,
-        pad_tok_id: int,
-        num_fewshot: int,
-        prompt_string: str,
-        example_delimiter: str,
-        continuation_delimiter: str,
-        destination_path: str,
-    ):
+    def __init__(self, dataset_uri: str, tokenizer: Union[transformers.PreTrainedTokenizer,
+                                                          transformers.PreTrainedTokenizerFast], max_seq_len: int,
+                 pad_tok_id: int, num_fewshot: int, prompt_string: str, example_delimiter: str,
+                 continuation_delimiter: str, destination_path: str, category: Optional[str]):
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
         except ImportError as e:
@@ -261,6 +362,55 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
         self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter)
+
+        if category is not None and len(category) > 0:
+            if 'category' not in next(iter(dataset)):
+                raise Exception('Attempted to select sub-category of dataset with no category information.')
+            if 'entity' in next(iter(dataset)):
+                self.samples = {}
+                for entry in dataset:
+                    if entry['category'] != category:
+                        continue
+                    entity = entry.get('entity', None)
+
+                    if entity not in self.samples:
+                        self.samples[entity] = []
+
+                    self.samples[entity].append({
+                        'query': entry['query'],
+                        'choices': entry['choices'],
+                        'gold': entry['gold'],
+                        'entity': entry.get('entity', None),
+                    })
+            else:
+                self.samples = []
+                for entry in dataset:
+                    if entry['category'] != category:
+                        continue
+                    entity = entry.get('entity', None)
+                    self.samples.append({
+                        'query': entry['query'],
+                        'choices': entry['choices'],
+                        'gold': entry['gold'],
+                        'entity': entry.get('entity', None),
+                    })
+        else:
+            self.samples = list(
+                dataset.map(lambda entry: {
+                    'query': entry['query'],
+                    'choices': entry['choices'],
+                    'gold': entry['gold'],
+                }))
+
+        self.tokenizer = tokenizer
+        self.max_seq_len = max_seq_len
+        self.pad_tok_id = pad_tok_id
+        if category is not None and isinstance(self.samples, dict):
+            self.encoded_dataset = self.prep_examples_with_entities(num_fewshot, prompt_string, example_delimiter,
+                                                                    continuation_delimiter)
+        else:
+            self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter,
+                                                      continuation_delimiter)
 
     def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str):
         """Prepares a set of multiple choice questions into tokenized format with prompt and few shot examples.
@@ -309,6 +459,74 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
             encoded_example['choices'] = [self.tokenizer(choice, add_special_tokens=False) for choice in choices]
 
             examples.append(encoded_example)
+
+        return examples
+
+    def prep_examples_with_entities(self, num_fewshot: int, prompt_string: str, example_delimiter: str,
+                                    continuation_delimiter: str):
+        """Prepares a set of language modeling tasks into tokenized format with prompt and fewshot examples.
+
+        Each task consists of a context and a continuation as well as an optional prompt and optional list of
+        example context/continuation pairs which precede the test context/continuation pair.
+
+        Args:
+            num_fewshot (int): Number of examples context/continuation pairs to prepend to the test pair
+            prompt_string (str): The prompt to prepend to all inputs
+            example_delimiter (str): The delimiter used to separate each individual context/continuation pair
+            continuation_delimiter (str): The delimiter used to separate each context from its continuation
+
+        Returns:
+            dict: Contains the context, the continuation, and the preamble (prompt + fewshot examples)
+        """
+        examples = []
+
+        for entity in self.samples:
+            for sample_idx, entry in enumerate(self.samples[entity]):
+                encoded_example = {}
+                preamble = prompt_string
+
+                if num_fewshot > 0:
+                    viable_candidates = []
+                    if entity is None:
+                        for e in self.samples:
+                            for idx, sample in enumerate(self.samples[e]):
+                                if e == entity and idx == sample_idx:
+                                    continue
+                                viable_candidates.append(sample)
+
+                        viable_candidates = [
+                            sample for e in self.samples for idx, sample in enumerate(self.samples[e])
+                            if idx != sample_idx
+                        ]
+                    else:
+                        for e in self.samples:
+                            if e == entity:
+                                continue
+                            for _, sample in enumerate(self.samples[e]):
+                                viable_candidates.append(sample)
+
+                    fewshot_idxs = _get_fewshot_sample_idxs(len(viable_candidates), num_fewshot, -1)
+                    for fewshot_idx in fewshot_idxs:
+
+                        query, choices, gold_idx = viable_candidates[fewshot_idx]['query'], viable_candidates[
+                            fewshot_idx]['choices'], viable_candidates[fewshot_idx]['gold']
+                        if len(preamble) > 0:
+                            query = f'{example_delimiter}{query}'
+                        preamble += f'{query}{continuation_delimiter}{choices[gold_idx]}'
+
+                query, choices, gold_idx = entry['query'], entry['choices'], entry['gold'],
+
+                if len(preamble) > 0:
+                    query = f'{example_delimiter}{query}'
+                choices = [f'{continuation_delimiter}{choice}' for choice in choices]
+                encoded_example['preamble'] = self.tokenizer(
+                    preamble
+                )  # if the preamble is empty then these will be 0-length lists, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
+                encoded_example['gold_idx'] = gold_idx
+                encoded_example['query'] = self.tokenizer(query, add_special_tokens=False)
+                encoded_example['choices'] = [self.tokenizer(choice, add_special_tokens=False) for choice in choices]
+
+                examples.append(encoded_example)
 
         return examples
 
@@ -367,9 +585,10 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         raise Exception(f"""We haven't implemented batch splitting for multiple choice tasks""")
 
 
-def get_icl_task_dataloader(
+def build_dl(
     icl_task_type: str,
     dataset_uri: str,
+    category: Optional[str],
     tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
     batch_size: int,
     max_seq_len: int,
@@ -379,7 +598,64 @@ def get_icl_task_dataloader(
     example_delimiter: str,  # e.g. '\n'
     continuation_delimiter: str,  # e.g. ''
     destination_path: str,
-) -> DataSpec:
+):
+
+    if icl_task_type == 'multiple_choice':
+        dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri,
+                                                             tokenizer,
+                                                             max_seq_len,
+                                                             pad_tok_id,
+                                                             num_fewshot,
+                                                             prompt_string,
+                                                             example_delimiter,
+                                                             continuation_delimiter,
+                                                             destination_path=destination_path,
+                                                             category=category)
+        batch_size = max(dataset.num_choices, batch_size)
+        effective_batchsize = batch_size // dataset.num_choices
+    elif icl_task_type == 'language_modeling':
+        dataset = InContextLearningLMTaskDataset(dataset_uri,
+                                                 tokenizer,
+                                                 max_seq_len,
+                                                 pad_tok_id,
+                                                 num_fewshot,
+                                                 prompt_string,
+                                                 example_delimiter,
+                                                 continuation_delimiter,
+                                                 destination_path=destination_path,
+                                                 category=category)
+        effective_batchsize = batch_size
+    else:
+        raise Exception(f'Unrecognized ICL task type: {icl_task_type}')
+
+    sampler = dist.get_sampler(dataset, drop_last=False, shuffle=False)
+
+    return DataSpec(
+        DataLoader(
+            dataset,
+            batch_size=effective_batchsize,
+            sampler=sampler,
+            collate_fn=dataset.collate_fn,
+        ),
+        device_transforms=None,
+        get_num_samples_in_batch=dataset.get_num_samples_in_batch,
+        split_batch=dataset.split_batch if isinstance(dataset, InContextLearningMultipleChoiceTaskDataset) else None)
+
+
+def get_icl_task_dataloaders(
+    icl_task_type: str,
+    dataset_uri: str,
+    categories: List[str],
+    tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
+    batch_size: int,
+    max_seq_len: int,
+    pad_tok_id: int,
+    num_fewshot: int,
+    prompt_string: str,  # e.g. 'translate english to french:'
+    example_delimiter: str,  # e.g. '\n'
+    continuation_delimiter: str,  # e.g. ''
+    destination_path: str,
+) -> Dict[str, DataSpec]:
     """This constructs a dataloader capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
 
     >>> dl = get_icl_task_dataloader(
@@ -422,42 +698,71 @@ def get_icl_task_dataloader(
     Returns:
         DataLoader: A dataloader used for performing in-context learning evaluation on the dataset provided.
     """
+    data_specs = {}
+    for category in categories:
+        dest = '/'.join(destination_path.split('/')[:-1]) + '/' + category + '_' + destination_path.split('/')[-1]
+        data_specs[f'/{category}'] = build_dl(
+            icl_task_type,
+            dataset_uri,
+            category,
+            tokenizer,
+            batch_size,
+            max_seq_len,
+            pad_tok_id,
+            num_fewshot,
+            prompt_string,  # e.g. 'translate english to french:'
+            example_delimiter,  # e.g. '\n'
+            continuation_delimiter,  # e.g. ''
+            dest,
+        )
 
-    if icl_task_type == 'multiple_choice':
-        dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri,
-                                                             tokenizer,
-                                                             max_seq_len,
-                                                             pad_tok_id,
-                                                             num_fewshot,
-                                                             prompt_string,
-                                                             example_delimiter,
-                                                             continuation_delimiter,
-                                                             destination_path=destination_path)
-        batch_size = max(dataset.num_choices, batch_size)
-        effective_batchsize = batch_size // dataset.num_choices
-    elif icl_task_type == 'language_modeling':
-        dataset = InContextLearningLMTaskDataset(dataset_uri,
-                                                 tokenizer,
-                                                 max_seq_len,
-                                                 pad_tok_id,
-                                                 num_fewshot,
-                                                 prompt_string,
-                                                 example_delimiter,
-                                                 continuation_delimiter,
-                                                 destination_path=destination_path)
-        effective_batchsize = batch_size
-    else:
-        raise Exception(f'Unrecognized ICL task type: {icl_task_type}')
+    data_specs[''] = build_dl(
+        icl_task_type,
+        dataset_uri,
+        None,
+        tokenizer,
+        batch_size,
+        max_seq_len,
+        pad_tok_id,
+        num_fewshot,
+        prompt_string,  # e.g. 'translate english to french:'
+        example_delimiter,  # e.g. '\n'
+        continuation_delimiter,  # e.g. ''
+        destination_path,
+    )
+    return data_specs
 
-    sampler = dist.get_sampler(dataset, drop_last=False, shuffle=False)
 
-    return DataSpec(
-        DataLoader(
-            dataset,
-            batch_size=effective_batchsize,
-            sampler=sampler,
-            collate_fn=dataset.collate_fn,
-        ),
-        device_transforms=None,
-        get_num_samples_in_batch=dataset.get_num_samples_in_batch,
-        split_batch=dataset.split_batch if isinstance(dataset, InContextLearningMultipleChoiceTaskDataset) else None)
+def make_evaluators(
+    base_label: str,
+    metric_names: List[str],
+    icl_task_type: str,
+    dataset_uri: str,
+    categories: List[str],
+    tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
+    batch_size: int,
+    max_seq_len: int,
+    pad_tok_id: int,
+    num_fewshot: int,
+    prompt_string: str,  # e.g. 'translate english to french:'
+    example_delimiter: str,  # e.g. '\n'
+    continuation_delimiter: str,  # e.g. ''
+    destination_path: str,
+):
+
+    dls = get_icl_task_dataloaders(
+        icl_task_type,
+        dataset_uri,
+        categories,
+        tokenizer,
+        batch_size,
+        max_seq_len,
+        pad_tok_id,
+        num_fewshot,
+        prompt_string,  # e.g. 'translate english to french:'
+        example_delimiter,  # e.g. '\n'
+        continuation_delimiter,  # e.g. ''
+        destination_path,
+    )
+
+    return [Evaluator(label=base_label + k, dataloader=v, metric_names=metric_names) for k, v in dls.items()]

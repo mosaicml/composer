@@ -8,9 +8,8 @@ import transformers
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 
-from composer import Evaluator
 from composer.datasets.in_context_learning_evaluation import (_get_fewshot_sample_idxs, _make_padded_input,
-                                                              get_icl_task_dataloader)
+                                                              get_icl_task_dataloaders, make_evaluators)
 from composer.loggers import InMemoryLogger
 from composer.metrics import InContextLearningLMAccuracy, InContextLearningMultipleChoiceAccuracy
 from composer.models import HuggingFaceModel
@@ -40,6 +39,74 @@ def test_batch_padding_logic(tiny_gpt2_tokenizer):
     assert continuation_spans[0] == 48 and continuation_spans[-1] == 2047
 
 
+@pytest.mark.parametrize('dataset_uri', ['jeopardy_small.jsonl'])
+def test_lm_task_dataloader_jeopardy(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+
+    tokenizer = tiny_gpt2_tokenizer
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    batch_size = 2
+    seqlen = 2048
+    dls = get_icl_task_dataloaders('language_modeling',
+                                   dataset_uri, ['science', 'world_history'],
+                                   tokenizer,
+                                   batch_size,
+                                   max_seq_len=seqlen,
+                                   pad_tok_id=tokenizer.eos_token_id,
+                                   num_fewshot=4,
+                                   prompt_string='',
+                                   example_delimiter='\n',
+                                   continuation_delimiter='. Answer: ',
+                                   destination_path=str(tmp_path / 'icl.jsonl'))
+
+    assert set(dls.keys()) == set(['', '/science', '/world_history'])
+    assert isinstance(dls[''].dataloader, DataLoader)  # pyright
+    batch = next(dls[''].dataloader._get_iterator())
+    assert set(batch.keys()) == set(['input_ids', 'attention_mask', 'labels', 'continuation_indices', 'mode'])
+    assert 'input_ids' in batch
+    assert tuple(batch['input_ids'].shape) == (batch_size, seqlen)
+    assert 'attention_mask' in batch
+    assert tuple(batch['attention_mask'].shape) == (batch_size, seqlen)
+    assert 'continuation_indices' in batch
+    assert isinstance(batch['continuation_indices'], list) and len(batch['continuation_indices']) == batch_size
+    assert 'mode' in batch
+    assert batch['mode'] == 'icl_task'
+
+
+@pytest.mark.parametrize('dataset_uri', ['wiki_people_small.jsonl'])
+def test_lm_task_dataloader_wiki(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+
+    tokenizer = tiny_gpt2_tokenizer
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    batch_size = 2
+    seqlen = 2048
+    dls = get_icl_task_dataloaders('language_modeling',
+                                   dataset_uri, ['science', 'world_history'],
+                                   tokenizer,
+                                   batch_size,
+                                   max_seq_len=seqlen,
+                                   pad_tok_id=tokenizer.eos_token_id,
+                                   num_fewshot=4,
+                                   prompt_string='',
+                                   example_delimiter='\n',
+                                   continuation_delimiter='. Answer: ',
+                                   destination_path=str(tmp_path / 'icl.jsonl'))
+
+    assert set(dls.keys()) == set(['', '/science', '/world_history'])
+    assert isinstance(dls[''].dataloader, DataLoader)  # pyright
+    batch = next(dls[''].dataloader._get_iterator())
+    assert set(batch.keys()) == set(['input_ids', 'attention_mask', 'labels', 'continuation_indices', 'mode'])
+    assert 'input_ids' in batch
+    assert tuple(batch['input_ids'].shape) == (batch_size, seqlen)
+    assert 'attention_mask' in batch
+    assert tuple(batch['attention_mask'].shape) == (batch_size, seqlen)
+    assert 'continuation_indices' in batch
+    assert isinstance(batch['continuation_indices'], list) and len(batch['continuation_indices']) == batch_size
+    assert 'mode' in batch
+    assert batch['mode'] == 'icl_task'
+
+
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
 def test_lm_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -48,17 +115,17 @@ def test_lm_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 2
     seqlen = 2048
-    dl = get_icl_task_dataloader('language_modeling',
-                                 dataset_uri,
-                                 tokenizer,
-                                 batch_size,
-                                 max_seq_len=seqlen,
-                                 pad_tok_id=tokenizer.eos_token_id,
-                                 num_fewshot=0,
-                                 prompt_string='',
-                                 example_delimiter='\n',
-                                 continuation_delimiter='',
-                                 destination_path=str(tmp_path / 'icl.jsonl'))
+    dl = get_icl_task_dataloaders('language_modeling',
+                                  dataset_uri, [],
+                                  tokenizer,
+                                  batch_size,
+                                  max_seq_len=seqlen,
+                                  pad_tok_id=tokenizer.eos_token_id,
+                                  num_fewshot=0,
+                                  prompt_string='',
+                                  example_delimiter='\n',
+                                  continuation_delimiter='',
+                                  destination_path=str(tmp_path / 'icl.jsonl'))['']
 
     assert isinstance(dl.dataloader, DataLoader)  # pyright
     batch = next(dl.dataloader._get_iterator())
@@ -85,17 +152,17 @@ def test_lm_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 2
     seqlen = 2048
-    dl = get_icl_task_dataloader('language_modeling',
-                                 dataset_uri,
-                                 tokenizer,
-                                 batch_size,
-                                 max_seq_len=seqlen,
-                                 pad_tok_id=tokenizer.eos_token_id,
-                                 num_fewshot=num_fewshot,
-                                 prompt_string='',
-                                 example_delimiter='\n',
-                                 continuation_delimiter='',
-                                 destination_path=str(tmp_path / 'icl.jsonl'))
+    dl = get_icl_task_dataloaders('language_modeling',
+                                  dataset_uri, [],
+                                  tokenizer,
+                                  batch_size,
+                                  max_seq_len=seqlen,
+                                  pad_tok_id=tokenizer.eos_token_id,
+                                  num_fewshot=num_fewshot,
+                                  prompt_string='',
+                                  example_delimiter='\n',
+                                  continuation_delimiter='',
+                                  destination_path=str(tmp_path / 'icl.jsonl'))['']
 
     assert isinstance(dl.dataloader, DataLoader)  # pyright
     batch = next(dl.dataloader._get_iterator())
@@ -125,17 +192,17 @@ def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 2
     seqlen = 2048
-    dl = get_icl_task_dataloader('multiple_choice',
-                                 dataset_uri,
-                                 tokenizer,
-                                 batch_size,
-                                 max_seq_len=seqlen,
-                                 pad_tok_id=tokenizer.eos_token_id,
-                                 num_fewshot=num_fewshot,
-                                 prompt_string='',
-                                 example_delimiter='\n',
-                                 continuation_delimiter=': ',
-                                 destination_path=str(tmp_path / 'icl.jsonl'))
+    dl = get_icl_task_dataloaders('multiple_choice',
+                                  dataset_uri, [],
+                                  tokenizer,
+                                  batch_size,
+                                  max_seq_len=seqlen,
+                                  pad_tok_id=tokenizer.eos_token_id,
+                                  num_fewshot=num_fewshot,
+                                  prompt_string='',
+                                  example_delimiter='\n',
+                                  continuation_delimiter=': ',
+                                  destination_path=str(tmp_path / 'icl.jsonl'))['']
 
     assert isinstance(dl.dataloader, DataLoader)  # pyright
     batch = next(dl.dataloader._get_iterator())
@@ -170,17 +237,17 @@ def test_mc_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 2
     seqlen = 2048
-    dl = get_icl_task_dataloader('multiple_choice',
-                                 dataset_uri,
-                                 tokenizer,
-                                 batch_size,
-                                 max_seq_len=seqlen,
-                                 pad_tok_id=tokenizer.eos_token_id,
-                                 num_fewshot=1,
-                                 prompt_string='',
-                                 example_delimiter='\n',
-                                 continuation_delimiter=': ',
-                                 destination_path=str(tmp_path / 'icl.jsonl'))
+    dl = get_icl_task_dataloaders('multiple_choice',
+                                  dataset_uri, [],
+                                  tokenizer,
+                                  batch_size,
+                                  max_seq_len=seqlen,
+                                  pad_tok_id=tokenizer.eos_token_id,
+                                  num_fewshot=1,
+                                  prompt_string='',
+                                  example_delimiter='\n',
+                                  continuation_delimiter=': ',
+                                  destination_path=str(tmp_path / 'icl.jsonl'))['']
 
     assert isinstance(dl.dataloader, DataLoader)  # pyright
     batch = next(dl.dataloader._get_iterator())
@@ -205,18 +272,112 @@ def test_mc_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     assert tokenizer.decode(batch['input_ids'][0][min_idx:max_idx + 1]) == ': Pour it onto a plate'
 
 
+@pytest.mark.parametrize('dataset_uri', ['piqa_small_categories.jsonl'])
+def test_mc_task_dataloader_categories(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+
+    tokenizer = tiny_gpt2_tokenizer
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    batch_size = 2
+    seqlen = 2048
+    dls = get_icl_task_dataloaders('multiple_choice',
+                                   dataset_uri, ['foo', 'bar'],
+                                   tokenizer,
+                                   batch_size,
+                                   max_seq_len=seqlen,
+                                   pad_tok_id=tokenizer.eos_token_id,
+                                   num_fewshot=1,
+                                   prompt_string='',
+                                   example_delimiter='\n',
+                                   continuation_delimiter=': ',
+                                   destination_path=str(tmp_path / 'icl.jsonl'))
+
+    assert isinstance(dls[''].dataloader, DataLoader)  # pyright
+    batch = next(dls[''].dataloader._get_iterator())
+    assert set(dls.keys()) == set(['', '/foo', '/bar'])
+    assert isinstance(dls[''].dataloader, DataLoader)  # pyright
+    batch = next(dls[''].dataloader._get_iterator())
+    choices_per_question = 2
+    assert 'input_ids' in batch
+    assert tuple(batch['input_ids'].shape) == (batch_size, seqlen)
+    assert 'attention_mask' in batch
+    assert tuple(batch['attention_mask'].shape) == (batch_size, seqlen)
+    assert 'continuation_indices' in batch
+    assert isinstance(batch['continuation_indices'], list) and len(batch['continuation_indices']) == batch_size
+    assert 'mode' in batch
+    assert batch['mode'] == 'icl_task'
+    assert 'gold_indices' in batch
+    assert isinstance(batch['gold_indices'], list) and len(batch['gold_indices']) == batch_size // choices_per_question
+    assert 'choice_groupings' in batch
+    assert isinstance(batch['choice_groupings'], list) and len(
+        batch['choice_groupings']) == batch_size // choices_per_question
+
+    min_idx = min(batch['continuation_indices'][0]).item()
+    max_idx = max(batch['continuation_indices'][0]).item()
+    assert tokenizer.decode(batch['input_ids'][0][min_idx:max_idx + 1]) == ': Pour it onto a plate'
+
+
+@pytest.mark.parametrize('dataset_uri', ['piqa_small_entities.jsonl'])
+def test_mc_task_dataloader_entities(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+
+    tokenizer = tiny_gpt2_tokenizer
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    batch_size = 2
+    seqlen = 2048
+    dls = get_icl_task_dataloaders('multiple_choice',
+                                   dataset_uri, ['foo'],
+                                   tokenizer,
+                                   batch_size,
+                                   max_seq_len=seqlen,
+                                   pad_tok_id=tokenizer.eos_token_id,
+                                   num_fewshot=1,
+                                   prompt_string='',
+                                   example_delimiter='\n',
+                                   continuation_delimiter=': ',
+                                   destination_path=str(tmp_path / 'icl.jsonl'))
+
+    assert isinstance(dls[''].dataloader, DataLoader)  # pyright
+    batch = next(dls[''].dataloader._get_iterator())
+    assert set(dls.keys()) == set(['', '/foo'])
+    assert isinstance(dls[''].dataloader, DataLoader)  # pyright
+    batch = next(dls[''].dataloader._get_iterator())
+    choices_per_question = 2
+    assert 'input_ids' in batch
+    assert tuple(batch['input_ids'].shape) == (batch_size, seqlen)
+    assert 'attention_mask' in batch
+    assert tuple(batch['attention_mask'].shape) == (batch_size, seqlen)
+    assert 'continuation_indices' in batch
+    assert isinstance(batch['continuation_indices'], list) and len(batch['continuation_indices']) == batch_size
+    assert 'mode' in batch
+    assert batch['mode'] == 'icl_task'
+    assert 'gold_indices' in batch
+    assert isinstance(batch['gold_indices'], list) and len(batch['gold_indices']) == batch_size // choices_per_question
+    assert 'choice_groupings' in batch
+    assert isinstance(batch['choice_groupings'], list) and len(
+        batch['choice_groupings']) == batch_size // choices_per_question
+
+    min_idx = min(batch['continuation_indices'][0]).item()
+    max_idx = max(batch['continuation_indices'][0]).item()
+    assert tokenizer.decode(batch['input_ids'][0][min_idx:max_idx + 1]) == ': Pour it onto a plate'
+
+
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 5])
-@device('gpu')
+@device('cpu')
 def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenizer, tmp_path):
     pytest.importorskip('datasets')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_gpt2_tokenizer
-    dl = get_icl_task_dataloader(
+
+    evaluators = make_evaluators(
+        'lambada',
+        ['InContextLearningLMAccuracy'],
         'language_modeling',
         dataset_uri,
+        [],
         tokenizer,
         2,
         max_seq_len=2048,
@@ -228,7 +389,47 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
         destination_path=str(tmp_path / 'icl.jsonl'),
     )
 
-    evaluator = Evaluator(label='lambada', dataloader=dl, metric_names=['InContextLearningLMAccuracy'])
+    config = transformers.AutoConfig.from_pretrained('EleutherAI/gpt-neo-125M')
+    model = transformers.AutoModelForCausalLM.from_config(config)
+    model = HuggingFaceModel(
+        model=model,
+        tokenizer=None,
+        eval_metrics=[InContextLearningLMAccuracy()],
+        use_logits=True,
+    )
+
+    trainer = Trainer(model=model, max_duration='1ep', loggers=in_memory_logger)
+    trainer.eval(eval_dataloader=evaluators, subset_num_batches=2)
+    assert 'metrics/lambada/InContextLearningLMAccuracy' in in_memory_logger.data.keys()
+    assert in_memory_logger.data['metrics/lambada/InContextLearningLMAccuracy'][0][1].item() == 0
+
+
+@pytest.mark.parametrize('dataset_uri', ['jeopardy_small.jsonl'])
+@pytest.mark.parametrize('num_fewshot', [5])
+@device('cpu')
+def test_lm_task_evaluation_jeopardy(device, dataset_uri, num_fewshot, tiny_gpt2_tokenizer, tmp_path):
+    pytest.importorskip('datasets')
+    in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    tokenizer = tiny_gpt2_tokenizer
+    evaluators = make_evaluators(
+        'jeopardy_small',
+        ['InContextLearningLMAccuracy'],
+        'language_modeling',
+        dataset_uri,
+        ['science', 'world_history'],
+        tokenizer,
+        2,
+        max_seq_len=2048,
+        pad_tok_id=tokenizer.eos_token_id,
+        num_fewshot=num_fewshot,
+        prompt_string='',
+        example_delimiter='\n',
+        continuation_delimiter='',
+        destination_path=str(tmp_path / 'icl.jsonl'),
+    )
+    assert len(evaluators) == 3
 
     config = transformers.AutoConfig.from_pretrained('EleutherAI/gpt-neo-125M')
     model = transformers.AutoModelForCausalLM.from_config(config)
@@ -240,13 +441,62 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
     )
 
     trainer = Trainer(model=model, max_duration='1ep', loggers=in_memory_logger)
-    trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
-    assert 'metrics/lambada/InContextLearningLMAccuracy' in in_memory_logger.data.keys()
-    assert in_memory_logger.data['metrics/lambada/InContextLearningLMAccuracy'][0][1].item() == 0
+    trainer.eval(eval_dataloader=evaluators, subset_num_batches=2)
+    assert 'metrics/jeopardy_small/science/InContextLearningLMAccuracy' in in_memory_logger.data.keys()
+    assert 'metrics/jeopardy_small/world_history/InContextLearningLMAccuracy' in in_memory_logger.data.keys()
+    assert 'metrics/jeopardy_small/InContextLearningLMAccuracy' in in_memory_logger.data.keys()
+
+    assert in_memory_logger.data['metrics/jeopardy_small/InContextLearningLMAccuracy'][0][1].item() == 0
+
+
+@pytest.mark.parametrize('dataset_uri', ['wiki_people_small.jsonl'])
+@pytest.mark.parametrize('num_fewshot', [5])
+@device('cpu')
+def test_lm_task_evaluation_wiki(device, dataset_uri, num_fewshot, tiny_gpt2_tokenizer, tmp_path):
+    pytest.importorskip('datasets')
+    in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    tokenizer = tiny_gpt2_tokenizer
+    evaluators = make_evaluators(
+        'subcats',
+        ['InContextLearningLMAccuracy'],
+        'language_modeling',
+        dataset_uri,
+        ['birth_day', 'num_spouses'],
+        tokenizer,
+        2,
+        max_seq_len=2048,
+        pad_tok_id=tokenizer.eos_token_id,
+        num_fewshot=num_fewshot,
+        prompt_string='',
+        example_delimiter='\n',
+        continuation_delimiter='',
+        destination_path=str(tmp_path / 'icl.jsonl'),
+    )
+
+    assert len(evaluators) == 3
+
+    config = transformers.AutoConfig.from_pretrained('EleutherAI/gpt-neo-125M')
+    model = transformers.AutoModelForCausalLM.from_config(config)
+    model = HuggingFaceModel(
+        model=model,
+        tokenizer=None,
+        eval_metrics=[InContextLearningLMAccuracy()],
+        use_logits=True,
+    )
+
+    trainer = Trainer(model=model, max_duration='1ep', loggers=in_memory_logger)
+    trainer.eval(eval_dataloader=evaluators, subset_num_batches=2)
+    assert 'metrics/subcats/birth_day/InContextLearningLMAccuracy' in in_memory_logger.data.keys()
+    assert 'metrics/subcats/num_spouses/InContextLearningLMAccuracy' in in_memory_logger.data.keys()
+    assert 'metrics/subcats/InContextLearningLMAccuracy' in in_memory_logger.data.keys()
+
+    assert in_memory_logger.data['metrics/subcats/InContextLearningLMAccuracy'][0][1].item() == 0
 
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl', 'hellaswag_small.jsonl'])
-@device('gpu')
+@device('cpu')
 @pytest.mark.parametrize('num_fewshot', [0, 5])
 def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     pytest.importorskip('datasets')
@@ -254,9 +504,13 @@ def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenize
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_gpt2_tokenizer
-    dl = get_icl_task_dataloader(
+
+    evaluators = make_evaluators(
+        'mc',
+        ['InContextLearningMultipleChoiceAccuracy'],
         'multiple_choice',
         dataset_uri,
+        [],
         tokenizer,
         8,
         max_seq_len=2048,
@@ -268,8 +522,6 @@ def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenize
         destination_path=str(tmp_path / 'icl.jsonl'),
     )
 
-    evaluator = Evaluator(label='lambada', dataloader=dl, metric_names=['InContextLearningMultipleChoiceAccuracy'])
-
     config = transformers.AutoConfig.from_pretrained('EleutherAI/gpt-neo-125M')
     model = transformers.AutoModelForCausalLM.from_config(config)
     model = HuggingFaceModel(
@@ -280,6 +532,6 @@ def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenize
     )
 
     trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
-    trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
-    assert 'metrics/lambada/InContextLearningMultipleChoiceAccuracy' in in_memory_logger.data.keys()
-    assert in_memory_logger.data['metrics/lambada/InContextLearningMultipleChoiceAccuracy'][0][1].item() > 0
+    trainer.eval(eval_dataloader=evaluators, subset_num_batches=2)
+    assert 'metrics/mc/InContextLearningMultipleChoiceAccuracy' in in_memory_logger.data.keys()
+    assert in_memory_logger.data['metrics/mc/InContextLearningMultipleChoiceAccuracy'][0][1].item() > 0
