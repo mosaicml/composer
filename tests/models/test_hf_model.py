@@ -108,8 +108,8 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
     # the reloaded tokenizer
     tokenizer1.__dict__.pop('name_or_path')
     tokenizer2.__dict__.pop('name_or_path')
-    model_max_length_1 = tokenizer1.init_kwargs.pop('name_or_path', None)
-    model_max_length_2 = tokenizer2.init_kwargs.pop('name_or_path', None)
+    tokenizer1.init_kwargs.pop('name_or_path', None)
+    tokenizer2.init_kwargs.pop('name_or_path', None)
 
     # tokenizer.init_kwargs['model_max_length'] is unset when the tokenizer does not specify it, but is set
     # to a very large number when you save and reload, so here we just check that its the same if it is present in
