@@ -211,7 +211,7 @@ def load_checkpoint(
                 object_store=object_store,
                 progress_bar=progress_bar,
                 fsdp_sharded_state_dict_enabled=state.fsdp_sharded_state_dict_enabled,
-            )
+                deepspeed_sharded_checkpoint=is_model_deepspeed(state.model))
             rng_state_dicts = _restore_checkpoint(
                 state,
                 logger,
@@ -242,13 +242,12 @@ def _get_node_checkpoint_download_folder(path: Optional[str]) -> str:
     return local_rank_zero_path
 
 
-def download_checkpoint(
-    path: str,
-    node_checkpoint_folder: str,
-    object_store: Optional[Union[ObjectStore, LoggerDestination]],
-    progress_bar: bool,
-    fsdp_sharded_state_dict_enabled: bool = False,
-) -> Tuple[str, Optional[str], bool]:
+def download_checkpoint(path: str,
+                        node_checkpoint_folder: str,
+                        object_store: Optional[Union[ObjectStore, LoggerDestination]],
+                        progress_bar: bool,
+                        fsdp_sharded_state_dict_enabled: bool = False,
+                        deepspeed_sharded_checkpoint: bool = False) -> Tuple[str, Optional[str], bool]:
     """Download the checkpoint stored at ``path``, potentially in ``object_store``, to ``node_checkpoint_folder``.
 
     Returns a tuple of  (``composer_states_filepath``, ``extracted_checkpoint_folder``, ``extracted_rank_n``).
@@ -276,10 +275,11 @@ def download_checkpoint(
         composer_states_filepath = (rank_n_checkpoint_filepath
                                     if fsdp_sharded_state_dict_enabled else rank_zero_checkpoint_filepath)
 
+    checkpoint_is_sharded = fsdp_sharded_state_dict_enabled or deepspeed_sharded_checkpoint
     try:
-        if ((fsdp_sharded_state_dict_enabled and dist.get_global_rank() == 0) or
-            (not fsdp_sharded_state_dict_enabled and dist.get_local_rank() == 0)):
-            # every NODE needs the GLOBAL rank zero checkpoint unless fsdp_sharded_state_dict_enabled.
+        if not checkpoint_is_sharded and dist.get_local_rank() == 0:
+            # if the checkpoint is not sharded, then local rank 0 on each node needs to download the
+            # global rank 0 checkpoint
             path = _format_path_with_rank_zero(path)
             get_file(destination=rank_zero_checkpoint_filepath,
                      path=path,
@@ -294,21 +294,19 @@ def download_checkpoint(
                     # the underlying issue is that the checkpoint file does not exist on the disk
                     # or could not be downloaded
                     raise RuntimeError(f'Checkpoint {path} does not exist')
-
-        if rank_zero_checkpoint_filepath != rank_n_checkpoint_filepath:
-            # every RANK needs ITS OWN checkpoint.
-            # But, the  global rank zero is a special case -- these files are the same!
-            assert dist.get_global_rank() != 0, 'invariant violation'
-
+        elif checkpoint_is_sharded:
+            # if the checkpoint is sharded, then every rank needs to download its own checkpoint
             try:
                 get_file(destination=rank_n_checkpoint_filepath,
                          path=_format_path_with_current_rank(path),
                          object_store=object_store,
                          progress_bar=progress_bar)
-            except FileNotFoundError:
-                # Allowing not-found errors to be ignored as sometimes there won't be rank-local checkpoints
-                # (e.g. when not using deepspeed nor using fsdp sharded checkpoints)
-                pass
+            except FileNotFoundError as e:
+                raise FileNotFoundError(
+                    (f'Checkpoint {_format_path_with_current_rank(path)} does not exist, '
+                     f'but is required for sharded checkpointing on rank {dist.get_global_rank()}. '
+                     'Please ensure that the checkpoint exists and your load_path was specified as a format string'
+                     'with the {rank} argument.')) from e
 
             if extracted_checkpoint_folder is not None:
                 try:
