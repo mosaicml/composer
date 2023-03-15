@@ -104,6 +104,8 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
     tokenizer1.__dict__.pop('deprecation_warnings')
     tokenizer2.__dict__.pop('deprecation_warnings')
 
+    # name or path will be the path that the tokenizer was loaded from, which will just a temporary directory for
+    # the reloaded tokenizer
     tokenizer1.__dict__.pop('name_or_path')
     tokenizer2.__dict__.pop('name_or_path')
     model_max_length_1 = tokenizer1.init_kwargs.pop('name_or_path', None)
