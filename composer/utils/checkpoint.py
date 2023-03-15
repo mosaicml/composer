@@ -286,7 +286,7 @@ def download_checkpoint(
         composer_states_filepath = rank_0_checkpoint_filepath
 
     local_path = _format_path_with_current_rank(path)
-    local_rank_zero_path = _get_local_rank_zero_path(local_path)
+    global_rank_zero_path = dist.all_gather_object(local_path)[0]
 
     try:
         # Every NODE needs the GLOBAL rank zero checkpoint. Local rank 0 downloads the checkpoint
@@ -302,10 +302,9 @@ def download_checkpoint(
                 with tarfile.open(rank_0_checkpoint_filepath) as tarball:
                     tarball.extractall(extracted_tar_checkpoint_folder)
 
-        # Download on local rank 0 or if path is different from local rank 0, which is the case
-        # for deepspeed or fsdp sharded state dict checkpoints. As global rank zero has already
-        # been downloaded (by local rank 0 on node rank 0 above), we skip downloading it again
-        if dist.get_global_rank() != 0 and (dist.get_local_rank() == 0 or local_path != local_rank_zero_path):
+        # Download on local rank 0 or if path is different from global rank 0 (downloaded above),
+        # which is the case for deepspeed or fsdp sharded state dict checkpoints
+        if local_path != global_rank_zero_path:
             get_file_succeeded = True
             try:
                 get_file(
