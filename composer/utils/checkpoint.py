@@ -38,6 +38,15 @@ _COMPOSER_STATES_FILENAME = 'composer_states.pt'
 _DEEPSPEED_TAG = 'deepspeed'  # always tag with the same, deterministic name. We'll rename the tarball to the appropriate name.
 
 
+def _format_path_with_rank_zero(path: str) -> str:
+    """Formats ``path`` with the rank zero values."""
+    return path.format(
+        rank=0,
+        local_rank=0,
+        node_rank=0,
+    )
+
+
 def _format_path_with_current_rank(path: str) -> str:
     """Formats ``path`` formatted with the current rank values."""
     return path.format(
@@ -256,8 +265,8 @@ def download_checkpoint(
     """
     log.debug('Downloading checkpoint to folder %s', node_checkpoint_folder)
     # Files do not have extensions as it could be .tar, .pt, or something else
-    rank_n_checkpoint_filepath = os.path.join(node_checkpoint_folder, f'rank{dist.get_local_rank()}_checkpoint')
     rank_0_checkpoint_filepath = os.path.join(node_checkpoint_folder, 'rank0_checkpoint')
+    rank_n_checkpoint_filepath = os.path.join(node_checkpoint_folder, f'rank{dist.get_local_rank()}_checkpoint')
     extracted_tar_checkpoint_folder = None
 
     # DeepSpeed checkpoints must be tarballs
@@ -280,8 +289,23 @@ def download_checkpoint(
     local_rank_zero_path = _get_local_rank_zero_path(local_path)
 
     try:
-        # Download on local rank 0 or if path is different from local rank 0
-        if dist.get_local_rank() == 0 or local_path != local_rank_zero_path:
+        # Every NODE needs the GLOBAL rank zero checkpoint. Local rank 0 downloads the checkpoint
+        # for the node. This download must succeed for all types of checkpoints.
+        if dist.get_local_rank() == 0:
+            get_file(
+                path=_format_path_with_rank_zero(path),
+                destination=rank_0_checkpoint_filepath,
+                object_store=object_store,
+                progress_bar=progress_bar,
+            )
+            if extracted_tar_checkpoint_folder is not None:
+                with tarfile.open(rank_0_checkpoint_filepath) as tarball:
+                    tarball.extractall(extracted_tar_checkpoint_folder)
+
+        # Download on local rank 0 or if path is different from local rank 0, which is the case
+        # for deepspeed or fsdp sharded state dict checkpoints. As global rank zero has already
+        # been downloaded (by local rank 0 on node rank 0 above), we skip downloading it again
+        if dist.get_global_rank() != 0 and (dist.get_local_rank() == 0 or local_path != local_rank_zero_path):
             get_file_succeeded = True
             try:
                 get_file(
@@ -292,10 +316,9 @@ def download_checkpoint(
                 )
             except FileNotFoundError as e:
                 get_file_succeeded = False
-                # If the checkpoint is not found, raise the error only on local rank zero, which
-                # requires a checkpoint, or if FSDP sharded checkpoints or deepspeed are enabled,
-                # which require a checkpoint on all ranks
-                if dist.get_local_rank() == 0 or fsdp_sharded_state_dict_enabled or deepspeed_checkpoint:
+                # If the checkpoint is not found, raise the error if FSDP sharded checkpoints
+                # or deepspeed are enabled, which require a checkpoint on all ranks
+                if fsdp_sharded_state_dict_enabled or deepspeed_checkpoint:
                     raise e
                 # Otherwise, ignore error as standard checkpointing does not have rank-local checkpoints
                 pass
@@ -310,7 +333,7 @@ def download_checkpoint(
         # sync across nodes. This is necessary to avoid timing out on the barrier when downloading
         # large checkpoints, which may exceed the normal timeout. Now, a timeout is only
         # encountered if the difference between checkpoint download times on the slowest and
-        # fastest nodes exceeds the timeout.
+        # fastest nodes exceeds the timeout
         signal_file_path = rank_0_checkpoint_filepath + '.local_rank0_completed'
         if dist.get_local_rank() == 0:
             with open(signal_file_path, 'wb') as f:
