@@ -290,7 +290,7 @@ def download_checkpoint(
 
     try:
         # Every NODE needs the GLOBAL rank zero checkpoint. Local rank 0 downloads the checkpoint
-        # for the node. This download must succeed for all types of checkpoints.
+        # for the node. This download must succeed for all types of checkpoints
         if dist.get_local_rank() == 0:
             get_file(
                 path=_format_path_with_rank_zero(path),
