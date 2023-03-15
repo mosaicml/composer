@@ -351,7 +351,7 @@ def is_initialized():
     return dist.is_initialized()
 
 
-def initialize_dist(device: Union[str, Device], timeout: float = 600.0):
+def initialize_dist(device: Union[str, Device], timeout: float = 300.0):
     """Initialize the default PyTorch distributed process group.
 
     This function assumes that the following environment variables are set:
@@ -374,7 +374,7 @@ def initialize_dist(device: Union[str, Device], timeout: float = 600.0):
             interpreted. Either a string corresponding to a device (one of ``'cpu'``,
             ``'gpu'``, ``'mps'``, or ``'tpu'``) or a :class:`.Device`.
         timeout (float, optional): The timeout for operations executed against the process
-            group, expressed in seconds. (default: ``600.0``).
+            group, expressed in seconds. (default: ``300.0``).
     """
     # If device is string, get corresponding composer.devices.Device object
     device_obj = get_device(device)
