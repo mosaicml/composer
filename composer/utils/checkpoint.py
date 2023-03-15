@@ -211,7 +211,8 @@ def load_checkpoint(
                 object_store=object_store,
                 progress_bar=progress_bar,
                 fsdp_sharded_state_dict_enabled=state.fsdp_sharded_state_dict_enabled,
-                deepspeed_sharded_checkpoint=is_model_deepspeed(state.model))
+                deepspeed_sharded_checkpoint=is_model_deepspeed(state.model),
+            )
             rng_state_dicts = _restore_checkpoint(
                 state,
                 logger,
