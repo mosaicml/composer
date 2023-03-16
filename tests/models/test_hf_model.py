@@ -24,7 +24,7 @@ from composer.utils import dist, is_model_fsdp
 from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset
 from tests.common.markers import device, world_size
 from tests.common.models import (configure_tiny_bert_model, configure_tiny_bert_tokenizer, configure_tiny_gpt2_model,
-                                 configure_tiny_gpt2_tokenizer)
+                                 configure_tiny_gpt2_tokenizer, configure_tiny_t5_model, configure_tiny_t5_tokenizer)
 from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
 
 
@@ -655,7 +655,10 @@ def test_embedding_resizing(tiny_bert_model, tiny_bert_tokenizer, embedding_resi
 @device('cpu', 'gpu')
 @world_size(1, 2)
 @pytest.mark.parametrize('use_fsdp', [True, False])
-def test_generate(device, world_size, tiny_gpt2_model, tiny_gpt2_tokenizer, use_fsdp):
+@pytest.mark.parametrize('hf_model,hf_tokenizer', [(configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer),
+                                                   (configure_tiny_t5_model, configure_tiny_t5_tokenizer)])
+def test_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
+    transformers = pytest.importorskip('transformers')
     if device == 'cpu' and use_fsdp:
         pytest.skip('FSDP is not supported on CPU.')
     if world_size == 1 and use_fsdp:
@@ -673,26 +676,34 @@ def test_generate(device, world_size, tiny_gpt2_model, tiny_gpt2_tokenizer, use_
             'sharding_strategy': 'FULL_SHARD',
         }
 
-    model = HuggingFaceModel(tiny_gpt2_model, tokenizer=tiny_gpt2_tokenizer, use_logits=True)
+    hf_model = hf_model()
+    hf_tokenizer = hf_tokenizer()
+
+    model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, use_logits=True)
 
     # just instantiating Trainer to go through the normal FSDP code path
     trainer = Trainer(model=model, fsdp_config=fsdp_config, device=device)
 
     device = trainer.state.device
 
-    tiny_gpt2_tokenizer.padding_side = 'left'
-    input_dict = tiny_gpt2_tokenizer(['hello', 'goodbye'], return_tensors='pt', padding=True)
+    if isinstance(hf_tokenizer, transformers.models.gpt2.tokenization_gpt2_fast.GPT2TokenizerFast):
+        hf_tokenizer.padding_side = 'left'
+    input_dict = hf_tokenizer(['hello', 'goodbyes'], return_tensors='pt', padding=True)
     for k, v in input_dict.items():
         input_dict[k] = device.tensor_to_device(v)
 
-    generation1 = model.generate(**input_dict, max_new_tokens=5, pad_token_id=tiny_gpt2_tokenizer.pad_token_id)
-    generation2 = model.generate(**input_dict, max_new_tokens=3, pad_token_id=tiny_gpt2_tokenizer.pad_token_id)
+    generation1 = model.generate(**input_dict, max_new_tokens=5, pad_token_id=hf_tokenizer.pad_token_id)
+    generation2 = model.generate(**input_dict, max_new_tokens=3, pad_token_id=hf_tokenizer.pad_token_id)
 
-    assert generation1.shape == (2, 2 + 5)
-    assert generation2.shape == (2, 2 + 3)
+    assert generation1.shape == (2,
+                                 (input_dict['input_ids'].shape[1] if not hf_model.config.is_encoder_decoder else 1) +
+                                 5)
+    assert generation2.shape == (2,
+                                 (input_dict['input_ids'].shape[1] if not hf_model.config.is_encoder_decoder else 1) +
+                                 3)
 
-    decoded_generation1 = tiny_gpt2_tokenizer.batch_decode(generation1)
-    decoded_generation2 = tiny_gpt2_tokenizer.batch_decode(generation2)
+    decoded_generation1 = hf_tokenizer.batch_decode(generation1, skip_special_tokens=True)
+    decoded_generation2 = hf_tokenizer.batch_decode(generation2, skip_special_tokens=True)
 
     assert len(decoded_generation1) == len(decoded_generation2) == 2
     assert all(isinstance(decoded_generation, str) for decoded_generation in decoded_generation1)
@@ -702,7 +713,10 @@ def test_generate(device, world_size, tiny_gpt2_model, tiny_gpt2_tokenizer, use_
 @device('cpu', 'gpu')
 @world_size(1, 2)
 @pytest.mark.parametrize('use_fsdp', [True, False])
-def test_eval_forward_generate(device, world_size, tiny_gpt2_model, tiny_gpt2_tokenizer, use_fsdp):
+@pytest.mark.parametrize('hf_model,hf_tokenizer', [(configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer),
+                                                   (configure_tiny_t5_model, configure_tiny_t5_tokenizer)])
+def test_eval_forward_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
+    transformers = pytest.importorskip('transformers')
     if device == 'cpu' and use_fsdp:
         pytest.skip('FSDP is not supported on CPU.')
     if world_size == 1 and use_fsdp:
@@ -720,15 +734,19 @@ def test_eval_forward_generate(device, world_size, tiny_gpt2_model, tiny_gpt2_to
             'sharding_strategy': 'FULL_SHARD',
         }
 
-    model = HuggingFaceModel(tiny_gpt2_model, tokenizer=tiny_gpt2_tokenizer, use_logits=True)
+    hf_model = hf_model()
+    hf_tokenizer = hf_tokenizer()
+
+    model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, use_logits=True)
 
     # just instantiating Trainer to go through the normal FSDP code path
     trainer = Trainer(model=model, fsdp_config=fsdp_config, device=device)
 
     device = trainer.state.device
 
-    tiny_gpt2_tokenizer.padding_side = 'left'
-    input_dict = tiny_gpt2_tokenizer(['hello', 'goodbye'], return_tensors='pt', padding=True)
+    if isinstance(hf_tokenizer, transformers.models.gpt2.tokenization_gpt2_fast.GPT2TokenizerFast):
+        hf_tokenizer.padding_side = 'left'
+    input_dict = hf_tokenizer(['hello', 'goodbyes'], return_tensors='pt', padding=True)
     for k, v in input_dict.items():
         input_dict[k] = device.tensor_to_device(v)
     input_dict['mode'] = 'generate'
@@ -743,6 +761,3 @@ def test_eval_forward_generate(device, world_size, tiny_gpt2_model, tiny_gpt2_to
     assert len(generation1) == len(generation2) == 2
     assert all(isinstance(decoded_generation, str) for decoded_generation in generation1)
     assert all(isinstance(decoded_generation, str) for decoded_generation in generation2)
-
-    assert tiny_gpt2_tokenizer(generation1, return_tensors='pt')['input_ids'].shape == (2, 5)
-    assert tiny_gpt2_tokenizer(generation2, return_tensors='pt')['input_ids'].shape == (2, 3)

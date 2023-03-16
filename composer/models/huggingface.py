@@ -444,7 +444,13 @@ class HuggingFaceModel(ComposerModel):
         # and https://github.com/pytorch/pytorch/issues/82461 for more info
         if not self.dummy_forward_called:
             with torch.no_grad():
-                self.model(input_ids=torch.tensor([[0]], dtype=torch.long, device=input_ids.device))
+                maybe_decoder_input_ids = {}
+                if self.model.config.is_encoder_decoder:
+                    maybe_decoder_input_ids['decoder_input_ids'] = torch.tensor([[0]],
+                                                                                dtype=torch.long,
+                                                                                device=input_ids.device)
+                self.model(input_ids=torch.tensor([[0]], dtype=torch.long, device=input_ids.device),
+                           **maybe_decoder_input_ids)
             self.dummy_forward_called = True
 
         pad_token_id = kwargs.pop('pad_token_id', self.tokenizer.pad_token_id if self.tokenizer is not None else None)
