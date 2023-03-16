@@ -218,11 +218,6 @@ def test_hf_state_dict_info(tmp_path: Path, pass_in_tokenizer: bool, modify_toke
                             _tmp_file.write(line)
                             _tmp_file.write('\n')
             loaded_tokenizer = transformers.AutoTokenizer.from_pretrained(_tmp_dir)
-            # we need to set the name_or_path back because otherwise it is the tmp dir we are loading from here
-            loaded_tokenizer.name_or_path = hf_tokenizer_state['tokenizer_config']['content'].get('name_or_path', '')
-            if 'name_or_path' in loaded_tokenizer.init_kwargs:
-                loaded_tokenizer.init_kwargs['name_or_path'] = hf_tokenizer_state['tokenizer_config']['content'].get(
-                    'name_or_path', '')
 
         # for an unknown reason this key is missing when loading the saved tokenizer, but present with a value of None
         # for the original tokenizer
