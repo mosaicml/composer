@@ -174,7 +174,7 @@ class InContextLearningQATaskDataset(Dataset):
             continuation_delimiter_stripped = continuation_delimiter.rstrip()
             ctxt = f'{ctxt}{continuation_delimiter_stripped}'
 
-            # if the preamble is empty then this will be a 0-length list, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
+            # If the preamble is empty then this will be a 0-length list, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
             encoded_example['preamble'] = self.tokenizer(preamble)
             # if there is an EOS token added, we need to remove it so it is not in the middle of the prompt
             if self.tokenizer.eos_token_id is not None and len(
