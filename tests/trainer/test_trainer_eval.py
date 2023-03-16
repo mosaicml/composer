@@ -6,7 +6,7 @@ from typing import Callable, Optional, Union
 
 import pytest
 from torch.utils.data import DataLoader
-from torchmetrics import Accuracy
+from torchmetrics.classification import MulticlassAccuracy
 
 from composer.core import Algorithm, Event
 from composer.core.evaluator import Evaluator, evaluate_periodically
@@ -32,7 +32,7 @@ def test_eval():
     trainer.eval()
 
     # Assert that there is some accuracy
-    assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
+    assert trainer.state.eval_metrics['eval']['MulticlassAccuracy'].compute() != 0.0
 
 
 def test_eval_call():
@@ -47,7 +47,7 @@ def test_eval_call():
     ))
 
     # Assert that there is some accuracy
-    assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
+    assert trainer.state.eval_metrics['eval']['MulticlassAccuracy'].compute() != 0.0
 
 
 def test_eval_call_with_trainer_evaluators():
@@ -96,30 +96,34 @@ def test_trainer_eval_loop():
     trainer._eval_loop(
         dataloader=eval_dataloader,
         dataloader_label='eval',
-        metrics={'Accuracy': Accuracy()},
+        metrics={'MulticlassAccuracy': MulticlassAccuracy(num_classes=2, average='micro')},
     )
 
     # Assert that there is some accuracy
-    assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
+    assert trainer.state.eval_metrics['eval']['MulticlassAccuracy'].compute() != 0.0
 
 
-def test_trainer_eval_subset_num_batches():
-    # Construct the trainer
-    event_counter_callback = EventCounterCallback()
-    trainer = Trainer(
-        model=SimpleModel(),
-        callbacks=[event_counter_callback],
-    )
-
-    # Evaluate the model
+@pytest.mark.parametrize('evaluator_on_init,subset_on_init', [[True, True], [True, False], [False, False]])
+def test_trainer_eval_subset_num_batches(evaluator_on_init: bool, subset_on_init: bool):
     dataset = RandomClassificationDataset()
     eval_dataloader = DataLoader(
         dataset=dataset,
         sampler=dist.get_sampler(dataset),
     )
+
+    # Construct the trainer
+    event_counter_callback = EventCounterCallback()
+    trainer = Trainer(
+        model=SimpleModel(),
+        callbacks=[event_counter_callback],
+        eval_dataloader=eval_dataloader if evaluator_on_init else None,
+        eval_subset_num_batches=1 if subset_on_init else -1,
+    )
+
+    # Evaluate the model
     trainer.eval(
-        eval_dataloader=eval_dataloader,
-        subset_num_batches=1,
+        eval_dataloader=eval_dataloader if not evaluator_on_init else None,
+        subset_num_batches=1 if not subset_on_init else -1,
     )
 
     # Ensure that just one batch was evaluated
@@ -194,7 +198,7 @@ def test_eval_at_fit_end(eval_interval: Union[str, Time, int], max_duration: str
             dataset=eval_dataset,
             sampler=dist.get_sampler(eval_dataset),
         ),
-        metric_names=['Accuracy'],
+        metric_names=['MulticlassAccuracy'],
     )
 
     evaluator.eval_interval = evaluate_periodically(
@@ -234,7 +238,7 @@ def _get_classification_dataloader():
     Evaluator(
         label='eval',
         dataloader=_get_classification_dataloader(),
-        metric_names=['Accuracy'],
+        metric_names=['MulticlassAccuracy'],
     ),
 ])
 @pytest.mark.parametrize(
@@ -287,7 +291,7 @@ def test_eval_params_evaluator():
             dataset=eval_dataset,
             sampler=dist.get_sampler(eval_dataset),
         ),
-        metric_names=['Accuracy'],
+        metric_names=['MulticlassAccuracy'],
         eval_interval=f'{eval_interval_batches}ba',
         subset_num_batches=eval_subset_num_batches,
     )
@@ -373,7 +377,7 @@ def test_eval_batch_can_be_modified(add_algorithm: bool):
         trainer.eval()
 
 
-@pytest.mark.parametrize('metric_names', ['Accuracy', ['Accuracy']])
+@pytest.mark.parametrize('metric_names', ['MulticlassAccuracy', ['MulticlassAccuracy']])
 def test_evaluator_metric_names_string_errors(metric_names):
     eval_dataset = RandomClassificationDataset(size=8)
     eval_dataloader = DataLoader(eval_dataset, batch_size=4, sampler=dist.get_sampler(eval_dataset))

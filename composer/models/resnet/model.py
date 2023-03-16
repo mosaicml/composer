@@ -4,13 +4,14 @@
 """A :class:`.ComposerClassifier` wrapper around the torchvision implementations of the ResNet model family."""
 
 import logging
+import textwrap
 import warnings
 from typing import List, Optional
 
 import torchvision
 from packaging import version
 from torchmetrics import MetricCollection
-from torchmetrics.classification import Accuracy
+from torchmetrics.classification import MulticlassAccuracy
 from torchvision.models import resnet
 
 from composer.loss import loss_registry
@@ -92,7 +93,7 @@ def composer_resnet(model_name: str,
         weights = 'IMAGENET1K_V2'
         warnings.warn(
             DeprecationWarning(
-                'The ``pretrained`` argument for composer_resnet is deprecated and will be removed in the future. Please use ``weights`` instead.'
+                'The ``pretrained`` argument for composer_resnet is deprecated and will be removed in the future when torch 1.11 is no longer supported. Please use ``weights`` instead.'
             ))
 
     # Instantiate model
@@ -102,8 +103,9 @@ def composer_resnet(model_name: str,
         if weights:
             pretrained = True
             warnings.warn(
-                f'The current torchvision version {torchvision.__version__} does not support the ``weights`` argument, so ``pretrained=True`` will be used instead. To enable ``weights``, please ugprade to the latest version of torchvision.'
-            )
+                textwrap.dedent(f'The current torchvision version {torchvision.__version__} does not support the '
+                                '``weights`` argument, so ``pretrained=True`` will be used instead. To enable '
+                                '``weights``, please upgrade to the latest version of torchvision.'))
         model = model_fn(pretrained=pretrained, num_classes=num_classes, groups=groups, width_per_group=width_per_group)
     else:
         model = model_fn(weights=weights, num_classes=num_classes, groups=groups, width_per_group=width_per_group)
@@ -112,8 +114,8 @@ def composer_resnet(model_name: str,
     loss_fn = loss_registry[loss_name]
 
     # Create metrics for train and validation
-    train_metrics = Accuracy()
-    val_metrics = MetricCollection([CrossEntropy(), Accuracy()])
+    train_metrics = MulticlassAccuracy(num_classes=num_classes, average='micro')
+    val_metrics = MetricCollection([CrossEntropy(), MulticlassAccuracy(num_classes=num_classes, average='micro')])
 
     # Apply Initializers to model
     for initializer in initializers:

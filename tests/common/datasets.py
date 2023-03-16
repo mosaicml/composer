@@ -40,13 +40,21 @@ class RandomClassificationDataset(Dataset):
 
     def __init__(self, shape: Sequence[int] = (1, 1, 1), size: int = 100, num_classes: int = 2):
         self.size = size
-        self.x = torch.randn(size, *shape)
-        self.y = torch.randint(0, num_classes, size=(size,))
+        self.shape = shape
+        self.num_classes = num_classes
+        self.x = None
+        self.y = None
 
     def __len__(self):
         return self.size
 
     def __getitem__(self, index: int):
+        # Note: lazily generate data so it runs after Composer seeds everything, giving the same
+        # dataset across multiple calls when using the same seed.
+        if self.x is None:
+            self.x = torch.randn(self.size, *self.shape)
+        if self.y is None:
+            self.y = torch.randint(0, self.num_classes, size=(self.size,))
         return self.x[index], self.y[index]
 
 
@@ -76,6 +84,8 @@ class RandomImageDataset(VisionDataset):
         return self.size
 
     def __getitem__(self, index: int):
+        # Note: lazily generate data so it runs after Composer seeds everything, giving the same
+        # dataset across multiple calls when using the same seed.
         if self.x is None:
             self.x = torch.randn(self.size, *self.shape)
         if self.y is None:
@@ -121,6 +131,8 @@ class RandomSegmentationDataset(VisionDataset):
         return self.size
 
     def __getitem__(self, index: int):
+        # Note: lazily generate data so it runs after Composer seeds everything, giving the same
+        # dataset across multiple calls when using the same seed.
         if self.x is None:
             self.x = torch.randn(self.size, *self.shape)
         if self.y is None:
@@ -175,6 +187,8 @@ class RandomTextClassificationDataset(Dataset):
         return self.size
 
     def __getitem__(self, index: int):
+        # Note: lazily generate data so it runs after Composer seeds everything, giving the same
+        # dataset across multiple calls when using the same seed.
         if self.x is None:
             self.x = torch.randint(low=0, high=self.vocab_size, size=(self.size, self.sequence_length))
         if self.y is None:
@@ -223,6 +237,8 @@ class RandomTextLMDataset(Dataset):
         return self.size
 
     def __getitem__(self, index: int):
+        # Note: lazily generate data so it runs after Composer seeds everything, giving the same
+        # dataset across multiple calls when using the same seed.
         if self.x is None:
             self.x = torch.randint(low=0, high=self.vocab_size, size=(self.size, self.sequence_length))
             if self.conditional_generation:
@@ -246,13 +262,21 @@ class SimpleDataset(Dataset):
     def __init__(self, size: int = 256, batch_size: int = 256, feature_size: int = 1, num_classes: int = 2):
         self.size = size
         self.batch_size = batch_size
-        self.x = torch.randn(size * batch_size, feature_size)
-        self.y = torch.randint(0, num_classes, size=(size * batch_size,), dtype=torch.long)
+        self.feature_size = feature_size
+        self.num_classes = num_classes
+        self.x = None
+        self.y = None
 
     def __len__(self):
         return self.size
 
     def __getitem__(self, index: int):
+        # Note: lazily generate data so it runs after Composer seeds everything, giving the same
+        # dataset across multiple calls when using the same seed.
+        if self.x is None:
+            self.x = torch.randn(self.size * self.batch_size, self.feature_size)
+        if self.y is None:
+            self.y = torch.randint(0, self.num_classes, size=(self.size * self.batch_size,), dtype=torch.long)
         return self.x[index * self.batch_size:(index + 1) *
                       self.batch_size], self.y[index * self.batch_size:(index + 1) * self.batch_size]
 

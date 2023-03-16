@@ -24,7 +24,7 @@ class SimpleModel(composer.models.ComposerClassifier):
             torch.nn.Linear(num_hidden, num_classes),
         )
         self.num_classes = num_classes
-        super().__init__(module=module)
+        super().__init__(module=module, num_classes=num_classes)
 
 
 # Your custom train dataloader

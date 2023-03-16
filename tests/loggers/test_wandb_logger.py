@@ -198,8 +198,8 @@ def test_wandb_log_metrics(test_wandb_logger):
     with open(run_file, encoding='latin-1') as _wandb_file:
         all_run_text = _wandb_file.read()
 
-    train_metrics_accuracy_count = all_run_text.count('metrics/train/Accuracy')
-    eval_metrics_accuracy_count = all_run_text.count('metrics/eval/Accuracy')
+    train_metrics_accuracy_count = all_run_text.count('metrics/train/MulticlassAccuracy')
+    eval_metrics_accuracy_count = all_run_text.count('metrics/eval/MulticlassAccuracy')
     eval_metrics_cross_entropy_count = all_run_text.count('metrics/eval/CrossEntropy')
     train_loss_count = all_run_text.count('loss/train/total')
 

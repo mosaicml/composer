@@ -57,7 +57,7 @@ class TestMixUp:
 
         algorithm = MixUp(alpha=alpha, interpolate_loss=interpolate_loss)
         state = minimal_state
-        state.model = ComposerClassifier(torch.nn.Flatten())
+        state.model = ComposerClassifier(torch.nn.Flatten(), num_classes=y_fake.shape[0])
         state.batch = (x_fake, y_fake)
 
         # Apply algo, use test hooks to specify indices and override internally generated interpolation lambda for testability
