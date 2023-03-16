@@ -421,12 +421,7 @@ class HuggingFaceModel(ComposerModel):
                     }
         return {'model': model_output, 'tokenizer': tokenizer_output}
 
-    def generate(self,
-                 input_ids: torch.Tensor,
-                 num_beams: int = 1,
-                 do_sample: bool = False,
-                 max_new_tokens: int = 20,
-                 **kwargs):
+    def generate(self, input_ids: torch.Tensor, **kwargs):
         """Generate from the underlying HuggingFace model.
 
         Except for ``pad_token_id``, which is optionally read from ``self.tokenizer``, all args are passed along
@@ -434,10 +429,8 @@ class HuggingFaceModel(ComposerModel):
 
         Args:
             input_ids (torch.Tensor): Input ids to generate from.
-            num_beams (int, optional): Number of beams to use for beam search. Defaults to 1.
-            do_sample (bool, optional): Whether to sample during generation. Defaults to False.
-            max_new_tokens (int, optional): Maximum number of new tokens to generate. Defaults to 20.
             **kwargs: Additional arguments passed to :meth:`transformers.GenerationMixin.generate` function.
+                See :class:`transformers.GenerationConfig` for all available arguments.
         """
         # We need to call forward once in order for FSDP + generate to work
         # See https://github.com/huggingface/accelerate/issues/570, https://github.com/huggingface/accelerate/issues/947,
@@ -454,12 +447,7 @@ class HuggingFaceModel(ComposerModel):
             self.dummy_forward_called = True
 
         pad_token_id = kwargs.pop('pad_token_id', self.tokenizer.pad_token_id if self.tokenizer is not None else None)
-        return self.model.generate(input_ids,
-                                   num_beams=num_beams,
-                                   do_sample=do_sample,
-                                   max_new_tokens=max_new_tokens,
-                                   pad_token_id=pad_token_id,
-                                   **kwargs)
+        return self.model.generate(input_ids, pad_token_id=pad_token_id, **kwargs)
 
 
 def _is_registered_causal_lm(model: transformers.PreTrainedModel) -> bool:
