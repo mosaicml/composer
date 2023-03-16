@@ -58,7 +58,7 @@ def _make_padded_input(context_enc, continuation_enc, max_seq_len, pad_tok_id, p
             dim=0,
         )
     else:
-        raise ValueError(f'Unknown padding_side {padding_side}')
+        raise ValueError(f"Unknown padding_side {padding_side}. padding_side must be either 'left' or 'right'")
 
     return inp, continuation_span
 
