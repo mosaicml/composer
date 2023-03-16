@@ -247,7 +247,7 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
 
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl', 'hellaswag_small.jsonl'])
-# @device('cpu')
+@device('gpu')
 @pytest.mark.parametrize('num_fewshot', [0, 5])
 def test_mc_task_evaluation(num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tmp_path, tiny_gpt2_model):
     pytest.importorskip('datasets')
@@ -274,8 +274,6 @@ def test_mc_task_evaluation(num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tmp_p
 
     evaluator = Evaluator(label='lambada', dataloader=dl, metric_names=['InContextLearningMultipleChoiceAccuracy'])
 
-    # config = transformers.AutoConfig.from_pretrained('EleutherAI/gpt-neo-125M')
-    # model = transformers.AutoModelForCausalLM.from_config(config)
     model = HuggingFaceModel(
         model=tiny_gpt2_model,
         tokenizer=None,
