@@ -44,12 +44,13 @@ To install composer, once inside the image, run `pip install mosaicml`.
 <!-- END_PYTORCH_BUILD_MATRIX -->
 
 **Note**: The `mosaicml/pytorch:latest`, `mosaicml/pytorch:latest_cpu`,`mosaicml/pytorch_vision:latest` and `mosaicml/pytorch_vision:latest_cpu`
-images will always point to the stable versin of PyTorch which we have battle tested and recommend for production use.  The `latest` label
+images will always point to the stable version of PyTorch which we have battle tested and recommend for production use.  The `latest` label
 may not point to an image with the most recent release of PyTorch, however we do update our images frequently so that newer versions can
 be proven out.
 
 **Note**: Only the images listed in the table above are maintained.  All other images in the DockerHub repository have been deprecated
-and are kept for legacy support.  Legacy images might be cleaned up without notice.
+and are kept for legacy support.  Legacy images might be cleaned up without notice so it's best to migrate to the latest image or re-tag and maintain
+a private copy if you wish to continue using legacy images.
 
 ## Pulling Images
 
