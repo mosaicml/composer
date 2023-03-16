@@ -73,23 +73,15 @@ class LowPrecisionGroupNorm(Algorithm):
 
 class LPGroupNorm(torch.nn.GroupNorm):
 
-    def __init__(self, layer):
+    def __init__(self, num_groups, num_channels, eps=1e-05, affine=True, device=None, dtype=None):
         super().__init__(
-            num_groups=layer.num_groups,
-            num_channels=layer.num_channels,
-            eps=layer.eps,
-            affine=layer.affine,
+            num_groups=num_groups,
+            num_channels=num_channels,
+            eps=eps,
+            affine=affine,
+            device=device,
+            dtype=dtype,
         )
-
-        with torch.no_grad():
-            if layer.weight is None:
-                self.weight = None
-            else:
-                self.weight.copy_(layer.weight)  # type: ignore
-            if layer.bias is None:
-                self.bias = None
-            else:
-                self.bias.copy_(layer.bias)  # type: ignore
 
     def forward(self, x):
         module_device = x.device
@@ -113,6 +105,19 @@ def _cast_if_autocast_enabled(tensor):
 
 
 def _to_LPGroupNorm(layer: torch.nn.Module, module_index: int) -> LPGroupNorm:
+    """Defines a replacement policy from a `torch.nn.GroupNorm` to a `LPGroupNorm`"""
     if not isinstance(layer, torch.nn.GroupNorm):
         raise TypeError(f'Expected torch.nn.GroupNorm, got {type(layer)}')
-    return LPGroupNorm(layer)
+    lp_groupnorm = LPGroupNorm(layer.num_groups, layer.num_channels, layer.eps, layer.affine)
+
+    with torch.no_grad():
+        if layer.weight is None:
+            lp_groupnorm.register_parameter('weight', None)
+        else:
+            lp_groupnorm.weight.copy_(layer.weight)  # type: ignore
+        if layer.bias is None:
+            lp_groupnorm.register_parameter('bias', None)
+        else:
+            lp_groupnorm.bias.copy_(layer.bias)  # type: ignore
+
+    return lp_groupnorm
