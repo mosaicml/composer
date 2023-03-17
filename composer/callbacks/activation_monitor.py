@@ -197,11 +197,12 @@ class ActivationMonitor(Callback):
         metrics[f'activations/max/{name}{suffix}'] = value.max().item()
 
     def compute_kurtosis(self, value: torch.Tensor):
-        mean = value.mean()
+        # Computes the kurtosis over the last dimension's subspace
+        mean = torch.mean(value, dim=-1).unsqueeze(-1)
         diffs = value - mean
-        m_4 = torch.pow(diffs, 4).mean()
-        var = torch.pow(diffs, 2).mean()
-        return m_4 / (var**2)
+        m_4 = torch.mean(torch.pow(diffs, 4), dim=-1)
+        var = torch.mean(torch.pow(diffs, 2), dim=-1)
+        return (m_4 / (var**2)).mean()
 
     def create_module_names(self, model: torch.nn.Module):
         self.module_names = {m: name for name, m in model.named_modules()}
