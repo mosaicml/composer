@@ -199,8 +199,8 @@ class ActivationMonitor(Callback):
     def compute_kurtosis(self, value: torch.Tensor):
         mean = value.mean()
         diffs = value - mean
-        m_4 = torch.pow(diffs, 4).sum()
-        var = torch.pow(diffs, 2).sum()
+        m_4 = torch.pow(diffs, 4).mean()
+        var = torch.pow(diffs, 2).mean()
         return m_4 / (var**2)
 
     def create_module_names(self, model: torch.nn.Module):
