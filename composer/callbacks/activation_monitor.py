@@ -197,7 +197,7 @@ class ActivationMonitor(Callback):
         metrics[f'activations/max/{name}{suffix}'] = value.max().item()
 
     def compute_kurtosis(self, value: torch.Tensor):
-        # Computes the kurtosis over the last dimension's subspace
+        # Computes the kurtosis over the last dimension
         mean = torch.mean(value, dim=-1).unsqueeze(-1)
         diffs = value - mean
         m_4 = torch.mean(torch.pow(diffs, 4), dim=-1)
