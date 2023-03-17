@@ -55,6 +55,10 @@ class ActivationMonitor(Callback):
         | ``activations/l2_norm/MODULE_NAME/input_{n}``         | activations into the current module.                |
         |                                                       |                                                     |
         +-------------------------------------------------------+-----------------------------------------------------+
+        |                                                       | The kurtosis of the values of the nth input         |
+        | ``activations/kurtosis/MODULE_NAME/input_{n}``        | activations into the current module.                |
+        |                                                       |                                                     |
+        +-------------------------------------------------------+-----------------------------------------------------+
         |                                                       | The max value of the nth ouput activations of the   |
         | ``activations/max/MODULE_NAME/output_{n}``            | current module.                                     |
         |                                                       |                                                     |
@@ -67,6 +71,10 @@ class ActivationMonitor(Callback):
         | ``activations/l2_norm/MODULE_NAME/input_{n}``         | of the current module.                              |
         |                                                       |                                                     |
         +-------------------------------------------------------+-----------------------------------------------------+
+        |                                                       | The kurtosis of the values of nth output            |
+        | ``activations/kurtosis/MODULE_NAME/input_{n}``        | activations of the current module.                  |
+        |                                                       |                                                     |
+        +-------------------------------------------------------+-----------------------------------------------------+
 
     Args:
         interval (Union[int, str, Time], optional): Time string specifying how often to attach the logger and log the activations.
@@ -75,13 +83,13 @@ class ActivationMonitor(Callback):
             For example passing in the list ['dropout', 'ln'] will cause the class attributes that contain
             'dropout' or 'ln' to not be logged. Default: 'None'.
         only_log_wandb (bool, optional): A bool that determines if we should only log to Weights and Biases. This is recommended
-            in partcular for larger models as this callback logs a lot. Default: 'False'.
+            in partcular for larger models as this callback logs a lot. Default: 'True'.
     """
 
     def __init__(self,
                  interval: Union[int, str, Time] = '25ba',
                  ignore_module_types: Optional[List[str]] = None,
-                 only_log_wandb: bool = False):
+                 only_log_wandb: bool = True):
         self.ignore_module_types = ignore_module_types
         self.only_log_wandb = only_log_wandb
 
@@ -184,8 +192,16 @@ class ActivationMonitor(Callback):
         if value.is_floating_point() or value.is_complex():
             metrics[f'activations/l2_norm/{name}{suffix}'] = torch.linalg.vector_norm(value).item()
             metrics[f'activations/average/{name}{suffix}'] = value.mean().item()
+            metrics[f'activations/kurtosis/{name}{suffix}'] = self.compute_kurtosis(value).item()
 
         metrics[f'activations/max/{name}{suffix}'] = value.max().item()
+
+    def compute_kurtosis(self, value: torch.Tensor):
+        mean = value.mean()
+        diffs = value - mean
+        m_4 = torch.pow(diffs, 4).sum()
+        var = torch.pow(diffs, 2).sum()
+        return m_4 / (var**2)
 
     def create_module_names(self, model: torch.nn.Module):
         self.module_names = {m: name for name, m in model.named_modules()}
