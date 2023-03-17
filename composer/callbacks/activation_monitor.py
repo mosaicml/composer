@@ -4,7 +4,7 @@
 """Monitor activation values during training."""
 
 from functools import partial
-from typing import List, Optional, Sequence, Union
+from typing import Any, List, Optional, Sequence, Union
 
 import torch
 
@@ -16,39 +16,72 @@ __all__ = ['ActivationMonitor']
 
 
 class ActivationMonitor(Callback):
+    """Logs stats of activation inputs and outputs.
+
+    This callback triggers at a user defined interval, and logs some simple statistics of the inputs, outputs for every
+    torch module. This is done by attaching a forward hook to the module. Additionally, when after we finish logging
+    we detach the forwards hook.
+
+    Example:
+        .. doctest::
+
+            >>> from composer import Trainer
+            >>> from composer.callbacks import ActivationMonitor
+            >>> # constructing trainer object with this callback
+            >>> trainer = Trainer(
+            ...     model=model,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=eval_dataloader,
+            ...     optimizers=optimizer,
+            ...     max_duration="1ep",
+            ...     callbacks=[ActivationMonitor()],
+            ... )
+
+    The metrics are logged by the :class:`.Logger` to the following keys described below. For convenience we have included
+    example metrics logged below:
+
+        +-------------------------------------------------------+-----------------------------------------------------+
+        | Key                                                   | Logged data                                         |
+        +=======================================================+=====================================================+
+        |                                                       | The max value of the nth input activations into     |
+        | ``activations/max/MODULE_NAME/input_{n}``             | the current module.                                 |
+        |                                                       |                                                     |
+        +-------------------------------------------------------+-----------------------------------------------------+
+        |                                                       | The average value of the nth input activations      |
+        | ``activations/average/MODULE_NAME/input_{n}``         | into the current module.                            |
+        |                                                       |                                                     |
+        +-------------------------------------------------------+-----------------------------------------------------+
+        |                                                       | The L2 Norm of the values of the nth input          |
+        | ``activations/l2_norm/MODULE_NAME/input_{n}``         | activations into the current module.                |
+        |                                                       |                                                     |
+        +-------------------------------------------------------+-----------------------------------------------------+
+        |                                                       | The max value of the nth ouput activations of the   |
+        | ``activations/max/MODULE_NAME/output_{n}``            | current module.                                     |
+        |                                                       |                                                     |
+        +-------------------------------------------------------+-----------------------------------------------------+
+        |                                                       | The average value of the nth output activations of  |
+        | ``activations/average/MODULE_NAME/output_{n}``        | the current module.                                 |
+        |                                                       |                                                     |
+        +-------------------------------------------------------+-----------------------------------------------------+
+        |                                                       | The L2 Norm of the values of nth output activations |
+        | ``activations/l2_norm/MODULE_NAME/input_{n}``         | of the current module.                              |
+        |                                                       |                                                     |
+        +-------------------------------------------------------+-----------------------------------------------------+
+
+    Args:
+        interval (Union[int, str, Time], optional): Time string specifying how often to attach the logger and log the activations.
+            For example, ``interval='5ba'`` means every 5 batches we log the activations. Default: '25ba'.
+        ignore_module_types (Optional[List[str]], optional): A list of strings representing the class attributes we should ignore.
+            For example passing in the list ['dropout', 'ln'] will cause the class attributes that contain
+            'dropout' or 'ln' to not be logged. Default: 'None'.
+        only_log_wandb (bool, optional): A bool that determines if we should only log to Weights and Biases. This is recommended
+            in partcular for larger models as this callback logs a lot. Default: 'False'.
+    """
 
     def __init__(self,
-                 recompute_attention_softmax: bool = True,
-                 interval: Union[int, str, Time] = '100ba',
+                 interval: Union[int, str, Time] = '25ba',
                  ignore_module_types: Optional[List[str]] = None,
-                 only_log_wandb: bool = True):
-        """Logs stats of activation inputs and outputs.
-
-        This callback triggers at a user defined interval, and logs some simple statistics of the inputs, outputs for every
-        torch module. This is done by attaching a forward hook to the module. Additionally, when we are not logging
-        we detach the forwards hook.
-
-        Example:
-            .. doctest::
-
-                >>> from composer import Trainer
-                >>> from composer.callbacks import ActivationMonitor
-                >>> # constructing trainer object with this callback
-                >>> trainer = Trainer(
-                ...     model=model,
-                ...     train_dataloader=train_dataloader,
-                ...     eval_dataloader=eval_dataloader,
-                ...     optimizers=optimizer,
-                ...     max_duration="1ep",
-                ...     callbacks=[ActivationMonitor()],
-                ... )
-
-        The metrics are logged by the :class:`.Logger` to the following keys described below. For convenience we have included
-        example metrics logged below:
-
-        """
-
-        self.recompute_attention_softmax = recompute_attention_softmax
+                 only_log_wandb: bool = False):
         self.ignore_module_types = ignore_module_types
         self.only_log_wandb = only_log_wandb
 
@@ -116,18 +149,33 @@ class ActivationMonitor(Callback):
         for i, val in enumerate(input):
             if val is None or isinstance(val, dict):
                 continue
-            self.add_metrics(metrics, module_name, f'_input_{i}', val)
+            self.recursively_add_metrics(metrics, module_name, f'_input.{i}', val)
 
         for i, val in enumerate(output):
             if val is None or isinstance(val, dict):
                 continue
-            self.add_metrics(metrics, module_name, f'_output_{i}', val)
+            self.recursively_add_metrics(metrics, module_name, f'_output.{i}', val)
 
         if self.only_log_wandb:
-            wandb_logger = [ld for ld in logger.destinations if isinstance(ld, WandBLogger)][0]
-            wandb_logger.log_metrics(metrics, step)
+            wandb_loggers = [ld for ld in logger.destinations if isinstance(ld, WandBLogger)]
+            if len(wandb_loggers):
+                for wandb_logger in wandb_loggers:
+                    wandb_logger.log_metrics(metrics, step)
+            else:
+                # In the case there were no WandB loggers, just default to
+                # the standard logger and let it take care of it
+                logger.log_metrics(metrics)
         else:
             logger.log_metrics(metrics)
+
+    def recursively_add_metrics(self, metrics: dict, name: str, suffix: str, values: Any):
+        # Keep recursively diving if the value is a sequence
+        if isinstance(values, Sequence):
+            for i, value in enumerate(values):
+                self.recursively_add_metrics(metrics, f'{name}_{i}', suffix, value)
+            return
+        else:
+            self.add_metrics(metrics, name, suffix, values)
 
     def add_metrics(self, metrics: dict, name: str, suffix: str, value: torch.Tensor):
         # We shouldn't log booleans
@@ -136,6 +184,7 @@ class ActivationMonitor(Callback):
         if value.is_floating_point() or value.is_complex():
             metrics[f'activations/l2_norm/{name}{suffix}'] = torch.linalg.vector_norm(value).item()
             metrics[f'activations/average/{name}{suffix}'] = value.mean().item()
+
         metrics[f'activations/max/{name}{suffix}'] = value.max().item()
 
     def create_module_names(self, model: torch.nn.Module):
