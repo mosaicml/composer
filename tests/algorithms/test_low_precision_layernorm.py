@@ -39,6 +39,13 @@ def assert_is_lpln_instance(model):
 ])
 def test_low_precision_layernorm_functional(model, dataloader, device: str):
     model = model()
+
+    # Remove biases and weights from some LayerNorms to test LPLN robustness
+    if isinstance(model, SimpleTransformerClassifier):
+        model.module[0].net[1].layers[0].norm1.bias = None  # type: ignore
+        model.module[0].net[1].layers[0].norm2.weight = None  # type: ignore
+        model.module[0].net[1].layers[0].norm2.bias = None  # type: ignore
+
     dataloader = dataloader()
     state = State(
         model=model,
@@ -64,6 +71,13 @@ def test_low_precision_layernorm_functional(model, dataloader, device: str):
 ])
 def test_low_precision_layernorm_algorithm(model, dataloader, empty_logger: Logger, device: str):
     model = model()
+
+    # Remove biases and weights from some LayerNorms to test LPLN robustness
+    if isinstance(model, SimpleTransformerClassifier):
+        model.module[0].net[1].layers[0].norm1.bias = None  # type: ignore
+        model.module[0].net[1].layers[0].norm2.weight = None  # type: ignore
+        model.module[0].net[1].layers[0].norm2.bias = None  # type: ignore
+
     dataloader = dataloader()
     state = State(
         model=model,

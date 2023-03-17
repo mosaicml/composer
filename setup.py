@@ -75,7 +75,7 @@ while True:
 install_requires = [
     'pyyaml>=6.0,<7',
     'tqdm>=4.62.3,<5',
-    'torchmetrics>=0.10.0,<0.12.0',
+    'torchmetrics>=0.10.0,<0.11.4',
     'torch_optimizer>=0.3.0,<0.4',
     'torchvision>=0.11.0,<0.15',
     'torch>=1.10.0,<1.14',
@@ -175,7 +175,7 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<5',
+    'transformers>=4.11,<4.27',
     'datasets>=2.4,<3',
 ]
 
