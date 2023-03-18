@@ -208,7 +208,7 @@ class InContextLearningQATaskDataset(Dataset):
             inp, _ = _make_padded_input(context_enc, [],
                                         self.max_seq_len - self.max_answer_length,
                                         self.pad_tok_id,
-                                        padding_side='left')
+                                        padding_side='right')
 
             inputs.append(inp)
             answers.append(aliases)
