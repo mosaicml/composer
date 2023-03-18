@@ -103,12 +103,13 @@ class InContextLearningQATaskDataset(Dataset):
         continuation_delimiter: (str): Separator that goes between context and answer in each example (e.g. '\nA: ')
         destination_path (str): Temporary path to store downloaded datasets
         question_prelimiter (str): String to put before each question (e.g. 'Q: ')
+        padding_side (str): Whether to pad on the left or right side of the sequence
     """
 
     def __init__(self, dataset_uri: str, tokenizer: Union[transformers.PreTrainedTokenizer,
                                                           transformers.PreTrainedTokenizerFast], max_seq_len: int,
                  pad_tok_id: int, num_fewshot: int, prompt_string: str, example_delimiter: str,
-                 continuation_delimiter: str, destination_path: str, question_prelimiter: str):
+                 continuation_delimiter: str, destination_path: str, question_prelimiter: str, padding_side: str):
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
         except ImportError as e:
@@ -128,6 +129,7 @@ class InContextLearningQATaskDataset(Dataset):
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
+        self.padding_side = padding_side
         self.max_answer_length = 0
         self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
                                                   question_prelimiter)
@@ -208,7 +210,7 @@ class InContextLearningQATaskDataset(Dataset):
             inp, _ = _make_padded_input(context_enc, [],
                                         self.max_seq_len - self.max_answer_length,
                                         self.pad_tok_id,
-                                        padding_side='right')
+                                        padding_side=self.padding_side)
 
             inputs.append(inp)
             answers.append(aliases)
@@ -530,18 +532,19 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
 
 
 def get_icl_task_dataloader(
-        icl_task_type: str,
-        dataset_uri: str,
-        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
-        batch_size: int,
-        max_seq_len: int,
-        pad_tok_id: int,
-        num_fewshot: int,
-        prompt_string: str,  # e.g. 'translate english to french:'
-        example_delimiter: str,  # e.g. '\n'
-        continuation_delimiter: str,  # e.g. ''
-        destination_path: str,
-        question_prelimiter: str = ''  # e.g. 'Question: '
+    icl_task_type: str,
+    dataset_uri: str,
+    tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
+    batch_size: int,
+    max_seq_len: int,
+    pad_tok_id: int,
+    num_fewshot: int,
+    prompt_string: str,  # e.g. 'translate english to french:'
+    example_delimiter: str,  # e.g. '\n'
+    continuation_delimiter: str,  # e.g. ''
+    destination_path: str,
+    question_prelimiter: str = '',  # e.g. 'Question: '
+    padding_side: str = 'right',
 ) -> DataSpec:
     """This constructs a dataloader capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
 
@@ -619,7 +622,8 @@ def get_icl_task_dataloader(
                                                  example_delimiter,
                                                  continuation_delimiter,
                                                  destination_path=destination_path,
-                                                 question_prelimiter=question_prelimiter)
+                                                 question_prelimiter=question_prelimiter,
+                                                 padding_side=padding_side)
         effective_batchsize = batch_size
     else:
         raise Exception(f'Unrecognized ICL task type: {icl_task_type}')
