@@ -544,7 +544,7 @@ def get_icl_task_dataloader(
     continuation_delimiter: str,  # e.g. ''
     destination_path: str,
     question_prelimiter: str = '',  # e.g. 'Question: '
-    padding_side: str = 'right',
+    padding_side: str = 'left',
 ) -> DataSpec:
     """This constructs a dataloader capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
 

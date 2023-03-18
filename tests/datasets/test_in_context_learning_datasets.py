@@ -225,7 +225,7 @@ def test_qa_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fews
     assert batch['mode'] == 'generate'
     # the maximum generation length from the small test data
     assert batch['generation_length'] == maximum_answer_length
-    assert all(item[-1] == tokenizer.eos_token_id for item in batch['input_ids'])
+    assert all(item[0] == tokenizer.eos_token_id for item in batch['input_ids'])
 
     decoded_batch = tokenizer.batch_decode(batch['input_ids'])
     assert all([item.count('Q: ') == num_fewshot + 1 for item in decoded_batch])
