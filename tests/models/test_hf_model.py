@@ -87,7 +87,13 @@ def test_hf_train_eval_predict(num_classes: int, tiny_bert_config):
 
 
 def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
-    # below is a best effort attempt to compare two tokenizers for equivalence
+    """This is a best effort attempt to compare two tokenizers for equivalence
+
+    This is not a perfect test, but it should catch most issues. We first check that the vocab is identical
+    and that a string is tokenized the same one. Then we compare the __dict__ of the tokenizers, but we remove
+    some keys that are not important for equivalence. See the inline explanations for each one.
+    """
+    #
     assert tokenizer1.vocab == tokenizer2.vocab
     assert type(tokenizer1) == type(tokenizer2)
 
@@ -104,8 +110,8 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
     tokenizer1.__dict__.pop('deprecation_warnings')
     tokenizer2.__dict__.pop('deprecation_warnings')
 
-    # Name or path will be the path that the tokenizer was loaded from, which will just be a temporary directory for
-    # the reloaded tokenizer
+    # name_or_path will be the path that the tokenizer was loaded from, which will just be a temporary directory for
+    # the reloaded tokenizer, so we remove it and don't compare it between the two tokenizers
     tokenizer1.__dict__.pop('name_or_path')
     tokenizer2.__dict__.pop('name_or_path')
     tokenizer1.init_kwargs.pop('name_or_path', None)
