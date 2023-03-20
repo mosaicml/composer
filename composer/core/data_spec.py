@@ -45,7 +45,6 @@ def _split_tensor(t, microbatch_size: int):
 
 
 def _split_mapping(m, microbatch_size: int):
-    print(m)
     chunked = {}
     for k, v in m.items():
         if isinstance(v, torch.Tensor):
