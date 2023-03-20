@@ -284,9 +284,8 @@ class HuggingFaceModel(ComposerModel):
                 hf_tokenizer = transformers.AutoTokenizer.from_pretrained(_tmp_dir)
 
                 # we need to set the name_or_path back because otherwise it is the tmp dir we are loading from here
-                hf_tokenizer.name_or_path = hf_tokenizer_state['tokenizer_config']['content']['name_or_path']
-                hf_tokenizer.init_kwargs['name_or_path'] = hf_tokenizer_state['tokenizer_config']['content'][
-                    'name_or_path']
+                hf_tokenizer.name_or_path = hf_tokenizer_state['tokenizer_config']['content'].get('name_or_path', '')
+                hf_tokenizer.init_kwargs['name_or_path'] = hf_tokenizer.name_or_path
 
                 # for an unknown reason this key is missing when loading the saved tokenizer, but present with a value of None
                 # for the original tokenizer, so we default it to None
