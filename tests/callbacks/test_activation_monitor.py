@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import pytest
 from torch.utils.data import DataLoader
 
 from composer.callbacks import ActivationMonitor
@@ -13,11 +14,10 @@ from tests.common.models import SimpleModel
 
 def test_activation_monitor():
 
-    # Log every batch for debugging purposes
-    activation_monitor = ActivationMonitor(interval='1ba')
+    with pytest.warns(Warning):
+        activation_monitor = ActivationMonitor(interval='1ba')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     model = SimpleModel()
-
     trainer = Trainer(
         model=model,
         callbacks=activation_monitor,
