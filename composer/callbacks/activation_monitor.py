@@ -3,6 +3,7 @@
 
 """Monitor activation values during training."""
 
+import warnings
 from functools import partial
 from typing import Any, List, Optional, Sequence, Union
 
@@ -43,36 +44,36 @@ class ActivationMonitor(Callback):
         +-------------------------------------------------------+-----------------------------------------------------+
         | Key                                                   | Logged data                                         |
         +=======================================================+=====================================================+
-        |                                                       | The max value of the nth input activations into     |
-        | ``activations/max/MODULE_NAME/input_{n}``             | the current module.                                 |
+        |                                                       | The average max value of the last dimension of the  |
+        | ``activations/max/MODULE_NAME/input_{n}``             | nth input activations into the current module.      |
         |                                                       |                                                     |
         +-------------------------------------------------------+-----------------------------------------------------+
         |                                                       | The average value of the nth input activations      |
         | ``activations/average/MODULE_NAME/input_{n}``         | into the current module.                            |
         |                                                       |                                                     |
         +-------------------------------------------------------+-----------------------------------------------------+
-        |                                                       | The L2 Norm of the values of the nth input          |
-        | ``activations/l2_norm/MODULE_NAME/input_{n}``         | activations into the current module.                |
+        |                                                       | The average L2 Norm of the last dimension of the    |
+        | ``activations/l2_norm/MODULE_NAME/input_{n}``         | nth input activations into the current module.      |
         |                                                       |                                                     |
         +-------------------------------------------------------+-----------------------------------------------------+
-        |                                                       | The kurtosis of the values of the nth input         |
+        |                                                       | The kurtosis of the last dimension of the nth input |
         | ``activations/kurtosis/MODULE_NAME/input_{n}``        | activations into the current module.                |
         |                                                       |                                                     |
         +-------------------------------------------------------+-----------------------------------------------------+
-        |                                                       | The max value of the nth ouput activations of the   |
-        | ``activations/max/MODULE_NAME/output_{n}``            | current module.                                     |
+        |                                                       | The average max value of the last dimension of the  |
+        | ``activations/max/MODULE_NAME/output_{n}``            | nth ouput activations of the current module.        |
         |                                                       |                                                     |
         +-------------------------------------------------------+-----------------------------------------------------+
         |                                                       | The average value of the nth output activations of  |
         | ``activations/average/MODULE_NAME/output_{n}``        | the current module.                                 |
         |                                                       |                                                     |
         +-------------------------------------------------------+-----------------------------------------------------+
-        |                                                       | The L2 Norm of the values of nth output activations |
-        | ``activations/l2_norm/MODULE_NAME/input_{n}``         | of the current module.                              |
+        |                                                       | The average L2 Norm of the values of nth output     |
+        | ``activations/l2_norm/MODULE_NAME/input_{n}``         | activations of the current module.                  |
         |                                                       |                                                     |
         +-------------------------------------------------------+-----------------------------------------------------+
-        |                                                       | The kurtosis of the values of nth output            |
-        | ``activations/kurtosis/MODULE_NAME/input_{n}``        | activations of the current module.                  |
+        |                                                       | The kurtosis of the last dimension of the nth       |
+        | ``activations/kurtosis/MODULE_NAME/input_{n}``        | output activations of the current module.           |
         |                                                       |                                                     |
         +-------------------------------------------------------+-----------------------------------------------------+
 
@@ -102,6 +103,12 @@ class ActivationMonitor(Callback):
             self.interval = Time.from_timestring(interval)
         elif isinstance(interval, Time):
             self.interval = interval
+
+        if self.interval.unit == TimeUnit.BATCH and self.interval < Time.from_timestring('10ba'):
+            warnings.warn(f'Currently the ActivationMonitor`s interval is set to {self.interval} '
+                          f'this is below our recommended value of 10ba. We recommend you raise '
+                          f'the interval to at least 10ba, as the activation monitor adds extra overhead '
+                          f'and is currently adversely impacting throughput performance.')
 
         # Verify that the interval has supported units
         if self.interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
@@ -190,11 +197,12 @@ class ActivationMonitor(Callback):
         if value.dtype == torch.bool:
             return
         if value.is_floating_point() or value.is_complex():
-            metrics[f'activations/l2_norm/{name}{suffix}'] = torch.linalg.vector_norm(value).item()
+            metrics[f'activations/l2_norm/{name}{suffix}'] = torch.linalg.vector_norm(value, dim=-1).mean().item()
             metrics[f'activations/average/{name}{suffix}'] = value.mean().item()
             metrics[f'activations/kurtosis/{name}{suffix}'] = self.compute_kurtosis(value).item()
 
-        metrics[f'activations/max/{name}{suffix}'] = value.max().item()
+            # Because we call max with `dim=-1` we need to call .values to get the actual values
+            metrics[f'activations/max/{name}{suffix}'] = value.max(dim=-1).values.mean().item()
 
     def compute_kurtosis(self, value: torch.Tensor):
         # Computes the kurtosis over the last dimension
