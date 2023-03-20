@@ -128,7 +128,7 @@ For the best experience and the most efficient possible training, we recommend u
 <!-- begin_example_2 --->
 <!--pytest.mark.gpu-->
 <!--pytest.mark.filterwarnings(r'ignore:Some targets have less than 1 total probability:UserWarning')-->
-<!--
+<!--pytest.mark.filterwarnings('ignore:Cannot split tensor of length .* into batches of size 128.*:UserWarning')-->
 ```python
 import torch
 

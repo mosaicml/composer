@@ -98,7 +98,7 @@ A few tips and tricks for using our Trainer:
    means 10 epochs. See: :class:`.Time` for details.
 -  If you are using gradient accumulation, the ``batch_size`` in your
    dataloaders should be the per-device macrobatch size, i.e. the batch size of your
-   optimization update. For example, with ``grad_accum=2`` and
+   optimization update. For example, with ``device_train_microbatch_size=1024`` and
    ``batch_size=2048``, the trainer runs through two microbatches of size 1024
    each, then performs a gradient update step.
 -  At any time, most of the relevant quantities for debugging are
@@ -549,8 +549,8 @@ Gradient Accumulation
 ~~~~~~~~~~~~~~~~~~~~~
 
 Composer supports gradient accumulation, which allows training arbitrary
-logical batch sizes on any hardware by breaking the batch into ``grad_accum``
-different microbatches.
+logical batch sizes on any hardware by breaking the batch into different
+microbatches of size ``device_train_microbatch_size``.
 
 .. code:: python
 
@@ -558,20 +558,20 @@ different microbatches.
 
     trainer = Trainer(
         ...,
-        grad_accum=2,
+        device_train_microbatch_size=2,
     )
 
-If ``grad_accum=auto``, Composer will try to automatically determine the
-smallest ``grad_accum`` which the current hardware supports. In order to support automatic
-gradient accumulation, Composer initially sets ``grad_accum=1``. During the training process,
-if a Cuda Out of Memory Exception is encountered, indicating the current batch size is too
-large for the hardware, Composer catches this exception and continues training after doubling
-``grad_accum``. As a secondary benefit, automatic gradient accumulation is able to dynamically
-adjust throughout the training process. For example, when using :class:`.ProgressiveResizing`, input
-size increases throughout training. Composer automatically increases ``grad_accum`` only when
-required, such as when a Cuda OOM is encountered due to larger images, allowing for faster
-training at the start until image sizes are scaled up. Note that this feature is experimental
-and may not work with all algorithms.
+If ``device_train_microbatch_size=auto``, Composer will try to automatically determine the
+largest ``device_train_microbatch_size`` which the current hardware supports. In order to support
+automatic microbatching, Composer initially sets ``device_train_microbatch_size=batch_size``. During
+the training process, if a Cuda Out of Memory Exception is encountered, indicating the current batch
+size is too large for the hardware, Composer catches this exception and continues training after
+halving ``device_train_microbatch_size``. As a secondary benefit, automatic gradient accumulation is
+able to dynamically adjust throughout the training process. For example, when using
+:class:`.ProgressiveResizing`, input size increases throughout training. Composer automatically
+decreases ``device_train_microbatch_size`` only when required, such as when a Cuda OOM is encountered
+due to larger images, allowing for faster training at the start until image sizes are scaled up. Note
+that this feature is experimental and may not work with all algorithms.
 
 Reproducibility
 ~~~~~~~~~~~~~~~

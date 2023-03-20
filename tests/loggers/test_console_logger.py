@@ -27,6 +27,7 @@ def console_logger_test_stream(console_logger_test_file_path):
     return open(console_logger_test_file_path, 'w')
 
 
+@pytest.mark.filterwarnings('ignore:Cannot split tensor of length .* into batches of size .*:UserWarning')
 @pytest.mark.parametrize('log_interval_unit', ['ba', 'ep'])
 @pytest.mark.parametrize('max_duration_unit', ['ba', 'ep'])
 @pytest.mark.parametrize('log_interval', [1, 2, 3])
@@ -39,14 +40,15 @@ def test_console_logger_interval(console_logger_test_stream, console_logger_test
     batches_per_epoch = math.ceil(dataset_size / batch_size)
 
     model = SimpleModel()
-    trainer = Trainer(model=model,
-                      console_stream=console_logger_test_stream,
-                      console_log_interval=f'{log_interval}{log_interval_unit}',
-                      log_to_console=True,
-                      progress_bar=False,
-                      train_dataloader=DataLoader(RandomClassificationDataset(size=dataset_size),
-                                                  batch_size=batch_size),
-                      max_duration=f'{max_duration}{max_duration_unit}')
+    trainer = Trainer(
+        model=model,
+        console_stream=console_logger_test_stream,
+        console_log_interval=f'{log_interval}{log_interval_unit}',
+        log_to_console=True,
+        progress_bar=False,
+        train_dataloader=DataLoader(RandomClassificationDataset(size=dataset_size), batch_size=batch_size),
+        max_duration=f'{max_duration}{max_duration_unit}',
+    )
     trainer.fit()
     console_logger_test_stream.flush()
     console_logger_test_stream.close()
@@ -95,9 +97,9 @@ def test_console_logger_fit(
     pass_in_fit,
 ):
     batch_size = 4
-    dataset_size = 17
+    dataset_size = 16
     eval_batch_size = 2
-    eval_dataset_size = 25
+    eval_dataset_size = 24
     batches_per_epoch = math.ceil(dataset_size / batch_size)
 
     model = SimpleModel()
@@ -172,9 +174,9 @@ def test_console_logger_eval(
     max_duration_unit,
 ):
     batch_size = 4
-    dataset_size = 17
+    dataset_size = 16
     eval_batch_size = 2
-    eval_dataset_size = 25
+    eval_dataset_size = 24
     batches_per_epoch = math.ceil(dataset_size / batch_size)
 
     model = SimpleModel()
@@ -245,7 +247,7 @@ def test_console_logger_with_a_callback(console_logger_test_stream, console_logg
                                         max_duration, log_interval_unit, max_duration_unit):
 
     batch_size = 4
-    dataset_size = 17
+    dataset_size = 16
     batches_per_epoch = math.ceil(dataset_size / batch_size)
 
     model = SimpleModel()

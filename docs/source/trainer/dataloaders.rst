@@ -35,10 +35,9 @@ Composer dataloaders have type :class:`torch.utils.data.DataLoader`
 
 .. note::
 
-    The ``batch_size`` to the dataloader should be the per-device overall
-    batch size. For example, if you were using ``grad_accum=2`` a batch_size
-    of ``2048`` would mean that each *microbatch* (one forward/backward pass) would
-    have a batch size of ``1024``.
+    The ``batch_size`` to the dataloader should be the per-device overall batch size. For example,
+    if you were using ``device_train_microbatch_size=1024``, a batch_size of ``2048`` would mean
+    that each *microbatch* (one forward/backward pass) would have a batch size of ``1024``.
 
 For performance, we highly recommend:
 
