@@ -249,7 +249,7 @@ class SeqLengthWarmup(Algorithm):
         length increases.
 
         Second, it detects if the batch*max_sequence_length size will cause an OOM and
-        increases state.device_train_microbatch_size accordingly. This logic mirrors the
+        decreases state.device_train_microbatch_size accordingly. This logic mirrors the
         ``device_train_microbatch_size='auto'`` logic in :class:`.Trainer`.
         """
 
