@@ -295,7 +295,7 @@ class MLPerfCallback(Callback):
             self._log_dict({
                 constants.SEED: state.seed,
                 constants.GLOBAL_BATCH_SIZE: batch_size * dist.get_world_size(),
-                constants.GRADIENT_ACCUMULATION_STEPS: state.grad_accum,
+                constants.DEVICE_TRAIN_MICROBATCH_SIZE: state.device_train_microbatch_size,
                 constants.TRAIN_SAMPLES: num_samples,
                 constants.EVAL_SAMPLES: eval_num_samples,
             })

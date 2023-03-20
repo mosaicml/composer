@@ -33,7 +33,7 @@ class Event(StringEnum):
 
                 # <BEFORE_TRAIN_BATCH>
 
-                for microbatch in batch.split(grad_accum):
+                for microbatch in batch.split(device_train_microbatch_size):
 
                     # <BEFORE_FORWARD>
                     outputs = model(batch)

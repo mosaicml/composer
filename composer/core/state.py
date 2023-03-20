@@ -207,13 +207,8 @@ class State(Serializable):
             ``rank_zero_seed + dist.get_global_rank()``.
         run_name (str): The name for this training run.
         device (Device): The device used by this process. The trainer moves the model and loaded data to this device.
-        grad_accum (int, optional): The number of gradient accumulation steps to use. With this argument, micro batch
-            size for each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
-        eval_batch_split (int, optional): The mirror of grad_accum for eval. With this argument, micro batch
-            size for each device becomes ``microbatch_size = eval_batch_size / (num_devices * eval_batch_split)``.
         device_train_microbatch_size (int, optional): The microbatch size for each device during training.
         auto_microbatching (bool, optional): Whether automatic microbatching is enabled.
-        using_device_microbatch_size (bool, optional): Whether device_train_microbatch_size is set by the user.
         train_dataloader (Iterable, optional): Dataloader used for training
         evaluators (Evaluator | Evaluators, optional): :class:`.Evaluator` used for evaluation.
         dataloader (Iterable, optional): The active DataLoader.
@@ -298,7 +293,6 @@ class State(Serializable):
         eval_timestamp (Timestamp): The timestamp for the current evaluation dataloader. This timestamp is reset
             before the dataloader is evaluated. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
             ``0``.
-        grad_accum (int): The number of gradient accumulation steps per batch.
         device_train_microbatch_size (int): The size of each train microbatch per device.
         loss (torch.Tensor | Sequence[torch.Tensor]): The most recently computed loss.
         model (torch.nn.Module): The training model.
@@ -372,11 +366,8 @@ class State(Serializable):
         max_duration: Optional[Union[str, Time[int]]] = None,
 
         # data configurations
-        grad_accum: Optional[int] = 1,
-        eval_batch_split: int = 1,
         device_train_microbatch_size: Optional[int] = None,
         auto_microbatching: bool = False,
-        using_device_microbatch_size: bool = True,
 
         # dataloaders
         train_dataloader: Optional[Iterable] = None,
@@ -411,11 +402,8 @@ class State(Serializable):
         self.model = model
         self.run_name = run_name
         self.device = device
-        self.grad_accum = grad_accum
-        self.eval_batch_split = eval_batch_split
         self.device_train_microbatch_size = device_train_microbatch_size
         self.auto_microbatching = auto_microbatching
-        self.using_device_microbatch_size = using_device_microbatch_size
         self._dataloader_len = None
         self._dataloader = None
         self._dataloader_label = None

@@ -290,6 +290,11 @@ def get_algs_with_marks():
             # FusedLayerNorm requires a GPU in order for the class to exist
             marks.append(pytest.mark.gpu)
 
+        if alg_cls == SelectiveBackprop:
+            marks.append(
+                pytest.mark.filterwarnings(
+                    r'ignore:Cannot split tensor of length .* into batches of size .*:UserWarning'))
+
         if settings is None:
             marks.append(pytest.mark.xfail(reason=f'Algorithm {alg_cls.__name__} is missing settings.'))
 

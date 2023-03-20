@@ -74,7 +74,7 @@ def dummy_state(
         run_name='dummy_run_name',
         device=device,
         precision='fp32',
-        grad_accum=1,
+        device_train_microbatch_size=1,
         rank_zero_seed=rank_zero_seed,
         optimizers=optimizer,
         max_duration='10ep',
