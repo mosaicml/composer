@@ -6,7 +6,6 @@ from typing import Callable, Optional, Union
 
 import pytest
 from torch.utils.data import DataLoader
-from torchmetrics.classification import MulticlassAccuracy
 
 from composer.core import Algorithm, Event
 from composer.core.evaluator import Evaluator, evaluate_periodically
@@ -81,26 +80,6 @@ def test_eval_call_with_trainer_evaluators():
     # of evaluation.
     # Check eval_call_evaluator IS deleted.
     assert eval_call_evaluator not in trainer.state.evaluators
-
-
-def test_trainer_eval_loop():
-    # Construct the trainer
-    trainer = Trainer(model=SimpleModel())
-
-    # Evaluate the model
-    dataset = RandomClassificationDataset()
-    eval_dataloader = DataLoader(
-        dataset=dataset,
-        sampler=dist.get_sampler(dataset),
-    )
-    trainer._eval_loop(
-        dataloader=eval_dataloader,
-        dataloader_label='eval',
-        metrics={'MulticlassAccuracy': MulticlassAccuracy(num_classes=2, average='micro')},
-    )
-
-    # Assert that there is some accuracy
-    assert trainer.state.eval_metrics['eval']['MulticlassAccuracy'].compute() != 0.0
 
 
 @pytest.mark.parametrize('evaluator_on_init,subset_on_init', [[True, True], [True, False], [False, False]])

@@ -68,7 +68,7 @@ def test_ddp_sync_strategy(
         run_name='run_name',
         device=device,
         optimizers=optimizer,
-        grad_accum=2,
+        device_train_microbatch_size=1,
         max_duration='1ep',
         dataloader=DataLoader(RandomClassificationDataset()),
         dataloader_label='train',
