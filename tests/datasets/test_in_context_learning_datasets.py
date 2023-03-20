@@ -15,6 +15,7 @@ from composer.loggers import InMemoryLogger
 from composer.metrics import InContextLearningLMAccuracy, InContextLearningMultipleChoiceAccuracy
 from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
+from composer.utils import reproducibility
 from tests.common import device
 
 
@@ -248,18 +249,21 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl', 'hellaswag_small.jsonl'])
 @device('gpu')
 @pytest.mark.parametrize('num_fewshot', [0, 5])
-def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tmp_path):
+def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tmp_path, tiny_gpt2_model):
     pytest.importorskip('datasets')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_gpt2_tokenizer
+
+    # seed because the fewshot selection is currently unseeded
+    reproducibility.seed_all(1234)
     dl = get_icl_task_dataloader(
         'multiple_choice',
         dataset_uri,
         tokenizer,
         8,
-        max_seq_len=2048,
+        max_seq_len=1024,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
         prompt_string='',
@@ -270,10 +274,8 @@ def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenize
 
     evaluator = Evaluator(label='lambada', dataloader=dl, metric_names=['InContextLearningMultipleChoiceAccuracy'])
 
-    config = transformers.AutoConfig.from_pretrained('EleutherAI/gpt-neo-125M')
-    model = transformers.AutoModelForCausalLM.from_config(config)
     model = HuggingFaceModel(
-        model=model,
+        model=tiny_gpt2_model,
         tokenizer=None,
         eval_metrics=[InContextLearningMultipleChoiceAccuracy()],
         use_logits=True,
