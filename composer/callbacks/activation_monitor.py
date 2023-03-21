@@ -161,16 +161,23 @@ class ActivationMonitor(Callback):
                     return
 
         metrics = {}
+        if input is not None:
+            for i, val in enumerate(input):
+                if val is None or isinstance(val, dict):
+                    continue
+                if isinstance(val, str) and isinstance(input, dict):
+                    self.recursively_add_metrics(metrics, module_name, f'_input.{i}', output[val])  # type: ignore
+                else:
+                    self.recursively_add_metrics(metrics, module_name, f'_input.{i}', val)
 
-        for i, val in enumerate(input):
-            if val is None or isinstance(val, dict):
-                continue
-            self.recursively_add_metrics(metrics, module_name, f'_input.{i}', val)
-
-        for i, val in enumerate(output):
-            if val is None or isinstance(val, dict):
-                continue
-            self.recursively_add_metrics(metrics, module_name, f'_output.{i}', val)
+        if output is not None:
+            for i, val in enumerate(output):
+                if val is None or isinstance(val, dict):
+                    continue
+                if isinstance(val, str) and isinstance(output, dict):
+                    self.recursively_add_metrics(metrics, module_name, f'_output.{i}', output[val])  # type: ignore
+                else:
+                    self.recursively_add_metrics(metrics, module_name, f'_output.{i}', val)
 
         if self.only_log_wandb:
             wandb_loggers = [ld for ld in logger.destinations if isinstance(ld, WandBLogger)]
@@ -185,6 +192,9 @@ class ActivationMonitor(Callback):
             logger.log_metrics(metrics)
 
     def recursively_add_metrics(self, metrics: dict, name: str, suffix: str, values: Any):
+        # Becuase of the recursive diving, we need this call to prevent infinite recursion.
+        if isinstance(values, str):
+            return
         # Keep recursively diving if the value is a sequence
         if isinstance(values, Sequence):
             for i, value in enumerate(values):
