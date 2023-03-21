@@ -19,7 +19,7 @@
 # must be mentioned for each rule below.
 /composer/algorithms/ @dskhudia @mvpatel2000 @nik-mosaic
 /composer/cli/ @mosaicml/composer-team-eng
-/composer/datasets/ @knighton @karan6181
+/composer/datasets/ @mosaicml/composer-team-eng
 /composer/functional/ @dblalock @mvpatel2000
 /composer/loggers/ @eracah @dakinggg
 /composer/loss/ @mosaicml/composer-team-eng

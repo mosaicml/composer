@@ -8,8 +8,8 @@ import torch
 from torch.nn.functional import cross_entropy
 
 from composer.metrics.nlp import (BinaryF1Score, HFCrossEntropy, InContextLearningLMAccuracy,
-                                  InContextLearningMultipleChoiceAccuracy, LanguageCrossEntropy, LanguagePerplexity,
-                                  MaskedAccuracy, Perplexity)
+                                  InContextLearningMultipleChoiceAccuracy, InContextLearningQAAccuracy,
+                                  LanguageCrossEntropy, LanguagePerplexity, MaskedAccuracy, Perplexity)
 
 
 @pytest.mark.parametrize('ignore_index', [-100])
@@ -27,7 +27,7 @@ def test_masked_accuracy(ignore_index, num_classes):
     """
     batch_size = int(1e4)
     torchmetrics_masked_acc = MaskedAccuracy(ignore_index=ignore_index)
-    # we're only testing binary accuracy -- expecteed accuracy should be 50%
+    # we're only testing binary accuracy -- expected accuracy should be 50%
     generated_preds = torch.rand((batch_size, num_classes))
     true_labels = torch.randint(low=0, high=num_classes - 1, size=(batch_size,))
 
@@ -271,6 +271,16 @@ def test_in_context_learning_lm_accuracy(tiny_gpt2_tokenizer):
     assert metric.compute() == 0.75
 
 
+def test_in_context_learning_qa_accuracy():
+    outputs = ['Correct but then some more text', 'Incorrect', ' the CORREct with weird casing and spacing']
+    labels = [['Correct'], ['blah', 'blah2'], ['blah', 'correct']]
+
+    metric = InContextLearningQAAccuracy()
+    metric.update(outputs, labels)
+
+    assert metric.compute() == (2 / 3)
+
+
 def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):
     contexts = [
         'Q: How do you cook a cake?', 'Q: How do you cook a cake?', 'Q: How old is the earth?',
@@ -307,7 +317,7 @@ def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):
     logits[1][start:end] = logits[0][start:end].clone()
 
     # for the last two, the correct answer is continuation 3
-    # make the answer incorrect by maing continuation 2 more likely for both answers
+    # make the answer incorrect by making continuation 2 more likely for both answers
     start, end = cont_idxs[3].tolist()[0], cont_idxs[3].tolist()[-1]
     logits[3][start:end] = logits[2][start:end].clone()
 

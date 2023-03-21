@@ -22,8 +22,9 @@ from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
 from composer.utils import dist, is_model_fsdp
 from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset
+from tests.common.markers import device, world_size
 from tests.common.models import (configure_tiny_bert_model, configure_tiny_bert_tokenizer, configure_tiny_gpt2_model,
-                                 configure_tiny_gpt2_tokenizer)
+                                 configure_tiny_gpt2_tokenizer, configure_tiny_t5_model, configure_tiny_t5_tokenizer)
 from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
 
 
@@ -87,7 +88,13 @@ def test_hf_train_eval_predict(num_classes: int, tiny_bert_config):
 
 
 def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
-    # below is a best effort attempt to compare two tokenizers for equivalence
+    """This is a best effort attempt to compare two tokenizers for equivalence
+
+    This is not a perfect test, but it should catch most issues. We first check that the vocab is identical
+    and that a string is tokenized the same one. Then we compare the __dict__ of the tokenizers, but we remove
+    some keys that are not important for equivalence. See the inline explanations for each one.
+    """
+    #
     assert tokenizer1.vocab == tokenizer2.vocab
     assert type(tokenizer1) == type(tokenizer2)
 
@@ -103,6 +110,13 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
     # extra key that is not important
     tokenizer1.__dict__.pop('deprecation_warnings')
     tokenizer2.__dict__.pop('deprecation_warnings')
+
+    # name_or_path will be the path that the tokenizer was loaded from, which will just be a temporary directory for
+    # the reloaded tokenizer, so we remove it and don't compare it between the two tokenizers
+    tokenizer1.__dict__.pop('name_or_path')
+    tokenizer2.__dict__.pop('name_or_path')
+    tokenizer1.init_kwargs.pop('name_or_path', None)
+    tokenizer2.init_kwargs.pop('name_or_path', None)
 
     # tokenizer.init_kwargs['model_max_length'] is unset when the tokenizer does not specify it, but is set
     # to a very large number when you save and reload, so here we just check that its the same if it is present in
@@ -211,10 +225,6 @@ def test_hf_state_dict_info(tmp_path: Path, pass_in_tokenizer: bool, modify_toke
                             _tmp_file.write(line)
                             _tmp_file.write('\n')
             loaded_tokenizer = transformers.AutoTokenizer.from_pretrained(_tmp_dir)
-            # we need to set the name_or_path back because otherwise it is the tmp dir we are loading from here
-            loaded_tokenizer.name_or_path = hf_tokenizer_state['tokenizer_config']['content']['name_or_path']
-            loaded_tokenizer.init_kwargs['name_or_path'] = hf_tokenizer_state['tokenizer_config']['content'][
-                'name_or_path']
 
         # for an unknown reason this key is missing when loading the saved tokenizer, but present with a value of None
         # for the original tokenizer
@@ -649,3 +659,114 @@ def test_embedding_resizing(tiny_bert_model, tiny_bert_tokenizer, embedding_resi
             assert len(caplog.messages) == 0
         else:
             raise ValueError(f'Unknown embedding_resize: {embedding_resize}')
+
+
+@device('cpu', 'gpu')
+@world_size(1, 2)
+@pytest.mark.parametrize('use_fsdp', [True, False])
+@pytest.mark.parametrize('hf_model,hf_tokenizer', [(configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer),
+                                                   (configure_tiny_t5_model, configure_tiny_t5_tokenizer)])
+def test_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
+    transformers = pytest.importorskip('transformers')
+    if device == 'cpu' and use_fsdp:
+        pytest.skip('FSDP is not supported on CPU.')
+    if world_size == 1 and use_fsdp:
+        pytest.xfail((
+            'Generation with world size 1 and FSDP fails with '
+            '`RuntimeError: The tensor has a non-zero number of elements, '
+            'but its data is not allocated yet. Caffe2 uses a lazy allocation, '
+            'so you will need to call mutable_data() or raw_mutable_data() to actually allocate memory.` '
+            'This issue is resolved with world size > 1 by a dummy call to forward (see HuggingFaceModel.dummy_forward_called), '
+            'but for some reason fails with world size 1.'))
+
+    fsdp_config = None
+    if use_fsdp:
+        fsdp_config = {
+            'sharding_strategy': 'FULL_SHARD',
+        }
+
+    hf_model = hf_model()
+    hf_tokenizer = hf_tokenizer()
+
+    model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, use_logits=True)
+
+    # just instantiating Trainer to go through the normal FSDP code path
+    trainer = Trainer(model=model, fsdp_config=fsdp_config, device=device)
+
+    device = trainer.state.device
+
+    if isinstance(hf_tokenizer, transformers.models.gpt2.tokenization_gpt2_fast.GPT2TokenizerFast):
+        hf_tokenizer.padding_side = 'left'
+    input_dict = hf_tokenizer(['hello', 'goodbyes'], return_tensors='pt', padding=True)
+    for k, v in input_dict.items():
+        input_dict[k] = device.tensor_to_device(v)
+
+    generation1 = model.generate(**input_dict, max_new_tokens=5, pad_token_id=hf_tokenizer.pad_token_id)
+    generation2 = model.generate(**input_dict, max_new_tokens=3, pad_token_id=hf_tokenizer.pad_token_id)
+
+    assert generation1.shape == (2,
+                                 (input_dict['input_ids'].shape[1] if not hf_model.config.is_encoder_decoder else 1) +
+                                 5)
+    assert generation2.shape == (2,
+                                 (input_dict['input_ids'].shape[1] if not hf_model.config.is_encoder_decoder else 1) +
+                                 3)
+
+    decoded_generation1 = hf_tokenizer.batch_decode(generation1, skip_special_tokens=True)
+    decoded_generation2 = hf_tokenizer.batch_decode(generation2, skip_special_tokens=True)
+
+    assert len(decoded_generation1) == len(decoded_generation2) == 2
+    assert all(isinstance(decoded_generation, str) for decoded_generation in decoded_generation1)
+    assert all(isinstance(decoded_generation, str) for decoded_generation in decoded_generation2)
+
+
+@device('cpu', 'gpu')
+@world_size(1, 2)
+@pytest.mark.parametrize('use_fsdp', [True, False])
+@pytest.mark.parametrize('hf_model,hf_tokenizer', [(configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer),
+                                                   (configure_tiny_t5_model, configure_tiny_t5_tokenizer)])
+def test_eval_forward_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
+    transformers = pytest.importorskip('transformers')
+    if device == 'cpu' and use_fsdp:
+        pytest.skip('FSDP is not supported on CPU.')
+    if world_size == 1 and use_fsdp:
+        pytest.xfail((
+            'Generation with world size 1 and FSDP fails with '
+            '`RuntimeError: The tensor has a non-zero number of elements, '
+            'but its data is not allocated yet. Caffe2 uses a lazy allocation, '
+            'so you will need to call mutable_data() or raw_mutable_data() to actually allocate memory.` '
+            'This issue is resolved with world size > 1 by a dummy call to forward (see HuggingFaceModel.dummy_forward_called), '
+            'but for some reason fails with world size 1.'))
+
+    fsdp_config = None
+    if use_fsdp:
+        fsdp_config = {
+            'sharding_strategy': 'FULL_SHARD',
+        }
+
+    hf_model = hf_model()
+    hf_tokenizer = hf_tokenizer()
+
+    model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, use_logits=True)
+
+    # just instantiating Trainer to go through the normal FSDP code path
+    trainer = Trainer(model=model, fsdp_config=fsdp_config, device=device)
+
+    device = trainer.state.device
+
+    if isinstance(hf_tokenizer, transformers.models.gpt2.tokenization_gpt2_fast.GPT2TokenizerFast):
+        hf_tokenizer.padding_side = 'left'
+    input_dict = hf_tokenizer(['hello', 'goodbyes'], return_tensors='pt', padding=True)
+    for k, v in input_dict.items():
+        input_dict[k] = device.tensor_to_device(v)
+    input_dict['mode'] = 'generate'
+
+    input_dict['generation_length'] = 5
+    input_dict['labels'] = [['answer1'], ['answer2']]
+    generation1 = model.eval_forward(input_dict, None)
+    input_dict['generation_length'] = 3
+    input_dict['labels'] = [['answer1'], ['answer2']]
+    generation2 = model.eval_forward(input_dict, None)
+
+    assert len(generation1) == len(generation2) == 2
+    assert all(isinstance(decoded_generation, str) for decoded_generation in generation1)
+    assert all(isinstance(decoded_generation, str) for decoded_generation in generation2)

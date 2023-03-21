@@ -435,41 +435,6 @@ class TestTrainerInitOrFit:
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
-    def test_grad_accum(
-        self,
-        train_dataloader: DataLoader,
-        model: ComposerModel,
-        max_duration: Time[int],
-    ):
-        grad_accum = 2
-
-        # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
-        copied_model = copy.deepcopy(model)
-
-        # Train once with the grad_accum param on Trainer.__init__()
-        init_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
-        init_trainer = Trainer(
-            model=model,
-            max_duration=max_duration,
-            train_dataloader=train_dataloader,
-            grad_accum=grad_accum,
-            callbacks=[init_event_counter_callback],
-        )
-        init_trainer.fit()
-
-        # Train again with the grad_accum param specified on Trainer.fit()
-        fit_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
-        fit_trainer = Trainer(
-            model=copied_model,
-            max_duration=max_duration,
-            train_dataloader=train_dataloader,
-            callbacks=[fit_event_counter_callback],
-        )
-        fit_trainer.fit(grad_accum=grad_accum)
-
-        # Assert that the states are equivalent
-        assert_state_equivalent(init_trainer.state, fit_trainer.state)
-
     @pytest.mark.gpu
     @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])
     @pytest.mark.filterwarnings('ignore::UserWarning')
@@ -1039,23 +1004,6 @@ class TestTrainerEquivalence():
 
         self.assert_models_equal(trainer.state.model, self.reference_model, threshold=threshold)
 
-    def test_grad_accum_size(self, config, precision, *args):
-        # grad accum requires non-zero tolerance
-        # Precision.AMP_FP16 requires a even higher tolerance.
-        threshold = {
-            'atol': 1e-04 if precision == Precision.AMP_FP16 else 1e-05,
-            'rtol': 1e-02 if precision == Precision.AMP_FP16 else 1e-04,
-        }
-
-        config.update({
-            'grad_accum': 2,
-        })
-
-        trainer = Trainer(**config)
-        trainer.fit()
-
-        self.assert_models_equal(trainer.state.model, self.reference_model, threshold=threshold)
-
     def test_max_duration(self, config, *args):
         num_batches = 2 * len(config['train_dataloader'])  # convert 2ep to batches
         config['max_duration'] = f'{num_batches}ba'
@@ -1155,10 +1103,8 @@ class AssertDataAugmented(Callback):
         self.dataset = dataset
 
     def after_forward(self, state, logger):
-        if state.using_device_microbatch_size and state.device_train_microbatch_size != state.train_dataloader.batch_size:  # type: ignore
+        if state.device_train_microbatch_size != state.train_dataloader.batch_size:  # type: ignore
             raise ValueError('This check assumes device_train_microbatch_size == batch_size')
-        elif not state.using_device_microbatch_size and state.grad_accum != 1:
-            raise ValueError(f'This check assumes grad_accum of 1, got {state.grad_accum}')
         batch_idx = state.timestamp.batch_in_epoch.value
         batch_size = len(state.batch[0])
         original_batch = self.dataset[batch_idx:batch_idx + batch_size]

@@ -285,7 +285,7 @@ def _main():
                       load_path=args.load_checkpoint_path,
                       device=device,
                       precision=precision,
-                      grad_accum='auto',
+                      device_train_microbatch_size='auto',
                       seed=args.seed)
     logging.info('Built Trainer\n')
 

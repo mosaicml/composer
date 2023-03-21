@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """A collection of common torchmetrics for NLP tasks."""
+import re
+import string
 import warnings
-from typing import Mapping, Optional, Union
+from typing import List, Mapping, Optional, Union
 
 import torch
 from torch import Tensor
@@ -285,6 +287,75 @@ class InContextLearningMetric(Metric):
             NotImplementedError: Abstract method must be implemented by subclasses
         """
         raise NotImplementedError
+
+
+class InContextLearningQAAccuracy(InContextLearningMetric):
+    r"""Computes accuracy for In-context learning (ICL) question answering (QA) tasks.
+
+    ICL QA tasks consist of some number of example question answering tasks (referred to as the 'context'), followed by a test task where the model must
+    match one of the possible answer aliases (referred to as the 'continuation').
+
+    For example, the model may be provided the context below and evaluated on its ability to correctly predict the continuation.
+
+    Context: `Question: Who was president of the United States in 2012?\nAnswer: Barack Obama\nQuestion: Is water wet?\nAnswer: `
+    Continuation: [`yes`, `no`]
+
+    Both predictions and answers will be normalized before comparison.
+
+    Adds metric state variables:
+        correct (float): The number of instances where the prediction was a prefix for any of the answer aliases.
+        total (float): The number of total instances that were predicted.
+
+    Args:
+        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
+            each forward() before returning the value at the step. Default: ``False``.
+    """
+
+    # Make torchmetrics call update only once
+    full_state_update = False
+
+    def __init__(self, dist_sync_on_step: bool = False):
+        # state from multiple processes
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
+
+    def normalize_answer(self, answer: str):
+        """Lower text and remove punctuation, articles and extra whitespace.
+
+        Copied from https://github.com/mandarjoshi90/triviaqa/blob/master/evaluation/triviaqa_evaluation.py
+        """
+
+        def remove_articles(text: str) -> str:
+            return re.sub(r'\b(a|an|the)\b', ' ', text)
+
+        def white_space_fix(text: str) -> str:
+            return ' '.join(text.split())
+
+        def handle_punc(text: str) -> str:
+            exclude = set(string.punctuation + ''.join([u'‘', u'’', u'´', u'`']))
+            return ''.join(ch if ch not in exclude else ' ' for ch in text)
+
+        def lower(text: str) -> str:
+            return text.lower()
+
+        def replace_underscore(text: str) -> str:
+            return text.replace('_', ' ')
+
+        return white_space_fix(remove_articles(handle_punc(lower(replace_underscore(answer))))).strip()
+
+    def update(self, outputs: List[str], labels: List[List[str]]):
+        for sample_output, sample_labels in zip(outputs, labels):
+            cleaned_sample_output = self.normalize_answer(sample_output)
+            cleaned_sample_labels = set(self.normalize_answer(label) for label in sample_labels)
+            if any(cleaned_sample_output.startswith(label) for label in cleaned_sample_labels):
+                self.correct += torch.tensor(1.0)
+            self.total += torch.tensor(1.0)
+
+    def compute(self):
+        assert isinstance(self.correct, Tensor)
+        assert isinstance(self.total, Tensor)
+        return self.correct / self.total
 
 
 class InContextLearningLMAccuracy(InContextLearningMetric):

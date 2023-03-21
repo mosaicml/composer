@@ -99,7 +99,7 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
     if notebook_name == 'training_with_submitit':
         pytest.skip('The CI does not support SLURM and submitit')
     if notebook_name == 'auto_microbatching' and device == 'cpu':
-        pytest.skip('auto_grad_accum notebook only runs with a gpu')
+        pytest.skip('auto_microbatching notebook only runs with a gpu')
     if notebook_name == 'TPU_Training_in_composer':
         pytest.skip('The CI does not support tpus')
     if notebook_name == 'ffcv_dataloaders' and device == 'cpu':
