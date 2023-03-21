@@ -1,10 +1,14 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import numpy as np
 import pytest
+import scipy
+import torch
 from torch.utils.data import DataLoader
 
 from composer.callbacks import ActivationMonitor
+from composer.callbacks.activation_monitor import compute_kurtosis
 from composer.loggers import InMemoryLogger
 from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
@@ -39,3 +43,10 @@ def test_activation_monitor():
     assert 'activations/max/module.0_input.0' in in_memory_logger.data.keys()
     assert 'activations/average/module.0_input.0' in in_memory_logger.data.keys()
     assert 'activations/kurtosis/module.0_input.0' in in_memory_logger.data.keys()
+
+
+def test_kurtosis_computation():
+    x = torch.randn((2, 3, 4))
+    res = compute_kurtosis(x)
+    scipy_res = scipy.stats.kurtosis(x.numpy(), axis=-1, fisher=False).mean()
+    assert np.allclose(res.numpy(), scipy_res, rtol=1e-4)

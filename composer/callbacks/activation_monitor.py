@@ -38,41 +38,42 @@ class ActivationMonitor(Callback):
             ...     callbacks=[ActivationMonitor()],
             ... )
 
-    The metrics are logged by the :class:`.Logger` to the following keys described below. For convenience we have included
-    example metrics logged below:
+    The metrics are logged by the :class:`.Logger` to the following keys described below. Over an input of shape
+    (batch, hid_dim), (batch, seq_len, hid_dim), etc. we compute statistics across `hid_dim` then take the average
+    of these statistics. For convenience we have included example metrics logged:
 
         +-------------------------------------------------------+-----------------------------------------------------+
         | Key                                                   | Logged data                                         |
         +=======================================================+=====================================================+
-        |                                                       | The average max value of the last dimension of the  |
+        |                                                       | The average max value of the `hid_dim` of the       |
         | ``activations/max/MODULE_NAME/input_{n}``             | nth input activations into the current module.      |
         |                                                       |                                                     |
         +-------------------------------------------------------+-----------------------------------------------------+
-        |                                                       | The average value of the nth input activations      |
-        | ``activations/average/MODULE_NAME/input_{n}``         | into the current module.                            |
+        |                                                       | The average value of the `hid_dim` input            |
+        | ``activations/average/MODULE_NAME/input_{n}``         | activations into the current module.                |
         |                                                       |                                                     |
         +-------------------------------------------------------+-----------------------------------------------------+
-        |                                                       | The average L2 Norm of the last dimension of the    |
+        |                                                       | The average L2 Norm of the `hid_dim` of the         |
         | ``activations/l2_norm/MODULE_NAME/input_{n}``         | nth input activations into the current module.      |
         |                                                       |                                                     |
         +-------------------------------------------------------+-----------------------------------------------------+
-        |                                                       | The kurtosis of the last dimension of the nth input |
-        | ``activations/kurtosis/MODULE_NAME/input_{n}``        | activations into the current module.                |
+        |                                                       | The average kurtosis of the `hid_dim` of the nth    |
+        | ``activations/kurtosis/MODULE_NAME/input_{n}``        | input activations into the current module.          |
         |                                                       |                                                     |
         +-------------------------------------------------------+-----------------------------------------------------+
-        |                                                       | The average max value of the last dimension of the  |
+        |                                                       | The average max value of the `hid_dim` of the       |
         | ``activations/max/MODULE_NAME/output_{n}``            | nth ouput activations of the current module.        |
         |                                                       |                                                     |
         +-------------------------------------------------------+-----------------------------------------------------+
-        |                                                       | The average value of the nth output activations of  |
-        | ``activations/average/MODULE_NAME/output_{n}``        | the current module.                                 |
+        |                                                       | The average value of the `hid_dim` of the output    |
+        | ``activations/average/MODULE_NAME/output_{n}``        | activations of the current module.                  |
         |                                                       |                                                     |
         +-------------------------------------------------------+-----------------------------------------------------+
-        |                                                       | The average L2 Norm of the values of nth output     |
+        |                                                       | The average L2 Norm of the values of the `hid_dim`  |
         | ``activations/l2_norm/MODULE_NAME/input_{n}``         | activations of the current module.                  |
         |                                                       |                                                     |
         +-------------------------------------------------------+-----------------------------------------------------+
-        |                                                       | The kurtosis of the last dimension of the nth       |
+        |                                                       | The average kurtosis of the `hid_dim` of the nth    |
         | ``activations/kurtosis/MODULE_NAME/input_{n}``        | output activations of the current module.           |
         |                                                       |                                                     |
         +-------------------------------------------------------+-----------------------------------------------------+
@@ -199,18 +200,19 @@ class ActivationMonitor(Callback):
         if value.is_floating_point() or value.is_complex():
             metrics[f'activations/l2_norm/{name}{suffix}'] = torch.linalg.vector_norm(value, dim=-1).mean().item()
             metrics[f'activations/average/{name}{suffix}'] = value.mean().item()
-            metrics[f'activations/kurtosis/{name}{suffix}'] = self.compute_kurtosis(value).item()
+            metrics[f'activations/kurtosis/{name}{suffix}'] = compute_kurtosis(value).item()
 
             # Because we call max with `dim=-1` we need to call .values to get the actual values
             metrics[f'activations/max/{name}{suffix}'] = value.max(dim=-1).values.mean().item()
 
-    def compute_kurtosis(self, value: torch.Tensor):
-        # Computes the kurtosis over the last dimension
-        mean = torch.mean(value, dim=-1).unsqueeze(-1)
-        diffs = value - mean
-        m_4 = torch.mean(torch.pow(diffs, 4), dim=-1)
-        var = torch.mean(torch.pow(diffs, 2), dim=-1)
-        return (m_4 / (var**2)).mean()
-
     def create_module_names(self, model: torch.nn.Module):
         self.module_names = {m: name for name, m in model.named_modules()}
+
+
+def compute_kurtosis(value: torch.Tensor):
+    # Computes the kurtosis over the last dimension
+    mean = torch.mean(value, dim=-1).unsqueeze(-1)
+    diffs = value - mean
+    m_4 = torch.mean(torch.pow(diffs, 4), dim=-1)
+    var = torch.mean(torch.pow(diffs, 2), dim=-1)
+    return (m_4 / (var**2)).mean()
