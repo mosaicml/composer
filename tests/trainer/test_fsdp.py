@@ -13,12 +13,14 @@ from tests.common import EmbeddedWeightTiedModel, RandomClassificationDataset, S
 
 
 @pytest.mark.parametrize('model', [SimpleWeightTiedModel, EmbeddedWeightTiedModel])
+@pytest.mark.parametrize('mixed_precision', ['FULL', 'DEFAULT', 'PURE'])
 @pytest.mark.parametrize('device', ['cpu', 'meta'])
+@pytest.mark.parametrize('reentrant', [True, False])
 @pytest.mark.filterwarnings('ignore::UserWarning')
 @pytest.mark.gpu
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
-def test_fsdp_device_initialization(model: ComposerClassifier, device: str):
+def test_fsdp_device_initialization(model: ComposerClassifier, mixed_precision: str, device: str, reentrant: bool):
     """test FSDP device initialization for a simple model with weight tying and a model where two modules
     from separate submodules have weight tying applied. This test also covers both 'cpu' and
     'meta' devices. This is because 'meta' will result in deferred initialization until FSDP is initialized
@@ -34,19 +36,24 @@ def test_fsdp_device_initialization(model: ComposerClassifier, device: str):
         model=model,
         optimizers=optimizer,
         train_dataloader=dataloader,
-        fsdp_config={},
+        fsdp_config={
+            'activation_checkpointing_reentrant': reentrant,
+            'mixed_precision': mixed_precision
+        },
         max_duration='3ba',
     )
 
     trainer.fit()
     if isinstance(model, SimpleWeightTiedModel):
-        weight_1 = model.mlp.fc1.weight
-        weight_2 = model.mlp.fc2.weight
-        assert (id(weight_1) == id(weight_2))
-        assert (torch.equal(weight_1, weight_2))
+        with trainer.state.model.module.summon_full_params(trainer.state.model.module):  # type: ignore
+            weight_1 = model.mlp.fc1.weight
+            weight_2 = model.mlp.fc2.weight
+            assert (id(weight_1) == id(weight_2))
+            assert (torch.equal(weight_1, weight_2))
 
     if isinstance(model, EmbeddedWeightTiedModel):
-        weight_1 = model.net1.fc1.weight
-        weight_2 = model.net2.fc1.weight
-        assert (id(weight_1) == id(weight_2))
-        assert (torch.equal(weight_1, weight_2))
+        with trainer.state.model.module.summon_full_params(trainer.state.model.module):  # type: ignore
+            weight_1 = model.net1.fc1.weight
+            weight_2 = model.net2.fc1.weight
+            assert (id(weight_1) == id(weight_2))
+            assert (torch.equal(weight_1, weight_2))

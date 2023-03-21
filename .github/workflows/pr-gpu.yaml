@@ -20,9 +20,11 @@ jobs:
             container: mosaicml/pytorch_vision:1.13.1_cu117-python3.10-ubuntu20.04
             markers: 'not daily and not remote and gpu and (vision or not vision) and (doctest or not doctest)'
             pytest_command: 'coverage run -m pytest'
+            composer_package_name: 'mosaicml'
     name: ${{ matrix.name }}
     if: github.repository_owner == 'mosaicml'
     with:
+      composer_package_name: ${{ matrix.composer_package_name }}
       container: ${{ matrix.container }}
       mcloud-timeout: 1200
       name: ${{ matrix.name }}

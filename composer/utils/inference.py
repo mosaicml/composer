@@ -19,10 +19,10 @@ import torch
 import torch.nn as nn
 
 from composer.utils import dist
-from composer.utils.checkpoint import download_checkpoint
+from composer.utils.checkpoint import download_checkpoint, safe_torch_load
 from composer.utils.device import get_device
 from composer.utils.iter_helpers import ensure_tuple
-from composer.utils.misc import is_model_ddp, is_model_deepspeed, model_eval_mode
+from composer.utils.misc import is_model_ddp, is_model_deepspeed, is_model_fsdp, model_eval_mode
 from composer.utils.object_store import ObjectStore
 from composer.utils.string_enum import StringEnum
 
@@ -142,6 +142,12 @@ def export_for_inference(
         raise ValueError(
             f'Directly exporting a DistributedDataParallel model is not supported. Export the module instead.')
 
+    if is_model_fsdp(model):
+        raise ValueError(
+            'Directly exporting a FSDP wrapped module is not supported as the model is deepcopied to avoid '
+            'side-effects, and FSDP does not support deepcopying. To export the model, load it without FSDP '
+            'wrapping.')
+
     # Only rank0 exports the model
     if dist.get_global_rank() != 0:
         return
@@ -172,7 +178,7 @@ def export_for_inference(
                                                                  node_checkpoint_folder=tempdir,
                                                                  object_store=load_object_store,
                                                                  progress_bar=True)
-            state_dict = torch.load(composer_states_filepath, map_location='cpu')
+            state_dict = safe_torch_load(composer_states_filepath)
             missing_keys, unexpected_keys = model.load_state_dict(state_dict['state']['model'], strict=load_strict)
             if len(missing_keys) > 0:
                 log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")

@@ -11,7 +11,7 @@ Each algorithm is keyed based on its name in the algorithm registry.
 from typing import Any, Dict, Optional, Type
 
 import pytest
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 
 import composer
 import composer.algorithms
@@ -24,6 +24,7 @@ from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, Channel
                                  WeightStandardization)
 from composer.models import composer_resnet
 from composer.models.base import ComposerModel
+from composer.utils import dist
 from tests.common import get_module_subclasses
 from tests.common.datasets import RandomImageDataset, SimpleDataset, dummy_bert_lm_dataloader, dummy_gpt_lm_dataloader
 from tests.common.models import (SimpleConvModel, SimpleModelWithDropout, configure_tiny_bert_hf_model,
@@ -215,25 +216,29 @@ def get_alg_model(alg_cls: Type[Algorithm]) -> ComposerModel:
     return cls(**kwargs)
 
 
-def get_alg_dataloader(alg_cls: Type[Algorithm]) -> DataLoader:
+def get_alg_dataloader(alg_cls: Type[Algorithm], multigpu=False) -> DataLoader:
     """Return an instance of the dataset for an algorithm."""
     settings = _get_alg_settings(alg_cls)
 
     if 'dataloader' in settings:
-        settings = settings['dataloader']
+        dataloader_cls, kwargs = settings['dataloader']
+        if 'dataset' in kwargs and multigpu:
+            kwargs['sampler'] = dist.get_sampler(kwargs['dataset'])
+
+        dataloader = dataloader_cls(**kwargs)
+
     elif 'dataset' in settings:
-        settings = settings['dataset']
+        if isinstance(settings['dataset'], tuple):
+            dataset_cls, kwargs = settings['dataset']
+        else:
+            dataset_cls = settings['dataset']
+            kwargs = {}
+        dataset = dataset_cls(**kwargs)
+        sampler = dist.get_sampler(dataset) if multigpu else None
+        dataloader = DataLoader(dataset=dataset, batch_size=4, sampler=sampler)
     else:
         raise ValueError(f'Neither dataset nor dataloader have been provided for algorithm {alg_cls}')
 
-    if isinstance(settings, tuple):
-        (cls, kwargs) = settings
-    else:
-        (cls, kwargs) = (settings, {})
-
-    dataloader = cls(**kwargs)
-    if isinstance(dataloader, Dataset):
-        dataloader = DataLoader(dataset=dataloader, batch_size=2)
     return dataloader
 
 
@@ -263,6 +268,18 @@ def get_algs_with_marks():
             marks.append(
                 pytest.mark.filterwarnings(
                     r'ignore:Detected call of `lr_scheduler.step\(\)` before `optimizer.step\(\)`:UserWarning'))
+            marks.append(
+                pytest.mark.filterwarnings('ignore:SWA has known issues when resuming from a checkpoint.*:UserWarning'))
+
+        if alg_cls == GyroDropout:
+            marks.append(
+                pytest.mark.filterwarnings(
+                    'ignore:GyroDropout is not implemented in a way that allows correct resumption.*:UserWarning'))
+
+        if alg_cls == SAM:
+            marks.append(
+                pytest.mark.filterwarnings(
+                    'ignore:SAM has known issues of weight mismatch when loading from a checkpoint.*:UserWarning'))
 
         if alg_cls == MixUp:
             # TODO(Landen): Fix
@@ -272,6 +289,11 @@ def get_algs_with_marks():
         if alg_cls == FusedLayerNorm:
             # FusedLayerNorm requires a GPU in order for the class to exist
             marks.append(pytest.mark.gpu)
+
+        if alg_cls == SelectiveBackprop:
+            marks.append(
+                pytest.mark.filterwarnings(
+                    r'ignore:Cannot split tensor of length .* into batches of size .*:UserWarning'))
 
         if settings is None:
             marks.append(pytest.mark.xfail(reason=f'Algorithm {alg_cls.__name__} is missing settings.'))

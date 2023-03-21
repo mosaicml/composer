@@ -25,14 +25,14 @@ def dataloader():
 
 
 def test_model_access_to_logger(dataloader: Iterable):
-    model = SimpleModel(num_features=1, num_classes=1)
+    model = SimpleModel(num_features=1, num_classes=2)
     assert model.logger is None
     trainer = Trainer(model=model, max_duration='1ep', train_dataloader=dataloader)
     assert model.logger is trainer.logger
 
 
 def test_model_deepcopy(dataloader: Iterable):
-    model = SimpleModel(num_features=1, num_classes=1)
+    model = SimpleModel(num_features=1, num_classes=2)
     assert model.logger is None
     trainer = Trainer(model=model, max_duration='1ep', train_dataloader=dataloader)
     assert model.logger is not None
@@ -42,7 +42,7 @@ def test_model_deepcopy(dataloader: Iterable):
 
 
 def test_model_copy(dataloader: Iterable):
-    model = SimpleModel(num_features=1, num_classes=1)
+    model = SimpleModel(num_features=1, num_classes=2)
     assert model.logger is None
     trainer = Trainer(model=model, max_duration='1ep', train_dataloader=dataloader)
     assert model.logger is not None
@@ -52,7 +52,7 @@ def test_model_copy(dataloader: Iterable):
 
 
 def test_model_pickle(dataloader: Iterable):
-    model = SimpleModel(num_features=1, num_classes=1)
+    model = SimpleModel(num_features=1, num_classes=2)
     assert model.logger is None
     trainer = Trainer(model=model, max_duration='1ep', train_dataloader=dataloader)
     assert model.logger is not None

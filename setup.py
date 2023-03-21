@@ -75,7 +75,7 @@ while True:
 install_requires = [
     'pyyaml>=6.0,<7',
     'tqdm>=4.62.3,<5',
-    'torchmetrics>=0.7.0,<0.10.0',
+    'torchmetrics>=0.10.0,<0.11.4',
     'torch_optimizer>=0.3.0,<0.4',
     'torchvision>=0.11.0,<0.15',
     'torch>=1.10.0,<1.14',
@@ -98,11 +98,11 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
     'junitparser==2.8.0',
-    'coverage[toml]==7.2.1',
+    'coverage[toml]==7.2.2',
     'fasteners==0.18',  # object store tests require fasteners
-    'pytest==7.2.1',
+    'pytest==7.2.2',
     'toml==0.10.2',
-    'ipython==8.8.0',
+    'ipython==8.11.0',
     'ipykernel==6.20.1',
     'jupyter==1.0.0',
     'yamllint==1.28.0',
@@ -127,7 +127,7 @@ extra_deps['dev'] = [
     'traitlets==5.9.0',
     'nbsphinx==0.8.12',
     'pandoc==2.3',
-    'pypandoc==1.10',
+    'pypandoc==1.11',
     'GitPython==3.1.31',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
@@ -175,7 +175,7 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<5',
+    'transformers>=4.11,<4.27',
     'datasets>=2.4,<3',
 ]
 
@@ -186,7 +186,7 @@ extra_deps['mlperf'] = [
 ]
 
 extra_deps['streaming'] = [
-    'mosaicml-streaming<0.3',
+    'mosaicml-streaming<0.4',
     'boto3>=1.21.45,<2',
     'paramiko>=2.11.0,<3',
 ]

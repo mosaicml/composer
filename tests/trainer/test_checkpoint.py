@@ -30,7 +30,8 @@ from composer.utils import dist, is_tar
 from composer.utils.checkpoint import glob_filter
 from composer.utils.object_store.object_store import ObjectStore
 from composer.utils.object_store.s3_object_store import S3ObjectStore
-from tests.common import RandomImageDataset, SimpleConvModel, deep_compare, device
+from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, deep_compare,
+                          device)
 from tests.common.markers import world_size
 
 
@@ -522,11 +523,11 @@ class TestCheckpointLoading:
 class TestCheckpointResumption:
 
     def get_trainer(self, **kwargs):
-        model = SimpleConvModel()
+        model = SimpleModel()
         optimizer = torch.optim.Adam(model.parameters())
 
-        train_dataset = RandomImageDataset()
-        eval_dataset = RandomImageDataset(size=10)
+        train_dataset = RandomClassificationDataset(size=24)
+        eval_dataset = RandomClassificationDataset(size=12)
         train_batch_size = 2
 
         return Trainer(
@@ -538,7 +539,7 @@ class TestCheckpointResumption:
             ),
             eval_dataloader=DataLoader(
                 dataset=eval_dataset,
-                batch_size=16,
+                batch_size=2,
                 sampler=dist.get_sampler(eval_dataset),
             ),
             device_train_microbatch_size=train_batch_size // 2,

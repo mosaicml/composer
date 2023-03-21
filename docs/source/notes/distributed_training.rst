@@ -35,6 +35,18 @@ here <https://github.com/mosaicml/composer/blob/dev/composer/cli/launcher.py>`__
 sets the required :mod:`torch.distributed` environment variables, launches
 the processes, and runs the script on each process.
 
+By default, only the rank zero logs will be sent to the console. To save the logs
+from all the ranks, use ``--stdout`` and ``--stderr``:
+
+.. code:: python
+
+    >>> composer -n 8 --stdout stdout_{rank}.log --stderr stderr_{rank}.log script.py
+
+The stdout for each rank will then be available at ``stdout_1.log``, ``stdout_2.log``, and so forth.
+The filename is customizable, see the command help for more details.
+
+Alternatively, the logs can also be captured using our :class:`.FileLogger`.
+
 .. note::
     The ``batch_size`` passed to your dataloader should be the per-device
     *mini*\ batch size. We further split this into smaller microbatches with
@@ -200,18 +212,17 @@ One Composer-specific pattern is that if :code:`mixed_precision` is provided as 
       reduce_dtype=torch.float32,
       buffer_dtype=torch.float32,
     )
-    # If mixed_precision = 'default'
+    # If mixed_precision = 'default'; emulates automatic mixed precision training.
     mixed_precision = MixedPrecision(
-      param_dtype=torch.float32,
-      reduce_dtype=autocast_precision, # Low precision gradient communication
-      buffer_dtype=torch.float32,
+      param_dtype=autocast_precision,  # Master weights stored in fp32 but are downcast to autocast_precision before the dist all_gather
+      reduce_dtype=torch.float32,  # Gradient dist all_reduce in fp32
+      buffer_dtype=autocast_precision,  # Buffers stored in fp32 but are downcast to autocast_precision before the dist all_gather
     )
-
     # If mixed_precision = 'pure'
     mixed_precision = MixedPrecision(
-      param_dtype=autocast_precision, # Low precision master weights
-      reduce_dtype=autocast_precision, # Low precision gradient communication
-      buffer_dtype=autocast_precision, # Low precision buffers
+      param_dtype=autocast_precision,  # Master weights stored in fp32 but are downcast to autocast_precision before the dist all_gather
+      reduce_dtype=autocast_precision,  # Gradient dist all_reduce in autocast_precision
+      buffer_dtype=autocast_precision,  # Buffers stored in fp32 but are downcast to autocast_precision before the dist all_gather
     )
 
 An example code snippet for using FSDP with composer is provided below:
@@ -304,6 +315,64 @@ These rules are meant to make it easy for users to modify existing models for us
 In `gpt.py <https://github.com/mosaicml/examples/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py>`__, you can see that `we used rule #2 <https://github.com/mosaicml/examples/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py#L172>`__ to specify that all :code:`GPTBlock` modules within :code:`GPT` should be wrapped. Alternatively, we could have easily attributed each of the blocks with :code:`block._fsdp_wrap = True` and it would have accomplished the same thing. Whatever style you prefer, it's up to you!
 
 A very similar auto wrap policy is provided for activation checkpointing, with analogous rule #1 that looks for :code:`module._activation_checkpointing = True | False` and rule #2 that looks for :code:`def activation_checkpointing_fn(module: torch.nn.Module) -> bool`.
+
+
+**Experimental:** Composer enables users to specify custom FSDP args for all wrapped modules. This is enabled by returning a dictionary of args instead of returning a bool.
+
+.. code:: python
+
+    import torch.nn as nn
+
+    class Block(nn.Module):
+        ...
+
+    class BlockRequiringCustomArgs(nn.Module):
+        ...
+
+    class Model(nn.Module):
+        def __init__(self, n_layers):
+            super().__init__()
+            self.blocks = nn.ModuleList([
+                Block(...) for _ in range(n_layers)
+            ])
+            self.custom_arg_blocks = nn.ModuleList([
+                BlockRequiringCustomArgs(...) for _ in range(n_layers)
+            ]),
+            self.head = nn.Linear(...)
+
+        def forward(self, inputs):
+            ...
+
+        # FSDP Wrap function
+        def fsdp_wrap_fn(self, module):
+            if isinstance(module, Block):
+                return True
+
+            # extends FSDP wrapping to custom args
+            if isinstance(module, BlockRequiringCustomArgs):
+                return {
+                    'process_group': 'node',
+                    'mixed_precision': 'FULL',
+                }
+
+            # default to False
+            return False
+
+        # Activation Checkpointing Function
+        def activation_checkpointing_fn(self, module):
+            return isinstance(module, Block)
+
+While the user can instantiate and pass in process groups, Composer enables process groups to be specified using the following options:
+
+1. :code:`'self'`: the degenerate case where all process groups only operate within their current rank (:code:`'self'` == :code:`'set1'`). This is useful when you do not want a layer to be synchonized across accelerators.
+
+2. :code:`'node'`: instantiates process groups which opereate within a node (:code:`'node'` == :code:`f'set{local_world_size}'`). This is useful for Expert Layers in MoE models.
+
+3. :code:`'local_rank_across_nodes'`: instantiates process groups with the same local rank across all nodes  (:code:`'local_rank_across_nodes'` == :code:`f'mod{local_world_size}'`). This is useful for Tensor Parallel Layers.
+
+4. :code:`'setK'`: (:code:`K` is an integer where world_size must be divisible by :code:`K`) instantiates process groups which opereate within a set of K GPUs. This is useful for Expert Layers in MoE models.
+
+5. :code:`'modK'`: (:code:`K` is an integer where world_size must be divisible by :code:`K`) instantiates process groups which opereate on every Kth GPUs. This is useful for Tensor Parallel Layers.
 
 
 Saving and Loading Sharded Checkpoints with FSDP
