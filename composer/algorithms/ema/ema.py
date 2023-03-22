@@ -397,7 +397,8 @@ class EMAParameters:
                     param.data, ema_params[name] = ema_params[name], param.data
 
             for name, buffer in model.named_buffers():
-                buffer.data, ema_buffers[name] = ema_buffers[name], buffer.data
+                if name in ema_buffers:
+                    buffer.data, ema_buffers[name] = ema_buffers[name], buffer.data
 
     def transfer_ema_params(self, model: torch.nn.Module):
         """Transfers the parameters and buffers from the ema model to the supplied model."""
@@ -407,13 +408,16 @@ class EMAParameters:
                     param.data = self.named_parameters_dict[name]
 
             for name, buffer in model.named_buffers():
-                buffer.data = self.named_buffers_dict[name]
+                if name in ema_buffers:
+                    buffer.data = self.named_buffers_dict[name]
 
     def move_params_to_device(self, destination_model: torch.nn.Module):
         """Moves the ema parameters and buffers to the device of a destination model."""
         model_state_dict = destination_model.state_dict()
         for name, param in self.named_parameters_dict.items():
-            self.named_parameters_dict[name] = param.to(model_state_dict[name].device)
+            if name in model_state_dict:
+                self.named_parameters_dict[name] = param.to(model_state_dict[name].device)
 
         for name, buffer in self.named_buffers_dict.items():
-            self.named_buffers_dict[name] = buffer.to(model_state_dict[name].device)
+            if name in model_state_dict:
+                self.named_buffers_dict[name] = buffer.to(model_state_dict[name].device)
