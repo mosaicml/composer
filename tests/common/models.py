@@ -444,3 +444,28 @@ def configure_tiny_gpt2_config():
 
 def configure_tiny_gpt2_hf_model(use_logits=True):
     return HuggingFaceModel(configure_tiny_gpt2_model(), configure_tiny_gpt2_tokenizer(), use_logits)
+
+
+def configure_tiny_t5_model():
+    try:
+        return copy.deepcopy(pytest.tiny_t5_model)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_t5_tokenizer():
+    try:
+        return copy.deepcopy(pytest.tiny_t5_tokenizer)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_t5_config():
+    try:
+        return copy.deepcopy(pytest.tiny_t5_config)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_t5_hf_model(use_logits=True):
+    return HuggingFaceModel(configure_tiny_t5_model(), configure_tiny_t5_tokenizer(), use_logits)

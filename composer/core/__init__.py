@@ -12,7 +12,7 @@ from composer.core.algorithm import Algorithm
 from composer.core.callback import Callback
 from composer.core.data_spec import DataSpec, ensure_data_spec
 from composer.core.engine import Engine, Trace
-from composer.core.evaluator import Evaluator, ensure_evaluator
+from composer.core.evaluator import Evaluator, ensure_evaluator, validate_eval_automicrobatching
 from composer.core.event import Event
 from composer.core.passes import AlgorithmPass
 from composer.core.precision import Precision, get_precision_context
@@ -47,4 +47,5 @@ __all__ = [
     'MemoryFormat',
     'TrainerMode',
     'BreakEpochException',
+    'validate_eval_automicrobatching',
 ]

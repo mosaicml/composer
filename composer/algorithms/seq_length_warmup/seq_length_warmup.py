@@ -5,7 +5,6 @@
 
 import logging
 import textwrap
-from math import ceil
 from typing import Dict, Mapping, Optional
 
 import torch
@@ -250,8 +249,8 @@ class SeqLengthWarmup(Algorithm):
         length increases.
 
         Second, it detects if the batch*max_sequence_length size will cause an OOM and
-        increases state.grad_accum accordingly. This logic mirrors the ``grad_accum="auto"``
-        logic in :class:`.Trainer`.
+        decreases state.device_train_microbatch_size accordingly. This logic mirrors the
+        ``device_train_microbatch_size='auto'`` logic in :class:`.Trainer`.
         """
 
         assert self._original_model is not None, 'original model should be set on Event.INIT'
@@ -269,23 +268,20 @@ class SeqLengthWarmup(Algorithm):
 
         # truncate all sequence-shaped tensors to the max sequence length
         batch_clone = {k: torch.clone(v) for k, v in state.batch.items()}
-        device_batch_size = 0
         for k, v in batch_clone.items():
             if v.ndim < 2:
                 raise ValueError(f'Sequence Length Warmup requires that all tensors are sequence-shaped. '
                                  f'Tensor "{k}" has shape {v.shape}.')
             batch_clone[k] = v[:, :self.max_seq_length].contiguous()
-            device_batch_size = v.shape[0]
 
         # In-line to avoid circular dependency
-        from composer.trainer.trainer import _adjust_device_train_microbatch_size, _adjust_grad_accum, _is_cuda_oom
+        from composer.trainer.trainer import _adjust_device_train_microbatch_size, _is_cuda_oom
 
         # This loop tries to do a forward/backward pass using the current microbatch size.
-        # If it hits an OOM error, it doubles `state.grad_accum` and tries again until
-        # it succeeds.
+        # If it hits an OOM error, it halves `state.device_train_microbatch_size` and tries again
+        # until it succeeds.
         while True:
-            per_gpu_batch = ceil(per_gpu_macrobatch / state.grad_accum)
-            model_inputs = {k: v[:per_gpu_batch] for k, v in batch_clone.items()}
+            model_inputs = {k: v[:state.device_train_microbatch_size] for k, v in batch_clone.items()}
 
             found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
             try:
@@ -304,7 +300,7 @@ class SeqLengthWarmup(Algorithm):
                 for optimizer in state.optimizers:
                     optimizer.zero_grad()
 
-            # This error/state.grad_accum handling mimics the logic in trainer._train_batch().
+            # This error/state.device_train_microbatch_size handling mimics the logic in trainer._train_batch().
             except RuntimeError as e:
                 if state.auto_microbatching and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
@@ -317,10 +313,7 @@ class SeqLengthWarmup(Algorithm):
                 found_cuda_oom = state.device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
                 dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
                 if found_cuda_oom.item() == 1:
-                    if state.using_device_microbatch_size:
-                        _adjust_device_train_microbatch_size(state)
-                    else:
-                        _adjust_grad_accum(state, device_batch_size)
+                    _adjust_device_train_microbatch_size(state)
                     # Skip return and rerun after handling oom
                     continue
             # Activate and return if we've completed without OOMing.
