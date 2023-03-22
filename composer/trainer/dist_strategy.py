@@ -205,6 +205,10 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     for obj_name, obj in model.named_children():
         if not isinstance(obj, (Metric, MetricCollection)):
 
+            # Skip wrapping submodules which are explicitly marked with no wrap
+            if hasattr(obj, '_fsdp_wrap') and not bool(obj._fsdp_wrap):
+                continue
+
             def _param_init_fn(module: torch.nn.Module) -> None:
                 # A dictionary of all tied parameter pointers to module names
                 tied_pointers = {}
