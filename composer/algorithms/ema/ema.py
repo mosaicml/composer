@@ -262,9 +262,13 @@ class EMA(Algorithm):
             # Update the ema model
             compute_ema(state.model, self.ema_model, smoothing=self.smoothing)
 
-        if event == Event.EVAL_START and self.ema_weights_active is False:
-            # Swap out the training model for the ema model in state
-            self._ensure_ema_weights_active(state)
+        if event == Event.EVAL_START:
+            # Verify that the ema params are on the correct device.
+            # Needed to ensure doing eval before training can resume correctly.
+            self.ema_model.move_params_to_device(destination_model=state.model)
+            if self.ema_weights_active is False:
+                # Swap out the training model for the ema model in state
+                self._ensure_ema_weights_active(state)
 
         if event == Event.EVAL_END:
             # Swap out the ema model for the training model in state
