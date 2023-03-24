@@ -210,9 +210,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         if not isinstance(obj, (Metric, MetricCollection)):
 
             # Skip wrapping submodules which are explicitly marked with no wrap
-            print(f'Name: {obj_name}, hasattr: {hasattr(obj, "_fsdp_wrap")}')
             if hasattr(obj, '_fsdp_wrap') and not bool(obj._fsdp_wrap):
-                print(f'Not wrapping {obj_name} because it is marked with _fsdp_wrap=False')
                 continue
 
             def _param_init_fn(module: torch.nn.Module) -> None:
