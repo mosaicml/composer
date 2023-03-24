@@ -667,6 +667,9 @@ def test_embedding_resizing(tiny_bert_model, tiny_bert_tokenizer, embedding_resi
 @pytest.mark.parametrize('hf_model,hf_tokenizer', [(configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer),
                                                    (configure_tiny_t5_model, configure_tiny_t5_tokenizer)])
 def test_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
+    if use_fsdp and version.parse(torch.__version__) < version.parse('1.13.0'):
+        pytest.skip('FSDP requires torch >= 1.13.0')
+
     transformers = pytest.importorskip('transformers')
     if device == 'cpu' and use_fsdp:
         pytest.skip('FSDP is not supported on CPU.')
@@ -725,6 +728,8 @@ def test_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
 @pytest.mark.parametrize('hf_model,hf_tokenizer', [(configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer),
                                                    (configure_tiny_t5_model, configure_tiny_t5_tokenizer)])
 def test_eval_forward_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
+    if use_fsdp and version.parse(torch.__version__) < version.parse('1.13.0'):
+        pytest.skip('FSDP requires torch >= 1.13.0')
     transformers = pytest.importorskip('transformers')
     if device == 'cpu' and use_fsdp:
         pytest.skip('FSDP is not supported on CPU.')
