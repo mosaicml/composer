@@ -217,6 +217,11 @@ def _is_cuda_oom(e: RuntimeError):
     return False
 
 
+def _is_timeout_error(e: RuntimeError):
+    """Determines if error is a timeout error."""
+    return 'Timed out' in str(e)
+
+
 def _adjust_device_train_microbatch_size(state: State):
     """Adjust device_train_microbatch_size if we encounter OOM.
 
@@ -232,9 +237,10 @@ def _adjust_device_train_microbatch_size(state: State):
     else:
         original_microbatch_size = state.device_train_microbatch_size
         state.device_train_microbatch_size = max(int(original_microbatch_size / 2), 1)
-        warnings.warn(
-            RuntimeWarning('CUDA out of memory detected. Train microbatch size will be decreased from '
-                           f'{original_microbatch_size} -> {state.device_train_microbatch_size}.'))
+        # warnings.warn(
+        #     RuntimeWarning('CUDA out of memory detected. Train microbatch size will be decreased from '
+        #                    f'{original_microbatch_size} -> {state.device_train_microbatch_size}.'))
+        print(f'[Outer] Decrease train microbatch size from {original_microbatch_size} -> {state.device_train_microbatch_size}.')
     # Clear gradients in case failure happened during backwards pass
     if hasattr(state, 'outputs'):
         del state.outputs
@@ -888,6 +894,8 @@ class Trainer:
             precision = Precision(precision)
         _validate_precision(precision, device)
 
+        self.dist_callback_obj = {'nested_state': None, 'hook_error': False, 'device': device}
+
         # Distributed
         if self.deepspeed_enabled or self.fsdp_enabled or dist.get_world_size() > 1:
             # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
@@ -1171,6 +1179,8 @@ class Trainer:
         self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, self.state.algorithms))
         self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, self.state.algorithms))
         self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
+        # self._ddp_sync_strategy = _get_ddp_sync_strategy('MULTI_AUTO_SYNC', self._find_unused_parameters)
+        print(f'Using DDP sync strategy: {self._ddp_sync_strategy}')
 
         # If using DDP or DeepSpeed, we need to wrap the ComposerModel
         # But store a reference to the original model for functions like `eval_forward`, `get_metrics`, etc.
@@ -1307,7 +1317,7 @@ class Trainer:
 
         if not (self.deepspeed_enabled or self.fsdp_enabled) and dist.get_world_size() > 1:
             # Only wrap the module if required
-            self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
+            self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters, self.state.auto_microbatching, self.dist_callback_obj,)
 
     @property
     def saved_checkpoints(self) -> List[str]:
@@ -1996,6 +2006,7 @@ class Trainer:
 
         # Retry until we successfully complete training and return loss
         while True:
+            self.dist_callback_obj['hook_error'] = False
             # Reset train_metrics on every batch
             # Placing reset here ensures that if auto grad accum catches an OOM, incomplete metric state is cleared
             if self.state.train_metrics is not None:
@@ -2032,16 +2043,30 @@ class Trainer:
                 if self.state.auto_microbatching and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     found_cuda_oom = 1
+                elif self.state.auto_microbatching and _is_timeout_error(e):
+                    log.debug((f"Rank {dist.get_global_rank()} timed out. Another rank may have OOM'd."))
+                    found_cuda_oom = 1
                 else:
                     raise
 
             if self.state.auto_microbatching:
-                # Propagate across all ranks if any rank hit CUDA OOM
-                found_cuda_oom = self.state.device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
-                dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
-                if found_cuda_oom.item() == 1:
+                still_reducing = True
+                while still_reducing:
+                    print(f'[Outer] [Start] Rank {dist.get_local_rank()} found_cuda_oom: {found_cuda_oom}. microbatch size: {self.state.device_train_microbatch_size}')
+                    # Propagate across all ranks if any rank hit CUDA OOM
+                    found_cuda_oom_tensor = self.state.device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
+                    dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
+                    found_cuda_oom = found_cuda_oom_tensor.item()
+                    print(f'[Outer] Rank {dist.get_local_rank()} found_cuda_oom: {found_cuda_oom}. microbatch size: {self.state.device_train_microbatch_size}')
+                    # Check if all ranks are done. A rank is still reducing if it's inside the DDP gradient
+                    # reduce hook. This ensures all ranks wait until everyone is done with their microbatch.
+                    still_reducing_tensor = self.state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+                    dist.all_reduce(still_reducing_tensor, reduce_operation='MAX')
+                    still_reducing = still_reducing_tensor.item() == 1
+                    print(f'[Outer] Rank {dist.get_local_rank()} still reducing: {still_reducing}. microbatch size: {self.state.device_train_microbatch_size}')
+                # Skip return and rerun after handling oom
+                if found_cuda_oom == 1:
                     _adjust_device_train_microbatch_size(self.state)
-                    # Skip return and rerun after handling oom
                     continue
             # Log microbatch and return loss if we've completed without OOMing.
             assert self.state.device_train_microbatch_size is not None
@@ -2090,6 +2115,7 @@ class Trainer:
             current_batch = self.state.batch
 
             for microbatch_idx, self.state.batch in enumerate(microbatches):
+                print(f'[Outer] \t Rank {dist.get_local_rank()} microbatch_idx: {microbatch_idx}. microbatch size: {self.state.device_train_microbatch_size}')
                 is_final_microbatch = microbatch_idx + 1 == len(microbatches)
                 microbatch_loss_dict = self._train_microbatch(use_grad_scaling, current_batch_size, is_final_microbatch)
 
@@ -2135,7 +2161,10 @@ class Trainer:
             self._ddp_sync_strategy,
         )
 
+        print(f'[Outer] \t Rank {dist.get_local_rank()} Sync context: {self._ddp_sync_strategy}')
+
         with sync_context:
+            print(f'[Outer] \t Rank {dist.get_local_rank()} Before forward...')
             # forward pass
             self.engine.run_event(Event.BEFORE_FORWARD)
 
@@ -2143,6 +2172,7 @@ class Trainer:
                 self.state.outputs = self.state.model(self.state.batch)
 
             self.engine.run_event(Event.AFTER_FORWARD)
+            print(f'[Outer] \t After forward...')
 
             # loss
             self.engine.run_event(Event.BEFORE_LOSS)
@@ -2152,6 +2182,7 @@ class Trainer:
 
             assert self.state.loss is not None
             self.engine.run_event(Event.AFTER_LOSS)
+            print(f'[Outer] \t After loss...')
 
             # backward
             self.engine.run_event(Event.BEFORE_BACKWARD)
@@ -2190,9 +2221,12 @@ class Trainer:
             else:
                 # Scale loss based on the number of samples in the microbatch to maintain gradient numerics
                 microbatch_loss.mul_(microbatch_num_samples / current_batch_size)
+                print(f'[Outer] \t (Just) before loss.backward...')
                 microbatch_loss.backward(create_graph=self._backwards_create_graph)
+                print(f'[Outer] \t (Just) after loss.backward...')
 
             self.engine.run_event(Event.AFTER_BACKWARD)
+            print(f'[Outer] \t After backward...')
 
             # Use microbatch outputs to update training metrics
             if self.state.train_metrics is not None:

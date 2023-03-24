@@ -10,12 +10,13 @@ from contextlib import contextmanager, nullcontext
 from typing import Any, Callable, ContextManager, Dict, Optional, Sequence, Union, cast
 
 import torch
+import torch.distributed as torch_dist
+from torch.distributed.algorithms.ddp_comm_hooks.default_hooks import allreduce_hook
 from packaging import version
 from torch.nn.parallel import DistributedDataParallel
 from torchmetrics import Metric, MetricCollection
 
-from composer.core import Precision
-from composer.core.state import State
+from composer.core import Precision, State
 from composer.trainer.meta_safe_apply import meta_safe_apply
 from composer.utils import StringEnum, dist, ensure_tuple
 
@@ -100,7 +101,12 @@ def ddp_sync_context(state: State, is_final_microbatch: bool, sync_strategy: Uni
         raise ValueError('Unknown sync strategy', sync_strategy)
 
 
-def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) -> torch.nn.Module:
+def prepare_ddp_module(
+    module: torch.nn.Module,
+    find_unused_parameters: bool,
+    auto_microbatching: bool,
+    dist_callback_obj: Dict,
+) -> torch.nn.Module:
     """Wraps the module in a :class:`torch.nn.parallel.DistributedDataParallel` object if running distributed training.
 
     Args:
@@ -108,11 +114,16 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
         find_unused_parameters (bool): Whether or not to do a pass over the autograd graph
             to find parameters to not expect gradients for. This is useful if there are some
             parameters in the model that are not being trained.
+        auto_microbatching (bool): Whether or not to use auto microbatching.
+        dist_callback_obj (Dict): Object passed into dist reductions for state access.
     """
     if dist.is_available() and dist.is_initialized():
         if any((p.requires_grad for p in module.parameters())):
             log.debug('Wrapping model with DistributedDataParallel')
             ddp_model = DistributedDataParallel(module, find_unused_parameters=find_unused_parameters)
+            if auto_microbatching:
+                # Wrap the default reduce hook with a barrier
+                ddp_model.register_comm_hook(dist_callback_obj, rank_sync_wrapper(allreduce_hook))
             return ddp_model
         return module
     if dist.is_available():
@@ -121,6 +132,68 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
     raise RuntimeError('When the world size is > 1, ``torch.distributed`` must be used. However, it is '
                        'not available in your installation of PyTorch. Please install or build PyTorch '
                        'with distributed support.')
+
+
+def rank_sync_wrapper(
+    hook: Callable[[Any, torch_dist.GradBucket], torch.futures.Future[torch.Tensor]]
+) -> Callable[[Any, torch_dist.GradBucket], torch.futures.Future[torch.Tensor]]:
+    """Wrapper to insert monitored_barrier if using adaptive gradient accumulation.
+    If a subset of ranks OOM, this monitored barrier fails and the error is caught so training can
+    continue. Otherwise, two ranks would enter different barriers, resulting in deadlock.
+    """
+
+    def rank_sync_wrapper_hook(hook_state, bucket: torch_dist.GradBucket) -> torch.futures.Future[torch.Tensor]:
+        print(f'\t[Inner] enter sync, bucket is: {bucket.index()}')
+        try:
+            # Only put barrier in front of first bucket
+            if bucket.index() == 0:
+                print('\t[Inner] Enter barrier')
+
+                # Check if any rank has OOMed
+                found_cuda_oom = hook_state['device'].tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+                dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
+
+                print(f'\t[Inner] found_cuda_oom: {found_cuda_oom.item()}')
+                
+                # Signal rank is still reducing to ranks which may have OOMed
+                still_reducing_tensor = hook_state['device'].tensor_to_device(torch.tensor([1], dtype=torch.uint8))
+                dist.all_reduce(still_reducing_tensor, reduce_operation='MAX')
+
+                print(f'\t[Inner] still_reducing_tensor: {still_reducing_tensor.item()}')
+
+                if found_cuda_oom.item() == 1:
+                    raise RuntimeError('Timed out')
+
+                print('\t[Inner] Exit barrier')
+            # Raise error because barrier in first bucket failed to go to no-op
+            elif hook_state['hook_error']:
+                raise RuntimeError('Timed out')
+        except RuntimeError as e:
+            raise
+            # barrier was tripped
+            if 'Timed out' in str(e):
+                if bucket.index() == 0:
+                    hook_state['hook_error'] = True
+
+                def raise_timeout_error(fut):
+                    del fut
+                    raise e
+
+                # Use a no-op hook and return the same gradients already on the device. If we don't
+                # do the reduction, PyTorch will raise an internal error on the next backward pass
+                # as the previous reduction hasn't been completed. After completing the no-op
+                # reduction, re-raise the timeout error.
+                fut = torch.futures.Future()
+                fut.set_result(bucket.buffer())
+                return fut.then(raise_timeout_error)
+            else:
+                raise
+        print(f'\t[Inner] exit sync, bucket is: {bucket.index()}')
+        # for param in bucket.parameters():
+
+        return hook(hook_state['nested_state'], bucket)
+
+    return rank_sync_wrapper_hook
 
 
 def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch.optim.Optimizer,
