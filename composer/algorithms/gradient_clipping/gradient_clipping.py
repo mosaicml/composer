@@ -42,6 +42,11 @@ def apply_gradient_clipping(model: Union[ComposerModel, torch.nn.Module], clippi
         if version.parse(torch.__version__) < version.parse('1.13.0'):
             raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
         from torch.distributed.fsdp import FullyShardedDataParallel
+
+        is_torch_2_0 = False
+        if version.parse(torch.__version__) >= version.parse('2.0.0'):
+            is_torch_2_0 = True
+
         for module in model.modules():
             if isinstance(module, FullyShardedDataParallel):
                 # We can only call grad clip on the parent instance, so we iterate through all
@@ -55,8 +60,13 @@ def apply_gradient_clipping(model: Union[ComposerModel, torch.nn.Module], clippi
                     else:
                         raise ValueError(f"clipping type must be 'norm' or 'value' with FSDP not {clipping_type}")
                 except AssertionError as e:
-                    # Catches the error message from PyTorch
-                    if 'clip_grad_norm should only be called on the root (parent) instance' == str(e):
+                    # Catches the error message from PyTorch 1.13
+                    if 'clip_grad_norm should only be called on the root (parent) instance' == str(
+                            e) and not is_torch_2_0:
+                        continue
+                except RuntimeError as e:
+                    # Torch 2.0 has a different error message than 1.13, so we have to catch a different error message.
+                    if '`clip_grad_norm_()` should only be called on the root FSDP instance' == str(e) and is_torch_2_0:
                         continue
                     else:
                         raise
