@@ -402,30 +402,35 @@ class EMAParameters:
 
             for name, param in model.named_parameters():
                 if name in ema_params:
-                    param.data, ema_params[name] = ema_params[name], param.data
+                    # Use copy instead of raw data access (eg .data) doesn't work with FSDP
+                    dummy_param = param.clone()
+                    param.copy_(ema_params[name])
+                    ema_params[name].copy_(dummy_param)
 
             for name, buffer in model.named_buffers():
                 if name in ema_buffers:
-                    buffer.data, ema_buffers[name] = ema_buffers[name], buffer.data
+                    # Use copy instead of raw data access (eg .data) doesn't work with FSDP
+                    dummy_buffer = buffer.clone()
+                    buffer.copy_(ema_buffers[name])
+                    ema_buffers[name].copy_(dummy_buffer)
 
     def transfer_ema_params(self, model: torch.nn.Module):
         """Transfers the parameters and buffers from the ema model to the supplied model."""
         with torch.no_grad():
             for name, param in model.named_parameters():
                 if name in self.named_parameters_dict:
-                    param.data = self.named_parameters_dict[name]
+                    param.copy_(self.named_parameters_dict[name])
 
             for name, buffer in model.named_buffers():
                 if name in self.named_buffers_dict:
-                    buffer.data = self.named_buffers_dict[name]
+                    buffer.copy_(self.named_buffers_dict[name])
 
     def move_params_to_device(self, destination_model: torch.nn.Module):
         """Moves the ema parameters and buffers to the device of a destination model."""
-        model_state_dict = destination_model.state_dict()
-        for name, param in self.named_parameters_dict.items():
-            if name in model_state_dict:
-                self.named_parameters_dict[name] = param.to(model_state_dict[name].device)
+        for name, param in destination_model.named_parameters():
+            if name in self.named_parameters_dict:
+                self.named_parameters_dict[name] = self.named_parameters_dict[name].to(param.device)
 
-        for name, buffer in self.named_buffers_dict.items():
-            if name in model_state_dict:
-                self.named_buffers_dict[name] = buffer.to(model_state_dict[name].device)
+        for name, buffer in destination_model.named_buffers():
+            if name in self.named_buffers_dict:
+                self.named_buffers_dict[name] = self.named_buffers_dict[name].to(buffer.device)
