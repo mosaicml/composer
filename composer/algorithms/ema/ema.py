@@ -183,7 +183,8 @@ class EMA(Algorithm):
             self.smoothing = smoothing
 
         # Construct the appropriate matching events
-        self.match_events = [Event.FIT_START, Event.BATCH_START, Event.EVAL_START, Event.EVAL_END]
+        self.move_device_events = [Event.EVAL_START, Event.FIT_START, Event.PREDICT_START]
+        self.move_param_events = [Event.BATCH_START, Event.EVAL_START, Event.EVAL_END]
         self.checkpoint_events = [Event.BATCH_CHECKPOINT, Event.EPOCH_CHECKPOINT]
         if self.update_interval.unit == TimeUnit.BATCH:
             self.update_event = Event.BATCH_END
@@ -230,8 +231,12 @@ class EMA(Algorithm):
                 if checkpoint_saver.save_interval(state, event) is True:
                     return True
 
-        # Otherwise, always run on some events after ema has started
-        if event in self.match_events and self.ema_started:
+        # Otherwise, always run on events where ema params must be moved after ema has started
+        if event in self.move_param_events and self.ema_started:
+            return True
+
+        # Run on events where ema params must be moved to the correct device
+        if event in self.move_device_events and self.ema_started:
             return True
 
         # Conditionally run on the update event if ema has started
@@ -250,7 +255,7 @@ class EMA(Algorithm):
 
         assert self.ema_model is not None
 
-        if event == Event.FIT_START:
+        if event == Event.FIT_START or event == Event.PREDICT_START:
             # Ensure that params are on the right device if a checkpoint has been loaded
             self.ema_model.move_params_to_device(destination_model=state.model)
 
@@ -262,7 +267,10 @@ class EMA(Algorithm):
             # Update the ema model
             compute_ema(state.model, self.ema_model, smoothing=self.smoothing)
 
-        if event == Event.EVAL_START and self.ema_weights_active is False:
+        if event == Event.EVAL_START:
+            # Verify that the ema params are on the correct device.
+            # Needed to ensure doing eval before training can resume correctly.
+            self.ema_model.move_params_to_device(destination_model=state.model)
             # Swap out the training model for the ema model in state
             self._ensure_ema_weights_active(state)
 
@@ -394,26 +402,35 @@ class EMAParameters:
 
             for name, param in model.named_parameters():
                 if name in ema_params:
-                    param.data, ema_params[name] = ema_params[name], param.data
+                    # Use copy instead of raw data access (eg .data) doesn't work with FSDP
+                    dummy_param = param.clone()
+                    param.copy_(ema_params[name])
+                    ema_params[name].copy_(dummy_param)
 
             for name, buffer in model.named_buffers():
-                buffer.data, ema_buffers[name] = ema_buffers[name], buffer.data
+                if name in ema_buffers:
+                    # Use copy instead of raw data access (eg .data) doesn't work with FSDP
+                    dummy_buffer = buffer.clone()
+                    buffer.copy_(ema_buffers[name])
+                    ema_buffers[name].copy_(dummy_buffer)
 
     def transfer_ema_params(self, model: torch.nn.Module):
         """Transfers the parameters and buffers from the ema model to the supplied model."""
         with torch.no_grad():
             for name, param in model.named_parameters():
                 if name in self.named_parameters_dict:
-                    param.data = self.named_parameters_dict[name]
+                    param.copy_(self.named_parameters_dict[name])
 
             for name, buffer in model.named_buffers():
-                buffer.data = self.named_buffers_dict[name]
+                if name in self.named_buffers_dict:
+                    buffer.copy_(self.named_buffers_dict[name])
 
     def move_params_to_device(self, destination_model: torch.nn.Module):
         """Moves the ema parameters and buffers to the device of a destination model."""
-        model_state_dict = destination_model.state_dict()
-        for name, param in self.named_parameters_dict.items():
-            self.named_parameters_dict[name] = param.to(model_state_dict[name].device)
+        for name, param in destination_model.named_parameters():
+            if name in self.named_parameters_dict:
+                self.named_parameters_dict[name] = self.named_parameters_dict[name].to(param.device)
 
-        for name, buffer in self.named_buffers_dict.items():
-            self.named_buffers_dict[name] = buffer.to(model_state_dict[name].device)
+        for name, buffer in destination_model.named_buffers():
+            if name in self.named_buffers_dict:
+                self.named_buffers_dict[name] = self.named_buffers_dict[name].to(buffer.device)
