@@ -3,6 +3,7 @@
 
 import contextlib
 import os
+import random
 from pathlib import Path
 
 import pytest
@@ -23,16 +24,18 @@ from tests.common import device, world_size
 
 
 def test_fewshot_sample_idxs():
-    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=4, sample_idx=4)
+    rng = random.Random(1234)
+
+    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=4, sample_idx=4, rng=rng)
     assert fewshot_idxs == set([0, 1, 2, 3])
 
-    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=5, sample_idx=4)
+    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=5, sample_idx=4, rng=rng)
     assert fewshot_idxs == set([0, 1, 2, 3])
 
-    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=500, sample_idx=4)
+    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=500, sample_idx=4, rng=rng)
     assert fewshot_idxs == set([0, 1, 2, 3])
 
-    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=10, num_fewshot=7, sample_idx=4)
+    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=10, num_fewshot=7, sample_idx=4, rng=rng)
     assert len(fewshot_idxs) == 7 and 4 not in fewshot_idxs
 
 
