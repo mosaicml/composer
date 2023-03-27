@@ -7,7 +7,7 @@ Composer
 It contains many state-of-the-art methods for accelerating neural network training and improving generalization, along with
 an optional :doc:`Trainer<trainer/using_the_trainer>` API that makes `composing` many different enhancements easy.
 
-We implemented dozens of papers and `trained thousands of models <https://app.mosaicml.com/explorer/imagenet>`_ so you don't have to.
+We implemented dozens of papers and `trained thousands of models <https://www.mosaicml.com/blog/mosaic-resnet>`_ so you don't have to.
 
 With Composer, you can build recipes to:
 
