@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from typing import Type
 
 import torch
+from packaging import version
 from torch.nn.parallel import DistributedDataParallel
 
 __all__ = [
@@ -78,3 +79,10 @@ def model_eval_mode(model: torch.nn.Module):
         yield
     finally:
         model.train(mode=is_training)
+
+
+def using_torch_2_0():
+    is_torch_2_0 = False
+    if version.parse(torch.__version__) >= version.parse('2.0.0'):
+        is_torch_2_0 = True
+    return is_torch_2_0
