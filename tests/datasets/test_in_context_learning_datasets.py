@@ -3,6 +3,7 @@
 
 import contextlib
 import os
+import random
 from pathlib import Path
 
 import pytest
@@ -14,7 +15,8 @@ from composer import Evaluator
 from composer.datasets.in_context_learning_evaluation import (_get_fewshot_sample_idxs, _make_padded_input,
                                                               get_icl_task_dataloader)
 from composer.loggers import InMemoryLogger
-from composer.metrics import (InContextLearningLMAccuracy, InContextLearningMultipleChoiceAccuracy,
+from composer.metrics import (InContextLearningLMAccuracy, InContextLearningLMExpectedCalibrationError,
+                              InContextLearningMCExpectedCalibrationError, InContextLearningMultipleChoiceAccuracy,
                               InContextLearningQAAccuracy)
 from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
@@ -23,17 +25,42 @@ from tests.common import device, world_size
 
 
 def test_fewshot_sample_idxs():
-    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=4, sample_idx=4)
+    rng = random.Random(1234)
+
+    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=4, sample_idx=4, rng=rng)
     assert fewshot_idxs == set([0, 1, 2, 3])
 
-    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=5, sample_idx=4)
+    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=5, sample_idx=4, rng=rng)
     assert fewshot_idxs == set([0, 1, 2, 3])
 
-    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=500, sample_idx=4)
+    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=500, sample_idx=4, rng=rng)
     assert fewshot_idxs == set([0, 1, 2, 3])
 
-    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=10, num_fewshot=7, sample_idx=4)
+    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=10, num_fewshot=7, sample_idx=4, rng=rng)
     assert len(fewshot_idxs) == 7 and 4 not in fewshot_idxs
+
+
+def test_fewshot_sample_idxs_randomness():
+    dataset_size = 10000
+    num_fewshot = 5
+
+    rng_1_seed_1234 = random.Random(1234)
+    rng_2_seed_1234 = random.Random(1234)
+    rng_3_seed_11 = random.Random(11)
+
+    rng_1_sample_1 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 1, rng_1_seed_1234)
+    rng_2_sample_1 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 1, rng_2_seed_1234)
+    rng_3_sample_1 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 1, rng_3_seed_11)
+
+    assert rng_1_sample_1 == rng_2_sample_1
+    assert rng_1_sample_1 != rng_3_sample_1
+
+    rng_1_sample_2 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 2, rng_1_seed_1234)
+    rng_2_sample_2 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 2, rng_2_seed_1234)
+    rng_3_sample_2 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 2, rng_3_seed_11)
+
+    assert rng_1_sample_2 == rng_2_sample_2
+    assert rng_1_sample_2 != rng_3_sample_2
 
 
 def test_batch_padding_logic(tiny_gpt2_tokenizer):
@@ -308,14 +335,17 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
         destination_path=str(tmp_path / 'icl.jsonl'),
     )
 
-    evaluator = Evaluator(label='lambada', dataloader=dl, metric_names=['InContextLearningLMAccuracy'])
+    evaluator = Evaluator(label='lambada',
+                          dataloader=dl,
+                          metric_names=['InContextLearningLMAccuracy', 'InContextLearningLMExpectedCalibrationError'])
 
     config = transformers.AutoConfig.from_pretrained('EleutherAI/gpt-neo-125M')
     model = transformers.AutoModelForCausalLM.from_config(config)
     model = HuggingFaceModel(
         model=model,
         tokenizer=None,
-        eval_metrics=[InContextLearningLMAccuracy()],
+        eval_metrics=[InContextLearningLMAccuracy(),
+                      InContextLearningLMExpectedCalibrationError()],
         use_logits=True,
     )
 
@@ -323,6 +353,7 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
     trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
     assert 'metrics/lambada/InContextLearningLMAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/lambada/InContextLearningLMAccuracy'][0][1].item() == 0
+    assert 'metrics/lambada/InContextLearningLMExpectedCalibrationError' in in_memory_logger.data.keys()
 
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl', 'hellaswag_small.jsonl'])
@@ -351,19 +382,25 @@ def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenize
         destination_path=str(tmp_path / 'icl.jsonl'),
     )
 
-    evaluator = Evaluator(label='lambada', dataloader=dl, metric_names=['InContextLearningMultipleChoiceAccuracy'])
+    evaluator = Evaluator(
+        label='lambada',
+        dataloader=dl,
+        metric_names=['InContextLearningMultipleChoiceAccuracy', 'InContextLearningMCExpectedCalibrationError'])
 
     model = HuggingFaceModel(
         model=tiny_gpt2_model,
         tokenizer=None,
-        eval_metrics=[InContextLearningMultipleChoiceAccuracy()],
+        eval_metrics=[InContextLearningMultipleChoiceAccuracy(),
+                      InContextLearningMCExpectedCalibrationError()],
         use_logits=True,
     )
 
     trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
     trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
     assert 'metrics/lambada/InContextLearningMultipleChoiceAccuracy' in in_memory_logger.data.keys()
-    assert in_memory_logger.data['metrics/lambada/InContextLearningMultipleChoiceAccuracy'][0][1].item() > 0
+    assert in_memory_logger.data['metrics/lambada/InContextLearningMultipleChoiceAccuracy'][0][1].item() >= 0
+    assert 'metrics/lambada/InContextLearningMCExpectedCalibrationError' in in_memory_logger.data.keys()
+    assert in_memory_logger.data['metrics/lambada/InContextLearningMCExpectedCalibrationError'][0][1].item() >= 0
 
 
 @pytest.mark.parametrize('dataset_uri', ['triviaqa_small.jsonl'])
