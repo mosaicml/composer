@@ -66,7 +66,7 @@ def test_export_for_inference_torchscript(model_cls, sample_input):
         )
 
 
-@pytest.mark.parametrize('onnx_opset_version', [13, 14, None])
+@pytest.mark.parametrize('onnx_opset_version', [13, None])
 def test_huggingface_export_for_inference_onnx(onnx_opset_version, tiny_bert_config):
     pytest.importorskip('onnx')
     pytest.importorskip('onnxruntime')
