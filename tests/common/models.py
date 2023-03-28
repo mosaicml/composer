@@ -23,7 +23,7 @@ class SimpleModel(ComposerClassifier):
         num_classes (int): number of classes (default: 2)
     """
 
-    def __init__(self, num_features: int = 1, num_classes: int = 2, device: str = 'cpu', bias: bool = False) -> None:
+    def __init__(self, num_features: int = 1, num_classes: int = 2, device: str = 'cpu', bias: bool = True) -> None:
 
         self.num_features = num_features
         self.num_classes = num_classes
