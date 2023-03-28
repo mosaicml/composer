@@ -39,6 +39,29 @@ def test_fewshot_sample_idxs():
     assert len(fewshot_idxs) == 7 and 4 not in fewshot_idxs
 
 
+def test_fewshot_sample_idxs_randomness():
+    dataset_size = 10000
+    num_fewshot = 5
+
+    rng_1_seed_1234 = random.Random(1234)
+    rng_2_seed_1234 = random.Random(1234)
+    rng_3_seed_11 = random.Random(11)
+
+    rng_1_sample_1 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 1, rng_1_seed_1234)
+    rng_2_sample_1 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 1, rng_2_seed_1234)
+    rng_3_sample_1 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 1, rng_3_seed_11)
+
+    assert rng_1_sample_1 == rng_2_sample_1
+    assert rng_1_sample_1 != rng_3_sample_1
+
+    rng_1_sample_2 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 2, rng_1_seed_1234)
+    rng_2_sample_2 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 2, rng_2_seed_1234)
+    rng_3_sample_2 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 2, rng_3_seed_11)
+
+    assert rng_1_sample_2 == rng_2_sample_2
+    assert rng_1_sample_2 != rng_3_sample_2
+
+
 def test_batch_padding_logic(tiny_gpt2_tokenizer):
     continuation = tiny_gpt2_tokenizer(' dog' * 2000)['input_ids']
     context = tiny_gpt2_tokenizer(' cat' * 2000)['input_ids']
