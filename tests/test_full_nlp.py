@@ -160,7 +160,8 @@ def inference_test_helper(finetuning_output_path, rud, finetuning_model, algorit
     inference.export_for_inference(model=inference_trainer.state.model,
                                    save_format=save_format,
                                    save_path=str(tmp_path / 'inference_checkpoints' / f'exported_model.{save_format}'),
-                                   sample_input=sample_input)
+                                   sample_input=sample_input,
+                                   onnx_opset_version=13)
 
     copied_batch = copy.deepcopy(original_input)
 
