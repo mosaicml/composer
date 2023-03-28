@@ -219,7 +219,10 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                 for name, mod in module.named_modules():
                     for attr in ['weight', 'bias']:
                         if hasattr(mod, attr):
-                            ptr = id(getattr(mod, attr))
+                            mod_attr = getattr(mod, attr)
+                            if mod_attr is None:
+                                continue
+                            ptr = id(mod_attr)
                             ptr_attr = (ptr, attr)
                             name_list = tied_pointers.get(ptr_attr, [])
                             name_list.append(name)
