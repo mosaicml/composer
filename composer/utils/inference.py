@@ -91,6 +91,7 @@ def export_for_inference(
     dynamic_axes: Optional[Any] = None,
     surgery_algs: Optional[Union[Callable[[nn.Module], nn.Module], Sequence[Callable[[nn.Module], nn.Module]]]] = None,
     transforms: Optional[Sequence[Transform]] = None,
+    onnx_opset_version: Optional[int] = None,
     load_path: Optional[str] = None,
     load_object_store: Optional[ObjectStore] = None,
     load_strict: bool = False,
@@ -120,6 +121,8 @@ def export_for_inference(
         transforms (Sequence[Transform], optional): transformations (usually optimizations) that should
             be applied to the model. Each Transform should be a callable that takes a model and returns a modified model.
             ``transforms`` are applied after ``surgery_algs``. (default: ``None``)
+        onnx_opset_version (int, optional): The opset version ONNX should use for exporting. Only used if save_format is ``"onnx"``.
+            Defaults to Pytorch's default torch.onnx.export opset version, which changes by PyTorch version. (default: ``None``)
         load_path (str): The path to an existing checkpoint file.
             It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
             for a checkpoint in a cloud bucket. For example, run_name/checkpoints/ep0-ba4-rank0. (default: ``None``)
@@ -241,7 +244,7 @@ def export_for_inference(
                     input_names=input_names,
                     output_names=['output'],
                     dynamic_axes=dynamic_axes,
-                    opset_version=13,
+                    opset_version=onnx_opset_version,
                 )
 
             # upload if required.
