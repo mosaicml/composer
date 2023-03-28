@@ -19,7 +19,7 @@ from torchmetrics import Metric
 
 from composer.metrics import InContextLearningMetric
 from composer.models.base import ComposerModel
-from composer.utils import MissingConditionalImportError, dist, get_file, import_object, safe_torch_load
+from composer.utils import MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp, safe_torch_load
 
 if TYPE_CHECKING:
     import transformers
@@ -434,7 +434,7 @@ class HuggingFaceModel(ComposerModel):
         # We need to call forward once in order for FSDP + generate to work
         # See https://github.com/huggingface/accelerate/issues/570, https://github.com/huggingface/accelerate/issues/947,
         # and https://github.com/pytorch/pytorch/issues/82461 for more info
-        if not self.dummy_forward_called:
+        if not self.dummy_forward_called and is_model_fsdp(self.model):
             with torch.no_grad():
                 maybe_decoder_input_ids = {}
                 if self.model.config.is_encoder_decoder:
