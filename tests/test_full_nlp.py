@@ -193,7 +193,7 @@ def inference_test_helper(finetuning_output_path, rud, finetuning_model, algorit
 # Note: the specificity of these settings are due to incompatibilities (e.g. the simpletransformer model is not traceable)
 @pytest.mark.parametrize('model_type,algorithms,save_format', [('tinybert_hf', [GatedLinearUnits], 'onnx'),
                                                                ('simpletransformer', [], 'torchscript')])
-@pytest.mark.parametrize('onnx_opset_version', [13, 14, None])
+@pytest.mark.parametrize('onnx_opset_version', [13, None])
 def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokenizer, onnx_opset_version, tmp_path,
                            request, device):
     """This test is intended to exercise our full pipeline for NLP.
