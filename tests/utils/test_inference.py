@@ -130,6 +130,7 @@ def test_huggingface_export_for_inference_onnx(tiny_bert_config):
             save_path=save_path,
             sample_input=(sample_input, {}),
             dynamic_axes=dynamic_axes,
+            onnx_opset_version=16,
         )
         loaded_model = onnx.load(save_path)
 
