@@ -12,6 +12,7 @@ from unittest.mock import ANY, patch
 import pytest
 import torch
 import torch.nn as nn
+from packaging import version
 from torch.utils.data import DataLoader
 
 from composer.core import Precision, State
@@ -65,10 +66,14 @@ def test_export_for_inference_torchscript(model_cls, sample_input):
         )
 
 
-def test_huggingface_export_for_inference_onnx(tiny_bert_config):
+@pytest.mark.parametrize('onnx_opset_version', [13, None])
+def test_huggingface_export_for_inference_onnx(onnx_opset_version, tiny_bert_config):
     pytest.importorskip('onnx')
     pytest.importorskip('onnxruntime')
     pytest.importorskip('transformers')
+
+    if onnx_opset_version == None and version.parse(torch.__version__) < version.parse('1.13'):
+        pytest.skip("Don't test prior PyTorch version's default Opset version.")
 
     import onnx
     import onnx.checker
@@ -130,6 +135,7 @@ def test_huggingface_export_for_inference_onnx(tiny_bert_config):
             save_path=save_path,
             sample_input=(sample_input, {}),
             dynamic_axes=dynamic_axes,
+            onnx_opset_version=onnx_opset_version,
         )
         loaded_model = onnx.load(save_path)
 
