@@ -46,7 +46,7 @@ class WandBLogger(LoggerDestination):
             highly recommended to log on all ranks.  Artifacts from ranks ≥1 will not be
             stored, which may discard pertinent information. For example, when using
             Deepspeed ZeRO, it would be impossible to restore from checkpoints without
-            artifacts from all ranks (default: ``False``).
+            artifacts from all ranks (default: ``True``).
         init_kwargs (Dict[str, Any], optional): Any additional init kwargs
             ``wandb.init`` (see
             `WandB documentation <https://docs.wandb.ai/ref/python/init>`_).

@@ -3,6 +3,7 @@
 
 import contextlib
 import os
+import random
 from pathlib import Path
 
 import pytest
@@ -22,17 +23,42 @@ from tests.common import device, world_size
 
 
 def test_fewshot_sample_idxs():
-    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=4, sample_idx=4)
+    rng = random.Random(1234)
+
+    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=4, sample_idx=4, rng=rng)
     assert fewshot_idxs == set([0, 1, 2, 3])
 
-    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=5, sample_idx=4)
+    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=5, sample_idx=4, rng=rng)
     assert fewshot_idxs == set([0, 1, 2, 3])
 
-    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=500, sample_idx=4)
+    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=500, sample_idx=4, rng=rng)
     assert fewshot_idxs == set([0, 1, 2, 3])
 
-    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=10, num_fewshot=7, sample_idx=4)
+    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=10, num_fewshot=7, sample_idx=4, rng=rng)
     assert len(fewshot_idxs) == 7 and 4 not in fewshot_idxs
+
+
+def test_fewshot_sample_idxs_randomness():
+    dataset_size = 10000
+    num_fewshot = 5
+
+    rng_1_seed_1234 = random.Random(1234)
+    rng_2_seed_1234 = random.Random(1234)
+    rng_3_seed_11 = random.Random(11)
+
+    rng_1_sample_1 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 1, rng_1_seed_1234)
+    rng_2_sample_1 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 1, rng_2_seed_1234)
+    rng_3_sample_1 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 1, rng_3_seed_11)
+
+    assert rng_1_sample_1 == rng_2_sample_1
+    assert rng_1_sample_1 != rng_3_sample_1
+
+    rng_1_sample_2 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 2, rng_1_seed_1234)
+    rng_2_sample_2 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 2, rng_2_seed_1234)
+    rng_3_sample_2 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 2, rng_3_seed_11)
+
+    assert rng_1_sample_2 == rng_2_sample_2
+    assert rng_1_sample_2 != rng_3_sample_2
 
 
 def test_batch_padding_logic(tiny_gpt2_tokenizer):
@@ -477,22 +503,21 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_gpt2_tokenizer
 
-    evaluators = make_evaluators(
-        'lambada',
-        ['InContextLearningLMAccuracy'],
-        'language_modeling',
-        dataset_uri,
-        [],
-        tokenizer,
-        2,
-        max_seq_len=2048,
-        pad_tok_id=tokenizer.eos_token_id,
-        num_fewshot=num_fewshot,
-        prompt_string='',
-        example_delimiter='\n',
-        continuation_delimiter='',
-        destination_path=str(tmp_path / 'icl.jsonl'),
-    )
+    evaluators = make_evaluators('lambada', ['InContextLearningLMAccuracy'],
+                                 'language_modeling',
+                                 dataset_uri, [],
+                                 tokenizer,
+                                 2,
+                                 max_seq_len=2048,
+                                 pad_tok_id=tokenizer.eos_token_id,
+                                 num_fewshot=num_fewshot,
+                                 prompt_string='',
+                                 example_delimiter='\n',
+                                 continuation_delimiter='',
+                                 destination_path=str(tmp_path / 'icl.jsonl'),
+                                 question_prelimiter='',
+                                 padding_side='right',
+                                 fewshot_random_seed=1234)
 
     config = transformers.AutoConfig.from_pretrained('EleutherAI/gpt-neo-125M')
     model = transformers.AutoModelForCausalLM.from_config(config)
@@ -518,26 +543,26 @@ def test_lm_task_evaluation_categories(device, dataset_uri, num_fewshot, tiny_gp
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_gpt2_tokenizer
-    if dataset_uri == 'jeopardy_small.jsonl':
+    if 'jeopardy_small.jsonl' in dataset_uri:
         categories = ['science', 'world_history']
     else:
         categories = ['num_spouses', 'birth_day']
-    evaluators = make_evaluators(
-        dataset_uri.removesuffix('.jsonl'),
-        ['InContextLearningLMAccuracy'],
-        'language_modeling',
-        dataset_uri,
-        categories,
-        tokenizer,
-        2,
-        max_seq_len=2048,
-        pad_tok_id=tokenizer.eos_token_id,
-        num_fewshot=num_fewshot,
-        prompt_string='',
-        example_delimiter='\n',
-        continuation_delimiter='',
-        destination_path=str(tmp_path / 'icl.jsonl'),
-    )
+    evaluators = make_evaluators(dataset_uri.replace('.jsonl', ''), ['InContextLearningLMAccuracy'],
+                                 'language_modeling',
+                                 dataset_uri,
+                                 categories,
+                                 tokenizer,
+                                 2,
+                                 max_seq_len=2048,
+                                 pad_tok_id=tokenizer.eos_token_id,
+                                 num_fewshot=num_fewshot,
+                                 prompt_string='',
+                                 example_delimiter='\n',
+                                 continuation_delimiter='',
+                                 destination_path=str(tmp_path / 'icl.jsonl'),
+                                 question_prelimiter='',
+                                 padding_side='right',
+                                 fewshot_random_seed=1234)
     assert len(evaluators) == 3
 
     config = transformers.AutoConfig.from_pretrained('EleutherAI/gpt-neo-125M')
@@ -551,15 +576,16 @@ def test_lm_task_evaluation_categories(device, dataset_uri, num_fewshot, tiny_gp
 
     trainer = Trainer(model=model, max_duration='1ep', loggers=in_memory_logger)
     trainer.eval(eval_dataloader=evaluators, subset_num_batches=2)
-    assert f"metrics/{dataset_uri.removesuffix('.jsonl')}/science/InContextLearningLMAccuracy" in in_memory_logger.data.keys(
-    ) or f"metrics/{dataset_uri.removesuffix('.jsonl')}/num_spouses/InContextLearningLMAccuracy" in in_memory_logger.data.keys(
+    assert f"metrics/{dataset_uri.replace('.jsonl', '')}/science/InContextLearningLMAccuracy" in in_memory_logger.data.keys(
+    ) or f"metrics/{dataset_uri.replace('.jsonl', '')}/num_spouses/InContextLearningLMAccuracy" in in_memory_logger.data.keys(
     )
-    assert f"metrics/{dataset_uri.removesuffix('.jsonl')}/world_history/InContextLearningLMAccuracy" in in_memory_logger.data.keys(
-    ) or f"metrics/{dataset_uri.removesuffix('.jsonl')}/birth_day/InContextLearningLMAccuracy" in in_memory_logger.data.keys(
+    assert f"metrics/{dataset_uri.replace('.jsonl', '')}/world_history/InContextLearningLMAccuracy" in in_memory_logger.data.keys(
+    ) or f"metrics/{dataset_uri.replace('.jsonl', '')}/birth_day/InContextLearningLMAccuracy" in in_memory_logger.data.keys(
     )
-    assert 'metrics/jeopardy_small/InContextLearningLMAccuracy' in in_memory_logger.data.keys()
+    assert f"metrics/{dataset_uri.replace('.jsonl', '')}/InContextLearningLMAccuracy" in in_memory_logger.data.keys()
 
-    assert in_memory_logger.data['metrics/jeopardy_small/InContextLearningLMAccuracy'][0][1].item() == 0
+    assert in_memory_logger.data[f"metrics/{dataset_uri.replace('.jsonl', '')}/InContextLearningLMAccuracy"][0][1].item(
+    ) == 0
 
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl', 'hellaswag_small.jsonl'])
@@ -576,22 +602,21 @@ def test_mc_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_g
     reproducibility.seed_all(1234)
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
-    evaluators = make_evaluators(
-        'mc',
-        ['InContextLearningMultipleChoiceAccuracy'],
-        'multiple_choice',
-        dataset_uri,
-        [],
-        tokenizer,
-        8,
-        max_seq_len=1024,
-        pad_tok_id=tokenizer.eos_token_id,
-        num_fewshot=num_fewshot,
-        prompt_string='',
-        example_delimiter='\n',
-        continuation_delimiter=': ',
-        destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
-    )
+    evaluators = make_evaluators('mc', ['InContextLearningMultipleChoiceAccuracy'],
+                                 'multiple_choice',
+                                 dataset_uri, [],
+                                 tokenizer,
+                                 8,
+                                 max_seq_len=1024,
+                                 pad_tok_id=tokenizer.eos_token_id,
+                                 num_fewshot=num_fewshot,
+                                 prompt_string='',
+                                 example_delimiter='\n',
+                                 continuation_delimiter=': ',
+                                 destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
+                                 question_prelimiter='',
+                                 padding_side='right',
+                                 fewshot_random_seed=1234)
 
     config = transformers.AutoConfig.from_pretrained('EleutherAI/gpt-neo-125M')
     model = transformers.AutoModelForCausalLM.from_config(config)
@@ -619,24 +644,24 @@ def test_qa_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_g
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_gpt2_tokenizer
 
+    reproducibility.seed_all(1234)
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
-    evaluators = make_evaluators(
-        'triviaqa',
-        ['InContextLearningQAAccuracy'],
-        'question_answering',
-        dataset_uri,
-        [],
-        tokenizer,
-        8,
-        max_seq_len=1024,
-        pad_tok_id=tokenizer.eos_token_id,
-        num_fewshot=num_fewshot,
-        prompt_string='',
-        example_delimiter='\n',
-        continuation_delimiter=': ',
-        destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
-    )
+    evaluators = make_evaluators('triviaqa', ['InContextLearningQAAccuracy'],
+                                 'question_answering',
+                                 dataset_uri, [],
+                                 tokenizer,
+                                 2,
+                                 max_seq_len=1024,
+                                 pad_tok_id=tokenizer.eos_token_id,
+                                 num_fewshot=num_fewshot,
+                                 prompt_string='',
+                                 example_delimiter='\n',
+                                 continuation_delimiter=': ',
+                                 destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
+                                 question_prelimiter='',
+                                 padding_side='right',
+                                 fewshot_random_seed=1234)
 
     model = HuggingFaceModel(
         model=tiny_gpt2_model,
