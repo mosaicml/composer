@@ -35,6 +35,21 @@ __all__ = [
 ]
 
 
+
+def strip_rank_placeholders(path: str) -> str:
+    """Strips all rank placeholders from a format string, path.
+    e.g. ba{batch}-rank{rank}.pt -> ba{batch}.pt
+    e.g. ba{batch}-rank{node_rank}.pt -> ba{batch}.pt
+    e.g. ba{batch}-rank{local_rank}.pt -> ba{batch}.pt
+    e.g. ba{batch}_rank{rank}.pt -> ba{batch}.pt
+    
+    """
+    path = path.replace('{node_rank}', '').replace('{local_rank}', '').replace('{rank}', '').replace('rank', '')
+    # Remove any double hyphens or double underscores as a result of removing rank placeholders.
+    path = path.replace('--', '-'). replace('__', '_')
+    return path
+    
+
 def _get_dist_config(strict: bool = True) -> Dict[str, Any]:
     """Returns a dict of distributed settings (rank, world_size, etc.).
 

@@ -11,16 +11,21 @@ import pathlib
 import tempfile
 import textwrap
 from typing import Callable, List, Optional, Union
-
+from pathlib import Path
+import shutil
 from composer.core import Callback, Event, State, Time, TimeUnit
 from composer.loggers import Logger
 from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, PartialFilePath,
                             checkpoint, create_symlink_file, dist, ensure_folder_has_no_conflicting_files,
-                            format_name_with_dist, is_model_deepspeed, reproducibility)
+                            format_name_with_dist, is_model_deepspeed, reproducibility, strip_rank_placeholders, format_name_with_dist_and_time)
+
+from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
 
 log = logging.getLogger(__name__)
 
 __all__ = ['CheckpointSaver', 'checkpoint_periodically']
+
+_TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME = '.metadata'
 
 
 def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State, Event], bool]:
@@ -310,10 +315,13 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         self.overwrite = overwrite
         self.saved_checkpoints: List[str] = []
+        self.saved_metadata_files: List[str] = []
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
+        self.fsdp_sharded_state_dict_enabled: Optional[bool] = None
         self.weights_only = weights_only
 
     def init(self, state: State, logger: Logger) -> None:
+        self.fsdp_sharded_state_dict_enabled = state.fsdp_sharded_state_dict_enabled
         folder = format_name_with_dist(self.folder, state.run_name)
         os.makedirs(folder, exist_ok=True)
 
