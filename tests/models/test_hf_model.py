@@ -359,6 +359,8 @@ def test_hf_loading_load_save_paths(checkpoint_upload_path: Optional[str], local
 def test_hf_loading_sentencepiece_tokenizer(modify_tokenizer: bool, tmp_path: Path, tiny_t5_model):
     transformers = pytest.importorskip('transformers')
 
+    from composer.models import HuggingFaceModel
+
     t0_pp_tokenizer = transformers.AutoTokenizer.from_pretrained('bigscience/T0pp')
 
     if modify_tokenizer:
