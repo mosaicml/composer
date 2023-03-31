@@ -274,13 +274,25 @@ class HuggingFaceModel(ComposerModel):
         if hf_tokenizer_state != {}:
             with tempfile.TemporaryDirectory() as _tmp_dir:
                 for filename, saved_content in hf_tokenizer_state.items():
-                    with open(Path(_tmp_dir) / f'{filename}{saved_content["file_extension"]}', 'w') as _tmp_file:
-                        if saved_content['file_extension'] == '.json':
+                    tokenizer_file_path = Path(_tmp_dir) / f'{filename}{saved_content["file_extension"]}'
+                    if saved_content['file_extension'] == '.json':
+                        with open(tokenizer_file_path, 'w') as _tmp_file:
                             json.dump(saved_content['content'], _tmp_file)
-                        elif saved_content['file_extension'] == '.txt':
+                    elif saved_content['file_extension'] == '.txt':
+                        with open(tokenizer_file_path, 'w') as _tmp_file:
                             for line in saved_content['content']:
                                 _tmp_file.write(line)
                                 _tmp_file.write('\n')
+                    elif saved_content['file_extension'] == '.model':
+                        try:
+                            import sentencepiece as spm
+                        except ImportError as e:
+                            raise MissingConditionalImportError(extra_deps_group='sentencepiece',
+                                                                conda_package='sentencepiece') from e
+                        s = spm.SentencePieceProcessor()
+                        s.load_from_serialized_proto(saved_content['content'])
+                        with open(tokenizer_file_path, 'wb') as _tmp_file:
+                            _tmp_file.write(s.serialized_model_proto())
                 hf_tokenizer = transformers.AutoTokenizer.from_pretrained(_tmp_dir)
 
                 # we need to set the name_or_path back because otherwise it is the tmp dir we are loading from here
@@ -388,15 +400,24 @@ class HuggingFaceModel(ComposerModel):
             if self.tokenizer is not None:
                 for tokenizer_file_name in tokenizer_dir.iterdir():
                     tokenizer_file_path = tokenizer_dir / tokenizer_file_name
-                    with open(tokenizer_file_path) as _tokenizer_file:
-                        tokenizer_file_extension = tokenizer_file_path.suffix
-                        if tokenizer_file_extension == '.txt':
+                    tokenizer_file_extension = tokenizer_file_path.suffix
+                    if tokenizer_file_extension == '.txt':
+                        with open(tokenizer_file_path) as _tokenizer_file:
                             tokenizer_file_content = _tokenizer_file.read().split('\n')
-                        elif tokenizer_file_extension == '.json':
+                    elif tokenizer_file_extension == '.json':
+                        with open(tokenizer_file_path) as _tokenizer_file:
                             tokenizer_file_content = json.load(_tokenizer_file)
-                        else:
-                            raise ValueError(
-                                f'Unexpected file ending {tokenizer_file_name} in output of tokenizer.save_pretrained.')
+                    elif tokenizer_file_extension == '.model':
+                        try:
+                            import sentencepiece as spm
+                        except ImportError as e:
+                            raise MissingConditionalImportError(extra_deps_group='sentencepiece',
+                                                                conda_package='sentencepiece') from e
+                        s = spm.SentencePieceProcessor(model_file=str(tokenizer_file_path))
+                        tokenizer_file_content = s.serialized_model_proto()
+                    else:
+                        raise ValueError(
+                            f'Unexpected file ending {tokenizer_file_name} in output of tokenizer.save_pretrained.')
                     tokenizer_output[tokenizer_file_path.stem] = {
                         'file_extension': tokenizer_file_extension,
                         'content': tokenizer_file_content

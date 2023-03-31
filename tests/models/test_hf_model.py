@@ -127,6 +127,11 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
     tokenizer1.__dict__['init_kwargs'].pop('tokenizer_file', None)
     tokenizer2.__dict__['init_kwargs'].pop('tokenizer_file', None)
 
+    # vocab_file will be the path that the tokenizer was loaded from, which will just be a temporary directory for
+    # the reloaded tokenizer, so we remove it and don't compare it between the two tokenizers
+    tokenizer1.__dict__.pop('vocab_file', None)
+    tokenizer2.__dict__.pop('vocab_file', None)
+
     assert tokenizer1.__dict__ == tokenizer2.__dict__
 
 
@@ -348,6 +353,29 @@ def test_hf_loading_load_save_paths(checkpoint_upload_path: Optional[str], local
         else:
             # just check that we ended up with an actual file, not a symlink
             assert os.path.getsize(local_save_checkpoint_path) > 1000
+
+
+@pytest.mark.parametrize('modify_tokenizer', [False, True])
+def test_hf_loading_sentencepiece_tokenizer(modify_tokenizer: bool, tmp_path: Path, tiny_t5_model):
+    transformers = pytest.importorskip('transformers')
+
+    t0_pp_tokenizer = transformers.AutoTokenizer.from_pretrained('bigscience/T0pp')
+
+    if modify_tokenizer:
+        assert t0_pp_tokenizer is not None  # pyright
+        t0_pp_tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
+        t0_pp_tokenizer.add_special_tokens({'additional_special_tokens': ['[MOSAICML']})
+        t0_pp_tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
+        tiny_t5_model.resize_token_embeddings(len(t0_pp_tokenizer))
+
+    trainer = get_lm_trainer(tiny_t5_model, t0_pp_tokenizer, str(tmp_path), is_conditional_generation=True)
+    trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
+
+    hf_loaded_model, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
+        checkpoint_path=str(tmp_path / 'hf-checkpoint.pt'))
+
+    check_hf_model_equivalence(hf_loaded_model, tiny_t5_model)
+    check_hf_tokenizer_equivalence(hf_loaded_tokenizer, t0_pp_tokenizer)
 
 
 @pytest.mark.parametrize('modify_tokenizer', [False, True])
