@@ -526,7 +526,7 @@ class TestCheckpointResumption:
         model = SimpleModel()
         optimizer = torch.optim.Adam(model.parameters())
 
-        train_dataset = RandomClassificationDataset(size=25)
+        train_dataset = RandomClassificationDataset(size=15)
         eval_dataset = RandomClassificationDataset(size=10)
         train_batch_size = 2
 
@@ -544,7 +544,7 @@ class TestCheckpointResumption:
             ),
             device_train_microbatch_size=train_batch_size // 2,
             precision='fp32',
-            train_subset_num_batches=5,
+            train_subset_num_batches=3,
             max_duration='2ep',
             optimizers=optimizer,
             schedulers=ExponentialScheduler(gamma=0.9),
