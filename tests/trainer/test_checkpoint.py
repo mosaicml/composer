@@ -526,7 +526,7 @@ class TestCheckpointResumption:
         model = SimpleModel()
         optimizer = torch.optim.Adam(model.parameters())
 
-        train_dataset = RandomClassificationDataset(size=25)
+        train_dataset = RandomClassificationDataset(size=20)
         eval_dataset = RandomClassificationDataset(size=10)
         train_batch_size = 2
 
