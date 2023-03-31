@@ -366,11 +366,11 @@ class CheckpointSaver(Callback):  # noqa: D101
             raise ValueError(f'Save filename {self.filename.filename} must have {{rank}} for deepspeed.')
 
         # save the checkpoint to the filename
-        filename = self.filename.format(state, is_deepspeed)
+        filename_with_placeholders = self.filename.format(state, is_deepspeed, keep_placeholders=True)
 
         saved_path = checkpoint.save_checkpoint(
             state=state,
-            filename=filename,
+            filename=filename_with_placeholders,
             weights_only=self.weights_only,
         )
 
@@ -384,7 +384,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 os.remove(symlink)
             except FileNotFoundError:
                 pass
-            os.symlink(os.path.relpath(filename, os.path.dirname(symlink)), symlink)
+            os.symlink(os.path.relpath(saved_path, os.path.dirname(symlink)), symlink)
 
         # if remote file name provided, upload the checkpoint
         if self.remote_file_name is not None:
@@ -393,7 +393,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 is_deepspeed,
             ).lstrip('/')
 
-            logger.upload_file(remote_file_name=remote_file_name, file_path=filename, overwrite=self.overwrite)
+            logger.upload_file(remote_file_name=remote_file_name, file_path=saved_path, overwrite=self.overwrite)
 
             if self.latest_remote_file_name is not None:
                 symlink_name = self.latest_remote_file_name.format(
@@ -411,7 +411,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                         overwrite=True,
                     )
 
-        self.saved_checkpoints.append(filename)
+        self.saved_checkpoints.append(saved_path)
 
         if self.num_checkpoints_to_keep >= 0:
             self._rotate_checkpoints()
