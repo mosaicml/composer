@@ -435,10 +435,21 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         self.saved_checkpoints.append(saved_path)
 
+        if state.fsdp_sharded_state_dict_enabled and dist.get_global_rank() == 0:
+            self.saved_metadata_files.append(local_metadata_filepath)
+
         if self.num_checkpoints_to_keep >= 0:
             self._rotate_checkpoints()
 
     def _rotate_checkpoints(self):
         while len(self.saved_checkpoints) > self.num_checkpoints_to_keep:
             checkpoint = self.saved_checkpoints.pop(0)
-            os.remove(checkpoint)
+            # For sharding we use a directory with all the checkpoints, so
+            # we need to remove the whole directory. We have local rank 0
+            # responsible for removing this directory.
+            if self.fsdp_sharded_state_dict_enabled:
+                if dist.get_local_rank() == 0:
+                    save_dir = str(Path(checkpoint).parent)
+                    shutil.rmtree(save_dir)
+            else:
+                os.remove(checkpoint)
