@@ -526,7 +526,7 @@ class TestCheckpointResumption:
         model = SimpleModel()
         optimizer = torch.optim.Adam(model.parameters())
 
-        train_dataset = RandomClassificationDataset(size=15)
+        train_dataset = RandomClassificationDataset(size=20)
         eval_dataset = RandomClassificationDataset(size=10)
         train_batch_size = 2
 
@@ -624,7 +624,7 @@ class TestCheckpointResumption:
             save_folder=os.path.join(save_folder, 'first'),
             save_interval=save_interval,
             num_epochs=2,  # set in get_trainer()
-            num_batches_per_epoch=3,  # set in get_trainer()
+            num_batches_per_epoch=5,  # set in get_trainer()
             is_deepspeed=deepspeed_config is not None,
         )
 
