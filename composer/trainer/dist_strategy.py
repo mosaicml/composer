@@ -17,7 +17,7 @@ from torchmetrics import Metric, MetricCollection
 from composer.core import Precision
 from composer.core.state import State
 from composer.trainer.meta_safe_apply import meta_safe_apply
-from composer.utils import StringEnum, dist, ensure_tuple
+from composer.utils import StringEnum, dist, ensure_tuple, using_torch_2_0
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module']
 
@@ -134,11 +134,9 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         fsdp_config (Dict[str, Any]): The FSDP config.
         precision: (Precision): The precision being used by the Trainer, used to fill in defaults for FSDP `mixed_precision` settings.
     """
-    is_torch_2_0 = False
-    if version.parse(torch.__version__) >= version.parse('2.0.0'):
-        is_torch_2_0 = True
     if version.parse(torch.__version__) < version.parse('1.13.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
+    is_torch_2_0 = using_torch_2_0()
     from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (CheckpointImpl,
                                                                              apply_activation_checkpointing,
                                                                              checkpoint_wrapper)
@@ -221,7 +219,10 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                 for name, mod in module.named_modules():
                     for attr in ['weight', 'bias']:
                         if hasattr(mod, attr):
-                            ptr = id(getattr(mod, attr))
+                            mod_attr = getattr(mod, attr)
+                            if mod_attr is None:
+                                continue
+                            ptr = id(mod_attr)
                             ptr_attr = (ptr, attr)
                             name_list = tied_pointers.get(ptr_attr, [])
                             name_list.append(name)
