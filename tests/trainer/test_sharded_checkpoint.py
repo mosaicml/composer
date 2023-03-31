@@ -105,7 +105,7 @@ def test_fsdp_full_state_dict_save(world_size, tmp_path: pathlib.Path):
 
     expected_layer_shapes = [(5, num_features), (5,), (num_classes, 5), (num_classes,)]
     layer1_weights_shape, layer1_bias_shape, layer2_weights_shape, layer2_bias_shape = expected_layer_shapes
-    expected_total_num_params = sum([np.prod(shape) for shape in expected_layer_shapes])
+    expected_total_num_params = sum([np.prod(shape) for shape in expected_layer_shapes])  # type: ignore
 
     trainer = get_trainer(save_folder=str(save_folder),
                           save_filename=save_filename,
@@ -230,7 +230,7 @@ def test_fsdp_partitioned_state_dict_save(world_size, tmp_path: pathlib.Path, st
     num_classes = 2
 
     expected_layer_shapes = [(5, num_features), (5,), (num_classes, 5), (num_classes,)]
-    expected_total_num_params = sum([np.prod(shape) for shape in expected_layer_shapes])
+    expected_total_num_params = sum([np.prod(shape) for shape in expected_layer_shapes])  # type: ignore
 
     trainer = get_trainer(save_folder=str(save_folder),
                           save_filename=save_filename,
