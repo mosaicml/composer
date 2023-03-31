@@ -989,7 +989,7 @@ class State(Serializable):
         Args:
             state_dict (Dict[str, Any]): The state to load.
         """
-        
+        optimizer = ensure_tuple(self.optimizers)[0] # We only allow 1 optimizer!
         if self.fsdp_enabled:
             if version.parse(torch.__version__) < version.parse('2.0.0'):
                 raise RuntimeError('To use FSDP sharded optimizer loading with Composer, you must use torch>=2.0.0.')
@@ -1006,12 +1006,11 @@ class State(Serializable):
                 optimizer.load_state_dict(loaded_optimizer_state_dict)
         # No FSDP, so just load the optim state dict.
         else:
-            for optimizer in ensure_tuple(self.optimizers):
-                if type(optimizer).__qualname__ not in state_dict['optimizers']:
-                    warnings.warn(
-                        f'{type(optimizer).__qualname__} is not in the state_dict. Its state will not be restored.',
-                        category=UserWarning)
-                    continue
+            if type(optimizer).__qualname__ not in state_dict['optimizers']:
+                warnings.warn(
+                    f'{type(optimizer).__qualname__} is not in the state_dict. Its state will not be restored.',
+                    category=UserWarning)
+                return
             optim_state_dict = state_dict['optimizers'][type(optimizer).__qualname__]
             log.debug(f'Loading optimizer state dict')
             optimizer.load_state_dict(optim_state_dict)
@@ -1108,6 +1107,7 @@ class State(Serializable):
                         metric._device = self.device._device
                         state_field_value[eval_key][metric_name] = metric
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
+       
                 state_field_value = getattr(self, attribute_name)
                 for target in ensure_tuple(state_field_value):
                     if type(target).__qualname__ not in serialized_value:

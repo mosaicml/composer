@@ -705,17 +705,16 @@ def load_checkpoint_from_local_file(
                                 storage_reader=storage_reader)
                 state.load_optim_state(optim_state)
 
-            # 3. Load the rest.
+            # 3. Load the rest of state.
             rest_state_dict = {**state.state_dict(), 'rng': reproducibility.get_rng_state()}
             rest_state_dict.pop('model')
             rest_state_dict.pop('optimizers')
-
+            dist_cp.load_state_dict(rest_state_dict, storage_reader)
             state.load_state_dict(
                 rest_state_dict,
                 logger,
             )
-
-
+   
 
 save_checkpoint.__doc__ = f"""Checkpoint the training ``state``.
 
