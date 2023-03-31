@@ -54,7 +54,7 @@ jobs:
       - name: Setup MCLI
         run: |
           set -ex
-          python -m pip install --upgrade mosaicml-cli
+          python -m pip install mosaicml-cli==0.3.0
           mcli init --mcloud
           mcli version
       - name: Submit Run
