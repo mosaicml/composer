@@ -28,8 +28,8 @@ class SimpleModel(ComposerClassifier):
         self.num_features = num_features
         self.num_classes = num_classes
 
-        fc1 = torch.nn.Linear(num_features, 4)
-        fc2 = torch.nn.Linear(4, num_classes)
+        fc1 = torch.nn.Linear(num_features, 5)
+        fc2 = torch.nn.Linear(5, num_classes)
 
         net = torch.nn.Sequential(
             torch.nn.AdaptiveAvgPool2d(1),

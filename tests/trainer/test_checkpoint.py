@@ -544,7 +544,7 @@ class TestCheckpointResumption:
             ),
             device_train_microbatch_size=train_batch_size // 2,
             precision='fp32',
-            train_subset_num_batches=3,
+            train_subset_num_batches=5,
             max_duration='2ep',
             optimizers=optimizer,
             schedulers=ExponentialScheduler(gamma=0.9),
@@ -624,7 +624,7 @@ class TestCheckpointResumption:
             save_folder=os.path.join(save_folder, 'first'),
             save_interval=save_interval,
             num_epochs=2,  # set in get_trainer()
-            num_batches_per_epoch=5,  # set in get_trainer()
+            num_batches_per_epoch=3,  # set in get_trainer()
             is_deepspeed=deepspeed_config is not None,
         )
 
