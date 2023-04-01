@@ -97,10 +97,8 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
         optim_state_dict_config = LocalOptimStateDictConfig()
     else:
         raise NotImplementedError(f'No valid FSDP state_dict_type for {state_dict_type}')
-    with nullcontext():
+    with FSDP.state_dict_type(module, state_dict_type=fsdp_state_dict_type, state_dict_config=state_dict_config):
         yield
-    # with FSDP.state_dict_type(module, state_dict_type=fsdp_state_dict_type, state_dict_config=state_dict_config):
-    #     yield
 
 def fsdp_set_state_dict_type(module: torch.nn.Module, state_dict_type: str = 'full'):
     if version.parse(torch.__version__) < version.parse('1.13.0'):
@@ -802,8 +800,7 @@ class State(Serializable):
                 # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
                 # If it is DDP wrapped, do not save the `module.` prefix, as that is an implementation detail
                 if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
-                    with fsdp_state_dict_type_context(attribute_value, state_dict_type=self.fsdp_state_dict_type):
-                        model_state = attribute_value.state_dict()
+                    model_state = attribute_value.state_dict()
                 else:
                     model_state = attribute_value.state_dict()
 
@@ -817,9 +814,8 @@ class State(Serializable):
                     if version.parse(torch.__version__) < version.parse('2.0.0'):
                         raise RuntimeError('To use FSDP sharded optimizer loading with Composer, you must use torch>=2.0.0.')
                     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-                    with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
-                        # Flat dictionary for optimizer for sharded
-                        optim_state_dict = FSDP.optim_state_dict(self.model, optimizer)
+                    # Flat dictionary for optimizer for sharded
+                    optim_state_dict = FSDP.optim_state_dict(self.model, optimizer)
                 else:
                     optim_state_dict = {type(optimizer).__qualname__: optimizer.state_dict()}
                 serialized_value = optim_state_dict
@@ -974,8 +970,7 @@ class State(Serializable):
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
 
         if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
-            with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
-                missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
+            missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
         else:
             missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
         if len(missing_keys) > 0:
@@ -997,13 +992,11 @@ class State(Serializable):
             
             optim_state_dict = state_dict['optimizers']
             log.debug(f'Loading FSDP optimizer with fsdp_state_dict_type={self.fsdp_state_dict_type}')
-            
-            with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
-                loaded_optimizer_state_dict = FSDP.optim_state_dict_to_load(
-                    optim_state_dict,
-                    self.model,
-                    optimizer)
-                optimizer.load_state_dict(loaded_optimizer_state_dict)
+            loaded_optimizer_state_dict = FSDP.optim_state_dict_to_load(
+                optim_state_dict,
+                self.model,
+                optimizer)
+            optimizer.load_state_dict(loaded_optimizer_state_dict)
         # No FSDP, so just load the optim state dict.
         else:
             if type(optimizer).__qualname__ not in state_dict['optimizers']:
