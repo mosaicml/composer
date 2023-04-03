@@ -710,13 +710,19 @@ def test_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
             'This issue is resolved with world size > 1 by a dummy call to forward (see HuggingFaceModel.dummy_forward_called), '
             'but for some reason fails with world size 1.'))
 
+    hf_model = hf_model()
+    if device == 'cpu' and world_size > 1 and isinstance(hf_model,
+                                                         transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel):
+        pytest.xfail(
+            'GPT2 is not currently supported with DDP. See https://github.com/huggingface/transformers/issues/22482 for more details.'
+        )
+
     fsdp_config = None
     if use_fsdp:
         fsdp_config = {
             'sharding_strategy': 'FULL_SHARD',
         }
 
-    hf_model = hf_model()
     hf_tokenizer = hf_tokenizer()
 
     model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, use_logits=True)
@@ -770,13 +776,19 @@ def test_eval_forward_generate(device, world_size, hf_model, hf_tokenizer, use_f
             'This issue is resolved with world size > 1 by a dummy call to forward (see HuggingFaceModel.dummy_forward_called), '
             'but for some reason fails with world size 1.'))
 
+    hf_model = hf_model()
+    if device == 'cpu' and world_size > 1 and isinstance(hf_model,
+                                                         transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel):
+        pytest.xfail(
+            'GPT2 is not currently supported with DDP. See https://github.com/huggingface/transformers/issues/22482 for more details.'
+        )
+
     fsdp_config = None
     if use_fsdp:
         fsdp_config = {
             'sharding_strategy': 'FULL_SHARD',
         }
 
-    hf_model = hf_model()
     hf_tokenizer = hf_tokenizer()
 
     model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, use_logits=True)
