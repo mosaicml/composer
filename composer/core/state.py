@@ -160,7 +160,7 @@ def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
             attribute_name = attribute_name[1:]
         # Torchmetrics adds a new attribute as of 0.11 which must be added to deserialized metrics
         """
-        # If things are loaded correctly from metric.state_dict(), we will not need this backwards-compatility
+        # If things are loaded correctly from metric.state_dict(), we will not need this backwards-compatible
         # code.
         if attribute_name == 'train_metrics':
             for metric_name in serialized_value.keys():
