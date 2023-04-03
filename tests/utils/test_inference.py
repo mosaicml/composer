@@ -15,7 +15,7 @@ import torch.nn as nn
 from packaging import version
 from torch.utils.data import DataLoader
 
-from composer.core import Precision, State
+from composer.core import State
 from composer.devices import DeviceCPU, DeviceGPU
 from composer.functional import apply_gated_linear_units
 from composer.loggers import InMemoryLogger, Logger
@@ -80,13 +80,12 @@ def test_huggingface_export_for_inference_onnx(onnx_opset_version, tiny_bert_con
 
     if onnx_opset_version == None and version.parse(torch.__version__) < version.parse('1.13'):
         pytest.skip("Don't test prior PyTorch version's default Opset version.")
-        
+
     import onnx
     import onnx.checker
     import onnxruntime as ort
     import transformers
 
-    from composer.functional import apply_low_precision_layernorm
     from composer.models import HuggingFaceModel
 
     composer_device = get_device(device)
@@ -121,7 +120,7 @@ def test_huggingface_export_for_inference_onnx(onnx_opset_version, tiny_bert_con
             1: 'seq_len'
         },
     }
-    
+
     tiny_bert_config.num_labels = 2
     tiny_bert_config.hidden_act = 'gelu_new'
     hf_model = transformers.AutoModelForSequenceClassification.from_config(
@@ -133,7 +132,7 @@ def test_huggingface_export_for_inference_onnx(onnx_opset_version, tiny_bert_con
     apply_gated_linear_units(model, optimizer)
 
     model.eval()
-    
+
     # Move model to device
     composer_device.module_to_device(model)
     for key, val in sample_input.items():
