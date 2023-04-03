@@ -232,9 +232,10 @@ def _adjust_device_train_microbatch_size(state: State):
     else:
         original_microbatch_size = state.device_train_microbatch_size
         state.device_train_microbatch_size = max(int(original_microbatch_size / 2), 1)
-        warnings.warn(
-            RuntimeWarning('CUDA out of memory detected. Train microbatch size will be decreased from '
-                           f'{original_microbatch_size} -> {state.device_train_microbatch_size}.'))
+        print(f'WARNING: CUDA out of memory detected. Train microbatch size will be decreased from {original_microbatch_size} -> {state.device_train_microbatch_size}.')
+        # warnings.warn(
+        #     RuntimeWarning('CUDA out of memory detected. Train microbatch size will be decreased from '
+        #                    f'{original_microbatch_size} -> {state.device_train_microbatch_size}.'))
     # Clear gradients in case failure happened during backwards pass
     if hasattr(state, 'outputs'):
         del state.outputs
@@ -2038,7 +2039,7 @@ class Trainer:
             if self.state.auto_microbatching:
                 all_ranks_finished = False
                 while not all_ranks_finished:
-                    print(f'Rank {dist.get_global_rank()} found_cuda_oom={found_cuda_oom}')
+                    print(f'Start Rank {dist.get_global_rank()} found_cuda_oom={found_cuda_oom}')
                     # Propagate across all ranks if any rank hit CUDA OOM
                     found_cuda_oom_tensor = self.state.device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
                     dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
@@ -2048,7 +2049,7 @@ class Trainer:
                     # subset of ranks OOM, leaving some batches still in the forward pass
                     all_ranks_finished_tensor = self.state.device.tensor_to_device(torch.tensor([1], dtype=torch.uint8))
                     dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
-                    all_ranks_finished = all_ranks_finished.item() == 1
+                    all_ranks_finished = all_ranks_finished_tensor.item() == 1
                     print(f'Rank {dist.get_global_rank()} all_ranks_finished={all_ranks_finished}')
                 if found_cuda_oom == 1:
                     _adjust_device_train_microbatch_size(self.state)
@@ -2160,6 +2161,7 @@ class Trainer:
             if self.state.auto_microbatching:
                 # Check if any other rank hit an OOM
                 found_cuda_oom_tensor = self.state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+                print(f'[Inner] found_cuda_oom_tensor: {found_cuda_oom_tensor.item()}')
                 dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
                 found_cuda_oom = found_cuda_oom_tensor.item()
                 print(f'[Inner] found_cuda_oom: {found_cuda_oom}')
