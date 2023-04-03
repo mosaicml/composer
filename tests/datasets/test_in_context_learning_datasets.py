@@ -3,6 +3,7 @@
 
 import contextlib
 import os
+import random
 from pathlib import Path
 
 import pytest
@@ -23,17 +24,42 @@ from tests.common import device, world_size
 
 
 def test_fewshot_sample_idxs():
-    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=4, sample_idx=4)
+    rng = random.Random(1234)
+
+    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=4, sample_idx=4, rng=rng)
     assert fewshot_idxs == set([0, 1, 2, 3])
 
-    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=5, sample_idx=4)
+    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=5, sample_idx=4, rng=rng)
     assert fewshot_idxs == set([0, 1, 2, 3])
 
-    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=500, sample_idx=4)
+    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=500, sample_idx=4, rng=rng)
     assert fewshot_idxs == set([0, 1, 2, 3])
 
-    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=10, num_fewshot=7, sample_idx=4)
+    fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=10, num_fewshot=7, sample_idx=4, rng=rng)
     assert len(fewshot_idxs) == 7 and 4 not in fewshot_idxs
+
+
+def test_fewshot_sample_idxs_randomness():
+    dataset_size = 10000
+    num_fewshot = 5
+
+    rng_1_seed_1234 = random.Random(1234)
+    rng_2_seed_1234 = random.Random(1234)
+    rng_3_seed_11 = random.Random(11)
+
+    rng_1_sample_1 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 1, rng_1_seed_1234)
+    rng_2_sample_1 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 1, rng_2_seed_1234)
+    rng_3_sample_1 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 1, rng_3_seed_11)
+
+    assert rng_1_sample_1 == rng_2_sample_1
+    assert rng_1_sample_1 != rng_3_sample_1
+
+    rng_1_sample_2 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 2, rng_1_seed_1234)
+    rng_2_sample_2 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 2, rng_2_seed_1234)
+    rng_3_sample_2 = _get_fewshot_sample_idxs(dataset_size, num_fewshot, 2, rng_3_seed_11)
+
+    assert rng_1_sample_2 == rng_2_sample_2
+    assert rng_1_sample_2 != rng_3_sample_2
 
 
 def test_batch_padding_logic(tiny_gpt2_tokenizer):
