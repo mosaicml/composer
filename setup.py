@@ -105,7 +105,7 @@ extra_deps['dev'] = [
     'ipython==8.11.0',
     'ipykernel==6.20.1',
     'jupyter==1.0.0',
-    'yamllint==1.30.0',
+    'yamllint==1.28.0',
     'recommonmark==0.7.1',
     'sphinx==4.4.0',
     'pre-commit>=2.18.1,<3',
@@ -175,7 +175,7 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<4.27.5',
+    'transformers>=4.11,<4.27',
     'datasets>=2.4,<3',
 ]
 
