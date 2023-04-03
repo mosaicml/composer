@@ -51,6 +51,8 @@ def _split_mapping(m, microbatch_size: int):
             chunked[k] = _split_tensor(v, microbatch_size)
         elif isinstance(v, (List, Tuple)):
             chunked[k] = _split_list(v, microbatch_size)
+        elif isinstance(v, Mapping):
+            chunked[k] = _split_mapping(v, microbatch_size)
         elif isinstance(v, (int, float, str, bool)):
             # Defer broadcasting primitives until we know num_chunks
             pass

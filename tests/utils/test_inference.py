@@ -12,6 +12,7 @@ from unittest.mock import ANY, patch
 import pytest
 import torch
 import torch.nn as nn
+from packaging import version
 from torch.utils.data import DataLoader
 
 from composer.core import Precision, State
@@ -71,11 +72,15 @@ def test_export_for_inference_torchscript(model_cls, sample_input):
 
 
 @device('cpu', 'gpu')
-def test_huggingface_export_for_inference_onnx(device):
+@pytest.mark.parameterize('onnx_opset_version', [13, None])
+def test_huggingface_export_for_inference_onnx(onnx_opset_version, tiny_bert_config, device):
     pytest.importorskip('onnx')
     pytest.importorskip('onnxruntime')
     pytest.importorskip('transformers')
 
+    if onnx_opset_version == None and version.parse(torch.__version__) < version.parse('1.13'):
+        pytest.skip("Don't test prior PyTorch version's default Opset version.")
+        
     import onnx
     import onnx.checker
     import onnxruntime as ort
@@ -116,21 +121,21 @@ def test_huggingface_export_for_inference_onnx(device):
             1: 'seq_len'
         },
     }
-    # non pretrained model to avoid a slow test that downloads the weights.
-    config = transformers.AutoConfig.from_pretrained('bert-base-uncased', num_labels=2, hidden_act='gelu_new')
-    hf_model = transformers.AutoModelForSequenceClassification.from_config(config)  # type: ignore (thirdparty)
+    
+    tiny_bert_config.num_labels = 2
+    tiny_bert_config.hidden_act = 'gelu_new'
+    hf_model = transformers.AutoModelForSequenceClassification.from_config(
+        tiny_bert_config)  # type: ignore (thirdparty)
 
     model = HuggingFaceModel(hf_model)
 
     optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
     apply_gated_linear_units(model, optimizer)
-    apply_low_precision_layernorm(model, Precision('amp_fp16'), optimizer)
 
     model.eval()
-
+    
+    # Move model to device
     composer_device.module_to_device(model)
-    cpu_device = get_device('cpu')
-
     for key, val in sample_input.items():
         sample_input[key] = composer_device.tensor_to_device(val)
 
@@ -145,6 +150,7 @@ def test_huggingface_export_for_inference_onnx(device):
             save_path=save_path,
             sample_input=(sample_input, {}),
             dynamic_axes=dynamic_axes,
+            onnx_opset_version=onnx_opset_version,
         )
         loaded_model = onnx.load(save_path)
 
@@ -174,7 +180,8 @@ def test_huggingface_export_for_inference_onnx(device):
         (SimpleTransformerClassifier, dummy_transformer_classifier_batch()),
     ],
 )
-def test_export_for_inference_onnx(model_cls, sample_input, device):
+@pytest.mark.parameterize('onnx_opset_version', [13, None])
+def test_export_for_inference_onnx(model_cls, sample_input, onnx_opset_version, device):
     pytest.importorskip('onnx')
     pytest.importorskip('onnxruntime')
     import onnx
@@ -198,6 +205,7 @@ def test_export_for_inference_onnx(model_cls, sample_input, device):
             save_format=save_format,
             save_path=save_path,
             sample_input=(sample_input, {}),
+            onnx_opset_version=onnx_opset_version,
         )
         loaded_model = onnx.load(save_path)
         onnx.checker.check_model(loaded_model)
@@ -225,7 +233,8 @@ def test_export_for_inference_onnx(model_cls, sample_input, device):
     ],
 )
 @pytest.mark.world_size(2)
-def test_export_for_inference_onnx_ddp(model_cls, sample_input, request: pytest.FixtureRequest):
+@pytest.mark.parameterize('onnx_opset_version', [13, None])
+def test_export_for_inference_onnx_ddp(model_cls, sample_input, onnx_opset_version, request: pytest.FixtureRequest):
     pytest.importorskip('onnx')
     pytest.importorskip('onnxruntime')
     import onnx
@@ -268,6 +277,7 @@ def test_export_for_inference_onnx_ddp(model_cls, sample_input, request: pytest.
                 save_format=save_format,
                 save_path=save_path,
                 sample_input=(sample_input, {}),
+                onnx_opset_version=onnx_opset_version,
             )
 
             loaded_model = onnx.load(save_path)

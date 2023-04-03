@@ -175,9 +175,11 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<4.27.3',
+    'transformers>=4.11,<4.27',
     'datasets>=2.4,<3',
 ]
+
+extra_deps['sentencepiece'] = ['sentencepiece==0.1.97']
 
 extra_deps['mlperf'] = [
     # TODO: use pip when available: https://github.com/mlcommons/logging/issues/218

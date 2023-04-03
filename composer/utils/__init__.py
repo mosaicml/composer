@@ -18,7 +18,8 @@ from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, F
 from composer.utils.import_helpers import MissingConditionalImportError, import_object
 from composer.utils.inference import ExportFormat, Transform, export_for_inference, export_with_logger, quantize_dynamic
 from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, map_collection
-from composer.utils.misc import get_free_tcp_port, is_model_deepspeed, is_model_fsdp, is_notebook, model_eval_mode
+from composer.utils.misc import (get_free_tcp_port, is_model_deepspeed, is_model_fsdp, is_notebook, model_eval_mode,
+                                 using_torch_2_0)
 from composer.utils.object_store import (LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, OCIObjectStore,
                                          S3ObjectStore, SFTPObjectStore)
 from composer.utils.retrying import retry
@@ -77,4 +78,5 @@ __all__ = [
     'extract_hparams',
     'convert_nested_dict_to_flat_dict',
     'convert_flat_dict_to_nested_dict',
+    'using_torch_2_0',
 ]
