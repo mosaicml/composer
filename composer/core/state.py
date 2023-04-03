@@ -18,7 +18,7 @@ from packaging import version
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
-from torchmetrics import Metric, MetricCollection
+from torchmetrics import Metric
 from torchmetrics.metric import jit_distributed_available
 
 from composer.core.data_spec import DataSpec
@@ -159,6 +159,9 @@ def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
         if attribute_name.startswith('_'):
             attribute_name = attribute_name[1:]
         # Torchmetrics adds a new attribute as of 0.11 which must be added to deserialized metrics
+        """
+        # If things are loaded correctly from metric.state_dict(), we will not need this backwards-compatility
+        # code.
         if attribute_name == 'train_metrics':
             for metric_name in serialized_value.keys():
                 metric = serialized_value[metric_name]
@@ -172,6 +175,7 @@ def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
                     if not hasattr(metric, 'distributed_available_fn'):
                         metric.distributed_available_fn = jit_distributed_available
                         serialized_value[evaluator_name][metric_name] = metric
+        """
         state[attribute_name] = serialized_value
     return state
 
