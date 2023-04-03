@@ -72,7 +72,7 @@ def test_export_for_inference_torchscript(model_cls, sample_input):
 
 
 @device('cpu', 'gpu')
-@pytest.mark.parameterize('onnx_opset_version', [13, None])
+@pytest.mark.parametrize('onnx_opset_version', [13, None])
 def test_huggingface_export_for_inference_onnx(onnx_opset_version, tiny_bert_config, device):
     pytest.importorskip('onnx')
     pytest.importorskip('onnxruntime')
@@ -179,7 +179,7 @@ def test_huggingface_export_for_inference_onnx(onnx_opset_version, tiny_bert_con
         (SimpleTransformerClassifier, dummy_transformer_classifier_batch()),
     ],
 )
-@pytest.mark.parameterize('onnx_opset_version', [13, None])
+@pytest.mark.parametrize('onnx_opset_version', [13, None])
 def test_export_for_inference_onnx(model_cls, sample_input, onnx_opset_version, device):
     pytest.importorskip('onnx')
     pytest.importorskip('onnxruntime')
@@ -232,7 +232,7 @@ def test_export_for_inference_onnx(model_cls, sample_input, onnx_opset_version, 
     ],
 )
 @pytest.mark.world_size(2)
-@pytest.mark.parameterize('onnx_opset_version', [13, None])
+@pytest.mark.parametrize('onnx_opset_version', [13, None])
 def test_export_for_inference_onnx_ddp(model_cls, sample_input, onnx_opset_version, request: pytest.FixtureRequest):
     pytest.importorskip('onnx')
     pytest.importorskip('onnxruntime')
