@@ -26,7 +26,7 @@ from composer.trainer.trainer import Trainer
 from composer.utils import dist, export_with_logger, inference
 from composer.utils.device import get_device
 from tests.common import SimpleTransformerClassifier, device
-from tests.common.datasets import (RandomImageDataset, RandomTextClassificationDataset, dummy_tiny_bert_lm_batch,
+from tests.common.datasets import (RandomImageDataset, dummy_text_classification_dataloader, dummy_tiny_bert_lm_batch,
                                    dummy_transformer_classifier_batch)
 from tests.common.models import configure_tiny_bert_hf_model
 
@@ -41,7 +41,7 @@ class MockFileUploader(LoggerDestination):
 @pytest.mark.parametrize(
     'model_cls, sample_input',
     [(partial(composer_resnet, 'resnet18'), (torch.rand(4, 3, 224, 224), torch.randint(10, (4,)))),
-     (SimpleTransformerClassifier, dummy_transformer_classifier_batch()),
+     pytest.param(SimpleTransformerClassifier, dummy_transformer_classifier_batch()),
      pytest.param(configure_tiny_bert_hf_model,
                   dummy_tiny_bert_lm_batch(),
                   marks=pytest.mark.xfail(reason='HuggingFace models do not support torch.jit.script()'))],
@@ -174,10 +174,8 @@ def test_huggingface_export_for_inference_onnx(onnx_opset_version, tiny_bert_con
 @device('cpu', 'gpu')
 @pytest.mark.parametrize(
     'model_cls, sample_input',
-    [
-        (partial(composer_resnet, 'resnet18'), (torch.rand(4, 3, 224, 224), torch.randint(10, (4,)))),
-        (SimpleTransformerClassifier, dummy_transformer_classifier_batch()),
-    ],
+    [(partial(composer_resnet, 'resnet18'), (torch.rand(4, 3, 224, 224), torch.randint(10, (4,)))),
+     (SimpleTransformerClassifier, dummy_transformer_classifier_batch())],
 )
 @pytest.mark.parametrize('onnx_opset_version', [13, None])
 def test_export_for_inference_onnx(model_cls, sample_input, onnx_opset_version, device):
@@ -349,14 +347,11 @@ def test_export_for_inference_torchscript_ddp(model_cls, sample_input, request: 
 
 
 @pytest.mark.parametrize(
-    'model_cls, dataset',
-    [
-        (partial(composer_resnet, 'resnet18'), RandomImageDataset(shape=(3, 224, 224))),
-        (SimpleTransformerClassifier,
-         RandomTextClassificationDataset(size=8, vocab_size=30522, sequence_length=4, num_classes=2, use_keys=False)),
-    ],
+    'model_cls, dataloader',
+    [(partial(composer_resnet, 'resnet18'), DataLoader(RandomImageDataset(shape=(3, 224, 224)))),
+     (SimpleTransformerClassifier, dummy_text_classification_dataloader())],
 )
-def test_export_with_file_uploading_logger(model_cls, dataset):
+def test_export_with_file_uploading_logger(model_cls, dataloader):
     with patch('composer.utils.inference.export_for_inference'):
         save_format = 'torchscript'
         model = model_cls()
@@ -367,7 +362,7 @@ def test_export_with_file_uploading_logger(model_cls, dataset):
             # Construct the trainer and train
             trainer = Trainer(
                 model=model,
-                train_dataloader=DataLoader(dataset),
+                train_dataloader=dataloader,
                 max_duration='1ba',
             )
             trainer.fit()
@@ -392,10 +387,11 @@ def test_export_with_file_uploading_logger(model_cls, dataset):
 
 
 @pytest.mark.parametrize(
-    'model_cls',
-    [partial(composer_resnet, 'resnet18'), SimpleTransformerClassifier],
+    'model_cls, dataloader',
+    [(partial(composer_resnet, 'resnet18'), DataLoader(RandomImageDataset(shape=(3, 224, 224)))),
+     (SimpleTransformerClassifier, dummy_text_classification_dataloader())],
 )
-def test_export_with_other_logger(model_cls):
+def test_export_with_other_logger(model_cls, dataloader):
     with patch('composer.utils.inference.export_for_inference'):
         save_format = 'torchscript'
         model = model_cls()
@@ -406,7 +402,7 @@ def test_export_with_other_logger(model_cls):
             # Construct the trainer and train
             trainer = Trainer(
                 model=model,
-                train_dataloader=DataLoader(RandomImageDataset(shape=(3, 224, 224))),
+                train_dataloader=dataloader,
                 max_duration='1ba',
             )
             trainer.fit()
