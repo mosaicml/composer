@@ -2036,10 +2036,21 @@ class Trainer:
                     raise
 
             if self.state.auto_microbatching:
-                # Propagate across all ranks if any rank hit CUDA OOM
-                found_cuda_oom = self.state.device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
-                dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
-                if found_cuda_oom.item() == 1:
+                all_ranks_finished = False
+                while not all_ranks_finished:
+                    print(f'Rank {dist.get_global_rank()} found_cuda_oom={found_cuda_oom}')
+                    # Propagate across all ranks if any rank hit CUDA OOM
+                    found_cuda_oom_tensor = self.state.device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
+                    dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
+                    found_cuda_oom = found_cuda_oom_tensor.item()
+                    print(f'Rank {dist.get_global_rank()} found_cuda_oom={found_cuda_oom}')
+                    # Check if any rank is still not done with the batch. This may happen if only a
+                    # subset of ranks OOM, leaving some batches still in the forward pass
+                    all_ranks_finished_tensor = self.state.device.tensor_to_device(torch.tensor([1], dtype=torch.uint8))
+                    dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
+                    all_ranks_finished = all_ranks_finished.item() == 1
+                    print(f'Rank {dist.get_global_rank()} all_ranks_finished={all_ranks_finished}')
+                if found_cuda_oom == 1:
                     _adjust_device_train_microbatch_size(self.state)
                     # Skip return and rerun after handling oom
                     continue
@@ -2136,7 +2147,7 @@ class Trainer:
         )
 
         with sync_context:
-            # forward pass
+            # Forward pass
             self.engine.run_event(Event.BEFORE_FORWARD)
 
             with _get_precision_context(self.state.precision, self.deepspeed_enabled):
@@ -2144,7 +2155,23 @@ class Trainer:
 
             self.engine.run_event(Event.AFTER_FORWARD)
 
-            # loss
+            # Check if other ranks OOMed after forward pass when using auto microbatching. This may
+            # happen when close to memory limit or with uneven memory usage across ranks
+            if self.state.auto_microbatching:
+                # Check if any other rank hit an OOM
+                found_cuda_oom_tensor = self.state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+                dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
+                found_cuda_oom = found_cuda_oom_tensor.item()
+                print(f'[Inner] found_cuda_oom: {found_cuda_oom}')
+                # Signal current rank is still in batch
+                all_ranks_finished_tensor = self.state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+                dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
+                print(f'[Inner] all_ranks_finished_tensor: {all_ranks_finished_tensor.item()}')
+
+                if found_cuda_oom == 1:
+                    raise RuntimeError('CUDA out of memory encountered on a different rank')
+
+            # Loss
             self.engine.run_event(Event.BEFORE_LOSS)
 
             with _get_precision_context(self.state.precision, self.deepspeed_enabled):
@@ -2153,7 +2180,7 @@ class Trainer:
             assert self.state.loss is not None
             self.engine.run_event(Event.AFTER_LOSS)
 
-            # backward
+            # Backward Pass
             self.engine.run_event(Event.BEFORE_BACKWARD)
 
             microbatch_loss_dict = {}
