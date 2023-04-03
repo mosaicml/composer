@@ -779,6 +779,12 @@ class State(Serializable):
                 serialized_value = [(type(obj).__qualname__, obj.state_dict()) for obj in ensure_tuple(attribute_value)]
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                 serialized_value = {type(obj).__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)}
+            elif attribute_name in ['train_metrics', 'eval_metrics']:
+                # Need to check if this is a metric or a metric collection.                    
+                attribute_value.persistent(mode=True)
+                metric_dict = attribute_value.state_dict()
+                serialized_value = {type(obj).__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)}
+                
             else:
                 serialized_value = attribute_value
 
