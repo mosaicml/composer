@@ -1704,12 +1704,13 @@ class Trainer:
     def _ensure_metrics_device_and_dtype(self, metrics: Dict[str, Metric]):
         # HACK: DeepSpeed somehow manages to convert metric internal states to its own dtype. When
         # running with FP16, this tends to result in overflows. Let's assume FP32 is good enough.
-        for name, metric in metrics.items():
-            # Safety check to ensure the metric and data are on the same device. Normally not
-            # needed because the metric is automatically on the same device as the model.
-            # See https://torchmetrics.readthedocs.io/en/latest/pages/overview.html for details.
-            metrics[name] = self.state.device.module_to_device(metric)
-            metric.set_dtype(torch.float32)  # type: ignore
+        if self.state.precision == Precision.AMP_FP16:
+            for name, metric in metrics.items():
+                # Safety check to ensure the metric and data are on the same device. Normally not
+                # needed because the metric is automatically on the same device as the model.
+                # See https://torchmetrics.readthedocs.io/en/latest/pages/overview.html for details.
+                metrics[name] = self.state.device.module_to_device(metric)
+                metric.set_dtype(torch.float32)  # type: ignore
 
         return metrics
 
