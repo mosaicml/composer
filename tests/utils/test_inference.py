@@ -7,6 +7,7 @@ Test inference APIs.
 import os
 import tempfile
 from functools import partial
+from unittest.mock import ANY, patch
 
 import pytest
 import torch
@@ -17,20 +18,17 @@ from torch.utils.data import DataLoader
 from composer.core import State
 from composer.devices import DeviceCPU, DeviceGPU
 from composer.functional import apply_gated_linear_units
-# from composer.loggers import InMemoryLogger, Logger
+from composer.loggers import Logger  # , InMemoryLogger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.models import composer_resnet
 from composer.trainer.dist_strategy import prepare_ddp_module
-# from composer.trainer.trainer import Trainer
-from composer.utils import dist, inference  # , export_with_logger
+from composer.trainer.trainer import Trainer
+from composer.utils import dist, export_with_logger, inference
 from composer.utils.device import get_device
 from tests.common import SimpleTransformerClassifier, device
-from tests.common.datasets import RandomImageDataset, dummy_tiny_bert_lm_batch, dummy_transformer_classifier_batch
+from tests.common.datasets import (RandomImageDataset, dummy_bert_lm_dataloader, dummy_text_classification_dataloader,
+                                   dummy_tiny_bert_lm_batch, dummy_transformer_classifier_batch)
 from tests.common.models import configure_tiny_bert_hf_model
-
-# from unittest.mock import ANY, patch
-
-# from tests.common.datasets import  dummy_bert_lm_dataloader, dummy_text_classification_dataloader
 
 
 class MockFileUploader(LoggerDestination):
@@ -359,45 +357,46 @@ def test_export_for_inference_onnx_ddp(model_cls, sample_input, onnx_opset_versi
             )
 
 
-# @pytest.mark.parametrize(
-#     'model_cls, dataloader',
-#     [(partial(composer_resnet, 'resnet18'), DataLoader(RandomImageDataset(shape=(3, 224, 224)))),
-#      (SimpleTransformerClassifier, dummy_text_classification_dataloader()),
-#      (configure_tiny_bert_hf_model, dummy_bert_lm_dataloader())],
-# )
-# def test_export_with_file_uploading_logger(model_cls, dataloader):
-#     with patch('composer.utils.inference.export_for_inference'):
-#         save_format = 'torchscript'
-#         model = model_cls()
-#         mock_obj_logger = MockFileUploader()
-#         with tempfile.TemporaryDirectory() as tempdir:
-#             save_path = os.path.join(tempdir, f'model.pt')
+@pytest.mark.parametrize(
+    'model_cls, dataloader',
+    [(partial(composer_resnet, 'resnet18'), DataLoader(RandomImageDataset(shape=(3, 224, 224)))),
+     (SimpleTransformerClassifier, dummy_text_classification_dataloader()),
+     (configure_tiny_bert_hf_model, dummy_bert_lm_dataloader())],
+)
+def test_export_with_file_uploading_logger(model_cls, dataloader):
+    with patch('composer.utils.inference.export_for_inference'):
+        save_format = 'torchscript'
+        model = model_cls()
+        mock_obj_logger = MockFileUploader()
+        with tempfile.TemporaryDirectory() as tempdir:
+            save_path = os.path.join(tempdir, f'model.pt')
 
-#             # Construct the trainer and train
-#             trainer = Trainer(
-#                 model=model,
-#                 train_dataloader=dataloader,
-#                 max_duration='1ba',
-#             )
-#             trainer.fit()
+            # Construct the trainer and train
+            trainer = Trainer(
+                model=model,
+                train_dataloader=dataloader,
+                max_duration='1ba',
+            )
+            trainer.fit()
 
-#             mock_logger = Logger(state=trainer.state, destinations=[mock_obj_logger])
+            mock_logger = Logger(state=trainer.state, destinations=[mock_obj_logger])
 
-#             export_with_logger(
-#                 model=model,
-#                 save_format=save_format,
-#                 save_path=save_path,
-#                 logger=mock_logger,
-#             )
+            export_with_logger(
+                model=model,
+                save_format=save_format,
+                save_path=save_path,
+                logger=mock_logger,
+            )
 
-#             # Assert export_for_inference utility called with expected inputs
-#             inference.export_for_inference.assert_called_once_with(
-#                 model=model,
-#                 save_format=save_format,
-#                 save_path=ANY,
-#                 sample_input=ANY,
-#                 transforms=None,
-#             )
+            # Assert export_for_inference utility called with expected inputs
+            inference.export_for_inference.assert_called_once_with(
+                model=model,
+                save_format=save_format,
+                save_path=ANY,
+                sample_input=ANY,
+                transforms=None,
+            )
+
 
 # @pytest.mark.parametrize(
 #     'model_cls, dataloader',
