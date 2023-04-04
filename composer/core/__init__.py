@@ -17,7 +17,7 @@ from composer.core.event import Event
 from composer.core.passes import AlgorithmPass
 from composer.core.precision import Precision, get_precision_context
 from composer.core.serializable import Serializable
-from composer.core.state import State, filter_metrics
+from composer.core.state import State
 from composer.core.time import Time, Timestamp, TimeUnit, ensure_time
 from composer.core.types import JSON, Batch, BreakEpochException, Dataset, MemoryFormat, PyTorchScheduler, TrainerMode
 
@@ -48,5 +48,4 @@ __all__ = [
     'TrainerMode',
     'BreakEpochException',
     'validate_eval_automicrobatching',
-    'filter_metrics',
 ]

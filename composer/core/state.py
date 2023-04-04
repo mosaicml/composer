@@ -6,11 +6,9 @@ from __future__ import annotations
 
 import collections.abc
 import logging
-import re
 import textwrap
 import warnings
 from contextlib import contextmanager
-from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
 
 import torch
@@ -160,19 +158,6 @@ def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
             attribute_name = attribute_name[1:]
         state[attribute_name] = serialized_value
     return state
-
-
-def filter_metrics(metrics: Dict[str, Metric], metric_names: Optional[List[str]]) -> Dict[str, Metric]:
-    """Filter the metrics based on the given metric_names as regex strings (e.g. 'Accuracy', 'f1' for 'BinaryF1Score', 'Top-.' for 'Top-1 Accuracy' and 'Top-2 Accuracy', etc). If no metric_names are provided, all metrics will be returned."""
-    metrics = deepcopy(metrics)
-    if not metric_names:
-        return metrics
-    else:
-        filtered_metrics = {}
-        for name, metric in metrics.items():
-            if any(re.match(f'.*{metric_name}.*', name, re.IGNORECASE) for metric_name in metric_names):
-                filtered_metrics[name] = metric
-        return filtered_metrics
 
 
 _STATE_DICT_SERIALIZED_ATTRIBUTES = [
@@ -784,7 +769,7 @@ class State(Serializable):
                 for k, v in attribute_value.items():
                     v.persistent(mode=True)
                     # No need to use qual_name, we already know this corresponds to a metric object
-                    # and each key must match.
+                    # when we deserialize and each key is unique.
                     serialized_value[k] = v.state_dict()
             elif attribute_name == 'eval_metrics':
                 serialized_value = {}
@@ -1075,15 +1060,9 @@ class State(Serializable):
             elif attribute_name == 'optimizers':
                 self.load_optim_state(state)
             elif attribute_name == 'train_metrics':
-                try:
-                    setattr(self, attribute_name, deepcopy(self.model.get_metrics(is_train=True)))  # type: ignore
-                except:
-                    raise AttributeError(
-                        'Model does not have a get_metrics() method. Please define a get_metrics() method for your model, similar to a ComposerModel.'
-                    )
                 state_field_value = getattr(self, attribute_name)
                 # Create default initial object so we can populate metric state via load_state_dict()
-                for metric_name in list(state_field_value.keys()):
+                for metric_name in state_field_value.keys():
                     if metric_name not in serialized_value:
                         continue
                     state_field_value[metric_name]._device = self.device._device
@@ -1099,43 +1078,17 @@ class State(Serializable):
                             f"While loading train metric: {metric_name}, found these unexpected keys:  {', '.join(unexpected_keys)}"
                         )
             elif attribute_name == 'eval_metrics':
-                from composer.core.evaluator import ensure_evaluator
-
-                # Either use the current self.eval_metrics, or use the provided eval_dataloader to populate
-                # self.eval_metrics with default initial objects so we can populate the values via load_state_dict()
-                if eval_dataloader is None:
-                    state_field_value = getattr(self, attribute_name)
-                else:
-                    all_eval_metrics = {}
-                    try:
-                        all_eval_metrics = deepcopy(self.model.get_metrics(is_train=False))  # type: ignore
-                    except:
-                        raise AttributeError(
-                            'Model does not have a get_metrics() method. Please define a get_metrics() method for your model, similar to a ComposerModel.'
-                        )
-
-                    model_metric_names = [str(k) for k in all_eval_metrics.keys()]
-
-                    evaluators = [
-                        ensure_evaluator(evaluator, default_metric_names=model_metric_names)
-                        for evaluator in ensure_tuple(eval_dataloader)
-                    ]
-                    # match metric names to model metrics
-                    state_field_value = {
-                        evaluator.label: filter_metrics(all_eval_metrics, evaluator.metric_names)
-                        for evaluator in evaluators
-                    }
-
-                for eval_key, eval_metrics in serialized_value.items():
-                    if eval_key not in state_field_value:
+                state_field_value = getattr(self, attribute_name)
+                for eval_key in state_field_value.keys():
+                    if eval_key not in serialized_value:
                         continue
-                    for metric_name in list(state_field_value[eval_key].keys()):
+                    for metric_name in state_field_value[eval_key].keys():
                         if metric_name not in serialized_value[eval_key]:
                             continue
                         state_field_value[eval_key][metric_name]._device = self.device._device
                         state_field_value[eval_key][metric_name]._update_count += 1
                         missing_keys, unexpected_keys = state_field_value[eval_key][metric_name].load_state_dict(
-                            eval_metrics[metric_name], strict=False)
+                            serialized_value[eval_key][metric_name], strict=False)
                         if len(missing_keys) > 0:
                             warnings.warn(
                                 f"While loading evaluation metric: {metric_name} for eval dataloader {eval_key}, missing these keys: {', '.join(missing_keys)}"

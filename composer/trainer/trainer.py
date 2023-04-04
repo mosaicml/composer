@@ -12,6 +12,7 @@ import itertools
 import logging
 import os
 import random
+import re
 import time
 import warnings
 from collections import defaultdict
@@ -32,7 +33,7 @@ from torchmetrics import Metric
 from composer.callbacks import CheckpointSaver, OptimizerMonitor
 from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException, Callback, DataSpec, Engine, Evaluator,
                            Event, Precision, PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode,
-                           ensure_data_spec, ensure_evaluator, ensure_time, filter_metrics, get_precision_context,
+                           ensure_data_spec, ensure_evaluator, ensure_time, get_precision_context,
                            validate_eval_automicrobatching)
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, ProgressBarLogger, RemoteUploaderDownloader,
@@ -94,6 +95,19 @@ def _get_default_scheduler_frequency(schedulers: Optional[Union[Scheduler, Seque
         log.info(('Stepping schedulers every batch. '
                   'To step schedulers every epoch, set `step_schedulers_every_batch=False`.'))
         return TimeUnit.BATCH
+
+
+def _filter_metrics(metrics: Dict[str, Metric], metric_names: Optional[List[str]]) -> Dict[str, Metric]:
+    """Filter the metrics based on the given metric_names as regex strings (e.g. 'Accuracy', 'f1' for 'BinaryF1Score', 'Top-.' for 'Top-1 Accuracy' and 'Top-2 Accuracy', etc). If no metric_names are provided, all metrics will be returned."""
+    metrics = deepcopy(metrics)
+    if not metric_names:
+        return metrics
+    else:
+        filtered_metrics = {}
+        for name, metric in metrics.items():
+            if any(re.match(f'.*{metric_name}.*', name, re.IGNORECASE) for metric_name in metric_names):
+                filtered_metrics[name] = metric
+        return filtered_metrics
 
 
 def _validate_precision(precision: Precision, device: Device):
@@ -1098,7 +1112,7 @@ class Trainer:
             ]
             # match metric names to model metrics
             self.state.eval_metrics = {
-                evaluator.label: filter_metrics(eval_metrics, evaluator.metric_names) for evaluator in evaluators
+                evaluator.label: _filter_metrics(eval_metrics, evaluator.metric_names) for evaluator in evaluators
             }
 
             _set_evaluator_interval_and_subset_num_batches(
@@ -1634,7 +1648,7 @@ class Trainer:
 
             # match metric names to model metrics
             self.state.eval_metrics = {
-                evaluator.label: filter_metrics(eval_metrics, evaluator.metric_names) for evaluator in evaluators
+                evaluator.label: _filter_metrics(eval_metrics, evaluator.metric_names) for evaluator in evaluators
             }
 
             _set_evaluator_interval_and_subset_num_batches(
@@ -2440,7 +2454,7 @@ class Trainer:
 
             # match metric names to model metrics
             log.info(f'Added {[e.label for e in evaluators]} to eval_metrics.')
-            self.state.eval_metrics.update({e.label: filter_metrics(eval_metrics, e.metric_names) for e in evaluators})
+            self.state.eval_metrics.update({e.label: _filter_metrics(eval_metrics, e.metric_names) for e in evaluators})
 
             _set_evaluator_interval_and_subset_num_batches(
                 evaluators=evaluators,
