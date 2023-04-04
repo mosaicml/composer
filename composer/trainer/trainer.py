@@ -2081,6 +2081,13 @@ class Trainer:
             context = contextlib.nullcontext
         else:
             if self.state.auto_microbatching and not self.first_batch_complete:
+                # PyTorch DDP rebuilds gradient reduction buckets after 1) a forward pass where the
+                # no_sync context was not set 2) a backward pass 3) a forward pass. If only a 
+                # subset of ranks OOM on the first batch, this will cause a deadlock since a rank 
+                # that did not OOM will complete steps (1), (2), and (3) on the first succesful 
+                # microbatch after the OOMs but an OOMing rank will have never completed (1) if 
+                # using `SINGLE_AUTO_SYNC`. To avoid this, we force a sync on every microbatch for
+                # the first batch.
                 log.info('Auto microbatching requires syncing every microbatch (`MULTI_AUTO_SYNC`)'
                          ' to avoid deadlock on first batch, so ddp_sync_strategy will be ignored.')
                 context = contextlib.nullcontext
@@ -2152,6 +2159,13 @@ class Trainer:
         if self.deepspeed_enabled:
             sync_context = contextlib.nullcontext()
         elif self.state.auto_microbatching and not self.first_batch_complete:
+            # PyTorch DDP rebuilds gradient reduction buckets after 1) a forward pass where the
+            # no_sync context was not set 2) a backward pass 3) a forward pass. If only a 
+            # subset of ranks OOM on the first batch, this will cause a deadlock since a rank 
+            # that did not OOM will complete steps (1), (2), and (3) on the first succesful 
+            # microbatch after the OOMs but an OOMing rank will have never completed (1) if 
+            # using `SINGLE_AUTO_SYNC`. To avoid this, we force a sync on every microbatch for
+            # the first batch.
             log.info('Auto microbatching requires syncing every microbatch (`MULTI_AUTO_SYNC`)'
                      ' to avoid deadlock on first batch, so ddp_sync_strategy will be ignored.')
             sync_context = contextlib.nullcontext()
