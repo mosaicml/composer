@@ -688,33 +688,34 @@ def load_checkpoint_from_local_file(
             from torch.distributed.fsdp.fully_sharded_data_parallel import FullyShardedDataParallel as FSDP
             storage_reader  = dist_cp.FileSystemReader(checkpoint_path)
             # 1. Load just model first.
-            model_state_dict = {'model' : state.state_dict()['model']}
-            dist_cp.load_state_dict(model_state_dict, storage_reader)
-            state.load_state_dict(
-                model_state_dict,
-                logger,
-                strict=strict_model_weights,
-                exclude_algorithms=exclude_algorithms,
-                algorithm_passes=algorithm_passes,
-            )
-            # 2. Optionally load optimizer
-            if not load_weights_only:
-                optim_state = load_sharded_optimizer_state_dict(
-                                model_state_dict=state.state_dict()['model'],
-                                optimizer_key="optimizers",
-                                storage_reader=storage_reader)
-                state.load_optim_state(optim_state)
+            with torch.no_grad():
+                model_state_dict = {'model' : state.state_dict()['model']}
+                dist_cp.load_state_dict(model_state_dict, storage_reader)
+                state.load_state_dict(
+                    model_state_dict,
+                    logger,
+                    strict=strict_model_weights,
+                    exclude_algorithms=exclude_algorithms,
+                    algorithm_passes=algorithm_passes,
+                )
+                # 2. Optionally load optimizer
+                if not load_weights_only:
+                    optim_state = load_sharded_optimizer_state_dict(
+                                    model_state_dict=state.state_dict()['model'],
+                                    optimizer_key="optimizers",
+                                    storage_reader=storage_reader)
+                    print('load_sharded_optimizer_state_dict finished')        
+                    state.load_optim_state(optim_state)
 
-            # 3. Load the rest of state.
-            rest_state_dict = {**state.state_dict(), 'rng': reproducibility.get_rng_state()}
-            rest_state_dict.pop('model')
-            rest_state_dict.pop('optimizers')
-            dist_cp.load_state_dict(rest_state_dict, storage_reader)
-            state.load_state_dict(
-                rest_state_dict,
-                logger,
-            )
-   
+                # 3. Load the rest of state.
+                rest_state_dict = {**state.state_dict(), 'rng': reproducibility.get_rng_state()}
+                rest_state_dict.pop('model')
+                rest_state_dict.pop('optimizers')
+                dist_cp.load_state_dict(rest_state_dict, storage_reader)
+                state.load_state_dict(
+                    rest_state_dict,
+                    logger,
+                )
 
 save_checkpoint.__doc__ = f"""Checkpoint the training ``state``.
 

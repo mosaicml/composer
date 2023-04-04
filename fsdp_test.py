@@ -43,17 +43,14 @@ class SimpleModel(ComposerClassifier):
         num_classes (int): number of classes (default: 2)
     """
 
-    def __init__(self, num_features: int = 1, num_classes: int = 2) -> None:
-
-        self.num_features = num_features
-        self.num_classes = num_classes
+    def __init__(self, num_features: int = 32, num_hidden=16, num_classes: int = 8) -> None:
 
         net = torch.nn.Sequential(
             torch.nn.AdaptiveAvgPool2d(1),
             torch.nn.Flatten(),
-            torch.nn.Linear(num_features, 5, bias=True),
+            torch.nn.Linear(num_features, num_hidden, bias=False),
             torch.nn.ReLU(),
-            torch.nn.Linear(5, num_classes, bias=False),
+            torch.nn.Linear(num_hidden, num_classes, bias=False),
             torch.nn.Softmax(dim=-1),
         )
         super().__init__(module=net, num_classes=num_classes)
@@ -72,8 +69,9 @@ def get_trainer(dataset,
                 dataloader,
                 save_folder=None,
                 save_filename='ba{batch}-rank{rank}.pt',
-                num_features=16,
-                num_classes=10,
+                num_features=32,
+                num_hidden=16,
+                num_classes=8,
                 fsdp_state_dict_type='full',
                 load_path=None,
                 autoresume=False,
@@ -85,7 +83,7 @@ def get_trainer(dataset,
                 load_weights_only=False,
                 log_to_console=False,
                 ):
-    model = SimpleModel(num_features=num_features, num_classes=num_classes)
+    model = SimpleModel(num_features=num_features, num_hidden=num_hidden, num_classes=num_classes)
     optim = torch.optim.Adam(params=model.parameters())
     trainer = Trainer(
         model=model,
@@ -123,11 +121,11 @@ if __name__ == '__main__':
     import time
     from composer.core.state import fsdp_state_dict_type_context
     num_features = 16
-    num_classes = 10
+    num_classes = 4
     dataset = RandomClassificationDataset(shape=(num_features, 1, 1), num_classes=num_classes, size=128)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=16)
     ## Save
-    # # # s3_folder = 's3://mosaicml-internal-checkpoints-test/evan-test/test_sharded_checkpoints/{run_name}'
+    s3_folder = 's3://mosaicml-internal-checkpoints-test/evan-test/test_sharded_checkpoints/{run_name}'
     local_folder = 'test_checkpoints/{run_name}'
     trainer = get_trainer(dataset,
                           dataloader,
@@ -135,29 +133,30 @@ if __name__ == '__main__':
                           num_classes=num_classes,
                           save_folder=local_folder,
                           save_weights_only=False,
-                          max_duration='2ba',
-                          fsdp_state_dict_type='local',
+                          max_duration='4ba',
+                          fsdp_state_dict_type='sharded',
                           save_num_checkpoints_to_keep=-1,
-                          log_to_console=True)
+                          log_to_console=True
+                          )
     run_name = trainer.state.run_name
+    print(run_name)
     trainer.fit()
-    print(trainer.state.state_dict()['timestamp'])
     trainer.close()
 
 
 
-    # ## Load
+    # # ## Load
     trainer2 = get_trainer(dataset,
                            dataloader,
                            num_features=num_features,
                            num_classes=num_classes,
-                           fsdp_state_dict_type='local',
+                           fsdp_state_dict_type='sharded',
                            max_duration='6ba',
                            load_weights_only=False,
-                           load_path=f"./test_checkpoints/{run_name}/ba2",
+                           load_path=local_folder.format(run_name=run_name) + '/ba2',
                            log_to_console=True,
                            )
-    print(trainer2.state.state_dict()['timestamp'])
+    #print(trainer2.state.state_dict()['timestamp'])
     trainer2.fit()
     #print(trainer2.state.state_dict()['model']['module.2.weight'].local_tensor())
     # sd = {'model' : trainer2.state.state_dict()['model']}

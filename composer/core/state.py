@@ -993,9 +993,9 @@ class State(Serializable):
             optim_state_dict = state_dict['optimizers']
             log.debug(f'Loading FSDP optimizer with fsdp_state_dict_type={self.fsdp_state_dict_type}')
             loaded_optimizer_state_dict = FSDP.optim_state_dict_to_load(
-                optim_state_dict,
-                self.model,
-                optimizer)
+                optim_state_dict=optim_state_dict,
+                model=self.model,
+                optim=optimizer)
             optimizer.load_state_dict(loaded_optimizer_state_dict)
         # No FSDP, so just load the optim state dict.
         else:

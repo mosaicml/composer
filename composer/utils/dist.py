@@ -446,7 +446,7 @@ def get_sampler(dataset: torch.utils.data.Dataset, *, drop_last: bool = False, s
     Returns:
         torch.utils.data.distributed.DistributedSampler: The sampler.
     """
-    return torch.utils.data.DistributedSampler[int](
+    return torch.utils.data.DistributedSampler(
         dataset,
         drop_last=drop_last,
         shuffle=shuffle,
