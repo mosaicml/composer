@@ -50,7 +50,7 @@ from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectS
                             ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist, get_device,
                             get_file, is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
                             maybe_create_remote_uploader_downloader_from_uri, model_eval_mode, parse_uri,
-                            reproducibility)
+                            reproducibility, using_torch_2_0)
 
 if is_tpu_installed():
     import torch_xla.core.xla_model as xm
@@ -763,6 +763,9 @@ class Trainer:
             ``logging.basicConfig`` won't be called).
 
             .. seealso:: The :mod:`logging` module in Python.
+        use_torch_compile: (bool, optional):  Wraps a model and returns a compiled model. (default: ``False``)
+
+            .. note:: Only supported with PyTorch version >= 2.x
 
     Attributes:
         state (State): The :class:`.State` object used to store training state.
@@ -860,6 +863,9 @@ class Trainer:
 
         # Python logging
         python_log_level: Optional[str] = None,
+
+        # Compile model for PyTorch 2.x
+        use_torch_compile: Optional[bool] = False,
     ):
 
         self.auto_log_hparams = auto_log_hparams
@@ -908,6 +914,14 @@ class Trainer:
         self.fsdp_config = fsdp_config
         self.deepspeed_enabled = self.deepspeed_config is not None
         self.fsdp_enabled = self.fsdp_config is not None
+        # Determine whether torch compile is enabled
+        is_torch_2_0 = using_torch_2_0()
+        if is_torch_2_0 and use_torch_compile:
+            model = torch.compile(model)  # pyright: ignore
+        elif not is_torch_2_0 and use_torch_compile:
+            raise ValueError(f'torch.compile() is supported for PyTorch version >= 2.x.' +
+                             f'Either update your PyTorch version or disable parameter ' +
+                             f'`use_torch_compile` to `False`.')
 
         # Distributed
         if self.deepspeed_enabled or self.fsdp_enabled or dist.get_world_size() > 1:
@@ -1094,8 +1108,12 @@ class Trainer:
             'node_name': os.environ.get('NODENAME', 'unknown because NODENAME environment variable not set')
         })
 
-        if not isinstance(self.state.model, ComposerModel):
-            raise ValueError('Provided model should be a subclass of ComposerModel.')
+        if use_torch_compile:
+            model_type = self.state.model._orig_mod
+        else:
+            model_type = self.state.model
+        if not isinstance(model_type, ComposerModel):
+            raise ValueError('Provided model must be a subclass of ComposerModel.')
 
         # After running Event.INIT, then set the "optional" elements of state that could be passed in on FIT instead of INIT
         # Setting these attributes here ensures that algorithms do not depend on unavailable attributes during Event.INIT
@@ -1180,8 +1198,6 @@ class Trainer:
         # If using DDP or DeepSpeed, we need to wrap the ComposerModel
         # But store a reference to the original model for functions like `eval_forward`, `get_metrics`, etc.
         self._original_model = self.state.model
-        if not isinstance(self._original_model, ComposerModel):
-            raise ValueError('self.state.model must be a subclass of ComposerModel.')
 
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
