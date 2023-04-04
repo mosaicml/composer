@@ -1056,7 +1056,7 @@ class State(Serializable):
             elif attribute_name == 'optimizers':
                 self.load_optim_state(state)
             elif attribute_name == 'train_metrics':
-                # Get current metrics object and populate each metric present 
+                # Get current metrics object and populate each metric present
                 # in serialization with serialized data via load_state_dict()
                 state_field_value = getattr(self, attribute_name)
                 for metric_name in state_field_value.keys():
@@ -1075,7 +1075,7 @@ class State(Serializable):
                             f"While loading train metric: {metric_name}, found these unexpected keys:  {', '.join(unexpected_keys)}"
                         )
             elif attribute_name == 'eval_metrics':
-                # Get current metrics object and populate each metric present 
+                # Get current metrics object and populate each metric present
                 # in serialization with serialized data via load_state_dict()
                 state_field_value = getattr(self, attribute_name)
                 for eval_key in state_field_value.keys():
