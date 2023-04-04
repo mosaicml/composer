@@ -1075,40 +1075,47 @@ class State(Serializable):
             elif attribute_name == 'optimizers':
                 self.load_optim_state(state)
             elif attribute_name == 'train_metrics':
-                metric_copy = deepcopy(self.model.get_metrics(is_train=True))  # type: ignore
-                setattr(self, attribute_name, metric_copy)
+                setattr(self, attribute_name, deepcopy(self.model.get_metrics(is_train=True)))  # type: ignore
                 state_field_value = getattr(self, attribute_name)
-                # Create default initial object so we can populate metric state via _load_from_state_dict()
-                for metric_name, metric_state_dict in serialized_value.items():
-                    state_field_value[metric_name]._device = self.device._device
-                    missing_keys, unexpected_keys = state_field_value[metric_name].load_state_dict(metric_state_dict,
-                                                                                                   strict=False)
-                    if len(missing_keys) > 0:
-                        warnings.warn(
-                            f"While loading train metric: {metric_name}, missing these keys:  {', '.join(missing_keys)}"
-                        )
-                    if len(unexpected_keys) > 0:
-                        warnings.warn(
-                            f"While loading train metric: {metric_name}, found these unexpected keys:  {', '.join(unexpected_keys)}"
-                        )
+                # Create default initial object so we can populate metric state via load_state_dict()
+                for metric_name in list(state_field_value.keys()):
+                    if metric_name not in serialized_value.keys():
+                        # No matching metric in serialized state --- delete metric from recreated state
+                        del state_field_value[metric_name]
+                    else:
+                        state_field_value[metric_name]._device = self.device._device
+                        missing_keys, unexpected_keys = state_field_value[metric_name].load_state_dict(
+                            serialized_value[metric_name], strict=False)
+                        if len(missing_keys) > 0:
+                            warnings.warn(
+                                f"While loading train metric: {metric_name}, missing these keys:  {', '.join(missing_keys)}"
+                            )
+                        if len(unexpected_keys) > 0:
+                            warnings.warn(
+                                f"While loading train metric: {metric_name}, found these unexpected keys:  {', '.join(unexpected_keys)}"
+                            )
 
             elif attribute_name == 'eval_metrics':
                 state_field_value = getattr(self, attribute_name)
                 for eval_key, eval_metrics in serialized_value.items():
-                    # Create default initial object so we can populate metric state via _load_from_state_dict()
+                    # Create default initial object so we can populate metric state via load_state_dict()
                     state_field_value[eval_key] = deepcopy(self.model.get_metrics(is_train=False))  # type: ignore
-                    for metric_name, metric_state_dict in eval_metrics.items():
-                        state_field_value[eval_key][metric_name]._device = self.device._device
-                        missing_keys, unexpected_keys = state_field_value[eval_key][metric_name].load_state_dict(
-                            metric_state_dict, strict=False)
-                        if len(missing_keys) > 0:
-                            warnings.warn(
-                                f"While loading evaluation metric: {metric_name} for eval dataloader {eval_key}, missing these keys: {', '.join(missing_keys)}"
-                            )
-                        if len(unexpected_keys) > 0:
-                            warnings.warn(
-                                f"While loading evaluation metric: {metric_name} for eval dataloader {eval_key}, found these unexpected keys: {', '.join(unexpected_keys)}"
-                            )
+                    for metric_name in list(state_field_value[eval_key].keys()):
+                        if metric_name not in eval_metrics.keys():
+                            # No matching metric in serialized state --- delete metric from recreated state
+                            del state_field_value[metric_name]
+                        else:
+                            state_field_value[eval_key][metric_name]._device = self.device._device
+                            missing_keys, unexpected_keys = state_field_value[eval_key][metric_name].load_state_dict(
+                                eval_metrics[metric_name], strict=False)
+                            if len(missing_keys) > 0:
+                                warnings.warn(
+                                    f"While loading evaluation metric: {metric_name} for eval dataloader {eval_key}, missing these keys: {', '.join(missing_keys)}"
+                                )
+                            if len(unexpected_keys) > 0:
+                                warnings.warn(
+                                    f"While loading evaluation metric: {metric_name} for eval dataloader {eval_key}, found these unexpected keys: {', '.join(unexpected_keys)}"
+                                )
 
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                 state_field_value = getattr(self, attribute_name)
