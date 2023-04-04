@@ -281,7 +281,7 @@ class SimpleDataset(Dataset):
                       self.batch_size], self.y[index * self.batch_size:(index + 1) * self.batch_size]
 
 
-def dummy_transformer_classifier_batch(vocab_size=100, num_classes=2):
+def dummy_transformer_classifier_batch(vocab_size=10, num_classes=2):
     sequence_length = 32
     size = 8
     batch_size = 8
