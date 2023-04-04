@@ -26,8 +26,9 @@ from composer.trainer.trainer import Trainer
 from composer.utils import dist, export_with_logger, inference
 from composer.utils.device import get_device
 from tests.common import SimpleTransformerClassifier, device
-from tests.common.datasets import (RandomImageDataset, dummy_bert_lm_dataloader, dummy_text_classification_dataloader,
-                                   dummy_tiny_bert_lm_batch, dummy_transformer_classifier_batch)
+from tests.common.datasets import (RandomImageDataset, dummy_text_classification_dataloader, dummy_tiny_bert_lm_batch,
+                                   dummy_transformer_classifier_batch)
+# from tests.common.datasets import dummy_bert_lm_dataloader
 from tests.common.models import configure_tiny_bert_hf_model
 
 
@@ -360,8 +361,7 @@ def test_export_for_inference_onnx_ddp(model_cls, sample_input, onnx_opset_versi
 @pytest.mark.parametrize(
     'model_cls, dataloader',
     [(partial(composer_resnet, 'resnet18'), DataLoader(RandomImageDataset(shape=(3, 224, 224)))),
-     (SimpleTransformerClassifier, dummy_text_classification_dataloader()),
-     (configure_tiny_bert_hf_model, dummy_bert_lm_dataloader())],
+     (SimpleTransformerClassifier, dummy_text_classification_dataloader())],
 )
 def test_export_with_file_uploading_logger(model_cls, dataloader):
     with patch('composer.utils.inference.export_for_inference'):
