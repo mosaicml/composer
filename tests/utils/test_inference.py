@@ -25,12 +25,12 @@ from composer.trainer.dist_strategy import prepare_ddp_module
 from composer.utils import dist, inference  # , export_with_logger
 from composer.utils.device import get_device
 from tests.common import SimpleTransformerClassifier, device
-from tests.common.datasets import RandomImageDataset, dummy_transformer_classifier_batch
+from tests.common.datasets import RandomImageDataset, dummy_tiny_bert_lm_batch, dummy_transformer_classifier_batch
+from tests.common.models import configure_tiny_bert_hf_model
 
 # from unittest.mock import ANY, patch
 
-# from tests.common.datasets import  dummy_bert_lm_dataloader, dummy_text_classification_dataloader, dummy_tiny_bert_lm_batch
-# from tests.common.models import configure_tiny_bert_hf_model
+# from tests.common.datasets import  dummy_bert_lm_dataloader, dummy_text_classification_dataloader
 
 
 class MockFileUploader(LoggerDestination):
@@ -40,37 +40,37 @@ class MockFileUploader(LoggerDestination):
         return True
 
 
-# @pytest.mark.parametrize(
-#     'model_cls, sample_input',
-#     [(partial(composer_resnet, 'resnet18'), (torch.rand(4, 3, 224, 224), torch.randint(10, (4,)))),
-#      pytest.param(SimpleTransformerClassifier, dummy_transformer_classifier_batch()),
-#      pytest.param(configure_tiny_bert_hf_model,
-#                   dummy_tiny_bert_lm_batch(),
-#                   marks=pytest.mark.xfail(reason='TinyBert HuggingFace model does not support torch.jit.script()'))],
-# )
-# def test_export_for_inference_torchscript(model_cls, sample_input):
-#     model = model_cls()
+@pytest.mark.parametrize(
+    'model_cls, sample_input',
+    [(partial(composer_resnet, 'resnet18'), (torch.rand(4, 3, 224, 224), torch.randint(10, (4,)))),
+     pytest.param(SimpleTransformerClassifier, dummy_transformer_classifier_batch()),
+     pytest.param(configure_tiny_bert_hf_model,
+                  dummy_tiny_bert_lm_batch(),
+                  marks=pytest.mark.xfail(reason='TinyBert HuggingFace model does not support torch.jit.script()'))],
+)
+def test_export_for_inference_torchscript(model_cls, sample_input):
+    model = model_cls()
 
-#     model.eval()
+    model.eval()
 
-#     orig_out = model(sample_input)
-#     save_format = 'torchscript'
-#     with tempfile.TemporaryDirectory() as tempdir:
-#         save_path = os.path.join(tempdir, f'model.pt')
-#         inference.export_for_inference(
-#             model=model,
-#             save_format=save_format,
-#             save_path=save_path,
-#         )
-#         loaded_model = torch.jit.load(save_path)
-#         loaded_model.eval()
-#         loaded_model_out = loaded_model(sample_input)
+    orig_out = model(sample_input)
+    save_format = 'torchscript'
+    with tempfile.TemporaryDirectory() as tempdir:
+        save_path = os.path.join(tempdir, f'model.pt')
+        inference.export_for_inference(
+            model=model,
+            save_format=save_format,
+            save_path=save_path,
+        )
+        loaded_model = torch.jit.load(save_path)
+        loaded_model.eval()
+        loaded_model_out = loaded_model(sample_input)
 
-#         torch.testing.assert_close(
-#             orig_out,
-#             loaded_model_out,
-#             msg=f'output mismatch with {save_format}',
-#         )
+        torch.testing.assert_close(
+            orig_out,
+            loaded_model_out,
+            msg=f'output mismatch with {save_format}',
+        )
 
 
 @device('cpu', 'gpu')
@@ -228,60 +228,60 @@ def test_export_for_inference_onnx(model_cls, sample_input, onnx_opset_version, 
         )
 
 
-# @pytest.mark.parametrize(
-#     'model_cls, sample_input',
-#     [
-#         (partial(composer_resnet, 'resnet18'), (torch.rand(1, 3, 224, 224), torch.randint(10, (1,)))),
-#         (SimpleTransformerClassifier, dummy_transformer_classifier_batch()),
-#         pytest.param(configure_tiny_bert_hf_model,
-#                      dummy_tiny_bert_lm_batch(),
-#                      marks=pytest.mark.xfail(reason='HuggingFace models do not support torch.jit.script()')),
-#     ],
-# )
-# @pytest.mark.world_size(2)
-# def test_export_for_inference_torchscript_ddp(model_cls, sample_input, request: pytest.FixtureRequest):
-#     model = model_cls()
-#     optimizer = torch.optim.SGD(model.parameters(), 0.1)
-#     device = None
-#     for item in request.session.items:
-#         device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
-#         break
-#     assert device != None
+@pytest.mark.parametrize(
+    'model_cls, sample_input',
+    [
+        (partial(composer_resnet, 'resnet18'), (torch.rand(1, 3, 224, 224), torch.randint(10, (1,)))),
+        (SimpleTransformerClassifier, dummy_transformer_classifier_batch()),
+        pytest.param(configure_tiny_bert_hf_model,
+                     dummy_tiny_bert_lm_batch(),
+                     marks=pytest.mark.xfail(reason='HuggingFace models do not support torch.jit.script()')),
+    ],
+)
+@pytest.mark.world_size(2)
+def test_export_for_inference_torchscript_ddp(model_cls, sample_input, request: pytest.FixtureRequest):
+    model = model_cls()
+    optimizer = torch.optim.SGD(model.parameters(), 0.1)
+    device = None
+    for item in request.session.items:
+        device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
+        break
+    assert device != None
 
-#     state = State(
-#         model=model,
-#         rank_zero_seed=0,
-#         device=device,
-#         run_name='run_name',
-#         optimizers=optimizer,
-#         max_duration='1ep',
-#         dataloader=DataLoader(RandomImageDataset(shape=(3, 224, 224))),
-#         dataloader_label='train',
-#         precision='fp32',
-#     )
+    state = State(
+        model=model,
+        rank_zero_seed=0,
+        device=device,
+        run_name='run_name',
+        optimizers=optimizer,
+        max_duration='1ep',
+        dataloader=DataLoader(RandomImageDataset(shape=(3, 224, 224))),
+        dataloader_label='train',
+        precision='fp32',
+    )
 
-#     state.model = prepare_ddp_module(state.model, find_unused_parameters=True)
-#     state.model.eval()
-#     orig_out = state.model(sample_input)
+    state.model = prepare_ddp_module(state.model, find_unused_parameters=True)
+    state.model.eval()
+    orig_out = state.model(sample_input)
 
-#     save_format = 'torchscript'
+    save_format = 'torchscript'
 
-#     # Only one rank needs to save/load model
-#     if dist.get_local_rank() == 0:
-#         with tempfile.TemporaryDirectory() as tempdir:
-#             save_path = os.path.join(str(tempdir), f'model.pt')
-#             assert isinstance(state.model.module, nn.Module)
-#             inference.export_for_inference(
-#                 model=state.model.module,
-#                 save_format=save_format,
-#                 save_path=save_path,
-#             )
+    # Only one rank needs to save/load model
+    if dist.get_local_rank() == 0:
+        with tempfile.TemporaryDirectory() as tempdir:
+            save_path = os.path.join(str(tempdir), f'model.pt')
+            assert isinstance(state.model.module, nn.Module)
+            inference.export_for_inference(
+                model=state.model.module,
+                save_format=save_format,
+                save_path=save_path,
+            )
 
-#             loaded_model = torch.jit.load(save_path)
-#             loaded_model.eval()
-#             loaded_model_out = loaded_model(sample_input)
+            loaded_model = torch.jit.load(save_path)
+            loaded_model.eval()
+            loaded_model_out = loaded_model(sample_input)
 
-#             torch.testing.assert_close(orig_out, loaded_model_out)
+            torch.testing.assert_close(orig_out, loaded_model_out)
 
 
 @pytest.mark.parametrize(
