@@ -6,6 +6,7 @@
 Each callback inherits from the :class:`.Callback` base class. See detailed description and
 examples for writing your own callbacks at the :class:`.Callback` base class.
 """
+from composer.callbacks.activation_monitor import ActivationMonitor
 from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.callbacks.early_stopper import EarlyStopper
 from composer.callbacks.export_for_inference import ExportForInferenceCallback
@@ -20,6 +21,7 @@ from composer.callbacks.speed_monitor import SpeedMonitor
 from composer.callbacks.threshold_stopper import ThresholdStopper
 
 __all__ = [
+    'ActivationMonitor',
     'OptimizerMonitor',
     'LRMonitor',
     'MemoryMonitor',
