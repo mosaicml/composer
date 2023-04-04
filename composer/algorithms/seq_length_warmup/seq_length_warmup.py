@@ -331,11 +331,11 @@ class SeqLengthWarmup(Algorithm):
                     found_cuda_oom = found_cuda_oom_tensor.item()
                     # Check if any rank is still not done with the batch. This may happen if only a
                     # subset of ranks OOM, leaving some batches still in the forward pass
-                    all_ranks_finished_tensor = self.state.device.tensor_to_device(torch.tensor([1], dtype=torch.uint8))
+                    all_ranks_finished_tensor = state.device.tensor_to_device(torch.tensor([1], dtype=torch.uint8))
                     dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
                     all_ranks_finished = all_ranks_finished_tensor.item() == 1
                 if found_cuda_oom == 1:
-                    _adjust_device_train_microbatch_size(self.state)
+                    _adjust_device_train_microbatch_size(state)
                     # Skip return and rerun after handling oom
                     continue
             # Activate and return if we've completed without OOMing.
