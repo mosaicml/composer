@@ -1008,7 +1008,6 @@ class State(Serializable):
         strict: bool = False,
         exclude_algorithms: Optional[List[str]] = None,
         algorithm_passes: Optional[List[AlgorithmPass]] = None,
-        eval_dataloader: Optional[DataLoader] = None,
     ):
         """Loads the state.
 
@@ -1020,9 +1019,6 @@ class State(Serializable):
             exclude_algorithms (List[str], optional): List of algorithm names to exclude from autoloading. (default: ``None``)
             algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
                 to sort them into the correct order. (default: ``None``)
-            eval_dataloader (DataLoader, optional): The evaluation dataloader for your trainer. Used to rebuild the eval metrics
-                from checkpoints. If not provided, this method will set only load checkpoint values for metrics that are already
-                present in self.eval_metrics.
         """
         state = _ensure_backwards_compatible_checkpointing(state)
 
