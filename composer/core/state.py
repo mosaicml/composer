@@ -159,23 +159,21 @@ def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
         if attribute_name.startswith('_'):
             attribute_name = attribute_name[1:]
         # Torchmetrics adds a new attribute as of 0.11 which must be added to deserialized metrics
-        """
         # If things are loaded correctly from metric.state_dict(), we will not need this backwards-compatible
         # code.
-        if attribute_name == 'train_metrics':
-            for metric_name in serialized_value.keys():
-                metric = serialized_value[metric_name]
-                if not hasattr(metric, 'distributed_available_fn'):
-                    metric.distributed_available_fn = jit_distributed_available
-                    serialized_value[metric_name] = metric
-        elif attribute_name == 'eval_metrics':
-            for evaluator_name, eval_metrics in serialized_value.items():
-                for metric_name in eval_metrics.keys():
-                    metric = eval_metrics[metric_name]
-                    if not hasattr(metric, 'distributed_available_fn'):
-                        metric.distributed_available_fn = jit_distributed_available
-                        serialized_value[evaluator_name][metric_name] = metric
-        """
+        # if attribute_name == 'train_metrics':
+        #     for metric_name in serialized_value.keys():
+        #         metric = serialized_value[metric_name]
+        #         if not hasattr(metric, 'distributed_available_fn'):
+        #             metric.distributed_available_fn = jit_distributed_available
+        #             serialized_value[metric_name] = metric
+        # elif attribute_name == 'eval_metrics':
+        #     for evaluator_name, eval_metrics in serialized_value.items():
+        #         for metric_name in eval_metrics.keys():
+        #             metric = eval_metrics[metric_name]
+        #             if not hasattr(metric, 'distributed_available_fn'):
+        #                 metric.distributed_available_fn = jit_distributed_available
+        #                 serialized_value[evaluator_name][metric_name] = metric
         state[attribute_name] = serialized_value
     return state
 
