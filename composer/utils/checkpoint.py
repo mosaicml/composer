@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
+from torch.utils.data import DataLoader
 
 from composer.utils import dist, reproducibility
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist,
@@ -102,6 +103,7 @@ def load_checkpoint(
     ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
     exclude_algorithms: Optional[List[str]] = None,
     algorithm_passes: Optional[List[AlgorithmPass]] = None,
+    eval_dataloader: Optional[DataLoader] = None,
 ):
     """Load a checkpoint from a local file, URI, or cloud object store into ``state``.
 
@@ -186,6 +188,8 @@ def load_checkpoint(
             (default: ``None``)
         algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
             to sort them into the correct order. (default: ``None``)
+        eval_dataloader (DataLoader, optional): The evaluation dataloader used by your trainer. Used to restore evaluation metrics
+            from checkpoints. If not provided, will restore values only for the evaluation metrics already present in state.eval_metrics.
 
     Returns:
         Optional[List[Dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
@@ -224,6 +228,7 @@ def load_checkpoint(
                 ignore_keys=ignore_keys,
                 exclude_algorithms=exclude_algorithms,
                 algorithm_passes=algorithm_passes,
+                eval_dataloader=eval_dataloader,
             )
         finally:
             # Wait for all ranks to finish restoring the checkpoint before releasing the tempdir, since tempdir can
@@ -441,6 +446,7 @@ def _restore_checkpoint(
     ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]],
     exclude_algorithms: Optional[List[str]],
     algorithm_passes: Optional[List[AlgorithmPass]],
+    eval_dataloader: Optional[DataLoader],
 ) -> Optional[List[Dict[str, Any]]]:
     """Restore a checkpoint into ``state`` and returns the rng state dicts (if ``load_weights_only`` is False)."""
     # Now, all ranks load the checkpoint that local rank zero downloaded
@@ -483,6 +489,7 @@ def _restore_checkpoint(
             logger,
             exclude_algorithms=exclude_algorithms,
             algorithm_passes=algorithm_passes,
+            eval_dataloader=eval_dataloader,
         )
         return state_dict['rng']
 
