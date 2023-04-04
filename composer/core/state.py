@@ -1084,6 +1084,7 @@ class State(Serializable):
                         del state_field_value[metric_name]
                     else:
                         state_field_value[metric_name]._device = self.device._device
+                        state_field_value[metric_name]._update_count += 1
                         missing_keys, unexpected_keys = state_field_value[metric_name].load_state_dict(
                             serialized_value[metric_name], strict=False)
                         if len(missing_keys) > 0:
@@ -1094,7 +1095,6 @@ class State(Serializable):
                             warnings.warn(
                                 f"While loading train metric: {metric_name}, found these unexpected keys:  {', '.join(unexpected_keys)}"
                             )
-
             elif attribute_name == 'eval_metrics':
                 state_field_value = getattr(self, attribute_name)
                 for eval_key, eval_metrics in serialized_value.items():
@@ -1106,6 +1106,7 @@ class State(Serializable):
                             del state_field_value[metric_name]
                         else:
                             state_field_value[eval_key][metric_name]._device = self.device._device
+                            state_field_value[eval_key][metric_name]._update_count += 1
                             missing_keys, unexpected_keys = state_field_value[eval_key][metric_name].load_state_dict(
                                 eval_metrics[metric_name], strict=False)
                             if len(missing_keys) > 0:
