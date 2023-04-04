@@ -19,7 +19,7 @@ from torchmetrics import Metric
 
 from composer.metrics import InContextLearningMetric
 from composer.models.base import ComposerModel
-from composer.utils import MissingConditionalImportError, dist, get_file, import_object, safe_torch_load
+from composer.utils import MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp, safe_torch_load
 
 if TYPE_CHECKING:
     import transformers
@@ -276,13 +276,25 @@ class HuggingFaceModel(ComposerModel):
         if hf_tokenizer_state != {}:
             with tempfile.TemporaryDirectory() as _tmp_dir:
                 for filename, saved_content in hf_tokenizer_state.items():
-                    with open(Path(_tmp_dir) / f'{filename}{saved_content["file_extension"]}', 'w') as _tmp_file:
-                        if saved_content['file_extension'] == '.json':
+                    tokenizer_file_path = Path(_tmp_dir) / f'{filename}{saved_content["file_extension"]}'
+                    if saved_content['file_extension'] == '.json':
+                        with open(tokenizer_file_path, 'w') as _tmp_file:
                             json.dump(saved_content['content'], _tmp_file)
-                        elif saved_content['file_extension'] == '.txt':
+                    elif saved_content['file_extension'] == '.txt':
+                        with open(tokenizer_file_path, 'w') as _tmp_file:
                             for line in saved_content['content']:
                                 _tmp_file.write(line)
                                 _tmp_file.write('\n')
+                    elif saved_content['file_extension'] == '.model':
+                        try:
+                            import sentencepiece as spm
+                        except ImportError as e:
+                            raise MissingConditionalImportError(extra_deps_group='sentencepiece',
+                                                                conda_package='sentencepiece') from e
+                        s = spm.SentencePieceProcessor()
+                        s.load_from_serialized_proto(saved_content['content'])
+                        with open(tokenizer_file_path, 'wb') as _tmp_file:
+                            _tmp_file.write(s.serialized_model_proto())
                 hf_tokenizer = transformers.AutoTokenizer.from_pretrained(_tmp_dir)
 
                 # we need to set the name_or_path back because otherwise it is the tmp dir we are loading from here
@@ -328,7 +340,7 @@ class HuggingFaceModel(ComposerModel):
                                        max_new_tokens=batch['generation_length'],
                                        synced_gpus=dist.get_world_size() > 1,
                                        **batch.get('generation_kwargs', {}))
-            return self.tokenizer.batch_decode(generation[:, -batch['generation_length']:])
+            return self.tokenizer.batch_decode(generation[:, batch['input_ids'].shape[1]:], skip_special_tokens=True)
 
         if self.use_logits or batch.get('mode', None) == 'icl_task':
             # pop labels first to avoid computing loss
@@ -405,15 +417,24 @@ class HuggingFaceModel(ComposerModel):
             if self.tokenizer is not None:
                 for tokenizer_file_name in tokenizer_dir.iterdir():
                     tokenizer_file_path = tokenizer_dir / tokenizer_file_name
-                    with open(tokenizer_file_path) as _tokenizer_file:
-                        tokenizer_file_extension = tokenizer_file_path.suffix
-                        if tokenizer_file_extension == '.txt':
+                    tokenizer_file_extension = tokenizer_file_path.suffix
+                    if tokenizer_file_extension == '.txt':
+                        with open(tokenizer_file_path) as _tokenizer_file:
                             tokenizer_file_content = _tokenizer_file.read().split('\n')
-                        elif tokenizer_file_extension == '.json':
+                    elif tokenizer_file_extension == '.json':
+                        with open(tokenizer_file_path) as _tokenizer_file:
                             tokenizer_file_content = json.load(_tokenizer_file)
-                        else:
-                            raise ValueError(
-                                f'Unexpected file ending {tokenizer_file_name} in output of tokenizer.save_pretrained.')
+                    elif tokenizer_file_extension == '.model':
+                        try:
+                            import sentencepiece as spm
+                        except ImportError as e:
+                            raise MissingConditionalImportError(extra_deps_group='sentencepiece',
+                                                                conda_package='sentencepiece') from e
+                        s = spm.SentencePieceProcessor(model_file=str(tokenizer_file_path))
+                        tokenizer_file_content = s.serialized_model_proto()
+                    else:
+                        raise ValueError(
+                            f'Unexpected file ending {tokenizer_file_name} in output of tokenizer.save_pretrained.')
                     tokenizer_output[tokenizer_file_path.stem] = {
                         'file_extension': tokenizer_file_extension,
                         'content': tokenizer_file_content
@@ -434,7 +455,7 @@ class HuggingFaceModel(ComposerModel):
         # We need to call forward once in order for FSDP + generate to work
         # See https://github.com/huggingface/accelerate/issues/570, https://github.com/huggingface/accelerate/issues/947,
         # and https://github.com/pytorch/pytorch/issues/82461 for more info
-        if not self.dummy_forward_called:
+        if not self.dummy_forward_called and is_model_fsdp(self.model):
             with torch.no_grad():
                 maybe_decoder_input_ids = {}
                 if self.model.config.is_encoder_decoder:

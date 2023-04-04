@@ -23,13 +23,13 @@ class SimpleModel(ComposerClassifier):
         num_classes (int): number of classes (default: 2)
     """
 
-    def __init__(self, num_features: int = 1, num_classes: int = 2) -> None:
+    def __init__(self, num_features: int = 1, num_classes: int = 2, device: str = 'cpu', bias: bool = True) -> None:
 
         self.num_features = num_features
         self.num_classes = num_classes
 
-        fc1 = torch.nn.Linear(num_features, 5)
-        fc2 = torch.nn.Linear(5, num_classes)
+        fc1 = torch.nn.Linear(num_features, 5, device=device, bias=bias)
+        fc2 = torch.nn.Linear(5, num_classes, device=device, bias=bias)
 
         net = torch.nn.Sequential(
             torch.nn.AdaptiveAvgPool2d(1),
@@ -39,6 +39,7 @@ class SimpleModel(ComposerClassifier):
             fc2,
             torch.nn.Softmax(dim=-1),
         )
+        net.param_init_fn = self.param_init_fn
         super().__init__(module=net, num_classes=num_classes)
 
         # Important: It is crucial that the FC layers are bound to `self`
@@ -48,6 +49,14 @@ class SimpleModel(ComposerClassifier):
         # as self.net[1]
         self.fc1 = fc1
         self.fc2 = fc2
+
+    def param_init_fn(self, module):
+        init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
+
+        if isinstance(module, torch.nn.Linear):
+            init_fn(module.weight)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
 
 
 class SimpleMLP(torch.nn.Module):
@@ -231,7 +240,7 @@ class Mean(torch.nn.Module):
 class SimpleTransformerBase(torch.nn.Module):
     """Base encoding transformer model for testing"""
 
-    def __init__(self, vocab_size: int = 100, d_model: int = 16):
+    def __init__(self, vocab_size: int = 10, d_model: int = 16):
         super().__init__()
         embedding = torch.nn.Embedding(vocab_size, 16)
         layer = torch.nn.TransformerEncoderLayer(d_model=d_model, nhead=2, dim_feedforward=d_model, dropout=0.3)
@@ -254,7 +263,7 @@ class SimpleTransformerBase(torch.nn.Module):
 
 class SimpleTransformerMaskedLM(ComposerClassifier):
 
-    def __init__(self, vocab_size: int = 100):
+    def __init__(self, vocab_size: int = 10):
         self.vocab_size = vocab_size
         transformer_base = SimpleTransformerBase(vocab_size=vocab_size, d_model=16)
         lm_head = torch.nn.Linear(16, vocab_size)
