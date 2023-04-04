@@ -5,11 +5,11 @@
 from __future__ import annotations
 
 import collections.abc
-from copy import deepcopy
 import logging
 import textwrap
 import warnings
 from contextlib import contextmanager
+from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
 
 import torch
@@ -19,7 +19,6 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
 from torchmetrics import Metric
-from torchmetrics.metric import jit_distributed_available
 
 from composer.core.data_spec import DataSpec
 from composer.core.event import Event
@@ -28,6 +27,8 @@ from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit
 from composer.devices import Device
 from composer.utils import batch_get, batch_set, dist, ensure_tuple, get_composer_env_dict, is_model_deepspeed
+
+# from torchmetrics.metric import jit_distributed_available
 
 if TYPE_CHECKING:
     import deepspeed
@@ -786,14 +787,16 @@ class State(Serializable):
                 serialized_value = {}
                 for k, v in attribute_value.items():
                     v.persistent(mode=True)
-                    serialized_value[type(attribute_value).__qualname__][k] = v.state_dict()
+                    # No need to use qual_name, we already know this corresponds to a metric object
+                    # and each key must match.
+                    serialized_value[k] = v.state_dict()
             elif attribute_name == 'eval_metrics':
                 serialized_value = {}
                 for eval_key, eval_metrics in attribute_value.items():
                     serialized_value[eval_key] = {}
-                for k, v in eval_metrics.items():
-                    v.persistent(mode=True)
-                    serialized_value[type(attribute_value).__qualname__][k] = v.state_dict()
+                    for k, v in eval_metrics.items():
+                        v.persistent(mode=True)
+                        serialized_value[eval_key][k] = v.state_dict()
             else:
                 serialized_value = attribute_value
 
@@ -1072,9 +1075,10 @@ class State(Serializable):
             elif attribute_name == 'optimizers':
                 self.load_optim_state(state)
             elif attribute_name == 'train_metrics':
+                metric_copy = deepcopy(self.model.get_metrics(is_train=True))  # type: ignore
+                setattr(self, attribute_name, metric_copy)
                 state_field_value = getattr(self, attribute_name)
                 # Create default initial object so we can populate metric state via _load_from_state_dict()
-                state_field_value = deepcopy(self.model.get_metrics(is_train=True))
                 for metric_name, metric_state_dict in serialized_value.items():
                     state_field_value[metric_name]._device = self.device._device
                     state_field_value[metric_name]._load_from_state_dict(metric_state_dict)
@@ -1082,7 +1086,7 @@ class State(Serializable):
                 state_field_value = getattr(self, attribute_name)
                 for eval_key, eval_metrics in serialized_value.items():
                     # Create default initial object so we can populate metric state via _load_from_state_dict()
-                    state_field_value[eval_key] = deepcopy(self.model.get_metrics(is_train=False))
+                    state_field_value[eval_key] = deepcopy(self.model.get_metrics(is_train=False))  # type: ignore
                     for metric_name, metric_state_dict in eval_metrics.items():
                         state_field_value[eval_key][metric_name]._device = self.device._device
                         state_field_value[eval_key][metric_name].load_state_dict(metric_state_dict)
