@@ -2041,7 +2041,8 @@ class Trainer:
                 all_ranks_finished = False
                 while not all_ranks_finished:
                     # Propagate across all ranks if any rank hit CUDA OOM
-                    found_cuda_oom_tensor = self.state.device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
+                    found_cuda_oom_tensor = self.state.device.tensor_to_device(
+                        torch.tensor([found_cuda_oom], dtype=torch.uint8))
                     dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
                     found_cuda_oom = found_cuda_oom_tensor.item()
                     # Check if any rank is still not done with the batch. This may happen if only a
@@ -2078,10 +2079,10 @@ class Trainer:
         else:
             if self.state.auto_microbatching and not self.first_batch_complete:
                 # PyTorch DDP rebuilds gradient reduction buckets after 1) a forward pass where the
-                # no_sync context was not set 2) a backward pass 3) a forward pass. If only a 
-                # subset of ranks OOM on the first batch, this will cause a deadlock since a rank 
-                # that did not OOM will complete steps (1), (2), and (3) on the first succesful 
-                # microbatch after the OOMs but an OOMing rank will have never completed (1) if 
+                # no_sync context was not set 2) a backward pass 3) a forward pass. If only a
+                # subset of ranks OOM on the first batch, this will cause a deadlock since a rank
+                # that did not OOM will complete steps (1), (2), and (3) on the first succesful
+                # microbatch after the OOMs but an OOMing rank will have never completed (1) if
                 # using `SINGLE_AUTO_SYNC`. To avoid this, we force a sync on every microbatch for
                 # the first batch.
                 log.info('Auto microbatching requires syncing every microbatch (`MULTI_AUTO_SYNC`)'
@@ -2156,10 +2157,10 @@ class Trainer:
             sync_context = contextlib.nullcontext()
         elif self.state.auto_microbatching and not self.first_batch_complete:
             # PyTorch DDP rebuilds gradient reduction buckets after 1) a forward pass where the
-            # no_sync context was not set 2) a backward pass 3) a forward pass. If only a 
-            # subset of ranks OOM on the first batch, this will cause a deadlock since a rank 
-            # that did not OOM will complete steps (1), (2), and (3) on the first succesful 
-            # microbatch after the OOMs but an OOMing rank will have never completed (1) if 
+            # no_sync context was not set 2) a backward pass 3) a forward pass. If only a
+            # subset of ranks OOM on the first batch, this will cause a deadlock since a rank
+            # that did not OOM will complete steps (1), (2), and (3) on the first succesful
+            # microbatch after the OOMs but an OOMing rank will have never completed (1) if
             # using `SINGLE_AUTO_SYNC`. To avoid this, we force a sync on every microbatch for
             # the first batch.
             log.info('Auto microbatching requires syncing every microbatch (`MULTI_AUTO_SYNC`)'

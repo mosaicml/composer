@@ -326,7 +326,8 @@ class SeqLengthWarmup(Algorithm):
                 all_ranks_finished = False
                 while not all_ranks_finished:
                     # Propagate across all ranks if any rank hit CUDA OOM
-                    found_cuda_oom_tensor = state.device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
+                    found_cuda_oom_tensor = state.device.tensor_to_device(
+                        torch.tensor([found_cuda_oom], dtype=torch.uint8))
                     dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
                     found_cuda_oom = found_cuda_oom_tensor.item()
                     # Check if any rank is still not done with the batch. This may happen if only a
