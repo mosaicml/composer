@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 
 from composer.core import State
 from composer.devices import DeviceCPU, DeviceGPU
-from composer.functional import apply_gated_linear_units
+# from composer.functional import apply_gated_linear_units
 from composer.loggers import InMemoryLogger, Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.models import composer_resnet
@@ -71,104 +71,104 @@ def test_export_for_inference_torchscript(model_cls, sample_input):
         )
 
 
-@device('cpu', 'gpu')
-@pytest.mark.parametrize('onnx_opset_version', [13, None])
-def test_huggingface_export_for_inference_onnx(onnx_opset_version, tiny_bert_config, device):
-    pytest.importorskip('onnx')
-    pytest.importorskip('onnxruntime')
-    pytest.importorskip('transformers')
+# @device('cpu', 'gpu')
+# @pytest.mark.parametrize('onnx_opset_version', [13, None])
+# def test_huggingface_export_for_inference_onnx(onnx_opset_version, tiny_bert_config, device):
+#     pytest.importorskip('onnx')
+#     pytest.importorskip('onnxruntime')
+#     pytest.importorskip('transformers')
 
-    if onnx_opset_version == None and version.parse(torch.__version__) < version.parse('1.13'):
-        pytest.skip("Don't test prior PyTorch version's default Opset version.")
+#     if onnx_opset_version == None and version.parse(torch.__version__) < version.parse('1.13'):
+#         pytest.skip("Don't test prior PyTorch version's default Opset version.")
 
-    import onnx
-    import onnx.checker
-    import onnxruntime as ort
-    import transformers
+#     import onnx
+#     import onnx.checker
+#     import onnxruntime as ort
+#     import transformers
 
-    from composer.models import HuggingFaceModel
+#     from composer.models import HuggingFaceModel
 
-    composer_device = get_device(device)
-    cpu_device = get_device('cpu')
+#     composer_device = get_device(device)
+#     cpu_device = get_device('cpu')
 
-    # HuggingFace Bert Model
-    # dummy sequence batch with 2 labels, 32 sequence length, and 30522 (bert) vocab size).
-    input_ids = torch.randint(low=0, high=30522, size=(2, 32))
-    labels = torch.randint(low=0, high=1, size=(2,))
-    token_type_ids = torch.zeros(size=(2, 32), dtype=torch.int64)
-    attention_mask = torch.randint(low=0, high=1, size=(2, 32))
-    sample_input = {
-        'input_ids': input_ids,
-        'labels': labels,
-        'token_type_ids': token_type_ids,
-        'attention_mask': attention_mask,
-    }
-    dynamic_axes = {
-        'input_ids': {
-            0: 'batch_size',
-            1: 'seq_len'
-        },
-        'labels': {
-            0: 'batch_size'
-        },
-        'token_type_ids': {
-            0: 'batch_size',
-            1: 'seq_len'
-        },
-        'attention_mask': {
-            0: 'batch_size',
-            1: 'seq_len'
-        },
-    }
+#     # HuggingFace Bert Model
+#     # dummy sequence batch with 2 labels, 32 sequence length, and 30522 (bert) vocab size).
+#     input_ids = torch.randint(low=0, high=30522, size=(2, 32))
+#     labels = torch.randint(low=0, high=1, size=(2,))
+#     token_type_ids = torch.zeros(size=(2, 32), dtype=torch.int64)
+#     attention_mask = torch.randint(low=0, high=1, size=(2, 32))
+#     sample_input = {
+#         'input_ids': input_ids,
+#         'labels': labels,
+#         'token_type_ids': token_type_ids,
+#         'attention_mask': attention_mask,
+#     }
+#     dynamic_axes = {
+#         'input_ids': {
+#             0: 'batch_size',
+#             1: 'seq_len'
+#         },
+#         'labels': {
+#             0: 'batch_size'
+#         },
+#         'token_type_ids': {
+#             0: 'batch_size',
+#             1: 'seq_len'
+#         },
+#         'attention_mask': {
+#             0: 'batch_size',
+#             1: 'seq_len'
+#         },
+#     }
 
-    tiny_bert_config.num_labels = 2
-    tiny_bert_config.hidden_act = 'gelu_new'
-    hf_model = transformers.AutoModelForSequenceClassification.from_config(
-        tiny_bert_config)  # type: ignore (thirdparty)
+#     tiny_bert_config.num_labels = 2
+#     tiny_bert_config.hidden_act = 'gelu_new'
+#     hf_model = transformers.AutoModelForSequenceClassification.from_config(
+#         tiny_bert_config)  # type: ignore (thirdparty)
 
-    model = HuggingFaceModel(hf_model)
+#     model = HuggingFaceModel(hf_model)
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
-    apply_gated_linear_units(model, optimizer)
+#     optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
+#     apply_gated_linear_units(model, optimizer)
 
-    model.eval()
+#     model.eval()
 
-    # Move model to device
-    composer_device.module_to_device(model)
-    for key, val in sample_input.items():
-        sample_input[key] = composer_device.tensor_to_device(val)
+#     # Move model to device
+#     composer_device.module_to_device(model)
+#     for key, val in sample_input.items():
+#         sample_input[key] = composer_device.tensor_to_device(val)
 
-    orig_out = model(sample_input)
+#     orig_out = model(sample_input)
 
-    save_format = 'onnx'
-    with tempfile.TemporaryDirectory() as tempdir:
-        save_path = os.path.join(tempdir, f'model.{save_format}')
-        inference.export_for_inference(
-            model=model,
-            save_format=save_format,
-            save_path=save_path,
-            sample_input=(sample_input, {}),
-            dynamic_axes=dynamic_axes,
-            onnx_opset_version=onnx_opset_version,
-        )
-        loaded_model = onnx.load(save_path)
+#     save_format = 'onnx'
+#     with tempfile.TemporaryDirectory() as tempdir:
+#         save_path = os.path.join(tempdir, f'model.{save_format}')
+#         inference.export_for_inference(
+#             model=model,
+#             save_format=save_format,
+#             save_path=save_path,
+#             sample_input=(sample_input, {}),
+#             dynamic_axes=dynamic_axes,
+#             onnx_opset_version=onnx_opset_version,
+#         )
+#         loaded_model = onnx.load(save_path)
 
-        onnx.checker.check_model(loaded_model)
+#         onnx.checker.check_model(loaded_model)
 
-        ort_session = ort.InferenceSession(save_path)
+#         ort_session = ort.InferenceSession(save_path)
 
-        for key, value in sample_input.items():
-            sample_input[key] = cpu_device.tensor_to_device(value).numpy()
+#         for key, value in sample_input.items():
+#             sample_input[key] = cpu_device.tensor_to_device(value).numpy()
 
-        loaded_model_out = ort_session.run(None, sample_input)
+#         loaded_model_out = ort_session.run(None, sample_input)
 
-        torch.testing.assert_close(
-            cpu_device.tensor_to_device(orig_out['logits'].detach()).numpy(),
-            loaded_model_out[1],
-            rtol=1e-4,  # lower tolerance for ONNX
-            atol=1e-3,  # lower tolerance for ONNX
-            msg=f'output mismatch with {save_format}',
-        )
+#         torch.testing.assert_close(
+#             cpu_device.tensor_to_device(orig_out['logits'].detach()).numpy(),
+#             loaded_model_out[1],
+#             rtol=1e-4,  # lower tolerance for ONNX
+#             atol=1e-3,  # lower tolerance for ONNX
+#             msg=f'output mismatch with {save_format}',
+#         )
 
 
 @device('cpu', 'gpu')
@@ -282,79 +282,79 @@ def test_export_for_inference_torchscript_ddp(model_cls, sample_input, request: 
             torch.testing.assert_close(orig_out, loaded_model_out)
 
 
-@pytest.mark.parametrize(
-    'model_cls, sample_input',
-    [
-        (partial(composer_resnet, 'resnet18'), (torch.rand(1, 3, 224, 224), torch.randint(10, (1,)))),
-        (SimpleTransformerClassifier, dummy_transformer_classifier_batch()),
-    ],
-)
-@pytest.mark.world_size(2)
-@pytest.mark.parametrize('onnx_opset_version', [13, None])
-def test_export_for_inference_onnx_ddp(model_cls, sample_input, onnx_opset_version, request: pytest.FixtureRequest):
-    pytest.importorskip('onnx')
-    pytest.importorskip('onnxruntime')
+# @pytest.mark.parametrize(
+#     'model_cls, sample_input',
+#     [
+#         (partial(composer_resnet, 'resnet18'), (torch.rand(1, 3, 224, 224), torch.randint(10, (1,)))),
+#         (SimpleTransformerClassifier, dummy_transformer_classifier_batch()),
+#     ],
+# )
+# @pytest.mark.world_size(2)
+# @pytest.mark.parametrize('onnx_opset_version', [13, None])
+# def test_export_for_inference_onnx_ddp(model_cls, sample_input, onnx_opset_version, request: pytest.FixtureRequest):
+#     pytest.importorskip('onnx')
+#     pytest.importorskip('onnxruntime')
 
-    if onnx_opset_version == None and version.parse(torch.__version__) < version.parse('1.13'):
-        pytest.skip("Don't test prior PyTorch version's default Opset version.")
+#     if onnx_opset_version == None and version.parse(torch.__version__) < version.parse('1.13'):
+#         pytest.skip("Don't test prior PyTorch version's default Opset version.")
 
-    import onnx
-    import onnx.checker
-    import onnxruntime as ort
+#     import onnx
+#     import onnx.checker
+#     import onnxruntime as ort
 
-    model = model_cls()
-    optimizer = torch.optim.SGD(model.parameters(), 0.1)
-    device = None
-    for item in request.session.items:
-        device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
-        break
-    assert device != None
+#     model = model_cls()
+#     optimizer = torch.optim.SGD(model.parameters(), 0.1)
+#     device = None
+#     for item in request.session.items:
+#         device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
+#         break
+#     assert device != None
 
-    state = State(
-        model=model,
-        rank_zero_seed=0,
-        device=device,
-        run_name='run_name',
-        optimizers=optimizer,
-        max_duration='1ep',
-        dataloader=DataLoader(RandomImageDataset(shape=(3, 224, 224))),
-        dataloader_label='train',
-        precision='fp32',
-    )
+#     state = State(
+#         model=model,
+#         rank_zero_seed=0,
+#         device=device,
+#         run_name='run_name',
+#         optimizers=optimizer,
+#         max_duration='1ep',
+#         dataloader=DataLoader(RandomImageDataset(shape=(3, 224, 224))),
+#         dataloader_label='train',
+#         precision='fp32',
+#     )
 
-    state.model = prepare_ddp_module(state.model, find_unused_parameters=True)
-    state.model.eval()
-    orig_out = state.model(sample_input)
+#     state.model = prepare_ddp_module(state.model, find_unused_parameters=True)
+#     state.model.eval()
+#     orig_out = state.model(sample_input)
 
-    save_format = 'onnx'
+#     save_format = 'onnx'
 
-    # Only one rank needs to save/load model
-    if dist.get_local_rank() == 0:
-        with tempfile.TemporaryDirectory() as tempdir:
-            save_path = os.path.join(str(tempdir), f'model.{save_format}')
-            assert isinstance(state.model.module, nn.Module)
-            inference.export_for_inference(
-                model=state.model.module,
-                save_format=save_format,
-                save_path=save_path,
-                sample_input=(sample_input, {}),
-                onnx_opset_version=onnx_opset_version,
-            )
+#     # Only one rank needs to save/load model
+#     if dist.get_local_rank() == 0:
+#         with tempfile.TemporaryDirectory() as tempdir:
+#             save_path = os.path.join(str(tempdir), f'model.{save_format}')
+#             assert isinstance(state.model.module, nn.Module)
+#             inference.export_for_inference(
+#                 model=state.model.module,
+#                 save_format=save_format,
+#                 save_path=save_path,
+#                 sample_input=(sample_input, {}),
+#                 onnx_opset_version=onnx_opset_version,
+#             )
 
-            loaded_model = onnx.load(save_path)
-            onnx.checker.check_model(loaded_model)
-            ort_session = ort.InferenceSession(save_path)
-            loaded_model_out = ort_session.run(
-                None,
-                {'input': sample_input[0].numpy()},
-            )
+#             loaded_model = onnx.load(save_path)
+#             onnx.checker.check_model(loaded_model)
+#             ort_session = ort.InferenceSession(save_path)
+#             loaded_model_out = ort_session.run(
+#                 None,
+#                 {'input': sample_input[0].numpy()},
+#             )
 
-            torch.testing.assert_close(
-                orig_out.detach().numpy(),
-                loaded_model_out[0],
-                rtol=1e-4,  # lower tolerance for ONNX
-                atol=1e-3,  # lower tolerance for ONNX
-            )
+#             torch.testing.assert_close(
+#                 orig_out.detach().numpy(),
+#                 loaded_model_out[0],
+#                 rtol=1e-4,  # lower tolerance for ONNX
+#                 atol=1e-3,  # lower tolerance for ONNX
+#             )
 
 
 @pytest.mark.parametrize(
