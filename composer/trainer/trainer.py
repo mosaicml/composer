@@ -918,7 +918,6 @@ class Trainer:
             raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
 
         # Move the model and optimizers to the device
-
         if not (self.deepspeed_enabled or self.fsdp_enabled):
             # check if model is already on tpu
             if isinstance(device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
@@ -938,6 +937,7 @@ class Trainer:
                              "recommended to run a mini-run with `device_train_microbatch_size='auto'` to identify "
                              'the optimal device_train_microbatch_size value and then manually specify that in a '
                              'second run with profiler.')
+        self.first_batch_complete = False
         # If auto_microbatching is True or `device_train_microbatch_size` is not specified, the microbatch size
         # will be determined when dataloader is specified. train_dataloader is parsed after `Event.INIT` or in
         # fit()
