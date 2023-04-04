@@ -717,6 +717,34 @@ def load_checkpoint_from_local_file(
                     logger,
                 )
 
+# def _download_sharded_checkpoint(path: str,
+#                         node_checkpoint_folder: str,
+#                         object_store: Optional[Union[ObjectStore, LoggerDestination]],
+#                         progress_bar: bool):
+    
+#     if version.parse(torch.__version__) < version.parse('2.0.0'):
+#                 raise ValueError(f'Sharded checkpoint loading requires torch version >= 2.0.0 Got {torch.__version__}')
+#     from torch.distributed import checkpoint as dist_cp
+#     # 1. Download metadata if local rank 0.
+#     # 2. Set up object store reader like so:
+#     class ObjectStoreReader(dist_cp.FileSystemReader):
+#         def __init__(self, path): # path to metadata
+#             super().__init__(path)
+#         def read_data(self, plan: LoadPlan, planner: LoadPlanner) -> Future[None]:
+#             # group requests by file
+#             per_file: Dict[str, List[ReadItem]] = dict()
+#             for read_item in plan.items:
+#                 item_md = self.storage_data[read_item.storage_index]
+#                 path = item_md.relative_path
+#                 per_file.setdefault(path, []).append(read_item)
+
+#             for relative_path, _ in per_file.items():
+#                 object_store.download_file(remote_file_name=(self.path / relative_path), destination=node_checkpoint_folder)
+#             dist.barrier()
+#             super().read_data(plan, planner)
+#     return ObjectStoreReader
+
+
 save_checkpoint.__doc__ = f"""Checkpoint the training ``state``.
 
 Args:
