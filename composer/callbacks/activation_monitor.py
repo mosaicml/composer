@@ -107,9 +107,9 @@ class ActivationMonitor(Callback):
 
         if self.interval.unit == TimeUnit.BATCH and self.interval < Time.from_timestring('10ba'):
             warnings.warn(f'Currently the ActivationMonitor`s interval is set to {self.interval} '
-                          f'this is below our recommended value of 10ba. We recommend you raise '
+                          f'which is below our recommended value of 10ba. We recommend you raise '
                           f'the interval to at least 10ba, as the activation monitor adds extra overhead '
-                          f'and is currently adversely impacting throughput performance.')
+                          f'and decreases throughput.')
 
         # Verify that the interval has supported units
         if self.interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
