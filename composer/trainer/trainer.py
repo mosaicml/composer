@@ -1692,6 +1692,8 @@ class Trainer:
 
             # update scaler since precision was provided
             self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
+
+        self.first_batch_complete = False
         self._train_loop()
 
     def close(self):
@@ -2058,6 +2060,7 @@ class Trainer:
             # Log microbatch and return loss if we've completed without OOMing.
             assert self.state.device_train_microbatch_size is not None
             self.logger.log_metrics({'trainer/device_train_microbatch_size': self.state.device_train_microbatch_size})
+            self.first_batch_complete = True
             return total_loss_dict
 
     def _train_microbatches(self,
@@ -2077,7 +2080,12 @@ class Trainer:
         if ddp_sync or not isinstance(self.state.model, DistributedDataParallel):
             context = contextlib.nullcontext
         else:
-            context = cast(Callable[[], ContextManager], self.state.model.no_sync)
+            if self.state.auto_microbatching and not self.first_batch_complete:
+                log.info('Auto microbatching requires syncing every microbatch (`MULTI_AUTO_SYNC`)'
+                         ' to avoid deadlock on first batch, so ddp_sync_strategy will be ignored.')
+                context = contextlib.nullcontext
+            else:
+                context = cast(Callable[[], ContextManager], self.state.model.no_sync)
 
         assert self._train_data_spec is not None
 
@@ -2141,11 +2149,19 @@ class Trainer:
         device_batch = deepcopy(self.state.batch)
 
         microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
-        sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
-            self.state,
-            is_final_microbatch,
-            self._ddp_sync_strategy,
-        )
+        if self.deepspeed_enabled:
+            sync_context = contextlib.nullcontext()
+        elif self.state.auto_microbatching and not self.first_batch_complete:
+            log.info('Auto microbatching requires syncing every microbatch (`MULTI_AUTO_SYNC`)'
+                     ' to avoid deadlock on first batch, so ddp_sync_strategy will be ignored.')
+            sync_context = contextlib.nullcontext()
+        else:
+            sync_context = ddp_sync_context(
+                self.state,
+                is_final_microbatch,
+                self._ddp_sync_strategy,
+            )
+        print(f'[Inner] microbatch. is_final: {is_final_microbatch}, sync_context: {sync_context}')
 
         with sync_context:
             # Forward pass
@@ -2161,7 +2177,7 @@ class Trainer:
             if self.state.auto_microbatching:
                 # Check if any other rank hit an OOM
                 found_cuda_oom_tensor = self.state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
-                print(f'[Inner] found_cuda_oom_tensor: {found_cuda_oom_tensor.item()}')
+                print(f'[Inner] found_cuda_oom_tensor: {found_cuda_oom_tensor.item()}, num_iterations: {self.state.model.num_iterations}')
                 dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
                 found_cuda_oom = found_cuda_oom_tensor.item()
                 print(f'[Inner] found_cuda_oom: {found_cuda_oom}')
