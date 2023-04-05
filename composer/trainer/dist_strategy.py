@@ -310,21 +310,20 @@ def prepare_fsdp_module(
             def __auto_wrap_policy(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
                 if recurse:
                     return True
+                should_be_wrapped = False
+                if hasattr(module, '_fsdp_wrap'):
+                    should_be_wrapped = bool(module._fsdp_wrap)
                 else:
-                    result = False
-                    if hasattr(module, '_fsdp_wrap'):
-                        result = bool(module._fsdp_wrap)
+                    is_large = nonwrapped_numel >= min_params
+                    if hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
+                        should_be_wrapped = obj.fsdp_wrap_fn(module) or is_large
                     else:
-                        is_large = nonwrapped_numel >= min_params
-                        if hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
-                            result = obj.fsdp_wrap_fn(module) or is_large
-                        else:
-                            result = is_large
+                        should_be_wrapped = is_large
 
-                    if result and auto_microbatching:
-                        module.register_forward_hook(sync_hook)
-                        module.register_backward_hook(sync_hook)
-                    return result
+                if should_be_wrapped and auto_microbatching:
+                    module.register_forward_hook(sync_hook)
+                    module.register_backward_hook(sync_hook)
+                return should_be_wrapped
 
             if is_torch_2_0:
 
