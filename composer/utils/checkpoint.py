@@ -104,6 +104,24 @@ class PartialFilePath:
             ) + extra_suffix
 
 
+def _is_old_sharded_version_checkpoint_file(
+    path: str,
+    object_store: Optional[Union[ObjectStore, LoggerDestination]] = None):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        chkpt_destination = str(Path(tmpdir) / Path('test_chkpt.pt'))
+
+        get_file(path=format_name_with_dist_and_time(path), 
+                 destination=tmpdir,
+                 object_store=object_store)
+        if os.path.isdir(chkpt_destination):
+            return False
+        else:
+            state_dict = safe_torch_load(chkpt_destination)
+            composer_version = state_dict['metadata']['composer_env_info']['composer_version']
+            if composer_version in ['0.13.1', '0.13.2', '0.13.3']:
+                return True
+
+
 def load_checkpoint(
     path: str,
     state: State,
@@ -204,47 +222,213 @@ def load_checkpoint(
         Optional[List[Dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
             :attr:`load_weights_only` is not None. Otherwise, None.
     """
-    # download the checkpoint to the node-local folder
-    log.debug('Loading checkpoint at %s', path)
-    # Each node gets one unique folder to store checkpoints that is shared amongst all local ranks in that node.
-    # If fsdp sharded state_dicts is enabled then EVERY rank gets a unique checkpoint folder.
-    tempdir_ctx = (tempfile.TemporaryDirectory() if (state.fsdp_sharded_state_dict_enabled or
-                                                     dist.get_local_rank() == 0) else contextlib.nullcontext(None))
-    with tempdir_ctx as tempdir:
-        try:
-            # Get the path to the proper checkpoint folder corresponding to the current rank's node.
-            # If fsdp_sharded_state_dict_enabled then just use that rank's unique tempdir.
-            node_checkpoint_folder = (tempdir if state.fsdp_sharded_state_dict_enabled else
-                                      _get_node_checkpoint_download_folder(tempdir))
-            assert node_checkpoint_folder is not None
+    if state.fsdp_sharded_state_dict_enabled and not _is_old_sharded_version_checkpoint_file(path, object_store):
+        rng_state_dicts = load_sharded_checkpoint()
+    else:
+        # download the checkpoint to the node-local folder
+        log.debug('Loading checkpoint at %s', path)
+        # Each node gets one unique folder to store checkpoints that is shared amongst all local ranks in that node.
+        # If fsdp sharded state_dicts is enabled then EVERY rank gets a unique checkpoint folder.
+        tempdir_ctx = (tempfile.TemporaryDirectory() if (state.fsdp_sharded_state_dict_enabled or
+                                                        dist.get_local_rank() == 0) else contextlib.nullcontext(None))
+        with tempdir_ctx as tempdir:
+            try:
+                # Get the path to the proper checkpoint folder corresponding to the current rank's node.
+                # If fsdp_sharded_state_dict_enabled then just use that rank's unique tempdir.
+                node_checkpoint_folder = (tempdir if state.fsdp_sharded_state_dict_enabled else
+                                        _get_node_checkpoint_download_folder(tempdir))
+                assert node_checkpoint_folder is not None
 
-            composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = download_checkpoint(
-                path=path,
-                node_checkpoint_folder=node_checkpoint_folder,
-                object_store=object_store,
-                progress_bar=progress_bar,
-                fsdp_sharded_state_dict_enabled=state.fsdp_sharded_state_dict_enabled,
-                deepspeed_sharded_checkpoint=is_model_deepspeed(state.model),
-            )
-            rng_state_dicts = _restore_checkpoint(
-                state,
-                logger,
-                composer_states_filepath,
-                extracted_rank_n,
-                extracted_checkpoint_folder,
-                load_weights_only=load_weights_only,
-                strict_model_weights=strict_model_weights,
-                ignore_keys=ignore_keys,
-                exclude_algorithms=exclude_algorithms,
-                algorithm_passes=algorithm_passes,
-            )
-        finally:
-            # Wait for all ranks to finish restoring the checkpoint before releasing the tempdir, since tempdir can
-            # be a shared resource between nodes.
-            dist.barrier()
+                composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = download_checkpoint(
+                    path=path,
+                    node_checkpoint_folder=node_checkpoint_folder,
+                    object_store=object_store,
+                    progress_bar=progress_bar,
+                    fsdp_sharded_state_dict_enabled=state.fsdp_sharded_state_dict_enabled,
+                    deepspeed_sharded_checkpoint=is_model_deepspeed(state.model),
+                )
+                rng_state_dicts = _restore_checkpoint(
+                    state,
+                    logger,
+                    composer_states_filepath,
+                    extracted_rank_n,
+                    extracted_checkpoint_folder,
+                    load_weights_only=load_weights_only,
+                    strict_model_weights=strict_model_weights,
+                    ignore_keys=ignore_keys,
+                    exclude_algorithms=exclude_algorithms,
+                    algorithm_passes=algorithm_passes,
+                )
+            finally:
+                # Wait for all ranks to finish restoring the checkpoint before releasing the tempdir, since tempdir can
+                # be a shared resource between nodes.
+                dist.barrier()
 
     log.info('%s loaded from %s', 'Model weights' if load_weights_only else 'Trainer checkpoint', path)
     return rng_state_dicts
+
+
+
+def load_sharded_checkpoint(
+    source_path: str,
+    state: State,
+    logger: Logger,
+    object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
+    load_weights_only: bool = False,
+    strict_model_weights: bool = False,
+    progress_bar: bool = True,
+    ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
+    exclude_algorithms: Optional[List[str]] = None,
+    algorithm_passes: Optional[List[AlgorithmPass]] = None,
+):
+    if version.parse(torch.__version__) < version.parse('2.0.0'):
+                raise ValueError(f'Sharded checkpoint loading requires torch version >= 2.0.0 Got {torch.__version__}')
+    if not os.path.isdir(source_path):
+        raise ValueError(f'checkpoint_path must be a directory when using sharded state dict. Got {checkpoint_path}')
+    from torch.distributed import checkpoint as dist_cp
+    from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
+    from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
+    from torch.distributed.fsdp.fully_sharded_data_parallel import FullyShardedDataParallel as FSDP
+
+    class DistCPObjectStoreReader(dist_cp.FileSystemReader):
+        def __init__(self, source_path, destination_path, object_store): # path to metadata
+            self.source_path = source_path
+            self.destination_path = destination_path
+            self.object_store = object_store
+            # Instantiate FileSystemReader with destination path b/c that's where we will download files to.
+            # Because we already download the metadata file to the destination, everything will work swimmingly
+            super().__init__(destination_path)
+
+        def read_data(self, plan: LoadPlan, planner: LoadPlanner):
+            # 1. Download to the destination all files that this rank is responsible for.           
+            for plan_item in plan.items:
+                relative_file_path = self.storage_data[plan_item.storage_index].relative_path
+                self.object_store.download_file(remote_file_name=(self.source_path / relative_file_path), destination=self.destination_path)
+            
+            # 2. Wait for all ranks to finish.
+            dist.barrier()
+
+            # 3. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
+            super().read_data(plan, planner)
+
+    with tempfile.TemporaryDirectory() as tempdir:
+        # 1. Download metadata if local rank 0 to destination path
+        metadata_destination = str(Path(tempdir) / Path('.metadata'))
+        if dist.get_local_rank() == 0:
+            object_store.download_file(remote_filename = str(Path(source_path) / Path('.metadata')), destination=metadata_destination)
+        if object_store is not None:
+            storage_reader  = DistCPObjectStoreReader(source_path=source_path, destination_path=tempdir, object_store=object_store)
+        else:
+            storage_reader = dist_cp.FileSystemReader(source_path)
+        # 1. Load just model first.
+        with torch.no_grad():
+            model_state_dict = {'model' : state.state_dict()['model']}
+            dist_cp.load_state_dict(model_state_dict, storage_reader)
+            state.load_state_dict(
+                model_state_dict,
+                logger,
+                strict=strict_model_weights,
+                exclude_algorithms=exclude_algorithms,
+                algorithm_passes=algorithm_passes,
+            )
+            # 2. Optionally load optimizer
+            if not load_weights_only:
+                optim_state = load_sharded_optimizer_state_dict(
+                                model_state_dict=state.state_dict()['model'],
+                                optimizer_key="optimizers",
+                                storage_reader=storage_reader)
+                print('load_sharded_optimizer_state_dict finished')        
+                state.load_optim_state(optim_state)
+
+        # 3. Load the rest of state.
+        cur_state_dict = state.state_dict()
+        if ignore_keys:
+            # Filter provided list of key paths
+            if not callable(ignore_keys):
+                ignore_keys = glob_filter(ignore_keys)
+            # Call function to modify state_dict
+            ignore_keys(cur_state_dict)
+        cur_state_dict.pop('model')
+        cur_state_dict.pop('optimizers')
+        rest_of_the_state_dict = {**cur_state_dict, 'rng': reproducibility.get_rng_state()}
+        dist_cp.load_state_dict(rest_of_the_state_dict, storage_reader)
+        state.load_state_dict(
+            rest_of_the_state_dict,
+            logger,
+        )
+        
+
+
+
+
+def download_and_load_checkpoint_shard(
+        state: State,
+        checkpoint_path: str,
+        logger: Logger,
+        strict_model_weights: bool,
+        ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]],
+        exclude_algorithms: Optional[List[str]] = None,
+        algorithm_passes: Optional[List[AlgorithmPass]] = None,
+        load_weights_only: bool = False,
+    ):
+        """Loads the checkpoint from a local file.
+        Args:
+            checkpoint_path (str): The path to the checkpoint file or directory if using sharded.
+            logger (Logger): The logger.
+            strict_model_weights (bool): whether the keys in the ``state["model"]`` should perfectly match the keys in the
+                ``self.model``. Defaults to False.
+            ignore_keys (List[str], optional): List of keys to ignore when loading the model weights. (default: ``None``)
+            exclude_algorithms (List[str], optional): List of algorithm names to exclude from autoloading. (default: ``None``)
+            algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
+                to sort them into the correct order. (default: ``None``)
+            load_weights_only (bool): Whether to only load the weights of the model. Defaults to False.
+        """
+        if not os.path.isdir(checkpoint_path):
+            raise ValueError(f'checkpoint_path must be a directory when using sharded state dict. Got {checkpoint_path}')
+        if version.parse(torch.__version__) < version.parse('2.0.0'):
+            raise ValueError(f'Sharded checkpoint loading requires torch version >= 2.0.0 Got {torch.__version__}')
+
+        from torch.distributed import checkpoint as dist_cp
+        from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
+        from torch.distributed.fsdp.fully_sharded_data_parallel import FullyShardedDataParallel as FSDP
+        storage_reader  = dist_cp.FileSystemReader(checkpoint_path)
+        # 1. Load just model first.
+        with torch.no_grad():
+            model_state_dict = {'model' : state.state_dict()['model']}
+            dist_cp.load_state_dict(model_state_dict, storage_reader)
+            state.load_state_dict(
+                model_state_dict,
+                logger,
+                strict=strict_model_weights,
+                exclude_algorithms=exclude_algorithms,
+                algorithm_passes=algorithm_passes,
+            )
+            # 2. Optionally load optimizer
+            if not load_weights_only:
+                optim_state = load_sharded_optimizer_state_dict(
+                                model_state_dict=state.state_dict()['model'],
+                                optimizer_key="optimizers",
+                                storage_reader=storage_reader)
+                print('load_sharded_optimizer_state_dict finished')        
+                state.load_optim_state(optim_state)
+
+        # 3. Load the rest of state.
+        cur_state_dict = state.state_dict()
+        if ignore_keys:
+            # Filter provided list of key paths
+            if not callable(ignore_keys):
+                ignore_keys = glob_filter(ignore_keys)
+            # Call function to modify state_dict
+            ignore_keys(cur_state_dict)
+        cur_state_dict.pop('model')
+        cur_state_dict.pop('optimizers')
+        rest_of_the_state_dict = {**cur_state_dict, 'rng': reproducibility.get_rng_state()}
+        dist_cp.load_state_dict(rest_of_the_state_dict, storage_reader)
+        state.load_state_dict(
+            rest_of_the_state_dict,
+            logger,
+        )
+
 
 
 def _get_node_checkpoint_download_folder(path: Optional[str]) -> str:
@@ -474,9 +658,35 @@ def _restore_checkpoint(
         )
         if load_path is None:
             raise RuntimeError(f'Failed to load DeepSpeed checkpoint')
+    
+    elif not state.fsdp_sharded_state_dict_enabled:
+        state_dict = safe_torch_load(composer_states_filepath)
+        if ignore_keys:
+            # Filter provided list of key paths
+            if not callable(ignore_keys):
+                ignore_keys = glob_filter(ignore_keys)
+            # Call function to modify state_dict
+            ignore_keys(state_dict)
+        log.debug(f"Loaded checkpoint with keys {state_dict.keys()} and state keys {state_dict['state'].keys()}")
+        if load_weights_only:
+            state.load_model_state(
+                state_dict['state'],
+                logger,
+                strict=strict_model_weights,
+                exclude_algorithms=exclude_algorithms,
+                algorithm_passes=algorithm_passes,
+            )
+        else:
+            state.load_state_dict(
+                state_dict['state'],
+                logger,
+                exclude_algorithms=exclude_algorithms,
+                algorithm_passes=algorithm_passes,
+            )
+            return state_dict['rng']
     else:
         # Returns the rng state dicts (if ``load_weights_only`` is False)
-        return load_checkpoint_from_local_file(
+        return load_checkpoint_from_local_shard_files(
                         state=state,
                         checkpoint_path=composer_states_filepath,
                         logger=logger,
@@ -626,123 +836,6 @@ def _compress_file(filename: str, basename: str):
         shutil.move(filename, os.path.join(tmpdir, basename))
         with tarfile.open(filename, write_mode) as tarball:
             tarball.add(tmpdir, arcname='')
-
-
-def load_checkpoint_from_local_file(
-        state: State,
-        checkpoint_path: str,
-        logger: Logger,
-        strict_model_weights: bool,
-        ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]],
-        exclude_algorithms: Optional[List[str]] = None,
-        algorithm_passes: Optional[List[AlgorithmPass]] = None,
-        load_weights_only: bool = False,
-    ):
-        """Loads the checkpoint from a local file.
-        Args:
-            checkpoint_path (str): The path to the checkpoint file or directory if using sharded.
-            logger (Logger): The logger.
-            strict_model_weights (bool): whether the keys in the ``state["model"]`` should perfectly match the keys in the
-                ``self.model``. Defaults to False.
-            ignore_keys (List[str], optional): List of keys to ignore when loading the model weights. (default: ``None``)
-            exclude_algorithms (List[str], optional): List of algorithm names to exclude from autoloading. (default: ``None``)
-            algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
-                to sort them into the correct order. (default: ``None``)
-            load_weights_only (bool): Whether to only load the weights of the model. Defaults to False.
-        """
-
-        if not state.fsdp_sharded_state_dict_enabled:
-            state_dict = safe_torch_load(checkpoint_path)
-            if ignore_keys:
-                # Filter provided list of key paths
-                if not callable(ignore_keys):
-                    ignore_keys = glob_filter(ignore_keys)
-                # Call function to modify state_dict
-                ignore_keys(state_dict)
-            log.debug(f"Loaded checkpoint with keys {state_dict.keys()} and state keys {state_dict['state'].keys()}")
-            if load_weights_only:
-                state.load_model_state(
-                    state_dict['state'],
-                    logger,
-                    strict=strict_model_weights,
-                    exclude_algorithms=exclude_algorithms,
-                    algorithm_passes=algorithm_passes,
-                )
-            else:
-                state.load_state_dict(
-                    state_dict['state'],
-                    logger,
-                    exclude_algorithms=exclude_algorithms,
-                    algorithm_passes=algorithm_passes,
-                )
-                return state_dict['rng']
-
-        else: # Sharded checkpoint load
-            if not os.path.isdir(checkpoint_path):
-                raise ValueError(f'checkpoint_path must be a directory when using sharded state dict. Got {checkpoint_path}')
-            if version.parse(torch.__version__) < version.parse('2.0.0'):
-                raise ValueError(f'Sharded checkpoint loading requires torch version >= 2.0.0 Got {torch.__version__}')
-
-            from torch.distributed import checkpoint as dist_cp
-            from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
-            from torch.distributed.fsdp.fully_sharded_data_parallel import FullyShardedDataParallel as FSDP
-            storage_reader  = dist_cp.FileSystemReader(checkpoint_path)
-            # 1. Load just model first.
-            with torch.no_grad():
-                model_state_dict = {'model' : state.state_dict()['model']}
-                dist_cp.load_state_dict(model_state_dict, storage_reader)
-                state.load_state_dict(
-                    model_state_dict,
-                    logger,
-                    strict=strict_model_weights,
-                    exclude_algorithms=exclude_algorithms,
-                    algorithm_passes=algorithm_passes,
-                )
-                # 2. Optionally load optimizer
-                if not load_weights_only:
-                    optim_state = load_sharded_optimizer_state_dict(
-                                    model_state_dict=state.state_dict()['model'],
-                                    optimizer_key="optimizers",
-                                    storage_reader=storage_reader)
-                    print('load_sharded_optimizer_state_dict finished')        
-                    state.load_optim_state(optim_state)
-
-                # 3. Load the rest of state.
-                rest_state_dict = {**state.state_dict(), 'rng': reproducibility.get_rng_state()}
-                rest_state_dict.pop('model')
-                rest_state_dict.pop('optimizers')
-                dist_cp.load_state_dict(rest_state_dict, storage_reader)
-                state.load_state_dict(
-                    rest_state_dict,
-                    logger,
-                )
-
-# def _download_sharded_checkpoint(path: str,
-#                         node_checkpoint_folder: str,
-#                         object_store: Optional[Union[ObjectStore, LoggerDestination]],
-#                         progress_bar: bool):
-    
-#     if version.parse(torch.__version__) < version.parse('2.0.0'):
-#                 raise ValueError(f'Sharded checkpoint loading requires torch version >= 2.0.0 Got {torch.__version__}')
-#     from torch.distributed import checkpoint as dist_cp
-#     # 1. Download metadata if local rank 0.
-#     # 2. Set up object store reader like so:
-#     class ObjectStoreReader(dist_cp.FileSystemReader):
-#         def __init__(self, path): # path to metadata
-#             super().__init__(path)
-#         def read_data(self, plan: LoadPlan, planner: LoadPlanner) -> Future[None]:
-#             # group requests by file
-#             per_file: Dict[str, List[ReadItem]] = dict()
-#             for read_item in plan.items:
-#                 item_md = self.storage_data[read_item.storage_index]
-#                 path = item_md.relative_path
-#                 per_file.setdefault(path, []).append(read_item)
-
-#             for relative_path, _ in per_file.items():
-#                 object_store.download_file(remote_file_name=(self.path / relative_path), destination=node_checkpoint_folder)
-#             dist.barrier()
-#             super().read_data(plan, planner)
-#     return ObjectStoreReader
 
 
 save_checkpoint.__doc__ = f"""Checkpoint the training ``state``.
