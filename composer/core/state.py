@@ -768,7 +768,7 @@ class State(Serializable):
                 serialized_value = {}
                 for k, v in attribute_value.items():
                     v.persistent(mode=True)
-                    # No need to use qual_name, we already know this corresponds to a metric object
+                    # No need to use __qualname__, we already know this corresponds to a metric object
                     # when we deserialize and each key is unique.
                     serialized_value[k] = v.state_dict()
             elif attribute_name == 'eval_metrics':

@@ -50,6 +50,7 @@ from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectS
                             get_file, is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
                             maybe_create_remote_uploader_downloader_from_uri, model_eval_mode, parse_uri,
                             reproducibility)
+from composer.utils.misc import is_model_deepspeed
 
 if is_tpu_installed():
     import torch_xla.core.xla_model as xm
@@ -1704,7 +1705,7 @@ class Trainer:
     def _ensure_metrics_device_and_dtype(self, metrics: Dict[str, Metric]):
         # HACK: DeepSpeed somehow manages to convert metric internal states to its own dtype. When
         # running with FP16, this tends to result in overflows. Let's assume FP32 is good enough.
-        if self.state.precision == Precision.AMP_FP16:
+        if is_model_deepspeed(self.state.model):
             for name, metric in metrics.items():
                 # Safety check to ensure the metric and data are on the same device. Normally not
                 # needed because the metric is automatically on the same device as the model.
