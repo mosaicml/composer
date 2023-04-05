@@ -667,18 +667,11 @@ def test_write_hf_from_composer_direct(tiny_bert_tokenizer, tmp_path):
     trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
     trainer.fit()
 
-    # Just upload to a dummy object store outside of composer to make mocking easier
-    if str(checkpoint_upload_folder).startswith('s3://'):
-        parsed_uri = urlparse(checkpoint_upload_folder)
-        object_store = DummyObjectStore(Path(parsed_uri.netloc))
-        object_store.upload_object(parsed_uri.path + 'hf-checkpoint.pt', str(tmp_path / 'hf-checkpoint.pt'))
-
-    with patch('composer.utils.file_helpers.S3ObjectStore', DummyObjectStore):
-        checkpoint_path = os.path.join(checkpoint_upload_folder, 'hf-checkpoint.pt')
-        write_huggingface_pretrained_from_composer_checkpoint(
-            checkpoint_path,
-            tmp_path / 'hf-save-pretrained',
-        )
+    checkpoint_path = os.path.join(checkpoint_upload_folder, 'hf-checkpoint.pt')
+    write_huggingface_pretrained_from_composer_checkpoint(
+        checkpoint_path,
+        tmp_path / 'hf-save-pretrained',
+    )
 
     assert os.path.exists(tmp_path / 'hf-save-pretrained' / 'config.json')
     assert os.path.exists(tmp_path / 'hf-save-pretrained' / 'pytorch_model.bin')
