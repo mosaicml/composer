@@ -255,9 +255,13 @@ class TestCheckpointLoading:
         for p1, p2 in zip(m1.parameters(), m2.parameters()):
             torch.testing.assert_close(p1, p2)
 
-    def _assert_metrics_equal(self, train_metrics_1, train_metrics_2, eval_metrics_1, eval_metrics_2):
-        deep_compare(train_metrics_1, train_metrics_2)
-        deep_compare(eval_metrics_1, eval_metrics_2)
+    def _metrics_equal(self, train_metrics_1, train_metrics_2, eval_metrics_1, eval_metrics_2):
+        try:
+            deep_compare(train_metrics_1, train_metrics_2)
+            deep_compare(eval_metrics_1, eval_metrics_2)
+            return True
+        except AssertionError:
+            return False
 
     def get_trainer(self, **kwargs):
         model = SimpleConvModel()
@@ -360,9 +364,9 @@ class TestCheckpointLoading:
             trainer_2.state.model,
         )
 
-        # check metrics loaded properly
-        self._assert_metrics_equal(trainer_1.state.train_metrics, trainer_2.state.train_metrics,
-                                   trainer_1.state.eval_metrics, trainer_2.state.eval_metrics)
+        # check metrics loaded
+        metrics_equal = self._metrics_equal(trainer_1.state.train_metrics, trainer_2.state.train_metrics,
+                                            trainer_1.state.eval_metrics, trainer_2.state.eval_metrics)
 
         # check callbacks state
         stateful_callbacks_equal = self._stateful_callbacks_equal(
@@ -372,6 +376,7 @@ class TestCheckpointLoading:
         if load_weights_only:
             # callback state should not have been loaded
             assert not stateful_callbacks_equal
+            assert not metrics_equal
         else:
             assert stateful_callbacks_equal
 
@@ -408,8 +413,9 @@ class TestCheckpointLoading:
         )
 
         # check metrics loaded properly
-        self._assert_metrics_equal(trainer_1.state.train_metrics, trainer_2.state.train_metrics,
-                                   trainer_1.state.eval_metrics, trainer_2.state.eval_metrics)
+        assert self._metrics_equal(
+            trainer_1.state.train_metrics, trainer_2.state.train_metrics, trainer_1.state.eval_metrics,
+            trainer_2.state.eval_metrics), 'Original metrics do not equal metrics from loaded checkpoint.'
 
     @world_size(1, 2)
     @device('cpu', 'gpu')
@@ -453,8 +459,9 @@ class TestCheckpointLoading:
         )
 
         # check metrics loaded properly
-        self._assert_metrics_equal(trainer_1.state.train_metrics, trainer_2.state.train_metrics,
-                                   trainer_1.state.eval_metrics, trainer_2.state.eval_metrics)
+        assert self._metrics_equal(
+            trainer_1.state.train_metrics, trainer_2.state.train_metrics, trainer_1.state.eval_metrics,
+            trainer_2.state.eval_metrics), 'Original metrics do not equal metrics from loaded checkpoint.'
 
         assert trainer_1.state.run_name == trainer_2.state.run_name
 
