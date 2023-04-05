@@ -255,6 +255,10 @@ class TestCheckpointLoading:
         for p1, p2 in zip(m1.parameters(), m2.parameters()):
             torch.testing.assert_close(p1, p2)
 
+    def _assert_metrics_equal(self, train_metrics_1, train_metrics_2, eval_metrics_1, eval_metrics_2):
+        deep_compare(train_metrics_1, train_metrics_2)
+        deep_compare(eval_metrics_1, eval_metrics_2)
+
     def get_trainer(self, **kwargs):
         model = SimpleConvModel()
         optimizer = torch.optim.Adam(model.parameters())
@@ -356,6 +360,10 @@ class TestCheckpointLoading:
             trainer_2.state.model,
         )
 
+        # check metrics loaded properly
+        self._assert_metrics_equal(trainer_1.state.train_metrics, trainer_2.state.train_metrics,
+                                   trainer_1.state.eval_metrics, trainer_2.state.eval_metrics)
+
         # check callbacks state
         stateful_callbacks_equal = self._stateful_callbacks_equal(
             trainer_1.state.callbacks,
@@ -399,6 +407,10 @@ class TestCheckpointLoading:
             trainer_2.state.model,
         )
 
+        # check metrics loaded properly
+        self._assert_metrics_equal(trainer_1.state.train_metrics, trainer_2.state.train_metrics,
+                                   trainer_1.state.eval_metrics, trainer_2.state.eval_metrics)
+
     @world_size(1, 2)
     @device('cpu', 'gpu')
     @pytest.mark.parametrize('use_object_store', [True, False])
@@ -439,6 +451,10 @@ class TestCheckpointLoading:
             trainer_1.state.model,
             trainer_2.state.model,
         )
+
+        # check metrics loaded properly
+        self._assert_metrics_equal(trainer_1.state.train_metrics, trainer_2.state.train_metrics,
+                                   trainer_1.state.eval_metrics, trainer_2.state.eval_metrics)
 
         assert trainer_1.state.run_name == trainer_2.state.run_name
 
