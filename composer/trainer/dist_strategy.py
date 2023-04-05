@@ -14,8 +14,8 @@ from packaging import version
 from torch.nn.parallel import DistributedDataParallel
 from torchmetrics import Metric, MetricCollection
 
-from composer.core import Precision
-from composer.core.state import State
+from composer.devices import Device
+from composer.core import Precision, State
 from composer.trainer.meta_safe_apply import meta_safe_apply
 from composer.utils import StringEnum, dist, ensure_tuple, using_torch_2_0
 
@@ -123,9 +123,14 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
                        'with distributed support.')
 
 
-def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch.optim.Optimizer,
-                                                                           Sequence[torch.optim.Optimizer]]],
-                        fsdp_config: Dict[str, Any], precision: Precision) -> None:
+def prepare_fsdp_module(
+        model: torch.nn.Module, 
+        optimizers: Optional[Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]]],
+        fsdp_config: Dict[str, Any], 
+        precision: Precision,
+        device: Device,
+        auto_microbatching: bool,
+    ) -> None:
     """Prepare a module (assumed ComposerModel) and optimizer for use with :class:`torch.distributed.fsdp.FullyShardedDataParallel`.
 
     Args:
@@ -133,7 +138,25 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer for `model`, assumed to have a single param group := model.parameters().
         fsdp_config (Dict[str, Any]): The FSDP config.
         precision: (Precision): The precision being used by the Trainer, used to fill in defaults for FSDP `mixed_precision` settings.
+        device (Device): The device being used by the Trainer.
+        auto_microbatching (bool, optional): Whether or not auto microbatching is enabled.
     """
+    # Check if other ranks OOMed after forward pass when using auto microbatching. This may
+    # happen when close to memory limit or with uneven memory usage across ranks. Since we need
+    # to do this before the model weights are gathered for the next FSDP block, we wrap every
+    # FSPD block with a hook that checks if any other rank OOMed.
+    def pre_fwd_hook(_module, _input):
+        # Check if any other rank hit an OOM
+        found_cuda_oom_tensor = device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+        dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
+        found_cuda_oom = found_cuda_oom_tensor.item()
+        # Signal current rank is still in batch
+        all_ranks_finished_tensor = device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+        dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
+
+        if found_cuda_oom == 1:
+            raise RuntimeError('CUDA out of memory encountered on a different rank')
+
     if version.parse(torch.__version__) < version.parse('1.13.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
     is_torch_2_0 = using_torch_2_0()
@@ -288,14 +311,19 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                 if recurse:
                     return True
                 else:
+                    result = False
                     if hasattr(module, '_fsdp_wrap'):
-                        return bool(module._fsdp_wrap)
-
-                    is_large = nonwrapped_numel >= min_params
-                    if hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
-                        return obj.fsdp_wrap_fn(module) or is_large
+                        result = bool(module._fsdp_wrap)
                     else:
-                        return is_large
+                        is_large = nonwrapped_numel >= min_params
+                        if hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
+                            result = obj.fsdp_wrap_fn(module) or is_large
+                        else:
+                            result = is_large
+                    
+                    if result and auto_microbatching:
+                        module.register_forward_pre_hook(pre_fwd_hook)
+                    return result
 
             if is_torch_2_0:
 

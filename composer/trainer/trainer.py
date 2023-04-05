@@ -875,18 +875,34 @@ class Trainer:
         # Device
         device = get_device(device)
 
-        # Determine whether DeepSpeed and FSDP are enabled
-        self.deepspeed_config = deepspeed_config
-        self.fsdp_config = fsdp_config
-        self.deepspeed_enabled = self.deepspeed_config is not None
-        self.fsdp_enabled = self.fsdp_config is not None
-
         # Precision
         if precision is None:
             precision = Precision.AMP_FP16 if isinstance(device, DeviceGPU) else Precision.FP32
         elif isinstance(precision, str):
             precision = Precision(precision)
         _validate_precision(precision, device)
+
+        # Microbatching
+        auto_microbatching = _is_auto_microbatching(device_train_microbatch_size, device=device)
+        if auto_microbatching and profiler:
+            raise ValueError("`device_train_microbatch_size='auto'` is not compatible with the profiler. It is "
+                             "recommended to run a mini-run with `device_train_microbatch_size='auto'` to identify "
+                             'the optimal device_train_microbatch_size value and then manually specify that in a '
+                             'second run with profiler.')
+        self.first_batch_complete = False
+        # If auto_microbatching is True or `device_train_microbatch_size` is not specified, the microbatch size
+        # will be determined when dataloader is specified. train_dataloader is parsed after `Event.INIT` or in
+        # fit()
+        device_train_microbatch_size = _get_initial_device_train_microbatch_size(device_train_microbatch_size,
+                                                                                 auto_microbatching, None)
+
+        assert not isinstance(device_train_microbatch_size, str)
+
+        # Determine whether DeepSpeed and FSDP are enabled
+        self.deepspeed_config = deepspeed_config
+        self.fsdp_config = fsdp_config
+        self.deepspeed_enabled = self.deepspeed_config is not None
+        self.fsdp_enabled = self.fsdp_config is not None
 
         # Distributed
         if self.deepspeed_enabled or self.fsdp_enabled or dist.get_world_size() > 1:
@@ -896,7 +912,7 @@ class Trainer:
 
         # Handle FSDP sharding
         if self.fsdp_config is not None:
-            prepare_fsdp_module(model, optimizers, self.fsdp_config, precision)
+            prepare_fsdp_module(model, optimizers, self.fsdp_config, precision, device, auto_microbatching)
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, device)
@@ -929,22 +945,6 @@ class Trainer:
                 # It is possible that optimizer initialize created some internal tensors on CPU
                 # that need to be moved onto GPU.
             optimizers = map_collection(optimizers, device.optimizer_to_device)
-
-        # Microbatching
-        auto_microbatching = _is_auto_microbatching(device_train_microbatch_size, device=device)
-        if auto_microbatching and profiler:
-            raise ValueError("`device_train_microbatch_size='auto'` is not compatible with the profiler. It is "
-                             "recommended to run a mini-run with `device_train_microbatch_size='auto'` to identify "
-                             'the optimal device_train_microbatch_size value and then manually specify that in a '
-                             'second run with profiler.')
-        self.first_batch_complete = False
-        # If auto_microbatching is True or `device_train_microbatch_size` is not specified, the microbatch size
-        # will be determined when dataloader is specified. train_dataloader is parsed after `Event.INIT` or in
-        # fit()
-        device_train_microbatch_size = _get_initial_device_train_microbatch_size(device_train_microbatch_size,
-                                                                                 auto_microbatching, None)
-
-        assert not isinstance(device_train_microbatch_size, str)
 
         # Run Name
         if run_name is None:
