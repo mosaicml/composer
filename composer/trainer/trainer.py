@@ -710,6 +710,9 @@ class Trainer:
             See :doc:`FSDP Documentation </notes/distributed_training>` for more details.
             To use FSDP with default values, set to the empty dictionary ``{}``. To
             disable FSDP, set to ``None``. (default: ``None``)
+        wrap_fsdp (bool, optional): option to let trainer wrap the module, or if
+            the module is already wrapped outside, then don't wrap.
+
         device (Device | str, optional): The device to use for training, which can be ``'cpu'``, ``'gpu'``,
             ``'tpu'``, or ``'mps'``. (default: ``None``)
 
@@ -836,6 +839,7 @@ class Trainer:
         # DeepSpeed
         deepspeed_config: Optional[Dict[str, Any]] = None,
         fsdp_config: Optional[Dict[str, Any]] = None,
+        wrap_fsdp: Optional[bool] = True,
 
         # System/Numerics
         device: Optional[Union[str, Device]] = None,
@@ -895,7 +899,7 @@ class Trainer:
             dist.initialize_dist(device, dist_timeout)
 
         # Handle FSDP sharding
-        if self.fsdp_config is not None:
+        if self.fsdp_config is not None and wrap_fsdp:
             prepare_fsdp_module(model, optimizers, self.fsdp_config, precision)
 
         # Reproducibility
@@ -1837,7 +1841,8 @@ class Trainer:
                             reproducibility.load_rng_state(self._rng_state)
                             self._rng_state = None
                         continue
-
+                    # print ("state batch is: ", self.state.batch)
+                    # assert False
                     self.state.batch = self.state.device.batch_to_device(self.state.batch)
                     self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
                     rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
