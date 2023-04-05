@@ -158,7 +158,7 @@ def prepare_fsdp_module(
     # may happen when close to memory limit or with uneven memory usage across ranks. Since we
     # need to do this before the model weights are gathered for the next FSDP block, we wrap every
     # FSPD block with a hook that checks if any other rank OOMed.
-    def sync_hook(_module, _input, _output):
+    def sync_hook(*args):
         # Check if any other rank hit an OOM
         found_cuda_oom_tensor = device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
         dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
