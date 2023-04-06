@@ -1062,10 +1062,11 @@ class State(Serializable):
                 for metric_name in state_field_value.keys():
                     if metric_name not in serialized_value:
                         continue
-                    state_field_value[metric_name]._device = self.device._device
+                    curr_device = state_field_value[metric_name].device
                     state_field_value[metric_name]._update_count += 1
                     missing_keys, unexpected_keys = state_field_value[metric_name].load_state_dict(
                         serialized_value[metric_name], strict=False)
+                    state_field_value[metric_name].to(curr_device)
                     if len(missing_keys) > 0:
                         warnings.warn(
                             f"While loading train metric: {metric_name}, missing these keys:  {', '.join(missing_keys)}"
@@ -1084,10 +1085,12 @@ class State(Serializable):
                     for metric_name in state_field_value[eval_key].keys():
                         if metric_name not in serialized_value[eval_key]:
                             continue
-                        state_field_value[eval_key][metric_name]._device = self.device._device
+
+                        curr_device = state_field_value[eval_key][metric_name].device
                         state_field_value[eval_key][metric_name]._update_count += 1
                         missing_keys, unexpected_keys = state_field_value[eval_key][metric_name].load_state_dict(
                             serialized_value[eval_key][metric_name], strict=False)
+                        state_field_value[eval_key][metric_name].to(curr_device)
                         if len(missing_keys) > 0:
                             warnings.warn(
                                 f"While loading evaluation metric: {metric_name} for eval dataloader {eval_key}, missing these keys: {', '.join(missing_keys)}"
