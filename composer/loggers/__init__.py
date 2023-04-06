@@ -19,6 +19,7 @@ from composer.loggers.in_memory_logger import InMemoryLogger
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.mlflow_logger import MLFlowLogger
+from composer.loggers.mplatform_logger import MPlatformLogger
 from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
 from composer.loggers.tensorboard_logger import TensorboardLogger
@@ -37,4 +38,5 @@ __all__ = [
     'CometMLLogger',
     'ConsoleLogger',
     'MLFlowLogger',
+    'MPlatformLogger',
 ]
