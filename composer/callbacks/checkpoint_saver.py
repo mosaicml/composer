@@ -343,6 +343,13 @@ class CheckpointSaver(Callback):  # noqa: D101
                 logger,
             )
 
+    def close(self, state: State, logger: Logger):
+        if self.last_checkpoint_batch != state.timestamp.batch:
+            self._save_checkpoint(
+                state,
+                logger,
+            )
+
     def get_state_dict(self, state):
         return {
             'state': state.state_dict(),
