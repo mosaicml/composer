@@ -44,6 +44,6 @@ class MPlatformLogger(LoggerDestination):
             for key, val in metrics.items():
                 self.buffered_metrics[key] = val
             if time.time() - self.time_last_logged > self.log_interval:
-                # TODO: log to msdk
+                # TODO: log to msdk prefixing with `mosaicml/` and wrapping in try catch
                 self.buffered_metrics = {}
                 self.time_last_logged = time.time()
