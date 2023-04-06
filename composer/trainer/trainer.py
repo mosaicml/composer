@@ -1963,6 +1963,7 @@ class Trainer:
                 _get_precision_context(self.state.precision, self.deepspeed_enabled):
             eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
             for _, metric in self.state.train_metrics.items():
+                metric.to(device_batch[0].device)
                 self._original_model.update_metric(
                     device_batch,
                     eval_outputs,
@@ -2623,11 +2624,17 @@ class Trainer:
                                 else:
                                     outputs = self.state.outputs
 
+                                print('Outputs device:', outputs.device)
+                                print('Batch device:', self.state.batch[0].device)
                                 if hasattr(self._original_model, 'validate'):
                                     for _, metric in self.state.train_metrics.items():
+                                        metric.to(outputs.device)
+                                        print('Target device:', target.device)
+                                        print('Metric device:', metric.device)
                                         metric.update(outputs, target)
                                 else:
                                     for _, metric in metrics.items():
+                                        metric.to(outputs.device)
                                         self._original_model.update_metric(
                                             self.state.batch,
                                             outputs,
