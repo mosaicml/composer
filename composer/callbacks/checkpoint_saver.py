@@ -313,6 +313,8 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
         self.weights_only = weights_only
 
+        self.start_batch = None
+
     def init(self, state: State, logger: Logger) -> None:
         folder = format_name_with_dist(self.folder, state.run_name)
         os.makedirs(folder, exist_ok=True)
@@ -329,6 +331,8 @@ class CheckpointSaver(Callback):  # noqa: D101
         if is_model_deepspeed(state.model) and self.weights_only:
             raise NotImplementedError('weights_only=True is not supported when using DeepSpeed.')
 
+        self.start_batch = state.timestamp.batch
+
     def batch_checkpoint(self, state: State, logger: Logger):
         if self.save_interval(state, Event.BATCH_CHECKPOINT) and self.last_checkpoint_batch != state.timestamp.batch:
             self._save_checkpoint(
@@ -344,7 +348,8 @@ class CheckpointSaver(Callback):  # noqa: D101
             )
 
     def close(self, state: State, logger: Logger):
-        if self.last_checkpoint_batch != state.timestamp.batch:
+        trained_at_least_one_batch = self.start_batch is not None and self.start_batch != state.timestamp.batch
+        if self.last_checkpoint_batch != state.timestamp.batch and trained_at_least_one_batch:
             self._save_checkpoint(
                 state,
                 logger,
