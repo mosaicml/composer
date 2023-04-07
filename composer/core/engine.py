@@ -120,7 +120,9 @@ atexit.register(_set_atexit_ran)
 # functions still run. Composer CLI launcher will give a 30 second grace period before sending
 # SIGKILL.
 def sigterm_handler(signal, frame):
-    sys.exit(128+signal)
+    sys.exit(128 + signal)
+
+
 signal.signal(signal.SIGTERM, sigterm_handler)
 signal.signal(signal.SIGINT, sigterm_handler)
 
