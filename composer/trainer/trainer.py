@@ -2622,8 +2622,6 @@ class Trainer:
                                 else:
                                     outputs = self.state.outputs
 
-                                print('Outputs device:', outputs.device)
-                                print('Batch device:', self.state.batch[0].device)
                                 if hasattr(self._original_model, 'validate'):
                                     for _, metric in self.state.train_metrics.items():
                                         metric.update(outputs, target)
