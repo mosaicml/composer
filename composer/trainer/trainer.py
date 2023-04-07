@@ -1705,16 +1705,15 @@ class Trainer:
         dist.barrier()
 
     def _ensure_metrics_device_and_dtype(self, metrics: Dict[str, Metric]):
-        # HACK: DeepSpeed somehow manages to convert metric internal states to its own dtype. When
-        # running with FP16, this tends to result in overflows. Let's assume FP32 is good enough.
-        if is_model_deepspeed(self.state.model):
-            for name, metric in metrics.items():
-                # Safety check to ensure the metric and data are on the same device. Normally not
-                # needed because the metric is automatically on the same device as the model.
-                # See https://torchmetrics.readthedocs.io/en/latest/pages/overview.html for details.
-                metrics[name] = self.state.device.module_to_device(metric)
+        for name, metric in metrics.items():
+            # Safety check to ensure the metric and data are on the same device. Normally not
+            # needed because the metric is automatically on the same device as the model.
+            # See https://torchmetrics.readthedocs.io/en/latest/pages/overview.html for details.
+            metrics[name] = self.state.device.module_to_device(metric)
+            if is_model_deepspeed(self.state.model):
+                # HACK: DeepSpeed somehow manages to convert metric internal states to its own dtype. When
+                # running with FP16, this tends to result in overflows. Let's assume FP32 is good enough.
                 metric.set_dtype(torch.float32)  # type: ignore
-
         return metrics
 
     def _compute_and_log_metrics(self, dataloader_label: str, metrics: Dict[str, Metric]):
@@ -1963,7 +1962,6 @@ class Trainer:
                 _get_precision_context(self.state.precision, self.deepspeed_enabled):
             eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
             for _, metric in self.state.train_metrics.items():
-                metric.to(device_batch[0].device)
                 self._original_model.update_metric(
                     device_batch,
                     eval_outputs,
@@ -2628,13 +2626,9 @@ class Trainer:
                                 print('Batch device:', self.state.batch[0].device)
                                 if hasattr(self._original_model, 'validate'):
                                     for _, metric in self.state.train_metrics.items():
-                                        metric.to(outputs.device)
-                                        print('Target device:', target.device)
-                                        print('Metric device:', metric.device)
                                         metric.update(outputs, target)
                                 else:
                                     for _, metric in metrics.items():
-                                        metric.to(outputs.device)
                                         self._original_model.update_metric(
                                             self.state.batch,
                                             outputs,
