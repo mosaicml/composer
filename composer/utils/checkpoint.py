@@ -106,20 +106,22 @@ class PartialFilePath:
 
 def _is_old_sharded_version_checkpoint_file(
     path: str,
+    state: State,
     object_store: Optional[Union[ObjectStore, LoggerDestination]] = None):
-    with tempfile.TemporaryDirectory() as tmpdir:
-        chkpt_destination = str(Path(tmpdir) / Path('test_chkpt.pt'))
+    return False
+    # with tempfile.TemporaryDirectory() as tmpdir:
+    #     chkpt_destination = str(Path(tmpdir) / Path('test_chkpt.pt'))
 
-        get_file(path=format_name_with_dist_and_time(path), 
-                 destination=tmpdir,
-                 object_store=object_store)
-        if os.path.isdir(chkpt_destination):
-            return False
-        else:
-            state_dict = safe_torch_load(chkpt_destination)
-            composer_version = state_dict['metadata']['composer_env_info']['composer_version']
-            if composer_version in ['0.13.1', '0.13.2', '0.13.3']:
-                return True
+    #     get_file(path=format_name_with_dist_and_time(path, run_name=state.run_name, timestamp=state.timestamp), 
+    #              destination=tmpdir,
+    #              object_store=object_store)
+    #     if os.path.isdir(chkpt_destination):
+    #         return False
+    #     else:
+    #         state_dict = safe_torch_load(chkpt_destination)
+    #         composer_version = state_dict['metadata']['composer_env_info']['composer_version']
+    #         if composer_version in ['0.13.1', '0.13.2', '0.13.3']:
+    #             return True
 
 
 def load_checkpoint(
@@ -222,8 +224,18 @@ def load_checkpoint(
         Optional[List[Dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
             :attr:`load_weights_only` is not None. Otherwise, None.
     """
-    if state.fsdp_sharded_state_dict_enabled and not _is_old_sharded_version_checkpoint_file(path, object_store):
-        rng_state_dicts = load_sharded_checkpoint()
+    if state.fsdp_sharded_state_dict_enabled and not _is_old_sharded_version_checkpoint_file(path, state, object_store):
+        rng_state_dicts = load_sharded_checkpoint(source_path=path,
+                                                  state=state,
+                                                  logger=logger,
+                                                  object_store=object_store,
+                                                  load_weights_only=load_weights_only,
+                                                  strict_model_weights=strict_model_weights,
+                                                  progress_bar=progress_bar,
+                                                  ignore_keys=ignore_keys,
+                                                  exclude_algorithms=exclude_algorithms,
+                                                  algorithm_passes=algorithm_passes,
+                                                  )
     else:
         # download the checkpoint to the node-local folder
         log.debug('Loading checkpoint at %s', path)
@@ -295,6 +307,7 @@ def load_sharded_checkpoint(
             self.source_path = source_path
             self.destination_path = destination_path
             self.object_store = object_store
+            self.already_downloaded = []
             # Instantiate FileSystemReader with destination path b/c that's where we will download files to.
             # Because we already download the metadata file to the destination, everything will work swimmingly
             super().__init__(destination_path)
@@ -303,21 +316,27 @@ def load_sharded_checkpoint(
             # 1. Download to the destination all files that this rank is responsible for.           
             for plan_item in plan.items:
                 relative_file_path = self.storage_data[plan_item.storage_index].relative_path
-                self.object_store.download_file(remote_file_name=(self.source_path / relative_file_path), destination=self.destination_path)
+                if relative_file_path not in self.already_downloaded:
+                    self.object_store.download_object(object_name=str(Path(self.source_path) / Path(relative_file_path)),
+                                                    filename=str(Path(self.destination_path) / Path(relative_file_path)))
+                    self.already_downloaded.append(relative_file_path)
             
             # 2. Wait for all ranks to finish.
             dist.barrier()
 
             # 3. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
-            super().read_data(plan, planner)
+            return super().read_data(plan, planner)
 
     with tempfile.TemporaryDirectory() as tempdir:
+        local_rank0_tempdir = dist.all_gather_object(tempdir)[dist.get_local_world_size() * dist.get_node_rank()]
         # 1. Download metadata if local rank 0 to destination path
-        metadata_destination = str(Path(tempdir) / Path('.metadata'))
+        destination_dir = Path(local_rank0_tempdir) / Path('checkpoints')
+        destination_dir.mkdir(parents=True, exist_ok=True)
+        destination_dir = str(destination_dir)
         if dist.get_local_rank() == 0:
-            object_store.download_file(remote_filename = str(Path(source_path) / Path('.metadata')), destination=metadata_destination)
+            object_store.download_object(object_name = str(Path(source_path) / Path('.metadata')), filename=destination_dir + '/.metadata' )
         if object_store is not None:
-            storage_reader  = DistCPObjectStoreReader(source_path=source_path, destination_path=tempdir, object_store=object_store)
+            storage_reader  = DistCPObjectStoreReader(source_path=source_path, destination_path=destination_dir, object_store=object_store)
         else:
             storage_reader = dist_cp.FileSystemReader(source_path)
         # 1. Load just model first.
@@ -336,10 +355,8 @@ def load_sharded_checkpoint(
                 optim_state = load_sharded_optimizer_state_dict(
                                 model_state_dict=state.state_dict()['model'],
                                 optimizer_key="optimizers",
-                                storage_reader=storage_reader)
-                print('load_sharded_optimizer_state_dict finished')        
+                                storage_reader=storage_reader)     
                 state.load_optim_state(optim_state)
-
         # 3. Load the rest of state.
         cur_state_dict = state.state_dict()
         if ignore_keys:

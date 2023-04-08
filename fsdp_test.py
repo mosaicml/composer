@@ -127,37 +127,38 @@ if __name__ == '__main__':
     ## Save
     s3_folder = 's3://mosaicml-internal-checkpoints-test/evan-test/test_sharded_checkpoints/{run_name}'
     local_folder = 'test_checkpoints/{run_name}'
-    trainer = get_trainer(dataset,
-                          dataloader,
-                          num_features=num_features,
-                          num_classes=num_classes,
-                          save_folder=s3_folder,
-                          save_weights_only=False,
-                          max_duration='4ba',
-                          fsdp_state_dict_type='sharded',
-                          save_num_checkpoints_to_keep=-1,
-                          log_to_console=False
-                          )
-    run_name = trainer.state.run_name
-    print(run_name)
-    trainer.fit()
-    trainer.close()
+    # trainer = get_trainer(dataset,
+    #                       dataloader,
+    #                       num_features=num_features,
+    #                       num_classes=num_classes,
+    #                       save_folder=s3_folder,
+    #                       save_weights_only=False,
+    #                       max_duration='4ba',
+    #                       fsdp_state_dict_type='sharded',
+    #                       save_num_checkpoints_to_keep=-1,
+    #                       log_to_console=False
+    #                       )
+    # run_name = trainer.state.run_name
+    # print(run_name)
+    # trainer.fit()
+    # trainer.close()
 
 
 
     # # # ## Load
-    # trainer2 = get_trainer(dataset,
-    #                        dataloader,
-    #                        num_features=num_features,
-    #                        num_classes=num_classes,
-    #                        fsdp_state_dict_type='sharded',
-    #                        max_duration='6ba',
-    #                        load_weights_only=False,
-    #                        load_path=local_folder.format(run_name=run_name) + '/ba2',
-    #                        log_to_console=False,
-    #                        )
-    # #print(trainer2.state.state_dict()['timestamp'])
-    # trainer2.fit()
+    run_name = '1680906473-red-muskrat'
+    trainer2 = get_trainer(dataset,
+                           dataloader,
+                           num_features=num_features,
+                           num_classes=num_classes,
+                           fsdp_state_dict_type='sharded',
+                           max_duration='6ba',
+                           load_weights_only=True,
+                           load_path=s3_folder.format(run_name=run_name) + '/ba2',
+                           log_to_console=False,
+                           )
+    #print(trainer2.state.state_dict()['timestamp'])
+    trainer2.fit()
     #print(trainer2.state.state_dict()['model']['module.2.weight'].local_tensor())
     # sd = {'model' : trainer2.state.state_dict()['model']}
     # storage_reader  = dist_cp.FileSystemReader(f"./test_checkpoints/{run_name}/ba2")
