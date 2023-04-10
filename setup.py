@@ -142,7 +142,7 @@ extra_deps['health_checker'] = {
 }
 
 extra_deps['deepspeed'] = [
-    'deepspeed==0.7.7',
+    'deepspeed==0.8.3',
 ]
 
 extra_deps['wandb'] = [
