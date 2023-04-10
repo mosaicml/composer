@@ -647,6 +647,43 @@ def test_write_hf_from_composer(checkpoint_upload_folder, local_save_filename, t
     check_hf_model_equivalence(tiny_bert_model, loaded_hf_model)
 
 
+def test_write_hf_from_composer_direct(tiny_bert_tokenizer, tmp_path):
+    # tests that the logic to write out a huggingface checkpoint from a composer checkpoint
+    # still works when the huggingface model is instantiated directly rather than using from_pretrained
+    transformers = pytest.importorskip('transformers')
+
+    from composer.models.huggingface import write_huggingface_pretrained_from_composer_checkpoint
+
+    checkpoint_upload_folder = tmp_path
+
+    tiny_overrides = {
+        'hidden_size': 128,
+        'num_attention_heads': 2,
+        'num_hidden_layers': 2,
+        'intermediate_size': 512,
+    }
+    tiny_bert_config = transformers.BertConfig(**tiny_overrides)
+    tiny_bert_model = transformers.BertForMaskedLM(tiny_bert_config)
+    trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
+    trainer.fit()
+
+    checkpoint_path = os.path.join(checkpoint_upload_folder, 'hf-checkpoint.pt')
+    write_huggingface_pretrained_from_composer_checkpoint(
+        checkpoint_path,
+        tmp_path / 'hf-save-pretrained',
+    )
+
+    assert os.path.exists(tmp_path / 'hf-save-pretrained' / 'config.json')
+    assert os.path.exists(tmp_path / 'hf-save-pretrained' / 'pytorch_model.bin')
+
+    loaded_hf_model = transformers.AutoModelForMaskedLM.from_pretrained(tmp_path / 'hf-save-pretrained')
+
+    # set _name_or_path so that the equivalence check passes. It is expected that these are different, because one is loaded from disk, while one is loaded from the hub
+    loaded_hf_model.config._name_or_path = tiny_bert_model.config._name_or_path
+
+    check_hf_model_equivalence(tiny_bert_model, loaded_hf_model)
+
+
 @pytest.mark.parametrize('embedding_resize', ['higher', 'lower', 'no_resize'])
 @pytest.mark.parametrize('allow_embedding_resizing', [True, False])
 def test_embedding_resizing(tiny_bert_model, tiny_bert_tokenizer, embedding_resize, allow_embedding_resizing, caplog):
@@ -710,13 +747,19 @@ def test_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
             'This issue is resolved with world size > 1 by a dummy call to forward (see HuggingFaceModel.dummy_forward_called), '
             'but for some reason fails with world size 1.'))
 
+    hf_model = hf_model()
+    if device == 'cpu' and world_size > 1 and isinstance(hf_model,
+                                                         transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel):
+        pytest.xfail(
+            'GPT2 is not currently supported with DDP. See https://github.com/huggingface/transformers/issues/22482 for more details.'
+        )
+
     fsdp_config = None
     if use_fsdp:
         fsdp_config = {
             'sharding_strategy': 'FULL_SHARD',
         }
 
-    hf_model = hf_model()
     hf_tokenizer = hf_tokenizer()
 
     model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, use_logits=True)
@@ -770,13 +813,19 @@ def test_eval_forward_generate(device, world_size, hf_model, hf_tokenizer, use_f
             'This issue is resolved with world size > 1 by a dummy call to forward (see HuggingFaceModel.dummy_forward_called), '
             'but for some reason fails with world size 1.'))
 
+    hf_model = hf_model()
+    if device == 'cpu' and world_size > 1 and isinstance(hf_model,
+                                                         transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel):
+        pytest.xfail(
+            'GPT2 is not currently supported with DDP. See https://github.com/huggingface/transformers/issues/22482 for more details.'
+        )
+
     fsdp_config = None
     if use_fsdp:
         fsdp_config = {
             'sharding_strategy': 'FULL_SHARD',
         }
 
-    hf_model = hf_model()
     hf_tokenizer = hf_tokenizer()
 
     model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, use_logits=True)
