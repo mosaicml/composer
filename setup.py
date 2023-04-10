@@ -141,6 +141,10 @@ extra_deps['health_checker'] = {
     'slack_sdk>=3.19.5,<4',
 }
 
+extra_deps['slack_bot'] = {
+    'slack_sdk>=3.19.5,<4',
+}
+
 extra_deps['deepspeed'] = [
     'deepspeed==0.8.3',
 ]
