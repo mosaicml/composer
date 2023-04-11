@@ -711,7 +711,7 @@ class Trainer:
             To use FSDP with default values, set to the empty dictionary ``{}``. To
             disable FSDP, set to ``None``. (default: ``None``)
         fsdp_auto_wrap (bool, optional): option to let trainer wrap the module, or if
-            the module is already wrapped outside, then don't wrap.
+            the module is already wrapped outside, allow the user to disable auto-wrapping. 
 
         device (Device | str, optional): The device to use for training, which can be ``'cpu'``, ``'gpu'``,
             ``'tpu'``, or ``'mps'``. (default: ``None``)
