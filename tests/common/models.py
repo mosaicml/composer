@@ -240,7 +240,7 @@ class Mean(torch.nn.Module):
 class SimpleTransformerBase(torch.nn.Module):
     """Base encoding transformer model for testing"""
 
-    def __init__(self, vocab_size: int = 100, d_model: int = 16):
+    def __init__(self, vocab_size: int = 10, d_model: int = 16):
         super().__init__()
         embedding = torch.nn.Embedding(vocab_size, 16)
         layer = torch.nn.TransformerEncoderLayer(d_model=d_model, nhead=2, dim_feedforward=d_model, dropout=0.3)
@@ -263,7 +263,7 @@ class SimpleTransformerBase(torch.nn.Module):
 
 class SimpleTransformerMaskedLM(ComposerClassifier):
 
-    def __init__(self, vocab_size: int = 100):
+    def __init__(self, vocab_size: int = 10):
         self.vocab_size = vocab_size
         transformer_base = SimpleTransformerBase(vocab_size=vocab_size, d_model=16)
         lm_head = torch.nn.Linear(16, vocab_size)
