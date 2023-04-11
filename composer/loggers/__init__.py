@@ -22,9 +22,9 @@ from composer.loggers.mlflow_logger import MLFlowLogger
 from composer.loggers.mosaicml_logger import MosaicMLLogger
 from composer.loggers.progress_bar_logger import ProgressBarLogger
 from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
+from composer.loggers.slack_logger import SlackLogger
 from composer.loggers.tensorboard_logger import TensorboardLogger
 from composer.loggers.wandb_logger import WandBLogger
-from composer.loggers.slack_logger import SlackLogger
 
 # All needs to be defined properly for sphinx autosummary
 __all__ = [
