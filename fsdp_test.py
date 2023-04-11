@@ -127,6 +127,7 @@ if __name__ == '__main__':
     ## Save
     s3_folder = 's3://mosaicml-internal-checkpoints-test/evan-test/test_sharded_checkpoints/{run_name}'
     local_folder = 'test_checkpoints/{run_name}'
+    local_copy_of_s3_folder = './evan-test/test_sharded_checkpoints/{run_name}'
     # trainer = get_trainer(dataset,
     #                       dataloader,
     #                       num_features=num_features,
@@ -154,7 +155,7 @@ if __name__ == '__main__':
                            fsdp_state_dict_type='sharded',
                            max_duration='6ba',
                            load_weights_only=False,
-                           load_path=s3_folder.format(run_name=run_name) + '/ba2',
+                           load_path=local_copy_of_s3_folder.format(run_name=run_name) + '/ba2',
                            log_to_console=True,
                            )
     trainer2.fit()
