@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 __all__ = ['InContextLearningLMTaskDataset', 'InContextLearningMultipleChoiceTaskDataset', 'get_icl_task_dataloader']
 
 
-def _make_padded_input(context_enc, continuation_enc, max_seq_len, pad_tok_id, padding_side='right'):
+def _make_padded_input(context_enc, continuation_enc, max_seq_len, pad_tok_id):
     if len(continuation_enc) + len(context_enc) > max_seq_len:
         # clip from the end
         context_max_subseq_len = max_seq_len - len(continuation_enc)
@@ -41,209 +41,33 @@ def _make_padded_input(context_enc, continuation_enc, max_seq_len, pad_tok_id, p
     (inp_len,) = inp.shape
 
     # pad length from seq to padding_length
-    if padding_side == 'right':
-        inp = torch.cat(
-            [
-                inp,  # [seq]
-                torch.LongTensor((max_seq_len - inp_len) * [pad_tok_id]),
-            ],
-            dim=0,
-        )
-    elif padding_side == 'left':
-        inp = torch.cat(
-            [
-                torch.LongTensor((max_seq_len - inp_len) * [pad_tok_id]),
-                inp,  # [seq]
-            ],
-            dim=0,
-        )
-    else:
-        raise ValueError(f"Unknown padding_side {padding_side}. padding_side must be either 'left' or 'right'")
+    inp = torch.cat(
+        [
+            inp,  # [seq]
+            torch.LongTensor((max_seq_len - inp_len) * [pad_tok_id]),
+        ],
+        dim=0,
+    )
 
     return inp, continuation_span
 
 
-def _get_fewshot_sample_idxs(dataset_size: int, num_fewshot: int, sample_idx: int, rng: random.Random):
+def _get_fewshot_sample_idxs(dataset_size, num_fewshot, sample_idx):
     # samples without replacement. if num_fewshot exceeds the number of unique samples,
     # then we will have fewer than num_fewshot examples in context
     num_fewshot = min(dataset_size - 1, num_fewshot)
-    fewshot_idxs = set(rng.sample(range(0, dataset_size), num_fewshot))
+    fewshot_idxs = set(random.sample(range(0, dataset_size), num_fewshot))
 
     if sample_idx in fewshot_idxs:
         fewshot_idxs.remove(sample_idx)
         if len(fewshot_idxs) >= dataset_size - 1:
             return fewshot_idxs
 
-        replacement_sample = rng.choice(range(0, dataset_size))
+        replacement_sample = random.choice(range(0, dataset_size))
         while replacement_sample in fewshot_idxs or replacement_sample == sample_idx:
-            replacement_sample = rng.choice(range(0, dataset_size))
+            replacement_sample = random.choice(range(0, dataset_size))
         fewshot_idxs.add(replacement_sample)
     return fewshot_idxs
-
-
-class InContextLearningQATaskDataset(Dataset):
-    """A dataset that construct batches for in-context learning question answering evaluation
-
-    The input format is expected to be a jsonl file with the following fields:
-    - context: the question
-    - answer: the preferred answer to the question
-    - aliases: a list of aliases for the answer
-
-    Args:
-        dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
-            supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "context",
-            "answer", and "aliases". See tests/datasets/local_data/triviaqa_small.jsonl.
-        tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to map between strings and token ids
-        batch_size (int): Size of a batch used for eval
-        max_seq_len (int): The maximum sequence length supported by the model
-        pad_tok_id (int): The special token reserved for padding batches
-        num_fewshot (int): The number of complete fewshot examples to prepend before each test example
-        prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
-        example_delimiter (str): Separator that goes between individual (context, answer) pairs (e.g. '\n')
-        continuation_delimiter: (str): Separator that goes between context and answer in each example (e.g. '\nA: ')
-        destination_path (str): Temporary path to store downloaded datasets
-        question_prelimiter (str): String to put before each question (e.g. 'Q: ')
-        padding_side (str): Whether to pad on the left or right side of the sequence
-        fewshot_random_seed (int): Random seed to use for fewshot sampling
-    """
-
-    def __init__(
-        self,
-        dataset_uri: str,
-        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
-        max_seq_len: int,
-        pad_tok_id: int,
-        num_fewshot: int,
-        prompt_string: str,
-        example_delimiter: str,
-        continuation_delimiter: str,
-        destination_path: str,
-        question_prelimiter: str,
-        padding_side: str,
-        fewshot_random_seed: int,
-    ):
-        try:
-            from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
-        except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='nlp',
-                                                conda_package='datasets',
-                                                conda_channel='conda-forge') from e
-        with dist.local_rank_zero_download_and_wait(destination_path):
-            if dist.get_local_rank() == 0:
-                get_file(dataset_uri, destination_path, overwrite=True)
-        dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
-        self.samples = list(
-            dataset.map(lambda examples: {
-                'context': examples['context'],
-                'answer': examples['answer'],
-                'aliases': examples['aliases']
-            }))
-        self.tokenizer = tokenizer
-        self.max_seq_len = max_seq_len
-        self.pad_tok_id = pad_tok_id
-        self.padding_side = padding_side
-        self.max_answer_length = 0
-        fewshot_rng = random.Random(fewshot_random_seed)
-        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
-                                                  question_prelimiter, fewshot_rng)
-
-    def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
-                      question_prelimiter: str, fewshot_rng: random.Random):
-        """Prepares a set of language modeling tasks into tokenized format with prompt and fewshot examples.
-
-        Each task consists of a context and a continuation as well as an optional prompt and optional list of
-        example context/continuation pairs which precede the test context/continuation pair.
-
-        Args:
-            num_fewshot (int): Number of examples context/continuation pairs to prepend to the test pair
-            prompt_string (str): The prompt to prepend to all inputs
-            example_delimiter (str): The delimiter used to separate each individual context/continuation pair
-            continuation_delimiter (str): The delimiter used to separate each context from its continuation
-            question_prelimiter (str): The text to prepend to each question
-            fewshot_rng (random.Random): Random number generator to use for fewshot sampling
-
-        Returns:
-            dict: Contains the context, the continuation, and the preamble (prompt + fewshot examples)
-        """
-        max_answer_length = 0
-        examples = []
-        for sample_idx in tqdm(range(len(self.samples))):
-            encoded_example = {}
-
-            preamble = prompt_string
-
-            if num_fewshot > 0:
-                fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx, fewshot_rng)
-                for fewshot_idx in fewshot_idxs:
-                    ctxt, cont = self.samples[fewshot_idx]['context'], self.samples[fewshot_idx]['answer']
-                    ctxt = f'{question_prelimiter}{ctxt}'
-                    if len(preamble) > 0:
-                        ctxt = f'{example_delimiter}{ctxt}'
-                    preamble += f'{ctxt}{continuation_delimiter}{cont}'
-
-            ctxt = self.samples[sample_idx]['context']
-            ctxt = f'{question_prelimiter}{ctxt}'
-            if len(preamble) > 0:
-                ctxt = f'{example_delimiter}{ctxt}'
-
-            # rstrip the continuation delimiter, because the prompt ending in a space results in degenerate output
-            continuation_delimiter_stripped = continuation_delimiter.rstrip()
-            ctxt = f'{ctxt}{continuation_delimiter_stripped}'
-
-            # If the preamble is empty then this will be a 0-length list, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
-            encoded_example['preamble'] = self.tokenizer(preamble)
-            # If there is an EOS token added, we need to remove it so it is not in the middle of the prompt
-            if self.tokenizer.eos_token_id is not None and len(
-                    encoded_example['preamble']
-                ['input_ids']) > 0 and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
-                encoded_example['preamble'] = encoded_example['preamble']['input_ids'][:-1]
-
-            encoded_example['context'] = self.tokenizer(ctxt, add_special_tokens=False)
-            encoded_example['aliases'] = self.samples[sample_idx]['aliases']
-
-            examples.append(encoded_example)
-
-            max_answer_length = max(
-                max_answer_length,
-                max(map(lambda x: len(self.tokenizer(x)['input_ids']), self.samples[sample_idx]['aliases'])))
-
-        self.max_answer_length = max_answer_length
-        return examples
-
-    def __getitem__(self, index):
-        return self.encoded_dataset[index]
-
-    def __len__(self):
-        return len(self.encoded_dataset)
-
-    def collate_fn(self, data):
-        inputs, answers = [], []
-        for sample in data:
-            preamble, context, aliases = (sample['preamble'], sample['context'], sample['aliases'])
-            context_enc = preamble['input_ids'] + context['input_ids']
-            inp, _ = _make_padded_input(context_enc, [],
-                                        self.max_seq_len - self.max_answer_length,
-                                        self.pad_tok_id,
-                                        padding_side=self.padding_side)
-
-            inputs.append(inp)
-            answers.append(aliases)
-
-        batch = {
-            'input_ids': torch.stack(inputs),
-            'mode': 'generate',
-            'labels': answers,
-            'generation_length': self.max_answer_length,
-            'generation_kwargs': {
-                'pad_token_id': self.pad_tok_id
-            }
-        }
-
-        batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
-        return batch
-
-    def get_num_samples_in_batch(self, batch) -> int:
-        return batch['input_ids'].shape[0]
 
 
 class InContextLearningLMTaskDataset(Dataset):
@@ -261,7 +85,6 @@ class InContextLearningLMTaskDataset(Dataset):
         prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
         example_delimiter (str): Separator that goes between individual (context, continuation) pairs (e.g. '\n')        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
         destination_path (str): Temporary path to store downloaded datasets
-        fewshot_random_seed (int): Random seed used to select fewshot examples
     """
 
     def __init__(
@@ -275,7 +98,6 @@ class InContextLearningLMTaskDataset(Dataset):
         example_delimiter: str,
         continuation_delimiter: str,
         destination_path: str,
-        fewshot_random_seed: int,
     ):
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
@@ -284,8 +106,7 @@ class InContextLearningLMTaskDataset(Dataset):
                                                 conda_package='datasets',
                                                 conda_channel='conda-forge') from e
         with dist.local_rank_zero_download_and_wait(destination_path):
-            if dist.get_local_rank() == 0:
-                get_file(dataset_uri, destination_path, overwrite=True)
+            get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
         self.samples = list(
             dataset.map(lambda examples: {
@@ -295,12 +116,9 @@ class InContextLearningLMTaskDataset(Dataset):
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
-        fewshot_rng = random.Random(fewshot_random_seed)
-        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
-                                                  fewshot_rng)
+        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter)
 
-    def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
-                      fewshot_rng: random.Random):
+    def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str):
         """Prepares a set of language modeling tasks into tokenized format with prompt and fewshot examples.
 
         Each task consists of a context and a continuation as well as an optional prompt and optional list of
@@ -311,7 +129,6 @@ class InContextLearningLMTaskDataset(Dataset):
             prompt_string (str): The prompt to prepend to all inputs
             example_delimiter (str): The delimiter used to separate each individual context/continuation pair
             continuation_delimiter (str): The delimiter used to separate each context from its continuation
-            fewshot_rng (random.Random): Random number generator used to select fewshot examples
 
         Returns:
             dict: Contains the context, the continuation, and the preamble (prompt + fewshot examples)
@@ -323,7 +140,7 @@ class InContextLearningLMTaskDataset(Dataset):
             preamble = prompt_string
 
             if num_fewshot > 0:
-                fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx, fewshot_rng)
+                fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx)
                 for fewshot_idx in fewshot_idxs:
                     ctxt, cont = self.samples[fewshot_idx]['context'], self.samples[fewshot_idx]['continuation']
                     if len(preamble) > 0:
@@ -409,7 +226,6 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
         example_delimiter (str): Separator that goes between individual (context, continuation) pairs (e.g. '\n')        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
         destination_path (str): Temporary path to store downloaded datasets
-        fewshot_random_seed (int): Random seed used to select fewshot examples
     """
 
     def __init__(
@@ -423,7 +239,6 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         example_delimiter: str,
         continuation_delimiter: str,
         destination_path: str,
-        fewshot_random_seed: int,
     ):
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
@@ -433,8 +248,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
                                                 conda_channel='conda-forge') from e
 
         with dist.local_rank_zero_download_and_wait(destination_path):
-            if dist.get_local_rank() == 0:
-                get_file(dataset_uri, destination_path, overwrite=True)
+            get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
         self.samples = list(
             dataset.map(lambda examples: {
@@ -446,12 +260,9 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
-        fewshot_rng = random.Random(fewshot_random_seed)
-        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
-                                                  fewshot_rng)
+        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter)
 
-    def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
-                      fewshot_rng: random.Random):
+    def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str):
         """Prepares a set of multiple choice questions into tokenized format with prompt and few shot examples.
 
         Each question consists of a query and set of answer choices, only one of which is correct. At inference time
@@ -476,7 +287,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
 
             preamble = prompt_string
             if num_fewshot > 0:
-                fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx, fewshot_rng)
+                fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx)
                 for fewshot_idx in fewshot_idxs:
                     query, choices, gold_idx = self.samples[fewshot_idx]['query'], self.samples[fewshot_idx][
                         'choices'], self.samples[fewshot_idx]['gold']
@@ -553,12 +364,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         return batch['input_ids'].shape[0]
 
     def split_batch(self, batch: Any, microbatch_size: int):
-        if self.get_num_samples_in_batch(batch) // self.num_choices > microbatch_size:
-            raise Exception('Multiple choice tasks do not currently support batch splitting. Please set '
-                            'dataloader batch size to a value less than or equal to the microbatch size. '
-                            'Accordingly, auto microbatching does not work, so the microbatch size '
-                            'should be manually set if using a batch size which does not fit in memory.')
-        return [batch]
+        raise Exception(f"""We haven't implemented batch splitting for multiple choice tasks""")
 
 
 def get_icl_task_dataloader(
@@ -573,9 +379,6 @@ def get_icl_task_dataloader(
     example_delimiter: str,  # e.g. '\n'
     continuation_delimiter: str,  # e.g. ''
     destination_path: str,
-    question_prelimiter: str = '',  # e.g. 'Question: '
-    padding_side: str = 'left',
-    fewshot_random_seed: int = 1234,
 ) -> DataSpec:
     """This constructs a dataloader capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
 
@@ -629,8 +432,7 @@ def get_icl_task_dataloader(
                                                              prompt_string,
                                                              example_delimiter,
                                                              continuation_delimiter,
-                                                             destination_path=destination_path,
-                                                             fewshot_random_seed=fewshot_random_seed)
+                                                             destination_path=destination_path)
         batch_size = max(dataset.num_choices, batch_size)
         effective_batchsize = batch_size // dataset.num_choices
     elif icl_task_type == 'language_modeling':
@@ -642,22 +444,7 @@ def get_icl_task_dataloader(
                                                  prompt_string,
                                                  example_delimiter,
                                                  continuation_delimiter,
-                                                 destination_path=destination_path,
-                                                 fewshot_random_seed=fewshot_random_seed)
-        effective_batchsize = batch_size
-    elif icl_task_type == 'question_answering':
-        dataset = InContextLearningQATaskDataset(dataset_uri,
-                                                 tokenizer,
-                                                 max_seq_len,
-                                                 pad_tok_id,
-                                                 num_fewshot,
-                                                 prompt_string,
-                                                 example_delimiter,
-                                                 continuation_delimiter,
-                                                 destination_path=destination_path,
-                                                 question_prelimiter=question_prelimiter,
-                                                 padding_side=padding_side,
-                                                 fewshot_random_seed=fewshot_random_seed)
+                                                 destination_path=destination_path)
         effective_batchsize = batch_size
     else:
         raise Exception(f'Unrecognized ICL task type: {icl_task_type}')
@@ -673,5 +460,4 @@ def get_icl_task_dataloader(
         ),
         device_transforms=None,
         get_num_samples_in_batch=dataset.get_num_samples_in_batch,
-        split_batch=dataset.split_batch if isinstance(dataset, InContextLearningMultipleChoiceTaskDataset) else None,
-    )
+        split_batch=dataset.split_batch if isinstance(dataset, InContextLearningMultipleChoiceTaskDataset) else None)
