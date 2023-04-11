@@ -80,7 +80,7 @@ install_requires = [
     'torchvision>=0.11.0,<0.15',
     'torch>=1.10.0,<1.14',
     'requests>=2.26.0,<3',
-    'numpy>=1.21.5,<1.23.0',
+    'numpy>=1.21.5,<1.25.0',
     'psutil>=5.8.0,<6',
     'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
@@ -100,12 +100,12 @@ extra_deps['dev'] = [
     'junitparser==2.8.0',
     'coverage[toml]==7.2.2',
     'fasteners==0.18',  # object store tests require fasteners
-    'pytest==7.2.2',
+    'pytest==7.3.0',
     'toml==0.10.2',
     'ipython==8.11.0',
-    'ipykernel==6.20.1',
+    'ipykernel==6.22.0',
     'jupyter==1.0.0',
-    'yamllint==1.28.0',
+    'yamllint==1.30.0',
     'recommonmark==0.7.1',
     'sphinx==4.4.0',
     'pre-commit>=2.18.1,<3',
@@ -125,7 +125,7 @@ extra_deps['dev'] = [
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.16.1',
     'traitlets==5.9.0',
-    'nbsphinx==0.8.12',
+    'nbsphinx==0.9.1',
     'pandoc==2.3',
     'pypandoc==1.11',
     'GitPython==3.1.31',
@@ -142,7 +142,7 @@ extra_deps['health_checker'] = {
 }
 
 extra_deps['deepspeed'] = [
-    'deepspeed==0.7.7',
+    'deepspeed==0.8.3',
 ]
 
 extra_deps['wandb'] = [
@@ -175,9 +175,11 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<4.27',
+    'transformers>=4.11,<4.27.5',
     'datasets>=2.4,<3',
 ]
+
+extra_deps['sentencepiece'] = ['sentencepiece==0.1.97']
 
 extra_deps['mlperf'] = [
     # TODO: use pip when available: https://github.com/mlcommons/logging/issues/218
@@ -186,7 +188,7 @@ extra_deps['mlperf'] = [
 ]
 
 extra_deps['streaming'] = [
-    'mosaicml-streaming<0.4',
+    'mosaicml-streaming<1.0',
     'boto3>=1.21.45,<2',
     'paramiko>=2.11.0,<3',
 ]
