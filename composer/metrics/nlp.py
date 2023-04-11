@@ -15,9 +15,17 @@ from torchmetrics import Metric
 from composer.loss import soft_cross_entropy
 
 __all__ = [
-    'Perplexity', 'InContextLearningLMAccuracy', 'InContextLearningMultipleChoiceAccuracy',
-    'InContextLearningQAAccuracy', 'BinaryF1Score', 'HFCrossEntropy', 'LanguageCrossEntropy', 'MaskedAccuracy',
-    'LanguagePerplexity', 'InContextLearningLMExpectedCalibrationError', 'InContextLearningMCExpectedCalibrationError'
+    'Perplexity',
+    'InContextLearningLMAccuracy',
+    'InContextLearningMultipleChoiceAccuracy',
+    'InContextLearningQAAccuracy',
+    'BinaryF1Score',
+    'HFCrossEntropy',
+    'LanguageCrossEntropy',
+    'MaskedAccuracy',
+    'LanguagePerplexity',
+    'InContextLearningLMExpectedCalibrationError',
+    'InContextLearningMCExpectedCalibrationError',
 ]
 
 
@@ -455,7 +463,34 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
         return self.correct.float() / self.total
 
 
-class InContextLearningMCExpectedCalibrationError(InContextLearningMetric):
+class InContextLearningExpectedCalibrationError(InContextLearningMetric):
+
+    def __init__(self, dist_sync_on_step: bool = False, n_buckets: int = 10):
+        # state from multiple processes
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.n_buckets = n_buckets
+        self.add_state('bucket_totals', default=torch.zeros(n_buckets), dist_reduce_fx='sum')
+        self.add_state('bucket_correct', default=torch.zeros(n_buckets), dist_reduce_fx='sum')
+
+    def compute(self):
+        assert isinstance(self.bucket_correct, Tensor)
+        assert isinstance(self.bucket_totals, Tensor)
+
+        result = torch.tensor(0.0)
+        total_obs = torch.sum(self.bucket_totals)
+        for i in range(self.n_buckets):
+            if self.bucket_totals[i] == 0:
+                continue
+
+            acc_bucket_i = self.bucket_correct[i] / self.bucket_totals[i]
+            upper_bound = (i + 1) / self.n_buckets
+            lower_bound = i / self.n_buckets
+            conf_bucket_i = (upper_bound + lower_bound) / 2
+            result += (self.bucket_totals[i] / total_obs) * torch.abs(acc_bucket_i - conf_bucket_i)
+        return result
+
+
+class InContextLearningMCExpectedCalibrationError(InContextLearningExpectedCalibrationError):
     r"""Computes ECE for In-context learning (ICL) multiple choice (MC) tasks. (source: https://arxiv.org/abs/2012.00955).
 
     Expected calibration error is calculated by dividing predictions into buckets based on the model's confidence (a probability value b/w 0 and 1).
@@ -476,13 +511,6 @@ class InContextLearningMCExpectedCalibrationError(InContextLearningMetric):
 
     # Make torchmetrics call update only once
     full_state_update = False
-
-    def __init__(self, dist_sync_on_step: bool = False, n_buckets=10):
-        # state from multiple processes
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
-        self.n_buckets = n_buckets
-        self.add_state('bucket_totals', default=torch.zeros(n_buckets), dist_reduce_fx='sum')
-        self.add_state('bucket_correct', default=torch.zeros(n_buckets), dist_reduce_fx='sum')
 
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
         output_logits = torch.softmax(output_logits, dim=2)
@@ -511,21 +539,8 @@ class InContextLearningMCExpectedCalibrationError(InContextLearningMetric):
             correct_update[bucket_idx] = torch.tensor(1.0)
             self.bucket_totals += correct_update
 
-    def compute(self):
-        assert isinstance(self.bucket_correct, Tensor)
-        assert isinstance(self.bucket_totals, Tensor)
 
-        result = torch.tensor(0.0)
-        total_obs = torch.sum(self.bucket_totals)
-        for i in range(self.n_buckets):
-            acc_bucket_i = self.bucket_correct[i]
-            conf_bucket_i = self.bucket_totals[i] * torch.tensor((i / self.n_buckets + (i + 1) / self.n_buckets) / 2.0)
-            result += torch.abs(acc_bucket_i - conf_bucket_i) / total_obs
-
-        return result
-
-
-class InContextLearningLMExpectedCalibrationError(InContextLearningMetric):
+class InContextLearningLMExpectedCalibrationError(InContextLearningExpectedCalibrationError):
     r"""Computes ECE for In-context learning (ICL) language modeling (LM) tasks. (cite: https://arxiv.org/pdf/1706.04599.pdf).
 
     Expected calibration error is calculated by dividing predictions into buckets based on the model's confidence (a probability value b/w 0 and 1).
@@ -548,13 +563,6 @@ class InContextLearningLMExpectedCalibrationError(InContextLearningMetric):
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def __init__(self, dist_sync_on_step: bool = False, n_buckets=10):
-        # state from multiple processes
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
-        self.n_buckets = n_buckets
-        self.add_state('bucket_totals', default=torch.zeros(n_buckets), dist_reduce_fx='sum')
-        self.add_state('bucket_correct', default=torch.zeros(n_buckets), dist_reduce_fx='sum')
-
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
         output_logits = torch.softmax(output_logits, dim=2)
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
@@ -574,16 +582,3 @@ class InContextLearningLMExpectedCalibrationError(InContextLearningMetric):
 
             correct_update[bucket_idx] = torch.tensor(1.0)
             self.bucket_totals += correct_update
-
-    def compute(self):
-        assert isinstance(self.bucket_correct, Tensor)
-        assert isinstance(self.bucket_totals, Tensor)
-
-        result = 0.0
-        total_obs = torch.sum(self.bucket_totals)
-        for i in range(self.n_buckets):
-            acc_bucket_i = self.bucket_correct[i]
-            conf_bucket_i = self.bucket_totals[i] * torch.tensor((i / self.n_buckets + (i + 1) / self.n_buckets) / 2.0)
-            result += torch.abs(acc_bucket_i - conf_bucket_i) / total_obs
-
-        return result

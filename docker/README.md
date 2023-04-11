@@ -15,8 +15,8 @@ all dependencies for both NLP and Vision models. They are built on top of the
 <!-- BEGIN_COMPOSER_BUILD_MATRIX -->
 | Composer Version   | CUDA Support   | Docker Tag                                                     |
 |--------------------|----------------|----------------------------------------------------------------|
-| 0.13.2             | Yes            | `mosaicml/composer:latest`, `mosaicml/composer:0.13.2`         |
-| 0.13.2             | No             | `mosaicml/composer:latest_cpu`, `mosaicml/composer:0.13.2_cpu` |
+| 0.13.4             | Yes            | `mosaicml/composer:latest`, `mosaicml/composer:0.13.4`         |
+| 0.13.4             | No             | `mosaicml/composer:latest_cpu`, `mosaicml/composer:0.13.4_cpu` |
 <!-- END_COMPOSER_BUILD_MATRIX -->
 
 

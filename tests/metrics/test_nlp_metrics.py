@@ -290,12 +290,14 @@ def test_in_context_learning_lm_ece(tiny_gpt2_tokenizer):
         cont_idxs.append(torch.tensor(list(range(start, end))))
 
     batch = {'continuation_indices': cont_idxs, 'labels': inputs, 'input_ids': inputs}
-    logits = torch.nn.functional.one_hot(inputs, num_classes=pad + 1).float()
+    # logits are expected to be unnormalized and will undergo softmax, so we must multiply by 100
+    logits = torch.nn.functional.one_hot(inputs, num_classes=pad + 1).float() * 100
     logits[2] = logits[1].clone()  # make one of the answers incorrect
     metric = InContextLearningLMExpectedCalibrationError()
     metric.update(batch, logits, batch['labels'])
-
-    assert abs(metric.compute() - 0.7) < 0.0001
+    # all observations fall in the top confidence bucket (95%) but accuracy is only 75%,
+    # hence ECE should be 0.2
+    assert abs(metric.compute() - 0.2) < 0.0001
 
 
 def test_in_context_learning_qa_accuracy():

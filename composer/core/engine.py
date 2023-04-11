@@ -69,6 +69,8 @@ import atexit
 import contextlib
 import logging
 import os
+import signal
+import sys
 import textwrap
 import weakref
 from collections import OrderedDict
@@ -112,6 +114,17 @@ def _set_atexit_ran():
 # Since atexit calls hooks in LIFO order, this hook will always be invoked after all atexit-triggered
 # _close() calls are invoked
 atexit.register(_set_atexit_ran)
+
+
+# Catch SIGTERM/SIGINT and instead exit via `sys.exit` using same error code, ensuring atexit
+# functions still run. Composer CLI launcher will give a 30 second grace period before sending
+# SIGKILL.
+def sigterm_handler(signal, frame):
+    sys.exit(128 + signal)
+
+
+signal.signal(signal.SIGTERM, sigterm_handler)
+signal.signal(signal.SIGINT, sigterm_handler)
 
 
 def _get_default_passes():
