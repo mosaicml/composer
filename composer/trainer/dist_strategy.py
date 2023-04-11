@@ -205,7 +205,8 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     # may make calls to sharded submodules. If we only wrap the submodules, then any call that ComposerModel makes
     # to a FSDP-wrapped submodule's `forward()` function will be safe and all-gather the necessary weights before `forward()`.
     for obj_name, obj in model.named_children():
-        if not isinstance(obj, (Metric, MetricCollection, FullyShardedDataParallel)):
+        if not isinstance(obj, (Metric, MetricCollection)):
+
             # Skip wrapping submodules which are explicitly marked with no wrap
             if hasattr(obj, '_fsdp_wrap') and not bool(obj._fsdp_wrap):
                 continue

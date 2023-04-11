@@ -710,7 +710,7 @@ class Trainer:
             See :doc:`FSDP Documentation </notes/distributed_training>` for more details.
             To use FSDP with default values, set to the empty dictionary ``{}``. To
             disable FSDP, set to ``None``. (default: ``None``)
-        wrap_fsdp (bool, optional): option to let trainer wrap the module, or if
+        fsdp_auto_wrap (bool, optional): option to let trainer wrap the module, or if
             the module is already wrapped outside, then don't wrap.
 
         device (Device | str, optional): The device to use for training, which can be ``'cpu'``, ``'gpu'``,
@@ -839,7 +839,7 @@ class Trainer:
         # DeepSpeed
         deepspeed_config: Optional[Dict[str, Any]] = None,
         fsdp_config: Optional[Dict[str, Any]] = None,
-        wrap_fsdp: Optional[bool] = True,
+        fsdp_auto_wrap: Optional[bool] = True,
 
         # System/Numerics
         device: Optional[Union[str, Device]] = None,
@@ -898,8 +898,8 @@ class Trainer:
             # And torch.distributed is always required for multi-rank training
             dist.initialize_dist(device, dist_timeout)
 
-        # Handle FSDP sharding
-        if self.fsdp_config is not None and wrap_fsdp:
+        # Handle FSDP wrapping
+        if self.fsdp_config is not None and fsdp_auto_wrap:
             prepare_fsdp_module(model, optimizers, self.fsdp_config, precision)
 
         # Reproducibility
