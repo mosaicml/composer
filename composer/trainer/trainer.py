@@ -1713,7 +1713,11 @@ class Trainer:
             if is_model_deepspeed(self.state.model):
                 # HACK: DeepSpeed somehow manages to convert metric internal states to its own dtype. When
                 # running with FP16, this tends to result in overflows. Let's assume FP32 is good enough.
-                metric.set_dtype(torch.float32)  # type: ignore
+                for key in metric._defaults:
+                    metric_data = getattr(metric, key)
+                    if isinstance(metric_data, torch.Tensor) and metric_data.dtype == torch.float16:
+                        metric_data = metric_data.to(torch.float32)  # type: ignore
+                        setattr(metric, key, metric_data)
         return metrics
 
     def _compute_and_log_metrics(self, dataloader_label: str, metrics: Dict[str, Metric]):
