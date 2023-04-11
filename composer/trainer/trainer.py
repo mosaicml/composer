@@ -1841,8 +1841,6 @@ class Trainer:
                             reproducibility.load_rng_state(self._rng_state)
                             self._rng_state = None
                         continue
-                    # print ("state batch is: ", self.state.batch)
-                    # assert False
                     self.state.batch = self.state.device.batch_to_device(self.state.batch)
                     self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
                     rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
