@@ -294,9 +294,19 @@ def load_sharded_checkpoint(
     algorithm_passes: Optional[List[AlgorithmPass]] = None,
 ):
     if version.parse(torch.__version__) < version.parse('2.0.0'):
-                raise ValueError(f'Sharded checkpoint loading requires torch version >= 2.0.0 Got {torch.__version__}')
-    if not os.path.isdir(source_path):
-        raise ValueError(f'checkpoint_path must be a directory when using sharded state dict. Got {source_path}')
+        raise ValueError(f'Sharded checkpoint loading requires torch version >= 2.0.0 Got {torch.__version__}')
+    if object_store:
+        # If get_file is successful, it means the user passed in an object name (the full path to an object in the object store)
+        # We want a prefix (a partial path to an object), so we want to fail if get_file is successful and to keep going if a FileNotFoundError is raised.
+        try:
+            with tempfile.TemporaryDirectory() as tempdir:
+                get_file(source_path, object_store=object_store, destination=tempdir)
+            raise ValueError(f'load_path must be a prefix not an object when using sharded state dict. Got {object_store.get_uri(source_path)}')
+        except FileNotFoundError:
+            pass # This is good. This is what we want!
+    else: 
+        if os.path.isdir(source_path):
+            raise ValueError(f'load_path must be a directory when using sharded state dict. Got {source_path}')
     from torch.distributed import checkpoint as dist_cp
     from torch.distributed.checkpoint.metadata import Metadata
     from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
