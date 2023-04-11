@@ -121,7 +121,7 @@ if __name__ == '__main__':
     import time
     from composer.core.state import fsdp_state_dict_type_context
     num_features = 16
-    num_classes = 4
+    num_classes = 8
     dataset = RandomClassificationDataset(shape=(num_features, 1, 1), num_classes=num_classes, size=128)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=16)
     ## Save
@@ -146,18 +146,17 @@ if __name__ == '__main__':
 
 
     # # # ## Load
-    run_name = '1680906473-red-muskrat'
+    run_name = '1681162528-flawless-leopard'
     trainer2 = get_trainer(dataset,
                            dataloader,
                            num_features=num_features,
                            num_classes=num_classes,
                            fsdp_state_dict_type='sharded',
                            max_duration='6ba',
-                           load_weights_only=True,
+                           load_weights_only=False,
                            load_path=s3_folder.format(run_name=run_name) + '/ba2',
-                           log_to_console=False,
+                           log_to_console=True,
                            )
-    #print(trainer2.state.state_dict()['timestamp'])
     trainer2.fit()
     #print(trainer2.state.state_dict()['model']['module.2.weight'].local_tensor())
     # sd = {'model' : trainer2.state.state_dict()['model']}

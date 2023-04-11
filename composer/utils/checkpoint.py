@@ -296,8 +296,9 @@ def load_sharded_checkpoint(
     if version.parse(torch.__version__) < version.parse('2.0.0'):
                 raise ValueError(f'Sharded checkpoint loading requires torch version >= 2.0.0 Got {torch.__version__}')
     if not os.path.isdir(source_path):
-        raise ValueError(f'checkpoint_path must be a directory when using sharded state dict. Got {checkpoint_path}')
+        raise ValueError(f'checkpoint_path must be a directory when using sharded state dict. Got {source_path}')
     from torch.distributed import checkpoint as dist_cp
+    from torch.distributed.checkpoint.metadata import Metadata
     from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
     from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
     from torch.distributed.fsdp.fully_sharded_data_parallel import FullyShardedDataParallel as FSDP
@@ -307,7 +308,6 @@ def load_sharded_checkpoint(
             self.source_path = source_path
             self.destination_path = destination_path
             self.object_store = object_store
-            self.already_downloaded = []
             # Instantiate FileSystemReader with destination path b/c that's where we will download files to.
             # Because we already download the metadata file to the destination, everything will work swimmingly
             super().__init__(destination_path)
@@ -316,10 +316,10 @@ def load_sharded_checkpoint(
             # 1. Download to the destination all files that this rank is responsible for.           
             for plan_item in plan.items:
                 relative_file_path = self.storage_data[plan_item.storage_index].relative_path
-                if relative_file_path not in self.already_downloaded:
+                file_destination = str(Path(self.destination_path) / Path(relative_file_path))
+                if not os.path.exists(file_destination):
                     self.object_store.download_object(object_name=str(Path(self.source_path) / Path(relative_file_path)),
-                                                    filename=str(Path(self.destination_path) / Path(relative_file_path)))
-                    self.already_downloaded.append(relative_file_path)
+                                                    filename=file_destination)
             
             # 2. Wait for all ranks to finish.
             dist.barrier()
@@ -327,20 +327,35 @@ def load_sharded_checkpoint(
             # 3. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
             return super().read_data(plan, planner)
 
+
+    def _get_num_ranks_that_saved_rng(metadata: Metadata):
+        rng_inds = []
+        for field_name, field_value in metadata.planner_data.items():
+            if 'rng' in field_name:
+                _, rng_rank_index, _ = field_value
+                rng_inds.append(rng_rank_index)
+        rng_inds = set(rng_inds)
+        return max(rng_inds) + 1
+
+
     with tempfile.TemporaryDirectory() as tempdir:
         local_rank0_tempdir = dist.all_gather_object(tempdir)[dist.get_local_world_size() * dist.get_node_rank()]
-        # 1. Download metadata if local rank 0 to destination path
-        destination_dir = Path(local_rank0_tempdir) / Path('checkpoints')
-        destination_dir.mkdir(parents=True, exist_ok=True)
-        destination_dir = str(destination_dir)
-        if dist.get_local_rank() == 0:
-            object_store.download_object(object_name = str(Path(source_path) / Path('.metadata')), filename=destination_dir + '/.metadata' )
         if object_store is not None:
+            # Download metadata if local rank 0 to destination path
+            destination_dir = Path(local_rank0_tempdir) / Path('checkpoints')
+            destination_dir.mkdir(parents=True, exist_ok=True)
+            destination_dir = str(destination_dir)
+            metadata_destination = os.path.join(destination_dir, '.metadata')
+            if dist.get_local_rank() == 0:
+                object_store.download_object(object_name = str(Path(source_path) / Path('.metadata')), filename=metadata_destination)
             storage_reader  = DistCPObjectStoreReader(source_path=source_path, destination_path=destination_dir, object_store=object_store)
+
         else:
             storage_reader = dist_cp.FileSystemReader(source_path)
-        # 1. Load just model first.
-        with torch.no_grad():
+
+        # We need no_grad becaue we overwrite tensor values with set_() when we do elastic loading and we don't want the set_ op recorded in the computation graph.
+        with torch.no_grad(): 
+            # 1. Load just model first.
             model_state_dict = {'model' : state.state_dict()['model']}
             dist_cp.load_state_dict(model_state_dict, storage_reader)
             state.load_state_dict(
@@ -350,6 +365,7 @@ def load_sharded_checkpoint(
                 exclude_algorithms=exclude_algorithms,
                 algorithm_passes=algorithm_passes,
             )
+
             # 2. Optionally load optimizer
             if not load_weights_only:
                 optim_state = load_sharded_optimizer_state_dict(
@@ -357,6 +373,7 @@ def load_sharded_checkpoint(
                                 optimizer_key="optimizers",
                                 storage_reader=storage_reader)     
                 state.load_optim_state(optim_state)
+
         # 3. Load the rest of state.
         cur_state_dict = state.state_dict()
         if ignore_keys:
@@ -365,86 +382,28 @@ def load_sharded_checkpoint(
                 ignore_keys = glob_filter(ignore_keys)
             # Call function to modify state_dict
             ignore_keys(cur_state_dict)
+
+        # Remove model and optimizers because they were already loaded.
         cur_state_dict.pop('model')
         cur_state_dict.pop('optimizers')
-        rest_of_the_state_dict = {**cur_state_dict, 'rng': reproducibility.get_rng_state()}
+
+        rest_of_the_state_dict = cur_state_dict
+
+        # If we are resuming on more ranks than were used at save time we only want to load in rng's for those ranks
+        rng_state_dicts = reproducibility.get_rng_state()
+        num_ranks_that_saved_rng = _get_num_ranks_that_saved_rng(storage_reader.read_metadata())
+        rest_of_the_state_dict['rng'] = rng_state_dicts[:num_ranks_that_saved_rng] if len(rng_state_dicts) > num_ranks_that_saved_rng else rng_state_dicts
         dist_cp.load_state_dict(rest_of_the_state_dict, storage_reader)
+        # We also want to append newly generated rng states for the ranks that don't have an rng state to load in
+        # Ii we are resuming on more ranks than were used at save time.
+        if len(rng_state_dicts) > num_ranks_that_saved_rng:
+            rest_of_the_state_dict['rng'].extend(rng_state_dicts[num_ranks_that_saved_rng:])
         state.load_state_dict(
             rest_of_the_state_dict,
             logger,
         )
         
-
-
-
-
-def download_and_load_checkpoint_shard(
-        state: State,
-        checkpoint_path: str,
-        logger: Logger,
-        strict_model_weights: bool,
-        ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]],
-        exclude_algorithms: Optional[List[str]] = None,
-        algorithm_passes: Optional[List[AlgorithmPass]] = None,
-        load_weights_only: bool = False,
-    ):
-        """Loads the checkpoint from a local file.
-        Args:
-            checkpoint_path (str): The path to the checkpoint file or directory if using sharded.
-            logger (Logger): The logger.
-            strict_model_weights (bool): whether the keys in the ``state["model"]`` should perfectly match the keys in the
-                ``self.model``. Defaults to False.
-            ignore_keys (List[str], optional): List of keys to ignore when loading the model weights. (default: ``None``)
-            exclude_algorithms (List[str], optional): List of algorithm names to exclude from autoloading. (default: ``None``)
-            algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
-                to sort them into the correct order. (default: ``None``)
-            load_weights_only (bool): Whether to only load the weights of the model. Defaults to False.
-        """
-        if not os.path.isdir(checkpoint_path):
-            raise ValueError(f'checkpoint_path must be a directory when using sharded state dict. Got {checkpoint_path}')
-        if version.parse(torch.__version__) < version.parse('2.0.0'):
-            raise ValueError(f'Sharded checkpoint loading requires torch version >= 2.0.0 Got {torch.__version__}')
-
-        from torch.distributed import checkpoint as dist_cp
-        from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
-        from torch.distributed.fsdp.fully_sharded_data_parallel import FullyShardedDataParallel as FSDP
-        storage_reader  = dist_cp.FileSystemReader(checkpoint_path)
-        # 1. Load just model first.
-        with torch.no_grad():
-            model_state_dict = {'model' : state.state_dict()['model']}
-            dist_cp.load_state_dict(model_state_dict, storage_reader)
-            state.load_state_dict(
-                model_state_dict,
-                logger,
-                strict=strict_model_weights,
-                exclude_algorithms=exclude_algorithms,
-                algorithm_passes=algorithm_passes,
-            )
-            # 2. Optionally load optimizer
-            if not load_weights_only:
-                optim_state = load_sharded_optimizer_state_dict(
-                                model_state_dict=state.state_dict()['model'],
-                                optimizer_key="optimizers",
-                                storage_reader=storage_reader)
-                print('load_sharded_optimizer_state_dict finished')        
-                state.load_optim_state(optim_state)
-
-        # 3. Load the rest of state.
-        cur_state_dict = state.state_dict()
-        if ignore_keys:
-            # Filter provided list of key paths
-            if not callable(ignore_keys):
-                ignore_keys = glob_filter(ignore_keys)
-            # Call function to modify state_dict
-            ignore_keys(cur_state_dict)
-        cur_state_dict.pop('model')
-        cur_state_dict.pop('optimizers')
-        rest_of_the_state_dict = {**cur_state_dict, 'rng': reproducibility.get_rng_state()}
-        dist_cp.load_state_dict(rest_of_the_state_dict, storage_reader)
-        state.load_state_dict(
-            rest_of_the_state_dict,
-            logger,
-        )
+        return rest_of_the_state_dict['rng']
 
 
 
