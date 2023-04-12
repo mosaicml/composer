@@ -65,10 +65,11 @@ class MosaicLogger(LoggerDestination):
             for key, val in metadata.items():
                 self.buffered_metadata[key] = val
             if time.time() - self.time_last_logged > self.log_interval:
+                from mcli.api.exceptions import MAPIException
+                from mcli.sdk import update_run_metadata
                 try:
-                    from mcli.sdk import update_run_metadata
                     update_run_metadata(self.run_name, self.buffered_metadata)
-                except Exception as e:
+                except MAPIException as e:
                     log.error(f'Failed to log metadata to Mosaic with error: {e}')
 
                 self.buffered_metadata = {}
