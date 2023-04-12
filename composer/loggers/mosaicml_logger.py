@@ -93,7 +93,7 @@ class MosaicMLLogger(LoggerDestination):
         """Buffer metadata and prefix keys with mosaicml."""
         if self._enabled:
             for key, val in metadata.items():
-                self.buffered_metadata[key] = f'mosaicml/{format_data_to_json_serializable(val)}'
+                self.buffered_metadata[f'mosaicml/{key}'] = format_data_to_json_serializable(val)
             self._flush_metadata()
 
     def _flush_metadata(self) -> None:
