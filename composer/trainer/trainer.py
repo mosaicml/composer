@@ -1228,7 +1228,7 @@ class Trainer:
                 raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
             from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
 
-            # This state should never really ever be hit, but just in case we should raise a ValueError
+            # This state should never be reached, but we raise a ValueError just in case
             if self._use_closures() and self.state.precision == Precision.AMP_FP16:
                 raise ValueError(f'Using closures and precision {self.state.precision} is not supported'
                                  f' with FSDP. Please use another optimizer or precision type.')
