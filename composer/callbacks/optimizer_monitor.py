@@ -83,10 +83,14 @@ class OptimizerMonitor(Callback):
     +-----------------------------------------------+-----------------------------------------------------+
     """
 
-    def __init__(self, log_optimizer_metrics: bool = True):
+    def __init__(self, log_optimizer_metrics: bool = True, batch_log_interval: int = 1):
         self.log_optimizer_metrics = log_optimizer_metrics
+        self.batch_log_interval = batch_log_interval
 
     def batch_end(self, state: State, logger: Logger):
+        if state.timestamp.batch.value % self.batch_log_interval != 0:
+            return
+
         norm = 0.0
         optimizer_metrics = {}
 

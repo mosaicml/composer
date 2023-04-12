@@ -879,18 +879,34 @@ class Trainer:
         # Device
         device = get_device(device)
 
-        # Determine whether DeepSpeed and FSDP are enabled
-        self.deepspeed_config = deepspeed_config
-        self.fsdp_config = fsdp_config
-        self.deepspeed_enabled = self.deepspeed_config is not None
-        self.fsdp_enabled = self.fsdp_config is not None
-
         # Precision
         if precision is None:
             precision = Precision.AMP_FP16 if isinstance(device, DeviceGPU) else Precision.FP32
         elif isinstance(precision, str):
             precision = Precision(precision)
         _validate_precision(precision, device)
+
+        # Microbatching
+        auto_microbatching = _is_auto_microbatching(device_train_microbatch_size, device=device)
+        if auto_microbatching and profiler:
+            raise ValueError("`device_train_microbatch_size='auto'` is not compatible with the profiler. It is "
+                             "recommended to run a mini-run with `device_train_microbatch_size='auto'` to identify "
+                             'the optimal device_train_microbatch_size value and then manually specify that in a '
+                             'second run with profiler.')
+        self.first_batch_complete = False
+        # If auto_microbatching is True or `device_train_microbatch_size` is not specified, the microbatch size
+        # will be determined when dataloader is specified. train_dataloader is parsed after `Event.INIT` or in
+        # fit()
+        device_train_microbatch_size = _get_initial_device_train_microbatch_size(device_train_microbatch_size,
+                                                                                 auto_microbatching, None)
+
+        assert not isinstance(device_train_microbatch_size, str)
+
+        # Determine whether DeepSpeed and FSDP are enabled
+        self.deepspeed_config = deepspeed_config
+        self.fsdp_config = fsdp_config
+        self.deepspeed_enabled = self.deepspeed_config is not None
+        self.fsdp_enabled = self.fsdp_config is not None
 
         # Distributed
         if self.deepspeed_enabled or self.fsdp_enabled or dist.get_world_size() > 1:
@@ -922,7 +938,6 @@ class Trainer:
             raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
 
         # Move the model and optimizers to the device
-
         if not (self.deepspeed_enabled or self.fsdp_enabled):
             # check if model is already on tpu
             if isinstance(device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
@@ -934,21 +949,6 @@ class Trainer:
                 # It is possible that optimizer initialize created some internal tensors on CPU
                 # that need to be moved onto GPU.
             optimizers = map_collection(optimizers, device.optimizer_to_device)
-
-        # Microbatching
-        auto_microbatching = _is_auto_microbatching(device_train_microbatch_size, device=device)
-        if auto_microbatching and profiler:
-            raise ValueError("`device_train_microbatch_size='auto'` is not compatible with the profiler. It is "
-                             "recommended to run a mini-run with `device_train_microbatch_size='auto'` to identify "
-                             'the optimal device_train_microbatch_size value and then manually specify that in a '
-                             'second run with profiler.')
-        # If auto_microbatching is True or `device_train_microbatch_size` is not specified, the microbatch size
-        # will be determined when dataloader is specified. train_dataloader is parsed after `Event.INIT` or in
-        # fit()
-        device_train_microbatch_size = _get_initial_device_train_microbatch_size(device_train_microbatch_size,
-                                                                                 auto_microbatching, None)
-
-        assert not isinstance(device_train_microbatch_size, str)
 
         # Run Name
         if run_name is None:
@@ -1695,6 +1695,8 @@ class Trainer:
 
             # update scaler since precision was provided
             self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
+
+        self.first_batch_complete = False
         self._train_loop()
 
     def close(self):
@@ -2040,16 +2042,26 @@ class Trainer:
                     raise
 
             if self.state.auto_microbatching:
-                # Propagate across all ranks if any rank hit CUDA OOM
-                found_cuda_oom = self.state.device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
-                dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
-                if found_cuda_oom.item() == 1:
+                all_ranks_finished = False
+                while not all_ranks_finished:
+                    # Propagate across all ranks if any rank hit CUDA OOM
+                    found_cuda_oom_tensor = self.state.device.tensor_to_device(
+                        torch.tensor([found_cuda_oom], dtype=torch.uint8))
+                    dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
+                    found_cuda_oom = found_cuda_oom_tensor.item()
+                    # Check if any rank is still not done with the batch. This may happen if only a
+                    # subset of ranks OOM, leaving some batches still in the forward pass
+                    all_ranks_finished_tensor = self.state.device.tensor_to_device(torch.tensor([1], dtype=torch.uint8))
+                    dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
+                    all_ranks_finished = all_ranks_finished_tensor.item() == 1
+                if found_cuda_oom == 1:
                     _adjust_device_train_microbatch_size(self.state)
                     # Skip return and rerun after handling oom
                     continue
             # Log microbatch and return loss if we've completed without OOMing.
             assert self.state.device_train_microbatch_size is not None
             self.logger.log_metrics({'trainer/device_train_microbatch_size': self.state.device_train_microbatch_size})
+            self.first_batch_complete = True
             return total_loss_dict
 
     def _train_microbatches(self,
@@ -2069,7 +2081,19 @@ class Trainer:
         if ddp_sync or not isinstance(self.state.model, DistributedDataParallel):
             context = contextlib.nullcontext
         else:
-            context = cast(Callable[[], ContextManager], self.state.model.no_sync)
+            if self.state.auto_microbatching and not self.first_batch_complete:
+                # PyTorch DDP rebuilds gradient reduction buckets after 1) a forward pass where the
+                # no_sync context was not set 2) a backward pass 3) a forward pass. If only a
+                # subset of ranks OOM on the first batch, this will cause a deadlock since a rank
+                # that did not OOM will complete steps (1), (2), and (3) on the first succesful
+                # microbatch after the OOMs but an OOMing rank will have never completed (1) if
+                # using `SINGLE_AUTO_SYNC`. To avoid this, we force a sync on every microbatch for
+                # the first batch.
+                log.info('Auto microbatching requires syncing every microbatch (`MULTI_AUTO_SYNC`)'
+                         ' to avoid deadlock on first batch, so ddp_sync_strategy will be ignored.')
+                context = contextlib.nullcontext
+            else:
+                context = cast(Callable[[], ContextManager], self.state.model.no_sync)
 
         assert self._train_data_spec is not None
 
@@ -2133,14 +2157,28 @@ class Trainer:
         device_batch = deepcopy(self.state.batch)
 
         microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
-        sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
-            self.state,
-            is_final_microbatch,
-            self._ddp_sync_strategy,
-        )
+        if self.deepspeed_enabled:
+            sync_context = contextlib.nullcontext()
+        elif self.state.auto_microbatching and not self.first_batch_complete:
+            # PyTorch DDP rebuilds gradient reduction buckets after 1) a forward pass where the
+            # no_sync context was not set 2) a backward pass 3) a forward pass. If only a
+            # subset of ranks OOM on the first batch, this will cause a deadlock since a rank
+            # that did not OOM will complete steps (1), (2), and (3) on the first succesful
+            # microbatch after the OOMs but an OOMing rank will have never completed (1) if
+            # using `SINGLE_AUTO_SYNC`. To avoid this, we force a sync on every microbatch for
+            # the first batch.
+            log.info('Auto microbatching requires syncing every microbatch (`MULTI_AUTO_SYNC`)'
+                     ' to avoid deadlock on first batch, so ddp_sync_strategy will be ignored.')
+            sync_context = contextlib.nullcontext()
+        else:
+            sync_context = ddp_sync_context(
+                self.state,
+                is_final_microbatch,
+                self._ddp_sync_strategy,
+            )
 
         with sync_context:
-            # forward pass
+            # Forward pass
             self.engine.run_event(Event.BEFORE_FORWARD)
 
             with _get_precision_context(self.state.precision, self.deepspeed_enabled):
@@ -2148,7 +2186,21 @@ class Trainer:
 
             self.engine.run_event(Event.AFTER_FORWARD)
 
-            # loss
+            # Check if other ranks OOMed after forward pass when using auto microbatching. This may
+            # happen when close to memory limit or with uneven memory usage across ranks
+            if self.state.auto_microbatching:
+                # Check if any other rank hit an OOM
+                found_cuda_oom_tensor = self.state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+                dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
+                found_cuda_oom = found_cuda_oom_tensor.item()
+                # Signal current rank is still in batch
+                all_ranks_finished_tensor = self.state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+                dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
+
+                if found_cuda_oom == 1:
+                    raise RuntimeError('CUDA out of memory encountered on a different rank')
+
+            # Loss
             self.engine.run_event(Event.BEFORE_LOSS)
 
             with _get_precision_context(self.state.precision, self.deepspeed_enabled):
@@ -2157,7 +2209,7 @@ class Trainer:
             assert self.state.loss is not None
             self.engine.run_event(Event.AFTER_LOSS)
 
-            # backward
+            # Backward Pass
             self.engine.run_event(Event.BEFORE_BACKWARD)
 
             microbatch_loss_dict = {}
