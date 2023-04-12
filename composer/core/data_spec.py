@@ -260,7 +260,14 @@ class DataSpec:
                     Please use a DataSpec and specify `get_num_samples_in_batch`."""))
 
     def _default_get_num_tokens_in_batch(self, batch: Batch) -> int:
-        del batch  # unused
+        samples_per_batch = self.get_num_samples_in_batch(batch)
+
+        # first try dataset.max_seq_len
+        if hasattr(self.dataloader, 'dataset') and hasattr(self.dataloader.dataset, 'max_seq_len'):  # type: ignore
+            return self.dataloader.dataset.max_seq_len * samples_per_batch  # type: ignore
+        # then try HuggingFace-style input dicts
+        elif isinstance(batch, dict) and 'input_ids' in batch:
+            return batch['input_ids'].shape[1] * samples_per_batch
         return 0
 
 

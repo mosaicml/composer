@@ -6,7 +6,8 @@ from typing import List, Type
 
 from tests.common.compare import deep_compare
 from tests.common.datasets import (InfiniteClassificationDataset, RandomClassificationDataset, RandomImageDataset,
-                                   RandomSegmentationDataset, RandomTextClassificationDataset, SimpleDataset)
+                                   RandomSegmentationDataset, RandomTextClassificationDataset, RandomTextLMDataset,
+                                   SimpleDataset)
 from tests.common.events import EventCounterCallback
 from tests.common.markers import device, world_size
 from tests.common.models import (ConvModel, EmbeddedWeightTiedModel, SimpleConvModel, SimpleModel,
@@ -23,6 +24,7 @@ __all__ = [
     'assert_state_equivalent',
     'RandomClassificationDataset',
     'RandomTextClassificationDataset',
+    'RandomTextLMDataset',
     'RandomImageDataset',
     'RandomSegmentationDataset',
     'ConvModel',
