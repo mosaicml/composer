@@ -10,6 +10,7 @@ import os
 import time
 from typing import Any, Dict, Optional
 
+from composer.loggers.logger import format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import MissingConditionalImportError, dist
 
@@ -63,7 +64,7 @@ class MosaicLogger(LoggerDestination):
     def _log_metadata(self, metadata: Dict[str, Any]) -> None:
         if self._enabled:
             for key, val in metadata.items():
-                self.buffered_metadata[key] = val
+                self.buffered_metadata[key] = format_log_data_value(val)
             if time.time() - self.time_last_logged > self.log_interval:
                 from mcli.api.exceptions import MAPIException
                 from mcli.sdk import update_run_metadata
