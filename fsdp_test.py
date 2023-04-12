@@ -155,7 +155,7 @@ if __name__ == '__main__':
                            fsdp_state_dict_type='sharded',
                            max_duration='6ba',
                            load_weights_only=False,
-                           load_path=local_copy_of_s3_folder.format(run_name=run_name) + '/ba2',
+                           load_path=s3_folder.format(run_name=run_name) + '/ba2',
                            log_to_console=True,
                            )
     trainer2.fit()
