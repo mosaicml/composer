@@ -46,7 +46,7 @@ class MosaicLogger(LoggerDestination):
                 raise MissingConditionalImportError(extra_deps_group='mcli',
                                                     conda_package='mcli',
                                                     conda_channel='conda-forge') from e
-            self.run_name = os.environ.get('self.RUN_NAME')
+            self.run_name = os.environ.get('RUN_NAME')
             if self.run_name is not None:
                 log.info(f'Logging to mosaic run {self.run_name}')
             else:
