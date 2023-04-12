@@ -17,9 +17,10 @@ from tests.common.models import SimpleModel
 
 
 @pytest.mark.parametrize('log_optimizer_metrics', [True, False])
-def test_optimizer_monitor(log_optimizer_metrics: bool):
+@pytest.mark.parametrize('batch_log_interval', [1, 2, 3, 5])
+def test_optimizer_monitor(log_optimizer_metrics: bool, batch_log_interval: int):
     # Construct the callback
-    grad_monitor = OptimizerMonitor(log_optimizer_metrics=log_optimizer_metrics)
+    grad_monitor = OptimizerMonitor(log_optimizer_metrics=log_optimizer_metrics, batch_log_interval=batch_log_interval)
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     model = SimpleModel()
     # Construct the trainer and train
@@ -29,10 +30,11 @@ def test_optimizer_monitor(log_optimizer_metrics: bool):
         loggers=in_memory_logger,
         train_dataloader=DataLoader(RandomClassificationDataset()),
         optimizers=DecoupledAdamW(model.parameters()),
-        max_duration='3ba',
+        max_duration='10ba',
     )
     trainer.fit()
     num_train_steps = int(trainer.state.timestamp.batch)
+    expected_num_calls = num_train_steps // batch_log_interval
 
     # Count the logged steps
     grad_norm_calls = len(in_memory_logger.data['l2_norm/grad/global'])
@@ -46,9 +48,9 @@ def test_optimizer_monitor(log_optimizer_metrics: bool):
         assert 'cosine/update_grad/module.2.weight' in in_memory_logger.data.keys()
 
     # Expected to log gradient norm once per step (total batch)
-    assert grad_norm_calls == num_train_steps
+    assert grad_norm_calls == expected_num_calls
     for num_calls in layer_norm_calls:
-        assert num_calls == num_train_steps
+        assert num_calls == expected_num_calls
 
 
 @device('gpu')
