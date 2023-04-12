@@ -78,16 +78,16 @@ class MosaicMLLogger(LoggerDestination):
         self._flush_metadata()
 
     def fit_end(self, state: State, logger: Logger) -> None:
-        self._flush_metadata()
+        self._flush_metadata(force_flush=True)
 
     def eval_end(self, state: State, logger: Logger) -> None:
-        self._flush_metadata()
+        self._flush_metadata(force_flush=True)
 
     def predict_end(self, state: State, logger: Logger) -> None:
-        self._flush_metadata()
+        self._flush_metadata(force_flush=True)
 
     def close(self, state: State, logger: Logger) -> None:
-        self._flush_metadata()
+        self._flush_metadata(force_flush=True)
 
     def _log_metadata(self, metadata: Dict[str, Any]) -> None:
         """Buffer metadata and prefix keys with mosaicml."""
@@ -96,9 +96,9 @@ class MosaicMLLogger(LoggerDestination):
                 self.buffered_metadata[f'mosaicml/{key}'] = format_data_to_json_serializable(val)
             self._flush_metadata()
 
-    def _flush_metadata(self) -> None:
+    def _flush_metadata(self, force_flush: bool = False) -> None:
         """Flush buffered metadata to MosaicML if enough time has passed since last flush."""
-        if self._enabled and time.time() - self.time_last_logged > self.log_interval:
+        if self._enabled and (time.time() - self.time_last_logged > self.log_interval or force_flush):
             from mcli.api.exceptions import MAPIException
             from mcli.sdk import update_run_metadata
             try:
