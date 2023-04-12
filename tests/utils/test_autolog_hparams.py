@@ -134,6 +134,11 @@ def test_extract_hparams_trainer():
         'log_traces': False,
         'auto_log_hparams': True,
 
+        # Compile
+        'compile_config': None,
+        'is_model_compiled': False,
+        'is_torch_2_0': False,
+
         # Load Checkpoint
         'load_path': None,
         'load_object_store': None,

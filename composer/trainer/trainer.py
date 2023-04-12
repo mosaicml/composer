@@ -763,9 +763,11 @@ class Trainer:
             ``logging.basicConfig`` won't be called).
 
             .. seealso:: The :mod:`logging` module in Python.
-        use_torch_compile: (bool, optional):  Wraps a model and returns a compiled model. (default: ``False``)
-
-            .. note:: Only supported with PyTorch version >= 2.x
+        compile_config (Dict[str, Any], optional): Configuration for torch compile. Only supported with PyTorch 2.0 or higher.
+            Checkout [`torch.compile`](https://pytorch.org/get-started/pytorch-2.0/) for more details.
+            To use torch compile with default values, set it to empty dictionary ``{}``.
+            To use torch compile with custom config, set to a dictionary such as ``{'mode': 'max-autotune'}``.
+            To disable torch compile, set to ``None``. (default: ``None``)
 
     Attributes:
         state (State): The :class:`.State` object used to store training state.
@@ -864,8 +866,8 @@ class Trainer:
         # Python logging
         python_log_level: Optional[str] = None,
 
-        # Compile model for PyTorch 2.x
-        use_torch_compile: Optional[bool] = False,
+        # compile config for PyTorch 2.0 or higher
+        compile_config: Optional[Dict[str, Any]] = None,
     ):
 
         self.auto_log_hparams = auto_log_hparams
@@ -893,6 +895,27 @@ class Trainer:
             precision = Precision(precision)
         _validate_precision(precision, device)
 
+        # check if provided model is compiled or not
+        is_torch_2_0 = using_torch_2_0()
+        is_model_compiled = False
+        if is_torch_2_0:
+            from torch._dynamo import OptimizedModule
+            if isinstance(model, OptimizedModule):
+                log.warning(f'Provided `model` is already compiled with `torch.compile(). Ignoring ' +
+                            f'parameter `compile_config` if provided. If you would like `Trainer()` ' +
+                            f'to takes care of model compilation, provide a un-compiled model and ' +
+                            f'`compile_config` parameter.')
+                # The `torch.compile` function returns an object of type `torch._dynamo.OptimizedModule`
+                # which wraps the original `nn.Module` object and later patches its forward method to
+                # optimized `self.forward` method.
+                is_model_compiled = True
+                compiled_model = model._orig_mod
+                if not isinstance(compiled_model, ComposerModel):
+                    raise ValueError(f'Provided `model` must be a subclass of ComposerModel. ' +
+                                     f'Instead found as type `{type(compiled_model)}`')
+                compiled_model.forward = model.dynamo_ctx(compiled_model.forward)  # pyright: ignore
+                model = compiled_model
+
         # Microbatching
         auto_microbatching = _is_auto_microbatching(device_train_microbatch_size, device=device)
         if auto_microbatching and profiler:
@@ -914,14 +937,6 @@ class Trainer:
         self.fsdp_config = fsdp_config
         self.deepspeed_enabled = self.deepspeed_config is not None
         self.fsdp_enabled = self.fsdp_config is not None
-        # Determine whether torch compile is enabled
-        is_torch_2_0 = using_torch_2_0()
-        if is_torch_2_0 and use_torch_compile:
-            model = torch.compile(model)  # pyright: ignore
-        elif not is_torch_2_0 and use_torch_compile:
-            raise ValueError(f'torch.compile() is supported for PyTorch version >= 2.x.' +
-                             f'Either update your PyTorch version or disable parameter ' +
-                             f'`use_torch_compile` to `False`.')
 
         # Distributed
         if self.deepspeed_enabled or self.fsdp_enabled or dist.get_world_size() > 1:
@@ -1108,11 +1123,7 @@ class Trainer:
             'node_name': os.environ.get('NODENAME', 'unknown because NODENAME environment variable not set')
         })
 
-        if use_torch_compile:
-            model_type = self.state.model._orig_mod
-        else:
-            model_type = self.state.model
-        if not isinstance(model_type, ComposerModel):
+        if not isinstance(self.state.model, ComposerModel):
             raise ValueError('Provided model must be a subclass of ComposerModel.')
 
         # After running Event.INIT, then set the "optional" elements of state that could be passed in on FIT instead of INIT
@@ -1340,6 +1351,17 @@ class Trainer:
         if not (self.deepspeed_enabled or self.fsdp_enabled) and dist.get_world_size() > 1:
             # Only wrap the module if required
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
+
+        # The model would need to be torch.compile()'d after being wrapped in a distributed strategy
+        # to take advantage of any graph breaks.
+        if is_torch_2_0 and not is_model_compiled and compile_config is not None:
+            compiled_model = torch.compile(self.state.model, **compile_config)  # pyright: ignore
+            self.state.model = compiled_model._orig_mod
+            self.state.model.forward = compiled_model.dynamo_ctx(self.state.model.forward)
+        elif not is_torch_2_0 and compile_config is not None:
+            log.warning(f'`torch.compile()` is supported for PyTorch 2.0 or higher.' +
+                        f'Either update your PyTorch version or disable parameter by providing ' +
+                        f'`compile_config` to `None`.')
 
     @property
     def saved_checkpoints(self) -> List[str]:
