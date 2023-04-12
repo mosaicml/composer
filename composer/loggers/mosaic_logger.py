@@ -68,6 +68,7 @@ class MosaicLogger(LoggerDestination):
                 from mcli.api.exceptions import MAPIException
                 from mcli.sdk import update_run_metadata
                 try:
+                    print(f'\n\nLogging metadata to Mosaic: {self.buffered_metadata}')
                     update_run_metadata(self.run_name, self.buffered_metadata)
                 except MAPIException as e:
                     log.error(f'Failed to log metadata to Mosaic with error: {e}')
