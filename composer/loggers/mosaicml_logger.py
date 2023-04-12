@@ -6,12 +6,13 @@
 from __future__ import annotations
 
 import collections.abc
+import fnmatch
 import logging
 import operator
 import os
 import time
 from functools import reduce
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import torch
 
@@ -36,15 +37,26 @@ class MosaicMLLogger(LoggerDestination):
     seconds to avoid performance issues.
 
     Args:
-        log_interval (int, optional): Buffer log calls more frequent than ``log_interval`` seconds.
-                                      Defaults to 60.
+        log_interval (int, optional): Buffer log calls more frequent than ``log_interval`` seconds
+            to avoid performance issues. Defaults to 60.
+        ignore_keys (List[str], optional): A list of keys to ignore when logging. The keys support
+            Unix shell-style wildcards with fnmatch. Defaults to ``None``.
+
+            Example 1: ``ignore_keys = ["wall_clock/train", "wall_clock/val", "wall_clock/total"]``
+            would ignore wall clock metrics.
+
+            Example 2: ``ignore_keys = ["wall_clock/*"]`` would ignore all wall clock metrics.
+
+            (default: ``None``)
     """
 
     def __init__(
         self,
         log_interval: int = 60,
+        ignore_keys: Optional[List[str]] = None,
     ) -> None:
         self.log_interval = log_interval
+        self.ignore_keys = ignore_keys
         self._enabled = dist.get_global_rank() == 0
         if self._enabled:
             self.time_last_logged = 0
@@ -93,6 +105,8 @@ class MosaicMLLogger(LoggerDestination):
         """Buffer metadata and prefix keys with mosaicml."""
         if self._enabled:
             for key, val in metadata.items():
+                if self.ignore_keys and any(fnmatch.fnmatch(key, pattern) for pattern in self.ignore_keys):
+                    continue
                 self.buffered_metadata[f'mosaicml/{key}'] = format_data_to_json_serializable(val)
             self._flush_metadata()
 
