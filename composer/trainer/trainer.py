@@ -25,6 +25,7 @@ import torch
 import torch.distributed
 import torch.nn as nn
 import torch.utils.data
+from packaging import version
 from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
@@ -1223,7 +1224,14 @@ class Trainer:
         self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
 
         if self.fsdp_config is not None:
+            if version.parse(torch.__version__) < version.parse('1.13.0'):
+                raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
             from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
+
+            # This state should never really ever be hit, but just in case we should raise a ValueError
+            if self._use_closures() and self.state.precision == Precision.AMP_FP16:
+                raise ValueError(f'Using closures and precision {self.state.precision} is not supported'
+                                 f' with FSDP. Please use another optimizer or precision type.')
             self.state.scaler = ShardedGradScaler()
 
         # suppressing FSDP warning when auto grad accum exits the forward pass before completing
