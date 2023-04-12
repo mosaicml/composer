@@ -1222,6 +1222,10 @@ class Trainer:
         warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
         self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
 
+        if self.fsdp_config is not None:
+            from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
+            self.state.scaler = ShardedGradScaler()
+
         # suppressing FSDP warning when auto grad accum exits the forward pass before completing
         warnings.filterwarnings(action='ignore', message='Forward order differs from that of the first iteration')
 
