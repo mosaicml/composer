@@ -11,14 +11,16 @@ import operator
 import os
 import time
 from functools import reduce
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import torch
 
-from composer.core import State
-from composer.loggers import Logger
+from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import MissingConditionalImportError, dist
+
+if TYPE_CHECKING:
+    from composer.core import State
 
 log = logging.getLogger(__name__)
 
