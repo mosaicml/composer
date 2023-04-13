@@ -262,12 +262,12 @@ class DataSpec:
     def _default_get_num_tokens_in_batch(self, batch: Batch) -> int:
         samples_per_batch = self.get_num_samples_in_batch(batch)
 
-        # first try dataset.max_seq_len
-        if hasattr(self.dataloader, 'dataset') and hasattr(self.dataloader.dataset, 'max_seq_len'):  # type: ignore
+        # first try HuggingFace-style input dicts
+        if isinstance(batch, dict) and 'input_ids' in batch:
+            return batch['input_ids'].shape[1] * batch['input_ids'].shape[0]
+        # then try dataset.max_seq_len
+        elif hasattr(self.dataloader, 'dataset') and hasattr(self.dataloader.dataset, 'max_seq_len'):  # type: ignore
             return self.dataloader.dataset.max_seq_len * samples_per_batch  # type: ignore
-        # then try HuggingFace-style input dicts
-        elif isinstance(batch, dict) and 'input_ids' in batch:
-            return batch['input_ids'].shape[1] * samples_per_batch
         return 0
 
 
