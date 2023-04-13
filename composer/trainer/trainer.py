@@ -916,7 +916,7 @@ class Trainer:
 
         # Handle FSDP wrapping
         if self.fsdp_config is not None and fsdp_auto_wrap:
-            prepare_fsdp_module(model, optimizers, self.fsdp_config, precision)
+            prepare_fsdp_module(model, optimizers, self.fsdp_config, precision, device, auto_microbatching)
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, device)
