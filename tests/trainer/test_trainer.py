@@ -128,7 +128,7 @@ class TestTrainerInit():
                         optimizers=optimizer,
                         auto_log_hparams=True,
                         compile_config=None)
-            assert '`model` is already compiled with `torch.compile()' in caplog.text
+            assert '`model` is already compiled with `torch.compile`' in caplog.text
 
     @pytest.mark.skipif(version.parse(torch.__version__) >= version.parse('2.0.0'),
                         reason='requires PyTorch 1.13 or lower')
@@ -143,7 +143,7 @@ class TestTrainerInit():
                         optimizers=optimizer,
                         auto_log_hparams=True,
                         compile_config={})
-            assert '`torch.compile()` is supported for PyTorch 2.0 or higher.' in caplog.text
+            assert '`torch.compile` is supported for PyTorch 2.0 or higher.' in caplog.text
 
 
 def _assert_optimizer_is_on_device(optimizer: torch.optim.Optimizer):
