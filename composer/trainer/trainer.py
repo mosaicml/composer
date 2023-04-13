@@ -1358,6 +1358,7 @@ class Trainer:
             compiled_model = torch.compile(self.state.model, **compile_config)  # pyright: ignore
             self.state.model = compiled_model._orig_mod
             self.state.model.forward = compiled_model.dynamo_ctx(self.state.model.forward)
+            is_model_compiled = True
         elif not is_torch_2_0 and compile_config is not None:
             log.warning(f'`torch.compile()` is supported for PyTorch 2.0 or higher.' +
                         f'Either update your PyTorch version or disable parameter by providing ' +

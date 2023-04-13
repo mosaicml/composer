@@ -98,6 +98,22 @@ class TestTrainerInit():
         target_device = 'cuda' if device == 'gpu' else 'cpu'
         assert all(param.device.type == target_device for param in parameters)
 
+    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
+                        reason='requires PyTorch 2.0 or higher')
+    @pytest.mark.parametrize('compile_config', [(None, False), ({}, True), ({'mode': 'reduce-overhead'}, True)])
+    def test_torch_compile(self, model: ComposerModel, compile_config: Any):
+        # Train a model
+        train_dataset = RandomClassificationDataset()
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+        max_duration = '2ba'
+        trainer = Trainer(model=model,
+                          max_duration=max_duration,
+                          train_dataloader=DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset)),
+                          optimizers=optimizer,
+                          auto_log_hparams=True,
+                          compile_config=compile_config[0])
+        assert trainer.local_hparams['is_model_compiled'] is compile_config[1]
+
 
 def _assert_optimizer_is_on_device(optimizer: torch.optim.Optimizer):
     for state in optimizer.state.values():
@@ -901,6 +917,26 @@ class TestTrainerInitOrFit:
                 assert trainer.state.timestamp.sample_in_epoch == 0
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_END] == 2
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_CHECKPOINT] == 2
+
+    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
+                        reason='requires PyTorch 2.0 or higher')
+    def test_torch_compile_trainer_fit(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time[int],
+    ):
+        # Train a model
+        trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            auto_log_hparams=True,
+            compile_config={},
+        )
+
+        assert trainer.local_hparams['is_model_compiled'] is True
+        trainer.fit()
 
 
 @pytest.mark.vision
