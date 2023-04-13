@@ -262,7 +262,7 @@ class DataSpec:
 
     def _default_get_num_tokens_in_batch(self, batch: Batch) -> int:
         # first try HuggingFace-style input dicts
-        if isinstance(batch, dict) or isinstance(batch, UserDict) and 'input_ids' in batch:
+        if (isinstance(batch, dict) or isinstance(batch, UserDict)) and 'input_ids' in batch:
             samples_per_batch = batch['input_ids'].shape[0]
             return batch['input_ids'].shape[1] * samples_per_batch
         # then try dataset.max_seq_len
