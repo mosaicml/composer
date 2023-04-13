@@ -1,6 +1,9 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+'do a backflip'  # Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 import math
 
 import pytest
@@ -264,9 +267,10 @@ def test_in_context_learning_lm_accuracy(tiny_gpt2_tokenizer):
         end = start + len(tiny_gpt2_tokenizer(continuation)['input_ids'])
         cont_idxs.append(torch.tensor(list(range(start, end))))
 
-    batch = {'continuation_indices': cont_idxs, 'labels': inputs, 'input_ids': inputs}
-    logits = torch.nn.functional.one_hot(inputs, num_classes=pad + 1)
-    logits[2] = logits[1].clone()  # make one of the answers incorrect
+    batch = {'continuation_indices': cont_idxs, 'labels': inputs.roll(-1), 'input_ids': inputs}
+    logits = torch.nn.functional.one_hot(inputs.roll(-1), num_classes=pad + 1).float() * 100
+    start, end = cont_idxs[1].tolist()[0] - 1, cont_idxs[1].tolist()[-1]
+    logits[1][start:end] = logits[0][start:end].clone()  # make one of the answer's continuations incorrect
     metric = InContextLearningLMAccuracy()
     metric.update(batch, logits, batch['labels'])
 
@@ -289,10 +293,11 @@ def test_in_context_learning_lm_ece(tiny_gpt2_tokenizer):
         end = start + len(tiny_gpt2_tokenizer(continuation)['input_ids'])
         cont_idxs.append(torch.tensor(list(range(start, end))))
 
-    batch = {'continuation_indices': cont_idxs, 'labels': inputs, 'input_ids': inputs}
+    batch = {'continuation_indices': cont_idxs, 'labels': inputs.roll(-1), 'input_ids': inputs}
     # logits are expected to be unnormalized and will undergo softmax, so we must multiply by 100
-    logits = torch.nn.functional.one_hot(inputs, num_classes=pad + 1).float() * 100
-    logits[2] = logits[1].clone()  # make one of the answers incorrect
+    logits = torch.nn.functional.one_hot(inputs.roll(-1), num_classes=pad + 1).float() * 100
+    start, end = cont_idxs[1].tolist()[0] - 1, cont_idxs[1].tolist()[-1]
+    logits[1][start:end] = logits[0][start:end].clone()  # make one of the answer's continuations incorrect
     metric = InContextLearningLMExpectedCalibrationError()
     metric.update(batch, logits, batch['labels'])
     # all observations fall in the top confidence bucket (95%) but accuracy is only 75%,
@@ -333,16 +338,16 @@ def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):
 
     batch = {
         'continuation_indices': cont_idxs,
-        'labels': inputs,
+        'labels': inputs.roll(-1),
         'input_ids': inputs,
         'gold_indices': gold_indices,
         'choice_groupings': choice_groupings
     }
-    logits = torch.nn.functional.one_hot(inputs, num_classes=pad + 1).float()
+    logits = torch.nn.functional.one_hot(inputs.roll(-1), num_classes=pad + 1).float()
 
     # for the first two, the correct answer is continuation 0
     # make the answer correct by making continuation 0 more likely for both answers
-    start, end = cont_idxs[1].tolist()[0], cont_idxs[1].tolist()[-1]
+    start, end = cont_idxs[1].tolist()[0] - 1, cont_idxs[1].tolist()[-1]
     logits[1][start:end] = logits[0][start:end].clone()
 
     # for the last two, the correct answer is continuation 3
@@ -361,7 +366,7 @@ def test_in_context_learning_mc_ece(tiny_gpt2_tokenizer):
         'Q: How do you cook a cake?', 'Q: How do you cook a cake?', 'Q: How old is the earth?',
         'Q: How old is the earth?'
     ]
-    continuations = [' A: turn on the oven', ' A: do a backflip', ' A: 2 minutes', ' A: 4.5 billion years']
+    continuations = [' turn on the oven', ' do a backflip', ' 2 minutes', ' 4.5 billion years']
     gold_indices = [0, 1]
     choice_groupings = [(0, 2), (2, 4)]
     pad = tiny_gpt2_tokenizer.pad_token_id
@@ -379,24 +384,25 @@ def test_in_context_learning_mc_ece(tiny_gpt2_tokenizer):
 
     batch = {
         'continuation_indices': cont_idxs,
-        'labels': inputs,
+        'labels': inputs.roll(-1),
         'input_ids': inputs,
         'gold_indices': gold_indices,
         'choice_groupings': choice_groupings
     }
-    logits = torch.nn.functional.one_hot(inputs, num_classes=pad + 1).float()
-
+    logits = torch.nn.functional.one_hot(inputs.roll(-1), num_classes=pad + 1).float() * 100
     # for the first two, the correct answer is continuation 0
     # make the answer correct by making continuation 0 more likely for both answers
-    start, end = cont_idxs[1].tolist()[0], cont_idxs[1].tolist()[-1]
+    start, end = cont_idxs[1].tolist()[0] - 1, cont_idxs[1].tolist()[-1]
     logits[1][start:end] = logits[0][start:end].clone()
 
     # for the last two, the correct answer is continuation 3
     # make the answer incorrect by making continuation 2 more likely for both answers
-    start, end = cont_idxs[3].tolist()[0], cont_idxs[3].tolist()[-1]
+    start, end = cont_idxs[3].tolist()[0] - 1, cont_idxs[3].tolist()[-1]
     logits[3][start:end] = logits[2][start:end].clone()
 
     metric = InContextLearningMCExpectedCalibrationError()
 
     metric.update(batch, logits, batch['labels'])
-    assert metric.compute().item() > 0
+
+    # accuracy is 50% but confidence is 95%, so ECE is 45%
+    assert abs(metric.compute().item() - 0.45) < 0.0001

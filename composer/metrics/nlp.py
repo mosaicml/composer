@@ -440,10 +440,11 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
         self.add_state('total', default=torch.tensor(0.0), dist_reduce_fx='sum')
 
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
-        output_logits = torch.softmax(output_logits, dim=2)
         perplexities = []
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
+            # continuation indices refer to indices in the original input's token space
             cont_tok_logits = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1)
+            # labels have been shifted left by one index, so the cont_idx needs to be shifted as well.
             cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
             cross_entropy = F.cross_entropy(cont_tok_logits, cont_tok_targ)
             perplexity = torch.exp(cross_entropy)
@@ -523,7 +524,7 @@ class InContextLearningMCExpectedCalibrationError(InContextLearningExpectedCalib
 
         for (start, end), gold_idx in zip(batch['choice_groupings'], batch['gold_indices']):
             subset = probabilites[start:end]
-            idx_min = subset.index(min(subset))
+            idx_max = subset.index(max(subset))
             confidence = torch.tensor(subset).max() / torch.tensor(subset).sum()
 
             assert confidence >= 0.0 and confidence <= 1.0
@@ -532,7 +533,7 @@ class InContextLearningMCExpectedCalibrationError(InContextLearningExpectedCalib
                 bucket_idx -= 1
 
             correct_update = torch.zeros(self.n_buckets)
-            correct_update[bucket_idx] = torch.tensor(idx_min == gold_idx).int()
+            correct_update[bucket_idx] = torch.tensor(idx_max == gold_idx).int()
 
             self.bucket_correct += correct_update
 
