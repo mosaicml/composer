@@ -45,9 +45,13 @@ def test_logged_data_is_json_serializable(monkeypatch, callback_cls: Type[Callba
 
     callback_kwargs = get_cb_kwargs(callback_cls)
     callback = callback_cls(**callback_kwargs)
+    train_dataset = RandomClassificationDataset()
     trainer = Trainer(
         model=SimpleModel(),
-        train_dataloader=DataLoader(RandomClassificationDataset()),
+        train_dataloader=DataLoader(
+            train_dataset,
+            sampler=dist.get_sampler(train_dataset),
+        ),
         train_subset_num_batches=2,
         max_duration='1ep',
         callbacks=callback,
