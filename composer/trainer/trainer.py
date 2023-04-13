@@ -902,7 +902,7 @@ class Trainer:
             from torch._dynamo import OptimizedModule
             if isinstance(model, OptimizedModule):
                 log.warning(f'Provided `model` is already compiled with `torch.compile`. Ignoring ' +
-                            f'parameter `compile_config` if provided. If you would like `Trainer()` ' +
+                            f'parameter `compile_config` if provided. If you would like `Trainer` ' +
                             f'to takes care of model compilation, provide a un-compiled model and ' +
                             f'`compile_config` parameter.')
                 # The `torch.compile` function returns an object of type `torch._dynamo.OptimizedModule`
@@ -1363,7 +1363,8 @@ class Trainer:
             is_model_compiled = True
             # update local_hparams to ensure the `is_model_compiled` is set correctly for
             # debugging purpose and for unit test.
-            self.local_hparams['is_model_compiled'] = is_model_compiled
+            if self.auto_log_hparams:
+                self.local_hparams['is_model_compiled'] = is_model_compiled
         elif not is_torch_2_0 and compile_config is not None:
             log.warning(f'`torch.compile` is supported for PyTorch 2.0 or higher.' +
                         f'Either update your PyTorch version or disable parameter by providing ' +

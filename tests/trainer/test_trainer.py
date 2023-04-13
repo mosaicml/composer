@@ -952,13 +952,18 @@ class TestTrainerInitOrFit:
     @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
                         reason='requires PyTorch 2.0 or higher')
     @pytest.mark.parametrize('is_model_compiled', [True, False])
-    def test_torch_compile_trainer_fit(
+    def test_compile_uncompile_model_weights_trainer_fit(
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
         max_duration: Time[int],
         is_model_compiled: bool,
     ):
+        # Copy the model so the fit_trainer can start with the same parameter values as the
+        # other trainer
+        copied_model = copy.deepcopy(model)
+        print(f'{max_duration=}')
+
         if is_model_compiled:
             model = torch.compile(model)  # pyright: ignore [reportGeneralTypeIssues]
             compile_config = None
@@ -966,16 +971,34 @@ class TestTrainerInitOrFit:
             compile_config = {}
 
         # Train a model
-        trainer = Trainer(
+        compiled_model_trainer = Trainer(
             model=model,
             max_duration=max_duration,
             train_dataloader=train_dataloader,
             auto_log_hparams=True,
             compile_config=compile_config,
+            log_to_console=True,
+            progress_bar=False,
         )
 
-        assert trainer.local_hparams['is_model_compiled'] is True
-        trainer.fit()
+        assert compiled_model_trainer.local_hparams['is_model_compiled'] is True
+        compiled_model_trainer.fit()
+
+        # Train a model
+        uncompiled_model_trainer = Trainer(
+            model=copied_model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            auto_log_hparams=True,
+            compile_config=None,
+            log_to_console=True,
+            progress_bar=False,
+        )
+        assert uncompiled_model_trainer.local_hparams['is_model_compiled'] is False
+        uncompiled_model_trainer.fit()
+
+        assert (torch.equal(next(compiled_model_trainer.state.model.parameters()),
+                            next(uncompiled_model_trainer.state.model.parameters())))
 
 
 @pytest.mark.vision
