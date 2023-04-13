@@ -913,7 +913,8 @@ class Trainer:
                 if not isinstance(compiled_model, ComposerModel):
                     raise ValueError(f'Provided `model` must be a subclass of ComposerModel. ' +
                                      f'Instead found as type `{type(compiled_model)}`')
-                compiled_model.forward = model.dynamo_ctx(compiled_model.forward)  # pyright: ignore
+                compiled_model.forward = model.dynamo_ctx(
+                    compiled_model.forward)  # pyright: ignore [reportGeneralTypeIssues]
                 model = compiled_model
 
         # Microbatching
@@ -1355,10 +1356,14 @@ class Trainer:
         # The model would need to be torch.compile()'d after being wrapped in a distributed strategy
         # to take advantage of any graph breaks.
         if is_torch_2_0 and not is_model_compiled and compile_config is not None:
-            compiled_model = torch.compile(self.state.model, **compile_config)  # pyright: ignore
+            compiled_model = torch.compile(  # pyright: ignore [reportGeneralTypeIssues]
+                self.state.model, **compile_config)
             self.state.model = compiled_model._orig_mod
             self.state.model.forward = compiled_model.dynamo_ctx(self.state.model.forward)
             is_model_compiled = True
+            # update local_hparams to ensure the `is_model_compiled` is set correctly for
+            # debugging purpose and for unit test.
+            self.local_hparams['is_model_compiled'] = is_model_compiled
         elif not is_torch_2_0 and compile_config is not None:
             log.warning(f'`torch.compile()` is supported for PyTorch 2.0 or higher.' +
                         f'Either update your PyTorch version or disable parameter by providing ' +

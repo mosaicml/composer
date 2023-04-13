@@ -6,6 +6,7 @@ import contextlib
 import copy
 import datetime
 import math
+import logging
 import os
 import pathlib
 import time
@@ -102,7 +103,6 @@ class TestTrainerInit():
                         reason='requires PyTorch 2.0 or higher')
     @pytest.mark.parametrize('compile_config', [(None, False), ({}, True), ({'mode': 'reduce-overhead'}, True)])
     def test_torch_compile(self, model: ComposerModel, compile_config: Any):
-        # Train a model
         train_dataset = RandomClassificationDataset()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
         max_duration = '2ba'
@@ -113,6 +113,37 @@ class TestTrainerInit():
                           auto_log_hparams=True,
                           compile_config=compile_config[0])
         assert trainer.local_hparams['is_model_compiled'] is compile_config[1]
+
+    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
+                        reason='requires PyTorch 2.0 or higher')
+    def test_already_compiled_warning(self, caplog, model: ComposerModel):
+        with caplog.at_level(logging.WARNING):
+            train_dataset = RandomClassificationDataset()
+            optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+            max_duration = '2ba'
+            model = torch.compile(model)  # pyright: ignore [reportGeneralTypeIssues]
+            _ = Trainer(model=model,
+                        max_duration=max_duration,
+                        train_dataloader=DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset)),
+                        optimizers=optimizer,
+                        auto_log_hparams=True,
+                        compile_config=None)
+            assert '`model` is already compiled with `torch.compile()' in caplog.text
+
+    @pytest.mark.skipif(version.parse(torch.__version__) >= version.parse('2.0.0'),
+                        reason='requires PyTorch 1.13 or lower')
+    def test_compile_unsupported_torch_version_warning(self, caplog, model: ComposerModel):
+        with caplog.at_level(logging.WARNING):
+            train_dataset = RandomClassificationDataset()
+            optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+            max_duration = '2ba'
+            _ = Trainer(model=model,
+                        max_duration=max_duration,
+                        train_dataloader=DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset)),
+                        optimizers=optimizer,
+                        auto_log_hparams=True,
+                        compile_config={})
+            assert '`torch.compile()` is supported for PyTorch 2.0 or higher.' in caplog.text
 
 
 def _assert_optimizer_is_on_device(optimizer: torch.optim.Optimizer):
@@ -920,19 +951,27 @@ class TestTrainerInitOrFit:
 
     @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
                         reason='requires PyTorch 2.0 or higher')
+    @pytest.mark.parametrize('is_model_compiled', [True, False])
     def test_torch_compile_trainer_fit(
         self,
         train_dataloader: DataLoader,
         model: ComposerModel,
         max_duration: Time[int],
+        is_model_compiled: bool,
     ):
+        if is_model_compiled:
+            model = torch.compile(model)  # pyright: ignore [reportGeneralTypeIssues]
+            compile_config = None
+        else:
+            compile_config = {}
+
         # Train a model
         trainer = Trainer(
             model=model,
             max_duration=max_duration,
             train_dataloader=train_dataloader,
             auto_log_hparams=True,
-            compile_config={},
+            compile_config=compile_config,
         )
 
         assert trainer.local_hparams['is_model_compiled'] is True
