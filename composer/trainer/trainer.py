@@ -824,7 +824,7 @@ class Trainer:
         # Save Checkpoint
         save_folder: Optional[str] = None,
         save_filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
-        save_latest_filename: Optional[str] = 'latest-rank{rank}.pt',
+        save_latest_filename: str = 'latest-rank{rank}.pt',
         save_overwrite: bool = False,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
         save_weights_only: bool = False,
