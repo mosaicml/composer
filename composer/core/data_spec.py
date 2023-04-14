@@ -168,7 +168,7 @@ class DataSpec:
         get_num_tokens_in_batch ((Batch) -> int, optional): Function that is called by the :class:`.Trainer` to
             get the number of tokens in the provided batch.
 
-            By default, it checks for HuggingFace-style dictionary batches with ``input_ids``, and then checks ``dataset.max_seq_len``, and then returns 0
+            By default, it checks for HuggingFace-style dictionary batches with ``input_ids``, and then checks ``dataset.max_seq_len``, and returns 0
             if both of those fail, meaning that number of tokens processed will not be tracked as a part of the training progress tracking.
             This function must be specified to track the number of tokens processed during training in a non-default way.
     """
