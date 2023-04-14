@@ -770,14 +770,14 @@ class State(Serializable):
                     v.persistent(mode=True)
                     # No need to use __qualname__, we already know this corresponds to
                     # a metric object when we deserialize.
-                    serialized_value[k] = v.state_dict()
+                    serialized_value[k] = {'state_dict': v.state_dict(), '_computed': v._computed}
             elif attribute_name == 'eval_metrics':
                 serialized_value = {}
                 for eval_key, eval_metrics in attribute_value.items():
                     serialized_value[eval_key] = {}
                     for k, v in eval_metrics.items():
                         v.persistent(mode=True)
-                        serialized_value[eval_key][k] = v.state_dict()
+                        serialized_value[eval_key][k] = {'state_dict': v.state_dict(), '_computed': v._computed}
             else:
                 serialized_value = attribute_value
 
@@ -1064,7 +1064,9 @@ class State(Serializable):
                         continue
                     state_field_value[metric_name]._update_count += 1
                     missing_keys, unexpected_keys = state_field_value[metric_name].load_state_dict(
-                        serialized_value[metric_name], strict=False)
+                        serialized_value[metric_name]['state_dict'], strict=False)
+                    state_field_value[metric_name]._computed = serialized_value[metric_name]['_computed']
+                    state_field_value[metric_name].persistent(mode=True)
                     self.device.module_to_device(state_field_value[metric_name])
                     if len(missing_keys) > 0:
                         warnings.warn(
@@ -1086,7 +1088,9 @@ class State(Serializable):
                             continue
                         state_field_value[eval_key][metric_name]._update_count += 1
                         missing_keys, unexpected_keys = state_field_value[eval_key][metric_name].load_state_dict(
-                            serialized_value[eval_key][metric_name], strict=False)
+                            serialized_value[eval_key][metric_name]['state_dict'], strict=False)
+                        state_field_value[eval_key][metric_name]._computed = serialized_value[eval_key][metric_name][
+                            '_computed']
                         self.device.module_to_device(state_field_value[eval_key][metric_name])
                         if len(missing_keys) > 0:
                             warnings.warn(

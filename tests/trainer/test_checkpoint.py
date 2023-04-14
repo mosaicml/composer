@@ -458,7 +458,6 @@ class TestCheckpointLoading:
             trainer_2.state.model,
         )
 
-        # check metrics loaded properly
         assert self._metrics_equal(
             trainer_1.state.train_metrics, trainer_2.state.train_metrics, trainer_1.state.eval_metrics,
             trainer_2.state.eval_metrics), 'Original metrics do not equal metrics from loaded checkpoint.'
