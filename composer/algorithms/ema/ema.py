@@ -27,21 +27,30 @@ def compute_ema(model: torch.nn.Module,
                 smoothing: float = 0.99) -> None:
     r"""Updates the weights of ``ema_model`` to be closer to the weights of ``model``
     according to an exponential weighted average. Weights are updated according to
+
     .. math::
         W_{ema_model}^{(t+1)} = smoothing\times W_{ema_model}^{(t)}+(1-smoothing)\times W_{model}^{(t)}
+
     The update to ``ema_model`` happens in place.
+
     The half life of the weights for terms in the average is given by
+
     .. math::
         t_{1/2} = -\frac{\log(2)}{\log(smoothing)}
+
     Therefore, to set smoothing to obtain a target half life, set smoothing according to
+
     .. math::
         smoothing = \exp\left[-\frac{\log(2)}{t_{1/2}}\right]
+
     Args:
         model (torch.nn.Module): the model containing the latest weights to use to update the moving average weights.
         ema_model (torch.nn.Module, EMAParameters): the model containing the moving average weights to be updated.
         smoothing (float, optional): the coefficient representing the degree to which older observations are kept.
             Must be in the interval :math:`(0, 1)`. Default: ``0.99``.
+
     Example:
+
         .. testcode::
                 import composer.functional as cf
                 from torchvision import models
@@ -83,17 +92,24 @@ def get_model_context_manager(model: torch.nn.Module):
 
 class EMA(Algorithm):
     r"""Maintains a set of weights that follow the exponential moving average of the training model weights.
+
     Weights are updated according to
+
     .. math::
         W_{ema_model}^{(t+1)} = smoothing\times W_{ema_model}^{(t)}+(1-smoothing)\times W_{model}^{(t)}
+
     Where the smoothing is determined from ``half_life`` according to
+
     .. math::
         smoothing = \exp\left[-\frac{\log(2)}{t_{1/2}}\right]
+
     Model evaluation is done with the moving average weights, which can result in better generalization. Because of the
     ema weights, EMA can double the model's memory consumption. Note that this does not mean that the total memory
     required doubles, since stored activations and the optimizer state are not duplicated. EMA also uses a small
     amount of extra compute to update the moving average weights.
+
     See the :doc:`Method Card </method_cards/ema>` for more details.
+
     Args:
         half_life (str, optional): The time string specifying the half life for terms in the average. A longer half
             life means old information is remembered longer, a shorter half life means old information is discared
@@ -112,8 +128,11 @@ class EMA(Algorithm):
             using ``smoothing``. If not specified, ``update_interval`` will default to ``1`` in the units of
             ``half_life``, or ``"1ba"`` if ``smoothing`` is specified. Time must be an integer value in the units
             specified. Default: ``None``.
+
     Example:
+
         .. testcode::
+
             from composer.algorithms import EMA
             algorithm = EMA(half_life='1000ba', update_interval='1ba')
             trainer = Trainer(
@@ -337,8 +356,10 @@ class EMA(Algorithm):
 
     def get_ema_model(self, model: torch.nn.Module) -> torch.nn.Module:
         """Replaces the parameters of the supplied model with the ema parameters if they are not already active.
+
         Args:
             model (torch.nn.Module): The model to replace the parameters of.
+
         Returns:
             torch.nn.Module: The model with the ema parameters.
         """
@@ -351,8 +372,10 @@ class EMA(Algorithm):
 
     def get_training_model(self, model: torch.nn.Module) -> torch.nn.Module:
         """Replaces the parameters of the supplied model with the training parameters if they are not already active.
+
         Args:
             model (torch.nn.Module): The model to replace the parameters of.
+
         Returns:
             torch.nn.Module: The model with the training parameters.
         """
