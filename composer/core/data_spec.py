@@ -265,7 +265,7 @@ class DataSpec:
         if (isinstance(batch, dict) or isinstance(batch, UserDict)) and 'input_ids' in batch:
             samples_per_batch = batch['input_ids'].shape[0]
             return batch['input_ids'].shape[1] * samples_per_batch
-        # then try dataset.max_seq_len
+        # Then try dataset.max_seq_len
         elif hasattr(self.dataloader, 'dataset') and hasattr(self.dataloader.dataset, 'max_seq_len'):  # type: ignore
             samples_per_batch = self.get_num_samples_in_batch(batch)
             return self.dataloader.dataset.max_seq_len * samples_per_batch  # type: ignore
