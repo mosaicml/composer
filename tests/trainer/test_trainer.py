@@ -5,6 +5,7 @@ import collections.abc
 import contextlib
 import copy
 import datetime
+import math
 import os
 import pathlib
 import time
@@ -29,7 +30,8 @@ from composer.optim import ExponentialScheduler
 from composer.trainer.trainer import _generate_run_name
 from composer.utils import dist, is_model_deepspeed, is_model_fsdp, map_collection, reproducibility
 from tests.common import (InfiniteClassificationDataset, RandomClassificationDataset, RandomImageDataset,
-                          SimpleConvModel, SimpleModel, device, world_size)
+                          RandomTextLMDataset, SimpleConvModel, SimpleModel, SimpleTransformerMaskedLM, device,
+                          world_size)
 from tests.common.events import EventCounterCallback
 from tests.test_state import assert_state_equivalent
 
@@ -185,6 +187,45 @@ class TestTrainerInitOrFit:
 
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
+
+    @pytest.mark.parametrize('batch_size', [4])
+    @pytest.mark.parametrize('sequence_length', [8])
+    @pytest.mark.parametrize('max_duration', [
+        '1tok',
+        '32tok',
+        '60tok',
+        '65tok',
+    ])
+    @pytest.mark.parametrize('duration_to_fit', [True, False])
+    def test_max_duration_tokens(self, tiny_bert_tokenizer, batch_size: int, sequence_length: int, max_duration: str,
+                                 duration_to_fit: bool):
+        tokens_per_batch = batch_size * sequence_length
+        max_duration_time = Time.from_timestring(max_duration)
+        expected_num_batches = math.ceil(max_duration_time.value / tokens_per_batch)
+        expected_num_tokens = expected_num_batches * tokens_per_batch
+
+        transformers = pytest.importorskip('transformers')
+        model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
+        pretraining_train_dataset = RandomTextLMDataset(size=8,
+                                                        vocab_size=tiny_bert_tokenizer.vocab_size,
+                                                        sequence_length=sequence_length,
+                                                        use_keys=True)
+
+        collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer, mlm_probability=0.15)
+        dataloader = DataLoader(pretraining_train_dataset,
+                                batch_size=batch_size,
+                                sampler=dist.get_sampler(pretraining_train_dataset),
+                                collate_fn=collator)
+
+        if not duration_to_fit:
+            trainer = Trainer(model=model, train_dataloader=dataloader, max_duration=max_duration)
+            trainer.fit()
+        else:
+            trainer = Trainer(model=model, train_dataloader=dataloader)
+            trainer.fit(duration=max_duration)
+
+        assert trainer.state.timestamp.batch.value == expected_num_batches
+        assert trainer.state.timestamp.token.value == expected_num_tokens
 
     @pytest.mark.parametrize('max_duration', [1, '1ep', '1ba', '1sp'])
     @pytest.mark.parametrize('train_subset_num_batches', [-1, 1])
@@ -702,18 +743,22 @@ class TestTrainerInitOrFit:
         assert timestamp.batch_wct.total_seconds() > 0
 
         # Validate it is the same across ranks
-        my_timestamp_tensor = torch.tensor([
-            timestamp.total_wct.total_seconds(),
-            timestamp.epoch_wct.total_seconds(),
-            timestamp.batch_wct.total_seconds(),
-        ],
-                                           dtype=torch.float64)
-        rank_zero_timestamp_tensor = torch.tensor([
-            timestamp.total_wct.total_seconds(),
-            timestamp.epoch_wct.total_seconds(),
-            timestamp.batch_wct.total_seconds(),
-        ],
-                                                  dtype=torch.float64)
+        my_timestamp_tensor = torch.tensor(
+            [
+                timestamp.total_wct.total_seconds(),
+                timestamp.epoch_wct.total_seconds(),
+                timestamp.batch_wct.total_seconds(),
+            ],
+            dtype=torch.float64,
+        )
+        rank_zero_timestamp_tensor = torch.tensor(
+            [
+                timestamp.total_wct.total_seconds(),
+                timestamp.epoch_wct.total_seconds(),
+                timestamp.batch_wct.total_seconds(),
+            ],
+            dtype=torch.float64,
+        )
         dist.broadcast(rank_zero_timestamp_tensor, src=0)
         assert torch.all(my_timestamp_tensor == rank_zero_timestamp_tensor)
 
