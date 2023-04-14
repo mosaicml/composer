@@ -138,10 +138,9 @@ extra_deps['dev'] = [
 
 extra_deps['health_checker'] = {
     'pynvml>=11.5.0,<12',
-    'slack_sdk>=3.19.5,<4',
 }
 
-extra_deps['slack_bot'] = {
+extra_deps['slack'] = {
     'slack_sdk>=3.19.5,<4',
 }
 

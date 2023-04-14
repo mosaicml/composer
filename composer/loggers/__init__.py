@@ -40,5 +40,5 @@ __all__ = [
     'ConsoleLogger',
     'MLFlowLogger',
     'MosaicMLLogger',
-    'SlackLogger'
+    'SlackLogger',
 ]
