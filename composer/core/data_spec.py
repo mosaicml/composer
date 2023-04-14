@@ -169,6 +169,7 @@ class DataSpec:
 
             By default, it checks for HuggingFace-style dictionary batches with ``input_ids``, and then checks ``dataset.max_seq_len``, and returns 0
             if both of those fail, meaning that number of tokens processed will not be tracked as a part of the training progress tracking.
+            Note that the defaults do NOT take padding into account, so if you want the token calculation to exclude padding, you should specify this function.
             This function must be specified to track the number of tokens processed during training in a non-default way.
     """
 
