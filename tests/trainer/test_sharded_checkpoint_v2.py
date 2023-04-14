@@ -9,8 +9,49 @@ from composer.models import ComposerClassifier
 import torch.distributed
 import pytest
 import pathlib
+import textwrap
+import os
 from tests.common.markers import world_size
 
+def _compare_optims_between_state_dicts(state_dict1, state_dict2):
+    # Check that optim params are equal between checkpoint and in memory optimizer
+    state_dict1_optim_params = state_dict1['optimizers']['state']
+    state_dict2_optim_params = state_dict2['optimizers']['state']
+    state_dict1_keys = set(state_dict1_optim_params.keys())
+    state_dict2_keys = set(state_dict2_optim_params.keys())
+    assert len(state_dict1_keys.symmetric_difference(state_dict2_keys)) == 0, textwrap.dedent(
+        f"""The two state dicts being compared must have the exact same set of keys,
+        but instead these keys belong to one, but not the other:
+        {state_dict1_keys.symmetric_difference(state_dict2_keys)}""")
+
+    for param_name in state_dict2_optim_params.keys():
+        state_dict1_param_moment_dict = state_dict1_optim_params[param_name]
+        state_dict2_param_moment_dict = state_dict2_optim_params[param_name]
+        for moment_name in state_dict2_param_moment_dict.keys():
+            state_dict1_moment = state_dict1_param_moment_dict[moment_name]
+            state_dict2_moment = state_dict2_param_moment_dict[moment_name]
+            assert torch.equal(
+                state_dict1_moment,
+                state_dict2_moment), f'Moment {moment_name} for parameter {param_name} not the same between state dicts'
+
+
+def _compare_model_params_between_state_dicts(state_dict1, state_dict2):
+    # Check that model params are equal between in memory mode and checkpoint
+    state_dict1_model_params = state_dict1['model']
+    state_dict2_model_params = state_dict2['model']
+
+    state_dict1_keys = set(state_dict1_model_params.keys())
+    state_dict2_keys = set(state_dict2_model_params.keys())
+    assert len(state_dict1_keys.symmetric_difference(state_dict2_keys)) == 0, textwrap.dedent(
+        f"""The two state dicts being compared must have the exact same set of keys,
+        but instead these keys that belong to one, but not the other:
+        {state_dict1_keys.symmetric_difference(state_dict2_keys)}""")
+
+    for param_name in state_dict2_model_params.keys():
+        state_dict1_model_tensor = state_dict1_model_params[param_name]
+        state_dict2_model_tensor = state_dict2_model_params[param_name]
+        assert torch.equal(state_dict1_model_tensor,
+                           state_dict2_model_tensor), f'Weight named {param_name} not the same between state_dicts'
 class RandomClassificationDataset(Dataset):
     """Classification dataset drawn from a normal distribution.
     Args:
@@ -119,7 +160,7 @@ def get_trainer(dataset,
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.parametrize('state_dict_type', ['sharded'])
+@pytest.mark.parametrize('state_dict_type', ['sharded', 'local'])
 @pytest.mark.parametrize('autoresume', [False])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
@@ -137,37 +178,43 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=16)
     ## Save
     s3_folder = 's3://mosaicml-internal-checkpoints-test/evan-test/test_sharded_checkpoints/{run_name}'
-    local_folder = 'test_checkpoints/{run_name}'
+    local_folder = '/workdisk/evan/evan-composer/test_checkpoints/{run_name}'
     local_copy_of_s3_folder = './evan-test/test_sharded_checkpoints/{run_name}'
-    trainer = get_trainer(dataset,
+    trainer1 = get_trainer(dataset,
                           dataloader,
                           num_features=num_features,
                           num_classes=num_classes,
-                          save_folder=str(tmp_path),
+                          save_folder=local_folder,
                           save_weights_only=False,
-                          max_duration='4ba',
+                          max_duration='2ba',
                           fsdp_state_dict_type='sharded',
                           save_num_checkpoints_to_keep=-1,
-                          log_to_console=True
+                          log_to_console=False,
                           )
-    run_name = trainer.state.run_name
+    run_name = trainer1.state.run_name
     print(run_name)
-    trainer.fit()
-    trainer.close()
-
+    trainer1.fit()
+    state_dict_from_trainer1 = trainer1.state.state_dict()
+    trainer1.close()
+    #assert os.listdir(local_folder.format(run_name=run_name) + '/ba2') == ['foo']
 
 
     # # # # ## Load
-    # trainer2 = get_trainer(dataset,
-    #                        dataloader,
-    #                        num_features=num_features,
-    #                        num_classes=num_classes,
-    #                        fsdp_state_dict_type='sharded',
-    #                        max_duration='6ba',
-    #                        load_weights_only=False,
-    #                        load_path=str(save_folder / pathlib.Path('ba2'))
-    #                        log_to_console=True,
-    #                        )
+    trainer2 = get_trainer(dataset,
+                           dataloader,
+                           num_features=num_features,
+                           num_classes=num_classes,
+                           fsdp_state_dict_type='sharded',
+                           max_duration='2ba',
+                           load_weights_only=False,
+                           load_path=local_folder.format(run_name=run_name) + '/ba2',
+                           log_to_console=False,
+                           )
+    state_dict_from_trainer2 = trainer2.state.state_dict()
+    #Compare saved state and loaded state for both ranks.
+    _compare_model_params_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
+
+    _compare_optims_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
     #trainer2.fit()
     #print(trainer2.state.state_dict()['model']['module.2.weight'].local_tensor())
     # sd = {'model' : trainer2.state.state_dict()['model']}

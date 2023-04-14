@@ -305,7 +305,7 @@ def load_sharded_checkpoint(
         except FileNotFoundError:
             pass # This is good. This is what we want!
     else: 
-        if os.path.isdir(source_path):
+        if not os.path.isdir(source_path):
             raise ValueError(f'load_path must be a directory when using sharded state dict. Got {source_path}')
     from torch.distributed import checkpoint as dist_cp
     from torch.distributed.checkpoint.metadata import Metadata

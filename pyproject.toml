@@ -125,7 +125,10 @@ filterwarnings = [
     'ignore:Call to deprecated create function FileDescriptor().*:DeprecationWarning:tensorboard',
     # Ignore TracerWarnings for operations potentially unsupported by model tracing
     'ignore:.*might cause the trace to be incorrect.*:Warning',
-]
+    'ignore:TypedStorage is deprecated. It will be removed in the future*:UserWarning',
+    'ignore:An unexpected prefix is detected*:UserWarning',
+    'ignore:FlatParameter is being traversed more than once*:UserWarning',
+]   
 
 # Coverage
 [tool.coverage.run]
