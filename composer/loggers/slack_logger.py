@@ -11,7 +11,7 @@ from composer.utils import MissingConditionalImportError
 
 
 class SlackLogger(LoggerDestination):
-    """Log metrics to slack, using Slack postMessage api - https://api.slack.com/methods/chat.postMessage.
+    """Log metrics to slack, using Slack's postMessage api - https://api.slack.com/methods/chat.postMessage.
 
     First export 2 environment variable to use this logger.
     1. SLACK_LOGGING_API_KEY: To get app credentials, follow tutorial here - https://api.slack.com/tutorials/tracks/posting-messages-with-curl?app_id_from_manifest=A053W1QCEF2.
@@ -20,7 +20,7 @@ class SlackLogger(LoggerDestination):
     Next write script to output metrics / hparams / traces to slack channel. See example below.
 
     .. code-block:: python
-    
+
         trainer = Trainer(
             model=mnist_model(num_classes=10),
             train_dataloader=train_dataloader,
