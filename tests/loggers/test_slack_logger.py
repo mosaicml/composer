@@ -134,7 +134,7 @@ def test_slack_logger_time_interval(time_interval: Optional[int]):
 
 
 @pytest.mark.parametrize('max_logs', [50, 1])
-def test_slack_logger_max_num_logs(max_logs: Optional[int]):
+def test_slack_logger_max_num_logs(max_logs: int):
     pytest.importorskip('slack_sdk')
     os.environ['SLACK_LOGGING_API_KEY'] = str('1234')
     os.environ['SLACK_LOGGING_CHANNEL_ID'] = 'C1234'
