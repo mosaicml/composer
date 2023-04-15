@@ -19,31 +19,33 @@ class SlackLogger(LoggerDestination):
 
     Next write script to output metrics / hparams / traces to slack channel. See example below.
 
-    trainer = Trainer(
-        model=mnist_model(num_classes=10),
-        train_dataloader=train_dataloader,
-        max_duration='2ep',
-        algorithms=[
-            LabelSmoothing(smoothing=0.1),
-            CutMix(alpha=1.0),
-            ChannelsLast(),
-        ],
-        loggers=[
-            SlackLogger(
-                formatter_func=(lambda data, **kwargs: [{
-                    'type': 'section',
-                    'text': {
-                        'type': 'mrkdwn',
-                        'text': f'*{k}:* {v}'
-                    }
-                } for k, v in data.items()]),
-                include_keys={'loss/train/total'},
-                interval_in_seconds=1
-            ),
-        ],
-    )
+    .. code-block:: python
+    
+        trainer = Trainer(
+            model=mnist_model(num_classes=10),
+            train_dataloader=train_dataloader,
+            max_duration='2ep',
+            algorithms=[
+                LabelSmoothing(smoothing=0.1),
+                CutMix(alpha=1.0),
+                ChannelsLast(),
+            ],
+            loggers=[
+                SlackLogger(
+                    formatter_func=(lambda data, **kwargs: [{
+                        'type': 'section',
+                        'text': {
+                            'type': 'mrkdwn',
+                            'text': f'*{k}:* {v}'
+                        }
+                    } for k, v in data.items()]),
+                    include_keys={'loss/train/total'},
+                    interval_in_seconds=1
+                ),
+            ],
+        )
 
-    trainer.fit()
+        trainer.fit()
 
     Args:
         formatter_func ((...) -> Any | None): A formatter function that returns list of blocks to be sent to slack.
