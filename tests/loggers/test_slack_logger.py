@@ -45,14 +45,13 @@ def test_slack_logger_metrics(include_keys: Optional[Set[str]]):
     with patch('slack_sdk.WebClient.chat_postMessage') as mock_post_logs:
         trainer.fit()
 
-    if include_keys == {}:
-        # include no keys if empty set
-        assert mock_post_logs.call_count == 0
-        return
-
     if include_keys is None:
         # include all keys by default
         assert mock_post_logs.call_count == 10
+    elif len(include_keys) == 0:
+        # include no keys if empty set
+        assert mock_post_logs.call_count == 0
+        return
     elif include_keys == {'loss/train/total'}:
         assert mock_post_logs.call_count == 2
         metrics_key = 'loss/train/total'
@@ -154,7 +153,7 @@ def test_slack_logger_max_num_logs(max_logs: Optional[int]):
 
     # Patch for hparams
     with patch('slack_sdk.WebClient.chat_postMessage') as mock_slack:
-        trainer = Trainer(
+        Trainer(
             model=SimpleModel(),
             train_dataloader=DataLoader(RandomClassificationDataset()),
             train_subset_num_batches=2,

@@ -14,10 +14,10 @@ class SlackLogger(LoggerDestination):
     """Log metrics to slack, using Slack postMessage api - https://api.slack.com/methods/chat.postMessage.
 
     First export 2 environment variable to use this logger.
-    1. SLACK_LOGGING_API_KEY: To get app credentials, follow tutorial here - https://api.slack.com/tutorials/tracks/posting-messages-with-curl?app_id_from_manifest=A053W1QCEF2
-    2. SLACK_LOGGING_CHANNEL_ID: Channel id to send the message (Open slack channel in web browser to look this up)
+    1. SLACK_LOGGING_API_KEY: To get app credentials, follow tutorial here - https://api.slack.com/tutorials/tracks/posting-messages-with-curl?app_id_from_manifest=A053W1QCEF2.
+    2. SLACK_LOGGING_CHANNEL_ID: Channel id to send the message (Open slack channel in web browser to look this up).
 
-    Next write script to output metrics / hparams / traces to slack channel. See example below:
+    Next write script to output metrics / hparams / traces to slack channel. See example below.
 
     trainer = Trainer(
         model=mnist_model(num_classes=10),
@@ -46,10 +46,10 @@ class SlackLogger(LoggerDestination):
     trainer.fit()
 
     Args:
-        formatter_func ((...) -> Any | None): A formatter function that returns list of blocks to be sent to slack
+        formatter_func ((...) -> Any | None): A formatter function that returns list of blocks to be sent to slack.
         include_keys (Set[str]): A set of metric/logs/traces keys to include in the message. If None, all keys are included.
         interval_in_seconds (int): Interval in seconds to send logs to slack. If None, message is sent after every log call.
-        max_logs_per_message (int): Maximum number of logs to send in a single message. Note that no more than 50 items are allowed to send in a single message.
+        max_logs_per_message (int)(default:50): Maximum number of logs to send in a single message. Note that no more than 50 items are allowed to send in a single message.
         If more than 50 items are stored in buffer, the message flushed without waiting the full time interval.
     """
 
