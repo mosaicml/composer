@@ -492,17 +492,17 @@ class InContextLearningExpectedCalibrationError(InContextLearningMetric):
 
 
 class InContextLearningMCExpectedCalibrationError(InContextLearningExpectedCalibrationError):
-    r"""Computes ECE for In-context learning (ICL) multiple choice (MC) tasks. (source: https://arxiv.org/abs/2012.00955).
+    r"""Computes Expected Calibration Error (ECE) for In-context learning (ICL) multiple choice (MC) tasks. (source: https://arxiv.org/abs/2012.00955).
 
-    Expected calibration error is calculated by dividing predictions into buckets based on the model's confidence (a probability value b/w 0 and 1).
+    Expected calibration error is calculated by dividing predictions into buckets based on the model's confidence (a probability value between 0 and 1).
     We then calculate the accuracy within each bucket and calculate the average gap between confidence and accuracy
     across buckets, weighted by the number of samples in each bucket.
 
     For MC tasks, the model confidence is defined as the softmax of average per-token probability assigned to the top question choice.
 
     Adds metric state variables:
-        bucket_totals (float): The number of instances where the prediction masked the target.
-        bucket_correct (float): The number of total instances that were predicted.
+        bucket_totals (float): The number of instances where the prediction matched the target per bucket.
+        bucket_correct (float): The number of total instances that were predicted per bucket.
 
     Args:
         dist_sync_on_step (bool, optional): Synchronize metric state across processes at
@@ -513,7 +513,7 @@ class InContextLearningMCExpectedCalibrationError(InContextLearningExpectedCalib
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
+    def update(self, batch: Dict[str, Any], output_logits: torch.Tensor, labels: torch.Tensor):
         output_logits = torch.softmax(output_logits, dim=2)
         probabilites = []
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
@@ -542,9 +542,9 @@ class InContextLearningMCExpectedCalibrationError(InContextLearningExpectedCalib
 
 
 class InContextLearningLMExpectedCalibrationError(InContextLearningExpectedCalibrationError):
-    r"""Computes ECE for In-context learning (ICL) language modeling (LM) tasks. (cite: https://arxiv.org/pdf/1706.04599.pdf).
+    r"""Computes Expected Calibration Error (ECE) for In-context learning (ICL) language modeling (LM) tasks. (cite: https://arxiv.org/pdf/1706.04599.pdf).
 
-    Expected calibration error is calculated by dividing predictions into buckets based on the model's confidence (a probability value b/w 0 and 1).
+    Expected calibration error is calculated by dividing predictions into buckets based on the model's confidence (a probability value between 0 and 1).
     We then calculate the accuracy within each bucket and calculate the average gap between confidence and accuracy
     across buckets, weighted by the number of samples in each bucket.
 
@@ -552,8 +552,8 @@ class InContextLearningLMExpectedCalibrationError(InContextLearningExpectedCalib
 
 
     Adds metric state variables:
-        bucket_totals (float): The number of instances where the prediction masked the target.
-        bucket_correct (float): The number of total instances that were predicted.
+        bucket_totals (float): The number of instances where the prediction masked the target per bucket.
+        bucket_correct (float): The number of total instances that were predicted per bucket.
 
     Args:
         dist_sync_on_step (bool, optional): Synchronize metric state across processes at
@@ -564,7 +564,7 @@ class InContextLearningLMExpectedCalibrationError(InContextLearningExpectedCalib
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
+    def update(self, batch: Dict[str, Any], output_logits: torch.Tensor, labels: torch.Tensor):
         output_logits = torch.softmax(output_logits, dim=2)
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
             cont_tok_logits = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1)
