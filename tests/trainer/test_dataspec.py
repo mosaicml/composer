@@ -8,7 +8,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from composer import DataSpec, Trainer
-from tests.common import RandomClassificationDataset, SimpleModel
+from tests.common import RandomClassificationDataset, RandomTextLMDataset, SimpleModel
 
 N = 128
 
@@ -46,6 +46,27 @@ class TestDefaultGetNumSamples:
 
         with pytest.raises(ValueError, match='Unable to determine'):
             dataspec._default_get_num_samples_in_batch(batch)
+
+
+@pytest.mark.parametrize('batch_size', [4])
+@pytest.mark.parametrize('sequence_length', [8])
+@pytest.mark.parametrize('use_keys', [True, False])
+@pytest.mark.parametrize('set_attr', [True, False])
+def test_get_num_tokens_hf_default(batch_size: int, sequence_length: int, use_keys: bool, set_attr: bool):
+    dataset = RandomTextLMDataset(size=20, sequence_length=sequence_length, use_keys=use_keys)
+    if set_attr:
+        dataset.max_seq_len = sequence_length  # type: ignore
+    dataloader = DataLoader(dataset, batch_size=batch_size)
+    dataspec = DataSpec(dataloader=dataloader)
+
+    batch = next(iter(dataloader))
+    actual = dataspec._default_get_num_tokens_in_batch(batch)
+
+    if not use_keys and not set_attr:
+        expected = 0
+    else:
+        expected = sequence_length * batch_size
+    assert actual == expected
 
 
 def test_small_batch_at_end_warning():
