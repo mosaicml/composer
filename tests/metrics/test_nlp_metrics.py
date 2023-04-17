@@ -15,6 +15,7 @@ from composer.metrics.nlp import (BinaryF1Score, HFCrossEntropy, InContextLearni
                                   InContextLearningMCExpectedCalibrationError, InContextLearningMultipleChoiceAccuracy,
                                   InContextLearningQAAccuracy, LanguageCrossEntropy, LanguagePerplexity, MaskedAccuracy,
                                   Perplexity)
+from tests.common import device, world_size
 
 
 @pytest.mark.parametrize('ignore_index', [-100])
@@ -434,3 +435,35 @@ def test_in_context_learning_ece():
     metric.bucket_correct[-1] = 0  # pyright: ignore [reportGeneralTypeIssues]
     # confidence = 95%, accuracy = 0% => ece = 95%
     assert metric.compute() == 0.95
+
+
+@device('gpu')
+@world_size(2)
+def test_in_context_learning_ece_multi_gpu(device, world_size, tiny_gpt2_tokenizer):
+    contexts = ['The dog is', 'I love to eat', 'I hate', 'The weather is']
+    continuations = [' furry', ' pie', ' long lines', ' snowy']
+    pad = tiny_gpt2_tokenizer.pad_token_id
+    inputs = [
+        tiny_gpt2_tokenizer(context)['input_ids'] + tiny_gpt2_tokenizer(continuation)['input_ids']
+        for context, continuation in zip(contexts, continuations)
+    ]
+    inputs = torch.tensor([input + [pad] * (2048 - len(input)) for input in inputs])
+
+    cont_idxs = []
+    for context, continuation in zip(contexts, continuations):
+        start = len(tiny_gpt2_tokenizer(context)['input_ids'])
+        end = start + len(tiny_gpt2_tokenizer(continuation)['input_ids'])
+        cont_idxs.append(torch.tensor(list(range(start, end))))
+
+    batch = {'continuation_indices': cont_idxs, 'labels': inputs.roll(-1), 'input_ids': inputs}
+    # logits are expected to be unnormalized and will undergo softmax, so we must multiply by 100
+    logits = torch.nn.functional.one_hot(inputs.roll(-1), num_classes=pad + 1).float() * 100
+    start, end = cont_idxs[1].tolist()[0] - 1, cont_idxs[1].tolist()[-1]
+    logits[1][start:end] = logits[0][start:end].clone()  # make one of the answer's continuations incorrect
+    metric = InContextLearningLMExpectedCalibrationError()
+
+    metric.update(batch, logits, batch['labels'])
+
+    assert abs(metric.compute().item() - 0.075) < 0.0001  # confidence = 95% and acc = 7/8 => ECE = 0.075
+    assert metric.bucket_totals[-1] == 8  # pyright: ignore [reportGeneralTypeIssues]
+    assert metric.bucket_correct[-1] == 7  # pyright: ignore [reportGeneralTypeIssues]
