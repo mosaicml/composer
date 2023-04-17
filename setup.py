@@ -117,7 +117,7 @@ extra_deps['dev'] = [
     'sphinxcontrib.katex==0.9.4',
     'sphinxext.opengraph==0.7.4',
     'sphinxemoji==0.2.0',
-    'furo==2022.9.29',
+    'furo==2023.3.27',
     'sphinx-copybutton==0.5.0',
     'testbook==0.4.2',
     'myst-parser==0.16.1',
