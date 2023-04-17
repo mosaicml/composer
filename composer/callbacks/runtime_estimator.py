@@ -137,7 +137,7 @@ class RuntimeEstimator(Callback):
                 else:
                     eval_wct_avg = sum(eval_wcts) / num_evals_finished
                 eval_rate = self.eval_frequency_per_label[dataloader_label]
-                num_total_evals = 1 / eval_rate
+                num_total_evals = 1 / eval_rate * (1 - self.start_dur)
                 remaining_calls = num_total_evals - num_evals_finished
                 remaining_time += eval_wct_avg * remaining_calls
 

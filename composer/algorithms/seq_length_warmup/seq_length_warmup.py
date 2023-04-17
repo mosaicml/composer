@@ -285,13 +285,27 @@ class SeqLengthWarmup(Algorithm):
 
             found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
             try:
-                # start by running a forward and backward pass
+                # Start by running a forward and backward pass
                 # of the maximum sequence length to allocate cache.
                 with get_precision_context(state.precision):
                     outputs = state.model.forward(model_inputs)
                     loss = self._original_model.loss(outputs, model_inputs)
 
-                # since use_grad_scaling is in the Trainer, and we
+                # Check if other ranks OOMed after forward pass when using auto microbatching. This may
+                # happen when close to memory limit or with uneven memory usage across ranks
+                if state.auto_microbatching:
+                    # Check if any other rank hit an OOM
+                    found_cuda_oom_tensor = state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+                    dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
+                    found_cuda_oom = found_cuda_oom_tensor.item()
+                    # Signal current rank is still in batch
+                    all_ranks_finished_tensor = state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+                    dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
+
+                    if found_cuda_oom == 1:
+                        raise RuntimeError('CUDA out of memory encountered on a different rank')
+
+                # Since use_grad_scaling is in the Trainer, and we
                 # don't care about the loss values, skip scaling
                 for loss_item in ensure_tuple(loss):
                     loss_item.backward()
@@ -309,10 +323,19 @@ class SeqLengthWarmup(Algorithm):
                     raise
 
             if state.auto_microbatching:
-                # Propagate across all ranks if any rank hit CUDA OOM
-                found_cuda_oom = state.device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
-                dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
-                if found_cuda_oom.item() == 1:
+                all_ranks_finished = False
+                while not all_ranks_finished:
+                    # Propagate across all ranks if any rank hit CUDA OOM
+                    found_cuda_oom_tensor = state.device.tensor_to_device(
+                        torch.tensor([found_cuda_oom], dtype=torch.uint8))
+                    dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
+                    found_cuda_oom = found_cuda_oom_tensor.item()
+                    # Check if any rank is still not done with the batch. This may happen if only a
+                    # subset of ranks OOM, leaving some batches still in the forward pass
+                    all_ranks_finished_tensor = state.device.tensor_to_device(torch.tensor([1], dtype=torch.uint8))
+                    dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
+                    all_ranks_finished = all_ranks_finished_tensor.item() == 1
+                if found_cuda_oom == 1:
                     _adjust_device_train_microbatch_size(state)
                     # Skip return and rerun after handling oom
                     continue

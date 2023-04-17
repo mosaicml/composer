@@ -26,7 +26,8 @@ def get_trainer(save_folder=None,
                 autoresume=False,
                 run_name=None,
                 max_duration='2ba',
-                save_interval='2ba',):
+                save_interval='2ba',
+                precision='amp_fp16'):
     model = SimpleModel(num_features=num_features, num_classes=num_classes)
     dataset = RandomClassificationDataset(shape=(num_features, 1, 1), size=128)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=32)
@@ -45,6 +46,7 @@ def get_trainer(save_folder=None,
         save_interval=save_interval,
         save_filename=save_filename,
         save_overwrite=False,
+        precision=precision,
         load_path=load_path,
         progress_bar=False,
         log_to_console=False,
@@ -108,7 +110,7 @@ def test_fsdp_full_state_dict_save(world_size, tmp_path: pathlib.Path):
 
     expected_layer_shapes = [(5, num_features), (5,), (num_classes, 5), (num_classes,)]
     layer1_weights_shape, layer1_bias_shape, layer2_weights_shape, layer2_bias_shape = expected_layer_shapes
-    expected_total_num_params = sum([np.prod(shape) for shape in expected_layer_shapes])
+    expected_total_num_params = sum([np.prod(shape) for shape in expected_layer_shapes])  # type: ignore
 
     trainer = get_trainer(save_folder=str(save_folder),
                           save_filename=save_filename,
@@ -186,9 +188,10 @@ def test_fsdp_full_state_dict_save(world_size, tmp_path: pathlib.Path):
 @pytest.mark.gpu
 @world_size(2)
 @pytest.mark.parametrize('autoresume', [True, False])
+@pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
-def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresume: bool):
+def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresume: bool, precision: str):
     if autoresume:
         run_name = 'my-cool-autoresume-run'
     else:
@@ -199,6 +202,7 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
                            save_filename=save_filename,
                            fsdp_state_dict_type='full',
                            run_name=run_name,
+                           precision=precision,
                            autoresume=autoresume)
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
@@ -209,13 +213,18 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
                            fsdp_state_dict_type='full',
                            load_path=load_path,
                            run_name=run_name,
-                           autoresume=autoresume)
+                           precision=precision,
+                           autoresume=autoresume,
+                           max_duration='4ba')
     state_dict_from_trainer2 = trainer2.state.state_dict()
 
     if dist.get_global_rank() == 0:
         _compare_model_params_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
 
         _compare_optims_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
+
+    # Continue to fit to make sure we can continue training.
+    trainer2.fit()
 
 
 @pytest.mark.gpu
@@ -233,7 +242,7 @@ def test_fsdp_partitioned_state_dict_save(world_size, tmp_path: pathlib.Path, st
     num_classes = 2
 
     expected_layer_shapes = [(5, num_features), (5,), (num_classes, 5), (num_classes,)]
-    expected_total_num_params = sum([np.prod(shape) for shape in expected_layer_shapes])
+    expected_total_num_params = sum([np.prod(shape) for shape in expected_layer_shapes])  # type: ignore
 
     trainer = get_trainer(save_folder=str(save_folder),
                           save_filename=save_filename,
@@ -327,10 +336,12 @@ def test_fsdp_partitioned_state_dict_save(world_size, tmp_path: pathlib.Path, st
 @pytest.mark.gpu
 @world_size(2)
 @pytest.mark.parametrize('state_dict_type', ['local', 'sharded'])
+@pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.parametrize('autoresume', [True, False])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
-def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool):
+def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool,
+                                          precision: str):
     if autoresume:
         run_name = 'my-autoresume-run'
     else:
@@ -341,25 +352,28 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
                            save_filename=save_filename,
                            fsdp_state_dict_type=state_dict_type,
                            run_name=run_name,
+                           precision=precision,
                            autoresume=autoresume)
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
     trainer1.close()
     load_path = str(save_folder / pathlib.Path('rank{rank}.pt'))
-    trainer2 = get_trainer(
-        save_folder=str(save_folder),
-        save_filename=save_filename,
-        fsdp_state_dict_type=state_dict_type,
-        load_path=load_path,
-        autoresume=autoresume,
-        run_name=run_name,
-    )
+    trainer2 = get_trainer(save_folder=str(save_folder),
+                           save_filename=save_filename,
+                           fsdp_state_dict_type=state_dict_type,
+                           load_path=load_path,
+                           precision=precision,
+                           autoresume=autoresume,
+                           run_name=run_name,
+                           max_duration='4ba')
     state_dict_from_trainer2 = trainer2.state.state_dict()
 
     # Compare saved state and loaded state for both ranks.
     _compare_model_params_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
 
     _compare_optims_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
+
+    trainer2.fit()
 
 
 @pytest.mark.gpu
@@ -402,5 +416,6 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
             fsdp_state_dict_type=state_dict_type,
             autoresume=autoresume,
             run_name=run_name,
+            
         )
 

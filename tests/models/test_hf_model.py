@@ -139,6 +139,11 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
     tokenizer1.__dict__['init_kwargs'].pop('tokenizer_file', None)
     tokenizer2.__dict__['init_kwargs'].pop('tokenizer_file', None)
 
+    # vocab_file will be the path that the tokenizer was loaded from, which will just be a temporary directory for
+    # the reloaded tokenizer, so we remove it and don't compare it between the two tokenizers
+    tokenizer1.__dict__.pop('vocab_file', None)
+    tokenizer2.__dict__.pop('vocab_file', None)
+
     assert tokenizer1.__dict__ == tokenizer2.__dict__
 
 
@@ -350,6 +355,29 @@ def test_hf_loading_load_save_paths(checkpoint_upload_path: Optional[str], local
         else:
             # just check that we ended up with an actual file, not a symlink
             assert os.path.getsize(local_save_checkpoint_path) > 1000
+
+
+@pytest.mark.parametrize('modify_tokenizer', [False, True])
+def test_hf_loading_sentencepiece_tokenizer(modify_tokenizer: bool, tmp_path: Path, tiny_t5_model):
+    transformers = pytest.importorskip('transformers')
+
+    t0_pp_tokenizer = transformers.AutoTokenizer.from_pretrained('bigscience/T0pp')
+
+    if modify_tokenizer:
+        assert t0_pp_tokenizer is not None  # pyright
+        t0_pp_tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
+        t0_pp_tokenizer.add_special_tokens({'additional_special_tokens': ['[MOSAICML']})
+        t0_pp_tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
+        tiny_t5_model.resize_token_embeddings(len(t0_pp_tokenizer))
+
+    trainer = get_lm_trainer(tiny_t5_model, t0_pp_tokenizer, str(tmp_path), is_conditional_generation=True)
+    trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
+
+    hf_loaded_model, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
+        checkpoint_path=str(tmp_path / 'hf-checkpoint.pt'))
+
+    check_hf_model_equivalence(hf_loaded_model, tiny_t5_model)
+    check_hf_tokenizer_equivalence(hf_loaded_tokenizer, t0_pp_tokenizer)
 
 
 @pytest.mark.parametrize('modify_tokenizer', [False, True])
@@ -619,6 +647,43 @@ def test_write_hf_from_composer(checkpoint_upload_folder, local_save_filename, t
     check_hf_model_equivalence(tiny_bert_model, loaded_hf_model)
 
 
+def test_write_hf_from_composer_direct(tiny_bert_tokenizer, tmp_path):
+    # tests that the logic to write out a huggingface checkpoint from a composer checkpoint
+    # still works when the huggingface model is instantiated directly rather than using from_pretrained
+    transformers = pytest.importorskip('transformers')
+
+    from composer.models.huggingface import write_huggingface_pretrained_from_composer_checkpoint
+
+    checkpoint_upload_folder = tmp_path
+
+    tiny_overrides = {
+        'hidden_size': 128,
+        'num_attention_heads': 2,
+        'num_hidden_layers': 2,
+        'intermediate_size': 512,
+    }
+    tiny_bert_config = transformers.BertConfig(**tiny_overrides)
+    tiny_bert_model = transformers.BertForMaskedLM(tiny_bert_config)
+    trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
+    trainer.fit()
+
+    checkpoint_path = os.path.join(checkpoint_upload_folder, 'hf-checkpoint.pt')
+    write_huggingface_pretrained_from_composer_checkpoint(
+        checkpoint_path,
+        tmp_path / 'hf-save-pretrained',
+    )
+
+    assert os.path.exists(tmp_path / 'hf-save-pretrained' / 'config.json')
+    assert os.path.exists(tmp_path / 'hf-save-pretrained' / 'pytorch_model.bin')
+
+    loaded_hf_model = transformers.AutoModelForMaskedLM.from_pretrained(tmp_path / 'hf-save-pretrained')
+
+    # set _name_or_path so that the equivalence check passes. It is expected that these are different, because one is loaded from disk, while one is loaded from the hub
+    loaded_hf_model.config._name_or_path = tiny_bert_model.config._name_or_path
+
+    check_hf_model_equivalence(tiny_bert_model, loaded_hf_model)
+
+
 @pytest.mark.parametrize('embedding_resize', ['higher', 'lower', 'no_resize'])
 @pytest.mark.parametrize('allow_embedding_resizing', [True, False])
 def test_embedding_resizing(tiny_bert_model, tiny_bert_tokenizer, embedding_resize, allow_embedding_resizing, caplog):
@@ -682,13 +747,19 @@ def test_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
             'This issue is resolved with world size > 1 by a dummy call to forward (see HuggingFaceModel.dummy_forward_called), '
             'but for some reason fails with world size 1.'))
 
+    hf_model = hf_model()
+    if device == 'cpu' and world_size > 1 and isinstance(hf_model,
+                                                         transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel):
+        pytest.xfail(
+            'GPT2 is not currently supported with DDP. See https://github.com/huggingface/transformers/issues/22482 for more details.'
+        )
+
     fsdp_config = None
     if use_fsdp:
         fsdp_config = {
             'sharding_strategy': 'FULL_SHARD',
         }
 
-    hf_model = hf_model()
     hf_tokenizer = hf_tokenizer()
 
     model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, use_logits=True)
@@ -742,13 +813,19 @@ def test_eval_forward_generate(device, world_size, hf_model, hf_tokenizer, use_f
             'This issue is resolved with world size > 1 by a dummy call to forward (see HuggingFaceModel.dummy_forward_called), '
             'but for some reason fails with world size 1.'))
 
+    hf_model = hf_model()
+    if device == 'cpu' and world_size > 1 and isinstance(hf_model,
+                                                         transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel):
+        pytest.xfail(
+            'GPT2 is not currently supported with DDP. See https://github.com/huggingface/transformers/issues/22482 for more details.'
+        )
+
     fsdp_config = None
     if use_fsdp:
         fsdp_config = {
             'sharding_strategy': 'FULL_SHARD',
         }
 
-    hf_model = hf_model()
     hf_tokenizer = hf_tokenizer()
 
     model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, use_logits=True)
