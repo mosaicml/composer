@@ -485,11 +485,12 @@ def _restore_checkpoint(
             algorithm_passes=algorithm_passes,
         )
         step_to_resume_from = state.timestamp.batch.value
-        avg_step_to_resume_from = torch.tensor(state.timestamp.batch.value)
-        dist.all_reduce(avg_step_to_resume_from, op=dist.ReduceOp.AVG)
-        if step_to_resume_from != avg_step_to_resume_from.data:
+        avg_step_to_resume_from = state.device.tensor_to_device(
+            torch.tensor(state.timestamp.batch.value, dtype=torch.float))
+        dist.all_reduce(avg_step_to_resume_from, reduce_operation='AVG')
+        if float(step_to_resume_from) != avg_step_to_resume_from.data:
             raise RuntimeError(textwrap.dedent(
-                f'Batch to resume from {step_to_resume_from} is not the same on all ranks. '
+                f'Timestamp mismatch error: batch to resume from {step_to_resume_from} is not the same on all ranks. '
                 'This usually occurs when at least one rank fails to save the last checkpoint '
                 'while using sharded checkpointing + autoresume. '
                 'Please manually resume by disabling autoresume and explicitly setting load_path '
