@@ -484,6 +484,19 @@ def _restore_checkpoint(
             exclude_algorithms=exclude_algorithms,
             algorithm_passes=algorithm_passes,
         )
+        step_to_resume_from = state.timestamp.batch.value
+        avg_step_to_resume_from = torch.tensor(state.timestamp.batch.value)
+        dist.all_reduce(avg_step_to_resume_from, op=dist.ReduceOp.AVG)
+        if step_to_resume_from != avg_step_to_resume_from.data:
+            raise RuntimeError(textwrap.dedent(
+                f'Batch to resume from {step_to_resume_from} is not the same on all ranks. '
+                'This usually occurs when at least one rank fails to save the last checkpoint '
+                'while using sharded checkpointing + autoresume. '
+                'Please manually resume by disabling autoresume and explicitly setting load_path '
+                'to the most recent checkpoints that all ranks have saved. '
+                'E.g. for the 10th batch: trainer = Trainer(autoresume=False, load_path="/path/to/checkpoint/ba10-rank{rank}.pt", ...). '
+                'Remember to keep the {rank} placeholder!' 
+            ))
         return state_dict['rng']
 
 
