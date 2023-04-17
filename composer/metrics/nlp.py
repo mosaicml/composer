@@ -517,20 +517,9 @@ class InContextLearningExpectedCalibrationError(InContextLearningMetric):
 class InContextLearningMCExpectedCalibrationError(InContextLearningExpectedCalibrationError):
     r"""Computes Expected Calibration Error (ECE) for In-context learning (ICL) multiple choice (MC) tasks. (source: https://arxiv.org/abs/2012.00955).
 
-    Expected calibration error is calculated by dividing predictions into buckets based on the model's confidence (a probability value between 0 and 1).
-    We then calculate the accuracy within each bucket and calculate the average gap between confidence and accuracy
-    across buckets, weighted by the number of samples in each bucket.
-
     For MC tasks, the model confidence is defined as the softmax of average per-token probability assigned to the top question choice.
 
-    Adds metric state variables:
-        bucket_totals (float): The number of instances where the prediction matched the target per bucket.
-        bucket_correct (float): The number of total instances that were predicted per bucket.
-
-    Args:
-        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
-            each forward() before returning the value at the step. Default: ``False``.
-        n_buckets (int): Number of distinct buckets to split the confidence distribution into
+    See `InContextLearningExpectedCalibrationError` for more info.
     """
 
     # Make torchmetrics call update only once
@@ -564,21 +553,9 @@ class InContextLearningMCExpectedCalibrationError(InContextLearningExpectedCalib
 class InContextLearningLMExpectedCalibrationError(InContextLearningExpectedCalibrationError):
     r"""Computes Expected Calibration Error (ECE) for In-context learning (ICL) language modeling (LM) tasks. (cite: https://arxiv.org/pdf/1706.04599.pdf).
 
-    Expected calibration error is calculated by dividing predictions into buckets based on the model's confidence (a probability value between 0 and 1).
-    We then calculate the accuracy within each bucket and calculate the average gap between confidence and accuracy
-    across buckets, weighted by the number of samples in each bucket.
-
     For LM tasks, the model confidence is defined as the minimum probability assigned to all tokens in the continuation.
 
-
-    Adds metric state variables:
-        bucket_totals (float): The number of instances where the prediction masked the target per bucket.
-        bucket_correct (float): The number of total instances that were predicted per bucket.
-
-    Args:
-        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
-            each forward() before returning the value at the step. Default: ``False``.
-        n_buckets (int): Number of distinct buckets to split the confidence distribution into
+    See `InContextLearningExpectedCalibrationError` for more info.
     """
 
     # Make torchmetrics call update only once
