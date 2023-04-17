@@ -10,8 +10,8 @@ import pytest
 import torch
 from torch.nn.functional import cross_entropy
 
-from composer.metrics.nlp import (BinaryF1Score, HFCrossEntropy, InContextLearningLMAccuracy,
-                                  InContextLearningLMExpectedCalibrationError,
+from composer.metrics.nlp import (BinaryF1Score, HFCrossEntropy, InContextLearningExpectedCalibrationError,
+                                  InContextLearningLMAccuracy, InContextLearningLMExpectedCalibrationError,
                                   InContextLearningMCExpectedCalibrationError, InContextLearningMultipleChoiceAccuracy,
                                   InContextLearningQAAccuracy, LanguageCrossEntropy, LanguagePerplexity, MaskedAccuracy,
                                   Perplexity)
@@ -406,3 +406,31 @@ def test_in_context_learning_mc_ece(tiny_gpt2_tokenizer):
 
     # accuracy is 50% but confidence is 95%, so ECE is 45%
     assert abs(metric.compute().item() - 0.45) < 0.0001
+
+
+def test_in_context_learning_ece():
+    metric = InContextLearningExpectedCalibrationError(n_buckets=1)
+    metric.update(None, None, None)  # pyright: ignore [reportGeneralTypeIssues]
+    metric.bucket_totals[0] = 2  # pyright: ignore [reportGeneralTypeIssues]
+    metric.bucket_correct[0] = 1  # pyright: ignore [reportGeneralTypeIssues]
+    # confidence of bucket = 50%, accuracy = 50% => ECE = 0.0
+    assert metric.compute() == 0.0
+
+    metric = InContextLearningExpectedCalibrationError(n_buckets=10)
+    # this example corresponds to perfect calibration across all 10 buckets
+    metric.update(None, None, None)  # pyright: ignore [reportGeneralTypeIssues]
+    for i in range(len(metric.bucket_totals)):  # pyright: ignore [reportGeneralTypeIssues]
+        upper_bound = (i + 1) / metric.n_buckets
+        lower_bound = i / metric.n_buckets
+        conf_bucket_i = (upper_bound + lower_bound) / 2
+        metric.bucket_totals[i] = metric.n_buckets * 2  # pyright: ignore [reportGeneralTypeIssues]
+        metric.bucket_correct[i] = conf_bucket_i * metric.n_buckets * 2  # pyright: ignore [reportGeneralTypeIssues]
+    assert metric.compute() == 0.0
+
+    metric = InContextLearningExpectedCalibrationError(n_buckets=10)
+    # this example corresponds to perfect calibration
+    metric.update(None, None, None)  # pyright: ignore [reportGeneralTypeIssues]
+    metric.bucket_totals[-1] = 2  # pyright: ignore [reportGeneralTypeIssues]
+    metric.bucket_correct[-1] = 0  # pyright: ignore [reportGeneralTypeIssues]
+    # confidence = 95%, accuracy = 0% => ece = 95%
+    assert metric.compute() == 0.95
