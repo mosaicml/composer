@@ -549,13 +549,11 @@ class TestTrainerInitOrFit:
     @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                         reason='requires PyTorch 1.13 or higher')
     @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])
-    @pytest.mark.parametrize('compile_config', [None, {}])
     @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_fsdp(
         self,
         model: ComposerModel,
         precision: Precision,
-        compile_config: Optional[Dict[str, Any]],
         max_duration: Time[int],
         train_dataloader: DataLoader,
     ):
@@ -579,17 +577,68 @@ class TestTrainerInitOrFit:
         should_error = False
 
         with ctx:
-            trainer = Trainer(model=model,
-                              precision=precision,
-                              fsdp_config=fsdp_config,
-                              max_duration=max_duration,
-                              train_dataloader=train_dataloader,
-                              compile_config=compile_config)
+            trainer = Trainer(
+                model=model,
+                precision=precision,
+                fsdp_config=fsdp_config,
+                max_duration=max_duration,
+                train_dataloader=train_dataloader,
+            )
 
         if not should_error:
             assert is_model_fsdp(trainer.state.model)
 
             assert trainer.state.fsdp_enabled
+            trainer.fit()
+
+    @pytest.mark.gpu
+    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
+                        reason='requires PyTorch 2.0 or higher')
+    @pytest.mark.parametrize('precision', [Precision.AMP_BF16, Precision.AMP_FP16])
+    @pytest.mark.parametrize('compile_config', [None, {}])
+    @pytest.mark.filterwarnings('ignore::UserWarning')
+    def test_fsdp_torch_compile(
+        self,
+        model: ComposerModel,
+        precision: Precision,
+        compile_config: Optional[Dict[str, Any]],
+        max_duration: Time[int],
+        train_dataloader: DataLoader,
+    ):
+        fsdp_config = {
+            'sharding_strategy': 'FULL_SHARD',
+            'min_params': 1e8,
+            'cpu_offload': False,
+            'mixed_precision': 'PURE',
+            'backward_prefetch': 'BACKWARD_PRE',
+            'activation_checkpointing': False,
+            'activation_cpu_offload': False,
+            'verbose': False
+        }
+
+        # Need to catch the case where we try to train
+        # with precision FP16.
+        ctx = contextlib.nullcontext()
+        should_error = False
+
+        with ctx:
+            trainer = Trainer(
+                model=model,
+                precision=precision,
+                fsdp_config=fsdp_config,
+                max_duration=max_duration,
+                train_dataloader=train_dataloader,
+                auto_log_hparams=True,
+                compile_config=compile_config,
+            )
+
+        if not should_error:
+            assert is_model_fsdp(trainer.state.model)
+            assert trainer.state.fsdp_enabled
+            if compile_config is None:
+                assert trainer.local_hparams['is_model_compiled'] is False
+            else:
+                assert trainer.local_hparams['is_model_compiled'] is True
             trainer.fit()
 
     @pytest.mark.gpu
