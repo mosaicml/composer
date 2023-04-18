@@ -100,7 +100,7 @@ extra_deps['dev'] = [
     'junitparser==2.8.0',
     'coverage[toml]==7.2.2',
     'fasteners==0.18',  # object store tests require fasteners
-    'pytest==7.3.0',
+    'pytest==7.3.1',
     'toml==0.10.2',
     'ipython==8.11.0',
     'ipykernel==6.22.0',
@@ -206,7 +206,13 @@ extra_deps['onnx'] = [
     'onnxruntime>=1.12.1,<2',
 ]
 
-extra_deps['mlflow'] = ['mlflow>=2.0.1,<3.0']
+extra_deps['mlflow'] = [
+    'mlflow>=2.0.1,<3.0',
+]
+
+extra_deps['mcli'] = [
+    'mosaicml-cli>=0.3.6,<0.4',
+]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
