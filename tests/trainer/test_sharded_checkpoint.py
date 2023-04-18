@@ -26,6 +26,7 @@ def get_trainer(save_folder=None,
                 autoresume=False,
                 run_name=None,
                 max_duration='2ba',
+                save_interval='2ba',
                 precision='amp_fp16'):
     model = SimpleModel(num_features=num_features, num_classes=num_classes)
     dataset = RandomClassificationDataset(shape=(num_features, 1, 1), size=128)
@@ -42,7 +43,7 @@ def get_trainer(save_folder=None,
         },
         save_folder=save_folder,
         max_duration=max_duration,
-        save_interval='2ba',
+        save_interval=save_interval,
         save_filename=save_filename,
         save_overwrite=False,
         precision=precision,
@@ -51,6 +52,7 @@ def get_trainer(save_folder=None,
         log_to_console=False,
         autoresume=autoresume,
         run_name=run_name,
+        save_latest_filename='latest-rank{rank}.pt',
     )
     return trainer
 
@@ -372,3 +374,46 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
     _compare_optims_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
 
     trainer2.fit()
+
+
+@pytest.mark.gpu
+@world_size(2)
+@pytest.mark.parametrize('state_dict_type', ['local', 'sharded'])
+@pytest.mark.parametrize('autoresume', [True])
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                    reason='requires PyTorch 1.13 or higher')
+def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool):
+    run_name = 'my-run-ar' if autoresume else 'my-run'
+    save_folder = str(tmp_path / pathlib.Path(run_name))
+    save_filename = 'ba{batch}-rank{rank}.pt'
+    trainer1 = get_trainer(save_folder=save_folder,
+                           save_filename=save_filename,
+                           fsdp_state_dict_type=state_dict_type,
+                           run_name=run_name,
+                           autoresume=autoresume,
+                           max_duration='2ba',
+                           save_interval='1ba')
+    trainer1.fit()
+    trainer1.close()
+    # Corrupt latest checkpoint symlink for rank1 by changing it from batch 2 checkpoint to the batch 1 one
+    # and removing batch 2 checkpoint.
+    if dist.get_global_rank() == 1:
+        latest_symlink = str(pathlib.Path(save_folder) / pathlib.Path('latest-rank1.pt'))
+        latest_checkpoint_path = pathlib.Path(save_folder) / pathlib.Path(save_filename.format(batch=2, rank=1))
+        assert os.readlink(latest_symlink) == latest_checkpoint_path.name
+        oldest_checkpoint_path = pathlib.Path(save_folder) / pathlib.Path(save_filename.format(batch=1, rank=1))
+        os.remove(latest_symlink)
+        os.symlink(src=oldest_checkpoint_path.name, dst=latest_symlink)
+        os.remove(latest_checkpoint_path)
+        assert os.readlink(latest_symlink) == oldest_checkpoint_path.name
+
+    expected_error = pytest.raises(RuntimeError, match='Timestamp mismatch error:*')
+
+    with expected_error:
+        get_trainer(
+            save_folder=save_folder,
+            save_filename=save_filename,
+            fsdp_state_dict_type=state_dict_type,
+            autoresume=autoresume,
+            run_name=run_name,
+        )
