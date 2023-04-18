@@ -133,7 +133,7 @@ class TestTrainerInit():
     @pytest.mark.skipif(version.parse(torch.__version__) >= version.parse('2.0.0'),
                         reason='requires PyTorch 1.13 or lower')
     def test_compile_unsupported_torch_version_warning(self, caplog, model: ComposerModel):
-        with caplog.at_level(logging.WARNING):
+        with pytest.warns(Warning, match='`torch.compile` is supported for PyTorch 2.0 or higher.'):
             train_dataset = RandomClassificationDataset()
             optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
             max_duration = '2ba'
@@ -143,7 +143,6 @@ class TestTrainerInit():
                         optimizers=optimizer,
                         auto_log_hparams=True,
                         compile_config={})
-            assert '`torch.compile` is supported for PyTorch 2.0 or higher.' in caplog.text
 
 
 def _assert_optimizer_is_on_device(optimizer: torch.optim.Optimizer):
