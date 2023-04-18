@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 import random
 from typing import TYPE_CHECKING, Any, Union
 
@@ -735,7 +737,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         return [batch]
 
 
-def get_icl_task_dataloader(
+def build_dl(
     icl_task_type: str,
     dataset_uri: str,
     tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
@@ -748,51 +750,9 @@ def get_icl_task_dataloader(
     continuation_delimiter: str,  # e.g. ''
     destination_path: str,
     question_prelimiter: str = '',  # e.g. 'Question: '
-    padding_side: str = 'left',
     fewshot_random_seed: int = 1234,
 ) -> DataSpec:
-    """This constructs a dataloader capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
-
-    >>> dl = get_icl_task_dataloader(
-       ... 'language_modeling',
-       ... dataset_uri,
-       ... tokenizer,
-       ... batch_size=2,
-       ... max_seq_len=2048,
-       ... pad_tok_id=tokenizer.pad_token_id,
-       ... num_fewshot=10,
-       ... prompt_string='translate english to french',
-       ... example_delimiter='\n',
-       ... continuation_delimiter=''
-       )
-    >>> eval_evaluator = Evaluator(
-       ...     label="lambada",
-       ...     dataloader=dl,
-       ...     metric_names=['InContextLearningLMAccuracy']
-       ... )
-    >>> trainer = Trainer(
-       ...     model=model,
-       ...     train_dataloader=train_dataloader,
-       ...     eval_dataloader=eval_evaluator,
-       ...     optimizers=optimizer,
-       ...     max_duration="1ep",
-       ... )
-
-    Args:
-        dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
-            supported by :meth:`composer.utils.maybe_create_object_store_from_uri`.
-        tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to transform data into batches
-        batch_size (int): Size of a batch used for eval
-        max_seq_len (int): The sequence length expected by the model
-        pad_tok_id (int): The special token reserved for padding the ends of batches
-        num_fewshot (int): The number of complete fewshot examples to pad each test example with
-        prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
-        example_delimiter (str): Separator that goes between individual examples (e.g. '\n')
-        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
-
-    Returns:
-        DataLoader: A dataloader used for performing in-context learning evaluation on the dataset provided.
-    """
+   
 
     if icl_task_type == 'multiple_choice':
         dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri,
@@ -843,7 +803,6 @@ def get_icl_task_dataloader(
                                                  continuation_delimiter,
                                                  destination_path=destination_path,
                                                  question_prelimiter=question_prelimiter,
-                                                 padding_side=padding_side,
                                                  fewshot_random_seed=fewshot_random_seed)
         effective_batchsize = batch_size
     else:
@@ -862,3 +821,127 @@ def get_icl_task_dataloader(
         get_num_samples_in_batch=dataset.get_num_samples_in_batch,
         split_batch=dataset.split_batch if isinstance(dataset, InContextLearningMultipleChoiceTaskDataset) else None,
     )
+
+
+def partition_dataset_by_category(dataset_uri, destination_path):
+    try:
+        from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='nlp',
+                                            conda_package='datasets',
+                                            conda_channel='conda-forge') from e
+    with dist.local_rank_zero_download_and_wait(destination_path):
+        if dist.get_local_rank() == 0:
+            get_file(dataset_uri, destination_path, overwrite=True)
+    dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
+    categories = set(dataset['category'])
+    output_files = {}
+    for cat in categories:
+        cat_dest = '/'.join(destination_path.split('/')[:-1]) + f"/{cat}_{destination_path.split('/')[-1]}"
+        tmp_path_to_broadcast = str(os.path.abspath(cat_dest))
+        gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
+        subset = [l for l in dataset if l['category'] == cat]
+        with open(gathered_paths[0], 'w', encoding='utf8') as f:
+            for l in subset:
+                f.write(json.dumps(l, ensure_ascii=False) + '\n')
+        output_files[cat] = cat_dest
+    return output_files
+
+
+def get_icl_task_dataloader(
+        icl_task_type: str,
+        dataset_uri: str,
+        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
+        batch_size: int,
+        max_seq_len: int,
+        pad_tok_id: int,
+        num_fewshot: int,
+        prompt_string: str,  # e.g. 'translate english to french:'
+        example_delimiter: str,  # e.g. '\n'
+        continuation_delimiter: str,  # e.g. ''
+        destination_path: str,
+        question_prelimiter: str = '',  # e.g. 'Question: '
+        padding_side: str = 'left',
+        fewshot_random_seed: int = 1234,
+        has_categories: bool = False) -> Union[DataSpec, Dict[str, DataSpec]]:
+    """This constructs a dataloader capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
+
+    >>> dl = get_icl_task_dataloader(
+       ... 'language_modeling',
+       ... dataset_uri,
+       ... tokenizer,
+       ... batch_size=2,
+       ... max_seq_len=2048,
+       ... pad_tok_id=tokenizer.pad_token_id,
+       ... num_fewshot=10,
+       ... prompt_string='translate english to french',
+       ... example_delimiter='\n',
+       ... continuation_delimiter=''
+       )
+    >>> eval_evaluator = Evaluator(
+       ...     label="lambada",
+       ...     dataloader=dl,
+       ...     metric_names=['InContextLearningLMAccuracy']
+       ... )
+    >>> trainer = Trainer(
+       ...     model=model,
+       ...     train_dataloader=train_dataloader,
+       ...     eval_dataloader=eval_evaluator,
+       ...     optimizers=optimizer,
+       ...     max_duration="1ep",
+       ... )
+
+    Args:
+        dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
+            supported by :meth:`composer.utils.maybe_create_object_store_from_uri`.
+        tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to transform data into batches
+        batch_size (int): Size of a batch used for eval
+        max_seq_len (int): The sequence length expected by the model
+        pad_tok_id (int): The special token reserved for padding the ends of batches
+        num_fewshot (int): The number of complete fewshot examples to pad each test example with
+        prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
+        example_delimiter (str): Separator that goes between individual examples (e.g. '\n')
+        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
+
+    Returns:
+        DataLoader: A dataloader used for performing in-context learning evaluation on the dataset provided.
+    """
+
+    if has_categories:
+        result_dls = {}
+        output_files = partition_dataset_by_category(dataset_uri, destination_path)
+        for category, partition_uri in output_files.items():
+            result_dls[category] = build_dl(
+                icl_task_type,
+                partition_uri,
+                tokenizer,
+                batch_size,
+                max_seq_len,
+                pad_tok_id,
+                num_fewshot,
+                prompt_string,
+                example_delimiter,
+                continuation_delimiter,
+                partition_uri + '_tmp',
+                question_prelimiter,
+                padding_side,
+                fewshot_random_seed,
+            )
+        return result_dls
+    else:
+        return build_dl(
+            icl_task_type,
+            dataset_uri,
+            tokenizer,
+            batch_size,
+            max_seq_len,
+            pad_tok_id,
+            num_fewshot,
+            prompt_string,
+            example_delimiter,
+            continuation_delimiter,
+            destination_path,
+            question_prelimiter,
+            padding_side,
+            fewshot_random_seed,
+        )
