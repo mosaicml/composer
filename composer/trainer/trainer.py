@@ -1366,9 +1366,9 @@ class Trainer:
             if self.auto_log_hparams:
                 self.local_hparams['is_model_compiled'] = is_model_compiled
         elif not is_torch_2_0 and compile_config is not None:
-            warnings.warn(f'`torch.compile` is supported for PyTorch 2.0 or higher.' +
-                          f'Either update your PyTorch version or disable parameter by providing ' +
-                          f'`compile_config` to `None`.')
+            raise ValueError(f'`torch.compile` is supported for PyTorch 2.0 or higher.' +
+                             f'Either update your PyTorch version or disable parameter by providing ' +
+                             f'`compile_config` to `None`.')
 
     @property
     def saved_checkpoints(self) -> List[str]:
