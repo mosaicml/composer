@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import os
 import random
 from typing import TYPE_CHECKING, Any, Dict, Union
 
@@ -650,8 +651,10 @@ def partition_dataset_by_category(dataset_uri, destination_path):
     output_files = {}
     for cat in categories:
         cat_dest = '/'.join(destination_path.split('/')[:-1]) + f"/{cat}_{destination_path.split('/')[-1]}"
+        tmp_path_to_broadcast = str(os.path.abspath(cat_dest))
+        gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
         subset = [l for l in dataset if l['category'] == cat]
-        with open(cat_dest, 'w', encoding='utf8') as f:
+        with open(gathered_paths[0], 'w', encoding='utf8') as f:
             for l in subset:
                 f.write(json.dumps(l, ensure_ascii=False) + '\n')
         output_files[cat] = cat_dest
@@ -720,10 +723,10 @@ def get_icl_task_dataloader(
     if has_categories:
         result_dls = {}
         output_files = partition_dataset_by_category(dataset_uri, destination_path)
-        for k, v in output_files.items():
-            result_dls[k] = build_dl(
+        for category, partition_uri in output_files.items():
+            result_dls[category] = build_dl(
                 icl_task_type,
-                v,
+                partition_uri,
                 tokenizer,
                 batch_size,
                 max_seq_len,
@@ -732,7 +735,7 @@ def get_icl_task_dataloader(
                 prompt_string,
                 example_delimiter,
                 continuation_delimiter,
-                v + '2',
+                partition_uri + '_tmp',
                 question_prelimiter,
                 padding_side,
                 fewshot_random_seed,
