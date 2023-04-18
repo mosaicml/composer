@@ -115,15 +115,8 @@ def get_trainer(dataset,
     )
     return trainer
 
-# if __name__ == '__main__':
+if __name__ == '__main__':
 
-@pytest.mark.gpu
-@world_size(2)
-@pytest.mark.parametrize('state_dict_type', ['sharded'])
-@pytest.mark.parametrize('autoresume', [False])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
-def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool):
     from torch.distributed import checkpoint as dist_cp
     from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
     from torch.distributed.fsdp.fully_sharded_data_parallel import FullyShardedDataParallel as FSDP
@@ -140,35 +133,36 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
     local_folder = 'test_checkpoints/{run_name}'
     local_copy_of_s3_folder = './evan-test/test_sharded_checkpoints/{run_name}'
     trainer = get_trainer(dataset,
-                          dataloader,
-                          num_features=num_features,
-                          num_classes=num_classes,
-                          save_folder=str(tmp_path),
-                          save_weights_only=False,
-                          max_duration='4ba',
-                          fsdp_state_dict_type='sharded',
-                          save_num_checkpoints_to_keep=-1,
-                          log_to_console=True
-                          )
+                            dataloader,
+                            num_features=num_features,
+                            num_classes=num_classes,
+                            save_folder=local_folder,
+                            save_weights_only=False,
+                            max_duration='4ba',
+                            fsdp_state_dict_type='full',
+                            save_num_checkpoints_to_keep=-1,
+                            log_to_console=True
+                            )
     run_name = trainer.state.run_name
     print(run_name)
     trainer.fit()
     trainer.close()
 
-
-
+    # storage_reader = dist_cp.FileSystemReader(f"./test_checkpoints/{run_name}/ba2")
+    # md = storage_reader.read_metadata()
+    # print(md)
     # # # # ## Load
-    # trainer2 = get_trainer(dataset,
-    #                        dataloader,
-    #                        num_features=num_features,
-    #                        num_classes=num_classes,
-    #                        fsdp_state_dict_type='sharded',
-    #                        max_duration='6ba',
-    #                        load_weights_only=False,
-    #                        load_path=str(save_folder / pathlib.Path('ba2'))
-    #                        log_to_console=True,
-    #                        )
-    #trainer2.fit()
+    trainer2 = get_trainer(dataset,
+                           dataloader,
+                           num_features=num_features,
+                           num_classes=num_classes,
+                           fsdp_state_dict_type='full',
+                           max_duration='6ba',
+                           load_weights_only=False,
+                           load_path=str(pathlib.Path(local_folder.format(run_name=run_name)) / pathlib.Path('ba2')),
+                           log_to_console=True,
+                           )
+    trainer2.fit()
     #print(trainer2.state.state_dict()['model']['module.2.weight'].local_tensor())
     # sd = {'model' : trainer2.state.state_dict()['model']}
     # storage_reader  = dist_cp.FileSystemReader(f"./test_checkpoints/{run_name}/ba2")

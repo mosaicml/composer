@@ -108,21 +108,28 @@ def _is_old_sharded_version_checkpoint_file(
     path: str,
     state: State,
     object_store: Optional[Union[ObjectStore, LoggerDestination]] = None):
-    return False
-    # with tempfile.TemporaryDirectory() as tmpdir:
-    #     chkpt_destination = str(Path(tmpdir) / Path('test_chkpt.pt'))
-
-    #     get_file(path=format_name_with_dist_and_time(path, run_name=state.run_name, timestamp=state.timestamp), 
-    #              destination=tmpdir,
-    #              object_store=object_store)
-    #     if os.path.isdir(chkpt_destination):
-    #         return False
-    #     else:
-    #         state_dict = safe_torch_load(chkpt_destination)
-    #         composer_version = state_dict['metadata']['composer_env_info']['composer_version']
-    #         if composer_version in ['0.13.1', '0.13.2', '0.13.3']:
-    #             return True
-
+    load_path = format_name_with_dist_and_time(path, run_name=state.run_name, timestamp=state.timestamp)
+    if object_store:
+        # If get_file is successful, it means the user passed in an object name (the full path to an object in the object store)
+        # That means it's likely the old sharded format.
+        try:
+            with tempfile.TemporaryDirectory() as tempdir:
+                get_file(load_path, object_store=object_store, destination=tempdir)
+                return True
+        # If the file isn't found then it is possibly the new sharded.
+        except FileNotFoundError:
+            return False
+    else: 
+        if os.path.exists(load_path):
+            # If it's a file it's the old sharding.
+            if not os.path.isdir(load_path):
+                return True
+            # If it's a directory it's the new sharding.
+            else:
+                return False
+        else:
+            raise FileNotFoundError(f'{load_path} not found!')
+    
 
 def load_checkpoint(
     path: str,
@@ -311,7 +318,6 @@ def load_sharded_checkpoint(
     from torch.distributed.checkpoint.metadata import Metadata
     from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
     from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
-    from torch.distributed.fsdp.fully_sharded_data_parallel import FullyShardedDataParallel as FSDP
 
     class DistCPObjectStoreReader(dist_cp.FileSystemReader):
         def __init__(self, source_path, destination_path, object_store): # path to metadata
@@ -412,7 +418,23 @@ def load_sharded_checkpoint(
             rest_of_the_state_dict,
             logger,
         )
-        
+        step_to_resume_from = state.timestamp.batch.value
+        max_step_to_resume_from = state.device.tensor_to_device(
+            torch.tensor(state.timestamp.batch.value, dtype=torch.int64))
+        min_step_to_resume_from = state.device.tensor_to_device(
+            torch.tensor(state.timestamp.batch.value, dtype=torch.int64))
+        dist.all_reduce(max_step_to_resume_from, reduce_operation='MAX')
+        dist.all_reduce(min_step_to_resume_from, reduce_operation='MIN')
+        if max_step_to_resume_from.data != min_step_to_resume_from.data:
+            raise RuntimeError(
+                textwrap.dedent(
+                    f'Timestamp mismatch error: batch to resume from {step_to_resume_from} is not the same on all ranks. '
+                    'This usually occurs when at least one rank fails to save the last checkpoint '
+                    'while using sharded checkpointing + autoresume. '
+                    'Please manually resume by disabling autoresume and explicitly setting load_path '
+                    'to the most recent checkpoints that all ranks have saved. '
+                    'E.g. for the 10th batch: trainer = Trainer(autoresume=False, load_path="/path/to/checkpoint/ba10-rank{rank}.pt", ...). '
+                    'Remember to keep the {rank} placeholder!'))
         return rest_of_the_state_dict['rng']
 
 
@@ -670,43 +692,6 @@ def _restore_checkpoint(
                 algorithm_passes=algorithm_passes,
             )
             return state_dict['rng']
-    else:
-        # Returns the rng state dicts (if ``load_weights_only`` is False)
-        return load_checkpoint_from_local_shard_files(
-                        state=state,
-                        checkpoint_path=composer_states_filepath,
-                        logger=logger,
-                        strict_model_weights=strict_model_weights,
-                        ignore_keys=ignore_keys,
-                        exclude_algorithms=exclude_algorithms,
-                        algorithm_passes=algorithm_passes,
-                        load_weights_only=load_weights_only,
-        )
-    if not load_weights_only:
-        state.load_state_dict(
-            state_dict['state'],
-            logger,
-            exclude_algorithms=exclude_algorithms,
-            algorithm_passes=algorithm_passes,
-        )
-        step_to_resume_from = state.timestamp.batch.value
-        max_step_to_resume_from = state.device.tensor_to_device(
-            torch.tensor(state.timestamp.batch.value, dtype=torch.int64))
-        min_step_to_resume_from = state.device.tensor_to_device(
-            torch.tensor(state.timestamp.batch.value, dtype=torch.int64))
-        dist.all_reduce(max_step_to_resume_from, reduce_operation='MAX')
-        dist.all_reduce(min_step_to_resume_from, reduce_operation='MIN')
-        if max_step_to_resume_from.data != min_step_to_resume_from.data:
-            raise RuntimeError(
-                textwrap.dedent(
-                    f'Timestamp mismatch error: batch to resume from {step_to_resume_from} is not the same on all ranks. '
-                    'This usually occurs when at least one rank fails to save the last checkpoint '
-                    'while using sharded checkpointing + autoresume. '
-                    'Please manually resume by disabling autoresume and explicitly setting load_path '
-                    'to the most recent checkpoints that all ranks have saved. '
-                    'E.g. for the 10th batch: trainer = Trainer(autoresume=False, load_path="/path/to/checkpoint/ba10-rank{rank}.pt", ...). '
-                    'Remember to keep the {rank} placeholder!'))
-        return state_dict['rng']
 
 
 def save_checkpoint(
@@ -809,16 +794,16 @@ def _save_deepspeed_model(state: State, filename: str) -> str:
     return save_filename
 
 def _save_monolithic_checkpoint(state: State, filename: str,
-                                weights_only:bool, overwrite: bool) -> Union[str, None]:       
-    # only rank 0 saves the state_dict unless state.fsdp_sharded_state_dict_enabled=True.
-    if dist.get_global_rank() == 0:
-        state_dict = {
+                                weights_only:bool, overwrite: bool) -> Union[str, None]:
+    state_dict = {
             'state': state.state_dict(),
             'rng': reproducibility.get_rng_state(),
         }
-        if weights_only:
-            state_dict = {'model': state_dict['model']}
+    if weights_only:
+        state_dict = {'model': state_dict['model']}
 
+    # only rank 0 saves the state_dict unless state.fsdp_sharded_state_dict_enabled=True
+    if dist.get_global_rank() == 0:
         save_filename = PartialFilePath(filename).format(state)
         dirname = os.path.dirname(save_filename)
         if dirname:

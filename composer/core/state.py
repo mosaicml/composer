@@ -79,14 +79,12 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
     if state_dict_type == 'full':
         state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
         fsdp_state_dict_type = StateDictType.FULL_STATE_DICT
-        optim_state_dict_config = FullOptimStateDictConfig()
 
     # Sharded is sharded state dict, but unflattened parameters (not useful for FSDP, but
     # useful if you plan to use the state dict outside of FSDP).
     elif state_dict_type == 'sharded':
         state_dict_config = ShardedStateDictConfig()
         fsdp_state_dict_type = StateDictType.SHARDED_STATE_DICT
-        optim_state_dict_config = ShardedOptimStateDictConfig()
         
 
     # Local is the FSDP standard sharded, flattened parameters. This is what the parameters
@@ -94,7 +92,6 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
     elif state_dict_type == 'local':
         state_dict_config = LocalStateDictConfig()
         fsdp_state_dict_type = StateDictType.LOCAL_STATE_DICT
-        optim_state_dict_config = LocalOptimStateDictConfig()
     else:
         raise NotImplementedError(f'No valid FSDP state_dict_type for {state_dict_type}')
     with FSDP.state_dict_type(module, state_dict_type=fsdp_state_dict_type, state_dict_config=state_dict_config):
@@ -969,10 +966,7 @@ class State(Serializable):
             # with the `module.` prefix
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
 
-        if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
-            missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
-        else:
-            missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
+        missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
         if len(missing_keys) > 0:
             log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
         if len(unexpected_keys) > 0:

@@ -177,8 +177,9 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
     dataset = RandomClassificationDataset(shape=(num_features, 1, 1), num_classes=num_classes, size=128)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=16)
     ## Save
+    save_path = dist.all_gather_object(tmp_path)[0]
     s3_folder = 's3://mosaicml-internal-checkpoints-test/evan-test/test_sharded_checkpoints/{run_name}'
-    local_folder = '/workdisk/evan/evan-composer/test_checkpoints/{run_name}'
+    local_folder = str(save_path / pathlib.Path('{run_name}'))
     local_copy_of_s3_folder = './evan-test/test_sharded_checkpoints/{run_name}'
     trainer1 = get_trainer(dataset,
                           dataloader,
