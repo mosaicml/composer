@@ -903,7 +903,7 @@ class Trainer:
             if isinstance(model, OptimizedModule):
                 log.warning(f'Provided `model` is already compiled with `torch.compile`. Ignoring ' +
                             f'parameter `compile_config` if provided. If you would like `Trainer` ' +
-                            f'to takes care of model compilation, provide a un-compiled model and ' +
+                            f'to takes care of model compilation, provide a not-compiled model and ' +
                             f'`compile_config` parameter.')
                 # The `torch.compile` function returns an object of type `torch._dynamo.OptimizedModule`
                 # which wraps the original `nn.Module` object and later patches its forward method to
@@ -1366,9 +1366,9 @@ class Trainer:
             if self.auto_log_hparams:
                 self.local_hparams['is_model_compiled'] = is_model_compiled
         elif not is_torch_2_0 and compile_config is not None:
-            log.warning(f'`torch.compile` is supported for PyTorch 2.0 or higher.' +
-                        f'Either update your PyTorch version or disable parameter by providing ' +
-                        f'`compile_config` to `None`.')
+            warnings.warn(f'`torch.compile` is supported for PyTorch 2.0 or higher.' +
+                          f'Either update your PyTorch version or disable parameter by providing ' +
+                          f'`compile_config` to `None`.')
 
     @property
     def saved_checkpoints(self) -> List[str]:

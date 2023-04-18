@@ -550,11 +550,13 @@ class TestTrainerInitOrFit:
     @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                         reason='requires PyTorch 1.13 or higher')
     @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])
+    @pytest.mark.parametrize('compile_config', [None, {}])
     @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_fsdp(
         self,
         model: ComposerModel,
         precision: Precision,
+        compile_config: Optional[Dict[str, Any]],
         max_duration: Time[int],
         train_dataloader: DataLoader,
     ):
@@ -578,13 +580,12 @@ class TestTrainerInitOrFit:
         should_error = False
 
         with ctx:
-            trainer = Trainer(
-                model=model,
-                precision=precision,
-                fsdp_config=fsdp_config,
-                max_duration=max_duration,
-                train_dataloader=train_dataloader,
-            )
+            trainer = Trainer(model=model,
+                              precision=precision,
+                              fsdp_config=fsdp_config,
+                              max_duration=max_duration,
+                              train_dataloader=train_dataloader,
+                              compile_config=compile_config)
 
         if not should_error:
             assert is_model_fsdp(trainer.state.model)
