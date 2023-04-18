@@ -492,15 +492,15 @@ def _restore_checkpoint(
         dist.all_reduce(max_step_to_resume_from, reduce_operation='MAX')
         dist.all_reduce(min_step_to_resume_from, reduce_operation='MIN')
         if max_step_to_resume_from.data != min_step_to_resume_from.data:
-            raise RuntimeError(textwrap.dedent(
-                f'Timestamp mismatch error: batch to resume from {step_to_resume_from} is not the same on all ranks. '
-                'This usually occurs when at least one rank fails to save the last checkpoint '
-                'while using sharded checkpointing + autoresume. '
-                'Please manually resume by disabling autoresume and explicitly setting load_path '
-                'to the most recent checkpoints that all ranks have saved. '
-                'E.g. for the 10th batch: trainer = Trainer(autoresume=False, load_path="/path/to/checkpoint/ba10-rank{rank}.pt", ...). '
-                'Remember to keep the {rank} placeholder!' 
-            ))
+            raise RuntimeError(
+                textwrap.dedent(
+                    f'Timestamp mismatch error: batch to resume from {step_to_resume_from} is not the same on all ranks. '
+                    'This usually occurs when at least one rank fails to save the last checkpoint '
+                    'while using sharded checkpointing + autoresume. '
+                    'Please manually resume by disabling autoresume and explicitly setting load_path '
+                    'to the most recent checkpoints that all ranks have saved. '
+                    'E.g. for the 10th batch: trainer = Trainer(autoresume=False, load_path="/path/to/checkpoint/ba10-rank{rank}.pt", ...). '
+                    'Remember to keep the {rank} placeholder!'))
         return state_dict['rng']
 
 

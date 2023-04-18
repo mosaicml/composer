@@ -4,13 +4,13 @@
 import os
 import pathlib
 import textwrap
-import shutil
+
 import numpy as np
 import pytest
 import torch
 from packaging import version
 from torch.utils.data import DataLoader
-import contextlib
+
 from composer.trainer.trainer import Trainer
 from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel
@@ -406,7 +406,7 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
         os.symlink(src=oldest_checkpoint_path.name, dst=latest_symlink)
         os.remove(latest_checkpoint_path)
         assert os.readlink(latest_symlink) == oldest_checkpoint_path.name
-    
+
     expected_error = pytest.raises(RuntimeError, match='Timestamp mismatch error:*')
 
     with expected_error:
@@ -416,6 +416,4 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
             fsdp_state_dict_type=state_dict_type,
             autoresume=autoresume,
             run_name=run_name,
-            
         )
-
