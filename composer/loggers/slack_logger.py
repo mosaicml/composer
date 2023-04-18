@@ -14,10 +14,11 @@ from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import MissingConditionalImportError
 
-if TYPE_CHECKING or True:
+if TYPE_CHECKING:
     from composer.core import State
-    
+
 log = logging.getLogger(__name__)
+
 
 class SlackLogger(LoggerDestination):
     """Log metrics to slack, using Slack's postMessage api - https://api.slack.com/methods/chat.postMessage.
@@ -58,7 +59,7 @@ class SlackLogger(LoggerDestination):
 
     Args:
         formatter_func ((...) -> Any | None): A formatter function that returns list of blocks to be sent to slack.
-        include_keys (Sequence[str]): A sequence of metric/logs/traces keys to include in the message. 
+        include_keys (Sequence[str]): A sequence of metric/logs/traces keys to include in the message.
         log_interval: (int | str | Time): How frequently to log. (default: ``'1ba'``)
         max_logs_per_message (int)(default:50): Maximum number of logs to send in a single message. Note that no more than 50 items are allowed to send in a single message.
         If more than 50 items are stored in buffer, the message flushed without waiting the full time interval.
@@ -80,8 +81,8 @@ class SlackLogger(LoggerDestination):
         except ImportError as e:
             raise MissingConditionalImportError('slack_logger', 'slack_sdk', None) from e
 
-        
-        self.slack_logging_api_key = os.environ.get('SLACK_LOGGING_API_KEY', None) if slack_logging_api_key is None else slack_logging_api_key
+        self.slack_logging_api_key = os.environ.get('SLACK_LOGGING_API_KEY',
+                                                    None) if slack_logging_api_key is None else slack_logging_api_key
         self.channel_id = os.environ.get('SLACK_LOGGING_CHANNEL_ID', None) if channel_id is None else channel_id
 
         if self.slack_logging_api_key is None:
@@ -90,12 +91,12 @@ class SlackLogger(LoggerDestination):
             raise RuntimeError('SLACK_LOGGING_CHANNEL_ID must be set as environment variable')
 
         self.formatter_func = formatter_func
-        
+
         if len(include_keys) == 0:
             raise ValueError('The `slack logger include_keys` argument must be a non-empty list of strings.')
         # Create a regex of all keys to include
-        self.regex_all_keys = "(" + ")|(".join(include_keys) + ")"
-        
+        self.regex_all_keys = '(' + ')|('.join(include_keys) + ')'
+
         if isinstance(log_interval, int):
             self.log_interval = Time(log_interval, TimeUnit.EPOCH)
         if isinstance(log_interval, str):
@@ -105,24 +106,25 @@ class SlackLogger(LoggerDestination):
 
         self.log_dict, self.last_log_time = {}, time.time()
         self.max_logs_per_message = min(max_logs_per_message, 50)
-        
+
     def _log_to_buffer(
             self,
             data: Dict[str, Any],
             **kwargs,  # can be used to pass additional arguments to the formatter function (eg for headers)
     ):
-        """Replace existing keys with updated values if keys exist. 
-            Otherwise, add new key-value pairs.
-            
-            Flush the buffer to slack if the buffer size exceeds max_logs_per_message.
-            Otherwise, wait for the next log_interval (batch end or epoch end) to flush the buffer.
+        """Flush the buffer to slack if the buffer size exceeds max_logs_per_message.
+
+        Buffer will replace existing keys with updated values if keys exist.
+        Otherwise, add new key-value pairs.
+        If max_logs_per_message is exceeded, flush buffer.
+        Otherwise, wait for the next log_interval (batch end or epoch end) to flush the buffer.
         """
-        filtered_data = {k: v for k, v in data.items() if re.match(self.regex_all_keys, k)}
+        filtered_data = {k: v for k, v in data.items() if re.match(self.regex_all_keys, k) is not None}
         self.log_dict.update(filtered_data)
-        
+
         if len(self.log_dict.keys()) >= self.max_logs_per_message:
             self._flush_logs_to_slack(**kwargs)
-            
+
     def _default_log_bold_key_normal_value_pair_with_header(self, data: Dict[str, Any],
                                                             **kwargs) -> List[Dict[str, Any]]:
         """Default formatter function if no formatter func is specified.
@@ -160,7 +162,7 @@ class SlackLogger(LoggerDestination):
 
         if unit == TimeUnit.EPOCH and (cur_epoch % int(self.log_interval) == 0 or cur_epoch == 1):
             self._flush_logs_to_slack()
-            
+
     def batch_end(self, state: State, logger: Logger) -> None:
         cur_batch = int(state.timestamp.batch)
         unit = self.log_interval.unit
@@ -169,42 +171,44 @@ class SlackLogger(LoggerDestination):
 
     def close(self, state: State, logger: Logger) -> None:
         self._flush_logs_to_slack()
-    
+
     def _flush_logs_to_slack(self, **kwargs) -> None:
         """Flush buffered metadata to MosaicML.
-        
+
         Format slack messages through rich message layouts created using Slack Blocks Kit.
-        See documentation here: https://api.slack.com/messaging/composing/layouts.        
+        See documentation here: https://api.slack.com/messaging/composing/layouts.
         """
-        channel_id = self.channel_id 
+        channel_id = self.channel_id
         if channel_id is None:
             raise TypeError
-        
+
         inx = 0
         while inx < len(self.log_dict.keys()):
             max_log_entries_dict = dict(itertools.islice(self.log_dict.items(), inx, inx + self.max_logs_per_message))
             self._format_and_send_blocks_to_slack(max_log_entries_dict, **kwargs)
             inx += self.max_logs_per_message
-        
+
         # max_log_entries_dict = dict(itertools.islice(self.log_dict.items(), 0, 1))
         # self._format_and_send_blocks_to_slack(max_log_entries_dict, **kwargs)
-        
-        self.log_dict = {} # reset log_dict
-            
+
+        self.log_dict = {}  # reset log_dict
+
     def _format_and_send_blocks_to_slack(
         self,
         log_entries: Dict[str, Any],
         **kwargs,
-    ): 
+    ):
+        channel_id = self.channel_id
+        if channel_id is None:
+            raise TypeError
         blocks = self.formatter_func(
-            log_entries, **kwargs
-        ) if self.formatter_func is not None else self._default_log_bold_key_normal_value_pair_with_header(
-            log_entries, **kwargs
-        )
+            log_entries, **
+            kwargs) if self.formatter_func is not None else self._default_log_bold_key_normal_value_pair_with_header(
+                log_entries, **kwargs)
         try:
             self.client.chat_postMessage(token=f'{self.slack_logging_api_key}',
-                                        channel=self.channel_id,
-                                        blocks=blocks,
-                                        text=f'Logged {len(log_entries)} items to Slack')
+                                         channel=channel_id,
+                                         blocks=blocks,
+                                         text=f'Logged {len(log_entries)} items to Slack')
         except Exception as e:
             log.error(f'Error logging to Slack: {e}')
