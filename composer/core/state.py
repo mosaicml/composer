@@ -416,6 +416,7 @@ class State(Serializable):
         self._train_dataloader = train_dataloader
         self._evaluators = list(ensure_tuple(evaluators))
 
+        self.starting_timestamp = Timestamp()
         self.timestamp = Timestamp()
         self.eval_timestamp = Timestamp()
         self.predict_timestamp = Timestamp()
@@ -1077,6 +1078,8 @@ class State(Serializable):
                         continue
                     source = serialized_value[type(target).__qualname__]
                     target.load_state_dict(source)
+                if attribute_name == 'timestamp':
+                    self.starting_timestamp = self.timestamp
             else:
                 # direct serialization
                 try:

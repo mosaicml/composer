@@ -39,6 +39,7 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
     last_batch_seen = -1
     last_token_seen = 0
     last_sample_seen = 0
+    initialized_timestamp = False
 
     def should_eval(state: State, event: Event):
         # `TimeUnit.Duration` value is a float from `[0.0, 1.0)`
@@ -47,6 +48,17 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
         nonlocal last_batch_seen  # required to use the last_batch_seen from the outer function scope
         nonlocal last_token_seen  # required to use the last_token_seen from the outer function scope
         nonlocal last_sample_seen  # required to use the last_sample_seen from the outer function scope
+        nonlocal initialized_timestamp  # required to use the initialized_timestamp from the outer function scope
+
+        if not initialized_timestamp:
+            # Note: This means that using tokens or samples for eval_interval will have slightly different behavior from
+            # using batches or epochs when resuming. Batches and epochs can use modulo directly, whereas tokens and samples
+            # need to keep track of the last timestamp seen, which is not something we store in the checkpoint. This means
+            # that when resuming, the interval counter will start from the resumption timestamp, rather than the actual previous
+            # eval.
+            last_token_seen = state.starting_timestamp.token
+            last_sample_seen = state.starting_timestamp.sample
+            initialized_timestamp = True
 
         # if requested, evaluate at the end of training, as long as the length of training is specified.
         if eval_at_fit_end and event == Event.FIT_END and state.timestamp.batch != last_batch_seen:
