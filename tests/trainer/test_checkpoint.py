@@ -250,8 +250,8 @@ class TestCheckpointSaving:
         mock_checkpoint_saver.assert_called_once_with(folder=expected_folder, **rest_of_checkpoint_saver_kwargs)
 
     @pytest.mark.parametrize('save_interval', ['1tok', '64tok', '65tok'])
-    @pytest.mark.parametrize('batch_size', [4])
-    @pytest.mark.parametrize('sequence_length', [16, 17, 18])
+    @pytest.mark.parametrize('batch_size', [1, 4])
+    @pytest.mark.parametrize('sequence_length', [1, 16])
     def test_checkpoint_save_token_interval(self, tiny_bert_tokenizer, save_interval: str, batch_size: int,
                                             sequence_length: int, tmp_path: pathlib.Path):
         tokens_per_batch = batch_size * sequence_length
@@ -285,8 +285,8 @@ class TestCheckpointSaving:
         assert len(trainer._checkpoint_saver.saved_checkpoints) == expected_num_checkpoints
 
     @pytest.mark.parametrize('save_interval', ['1sp', '4sp', '5sp'])
-    @pytest.mark.parametrize('batch_size', [4, 5, 6])
-    @pytest.mark.parametrize('sequence_length', [16])
+    @pytest.mark.parametrize('batch_size', [1, 4])
+    @pytest.mark.parametrize('sequence_length', [1, 16])
     def test_checkpoint_save_sample_interval(self, tiny_bert_tokenizer, save_interval: str, batch_size: int,
                                              sequence_length: int, tmp_path: pathlib.Path):
         max_duration_time = Time.from_timestring('5ba')
