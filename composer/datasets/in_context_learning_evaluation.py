@@ -647,7 +647,7 @@ def partition_dataset_by_category(dataset_uri, destination_path):
         if dist.get_local_rank() == 0:
             get_file(dataset_uri, destination_path, overwrite=True)
     dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
-    categories = set(dataset['category'])
+    categories = sorted(set(dataset['category']))
     output_files = {}
     for cat in categories:
         cat_dest = '/'.join(destination_path.split('/')[:-1]) + f"/{cat}_{destination_path.split('/')[-1]}"
@@ -724,7 +724,9 @@ def get_icl_task_dataloader(
     if has_categories:
         result_dls = {}
         output_files = partition_dataset_by_category(dataset_uri, destination_path)
-        for category, partition_uri in output_files.items():
+        categories = sorted(output_files.keys())
+        for category in categories:
+            partition_uri = output_files[category]
             result_dls[category] = build_dl(
                 icl_task_type,
                 partition_uri,
