@@ -24,7 +24,7 @@ __all__ = ['CheckpointSaver', 'checkpoint_periodically']
 
 
 def checkpoint_periodically(interval: Union[str, int, Time],
-                            starting_timestamp: Timestamp) -> Callable[[State, Event], bool]:
+                            starting_timestamp: Optional[Timestamp] = None) -> Callable[[State, Event], bool]:
     r"""Helper function to create a checkpoint scheduler according to a specified interval.
 
     Args:
@@ -35,9 +35,9 @@ def checkpoint_periodically(interval: Union[str, int, Time],
 
             Checkpoints will be saved every ``n`` batches or epochs (depending on the unit),
             and at the end of training.
-        starting_timestamp (:class:`.Timestamp`): The timestamp at which to initialize the save interval.
+        starting_timestamp (optional, :class:`.Timestamp`): The timestamp at which to initialize the save interval.
             This will just be a timestamp with value zero unless resuming, in which case it will be the timestamp
-            that resumption is occurring from.
+            that resumption is occurring from. If ``None``, will default to value zero. (default: ``None``)
 
     Returns:
         Callable[[State, Event], bool]: A function that can be passed as the ``save_interval``
@@ -57,7 +57,9 @@ def checkpoint_periodically(interval: Union[str, int, Time],
             f'Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.'
         )
 
-    last_value_checkpointed = starting_timestamp.get(interval.unit)
+    last_value_checkpointed = 0
+    if starting_timestamp is not None:
+        last_value_checkpointed = starting_timestamp.get(interval.unit)
 
     def save_interval(state: State, event: Event):
         nonlocal last_value_checkpointed
