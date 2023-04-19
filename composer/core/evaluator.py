@@ -36,16 +36,17 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
     if isinstance(eval_interval, str):
         eval_interval = Time.from_timestring(eval_interval)
 
-    if eval_interval.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.DURATION):
-        raise ValueError('The `eval_interval` must have units of EPOCH, BATCH, DURATION or be a function.')
-
     last_batch_seen = -1
+    last_token_seen = 0
+    last_sample_seen = 0
 
     def should_eval(state: State, event: Event):
         # `TimeUnit.Duration` value is a float from `[0.0, 1.0)`
         if not eval_interval.unit == TimeUnit.DURATION and int(eval_interval) <= 0:
             return False
         nonlocal last_batch_seen  # required to use the last_batch_seen from the outer function scope
+        nonlocal last_token_seen  # required to use the last_token_seen from the outer function scope
+        nonlocal last_sample_seen  # required to use the last_sample_seen from the outer function scope
 
         # if requested, evaluate at the end of training, as long as the length of training is specified.
         if eval_at_fit_end and event == Event.FIT_END and state.timestamp.batch != last_batch_seen:
@@ -58,6 +59,16 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
 
         if eval_interval.unit == TimeUnit.BATCH and int(
                 state.timestamp.batch) % int(eval_interval) == 0 and event == Event.BATCH_END:
+            last_batch_seen = state.timestamp.batch
+            return True
+
+        if eval_interval.unit == TimeUnit.TOKEN and (state.timestamp.token - last_token_seen) >= int(eval_interval):
+            last_token_seen = state.timestamp.token
+            last_batch_seen = state.timestamp.batch
+            return True
+
+        if eval_interval.unit == TimeUnit.SAMPLE and (state.timestamp.sample - last_sample_seen) >= int(eval_interval):
+            last_sample_seen = state.timestamp.sample
             last_batch_seen = state.timestamp.batch
             return True
 
@@ -85,7 +96,12 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
                         last_batch_seen = state.timestamp.batch
                         return True
             elif state.max_duration.unit == TimeUnit.TOKEN and event == Event.BATCH_END:
-                raise ValueError(f'Evaluation interval of type `dur` is not supported yet for max_duration as `tok`')
+                tokens_per_interval = math.ceil(state.max_duration.value * eval_interval)
+                next_token_threshold = last_token_seen + tokens_per_interval
+                if int(state.timestamp.token) >= next_token_threshold:
+                    last_token_seen = state.timestamp.token
+                    last_batch_seen = state.timestamp.batch
+                    return True
         return False
 
     return should_eval
