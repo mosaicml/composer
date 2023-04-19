@@ -499,7 +499,7 @@ class InContextLearningExpectedCalibrationError(InContextLearningMetric):
         assert isinstance(self.bucket_correct, Tensor)
         assert isinstance(self.bucket_totals, Tensor)
 
-        result = torch.tensor(0.0)
+        result = torch.tensor(0.0, device=self.bucket_correct.device)
         total_obs = torch.sum(self.bucket_totals)
         for i in range(self.n_buckets):
             if self.bucket_totals[i] == 0:
