@@ -1,15 +1,18 @@
-import torch
-from torch.utils.data import DataLoader, Dataset
+import pathlib
 from typing import Sequence
+
+import pytest
+import torch
+import torch.distributed
 from packaging import version
+from torch.utils.data import DataLoader, Dataset
+
+from composer.models import ComposerClassifier
 from composer.trainer.trainer import Trainer
 from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel
-from composer.models import ComposerClassifier
-import torch.distributed
-import pytest
-import pathlib
 from tests.common.markers import world_size
+
 
 class RandomClassificationDataset(Dataset):
     """Classification dataset drawn from a normal distribution.
@@ -67,25 +70,25 @@ class SimpleModel(ComposerClassifier):
         # self.fc2 = fc2
 
 
-
-def get_trainer(dataset,
-                dataloader,
-                save_folder=None,
-                save_filename='ba{batch}-rank{rank}.pt',
-                num_features=32,
-                num_hidden=16,
-                num_classes=8,
-                fsdp_state_dict_type='full',
-                load_path=None,
-                autoresume=False,
-                run_name=None,
-                python_log_level=None,
-                max_duration='2ba',
-                save_num_checkpoints_to_keep=-1,
-                save_weights_only=False,
-                load_weights_only=False,
-                log_to_console=False,
-                ):
+def get_trainer(
+    dataset,
+    dataloader,
+    save_folder=None,
+    save_filename='ba{batch}-rank{rank}.pt',
+    num_features=32,
+    num_hidden=16,
+    num_classes=8,
+    fsdp_state_dict_type='full',
+    load_path=None,
+    autoresume=False,
+    run_name=None,
+    python_log_level=None,
+    max_duration='2ba',
+    save_num_checkpoints_to_keep=-1,
+    save_weights_only=False,
+    load_weights_only=False,
+    log_to_console=False,
+):
     model = SimpleModel(num_features=num_features, num_hidden=num_hidden, num_classes=num_classes)
     optim = torch.optim.Adam(params=model.parameters())
     trainer = Trainer(
@@ -115,14 +118,17 @@ def get_trainer(dataset,
     )
     return trainer
 
+
 if __name__ == '__main__':
 
+    import time
+
     from torch.distributed import checkpoint as dist_cp
+    from torch.distributed.checkpoint.default_planner import DefaultLoadPlanner, DefaultSavePlanner
     from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
     from torch.distributed.fsdp.fully_sharded_data_parallel import FullyShardedDataParallel as FSDP
     from torch.distributed.fsdp.fully_sharded_data_parallel import StateDictType
-    from torch.distributed.checkpoint.default_planner import DefaultLoadPlanner, DefaultSavePlanner
-    import time
+
     from composer.core.state import fsdp_state_dict_type_context
     num_features = 16
     num_classes = 8
@@ -133,16 +139,15 @@ if __name__ == '__main__':
     local_folder = 'test_checkpoints/{run_name}'
     local_copy_of_s3_folder = './evan-test/test_sharded_checkpoints/{run_name}'
     trainer = get_trainer(dataset,
-                            dataloader,
-                            num_features=num_features,
-                            num_classes=num_classes,
-                            save_folder=local_folder,
-                            save_weights_only=False,
-                            max_duration='4ba',
-                            fsdp_state_dict_type='full',
-                            save_num_checkpoints_to_keep=-1,
-                            log_to_console=True
-                            )
+                          dataloader,
+                          num_features=num_features,
+                          num_classes=num_classes,
+                          save_folder=local_folder,
+                          save_weights_only=False,
+                          max_duration='4ba',
+                          fsdp_state_dict_type='full',
+                          save_num_checkpoints_to_keep=-1,
+                          log_to_console=True)
     run_name = trainer.state.run_name
     print(run_name)
     trainer.fit()
@@ -152,16 +157,17 @@ if __name__ == '__main__':
     # md = storage_reader.read_metadata()
     # print(md)
     # # # # ## Load
-    trainer2 = get_trainer(dataset,
-                           dataloader,
-                           num_features=num_features,
-                           num_classes=num_classes,
-                           fsdp_state_dict_type='full',
-                           max_duration='6ba',
-                           load_weights_only=False,
-                           load_path=str(pathlib.Path(local_folder.format(run_name=run_name)) / pathlib.Path('ba2')),
-                           log_to_console=True,
-                           )
+    trainer2 = get_trainer(
+        dataset,
+        dataloader,
+        num_features=num_features,
+        num_classes=num_classes,
+        fsdp_state_dict_type='full',
+        max_duration='6ba',
+        load_weights_only=False,
+        load_path=str(pathlib.Path(local_folder.format(run_name=run_name)) / pathlib.Path('ba2')),
+        log_to_console=True,
+    )
     trainer2.fit()
     #print(trainer2.state.state_dict()['model']['module.2.weight'].local_tensor())
     # sd = {'model' : trainer2.state.state_dict()['model']}

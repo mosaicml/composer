@@ -1,17 +1,23 @@
-import torch
-from torch.utils.data import DataLoader, Dataset
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
+import os
+import pathlib
+import textwrap
 from typing import Sequence
+
+import pytest
+import torch
+import torch.distributed
 from packaging import version
+from torch.utils.data import DataLoader, Dataset
+
+from composer.models import ComposerClassifier
 from composer.trainer.trainer import Trainer
 from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel
-from composer.models import ComposerClassifier
-import torch.distributed
-import pytest
-import pathlib
-import textwrap
-import os
 from tests.common.markers import world_size
+
 
 def _compare_optims_between_state_dicts(state_dict1, state_dict2):
     # Check that optim params are equal between checkpoint and in memory optimizer
@@ -52,6 +58,8 @@ def _compare_model_params_between_state_dicts(state_dict1, state_dict2):
         state_dict2_model_tensor = state_dict2_model_params[param_name]
         assert torch.equal(state_dict1_model_tensor,
                            state_dict2_model_tensor), f'Weight named {param_name} not the same between state_dicts'
+
+
 class RandomClassificationDataset(Dataset):
     """Classification dataset drawn from a normal distribution.
     Args:
@@ -108,25 +116,25 @@ class SimpleModel(ComposerClassifier):
         # self.fc2 = fc2
 
 
-
-def get_trainer(dataset,
-                dataloader,
-                save_folder=None,
-                save_filename='ba{batch}-rank{rank}.pt',
-                num_features=32,
-                num_hidden=16,
-                num_classes=8,
-                fsdp_state_dict_type='full',
-                load_path=None,
-                autoresume=False,
-                run_name=None,
-                python_log_level=None,
-                max_duration='2ba',
-                save_num_checkpoints_to_keep=-1,
-                save_weights_only=False,
-                load_weights_only=False,
-                log_to_console=False,
-                ):
+def get_trainer(
+    dataset,
+    dataloader,
+    save_folder=None,
+    save_filename='ba{batch}-rank{rank}.pt',
+    num_features=32,
+    num_hidden=16,
+    num_classes=8,
+    fsdp_state_dict_type='full',
+    load_path=None,
+    autoresume=False,
+    run_name=None,
+    python_log_level=None,
+    max_duration='2ba',
+    save_num_checkpoints_to_keep=-1,
+    save_weights_only=False,
+    load_weights_only=False,
+    log_to_console=False,
+):
     model = SimpleModel(num_features=num_features, num_hidden=num_hidden, num_classes=num_classes)
     optim = torch.optim.Adam(params=model.parameters())
     trainer = Trainer(
@@ -156,7 +164,9 @@ def get_trainer(dataset,
     )
     return trainer
 
+
 # if __name__ == '__main__':
+
 
 @pytest.mark.gpu
 @world_size(2)
@@ -165,12 +175,14 @@ def get_trainer(dataset,
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool):
+    import time
+
     from torch.distributed import checkpoint as dist_cp
+    from torch.distributed.checkpoint.default_planner import DefaultLoadPlanner, DefaultSavePlanner
     from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
     from torch.distributed.fsdp.fully_sharded_data_parallel import FullyShardedDataParallel as FSDP
     from torch.distributed.fsdp.fully_sharded_data_parallel import StateDictType
-    from torch.distributed.checkpoint.default_planner import DefaultLoadPlanner, DefaultSavePlanner
-    import time
+
     from composer.core.state import fsdp_state_dict_type_context
     num_features = 16
     num_classes = 8
@@ -181,17 +193,18 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
     s3_folder = 's3://mosaicml-internal-checkpoints-test/evan-test/test_sharded_checkpoints/{run_name}'
     local_folder = str(save_path / pathlib.Path('{run_name}'))
     local_copy_of_s3_folder = './evan-test/test_sharded_checkpoints/{run_name}'
-    trainer1 = get_trainer(dataset,
-                          dataloader,
-                          num_features=num_features,
-                          num_classes=num_classes,
-                          save_folder=local_folder,
-                          save_weights_only=False,
-                          max_duration='2ba',
-                          fsdp_state_dict_type='sharded',
-                          save_num_checkpoints_to_keep=-1,
-                          log_to_console=False,
-                          )
+    trainer1 = get_trainer(
+        dataset,
+        dataloader,
+        num_features=num_features,
+        num_classes=num_classes,
+        save_folder=local_folder,
+        save_weights_only=False,
+        max_duration='2ba',
+        fsdp_state_dict_type='sharded',
+        save_num_checkpoints_to_keep=-1,
+        log_to_console=False,
+    )
     run_name = trainer1.state.run_name
     print(run_name)
     trainer1.fit()
@@ -199,18 +212,18 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
     trainer1.close()
     #assert os.listdir(local_folder.format(run_name=run_name) + '/ba2') == ['foo']
 
-
     # # # # ## Load
-    trainer2 = get_trainer(dataset,
-                           dataloader,
-                           num_features=num_features,
-                           num_classes=num_classes,
-                           fsdp_state_dict_type='sharded',
-                           max_duration='2ba',
-                           load_weights_only=False,
-                           load_path=local_folder.format(run_name=run_name) + '/ba2',
-                           log_to_console=False,
-                           )
+    trainer2 = get_trainer(
+        dataset,
+        dataloader,
+        num_features=num_features,
+        num_classes=num_classes,
+        fsdp_state_dict_type='sharded',
+        max_duration='2ba',
+        load_weights_only=False,
+        load_path=local_folder.format(run_name=run_name) + '/ba2',
+        log_to_console=False,
+    )
     state_dict_from_trainer2 = trainer2.state.state_dict()
     #Compare saved state and loaded state for both ranks.
     _compare_model_params_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)

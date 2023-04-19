@@ -14,7 +14,8 @@ from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, F
                                          create_symlink_file, ensure_folder_has_no_conflicting_files,
                                          ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time,
                                          get_file, is_tar, maybe_create_object_store_from_uri,
-                                         maybe_create_remote_uploader_downloader_from_uri, parse_uri, strip_rank_placeholders)
+                                         maybe_create_remote_uploader_downloader_from_uri, parse_uri,
+                                         strip_rank_placeholders)
 from composer.utils.import_helpers import MissingConditionalImportError, import_object
 from composer.utils.inference import ExportFormat, Transform, export_for_inference, export_with_logger, quantize_dynamic
 from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, map_collection

@@ -100,11 +100,11 @@ def _compare_model_params_between_state_dicts(state_dict1, state_dict2):
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.parametrize('autoresume', [False]) # True
+@pytest.mark.parametrize('autoresume', [False])  # True
 #@pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
-def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresume: bool): #, precision: str):
+def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresume: bool):  #, precision: str):
     if autoresume:
         run_name = 'my-cool-autoresume-run'
     else:
@@ -112,25 +112,25 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
     save_folder = tmp_path
     save_filename = 'rank{rank}.pt'
     trainer1 = get_trainer(
-                           save_folder=str(save_folder),
-                           save_filename=save_filename,
-                           fsdp_state_dict_type='full',
-                           run_name=run_name,
-                          # precision=precision,
-                           autoresume=autoresume)
+        save_folder=str(save_folder),
+        save_filename=save_filename,
+        fsdp_state_dict_type='full',
+        run_name=run_name,
+        # precision=precision,
+        autoresume=autoresume)
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
     trainer1.close()
     load_path = str(save_folder / pathlib.Path('rank{rank}.pt'))
     trainer2 = get_trainer(
         #save_folder=str(save_folder),
-                           #save_filename=save_filename,
-                           fsdp_state_dict_type='full',
-                           load_path=load_path,
-                           run_name=run_name,
-                           #precision=precision,
-                           autoresume=autoresume,
-                           max_duration='4ba')
+        #save_filename=save_filename,
+        fsdp_state_dict_type='full',
+        load_path=load_path,
+        run_name=run_name,
+        #precision=precision,
+        autoresume=autoresume,
+        max_duration='4ba')
     state_dict_from_trainer2 = trainer2.state.state_dict()
 
     if dist.get_global_rank() == 0:
@@ -146,7 +146,7 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
 @world_size(2)
 @pytest.mark.parametrize('state_dict_type', ['local', 'sharded'])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
-@pytest.mark.parametrize('autoresume', [False]) #, True])
+@pytest.mark.parametrize('autoresume', [False])  #, True])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool,
@@ -155,7 +155,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
         run_name = 'my-autoresume-run'
     else:
         run_name = None
-    
+
     rank0_tmp_path = dist.all_gather_object(tmp_path)[0]
     save_folder = str(rank0_tmp_path / pathlib.Path('{run_name}'))
     trainer1 = get_trainer(save_folder=save_folder,

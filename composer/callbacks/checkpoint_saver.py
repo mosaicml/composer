@@ -8,17 +8,18 @@ from __future__ import annotations
 import logging
 import os
 import pathlib
+import shutil
 import tempfile
 import textwrap
-from typing import Callable, List, Optional, Union
 from pathlib import Path
-import shutil
+from typing import Callable, List, Optional, Union
+
 from composer.core import Callback, Event, State, Time, TimeUnit
 from composer.loggers import Logger
 from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, PartialFilePath,
                             checkpoint, create_symlink_file, dist, ensure_folder_has_no_conflicting_files,
-                            format_name_with_dist, is_model_deepspeed, reproducibility, strip_rank_placeholders, format_name_with_dist_and_time)
-
+                            format_name_with_dist, format_name_with_dist_and_time, is_model_deepspeed, reproducibility,
+                            strip_rank_placeholders)
 from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
 
 log = logging.getLogger(__name__)
@@ -400,27 +401,33 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         # if remote file name provided, upload the checkpoint
         if self.remote_file_name is not None:
-                        # Remove suffix to turn the remote_file_name into a path. 
+            # Remove suffix to turn the remote_file_name into a path.
             # e.g. s3://my-bucket/path/to/checkpoints/ep1-ba2-rank3.pt is now s3://my-bucket/path/to/checkpoints/ep1-ba2-rank3/__3_0.distcp
             if state.fsdp_sharded_state_dict_enabled:
                 remote_file_name = self.remote_file_name.format(
-                                                                state,
-                                                                is_deepspeed,
-                                                                keep_placeholders=True,
-                                                            ).lstrip('/')
+                    state,
+                    is_deepspeed,
+                    keep_placeholders=True,
+                ).lstrip('/')
                 remote_file_name = strip_rank_placeholders(remote_file_name)
-                remote_file_path = str(Path(remote_file_name).parent / Path(remote_file_name).stem).rstrip('-').rstrip('_')
+                remote_file_path = str(Path(remote_file_name).parent /
+                                       Path(remote_file_name).stem).rstrip('-').rstrip('_')
                 remote_file_name = str(Path(remote_file_path) / Path(_TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME))
                 remote_file_name = format_name_with_dist_and_time(remote_file_name, state.run_name, state.timestamp)
-                assert saved_path is not None # pyright
+                assert saved_path is not None  # pyright
                 logger.upload_file(remote_file_name=remote_file_name, file_path=saved_path, overwrite=self.overwrite)
 
                 if dist.get_global_rank() == 0:
                     # Upload metadta file.
-                    local_metadata_filepath = str(Path(saved_path).parent / Path(_TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME))
-                    remote_metadata_filename = str(Path(remote_file_path) / Path(_TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME))
-                    remote_metadata_filename = format_name_with_dist_and_time(remote_metadata_filename, state.run_name, state.timestamp)
-                    logger.upload_file(remote_file_name=remote_metadata_filename, file_path=local_metadata_filepath, overwrite=self.overwrite)
+                    local_metadata_filepath = str(
+                        Path(saved_path).parent / Path(_TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME))
+                    remote_metadata_filename = str(
+                        Path(remote_file_path) / Path(_TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME))
+                    remote_metadata_filename = format_name_with_dist_and_time(remote_metadata_filename, state.run_name,
+                                                                              state.timestamp)
+                    logger.upload_file(remote_file_name=remote_metadata_filename,
+                                       file_path=local_metadata_filepath,
+                                       overwrite=self.overwrite)
             else:
                 remote_file_name = self.remote_file_name.format(
                     state,
