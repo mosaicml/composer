@@ -508,7 +508,7 @@ class InContextLearningExpectedCalibrationError(InContextLearningMetric):
             acc_bucket_i = self.bucket_correct[i] / self.bucket_totals[i]
             upper_bound = (i + 1) / self.n_buckets
             lower_bound = i / self.n_buckets
-            conf_bucket_i = (upper_bound + lower_bound) / 2
+            conf_bucket_i = torch.tensor((upper_bound + lower_bound) / 2, device=self.bucket_correct.device)
             result += (self.bucket_totals[i] / total_obs) * torch.abs(acc_bucket_i - conf_bucket_i)
         return result
 
