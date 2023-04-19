@@ -29,7 +29,8 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
     Args:
         interval (Union[str, int, :class:`.Time`]): The interval describing how often checkpoints should be
             saved. If an integer, it will be assumed to be in :attr:`.TimeUnit.EPOCH`\s.
-            Otherwise, the unit must be either :attr:`.TimeUnit.EPOCH` or :attr:`.TimeUnit.BATCH`.
+            Otherwise, the unit must be either :attr:`.TimeUnit.EPOCH`, :attr:`.TimeUnit.BATCH`,
+            :attr:`.TimeUnit.TOKEN`, or :attr:`.TimeUnit.SAMPLE`.
 
             Checkpoints will be saved every ``n`` batches or epochs (depending on the unit),
             and at the end of training.
@@ -49,11 +50,14 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
         save_event = Event.BATCH_CHECKPOINT
     else:
         raise NotImplementedError(
-            f'Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH or TimeUnit.BATCH.')
+            f'Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.'
+        )
 
     last_value_checkpointed = 0
 
     def save_interval(state: State, event: Event):
+        nonlocal last_value_checkpointed
+
         elapsed_duration = state.get_elapsed_duration()
         assert elapsed_duration is not None, 'elapsed_duration is set on the BATCH_CHECKPOINT and EPOCH_CHECKPOINT'
 
@@ -71,9 +75,9 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
             count = state.timestamp.sample
         else:
             raise NotImplementedError(
-                f'Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH or TimeUnit.BATCH.')
+                f'Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.'
+            )
 
-        nonlocal last_value_checkpointed
         if event == save_event and count - last_value_checkpointed >= interval.value:
             last_value_checkpointed = count
             return True
