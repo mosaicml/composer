@@ -653,10 +653,11 @@ def partition_dataset_by_category(dataset_uri, destination_path):
         cat_dest = '/'.join(destination_path.split('/')[:-1]) + f"/{cat}_{destination_path.split('/')[-1]}"
         tmp_path_to_broadcast = str(os.path.abspath(cat_dest))
         gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
-        subset = [l for l in dataset if l['category'] == cat]
-        with open(gathered_paths[0], 'w', encoding='utf8') as f:
-            for l in subset:
-                f.write(json.dumps(l, ensure_ascii=False) + '\n')
+        if dist.get_local_rank() == 0:
+            subset = [l for l in dataset if l['category'] == cat]
+            with open(gathered_paths[0], 'w', encoding='utf8') as f:
+                for l in subset:
+                    f.write(json.dumps(l, ensure_ascii=False) + '\n')
         output_files[cat] = cat_dest
     return output_files
 

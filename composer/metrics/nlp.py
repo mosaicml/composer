@@ -5,7 +5,7 @@
 import re
 import string
 import warnings
-from typing import List, Mapping, Optional, Union
+from typing import Any, Dict, List, Mapping, Optional, Union
 
 import torch
 from torch import Tensor
@@ -440,10 +440,11 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
         self.add_state('total', default=torch.tensor(0.0), dist_reduce_fx='sum')
 
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
-        output_logits = torch.softmax(output_logits, dim=2)
         perplexities = []
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
+            # continuation indices refer to indices in the original input's token space
             cont_tok_logits = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1)
+            # labels have been shifted left by one index, so the cont_idx needs to be shifted as well.
             cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
             cross_entropy = F.cross_entropy(cont_tok_logits, cont_tok_targ)
             perplexity = torch.exp(cross_entropy)
@@ -464,13 +465,35 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
 
 
 class InContextLearningExpectedCalibrationError(InContextLearningMetric):
+    """Generic class for Expected Calibration Error (ECE) (cite: https://arxiv.org/pdf/1706.04599.pdf).
+
+    Expected calibration error is calculated by dividing predictions into buckets based on the model's confidence (a probability value between 0 and 1).
+    We then calculate the accuracy within each bucket and calculate the average gap between confidence and accuracy
+    across buckets, weighted by the number of samples in each bucket.
+
+    Each task must implement its own definition of "confidence" to be computed via the `update` method.
+
+    Adds metric state variables:
+    bucket_totals (float): The number of instances where the prediction masked the target per bucket.
+    bucket_correct (float): The number of total instances that were predicted per bucket.
+
+    Args:
+        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
+            each forward() before returning the value at the step. Default: ``False``.
+        n_buckets (int): Number of distinct buckets to split the confidence distribution into
+    """
 
     def __init__(self, dist_sync_on_step: bool = False, n_buckets: int = 10):
         # state from multiple processes
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.n_buckets = n_buckets
+        if n_buckets < 1:
+            raise Exception('`n_buckets`')
         self.add_state('bucket_totals', default=torch.zeros(n_buckets), dist_reduce_fx='sum')
         self.add_state('bucket_correct', default=torch.zeros(n_buckets), dist_reduce_fx='sum')
+
+    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
+        pass
 
     def compute(self):
         assert isinstance(self.bucket_correct, Tensor)
@@ -491,28 +514,17 @@ class InContextLearningExpectedCalibrationError(InContextLearningMetric):
 
 
 class InContextLearningMCExpectedCalibrationError(InContextLearningExpectedCalibrationError):
-    r"""Computes ECE for In-context learning (ICL) multiple choice (MC) tasks. (source: https://arxiv.org/abs/2012.00955).
-
-    Expected calibration error is calculated by dividing predictions into buckets based on the model's confidence (a probability value b/w 0 and 1).
-    We then calculate the accuracy within each bucket and calculate the average gap between confidence and accuracy
-    across buckets, weighted by the number of samples in each bucket.
+    r"""Computes Expected Calibration Error (ECE) for In-context learning (ICL) multiple choice (MC) tasks. (source: https://arxiv.org/abs/2012.00955).
 
     For MC tasks, the model confidence is defined as the softmax of average per-token probability assigned to the top question choice.
 
-    Adds metric state variables:
-        bucket_totals (float): The number of instances where the prediction masked the target.
-        bucket_correct (float): The number of total instances that were predicted.
-
-    Args:
-        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
-            each forward() before returning the value at the step. Default: ``False``.
-        n_buckets (int): Number of distinct buckets to split the confidence distribution into
+    See `InContextLearningExpectedCalibrationError` for more info.
     """
 
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
+    def update(self, batch: Dict[str, Any], output_logits: torch.Tensor, labels: torch.Tensor):
         output_logits = torch.softmax(output_logits, dim=2)
         probabilites = []
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
@@ -523,7 +535,7 @@ class InContextLearningMCExpectedCalibrationError(InContextLearningExpectedCalib
 
         for (start, end), gold_idx in zip(batch['choice_groupings'], batch['gold_indices']):
             subset = probabilites[start:end]
-            idx_min = subset.index(min(subset))
+            idx_max = subset.index(max(subset))
             confidence = torch.tensor(subset).max() / torch.tensor(subset).sum()
 
             assert confidence >= 0.0 and confidence <= 1.0
@@ -531,39 +543,24 @@ class InContextLearningMCExpectedCalibrationError(InContextLearningExpectedCalib
             if bucket_idx == self.n_buckets:
                 bucket_idx -= 1
 
-            correct_update = torch.zeros(self.n_buckets)
-            correct_update[bucket_idx] = torch.tensor(idx_min == gold_idx).int()
+            if idx_max == gold_idx:
+                self.bucket_correct[bucket_idx] += 1  # pyright: ignore [reportGeneralTypeIssues]
 
-            self.bucket_correct += correct_update
-
-            correct_update[bucket_idx] = torch.tensor(1.0)
-            self.bucket_totals += correct_update
+            self.bucket_totals[bucket_idx] += 1  # pyright: ignore [reportGeneralTypeIssues]
 
 
 class InContextLearningLMExpectedCalibrationError(InContextLearningExpectedCalibrationError):
-    r"""Computes ECE for In-context learning (ICL) language modeling (LM) tasks. (cite: https://arxiv.org/pdf/1706.04599.pdf).
-
-    Expected calibration error is calculated by dividing predictions into buckets based on the model's confidence (a probability value b/w 0 and 1).
-    We then calculate the accuracy within each bucket and calculate the average gap between confidence and accuracy
-    across buckets, weighted by the number of samples in each bucket.
+    r"""Computes Expected Calibration Error (ECE) for In-context learning (ICL) language modeling (LM) tasks. (cite: https://arxiv.org/pdf/1706.04599.pdf).
 
     For LM tasks, the model confidence is defined as the minimum probability assigned to all tokens in the continuation.
 
-
-    Adds metric state variables:
-        bucket_totals (float): The number of instances where the prediction masked the target.
-        bucket_correct (float): The number of total instances that were predicted.
-
-    Args:
-        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
-            each forward() before returning the value at the step. Default: ``False``.
-        n_buckets (int): Number of distinct buckets to split the confidence distribution into
+    See `InContextLearningExpectedCalibrationError` for more info.
     """
 
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
+    def update(self, batch: Dict[str, Any], output_logits: torch.Tensor, labels: torch.Tensor):
         output_logits = torch.softmax(output_logits, dim=2)
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
             cont_tok_logits = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1)
@@ -575,10 +572,7 @@ class InContextLearningLMExpectedCalibrationError(InContextLearningExpectedCalib
             if bucket_idx == self.n_buckets:
                 bucket_idx -= 1
 
-            correct_update = torch.zeros(self.n_buckets)
-            correct_update[bucket_idx] = (cont_tok_pred == cont_tok_targ).all().int()
+            if (cont_tok_pred == cont_tok_targ).all():
+                self.bucket_correct[bucket_idx] += 1  # pyright: ignore [reportGeneralTypeIssues]
 
-            self.bucket_correct += correct_update
-
-            correct_update[bucket_idx] = torch.tensor(1.0)
-            self.bucket_totals += correct_update
+            self.bucket_totals[bucket_idx] += 1  # pyright: ignore [reportGeneralTypeIssues]
