@@ -151,6 +151,7 @@ def test_trainer_eval_timestamp():
 @pytest.mark.parametrize('sequence_length', [1, 16])
 def test_eval_token_interval(tiny_bert_tokenizer, eval_interval: str, batch_size: int, sequence_length: int,
                              tmp_path: pathlib.Path):
+    """Tests that the trainer evaluates the model at the correct intervals when using token-based intervals."""
     tokens_per_batch = batch_size * sequence_length
     max_duration_time = Time.from_timestring('5ba')
     eval_interval_time = Time.from_timestring(eval_interval)
@@ -197,6 +198,7 @@ def test_eval_token_interval(tiny_bert_tokenizer, eval_interval: str, batch_size
 @pytest.mark.parametrize('sequence_length', [1, 16])
 def test_eval_sample_interval(tiny_bert_tokenizer, eval_interval: str, batch_size: int, sequence_length: int,
                               tmp_path: pathlib.Path):
+    """Tests that the trainer evaluates the model at the correct intervals when using sample-based intervals."""
     max_duration_time = Time.from_timestring('5ba')
     eval_interval_time = Time.from_timestring(eval_interval)
     max_duration_samples = max_duration_time.value * batch_size
@@ -243,6 +245,7 @@ def test_eval_sample_interval(tiny_bert_tokenizer, eval_interval: str, batch_siz
 @pytest.mark.parametrize('sequence_length', [1, 16])
 def test_eval_dur_interval_token_max(tiny_bert_tokenizer, eval_interval: str, max_duration: str, batch_size: int,
                                      sequence_length: int):
+    """Tests that the trainer evaluates the model at the correct intervals when using duration-based intervals, with max_duration in tokens."""
     max_duration_time = Time.from_timestring(max_duration)
     eval_interval_time = Time.from_timestring(eval_interval)
     tokens_per_batch = batch_size * sequence_length
@@ -397,7 +400,6 @@ def test_eval_params_init(
     assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == 1
 
 
-# TODO: token test
 def test_eval_params_evaluator():
     """Test the `eval_subset_num_batches` and `eval_interval` works when specified as part of an evaluator."""
     # Construct the trainer
