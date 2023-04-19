@@ -45,11 +45,13 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
 
     if interval.unit == TimeUnit.EPOCH:
         save_event = Event.EPOCH_CHECKPOINT
-    elif interval.unit == TimeUnit.BATCH:
+    elif interval.unit in {TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE}:
         save_event = Event.BATCH_CHECKPOINT
     else:
         raise NotImplementedError(
             f'Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH or TimeUnit.BATCH.')
+
+    last_value_checkpointed = -1
 
     def save_interval(state: State, event: Event):
         elapsed_duration = state.get_elapsed_duration()
@@ -59,14 +61,21 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
         if elapsed_duration >= 1.0:
             return True
 
-        if save_event == Event.EPOCH_CHECKPOINT:
+        if interval.unit == TimeUnit.EPOCH:
             count = state.timestamp.epoch
-        elif save_event == Event.BATCH_CHECKPOINT:
+        elif interval.unit == TimeUnit.BATCH:
             count = state.timestamp.batch
+        elif interval.unit == TimeUnit.TOKEN:
+            count = state.timestamp.token
+        elif interval.unit == TimeUnit.SAMPLE:
+            count = state.timestamp.sample
         else:
-            raise RuntimeError(f'Invalid save_event: {save_event}')
+            raise NotImplementedError(
+                f'Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH or TimeUnit.BATCH.')
 
-        if event == save_event and int(count) % int(interval) == 0:
+        nonlocal last_value_checkpointed
+        if event == save_event and count - last_value_checkpointed >= interval.value:
+            last_value_checkpointed = count
             return True
 
         return False

@@ -3,6 +3,7 @@
 
 import contextlib
 import copy
+import math
 import os
 import pathlib
 import shutil
@@ -30,8 +31,8 @@ from composer.utils import dist, is_tar
 from composer.utils.checkpoint import glob_filter
 from composer.utils.object_store.object_store import ObjectStore
 from composer.utils.object_store.s3_object_store import S3ObjectStore
-from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, deep_compare,
-                          device)
+from tests.common import (RandomClassificationDataset, RandomImageDataset, RandomTextLMDataset, SimpleConvModel,
+                          SimpleModel, SimpleTransformerMaskedLM, deep_compare, device)
 from tests.common.markers import world_size
 
 
@@ -247,6 +248,75 @@ class TestCheckpointSaving:
         }
         expected_folder = expected_path.rstrip('/') if expected_path != '' else '.'
         mock_checkpoint_saver.assert_called_once_with(folder=expected_folder, **rest_of_checkpoint_saver_kwargs)
+
+    @pytest.mark.parametrize('save_interval', ['1tok', '64tok', '65tok'])
+    @pytest.mark.parametrize('batch_size', [4])
+    @pytest.mark.parametrize('sequence_length', [16, 17, 18])
+    def test_checkpoint_save_token_interval(self, tiny_bert_tokenizer, save_interval: str, batch_size: int,
+                                            sequence_length: int, tmp_path: pathlib.Path):
+        tokens_per_batch = batch_size * sequence_length
+        max_duration_time = Time.from_timestring('5ba')
+        save_interval_time = Time.from_timestring(save_interval)
+        max_duration_tokens = max_duration_time.value * tokens_per_batch
+        token_save_multiple = math.ceil(save_interval_time.value / tokens_per_batch) * tokens_per_batch
+        expected_num_checkpoints = math.ceil(max_duration_tokens / token_save_multiple)
+
+        transformers = pytest.importorskip('transformers')
+        model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
+        pretraining_train_dataset = RandomTextLMDataset(size=100,
+                                                        vocab_size=tiny_bert_tokenizer.vocab_size,
+                                                        sequence_length=sequence_length,
+                                                        use_keys=True)
+
+        collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer, mlm_probability=0.15)
+        dataloader = DataLoader(pretraining_train_dataset,
+                                batch_size=batch_size,
+                                sampler=dist.get_sampler(pretraining_train_dataset),
+                                collate_fn=collator)
+
+        trainer = Trainer(model=model,
+                          train_dataloader=dataloader,
+                          max_duration=max_duration_time,
+                          save_interval=save_interval_time,
+                          save_folder=str(tmp_path / 'checkpoints'))
+        trainer.fit()
+
+        assert trainer._checkpoint_saver is not None
+        assert len(trainer._checkpoint_saver.saved_checkpoints) == expected_num_checkpoints
+
+    @pytest.mark.parametrize('save_interval', ['1sp', '4sp', '5sp'])
+    @pytest.mark.parametrize('batch_size', [4, 5, 6])
+    @pytest.mark.parametrize('sequence_length', [16])
+    def test_checkpoint_save_sample_interval(self, tiny_bert_tokenizer, save_interval: str, batch_size: int,
+                                             sequence_length: int, tmp_path: pathlib.Path):
+        max_duration_time = Time.from_timestring('5ba')
+        save_interval_time = Time.from_timestring(save_interval)
+        max_duration_samples = max_duration_time.value * batch_size
+        sample_save_multiple = math.ceil(save_interval_time.value / batch_size) * batch_size
+        expected_num_checkpoints = math.ceil(max_duration_samples / sample_save_multiple)
+
+        transformers = pytest.importorskip('transformers')
+        model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
+        pretraining_train_dataset = RandomTextLMDataset(size=100,
+                                                        vocab_size=tiny_bert_tokenizer.vocab_size,
+                                                        sequence_length=sequence_length,
+                                                        use_keys=True)
+
+        collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer, mlm_probability=0.15)
+        dataloader = DataLoader(pretraining_train_dataset,
+                                batch_size=batch_size,
+                                sampler=dist.get_sampler(pretraining_train_dataset),
+                                collate_fn=collator)
+
+        trainer = Trainer(model=model,
+                          train_dataloader=dataloader,
+                          max_duration=max_duration_time,
+                          save_interval=save_interval_time,
+                          save_folder=str(tmp_path / 'checkpoints'))
+        trainer.fit()
+
+        assert trainer._checkpoint_saver is not None
+        assert len(trainer._checkpoint_saver.saved_checkpoints) == expected_num_checkpoints
 
 
 class TestCheckpointLoading:
