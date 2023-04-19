@@ -72,6 +72,21 @@ def checkpoint_periodically(interval: Union[str, int, Time],
             event: Event,
             will_actually_checkpoint: bool = True,  # determines whether to update the last_value_checkpointed state
     ):
+        """The save interval function that determines whether to save a checkpoint.
+
+        Args:
+            state (State): The current :class:`.State` object
+            event (Event): The :class:`.Event` that has is being checked for checkpointing
+            will_actually_checkpoint (bool, optional): Whether or not the call to this function will actually write a checkpoint.
+                This determines whether or not to update the `last_value_checkpointed` state that keeps track of when the last checkpointing occurred.
+                Defaults to True.
+
+        Raises:
+            NotImplementedError: _description_
+
+        Returns:
+            _type_: _description_
+        """
         nonlocal last_value_checkpointed
 
         elapsed_duration = state.get_elapsed_duration()
@@ -350,6 +365,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         os.makedirs(folder, exist_ok=True)
 
     def after_load(self, state: State, logger: Logger) -> None:
+        # This is done here to set the starting timestamp when we are resuming
         if not callable(self.save_interval):
             self.save_interval = checkpoint_periodically(self.save_interval, state.timestamp)
 
