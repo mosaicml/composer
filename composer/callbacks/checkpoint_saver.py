@@ -12,7 +12,7 @@ import tempfile
 import textwrap
 from typing import Callable, List, Optional, Union
 
-from composer.core import Callback, Event, State, Time, TimeUnit
+from composer.core import Callback, Event, State, Time, Timestamp, TimeUnit
 from composer.loggers import Logger
 from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, PartialFilePath,
                             checkpoint, create_symlink_file, dist, ensure_folder_has_no_conflicting_files,
@@ -23,7 +23,8 @@ log = logging.getLogger(__name__)
 __all__ = ['CheckpointSaver', 'checkpoint_periodically']
 
 
-def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State, Event], bool]:
+def checkpoint_periodically(interval: Union[str, int, Time],
+                            starting_timestamp: Timestamp) -> Callable[[State, Event], bool]:
     r"""Helper function to create a checkpoint scheduler according to a specified interval.
 
     Args:
@@ -34,6 +35,9 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
 
             Checkpoints will be saved every ``n`` batches or epochs (depending on the unit),
             and at the end of training.
+        starting_timestamp (:class:`.Timestamp`): The timestamp at which to initialize the save interval.
+            This will just be a timestamp with value zero unless resuming, in which case it will be the timestamp
+            that resumption is occurring from.
 
     Returns:
         Callable[[State, Event], bool]: A function that can be passed as the ``save_interval``
@@ -53,7 +57,7 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
             f'Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.'
         )
 
-    last_value_checkpointed = 0
+    last_value_checkpointed = starting_timestamp.get(interval.unit)
 
     def save_interval(state: State, event: Event):
         nonlocal last_value_checkpointed
@@ -308,8 +312,6 @@ class CheckpointSaver(Callback):  # noqa: D101
         latest_filename = str(latest_filename) if latest_filename is not None else None
         latest_remote_file_name = str(latest_remote_file_name) if latest_remote_file_name is not None else None
 
-        if not callable(save_interval):
-            save_interval = checkpoint_periodically(save_interval)
         self.save_interval = save_interval
         self.last_checkpoint_batch: Optional[Time] = None
 
@@ -332,6 +334,10 @@ class CheckpointSaver(Callback):  # noqa: D101
         folder = format_name_with_dist(self.folder, state.run_name)
         os.makedirs(folder, exist_ok=True)
 
+    def after_load(self, state: State, logger: Logger) -> None:
+        if not callable(self.save_interval):
+            self.save_interval = checkpoint_periodically(self.save_interval, state.timestamp)
+
     def fit_start(self, state: State, logger: Logger) -> None:
         if not self.overwrite:
             # checks that save_folder contains no files with a timestamp after the current timestamp,
@@ -347,6 +353,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.start_batch = state.timestamp.batch
 
     def batch_checkpoint(self, state: State, logger: Logger):
+        assert callable(self.save_interval)
         if self.save_interval(state, Event.BATCH_CHECKPOINT) and self.last_checkpoint_batch != state.timestamp.batch:
             self._save_checkpoint(
                 state,
@@ -354,6 +361,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             )
 
     def epoch_checkpoint(self, state: State, logger: Logger):
+        assert callable(self.save_interval)
         if self.save_interval(state, Event.EPOCH_CHECKPOINT) and self.last_checkpoint_batch != state.timestamp.batch:
             self._save_checkpoint(
                 state,
