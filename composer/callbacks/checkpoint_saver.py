@@ -62,7 +62,11 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
         if elapsed_duration >= 1.0:
             return True
 
-        assert state.previous_timestamp is not None
+        # previous timestamp will only be None if training has not started, but we are returning False
+        # in this case, just to be safe
+        if state.previous_timestamp is None:
+            return False
+
         if interval.unit in {TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE}:
             previous_count = state.previous_timestamp.get(interval.unit)
             count = state.timestamp.get(interval.unit)

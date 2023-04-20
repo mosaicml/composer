@@ -48,7 +48,11 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
         if eval_at_fit_end and event == Event.FIT_END and state.timestamp.batch != last_batch_seen:
             return True
 
-        assert state.previous_timestamp is not None
+        # previous timestamp will only be None if training has not started, but we are returning False
+        # in this case, just to be safe
+        if state.previous_timestamp is None:
+            return False
+
         if eval_interval.unit in {TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE}:
             previous_count = state.previous_timestamp.get(eval_interval.unit)
             count = state.timestamp.get(eval_interval.unit)
