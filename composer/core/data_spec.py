@@ -167,9 +167,10 @@ class DataSpec:
         get_num_tokens_in_batch ((Batch) -> int, optional): Function that is called by the :class:`.Trainer` to
             get the number of tokens in the provided batch.
 
-            By default, it returns 0, meaning that number of tokens processed will not be tracked as a part of the
-            training progress tracking. This function must be specified to track the number of tokens processed during
-            training.
+            By default, it checks for HuggingFace-style dictionary batches with ``input_ids``, and then checks ``dataset.max_seq_len``, and returns 0
+            if both of those fail, meaning that number of tokens processed will not be tracked as a part of the training progress tracking.
+            Note that the defaults do NOT take padding into account, so if you want the token calculation to exclude padding, you should specify this function.
+            This function must be specified to track the number of tokens processed during training in a non-default way.
     """
 
     def __init__(
@@ -260,7 +261,14 @@ class DataSpec:
                     Please use a DataSpec and specify `get_num_samples_in_batch`."""))
 
     def _default_get_num_tokens_in_batch(self, batch: Batch) -> int:
-        del batch  # unused
+        # First try HuggingFace-style input dicts
+        if isinstance(batch, Mapping) and 'input_ids' in batch:
+            samples_per_batch = batch['input_ids'].shape[0]
+            return batch['input_ids'].shape[1] * samples_per_batch
+        # Then try dataset.max_seq_len
+        elif hasattr(self.dataloader, 'dataset') and hasattr(self.dataloader.dataset, 'max_seq_len'):  # type: ignore
+            samples_per_batch = self.get_num_samples_in_batch(batch)
+            return self.dataloader.dataset.max_seq_len * samples_per_batch  # type: ignore
         return 0
 
 
