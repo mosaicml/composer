@@ -229,7 +229,7 @@ class EMA(Algorithm):
             checkpoint_savers = [cb for cb in state.callbacks if isinstance(cb, CheckpointSaver)]
             for checkpoint_saver in checkpoint_savers:
                 assert callable(checkpoint_saver.save_interval)
-                if checkpoint_saver.save_interval(state, event, will_actually_checkpoint=False) is True:
+                if checkpoint_saver.save_interval(state, event) is True:
                     return True
 
         # Otherwise, always run on events where ema params must be moved after ema has started

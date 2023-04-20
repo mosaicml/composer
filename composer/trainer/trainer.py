@@ -31,7 +31,7 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
-from composer.callbacks import CheckpointSaver, OptimizerMonitor, SaveIntervalCallable
+from composer.callbacks import CheckpointSaver, OptimizerMonitor
 from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException, Callback, DataSpec, Engine, Evaluator,
                            Event, Precision, PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode,
                            ensure_data_spec, ensure_evaluator, ensure_time, get_precision_context,
@@ -668,8 +668,8 @@ class Trainer:
             This parameter has no effect if ``save_folder`` is None. (default: ``False``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-        save_interval (Time | str | int | (State, Event, bool) -> bool): A :class:`Time`, time-string, integer (in epochs),
-            or a function that takes (state, event, will_actually_checkpoint) and returns a boolean whether a checkpoint should be saved.
+        save_interval (Time | str | int | (State, Event) -> bool): A :class:`Time`, time-string, integer (in epochs),
+            or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
             This parameter has no effect if ``save_folder`` is ``None``. (default: ``'1ep'``)
 
             .. seealso:: :class:`~.CheckpointSaver`
@@ -835,7 +835,7 @@ class Trainer:
         save_filename: str = 'ep{epoch}-ba{batch}-rank{rank}.pt',
         save_latest_filename: Optional[str] = 'latest-rank{rank}.pt',
         save_overwrite: bool = False,
-        save_interval: Union[str, int, Time, SaveIntervalCallable] = '1ep',
+        save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
         save_weights_only: bool = False,
         save_num_checkpoints_to_keep: int = -1,
 
@@ -1958,6 +1958,7 @@ class Trainer:
                             metrics=self.state.train_metrics,
                         )
 
+                    self.state.previous_timestamp = self.state.timestamp
                     self.state.timestamp = self.state.timestamp.to_next_batch(
                         samples=total_num_samples,
                         tokens=total_num_tokens,
@@ -1996,6 +1997,7 @@ class Trainer:
                         for scheduler in self.state.schedulers:
                             scheduler.step()
 
+                    self.state.previous_timestamp = self.state.timestamp
                     self.state.timestamp = self.state.timestamp.to_next_epoch()
 
                     self.engine.run_event(Event.EPOCH_END)

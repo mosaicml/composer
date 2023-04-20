@@ -6,13 +6,14 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
 import pathlib
 import tempfile
 import textwrap
-from typing import List, Optional, Protocol, Union
+from typing import Callable, List, Optional, Union
 
-from composer.core import Callback, Event, State, Time, Timestamp, TimeUnit
+from composer.core import Callback, Event, State, Time, TimeUnit
 from composer.loggers import Logger
 from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, PartialFilePath,
                             checkpoint, create_symlink_file, dist, ensure_folder_has_no_conflicting_files,
@@ -23,14 +24,7 @@ log = logging.getLogger(__name__)
 __all__ = ['CheckpointSaver', 'checkpoint_periodically']
 
 
-class SaveIntervalCallable(Protocol):
-
-    def __call__(self, state: State, event: Event, will_actually_checkpoint: bool) -> bool:
-        ...
-
-
-def checkpoint_periodically(interval: Union[str, int, Time],
-                            starting_timestamp: Optional[Timestamp] = None) -> SaveIntervalCallable:
+def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State, Event], bool]:
     r"""Helper function to create a checkpoint scheduler according to a specified interval.
 
     Args:
@@ -41,9 +35,6 @@ def checkpoint_periodically(interval: Union[str, int, Time],
 
             Checkpoints will be saved every ``n`` batches or epochs (depending on the unit),
             and at the end of training.
-        starting_timestamp (optional, :class:`.Timestamp`): The timestamp at which to initialize the save interval.
-            This will just be a timestamp with value zero unless resuming, in which case it will be the timestamp
-            that resumption is occurring from. If ``None``, will default to value zero. (default: ``None``)
 
     Returns:
         Callable[[State, Event], bool]: A function that can be passed as the ``save_interval``
@@ -63,32 +54,7 @@ def checkpoint_periodically(interval: Union[str, int, Time],
             f'Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.'
         )
 
-    last_value_checkpointed = 0
-    if starting_timestamp is not None:
-        last_value_checkpointed = starting_timestamp.get(interval.unit)
-
-    def save_interval(
-            state: State,
-            event: Event,
-            will_actually_checkpoint: bool = True,  # determines whether to update the last_value_checkpointed state
-    ):
-        """The save interval function that determines whether to save a checkpoint.
-
-        Args:
-            state (State): The current :class:`.State` object
-            event (Event): The :class:`.Event` that has is being checked for checkpointing
-            will_actually_checkpoint (bool, optional): Whether or not the call to this function will actually write a checkpoint.
-                This determines whether or not to update the `last_value_checkpointed` state that keeps track of when the last checkpointing occurred.
-                Defaults to True.
-
-        Raises:
-            NotImplementedError: _description_
-
-        Returns:
-            _type_: _description_
-        """
-        nonlocal last_value_checkpointed
-
+    def save_interval(state: State, event: Event):
         elapsed_duration = state.get_elapsed_duration()
         assert elapsed_duration is not None, 'elapsed_duration is set on the BATCH_CHECKPOINT and EPOCH_CHECKPOINT'
 
@@ -96,22 +62,26 @@ def checkpoint_periodically(interval: Union[str, int, Time],
         if elapsed_duration >= 1.0:
             return True
 
+        assert state.previous_timestamp is not None
         if interval.unit == TimeUnit.EPOCH:
+            previous_count = state.previous_timestamp.epoch
             count = state.timestamp.epoch
         elif interval.unit == TimeUnit.BATCH:
+            previous_count = state.previous_timestamp.batch
             count = state.timestamp.batch
         elif interval.unit == TimeUnit.TOKEN:
+            previous_count = state.previous_timestamp.token
             count = state.timestamp.token
         elif interval.unit == TimeUnit.SAMPLE:
+            previous_count = state.previous_timestamp.sample
             count = state.timestamp.sample
         else:
             raise NotImplementedError(
                 f'Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.'
             )
 
-        if event == save_event and count - last_value_checkpointed >= interval.value:
-            if will_actually_checkpoint:
-                last_value_checkpointed = count
+        threshold_passed = math.floor(previous_count / interval.value) != math.floor(count / interval.value)
+        if event == save_event and threshold_passed:
             return True
 
         return False
@@ -275,7 +245,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             If ``False`` (the default), then the ``folder`` must not exist or must not contain checkpoints which may conflict
             with the current run. Default: ``False``.
 
-        save_interval (Time | str | int | (State, Event, bool) -> bool): A :class:`.Time`, time-string, integer (in epochs),
+        save_interval (Time | str | int | (State, Event) -> bool): A :class:`.Time`, time-string, integer (in epochs),
             or a function that takes (state, event) and returns a boolean whether a checkpoint should be saved.
 
             If an integer, checkpoints will be saved every n epochs.
@@ -284,11 +254,9 @@ class CheckpointSaver(Callback):  # noqa: D101
             .. seealso:: :func:`.checkpoint_periodically`
 
             If a function, then this function should take three arguments (:class:`.State`, :class:`.Event`, ``bool``).
-            The first argument will be the current state of the trainer, the second argument will be
+            The first argument will be the current state of the trainer, and the second argument will be
             be :attr:`.Event.BATCH_CHECKPOINT` or :attr:`.Event.EPOCH_CHECKPOINT` (depending on the current training
-            progress), and the third argument is a bool (defaults to ``True``) that indicates whether the function call will actually result
-            in writing a checkpoint if it returns ``True``. The third argument is necessary to determine whether to update the state that is kept
-            for checkpointing based on tokens or samples. It should return ``True`` if a checkpoint should be saved given the current state and
+            progress). It should return ``True`` if a checkpoint should be saved given the current state and
             event.
 
         weights_only (bool): If ``True``, save only the model weights instead of the entire training state.
@@ -330,7 +298,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                                          pathlib.Path]] = '{run_name}/checkpoints/ep{epoch}-ba{batch}-rank{rank}.pt',
         latest_filename: Optional[Union[str, pathlib.Path]] = 'latest-rank{rank}.pt',
         latest_remote_file_name: Optional[Union[str, pathlib.Path]] = '{run_name}/checkpoints/latest-rank{rank}.pt',
-        save_interval: Union[Time, str, int, SaveIntervalCallable] = '1ep',
+        save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = '1ep',
         *,
         overwrite: bool = False,
         num_checkpoints_to_keep: int = -1,
@@ -342,6 +310,8 @@ class CheckpointSaver(Callback):  # noqa: D101
         latest_filename = str(latest_filename) if latest_filename is not None else None
         latest_remote_file_name = str(latest_remote_file_name) if latest_remote_file_name is not None else None
 
+        if not callable(save_interval):
+            save_interval = checkpoint_periodically(save_interval)
         self.save_interval = save_interval
         self.last_checkpoint_batch: Optional[Time] = None
 
@@ -364,11 +334,6 @@ class CheckpointSaver(Callback):  # noqa: D101
         folder = format_name_with_dist(self.folder, state.run_name)
         os.makedirs(folder, exist_ok=True)
 
-    def after_load(self, state: State, logger: Logger) -> None:
-        # This is done here to set the starting timestamp when we are resuming
-        if not callable(self.save_interval):
-            self.save_interval = checkpoint_periodically(self.save_interval, state.timestamp)
-
     def fit_start(self, state: State, logger: Logger) -> None:
         if not self.overwrite:
             # checks that save_folder contains no files with a timestamp after the current timestamp,
@@ -385,8 +350,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
     def batch_checkpoint(self, state: State, logger: Logger):
         assert callable(self.save_interval)
-        if self.save_interval(state, Event.BATCH_CHECKPOINT,
-                              will_actually_checkpoint=True) and self.last_checkpoint_batch != state.timestamp.batch:
+        if self.save_interval(state, Event.BATCH_CHECKPOINT) and self.last_checkpoint_batch != state.timestamp.batch:
             self._save_checkpoint(
                 state,
                 logger,
@@ -394,8 +358,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
     def epoch_checkpoint(self, state: State, logger: Logger):
         assert callable(self.save_interval)
-        if self.save_interval(state, Event.EPOCH_CHECKPOINT,
-                              will_actually_checkpoint=True) and self.last_checkpoint_batch != state.timestamp.batch:
+        if self.save_interval(state, Event.EPOCH_CHECKPOINT) and self.last_checkpoint_batch != state.timestamp.batch:
             self._save_checkpoint(
                 state,
                 logger,

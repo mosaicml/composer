@@ -3,7 +3,6 @@
 
 import contextlib
 import copy
-import math
 import os
 import pathlib
 import shutil
@@ -258,8 +257,22 @@ class TestCheckpointSaving:
         max_duration_time = Time.from_timestring('5ba')
         save_interval_time = Time.from_timestring(save_interval)
         max_duration_tokens = max_duration_time.value * tokens_per_batch
-        token_save_multiple = math.ceil(save_interval_time.value / tokens_per_batch) * tokens_per_batch
-        expected_num_checkpoints = math.ceil(max_duration_tokens / token_save_multiple)
+
+        # calculate the expected number of checkpoints
+        last_token_iter = 0
+        next_multiple = save_interval_time.value
+        expected_num_checkpoints = 0
+        last_multiple_added = -1
+        for token_iter in range(0, max_duration_tokens + tokens_per_batch, tokens_per_batch):
+            if last_token_iter < next_multiple <= token_iter:
+                last_multiple_added = next_multiple
+                expected_num_checkpoints += 1
+            last_token_iter = token_iter
+            while next_multiple <= last_token_iter:
+                next_multiple += save_interval_time.value
+
+        if last_multiple_added + tokens_per_batch <= max_duration_tokens:
+            expected_num_checkpoints += 1
 
         transformers = pytest.importorskip('transformers')
         model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
@@ -292,8 +305,22 @@ class TestCheckpointSaving:
         max_duration_time = Time.from_timestring('5ba')
         save_interval_time = Time.from_timestring(save_interval)
         max_duration_samples = max_duration_time.value * batch_size
-        sample_save_multiple = math.ceil(save_interval_time.value / batch_size) * batch_size
-        expected_num_checkpoints = math.ceil(max_duration_samples / sample_save_multiple)
+
+        # calculate the expected number of checkpoints
+        last_sample_iter = 0
+        next_multiple = save_interval_time.value
+        expected_num_checkpoints = 0
+        last_multiple_added = -1
+        for sample_iter in range(0, max_duration_samples + batch_size, batch_size):
+            if last_sample_iter < next_multiple <= sample_iter:
+                last_multiple_added = next_multiple
+                expected_num_checkpoints += 1
+            last_token_iter = sample_iter
+            while next_multiple <= last_token_iter:
+                next_multiple += save_interval_time.value
+
+        if last_multiple_added + batch_size <= max_duration_samples:
+            expected_num_checkpoints += 1
 
         transformers = pytest.importorskip('transformers')
         model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
