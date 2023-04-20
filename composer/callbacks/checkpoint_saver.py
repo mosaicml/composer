@@ -63,18 +63,9 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
             return True
 
         assert state.previous_timestamp is not None
-        if interval.unit == TimeUnit.EPOCH:
-            previous_count = state.previous_timestamp.epoch
-            count = state.timestamp.epoch
-        elif interval.unit == TimeUnit.BATCH:
-            previous_count = state.previous_timestamp.batch
-            count = state.timestamp.batch
-        elif interval.unit == TimeUnit.TOKEN:
-            previous_count = state.previous_timestamp.token
-            count = state.timestamp.token
-        elif interval.unit == TimeUnit.SAMPLE:
-            previous_count = state.previous_timestamp.sample
-            count = state.timestamp.sample
+        if interval.unit in {TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE}:
+            previous_count = state.previous_timestamp.get(interval.unit)
+            count = state.timestamp.get(interval.unit)
         else:
             raise NotImplementedError(
                 f'Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.'
