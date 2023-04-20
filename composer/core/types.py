@@ -27,7 +27,7 @@ Batch = Any
 
 Dataset = torch.utils.data.Dataset[Batch]
 
-PyTorchScheduler = torch.optim.lr_scheduler._LRScheduler
+PyTorchScheduler = torch.optim.lr_scheduler.LRScheduler
 
 JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
 

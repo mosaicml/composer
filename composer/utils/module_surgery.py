@@ -371,7 +371,9 @@ def update_params_in_optimizer(old_params: Iterable[torch.nn.parameter.Parameter
 
     # rip out the removed_params' states from the optimizer
     for p in removed_params:
-        if _tensor_in(p, opt.state):  # only true after training starts
+        # only true after training starts
+        # Note, it appears that opt.state is a dict whose keys _might_ be tensors
+        if _tensor_in(p, opt.state):  # type: ignore
             opt.state.pop(p)
 
     if len(opt.param_groups) == 1:
