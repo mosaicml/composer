@@ -72,7 +72,7 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
             )
 
         threshold_passed = math.floor(previous_count / interval.value) != math.floor(count / interval.value)
-        return event == save_event and threshold_passed:
+        return event == save_event and threshold_passed
 
     return save_interval
 
