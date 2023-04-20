@@ -1887,12 +1887,13 @@ class Trainer:
                 if self.state.timestamp.batch.value == 0:
                     self.logger.log_metrics({
                         'time/epoch': self.state.timestamp.epoch.value,
-                        'time/global_step': self.state.timestamp.batch.value,
+                        'time/batch': self.state.timestamp.batch.value,
                         'time/sample': self.state.timestamp.sample.value,
-                        'time/batch_in_epoch': self.state.timestamp.batch_in_epoch.value,
-                        'time/sample_in_epoch': self.state.timestamp.sample_in_epoch.value,
-                        'time/token_in_epoch': self.state.timestamp.token_in_epoch.value,
                     })
+                    if self.state.timestamp.token.value > 0:
+                        self.logger.log_metrics({
+                            'time/token': self.state.timestamp.token.value,
+                        })
 
                 if int(self.state.timestamp.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
@@ -1922,8 +1923,6 @@ class Trainer:
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
                     self.engine.run_event(Event.BATCH_START)
-                    if rank_num_tokens > 0:
-                        self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
 
                     total_loss_dict = self._train_batch(use_grad_scaling)
 
@@ -1974,15 +1973,14 @@ class Trainer:
 
                     self.engine.run_event(Event.BATCH_END)
 
-                    # Logging after the timestamp is incremented
+                    # Log time values after the timestamp is incremented
                     self.logger.log_metrics({
                         'time/epoch': self.state.timestamp.epoch.value,
-                        'time/global_step': self.state.timestamp.batch.value,
+                        'time/batch': self.state.timestamp.batch.value,
                         'time/sample': self.state.timestamp.sample.value,
-                        'time/batch_in_epoch': self.state.timestamp.batch_in_epoch.value,
-                        'time/sample_in_epoch': self.state.timestamp.sample_in_epoch.value,
-                        'time/token_in_epoch': self.state.timestamp.token_in_epoch.value,
                     })
+                    if rank_num_tokens > 0:
+                        self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
 
                     # Pause the timing during evaluation
                     # Evaluation time is tracked separately in state.eval_timestamp
