@@ -1958,6 +1958,7 @@ class Trainer:
                             metrics=self.state.train_metrics,
                         )
 
+                    self.state.previous_timestamp = self.state.timestamp
                     self.state.timestamp = self.state.timestamp.to_next_batch(
                         samples=total_num_samples,
                         tokens=total_num_tokens,
@@ -1996,6 +1997,7 @@ class Trainer:
                         for scheduler in self.state.schedulers:
                             scheduler.step()
 
+                    self.state.previous_timestamp = self.state.timestamp
                     self.state.timestamp = self.state.timestamp.to_next_epoch()
 
                     self.engine.run_event(Event.EPOCH_END)
