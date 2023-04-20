@@ -397,7 +397,9 @@ class CheckpointSaver(Callback):  # noqa: D101
                 os.remove(symlink)
             except FileNotFoundError:
                 pass
-            os.symlink(os.path.relpath(saved_path, os.path.dirname(symlink)), symlink)
+            # Sharded checkpoints use directories not files for load_paths
+            src_path = saved_path if not state.fsdp_sharded_state_dict_enabled else str(pathlib.Path(saved_path).parent)
+            os.symlink(os.path.relpath(src_path, os.path.dirname(symlink)), symlink)
 
         # if remote file name provided, upload the checkpoint
         if self.remote_file_name is not None:
@@ -445,7 +447,8 @@ class CheckpointSaver(Callback):  # noqa: D101
                 # create and upload a symlink file
                 with tempfile.TemporaryDirectory() as tmpdir:
                     symlink_filename = os.path.join(tmpdir, 'latest.symlink')
-                    create_symlink_file(remote_file_name, symlink_filename)
+                    symlink_src = remote_file_name if not state.fsdp_sharded_state_dict_enabled else str(pathlib.Path(saved_path).parent)
+                    create_symlink_file(symlink_src, symlink_filename)
                     logger.upload_file(
                         remote_file_name=symlink_name,
                         file_path=symlink_filename,

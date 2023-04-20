@@ -19,16 +19,18 @@ from tests.common.markers import world_size
 
 def get_trainer(save_folder=None,
                 save_filename='ba{batch}-rank{rank}.pt',
-                num_features=2,
-                num_classes=2,
+                num_features=8,
+                num_classes=8,
+                num_hidden=8,
                 fsdp_state_dict_type='full',
                 load_path=None,
                 autoresume=False,
                 run_name=None,
                 max_duration='2ba',
                 save_interval='2ba',
-                precision='amp_fp16'):
-    model = SimpleModel(num_features=num_features, num_classes=num_classes)
+                precision='amp_fp16',
+                save_num_checkpoints_to_keep=-1):
+    model = SimpleModel(num_features=num_features, num_classes=num_classes, num_hidden=num_hidden)
     dataset = RandomClassificationDataset(shape=(num_features, 1, 1), size=128)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=32)
     optim = torch.optim.Adam(params=model.parameters())
@@ -53,6 +55,7 @@ def get_trainer(save_folder=None,
         autoresume=autoresume,
         run_name=run_name,
         save_latest_filename='latest-rank{rank}.pt',
+        save_num_checkpoints_to_keep=save_num_checkpoints_to_keep,
     )
     return trainer
 
@@ -146,7 +149,7 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
 @world_size(2)
 @pytest.mark.parametrize('state_dict_type', ['local', 'sharded'])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
-@pytest.mark.parametrize('autoresume', [False])  #, True])
+@pytest.mark.parametrize('autoresume', [False, True])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool,
@@ -184,6 +187,34 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
     _compare_optims_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
 
     trainer2.fit()
+
+
+
+
+@pytest.mark.gpu
+@world_size(2)
+@pytest.mark.parametrize('state_dict_type', ['local', 'sharded'])
+@pytest.mark.parametrize('save_num_checkpoints_to_keep', [-1, 1])
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                    reason='requires PyTorch 1.13 or higher')
+def test_sharded_checkpoints_cleaned_up(world_size, tmp_path: pathlib.Path, state_dict_type: str,  save_num_checkpoints_to_keep: int):
+
+    rank0_tmp_path = dist.all_gather_object(tmp_path)[0]
+    save_folder = str(rank0_tmp_path / pathlib.Path('{run_name}'))
+    trainer1 = get_trainer(save_folder=save_folder,
+                           fsdp_state_dict_type=state_dict_type,
+                           save_interval='1ba',
+                           max_duration='2ba',
+                           save_num_checkpoints_to_keep=save_num_checkpoints_to_keep)
+    run_name = trainer1.state.run_name
+    trainer1.fit()
+    trainer1.close()
+    batch1_load_path = str(pathlib.Path(save_folder.format(run_name=run_name)) / pathlib.Path('ba1'))
+    if save_num_checkpoints_to_keep == 1:
+        assert not os.path.exists(batch1_load_path)
+    else:
+        assert os.path.exists(batch1_load_path)
+
 
 
 @pytest.mark.gpu

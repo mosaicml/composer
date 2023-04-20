@@ -88,6 +88,7 @@ def get_trainer(
     save_weights_only=False,
     load_weights_only=False,
     log_to_console=False,
+    save_interval='2ba',
 ):
     model = SimpleModel(num_features=num_features, num_hidden=num_hidden, num_classes=num_classes)
     optim = torch.optim.Adam(params=model.parameters())
@@ -102,7 +103,6 @@ def get_trainer(
         },
         save_folder=save_folder,
         max_duration=max_duration,
-        save_interval='2ba',
         save_filename=save_filename,
         save_overwrite=False,
         save_weights_only=save_weights_only,
@@ -112,8 +112,8 @@ def get_trainer(
         log_to_console=log_to_console,
         autoresume=autoresume,
         run_name=run_name,
+        save_interval=save_interval,
         python_log_level=python_log_level,
-        save_latest_filename=None,
         save_num_checkpoints_to_keep=save_num_checkpoints_to_keep,
     )
     return trainer
@@ -142,17 +142,18 @@ if __name__ == '__main__':
                           dataloader,
                           num_features=num_features,
                           num_classes=num_classes,
-                          save_folder=local_folder,
+                          save_folder=s3_folder,
+                          autoresume=True,
+                          run_name='ar-testy-test3',
                           save_weights_only=False,
                           max_duration='4ba',
-                          fsdp_state_dict_type='full',
+                          fsdp_state_dict_type='sharded',
                           save_num_checkpoints_to_keep=-1,
-                          log_to_console=True)
+                          log_to_console=True,python_log_level='debug')
     run_name = trainer.state.run_name
     print(run_name)
     trainer.fit()
     trainer.close()
-
     # storage_reader = dist_cp.FileSystemReader(f"./test_checkpoints/{run_name}/ba2")
     # md = storage_reader.read_metadata()
     # print(md)
@@ -160,13 +161,17 @@ if __name__ == '__main__':
     trainer2 = get_trainer(
         dataset,
         dataloader,
+        save_folder=s3_folder,
         num_features=num_features,
+        autoresume=True,
+        run_name='ar-testy-test3',
         num_classes=num_classes,
-        fsdp_state_dict_type='full',
-        max_duration='6ba',
+        fsdp_state_dict_type='sharded',
+        max_duration='4ba',
         load_weights_only=False,
-        load_path=str(pathlib.Path(local_folder.format(run_name=run_name)) / pathlib.Path('ba2')),
+        #load_path=str(pathlib.Path(local_folder.format(run_name=run_name)) / pathlib.Path('ba2')),
         log_to_console=True,
+        python_log_level='debug'
     )
     trainer2.fit()
     #print(trainer2.state.state_dict()['model']['module.2.weight'].local_tensor())
