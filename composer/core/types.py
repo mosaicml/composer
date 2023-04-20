@@ -21,13 +21,20 @@ import torch.utils.data
 
 from composer.utils import StringEnum
 
+# from composer.utils.misc import using_torch_2_0
+
 __all__ = ['Batch', 'PyTorchScheduler', 'JSON', 'MemoryFormat', 'TrainerMode', 'BreakEpochException']
 
 Batch = Any
 
 Dataset = torch.utils.data.Dataset[Batch]
 
-PyTorchScheduler = torch.optim.lr_scheduler.LRScheduler
+PyTorchScheduler = Any
+# TODO: pyright doesn't like this
+# if using_torch_2_0():
+#     PyTorchScheduler = torch.optim.lr_scheduler.LRScheduler
+# else:
+#     PyTorchScheduler = torch.optim.lr_scheduler._LRScheduler
 
 JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
 
