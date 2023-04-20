@@ -5,6 +5,7 @@ import collections.abc
 import contextlib
 import copy
 import datetime
+import logging
 import math
 import os
 import pathlib
@@ -97,6 +98,51 @@ class TestTrainerInit():
         parameters = trainer.state.optimizers[0].param_groups[0]['params']
         target_device = 'cuda' if device == 'gpu' else 'cpu'
         assert all(param.device.type == target_device for param in parameters)
+
+    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
+                        reason='requires PyTorch 2.0 or higher')
+    @pytest.mark.parametrize('compile_config', [(None, False), ({}, True), ({'mode': 'reduce-overhead'}, True)])
+    def test_torch_compile(self, model: ComposerModel, compile_config: Any):
+        train_dataset = RandomClassificationDataset()
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+        max_duration = '2ba'
+        trainer = Trainer(model=model,
+                          max_duration=max_duration,
+                          train_dataloader=DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset)),
+                          optimizers=optimizer,
+                          auto_log_hparams=True,
+                          compile_config=compile_config[0])
+        assert trainer.local_hparams['is_model_compiled'] is compile_config[1]
+
+    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
+                        reason='requires PyTorch 2.0 or higher')
+    def test_already_compiled_warning(self, caplog, model: ComposerModel):
+        with caplog.at_level(logging.WARNING):
+            train_dataset = RandomClassificationDataset()
+            optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+            max_duration = '2ba'
+            model = torch.compile(model)  # pyright: ignore [reportGeneralTypeIssues]
+            _ = Trainer(model=model,
+                        max_duration=max_duration,
+                        train_dataloader=DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset)),
+                        optimizers=optimizer,
+                        auto_log_hparams=True,
+                        compile_config=None)
+            assert '`model` is already compiled with `torch.compile`' in caplog.text
+
+    @pytest.mark.skipif(version.parse(torch.__version__) >= version.parse('2.0.0'),
+                        reason='requires PyTorch 1.13 or lower')
+    def test_compile_unsupported_torch_version_exception(self, caplog, model: ComposerModel):
+        with pytest.raises(ValueError, match='`torch.compile` is supported for PyTorch 2.0 or higher.'):
+            train_dataset = RandomClassificationDataset()
+            optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+            max_duration = '2ba'
+            _ = Trainer(model=model,
+                        max_duration=max_duration,
+                        train_dataloader=DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset)),
+                        optimizers=optimizer,
+                        auto_log_hparams=True,
+                        compile_config={})
 
 
 def _assert_optimizer_is_on_device(optimizer: torch.optim.Optimizer):
@@ -546,6 +592,56 @@ class TestTrainerInitOrFit:
             trainer.fit()
 
     @pytest.mark.gpu
+    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
+                        reason='requires PyTorch 2.0 or higher')
+    @pytest.mark.parametrize('precision', [Precision.AMP_BF16, Precision.AMP_FP16])
+    @pytest.mark.parametrize('compile_config', [None, {}])
+    @pytest.mark.filterwarnings('ignore::UserWarning')
+    def test_fsdp_torch_compile(
+        self,
+        model: ComposerModel,
+        precision: Precision,
+        compile_config: Optional[Dict[str, Any]],
+        max_duration: Time[int],
+        train_dataloader: DataLoader,
+    ):
+        fsdp_config = {
+            'sharding_strategy': 'FULL_SHARD',
+            'min_params': 1e8,
+            'cpu_offload': False,
+            'mixed_precision': 'PURE',
+            'backward_prefetch': 'BACKWARD_PRE',
+            'activation_checkpointing': False,
+            'activation_cpu_offload': False,
+            'verbose': False
+        }
+
+        # Need to catch the case where we try to train
+        # with precision FP16.
+        ctx = contextlib.nullcontext()
+        should_error = False
+
+        with ctx:
+            trainer = Trainer(
+                model=model,
+                precision=precision,
+                fsdp_config=fsdp_config,
+                max_duration=max_duration,
+                train_dataloader=train_dataloader,
+                auto_log_hparams=True,
+                compile_config=compile_config,
+            )
+
+        if not should_error:
+            assert is_model_fsdp(trainer.state.model)
+            assert trainer.state.fsdp_enabled
+            if compile_config is None:
+                assert trainer.local_hparams['is_model_compiled'] is False
+            else:
+                assert trainer.local_hparams['is_model_compiled'] is True
+            trainer.fit()
+
+    @pytest.mark.gpu
     def test_device(
         self,
         model: ComposerModel,
@@ -901,6 +997,57 @@ class TestTrainerInitOrFit:
                 assert trainer.state.timestamp.sample_in_epoch == 0
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_END] == 2
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_CHECKPOINT] == 2
+
+    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
+                        reason='requires PyTorch 2.0 or higher')
+    @pytest.mark.parametrize('is_model_compiled', [True, False])
+    def test_compile_uncompile_model_weights_trainer_fit(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time[int],
+        is_model_compiled: bool,
+    ):
+        # Copy the model so the fit_trainer can start with the same parameter values as the
+        # other trainer
+        copied_model = copy.deepcopy(model)
+        print(f'{max_duration=}')
+
+        if is_model_compiled:
+            model = torch.compile(model)  # pyright: ignore [reportGeneralTypeIssues]
+            compile_config = None
+        else:
+            compile_config = {}
+
+        # Train a model
+        compiled_model_trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            auto_log_hparams=True,
+            compile_config=compile_config,
+            log_to_console=True,
+            progress_bar=False,
+        )
+
+        assert compiled_model_trainer.local_hparams['is_model_compiled'] is True
+        compiled_model_trainer.fit()
+
+        # Train a model
+        uncompiled_model_trainer = Trainer(
+            model=copied_model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            auto_log_hparams=True,
+            compile_config=None,
+            log_to_console=True,
+            progress_bar=False,
+        )
+        assert uncompiled_model_trainer.local_hparams['is_model_compiled'] is False
+        uncompiled_model_trainer.fit()
+
+        assert (torch.equal(next(compiled_model_trainer.state.model.parameters()),
+                            next(uncompiled_model_trainer.state.model.parameters())))
 
 
 @pytest.mark.vision
