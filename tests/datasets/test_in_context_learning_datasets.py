@@ -88,6 +88,48 @@ def test_make_padding(tiny_gpt2_tokenizer, padding_side):
             assert input_ids[:-48].tolist() == context
 
 
+@pytest.mark.parametrize('dataset_uri', ['mmlu_small.jsonl'])
+def test_mc_task_dataloader_subcategories(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
+    pytest.importorskip('datasets')
+
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+
+    tokenizer = tiny_gpt2_tokenizer
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    batch_size = 8
+    seqlen = 2048
+    dls = get_icl_task_dataloader('multiple_choice',
+                                  dataset_uri,
+                                  tokenizer,
+                                  batch_size,
+                                  max_seq_len=seqlen,
+                                  pad_tok_id=tokenizer.eos_token_id,
+                                  num_fewshot=2,
+                                  prompt_string='The following are multiple choice questions (with answers).\n',
+                                  example_delimiter='\n',
+                                  continuation_delimiter='Answer: ',
+                                  destination_path=str(tmp_path / 'icl.jsonl'),
+                                  has_categories=True)
+    assert isinstance(dls, dict)
+
+    assert 'computer_security' in dls and 'human_aging' in dls
+    dl = dls['computer_security']
+    assert isinstance(dl.dataloader, DataLoader)  # pyright
+    batch = next(dl.dataloader._get_iterator())
+    assert dl.dataloader.__len__() == 4
+    assert 'input_ids' in batch
+    assert tuple(batch['input_ids'].shape) == (batch_size, seqlen)
+    assert 'attention_mask' in batch
+    assert tuple(batch['attention_mask'].shape) == (batch_size, seqlen)
+    assert 'continuation_indices' in batch
+    assert isinstance(batch['continuation_indices'], list) and len(batch['continuation_indices']) == batch_size
+    assert 'mode' in batch
+    assert batch['mode'] == 'icl_task'
+    min_idx = min(batch['continuation_indices'][0]).item()
+    max_idx = max(batch['continuation_indices'][0]).item()
+    assert tokenizer.decode(batch['input_ids'][0][min_idx:max_idx + 1]) == ' A'
+
+
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
 def test_lm_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     pytest.importorskip('datasets')
@@ -256,7 +298,7 @@ def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
 
     min_idx = min(batch['continuation_indices'][0]).item()
     max_idx = max(batch['continuation_indices'][0]).item()
-    assert tokenizer.decode(batch['input_ids'][0][min_idx:max_idx + 1]) == ': Pour it onto a plate'
+    assert tokenizer.decode(batch['input_ids'][0][min_idx:max_idx + 1]) == ' Pour it onto a plate'
     assert tokenizer.decode(batch['input_ids'][0][0:min_idx]).startswith('</s>')
     assert tokenizer.decode(batch['input_ids'][0][0:min_idx]).count('</s>') == 1
 
@@ -353,7 +395,7 @@ def test_mc_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
 
     min_idx = min(batch['continuation_indices'][0]).item()
     max_idx = max(batch['continuation_indices'][0]).item()
-    assert tokenizer.decode(batch['input_ids'][0][min_idx:max_idx + 1]) == ': Pour it onto a plate'
+    assert tokenizer.decode(batch['input_ids'][0][min_idx:max_idx + 1]) == ' Pour it onto a plate'
 
 
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
@@ -405,6 +447,57 @@ def test_schema_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_toke
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_gpt2_tokenizer
+    # seed because the fewshot selection is currently unseeded
+    reproducibility.seed_all(1234)
+    dl = get_icl_task_dataloader(
+        'schema',
+        dataset_uri,
+        tokenizer,
+        8,
+        max_seq_len=1024,
+        pad_tok_id=tokenizer.eos_token_id,
+        num_fewshot=num_fewshot,
+        prompt_string='',
+        example_delimiter='\n',
+        continuation_delimiter=': ',
+        destination_path=str(tmp_path / 'icl.jsonl'),
+    )
+
+    evaluator = Evaluator(label='winograd', dataloader=dl, metric_names=['InContextLearningMultipleChoiceAccuracy'])
+
+    model = HuggingFaceModel(
+        model=tiny_gpt2_model,
+        tokenizer=None,
+        eval_metrics=[InContextLearningMultipleChoiceAccuracy()],
+        use_logits=True,
+    )
+
+    trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
+    trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
+    assert 'metrics/winograd/InContextLearningMultipleChoiceAccuracy' in in_memory_logger.data.keys()
+    assert in_memory_logger.data['metrics/winograd/InContextLearningMultipleChoiceAccuracy'][0][1].item() > 0
+
+@pytest.mark.parametrize('dataset_uri', ['mmlu_small.jsonl'])
+@pytest.mark.parametrize('num_fewshot', [0, 5])
+@device('gpu')
+def test_mc_task_evaluation_subcategories(device, dataset_uri, num_fewshot, tiny_gpt2_tokenizer, tmp_path):
+    pytest.importorskip('datasets')
+    in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    tokenizer = tiny_gpt2_tokenizer
+    dls = get_icl_task_dataloader('multiple_choice',
+                                  dataset_uri,
+                                  tokenizer,
+                                  2,
+                                  max_seq_len=2048,
+                                  pad_tok_id=tokenizer.eos_token_id,
+                                  num_fewshot=num_fewshot,
+                                  prompt_string='',
+                                  example_delimiter='\n',
+                                  continuation_delimiter='',
+                                  destination_path=str(tmp_path / 'icl.jsonl'),
+                                  has_categories=True)
 
     # seed because the fewshot selection is currently unseeded
     reproducibility.seed_all(1234)
@@ -431,10 +524,11 @@ def test_schema_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_toke
         use_logits=True,
     )
 
-    trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
-    trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
-    assert 'metrics/lambada/InContextLearningMultipleChoiceAccuracy' in in_memory_logger.data.keys()
-    assert in_memory_logger.data['metrics/lambada/InContextLearningMultipleChoiceAccuracy'][0][1].item() > 0
+    trainer = Trainer(model=model, max_duration='1ep', loggers=in_memory_logger)
+    trainer.eval(eval_dataloader=evaluators, subset_num_batches=2)
+    assert 'metrics/mmlu/computer_security/InContextLearningLMAccuracy' in in_memory_logger.data.keys()
+    assert 'metrics/mmlu/human_aging/InContextLearningLMAccuracy' in in_memory_logger.data.keys()
+    assert in_memory_logger.data['metrics/mmlu/computer_security/InContextLearningLMAccuracy'][0][1].item() == 0
 
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl', 'hellaswag_small.jsonl'])

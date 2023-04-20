@@ -336,7 +336,12 @@ class InContextLearningLMTaskDataset(Dataset):
             if len(preamble) > 0:
                 ctxt = f'{example_delimiter}{ctxt}'
 
-            cont = f'{continuation_delimiter}{cont}'
+            if continuation_delimiter.endswith(' '):
+                continuation_delimiter = continuation_delimiter.rstrip(' ')
+
+            if not cont.startswith(' '):
+                cont = f' {cont}'
+            ctxt += continuation_delimiter
 
             encoded_example['preamble'] = self.tokenizer(
                 preamble
@@ -659,13 +664,16 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
                     if len(preamble) > 0:
                         query = f'{example_delimiter}{query}'
                     preamble += f'{query}{continuation_delimiter}{choices[gold_idx]}'
-
             encoded_example = {}
             query, choices, gold_idx = self.samples[sample_idx]['query'], self.samples[sample_idx][
                 'choices'], self.samples[sample_idx]['gold'],
             if len(preamble) > 0:
                 query = f'{example_delimiter}{query}'
-            choices = [f'{continuation_delimiter}{choice}' for choice in choices]
+
+            if continuation_delimiter.endswith(' '):
+                continuation_delimiter = continuation_delimiter.rstrip(' ')
+            choices = [(f' {choice}' if not choice.startswith(' ') else choice) for choice in choices]
+            query += continuation_delimiter
             encoded_example['preamble'] = self.tokenizer(
                 preamble
             )  # if the preamble is empty then these will be 0-length lists, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
