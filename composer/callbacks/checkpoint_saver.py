@@ -244,7 +244,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
             .. seealso:: :func:`.checkpoint_periodically`
 
-            If a function, then this function should take three arguments (:class:`.State`, :class:`.Event`, ``bool``).
+            If a function, then this function should take two arguments (:class:`.State`, :class:`.Event`).
             The first argument will be the current state of the trainer, and the second argument will be
             be :attr:`.Event.BATCH_CHECKPOINT` or :attr:`.Event.EPOCH_CHECKPOINT` (depending on the current training
             progress). It should return ``True`` if a checkpoint should be saved given the current state and
