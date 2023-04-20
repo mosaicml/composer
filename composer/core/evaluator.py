@@ -37,54 +37,36 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
         eval_interval = Time.from_timestring(eval_interval)
 
     last_batch_seen = -1
-    last_token_seen = 0
-    last_sample_seen = 0
-    initialized_timestamp = False
 
     def should_eval(state: State, event: Event):
         # `TimeUnit.Duration` value is a float from `[0.0, 1.0)`
         if not eval_interval.unit == TimeUnit.DURATION and int(eval_interval) <= 0:
             return False
         nonlocal last_batch_seen  # required to use the last_batch_seen from the outer function scope
-        nonlocal last_token_seen  # required to use the last_token_seen from the outer function scope
-        nonlocal last_sample_seen  # required to use the last_sample_seen from the outer function scope
-        nonlocal initialized_timestamp  # required to use the initialized_timestamp from the outer function scope
-
-        if not initialized_timestamp:
-            # Note: This means that using tokens or samples for eval_interval will have slightly different behavior from
-            # using batches or epochs when resuming. Batches and epochs can use modulo directly, whereas tokens and samples
-            # need to keep track of the last timestamp seen, which is not something we store in the checkpoint. This means
-            # that when resuming, the interval counter will start from the resumption timestamp, rather than the actual previous
-            # eval.
-            last_token_seen = state.starting_timestamp.token
-            last_sample_seen = state.starting_timestamp.sample
-            initialized_timestamp = True
 
         # if requested, evaluate at the end of training, as long as the length of training is specified.
         if eval_at_fit_end and event == Event.FIT_END and state.timestamp.batch != last_batch_seen:
             return True
 
-        if eval_interval.unit == TimeUnit.EPOCH and int(
-                state.timestamp.epoch) % int(eval_interval) == 0 and event == Event.EPOCH_END:
+        assert state.previous_timestamp is not None
+        if eval_interval.unit in {TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE}:
+            previous_count = state.previous_timestamp.get(eval_interval.unit)
+            count = state.timestamp.get(eval_interval.unit)
+        else:
+            assert state.max_duration is not None
+            previous_count = state.previous_timestamp.get(state.max_duration.unit)
+            count = state.timestamp.get(state.max_duration.unit)
+
+        threshold_passed = math.floor(previous_count / eval_interval.value) != math.floor(count / eval_interval.value)
+
+        if eval_interval.unit == TimeUnit.EPOCH and event == Event.EPOCH_END and threshold_passed:
             last_batch_seen = state.timestamp.batch
             return True
-
-        if eval_interval.unit == TimeUnit.BATCH and int(
-                state.timestamp.batch) % int(eval_interval) == 0 and event == Event.BATCH_END:
+        elif eval_interval.unit in {TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE
+                                   } and event == Event.BATCH_END and threshold_passed:
             last_batch_seen = state.timestamp.batch
             return True
-
-        if eval_interval.unit == TimeUnit.TOKEN and (state.timestamp.token - last_token_seen) >= int(eval_interval):
-            last_token_seen = state.timestamp.token
-            last_batch_seen = state.timestamp.batch
-            return True
-
-        if eval_interval.unit == TimeUnit.SAMPLE and (state.timestamp.sample - last_sample_seen) >= int(eval_interval):
-            last_sample_seen = state.timestamp.sample
-            last_batch_seen = state.timestamp.batch
-            return True
-
-        if eval_interval.unit == TimeUnit.DURATION:
+        elif eval_interval.unit == TimeUnit.DURATION:
             assert state.max_duration is not None, 'max_duration should not be None'
             if state.dataloader_len is None:
                 raise RuntimeError(
@@ -109,9 +91,9 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
                         return True
             elif state.max_duration.unit == TimeUnit.TOKEN and event == Event.BATCH_END:
                 tokens_per_interval = math.ceil(state.max_duration.value * eval_interval)
-                next_token_threshold = last_token_seen + tokens_per_interval
-                if int(state.timestamp.token) >= next_token_threshold:
-                    last_token_seen = state.timestamp.token
+                threshold_passed = math.floor(previous_count / tokens_per_interval) != math.floor(
+                    count / tokens_per_interval)
+                if threshold_passed:
                     last_batch_seen = state.timestamp.batch
                     return True
         return False

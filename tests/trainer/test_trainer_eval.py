@@ -156,10 +156,25 @@ def test_eval_token_interval(tiny_bert_tokenizer, eval_interval: str, batch_size
     max_duration_time = Time.from_timestring('5ba')
     eval_interval_time = Time.from_timestring(eval_interval)
     max_duration_tokens = max_duration_time.value * tokens_per_batch
-    token_eval_multiple = math.ceil(eval_interval_time.value / tokens_per_batch) * tokens_per_batch
-    expected_evals = math.ceil(max_duration_tokens / token_eval_multiple)
+
+    # calculate the expected number of evals
+    last_token_iter = 0
+    next_multiple = eval_interval_time.value
+    expected_num_evals = 0
+    last_multiple_added = -1
+    for token_iter in range(0, max_duration_tokens + tokens_per_batch, tokens_per_batch):
+        if last_token_iter < next_multiple <= token_iter:
+            last_multiple_added = next_multiple
+            expected_num_evals += 1
+        last_token_iter = token_iter
+        while next_multiple <= last_token_iter:
+            next_multiple += eval_interval_time.value
+
+    if last_multiple_added + tokens_per_batch <= max_duration_tokens:
+        expected_num_evals += 1
+
     num_eval_batches = 2
-    expected_batch_evals = expected_evals * num_eval_batches
+    expected_batch_evals = expected_num_evals * num_eval_batches
 
     transformers = pytest.importorskip('transformers')
     model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
@@ -189,7 +204,7 @@ def test_eval_token_interval(tiny_bert_tokenizer, eval_interval: str, batch_size
     trainer.fit()
 
     # we should have one extra call from eval_at_fit_end
-    assert event_counter_callback.event_to_num_calls[Event.EVAL_START] == expected_evals
+    assert event_counter_callback.event_to_num_calls[Event.EVAL_START] == expected_num_evals
     assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == expected_batch_evals
 
 
@@ -202,10 +217,25 @@ def test_eval_sample_interval(tiny_bert_tokenizer, eval_interval: str, batch_siz
     max_duration_time = Time.from_timestring('5ba')
     eval_interval_time = Time.from_timestring(eval_interval)
     max_duration_samples = max_duration_time.value * batch_size
-    sample_eval_multiple = math.ceil(eval_interval_time.value / batch_size) * batch_size
-    expected_evals = math.ceil(max_duration_samples / sample_eval_multiple)
+
+    # calculate the expected number of evals
+    last_sample_iter = 0
+    next_multiple = eval_interval_time.value
+    expected_num_evals = 0
+    last_multiple_added = -1
+    for sample_iter in range(0, max_duration_samples + batch_size, batch_size):
+        if last_sample_iter < next_multiple <= sample_iter:
+            last_multiple_added = next_multiple
+            expected_num_evals += 1
+        last_token_iter = sample_iter
+        while next_multiple <= last_token_iter:
+            next_multiple += eval_interval_time.value
+
+    if last_multiple_added + batch_size <= max_duration_samples:
+        expected_num_evals += 1
+
     num_eval_batches = 2
-    expected_batch_evals = expected_evals * num_eval_batches
+    expected_batch_evals = expected_num_evals * num_eval_batches
 
     transformers = pytest.importorskip('transformers')
     model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
@@ -235,7 +265,7 @@ def test_eval_sample_interval(tiny_bert_tokenizer, eval_interval: str, batch_siz
     trainer.fit()
 
     # we should have one extra call from eval_at_fit_end
-    assert event_counter_callback.event_to_num_calls[Event.EVAL_START] == expected_evals
+    assert event_counter_callback.event_to_num_calls[Event.EVAL_START] == expected_num_evals
     assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == expected_batch_evals
 
 
@@ -249,11 +279,26 @@ def test_eval_dur_interval_token_max(tiny_bert_tokenizer, eval_interval: str, ma
     max_duration_time = Time.from_timestring(max_duration)
     eval_interval_time = Time.from_timestring(eval_interval)
     tokens_per_batch = batch_size * sequence_length
-    token_eval_multiple = math.ceil(
-        math.ceil(max_duration_time.value * eval_interval_time.value) / tokens_per_batch) * tokens_per_batch
-    expected_evals = math.ceil(max_duration_time.value / token_eval_multiple)
+    eval_interval_tokens = math.ceil(max_duration_time.value * eval_interval_time.value)
+
+    # calculate the expected number of evals
+    last_token_iter = 0
+    next_multiple = eval_interval_tokens
+    expected_num_evals = 0
+    last_multiple_added = -1
+    for token_iter in range(0, max_duration_time.value + tokens_per_batch, tokens_per_batch):
+        if last_token_iter < next_multiple <= token_iter:
+            last_multiple_added = next_multiple
+            expected_num_evals += 1
+        last_token_iter = token_iter
+        while next_multiple <= last_token_iter:
+            next_multiple += eval_interval_tokens
+
+    if last_multiple_added + tokens_per_batch <= max_duration_time.value:
+        expected_num_evals += 1
+
     num_eval_batches = 2
-    expected_batch_evals = expected_evals * num_eval_batches
+    expected_batch_evals = expected_num_evals * num_eval_batches
 
     transformers = pytest.importorskip('transformers')
     model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
@@ -283,7 +328,7 @@ def test_eval_dur_interval_token_max(tiny_bert_tokenizer, eval_interval: str, ma
     trainer.fit()
 
     # we should have one extra call from eval_at_fit_end
-    assert event_counter_callback.event_to_num_calls[Event.EVAL_START] == expected_evals
+    assert event_counter_callback.event_to_num_calls[Event.EVAL_START] == expected_num_evals
     assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == expected_batch_evals
 
 
