@@ -1885,7 +1885,7 @@ class Trainer:
             try:
                 if int(self.state.timestamp.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
-                    self.logger.log_metrics({'trainer/epoch': int(self.state.timestamp.epoch)})
+                    self.logger.log_metrics({'time/epoch': int(self.state.timestamp.epoch)})
 
                 dataloader = self.state.dataloader
                 if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
@@ -1913,8 +1913,12 @@ class Trainer:
 
                     self.engine.run_event(Event.BATCH_START)
                     self.logger.log_metrics({
-                        'trainer/global_step': int(self.state.timestamp.batch),
-                        'trainer/batch_idx': self.state.timestamp.batch_in_epoch.value,
+                        'time/global_step': self.state.timestamp.batch.value,
+                        'time/sample': self.state.timestamp.sample.value,
+                        'time/token': self.state.timestamp.token.value,
+                        'time/batch_in_epoch': self.state.timestamp.batch_in_epoch.value,
+                        'time/sample_in_epoch': self.state.timestamp.sample_in_epoch.value,
+                        'time/token_in_epoch': self.state.timestamp.token_in_epoch.value,
                     })
 
                     total_loss_dict = self._train_batch(use_grad_scaling)
