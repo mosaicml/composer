@@ -57,10 +57,12 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
             previous_count = state.previous_timestamp.get(eval_interval.unit)
             count = state.timestamp.get(eval_interval.unit)
         # If the eval_interval is a duration, we will track progress in terms of the unit of max_duration
-        else:
+        elif eval_interval.unit == TimeUnit.DURATION:
             assert state.max_duration is not None
             previous_count = state.previous_timestamp.get(state.max_duration.unit)
             count = state.timestamp.get(state.max_duration.unit)
+        else:
+            raise ValueError(f'Invalid eval_interval unit: {eval_interval.unit}')
 
         threshold_passed = math.floor(previous_count / eval_interval.value) != math.floor(count / eval_interval.value)
 
