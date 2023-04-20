@@ -22,88 +22,11 @@ if TYPE_CHECKING:
 __all__ = ['DataSpec', 'ensure_data_spec']
 
 
-def _num_microbatches_split_list(l, num_microbatches: int):
-    if len(l) < num_microbatches:
-        raise ValueError(
-            textwrap.dedent(f"""\
-        Cannot split list of length {len(l)} into {num_microbatches} batches.
-         make sure `grad_accum` is less than or equal to `train_batch_size // world_size`."""))
-
-    # Note: this is to match the behavior of tensor.chunk, which is used in _split_tensor
-    chunked_microbatch_size = math.ceil(len(l) / num_microbatches)
-    return [l[start:start + chunked_microbatch_size] for start in range(0, len(l), chunked_microbatch_size)]
-
-
-def _num_microbatches_split_tensor(t, num_microbatches: int):
-    if len(t) < num_microbatches:
-        raise ValueError(
-            textwrap.dedent(f"""\
-        Cannot split tensor of length {len(t)} into {num_microbatches} batches.
-         make sure `grad_accum` is less than or equal to `train_batch_size // world_size`."""))
-    return t.chunk(num_microbatches)
-
-
-def _num_microbatches_split_mapping(m, num_microbatches: int):
-    chunked = {}
-    for k, v in m.items():
-        if isinstance(v, torch.Tensor):
-            chunked[k] = _num_microbatches_split_tensor(v, num_microbatches)
-        elif isinstance(v, (List, Tuple)):
-            chunked[k] = _num_microbatches_split_list(v, num_microbatches)
-        elif isinstance(v, (int, float, str, bool)):
-            # Broadcast primitives to all chunks
-            chunked[k] = [v] * num_microbatches
-        else:
-            raise ValueError(f'Unsupported batch type: {type(v)}.')
-    num_chunks = len(list(chunked.values())[0])
-    return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
-
-
-def _num_microbatches_split_batch(batch: Any, num_microbatches: int) -> Sequence:
-    """Splits batch into `num_microbatches` chunks for gradient accumulation.
-
-    Works with tensors, dictionaries of tensors, (x, y) tuples, and lists where ``batch`` is the 2nd dimension.
-
-    Args:
-        batch (Any): output from the dataloader.
-        num_microbatches (int): number of microbatches to batch into. Will be set by `grad_accum`.
-    """
-    if num_microbatches < 1:
-        raise ValueError('num_microbatches must be at least 1')
-    if num_microbatches == 1:
-        return [batch]
-
-    if isinstance(batch, torch.Tensor):  # check for a single stack of tensors
-        return _num_microbatches_split_tensor(batch, num_microbatches)
-
-    if isinstance(batch, Mapping):  # check for dictionary (hf style)
-        return _num_microbatches_split_mapping(batch, num_microbatches)
-
-    if isinstance(batch, (Tuple, list)) and _check_list_is_primitives(batch):  # check for list of primitives
-        return _num_microbatches_split_list(batch, num_microbatches)
-
-    if isinstance(batch, (Tuple, List)):  # check for batch on 2nd dimension
-        result = []
-        for item in batch:
-            if isinstance(item, torch.Tensor):
-                result.append(_num_microbatches_split_tensor(item, num_microbatches))
-            elif isinstance(item, (List, Tuple)):
-                result.append(_num_microbatches_split_list(item, num_microbatches))
-            else:
-                raise ValueError(f'Unsupported batch type: {type(item)}.')
-        return list(zip(*result))
-
-    raise NotImplementedError(
-        textwrap.dedent("""\
-            The default `split_fn` is unable to split the output of this dataloader. To enable microbatching,
-             please and specify a `DataSpec` with `split_batch` for your dataset and use `device_train_microbatch_size`."""
-                       ))
-
-
 def _split_list(l, microbatch_size: int):
     if len(l) < microbatch_size:
         warnings.warn(f'Cannot split list of length {len(l)} into batches of size {microbatch_size}. '
-                      'As it is smaller, no splitting will be done.')
+                      'As it is smaller, no splitting will be done. This may happen on the last batch '
+                      'of a dataset if it is a smaller size than the microbatch size.')
         microbatch_size = len(l)
     num_microbatches = math.ceil(len(l) / microbatch_size)
     # Note: this is to match the behavior of tensor.chunk, which is used in _split_tensor
@@ -114,7 +37,8 @@ def _split_list(l, microbatch_size: int):
 def _split_tensor(t, microbatch_size: int):
     if len(t) < microbatch_size:
         warnings.warn(f'Cannot split tensor of length {len(t)} into batches of size {microbatch_size}. '
-                      'As it is smaller, no splitting will be done.')
+                      'As it is smaller, no splitting will be done. This may happen on the last batch '
+                      'of a dataset if it is a smaller size than the microbatch size.')
         microbatch_size = len(t)
     num_microbatches = math.ceil(len(t) / microbatch_size)
     return t.chunk(num_microbatches)
@@ -127,6 +51,8 @@ def _split_mapping(m, microbatch_size: int):
             chunked[k] = _split_tensor(v, microbatch_size)
         elif isinstance(v, (List, Tuple)):
             chunked[k] = _split_list(v, microbatch_size)
+        elif isinstance(v, Mapping):
+            chunked[k] = _split_mapping(v, microbatch_size)
         elif isinstance(v, (int, float, str, bool)):
             # Defer broadcasting primitives until we know num_chunks
             pass
@@ -241,9 +167,10 @@ class DataSpec:
         get_num_tokens_in_batch ((Batch) -> int, optional): Function that is called by the :class:`.Trainer` to
             get the number of tokens in the provided batch.
 
-            By default, it returns 0, meaning that number of tokens processed will not be tracked as a part of the
-            training progress tracking. This function must be specified to track the number of tokens processed during
-            training.
+            By default, it checks for HuggingFace-style dictionary batches with ``input_ids``, and then checks ``dataset.max_seq_len``, and returns 0
+            if both of those fail, meaning that number of tokens processed will not be tracked as a part of the training progress tracking.
+            Note that the defaults do NOT take padding into account, so if you want the token calculation to exclude padding, you should specify this function.
+            This function must be specified to track the number of tokens processed during training in a non-default way.
     """
 
     def __init__(
@@ -260,7 +187,6 @@ class DataSpec:
         self.num_tokens = num_tokens
         self.device_transforms = self._default_device_transforms if device_transforms is None else device_transforms
         self.split_batch = _default_split_batch if split_batch is None else split_batch
-        self._num_microbatches_split_batch = _num_microbatches_split_batch  # For fallback using `grad_accum`
         self.get_num_samples_in_batch = self._default_get_num_samples_in_batch if get_num_samples_in_batch is None else get_num_samples_in_batch
         self.get_num_tokens_in_batch = self._default_get_num_tokens_in_batch if get_num_tokens_in_batch is None else get_num_tokens_in_batch
 
@@ -335,7 +261,14 @@ class DataSpec:
                     Please use a DataSpec and specify `get_num_samples_in_batch`."""))
 
     def _default_get_num_tokens_in_batch(self, batch: Batch) -> int:
-        del batch  # unused
+        # First try HuggingFace-style input dicts
+        if isinstance(batch, Mapping) and 'input_ids' in batch:
+            samples_per_batch = batch['input_ids'].shape[0]
+            return batch['input_ids'].shape[1] * samples_per_batch
+        # Then try dataset.max_seq_len
+        elif hasattr(self.dataloader, 'dataset') and hasattr(self.dataloader.dataset, 'max_seq_len'):  # type: ignore
+            samples_per_batch = self.get_num_samples_in_batch(batch)
+            return self.dataloader.dataset.max_seq_len * samples_per_batch  # type: ignore
         return 0
 
 

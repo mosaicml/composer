@@ -25,6 +25,7 @@ import torch
 import torch.distributed
 import torch.nn as nn
 import torch.utils.data
+from packaging import version
 from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
@@ -33,7 +34,8 @@ from torchmetrics import Metric
 from composer.callbacks import CheckpointSaver, OptimizerMonitor
 from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException, Callback, DataSpec, Engine, Evaluator,
                            Event, Precision, PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode,
-                           ensure_data_spec, ensure_evaluator, ensure_time, get_precision_context)
+                           ensure_data_spec, ensure_evaluator, ensure_time, get_precision_context,
+                           validate_eval_automicrobatching)
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, ProgressBarLogger, RemoteUploaderDownloader,
                               WandBLogger)
@@ -48,7 +50,7 @@ from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectS
                             ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist, get_device,
                             get_file, is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
                             maybe_create_remote_uploader_downloader_from_uri, model_eval_mode, parse_uri,
-                            reproducibility)
+                            reproducibility, using_torch_2_0)
 
 if is_tpu_installed():
     import torch_xla.core.xla_model as xm
@@ -154,19 +156,7 @@ def _set_evaluator_interval_and_subset_num_batches(
                                  'run forever and never terminate.')
 
 
-def _is_auto_grad_accum(grad_accum: Union[int, str], device: Device):
-    if grad_accum == 'auto':
-        warnings.warn(("Setting `grad_accum='auto'` is an experimental feature which may cause "
-                       'uncaught Cuda Out of Memory errors. In this case, please manually '
-                       'set grad_accum explicitly to an integer instead.'))
-        if not isinstance(device, DeviceGPU):
-            raise ValueError('Can only use adaptive grad_accum on GPU. Please set grad_accum >= 1')
-        return True
-    else:
-        return False
-
-
-def _is_auto_microbatching(device_train_microbatch_size: Union[int, str], device: Device):
+def _is_auto_microbatching(device_train_microbatch_size: Optional[Union[int, str]], device: Device):
     if device_train_microbatch_size == 'auto':
         warnings.warn(("Setting `device_train_microbatch_size='auto'` is an experimental feature which may cause "
                        'uncaught Cuda Out of Memory errors. In this case, please manually '
@@ -180,15 +170,6 @@ def _is_auto_microbatching(device_train_microbatch_size: Union[int, str], device
         return False
 
 
-def _get_initial_grad_accum(grad_accum: Union[int, str]):
-    if grad_accum == 'auto':
-        return 1
-    elif isinstance(grad_accum, int):
-        return grad_accum
-    else:
-        raise ValueError("grad_accum must be an int or ``'auto'``")
-
-
 def _get_initial_device_train_microbatch_size(device_train_microbatch_size: Optional[Union[int, str]],
                                               auto_microbatching: bool,
                                               train_dataloader: Optional[Iterable]) -> Optional[int]:
@@ -198,15 +179,22 @@ def _get_initial_device_train_microbatch_size(device_train_microbatch_size: Opti
     `train_dataloader` is not set yet, returns None and this function will be called again when
     `train_dataloader` is set, such as when `fit()` is called.
     """
-    if auto_microbatching:
+    if device_train_microbatch_size is None or auto_microbatching:
         # Return None, this function will be called again when `train_dataloader` is set
         if train_dataloader is None:
             return None
         try:
             batch_size = getattr(train_dataloader, 'batch_size')
         except AttributeError as e:
+            # Error message when `device_train_microbatch_size` is None
+            # Note: This code path will be removed after `auto` is made default
+            if device_train_microbatch_size is None:
+                raise ValueError(
+                    '`device_train_microbatch_size` must be set when `state.train_dataloader` does not have a `batch_size` attribute.'
+                ) from e
+            # Error message when `device_train_microbatch_size` is 'auto'
             raise AttributeError(
-                'device_train_microbatch_size requires the `state.train_dataloader` to have a `batch_size` attribute.'
+                "`device_train_microbatch_size='auto'` requires the `state.train_dataloader` to have a `batch_size` attribute."
             ) from e
         return batch_size
     elif isinstance(device_train_microbatch_size, int):
@@ -228,39 +216,6 @@ def _is_cuda_oom(e: RuntimeError):
                       'error with non-contiguous inputs.')
         return True
     return False
-
-
-def _adjust_grad_accum(state: State, device_batch_size: int):
-    """Adjust grad_accum if we encounter OOM.
-
-    Args:
-        state (State): State of trainer.
-        device_batch_size (int): Batch size.
-    """
-    # If any rank hit CUDA OOM, update grad_accum and retry. Raise runtime error if training 1 sample
-    # at a time still resulted in CUDA out of memory.
-    assert state.grad_accum is not None
-    if state.grad_accum == device_batch_size:
-        raise RuntimeError(('CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
-                            'The GPU does not have enough memory to process even 1 sample during train.'))
-    else:
-        original_grad_accum = state.grad_accum
-        state.grad_accum = min(2 * state.grad_accum, device_batch_size)
-        warnings.warn(
-            RuntimeWarning('CUDA out of memory detected. Gradient Accumulation, the number of train microbatches, '
-                           f'increased from {original_grad_accum} -> {state.grad_accum}, '
-                           'and the batch will be retrained with a '
-                           f'micro-batchsize of {device_batch_size // state.grad_accum}'))
-    # Clear gradients in case failure happened during backwards pass
-    if hasattr(state, 'outputs'):
-        del state.outputs
-    if hasattr(state, 'loss'):
-        del state.loss
-    for optimizer in state.optimizers:
-        optimizer.zero_grad(set_to_none=True)
-    if state.scaler is not None:
-        state.scaler._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
-    torch.cuda.empty_cache()
 
 
 def _adjust_device_train_microbatch_size(state: State):
@@ -293,26 +248,24 @@ def _adjust_device_train_microbatch_size(state: State):
     torch.cuda.empty_cache()
 
 
-def _adjust_eval_batch_split(state: State, device_batch_size: int):
-    """Adjust eval_batch_split if we encounter OOM.
+def _adjust_device_eval_microbatch_size(evaluator: Evaluator):
+    """Adjust device_eval_microbatch_size if we encounter OOM.
 
     Args:
-        state (State): State of trainer.
-        device_batch_size (int): Batch size.
+        evaluator (State): Current evaluator
     """
-    # If any rank hit CUDA OOM, update grad_accum and retry. Raise runtime error if training 1 sample
-    # at a time still resulted in CUDA out of memory.
-    if state.eval_batch_split == device_batch_size:
-        raise RuntimeError(('CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
-                            'The GPU does not have enough memory to process even 1 sample in eval. '))
+    # If any rank hit CUDA OOM, update device_eval_microbatch_size and retry. Raise runtime error
+    # if evaluating 1 sample at a time still resulted in CUDA out of memory.
+    assert evaluator.device_eval_microbatch_size is not None
+    if evaluator.device_eval_microbatch_size == 1:
+        raise RuntimeError(('CUDA out of memory. The eval loop failed with an internal microbatch of size 1.'
+                            'The GPU does not have enough memory to process even 1 sample during eval.'))
     else:
-        original_eval_batch_split = state.eval_batch_split
-        state.eval_batch_split = min(2 * state.eval_batch_split, device_batch_size)
+        original_microbatch_size = evaluator.device_eval_microbatch_size
+        evaluator.device_eval_microbatch_size = max(int(original_microbatch_size / 2), 1)
         warnings.warn(
-            RuntimeWarning('CUDA out of memory detected. Number of eval microbatches '
-                           f'increased from {original_eval_batch_split} -> {state.eval_batch_split}, '
-                           'and the batch will be retrained with a '
-                           f'micro-batchsize of {device_batch_size // state.eval_batch_split}'))
+            RuntimeWarning('CUDA out of memory detected. Train microbatch size will be decreased from '
+                           f'{original_microbatch_size} -> {evaluator.device_eval_microbatch_size}.'))
     torch.cuda.empty_cache()
 
 
@@ -758,6 +711,9 @@ class Trainer:
             See :doc:`FSDP Documentation </notes/distributed_training>` for more details.
             To use FSDP with default values, set to the empty dictionary ``{}``. To
             disable FSDP, set to ``None``. (default: ``None``)
+        fsdp_auto_wrap (bool, optional): option to let trainer wrap the module, or if
+            the module is already wrapped outside, allow the user to disable auto-wrapping.
+
         device (Device | str, optional): The device to use for training, which can be ``'cpu'``, ``'gpu'``,
             ``'tpu'``, or ``'mps'``. (default: ``None``)
 
@@ -765,17 +721,6 @@ class Trainer:
         precision (Precision | str, optional): Numerical precision to use for training. One of ``fp32``, ``amp_bf16``
             or ``amp_fp16`` (recommended). (default: ``Precision.FP32`` if training on CPU; ``Precision.AMP_FP16`` if
             training on GPU)
-        grad_accum (Union[int, str], optional): The number of microbatches to split a per-device batch into. Gradients
-            are summed over the microbatches per device. If set to ``auto``, dynamically increases grad_accum
-            if microbatch is too large for GPU. (default: ``1``)
-
-            .. note:: This is implemented by taking the batch yielded by the ``train_dataloader`` and splitting
-                it into ``grad_accum`` sections. Each section is of size ``train_dataloader // grad_accum``.
-                If the batch size of the dataloader is not divisible by ``grad_accum``,
-                then the last section will be of size ``batch_size mod grad_accum``.
-
-            .. deprecated:: 0.12
-               Please use device_train_microbatch_size.
         device_train_microbatch_size (Union[int, str), optional): The number of samples to process on each device per
             microbatch during training. Gradients are summed over the microbatches per device. If set to ``auto``,
             dynamically decreases device_train_microbatch_size if microbatch is too large for GPU. (default: ``None``)
@@ -818,6 +763,11 @@ class Trainer:
             ``logging.basicConfig`` won't be called).
 
             .. seealso:: The :mod:`logging` module in Python.
+        compile_config (Dict[str, Any], optional): Configuration for torch compile. Only supported with PyTorch 2.0 or higher.
+            Checkout [`torch.compile`](https://pytorch.org/get-started/pytorch-2.0/) for more details.
+            To use torch compile with default values, set it to empty dictionary ``{}``.
+            To use torch compile with custom config, set to a dictionary such as ``{'mode': 'max-autotune'}``.
+            To disable torch compile, set to ``None``. (default: ``None``)
 
     Attributes:
         state (State): The :class:`.State` object used to store training state.
@@ -895,11 +845,11 @@ class Trainer:
         # DeepSpeed
         deepspeed_config: Optional[Dict[str, Any]] = None,
         fsdp_config: Optional[Dict[str, Any]] = None,
+        fsdp_auto_wrap: Optional[bool] = True,
 
         # System/Numerics
         device: Optional[Union[str, Device]] = None,
         precision: Optional[Union[str, Precision]] = None,
-        grad_accum: Optional[Union[int, str]] = 1,
         device_train_microbatch_size: Optional[Union[int, str]] = None,
 
         # Reproducibility
@@ -915,6 +865,9 @@ class Trainer:
 
         # Python logging
         python_log_level: Optional[str] = None,
+
+        # compile config for PyTorch 2.0 or higher
+        compile_config: Optional[Dict[str, Any]] = None,
     ):
 
         self.auto_log_hparams = auto_log_hparams
@@ -935,12 +888,6 @@ class Trainer:
         # Device
         device = get_device(device)
 
-        # Determine whether DeepSpeed and FSDP are enabled
-        self.deepspeed_config = deepspeed_config
-        self.fsdp_config = fsdp_config
-        self.deepspeed_enabled = self.deepspeed_config is not None
-        self.fsdp_enabled = self.fsdp_config is not None
-
         # Precision
         if precision is None:
             precision = Precision.AMP_FP16 if isinstance(device, DeviceGPU) else Precision.FP32
@@ -948,15 +895,59 @@ class Trainer:
             precision = Precision(precision)
         _validate_precision(precision, device)
 
+        # check if provided model is compiled or not
+        is_torch_2_0 = using_torch_2_0()
+        is_model_compiled = False
+        if is_torch_2_0:
+            from torch._dynamo import OptimizedModule
+            if isinstance(model, OptimizedModule):
+                log.warning(f'Provided `model` is already compiled with `torch.compile`. Ignoring ' +
+                            f'parameter `compile_config` if provided. If you would like `Trainer` ' +
+                            f'to takes care of model compilation, provide a not-compiled model and ' +
+                            f'`compile_config` parameter.')
+                # The `torch.compile` function returns an object of type `torch._dynamo.OptimizedModule`
+                # which wraps the original `nn.Module` object and later patches its forward method to
+                # optimized `self.forward` method.
+                is_model_compiled = True
+                compiled_model = model._orig_mod
+                if not isinstance(compiled_model, ComposerModel):
+                    raise ValueError(f'Provided `model` must be a subclass of ComposerModel. ' +
+                                     f'Instead found as type `{type(compiled_model)}`')
+                compiled_model.forward = model.dynamo_ctx(
+                    compiled_model.forward)  # pyright: ignore [reportGeneralTypeIssues]
+                model = compiled_model
+
+        # Microbatching
+        auto_microbatching = _is_auto_microbatching(device_train_microbatch_size, device=device)
+        if auto_microbatching and profiler:
+            raise ValueError("`device_train_microbatch_size='auto'` is not compatible with the profiler. It is "
+                             "recommended to run a mini-run with `device_train_microbatch_size='auto'` to identify "
+                             'the optimal device_train_microbatch_size value and then manually specify that in a '
+                             'second run with profiler.')
+        self.first_batch_complete = False
+        # If auto_microbatching is True or `device_train_microbatch_size` is not specified, the microbatch size
+        # will be determined when dataloader is specified. train_dataloader is parsed after `Event.INIT` or in
+        # fit()
+        device_train_microbatch_size = _get_initial_device_train_microbatch_size(device_train_microbatch_size,
+                                                                                 auto_microbatching, None)
+
+        assert not isinstance(device_train_microbatch_size, str)
+
+        # Determine whether DeepSpeed and FSDP are enabled
+        self.deepspeed_config = deepspeed_config
+        self.fsdp_config = fsdp_config
+        self.deepspeed_enabled = self.deepspeed_config is not None
+        self.fsdp_enabled = self.fsdp_config is not None
+
         # Distributed
         if self.deepspeed_enabled or self.fsdp_enabled or dist.get_world_size() > 1:
             # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
             # And torch.distributed is always required for multi-rank training
             dist.initialize_dist(device, dist_timeout)
 
-        # Handle FSDP sharding
-        if self.fsdp_config is not None:
-            prepare_fsdp_module(model, optimizers, self.fsdp_config, precision)
+        # Handle FSDP wrapping
+        if self.fsdp_config is not None and fsdp_auto_wrap:
+            prepare_fsdp_module(model, optimizers, self.fsdp_config, precision, device, auto_microbatching)
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, device)
@@ -978,7 +969,6 @@ class Trainer:
             raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
 
         # Move the model and optimizers to the device
-
         if not (self.deepspeed_enabled or self.fsdp_enabled):
             # check if model is already on tpu
             if isinstance(device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
@@ -990,46 +980,6 @@ class Trainer:
                 # It is possible that optimizer initialize created some internal tensors on CPU
                 # that need to be moved onto GPU.
             optimizers = map_collection(optimizers, device.optimizer_to_device)
-
-        # Microbatching
-        # To support backwards compatibility, we currently support both device_train_microbatch_size
-        # and grad_accum. If both are specified with grad_accum=1, we will use device_train_microbatch_size.
-        if device_train_microbatch_size is not None:
-            using_device_microbatch_size = True
-            if grad_accum != 1:
-                raise ValueError(
-                    'Cannot use both device_train_microbatch_size and grad_accum. grad_accum is deprecated '
-                    'so it is recommended to use device_train_microbatch_size.')
-            grad_accum = None
-            auto_microbatching = _is_auto_microbatching(device_train_microbatch_size, device=device)
-            if auto_microbatching and profiler:
-                raise ValueError("`device_train_microbatch_size='auto'` is not compatible with the profiler. It is "
-                                 "recommended to run a mini-run with `device_train_microbatch_size='auto'` to identify "
-                                 'the optimal device_train_microbatch_size value and then manually specify that in a '
-                                 'second run with profiler.')
-            # If auto_microbatching is True, the microbatch size will be determined when dataloader
-            # is specified. train_dataloader is parsed after `Event.INIT` or in fit()
-            device_train_microbatch_size = _get_initial_device_train_microbatch_size(
-                device_train_microbatch_size, auto_microbatching, None)
-        elif grad_accum is not None:
-            using_device_microbatch_size = False
-            if grad_accum != 1:
-                warnings.warn(
-                    DeprecationWarning(
-                        f'grad_accum set to {grad_accum} but is deprecated and will be removed in 0.13. Please use device_train_microbatch_size instead.'
-                    ))
-            auto_microbatching = _is_auto_grad_accum(grad_accum, device=device)
-            if auto_microbatching and profiler:
-                raise ValueError("`grad_accum='auto'` is not compatible with the profiler. It is recommended to run "
-                                 "a mini-run with `grad_accum='auto'` to identify the optimal grad_accum value and "
-                                 'then manually specify that in a second run with profiler.')
-            grad_accum = _get_initial_grad_accum(grad_accum)
-        else:
-            raise ValueError('Either grad_accum or device_train_microbatch_size must be specified. As grad-accum '
-                             'is deprecated, we recommend using device_train_microbatch_size.')
-        eval_batch_split = 1
-        assert not isinstance(grad_accum, str)
-        assert not isinstance(device_train_microbatch_size, str)
 
         # Run Name
         if run_name is None:
@@ -1045,11 +995,8 @@ class Trainer:
             model=model,
             device=device,
             callbacks=callbacks,
-            grad_accum=grad_accum,
-            eval_batch_split=eval_batch_split,
             device_train_microbatch_size=device_train_microbatch_size,
             auto_microbatching=auto_microbatching,
-            using_device_microbatch_size=using_device_microbatch_size,
             precision=precision,
             optimizers=optimizers,
             run_name=run_name,
@@ -1178,7 +1125,7 @@ class Trainer:
         })
 
         if not isinstance(self.state.model, ComposerModel):
-            raise ValueError('Provided model should be a subclass of ComposerModel.')
+            raise ValueError('Provided model must be a subclass of ComposerModel.')
 
         # After running Event.INIT, then set the "optional" elements of state that could be passed in on FIT instead of INIT
         # Setting these attributes here ensures that algorithms do not depend on unavailable attributes during Event.INIT
@@ -1208,6 +1155,9 @@ class Trainer:
                 eval_interval=eval_interval,
                 subset_num_batches=eval_subset_num_batches,
             )
+
+            for evaluator in evaluators:
+                validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
         if len(evaluators) == 0:
             if eval_subset_num_batches != -1:
                 raise ValueError(
@@ -1231,9 +1181,8 @@ class Trainer:
                 self.state.train_dataloader = pl.MpDeviceLoader(self.state.dataloader, xm.xla_device())
             else:
                 self.state.train_dataloader = self.state.dataloader
-            if self.state.using_device_microbatch_size:
-                self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
-                    self.state.device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
+            self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
+                self.state.device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
 
         # Max Duration
         if max_duration is not None:
@@ -1261,8 +1210,6 @@ class Trainer:
         # If using DDP or DeepSpeed, we need to wrap the ComposerModel
         # But store a reference to the original model for functions like `eval_forward`, `get_metrics`, etc.
         self._original_model = self.state.model
-        if not isinstance(self._original_model, ComposerModel):
-            raise ValueError('self.state.model must be a subclass of ComposerModel.')
 
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
@@ -1307,6 +1254,17 @@ class Trainer:
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
         warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
         self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
+
+        if self.fsdp_config is not None:
+            if version.parse(torch.__version__) < version.parse('1.13.0'):
+                raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
+            from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
+
+            # This state should never be reached, but we raise a ValueError just in case
+            if self._use_closures() and self.state.precision == Precision.AMP_FP16:
+                raise ValueError(f'Using closures and precision {self.state.precision} is not supported'
+                                 f' with FSDP. Please use another optimizer or precision type.')
+            self.state.scaler = ShardedGradScaler()
 
         # suppressing FSDP warning when auto grad accum exits the forward pass before completing
         warnings.filterwarnings(action='ignore', message='Forward order differs from that of the first iteration')
@@ -1394,6 +1352,23 @@ class Trainer:
         if not (self.deepspeed_enabled or self.fsdp_enabled) and dist.get_world_size() > 1:
             # Only wrap the module if required
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
+
+        # The model would need to be torch.compile()'d after being wrapped in a distributed strategy
+        # to take advantage of any graph breaks.
+        if is_torch_2_0 and not is_model_compiled and compile_config is not None:
+            compiled_model = torch.compile(  # pyright: ignore [reportGeneralTypeIssues]
+                self.state.model, **compile_config)
+            self.state.model = compiled_model._orig_mod
+            self.state.model.forward = compiled_model.dynamo_ctx(self.state.model.forward)
+            is_model_compiled = True
+            # update local_hparams to ensure the `is_model_compiled` is set correctly for
+            # debugging purpose and for unit test.
+            if self.auto_log_hparams:
+                self.local_hparams['is_model_compiled'] = is_model_compiled
+        elif not is_torch_2_0 and compile_config is not None:
+            raise ValueError(f'`torch.compile` is supported for PyTorch 2.0 or higher.' +
+                             f'Either update your PyTorch version or disable parameter by providing ' +
+                             f'`compile_config` to `None`.')
 
     @property
     def saved_checkpoints(self) -> List[str]:
@@ -1546,7 +1521,6 @@ class Trainer:
         eval_interval: Union[int, str, Time, Callable[[State, Event], bool]] = 1,
 
         # Numerics
-        grad_accum: Optional[Union[int, str]] = None,
         device_train_microbatch_size: Optional[Union[int, str]] = None,
         precision: Optional[Union[str, Precision]] = None,
     ):
@@ -1655,7 +1629,6 @@ class Trainer:
             eval_dataloader (Iterable | DataSpec | Evaluator | Sequence[Evaluator], optional): See :class:`.Trainer`.
             eval_subset_num_batches (int, optional): See :class:`.Trainer`.
             eval_interval (int | str | Time | (State, Event) -> bool, optional): See :class:`.Trainer`.
-            grad_accum (int | str, optional): See :class:`.Trainer`.
             device_train_microbatch_size (int | str, optional): See :class:`.Trainer`.
             precision (Precision | str, optional): See :class:`.Trainer`.
         """
@@ -1664,9 +1637,8 @@ class Trainer:
             self._train_data_spec = ensure_data_spec(train_dataloader)
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label)
             self.state.train_dataloader = self.state.dataloader
-            if self.state.using_device_microbatch_size:
-                self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
-                    self.state.device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
+            self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
+                self.state.device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
         if self._train_data_spec is None:
             _raise_missing_argument_exception('train_dataloader')
         if train_subset_num_batches is not None:
@@ -1745,6 +1717,10 @@ class Trainer:
                 eval_interval=eval_interval,
                 subset_num_batches=eval_subset_num_batches,
             )
+
+            for evaluator in evaluators:
+                validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
+
             if len(evaluators) == 0:
                 if eval_subset_num_batches != -1:
                     raise ValueError('Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.')
@@ -1754,9 +1730,7 @@ class Trainer:
             self.state.evaluators = evaluators
 
         # Microbatching
-        if grad_accum is not None and device_train_microbatch_size is not None:
-            raise ValueError('Cannot specify both `grad_accum` and `device_train_microbatch_size`.')
-        elif device_train_microbatch_size is not None:
+        if device_train_microbatch_size is not None:
             self.state.auto_microbatching = _is_auto_microbatching(device_train_microbatch_size,
                                                                    device=self.state.device)
             if self.state.auto_microbatching and self.state.profiler:
@@ -1766,15 +1740,6 @@ class Trainer:
                                  'second run with profiler.')
             self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
                 device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
-            self.state.using_device_microbatch_size = True
-        elif grad_accum is not None:
-            self.state.auto_microbatching = _is_auto_grad_accum(grad_accum, device=self.state.device)
-            if self.state.auto_microbatching and self.state.profiler:
-                raise ValueError("`grad_accum='auto'` is not compatible with the profiler. It is recommended to run "
-                                 "a mini-run with `grad_accum='auto'` to identify the optimal grad_accum value and "
-                                 'then manually specify that in a second run with profiler.')
-            self.state.grad_accum = _get_initial_grad_accum(grad_accum)
-            self.state.using_device_microbatch_size = False
 
         # Precision
         if precision is not None:
@@ -1787,6 +1752,8 @@ class Trainer:
 
             # update scaler since precision was provided
             self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
+
+        self.first_batch_complete = False
         self._train_loop()
 
     def close(self):
@@ -1991,6 +1958,7 @@ class Trainer:
                             metrics=self.state.train_metrics,
                         )
 
+                    self.state.previous_timestamp = self.state.timestamp
                     self.state.timestamp = self.state.timestamp.to_next_batch(
                         samples=total_num_samples,
                         tokens=total_num_tokens,
@@ -2029,6 +1997,7 @@ class Trainer:
                         for scheduler in self.state.schedulers:
                             scheduler.step()
 
+                    self.state.previous_timestamp = self.state.timestamp
                     self.state.timestamp = self.state.timestamp.to_next_epoch()
 
                     self.engine.run_event(Event.EPOCH_END)
@@ -2067,10 +2036,11 @@ class Trainer:
             assert evaluator.eval_interval is not None, 'eval_interval should have been set on __init__() or fit()'
             assert evaluator.subset_num_batches is not None, 'subset_num_batches should have been set on __init__() or fit()'
             if evaluator.eval_interval(self.state, event):
-                self._eval_loop(dataloader=evaluator.dataloader,
-                                dataloader_label=evaluator.label,
-                                subset_num_batches=evaluator.subset_num_batches,
-                                metrics=self.state.eval_metrics[evaluator.label])
+                self._eval_loop(
+                    evaluator=evaluator,
+                    subset_num_batches=evaluator.subset_num_batches,
+                    metrics=self.state.eval_metrics[evaluator.label],
+                )
 
     def _train_batch(self, use_grad_scaling: bool) -> Dict[str, torch.Tensor]:
         """Compute loss by training on a full batch of data.
@@ -2101,14 +2071,8 @@ class Trainer:
             found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
             try:
                 assert self.state.scaler is not None
-                if self.state.using_device_microbatch_size:
-                    assert self.state.device_train_microbatch_size is not None
-                    microbatches = self._train_data_spec.split_batch(device_batch,
-                                                                     self.state.device_train_microbatch_size)
-                else:
-                    assert self.state.grad_accum is not None
-                    microbatches = self._train_data_spec._num_microbatches_split_batch(
-                        device_batch, self.state.grad_accum)
+                assert self.state.device_train_microbatch_size is not None
+                microbatches = self._train_data_spec.split_batch(device_batch, self.state.device_train_microbatch_size)
                 if self._use_closures():
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
@@ -2137,25 +2101,26 @@ class Trainer:
                     raise
 
             if self.state.auto_microbatching:
-                # Propagate across all ranks if any rank hit CUDA OOM
-                found_cuda_oom = self.state.device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
-                dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
-                if found_cuda_oom.item() == 1:
-                    device_batch_size = self._train_data_spec.get_num_samples_in_batch(device_batch)
-                    if self.state.using_device_microbatch_size:
-                        _adjust_device_train_microbatch_size(self.state)
-                    else:
-                        _adjust_grad_accum(self.state, device_batch_size)
+                all_ranks_finished = False
+                while not all_ranks_finished:
+                    # Propagate across all ranks if any rank hit CUDA OOM
+                    found_cuda_oom_tensor = self.state.device.tensor_to_device(
+                        torch.tensor([found_cuda_oom], dtype=torch.uint8))
+                    dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
+                    found_cuda_oom = found_cuda_oom_tensor.item()
+                    # Check if any rank is still not done with the batch. This may happen if only a
+                    # subset of ranks OOM, leaving some batches still in the forward pass
+                    all_ranks_finished_tensor = self.state.device.tensor_to_device(torch.tensor([1], dtype=torch.uint8))
+                    dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
+                    all_ranks_finished = all_ranks_finished_tensor.item() == 1
+                if found_cuda_oom == 1:
+                    _adjust_device_train_microbatch_size(self.state)
                     # Skip return and rerun after handling oom
                     continue
             # Log microbatch and return loss if we've completed without OOMing.
-            if self.state.using_device_microbatch_size:
-                assert self.state.device_train_microbatch_size is not None
-                self.logger.log_metrics(
-                    {'trainer/device_train_microbatch_size': self.state.device_train_microbatch_size})
-            else:
-                assert self.state.grad_accum is not None
-                self.logger.log_metrics({'trainer/grad_accum': self.state.grad_accum})
+            assert self.state.device_train_microbatch_size is not None
+            self.logger.log_metrics({'trainer/device_train_microbatch_size': self.state.device_train_microbatch_size})
+            self.first_batch_complete = True
             return total_loss_dict
 
     def _train_microbatches(self,
@@ -2175,7 +2140,19 @@ class Trainer:
         if ddp_sync or not isinstance(self.state.model, DistributedDataParallel):
             context = contextlib.nullcontext
         else:
-            context = cast(Callable[[], ContextManager], self.state.model.no_sync)
+            if self.state.auto_microbatching and not self.first_batch_complete:
+                # PyTorch DDP rebuilds gradient reduction buckets after 1) a forward pass where the
+                # no_sync context was not set 2) a backward pass 3) a forward pass. If only a
+                # subset of ranks OOM on the first batch, this will cause a deadlock since a rank
+                # that did not OOM will complete steps (1), (2), and (3) on the first succesful
+                # microbatch after the OOMs but an OOMing rank will have never completed (1) if
+                # using `SINGLE_AUTO_SYNC`. To avoid this, we force a sync on every microbatch for
+                # the first batch.
+                log.info('Auto microbatching requires syncing every microbatch (`MULTI_AUTO_SYNC`)'
+                         ' to avoid deadlock on first batch, so ddp_sync_strategy will be ignored.')
+                context = contextlib.nullcontext
+            else:
+                context = cast(Callable[[], ContextManager], self.state.model.no_sync)
 
         assert self._train_data_spec is not None
 
@@ -2239,14 +2216,28 @@ class Trainer:
         device_batch = deepcopy(self.state.batch)
 
         microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
-        sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
-            self.state,
-            is_final_microbatch,
-            self._ddp_sync_strategy,
-        )
+        if self.deepspeed_enabled:
+            sync_context = contextlib.nullcontext()
+        elif self.state.auto_microbatching and not self.first_batch_complete:
+            # PyTorch DDP rebuilds gradient reduction buckets after 1) a forward pass where the
+            # no_sync context was not set 2) a backward pass 3) a forward pass. If only a
+            # subset of ranks OOM on the first batch, this will cause a deadlock since a rank
+            # that did not OOM will complete steps (1), (2), and (3) on the first succesful
+            # microbatch after the OOMs but an OOMing rank will have never completed (1) if
+            # using `SINGLE_AUTO_SYNC`. To avoid this, we force a sync on every microbatch for
+            # the first batch.
+            log.info('Auto microbatching requires syncing every microbatch (`MULTI_AUTO_SYNC`)'
+                     ' to avoid deadlock on first batch, so ddp_sync_strategy will be ignored.')
+            sync_context = contextlib.nullcontext()
+        else:
+            sync_context = ddp_sync_context(
+                self.state,
+                is_final_microbatch,
+                self._ddp_sync_strategy,
+            )
 
         with sync_context:
-            # forward pass
+            # Forward pass
             self.engine.run_event(Event.BEFORE_FORWARD)
 
             with _get_precision_context(self.state.precision, self.deepspeed_enabled):
@@ -2254,7 +2245,21 @@ class Trainer:
 
             self.engine.run_event(Event.AFTER_FORWARD)
 
-            # loss
+            # Check if other ranks OOMed after forward pass when using auto microbatching. This may
+            # happen when close to memory limit or with uneven memory usage across ranks
+            if self.state.auto_microbatching:
+                # Check if any other rank hit an OOM
+                found_cuda_oom_tensor = self.state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+                dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
+                found_cuda_oom = found_cuda_oom_tensor.item()
+                # Signal current rank is still in batch
+                all_ranks_finished_tensor = self.state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+                dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
+
+                if found_cuda_oom == 1:
+                    raise RuntimeError('CUDA out of memory encountered on a different rank')
+
+            # Loss
             self.engine.run_event(Event.BEFORE_LOSS)
 
             with _get_precision_context(self.state.precision, self.deepspeed_enabled):
@@ -2263,7 +2268,7 @@ class Trainer:
             assert self.state.loss is not None
             self.engine.run_event(Event.AFTER_LOSS)
 
-            # backward
+            # Backward Pass
             self.engine.run_event(Event.BEFORE_BACKWARD)
 
             microbatch_loss_dict = {}
@@ -2570,6 +2575,10 @@ class Trainer:
                 eval_interval='1ep',  # ignored
                 subset_num_batches=subset_num_batches,
             )
+
+            for evaluator in evaluators:
+                validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
+
             self.state.evaluators.extend(evaluators)  # Add evaluators to state.evaluators
         else:
             eval_passed_in = False
@@ -2580,35 +2589,26 @@ class Trainer:
         for evaluator in evaluators:
             eval_subset_num_batches = evaluator.subset_num_batches if subset_num_batches == -1 else subset_num_batches
             self._eval_loop(
-                dataloader=evaluator.dataloader,
-                dataloader_label=evaluator.label,
-                subset_num_batches=eval_subset_num_batches,
+                evaluator=evaluator,
                 metrics=self.state.eval_metrics[evaluator.label],
+                subset_num_batches=eval_subset_num_batches,
             )
             if eval_passed_in:
                 self.state.evaluators.remove(evaluator)  # Remove them from state once eval is finished.
 
     def _eval_loop(
         self,
-        dataloader: Union[Iterable, DataSpec, dict],
-        dataloader_label: str = 'eval',
-        *,
+        evaluator: Evaluator,
         metrics: Dict[str, Metric],
         subset_num_batches: Optional[int] = None,
     ):
         """Evaluate the model and log appropriate metrics.
 
         Args:
-            dataloader (DataLoader | DataSpec | dict): The class:`.DataLoader`, :class:`.DataSpec`, or
-                dict of :class:`.DataSpec` kwargs to use for evaluation
-            dataloader_label (str, optional): The dataloader label to use for logging metrics. Defaults to ``'eval'``.
+            evaluator (Evaluator): The evaluator to use for evaluation.
             metrics (Dict[str, Metric]): Dictionary mapping metric names to metrics to evaluate against.
             subset_num_batches (int, optional): If specified, evaluate on this many batches. Defaults to ``-1``,
                 which means to iterate over the entire dataloader.
-
-                This parameter has no effect if ``eval_dataloader`` is not specified, it is greater than
-                ``len(eval_dataloader)``, or ``eval_dataloader`` is an :class:`.Evaluator` (which is via
-                ``Evaluator(subset_num_batches=...)``.)
         """
         if subset_num_batches is None:
             subset_num_batches = -1
@@ -2618,13 +2618,8 @@ class Trainer:
         original_dataloader_label = self.state.dataloader_label
         original_num_batches = self.state.dataloader_len
 
-        # Unpack the dataloader
-        if isinstance(dataloader, dict):
-            # treat as DataSpec kwargs
-            dataloader = DataSpec(**dataloader)
-        if not isinstance(dataloader, DataSpec):
-            dataloader = DataSpec(dataloader)
-        data_spec = dataloader
+        # Unpack data_spec
+        data_spec = evaluator.dataloader
 
         # Reset the eval timestamp
         self.state.eval_timestamp = Timestamp()
@@ -2632,7 +2627,7 @@ class Trainer:
         last_wct = datetime.datetime.now()
 
         with torch.no_grad(), model_eval_mode(self.state.model):
-            self.state.set_dataloader(data_spec.dataloader, dataloader_label, subset_num_batches)
+            self.state.set_dataloader(data_spec.dataloader, evaluator.label, subset_num_batches)
             assert self.state.dataloader is not None, 'dataloader is set'
 
             self.engine.run_event(Event.EVAL_START)
@@ -2671,8 +2666,8 @@ class Trainer:
                     # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
                     found_cuda_oom = 0
                     try:
-                        for self.state.batch in data_spec._num_microbatches_split_batch(
-                                self.state.batch, self.state.eval_batch_split):
+                        for self.state.batch in data_spec.split_batch(device_batch,
+                                                                      evaluator.device_eval_microbatch_size):
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
                             with _get_precision_context(self.state.precision, self.deepspeed_enabled):
                                 self.state.outputs = self._original_model.eval_forward(self.state.batch)
@@ -2701,21 +2696,25 @@ class Trainer:
                                         )
 
                     except RuntimeError as e:
-                        if self.state.auto_microbatching and _is_cuda_oom(e):
+                        if evaluator.auto_microbatching and _is_cuda_oom(e):
                             log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                             found_cuda_oom = 1
                         else:
                             raise
-                    if self.state.auto_microbatching:
+                    if evaluator.auto_microbatching:
                         # Propagate across all ranks if any rank hit CUDA OOM
                         found_cuda_oom = self.state.device.tensor_to_device(
                             torch.tensor([found_cuda_oom], dtype=torch.uint8))
                         dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
                         if found_cuda_oom.item() == 1:
-                            device_batch_size = data_spec.get_num_samples_in_batch(device_batch)
-                            _adjust_eval_batch_split(self.state, device_batch_size)
+                            _adjust_device_eval_microbatch_size(evaluator)
                             # Skip return and rerun after handling oom
                             continue
+                        # Log device_eval_microbatch_size if auto_microbatching is enabled
+                        self.logger.log_metrics({
+                            f'trainer/{evaluator.label}/device_eval_microbatch_size':
+                                evaluator.device_eval_microbatch_size
+                        })
                     # Break if we've successfully completed eval without OOMing.
                     break
 
@@ -2738,7 +2737,7 @@ class Trainer:
 
                 self.engine.run_event(Event.EVAL_BATCH_END)
 
-            self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics)
+            self._compute_and_log_metrics(dataloader_label=evaluator.label, metrics=metrics)
 
             self.engine.run_event(Event.EVAL_END)
 

@@ -14,10 +14,10 @@ from packaging import version
 from torch.nn.parallel import DistributedDataParallel
 from torchmetrics import Metric, MetricCollection
 
-from composer.core import Precision
-from composer.core.state import State
+from composer.core import Precision, State
+from composer.devices import Device
 from composer.trainer.meta_safe_apply import meta_safe_apply
-from composer.utils import StringEnum, dist, ensure_tuple
+from composer.utils import StringEnum, dist, ensure_tuple, using_torch_2_0
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module']
 
@@ -123,9 +123,14 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
                        'with distributed support.')
 
 
-def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch.optim.Optimizer,
-                                                                           Sequence[torch.optim.Optimizer]]],
-                        fsdp_config: Dict[str, Any], precision: Precision) -> None:
+def prepare_fsdp_module(
+    model: torch.nn.Module,
+    optimizers: Optional[Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]]],
+    fsdp_config: Dict[str, Any],
+    precision: Precision,
+    device: Device,
+    auto_microbatching: bool,
+) -> None:
     """Prepare a module (assumed ComposerModel) and optimizer for use with :class:`torch.distributed.fsdp.FullyShardedDataParallel`.
 
     Args:
@@ -133,17 +138,37 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer for `model`, assumed to have a single param group := model.parameters().
         fsdp_config (Dict[str, Any]): The FSDP config.
         precision: (Precision): The precision being used by the Trainer, used to fill in defaults for FSDP `mixed_precision` settings.
+        device (Device): The device being used by the Trainer.
+        auto_microbatching (bool, optional): Whether or not auto microbatching is enabled.
     """
     if version.parse(torch.__version__) < version.parse('1.13.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
+    is_torch_2_0 = using_torch_2_0()
     from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (CheckpointImpl,
                                                                              apply_activation_checkpointing,
                                                                              checkpoint_wrapper)
     from torch.distributed.fsdp import FullyShardedDataParallel
-    from torch.distributed.fsdp.flatten_params_wrapper import FlattenParamsWrapper
+    if not is_torch_2_0:
+        from torch.distributed.fsdp.flatten_params_wrapper import FlattenParamsWrapper
 
     from composer.trainer.mosaic_fsdp import (MosaicFullyShardedDataParallel, backward_prefetch_map, get_cpu_offload,
                                               get_mixed_precision, sharding_map)
+
+    # Check if other ranks OOMed after forward/backward pass when using auto microbatching. This
+    # may happen when close to memory limit or with uneven memory usage across ranks. Since we
+    # need to do this before the model weights are gathered for the next FSDP block, we wrap every
+    # FSPD block with a hook that checks if any other rank OOMed.
+    def sync_hook(*args):
+        # Check if any other rank hit an OOM
+        found_cuda_oom_tensor = device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+        dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
+        found_cuda_oom = found_cuda_oom_tensor.item()
+        # Signal current rank is still in batch
+        all_ranks_finished_tensor = device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+        dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
+
+        if found_cuda_oom == 1:
+            raise RuntimeError('CUDA out of memory encountered on a different rank')
 
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
@@ -198,12 +223,26 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
     state_dict_type = fsdp_config.get('state_dict_type', 'full')
     activation_checkpointing_reentrant = fsdp_config.get('activation_checkpointing_reentrant', True)
 
+    kwargs = {}
+    if is_torch_2_0:
+        # Support of new parameter `use_orig_params` in PyTorch 2.0 or higher.
+        # Setting this to `True` has FSDP use `module`'s original parameters via method
+        # `nn.Module.named_parameters` instead of FSDP's internal class `FlatParameter`. However,
+        # setting it to `False` exposes FSDP's internal class `FlatParameter` via method
+        # `nn.Module.named_parameters`.
+        # Setting it to `True` is mandatory when using `torch.compile()`.
+        kwargs['use_orig_params'] = fsdp_config.get('use_orig_params', True)
+
     # We choose to not wrap the ComposerModel directly, but instead wrap any submodules like `ComposerModel.model`
     # This makes it safer to call ComposerModel-specific functions like 'eval_forward' that
     # may make calls to sharded submodules. If we only wrap the submodules, then any call that ComposerModel makes
     # to a FSDP-wrapped submodule's `forward()` function will be safe and all-gather the necessary weights before `forward()`.
     for obj_name, obj in model.named_children():
         if not isinstance(obj, (Metric, MetricCollection)):
+
+            # Skip wrapping submodules which are explicitly marked with no wrap
+            if hasattr(obj, '_fsdp_wrap') and not bool(obj._fsdp_wrap):
+                continue
 
             def _param_init_fn(module: torch.nn.Module) -> None:
                 # A dictionary of all tied parameter pointers to module names
@@ -213,7 +252,10 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                 for name, mod in module.named_modules():
                     for attr in ['weight', 'bias']:
                         if hasattr(mod, attr):
-                            ptr = id(getattr(mod, attr))
+                            mod_attr = getattr(mod, attr)
+                            if mod_attr is None:
+                                continue
+                            ptr = id(mod_attr)
                             ptr_attr = (ptr, attr)
                             name_list = tied_pointers.get(ptr_attr, [])
                             name_list.append(name)
@@ -275,18 +317,37 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
             # If module has attribute `module._fsdp_wrap = ...`, always respect it
             # Otherwise wrap if root object `obj.fsdp_wrap_fn(module)` is true
             # Or if unwrapped params in module in greater than or equal to fsdp_config.min_params
-            def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, unwrapped_params: int) -> bool:
+            def __auto_wrap_policy(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
                 if recurse:
                     return True
+                should_be_wrapped = False
+                if hasattr(module, '_fsdp_wrap'):
+                    should_be_wrapped = bool(module._fsdp_wrap)
                 else:
-                    if hasattr(module, '_fsdp_wrap'):
-                        return bool(module._fsdp_wrap)
-
-                    is_large = unwrapped_params >= min_params
+                    is_large = nonwrapped_numel >= min_params
                     if hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
-                        return obj.fsdp_wrap_fn(module) or is_large
+                        should_be_wrapped = obj.fsdp_wrap_fn(module) or is_large
                     else:
-                        return is_large
+                        should_be_wrapped = is_large
+
+                if should_be_wrapped and auto_microbatching:
+                    module.register_forward_hook(sync_hook)
+                    module.register_backward_hook(sync_hook)
+                return should_be_wrapped
+
+            if is_torch_2_0:
+
+                def _auto_wrap_policy_new(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
+                    return __auto_wrap_policy(module, recurse, nonwrapped_numel)
+
+                _auto_wrap_policy = _auto_wrap_policy_new
+
+            else:
+
+                def _auto_wrap_policy_old(module: torch.nn.Module, recurse: bool, unwrapped_params: int) -> bool:
+                    return __auto_wrap_policy(module, recurse, unwrapped_params)
+
+                _auto_wrap_policy = _auto_wrap_policy_old
 
             fsdp_obj = MosaicFullyShardedDataParallel(
                 obj,
@@ -301,6 +362,7 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                 sync_module_states=sync_module_states,
                 forward_prefetch=forward_prefetch,
                 limit_all_gathers=limit_all_gathers,
+                **kwargs,
             )
 
             # Activation Checkpointing
@@ -325,7 +387,9 @@ def prepare_fsdp_module(model: torch.nn.Module, optimizers: Optional[Union[torch
                 # If module has attribute `module._activation_checkpointing = ...`, always respect it
                 # Otherwise checkpoint if root object `obj.activation_checkpointing_fn(module)` is true
                 def _check_fn(module: torch.nn.Module) -> bool:
-                    if isinstance(module, (FullyShardedDataParallel, FlattenParamsWrapper)):
+                    if not is_torch_2_0 and isinstance(module, FlattenParamsWrapper):
+                        return False
+                    if isinstance(module, FullyShardedDataParallel):
                         return False
                     if hasattr(module, '_activation_checkpointing'):
                         return bool(module._activation_checkpointing)

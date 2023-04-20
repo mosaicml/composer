@@ -83,6 +83,7 @@ def test_extract_hparams_trainer():
     trainer = Trainer(
         model=model,
         train_dataloader=train_dl,
+        device_train_microbatch_size=16,
         optimizers=optimizer,
         auto_log_hparams=True,
         progress_bar=False,
@@ -133,6 +134,11 @@ def test_extract_hparams_trainer():
         'log_traces': False,
         'auto_log_hparams': True,
 
+        # Compile
+        'compile_config': None,
+        'is_model_compiled': False,
+        'is_torch_2_0': False,
+
         # Load Checkpoint
         'load_path': None,
         'load_object_store': None,
@@ -157,12 +163,12 @@ def test_extract_hparams_trainer():
         # DeepSpeed
         'deepspeed_config': None,
         'fsdp_config': None,
+        'fsdp_auto_wrap': True,
 
         # System/Numerics
         'device': 'DeviceCPU',
         'precision': 'Precision',
-        'grad_accum': 1,
-        'device_train_microbatch_size': None,
+        'device_train_microbatch_size': 16,
 
         # Reproducibility
         'seed': 3,
@@ -179,11 +185,9 @@ def test_extract_hparams_trainer():
         'python_log_level': None,
         'auto_microbatching': False,
         'rank_zero_seed': 3,
-        'eval_batch_split': 1,
         'latest_remote_file_name': None,
         'num_optimizers': 1,
         'remote_ud_has_format_string': [False],
-        'using_device_microbatch_size': False
     }
 
     assert trainer.local_hparams == expected_hparams

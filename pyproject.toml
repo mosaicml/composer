@@ -123,6 +123,8 @@ filterwarnings = [
     'ignore:Call to deprecated create function EnumValueDescriptor().*:DeprecationWarning:tensorboard',
     'ignore:Call to deprecated create function FieldDescriptor().*:DeprecationWarning:tensorboard',
     'ignore:Call to deprecated create function FileDescriptor().*:DeprecationWarning:tensorboard',
+    # Ignore TracerWarnings for operations potentially unsupported by model tracing
+    'ignore:.*might cause the trace to be incorrect.*:Warning',
 ]
 
 # Coverage

@@ -5,6 +5,8 @@ import collections.abc
 import contextlib
 import copy
 import datetime
+import logging
+import math
 import os
 import pathlib
 import time
@@ -29,7 +31,8 @@ from composer.optim import ExponentialScheduler
 from composer.trainer.trainer import _generate_run_name
 from composer.utils import dist, is_model_deepspeed, is_model_fsdp, map_collection, reproducibility
 from tests.common import (InfiniteClassificationDataset, RandomClassificationDataset, RandomImageDataset,
-                          SimpleConvModel, SimpleModel, device, world_size)
+                          RandomTextLMDataset, SimpleConvModel, SimpleModel, SimpleTransformerMaskedLM, device,
+                          world_size)
 from tests.common.events import EventCounterCallback
 from tests.test_state import assert_state_equivalent
 
@@ -95,6 +98,51 @@ class TestTrainerInit():
         parameters = trainer.state.optimizers[0].param_groups[0]['params']
         target_device = 'cuda' if device == 'gpu' else 'cpu'
         assert all(param.device.type == target_device for param in parameters)
+
+    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
+                        reason='requires PyTorch 2.0 or higher')
+    @pytest.mark.parametrize('compile_config', [(None, False), ({}, True), ({'mode': 'reduce-overhead'}, True)])
+    def test_torch_compile(self, model: ComposerModel, compile_config: Any):
+        train_dataset = RandomClassificationDataset()
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+        max_duration = '2ba'
+        trainer = Trainer(model=model,
+                          max_duration=max_duration,
+                          train_dataloader=DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset)),
+                          optimizers=optimizer,
+                          auto_log_hparams=True,
+                          compile_config=compile_config[0])
+        assert trainer.local_hparams['is_model_compiled'] is compile_config[1]
+
+    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
+                        reason='requires PyTorch 2.0 or higher')
+    def test_already_compiled_warning(self, caplog, model: ComposerModel):
+        with caplog.at_level(logging.WARNING):
+            train_dataset = RandomClassificationDataset()
+            optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+            max_duration = '2ba'
+            model = torch.compile(model)  # pyright: ignore [reportGeneralTypeIssues]
+            _ = Trainer(model=model,
+                        max_duration=max_duration,
+                        train_dataloader=DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset)),
+                        optimizers=optimizer,
+                        auto_log_hparams=True,
+                        compile_config=None)
+            assert '`model` is already compiled with `torch.compile`' in caplog.text
+
+    @pytest.mark.skipif(version.parse(torch.__version__) >= version.parse('2.0.0'),
+                        reason='requires PyTorch 1.13 or lower')
+    def test_compile_unsupported_torch_version_exception(self, caplog, model: ComposerModel):
+        with pytest.raises(ValueError, match='`torch.compile` is supported for PyTorch 2.0 or higher.'):
+            train_dataset = RandomClassificationDataset()
+            optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+            max_duration = '2ba'
+            _ = Trainer(model=model,
+                        max_duration=max_duration,
+                        train_dataloader=DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset)),
+                        optimizers=optimizer,
+                        auto_log_hparams=True,
+                        compile_config={})
 
 
 def _assert_optimizer_is_on_device(optimizer: torch.optim.Optimizer):
@@ -185,6 +233,45 @@ class TestTrainerInitOrFit:
 
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
+
+    @pytest.mark.parametrize('batch_size', [4])
+    @pytest.mark.parametrize('sequence_length', [8])
+    @pytest.mark.parametrize('max_duration', [
+        '1tok',
+        '32tok',
+        '60tok',
+        '65tok',
+    ])
+    @pytest.mark.parametrize('duration_to_fit', [True, False])
+    def test_max_duration_tokens(self, tiny_bert_tokenizer, batch_size: int, sequence_length: int, max_duration: str,
+                                 duration_to_fit: bool):
+        tokens_per_batch = batch_size * sequence_length
+        max_duration_time = Time.from_timestring(max_duration)
+        expected_num_batches = math.ceil(max_duration_time.value / tokens_per_batch)
+        expected_num_tokens = expected_num_batches * tokens_per_batch
+
+        transformers = pytest.importorskip('transformers')
+        model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
+        pretraining_train_dataset = RandomTextLMDataset(size=8,
+                                                        vocab_size=tiny_bert_tokenizer.vocab_size,
+                                                        sequence_length=sequence_length,
+                                                        use_keys=True)
+
+        collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer, mlm_probability=0.15)
+        dataloader = DataLoader(pretraining_train_dataset,
+                                batch_size=batch_size,
+                                sampler=dist.get_sampler(pretraining_train_dataset),
+                                collate_fn=collator)
+
+        if not duration_to_fit:
+            trainer = Trainer(model=model, train_dataloader=dataloader, max_duration=max_duration)
+            trainer.fit()
+        else:
+            trainer = Trainer(model=model, train_dataloader=dataloader)
+            trainer.fit(duration=max_duration)
+
+        assert trainer.state.timestamp.batch.value == expected_num_batches
+        assert trainer.state.timestamp.token.value == expected_num_tokens
 
     @pytest.mark.parametrize('max_duration', [1, '1ep', '1ba', '1sp'])
     @pytest.mark.parametrize('train_subset_num_batches', [-1, 1])
@@ -435,41 +522,6 @@ class TestTrainerInitOrFit:
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
-    def test_grad_accum(
-        self,
-        train_dataloader: DataLoader,
-        model: ComposerModel,
-        max_duration: Time[int],
-    ):
-        grad_accum = 2
-
-        # Copy the model so the fit_trainer can start with the same parameter values as the init_trainer
-        copied_model = copy.deepcopy(model)
-
-        # Train once with the grad_accum param on Trainer.__init__()
-        init_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
-        init_trainer = Trainer(
-            model=model,
-            max_duration=max_duration,
-            train_dataloader=train_dataloader,
-            grad_accum=grad_accum,
-            callbacks=[init_event_counter_callback],
-        )
-        init_trainer.fit()
-
-        # Train again with the grad_accum param specified on Trainer.fit()
-        fit_event_counter_callback = EventCounterCallback()  # track the number of times microbatches are trained
-        fit_trainer = Trainer(
-            model=copied_model,
-            max_duration=max_duration,
-            train_dataloader=train_dataloader,
-            callbacks=[fit_event_counter_callback],
-        )
-        fit_trainer.fit(grad_accum=grad_accum)
-
-        # Assert that the states are equivalent
-        assert_state_equivalent(init_trainer.state, fit_trainer.state)
-
     @pytest.mark.gpu
     @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])
     @pytest.mark.filterwarnings('ignore::UserWarning')
@@ -537,6 +589,56 @@ class TestTrainerInitOrFit:
             assert is_model_fsdp(trainer.state.model)
 
             assert trainer.state.fsdp_enabled
+            trainer.fit()
+
+    @pytest.mark.gpu
+    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
+                        reason='requires PyTorch 2.0 or higher')
+    @pytest.mark.parametrize('precision', [Precision.AMP_BF16, Precision.AMP_FP16])
+    @pytest.mark.parametrize('compile_config', [None, {}])
+    @pytest.mark.filterwarnings('ignore::UserWarning')
+    def test_fsdp_torch_compile(
+        self,
+        model: ComposerModel,
+        precision: Precision,
+        compile_config: Optional[Dict[str, Any]],
+        max_duration: Time[int],
+        train_dataloader: DataLoader,
+    ):
+        fsdp_config = {
+            'sharding_strategy': 'FULL_SHARD',
+            'min_params': 1e8,
+            'cpu_offload': False,
+            'mixed_precision': 'PURE',
+            'backward_prefetch': 'BACKWARD_PRE',
+            'activation_checkpointing': False,
+            'activation_cpu_offload': False,
+            'verbose': False
+        }
+
+        # Need to catch the case where we try to train
+        # with precision FP16.
+        ctx = contextlib.nullcontext()
+        should_error = False
+
+        with ctx:
+            trainer = Trainer(
+                model=model,
+                precision=precision,
+                fsdp_config=fsdp_config,
+                max_duration=max_duration,
+                train_dataloader=train_dataloader,
+                auto_log_hparams=True,
+                compile_config=compile_config,
+            )
+
+        if not should_error:
+            assert is_model_fsdp(trainer.state.model)
+            assert trainer.state.fsdp_enabled
+            if compile_config is None:
+                assert trainer.local_hparams['is_model_compiled'] is False
+            else:
+                assert trainer.local_hparams['is_model_compiled'] is True
             trainer.fit()
 
     @pytest.mark.gpu
@@ -737,18 +839,22 @@ class TestTrainerInitOrFit:
         assert timestamp.batch_wct.total_seconds() > 0
 
         # Validate it is the same across ranks
-        my_timestamp_tensor = torch.tensor([
-            timestamp.total_wct.total_seconds(),
-            timestamp.epoch_wct.total_seconds(),
-            timestamp.batch_wct.total_seconds(),
-        ],
-                                           dtype=torch.float64)
-        rank_zero_timestamp_tensor = torch.tensor([
-            timestamp.total_wct.total_seconds(),
-            timestamp.epoch_wct.total_seconds(),
-            timestamp.batch_wct.total_seconds(),
-        ],
-                                                  dtype=torch.float64)
+        my_timestamp_tensor = torch.tensor(
+            [
+                timestamp.total_wct.total_seconds(),
+                timestamp.epoch_wct.total_seconds(),
+                timestamp.batch_wct.total_seconds(),
+            ],
+            dtype=torch.float64,
+        )
+        rank_zero_timestamp_tensor = torch.tensor(
+            [
+                timestamp.total_wct.total_seconds(),
+                timestamp.epoch_wct.total_seconds(),
+                timestamp.batch_wct.total_seconds(),
+            ],
+            dtype=torch.float64,
+        )
         dist.broadcast(rank_zero_timestamp_tensor, src=0)
         assert torch.all(my_timestamp_tensor == rank_zero_timestamp_tensor)
 
@@ -891,6 +997,57 @@ class TestTrainerInitOrFit:
                 assert trainer.state.timestamp.sample_in_epoch == 0
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_END] == 2
                 assert event_counter_callback.event_to_num_calls[Event.EPOCH_CHECKPOINT] == 2
+
+    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
+                        reason='requires PyTorch 2.0 or higher')
+    @pytest.mark.parametrize('is_model_compiled', [True, False])
+    def test_compile_uncompile_model_weights_trainer_fit(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time[int],
+        is_model_compiled: bool,
+    ):
+        # Copy the model so the fit_trainer can start with the same parameter values as the
+        # other trainer
+        copied_model = copy.deepcopy(model)
+        print(f'{max_duration=}')
+
+        if is_model_compiled:
+            model = torch.compile(model)  # pyright: ignore [reportGeneralTypeIssues]
+            compile_config = None
+        else:
+            compile_config = {}
+
+        # Train a model
+        compiled_model_trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            auto_log_hparams=True,
+            compile_config=compile_config,
+            log_to_console=True,
+            progress_bar=False,
+        )
+
+        assert compiled_model_trainer.local_hparams['is_model_compiled'] is True
+        compiled_model_trainer.fit()
+
+        # Train a model
+        uncompiled_model_trainer = Trainer(
+            model=copied_model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            auto_log_hparams=True,
+            compile_config=None,
+            log_to_console=True,
+            progress_bar=False,
+        )
+        assert uncompiled_model_trainer.local_hparams['is_model_compiled'] is False
+        uncompiled_model_trainer.fit()
+
+        assert (torch.equal(next(compiled_model_trainer.state.model.parameters()),
+                            next(uncompiled_model_trainer.state.model.parameters())))
 
 
 @pytest.mark.vision
@@ -1039,23 +1196,6 @@ class TestTrainerEquivalence():
 
         self.assert_models_equal(trainer.state.model, self.reference_model, threshold=threshold)
 
-    def test_grad_accum_size(self, config, precision, *args):
-        # grad accum requires non-zero tolerance
-        # Precision.AMP_FP16 requires a even higher tolerance.
-        threshold = {
-            'atol': 1e-04 if precision == Precision.AMP_FP16 else 1e-05,
-            'rtol': 1e-02 if precision == Precision.AMP_FP16 else 1e-04,
-        }
-
-        config.update({
-            'grad_accum': 2,
-        })
-
-        trainer = Trainer(**config)
-        trainer.fit()
-
-        self.assert_models_equal(trainer.state.model, self.reference_model, threshold=threshold)
-
     def test_max_duration(self, config, *args):
         num_batches = 2 * len(config['train_dataloader'])  # convert 2ep to batches
         config['max_duration'] = f'{num_batches}ba'
@@ -1155,10 +1295,8 @@ class AssertDataAugmented(Callback):
         self.dataset = dataset
 
     def after_forward(self, state, logger):
-        if state.using_device_microbatch_size and state.device_train_microbatch_size != state.train_dataloader.batch_size:  # type: ignore
+        if state.device_train_microbatch_size != state.train_dataloader.batch_size:  # type: ignore
             raise ValueError('This check assumes device_train_microbatch_size == batch_size')
-        elif not state.using_device_microbatch_size and state.grad_accum != 1:
-            raise ValueError(f'This check assumes grad_accum of 1, got {state.grad_accum}')
         batch_idx = state.timestamp.batch_in_epoch.value
         batch_size = len(state.batch[0])
         original_batch = self.dataset[batch_idx:batch_idx + batch_size]

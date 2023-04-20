@@ -12,9 +12,10 @@ from unittest.mock import ANY, patch
 import pytest
 import torch
 import torch.nn as nn
+from packaging import version
 from torch.utils.data import DataLoader
 
-from composer.core import Precision, State
+from composer.core import State
 from composer.devices import DeviceCPU, DeviceGPU
 from composer.functional import apply_gated_linear_units
 from composer.loggers import InMemoryLogger, Logger
@@ -25,7 +26,9 @@ from composer.trainer.trainer import Trainer
 from composer.utils import dist, export_with_logger, inference
 from composer.utils.device import get_device
 from tests.common import SimpleTransformerClassifier, device
-from tests.common.datasets import RandomImageDataset, dummy_transformer_classifier_batch
+from tests.common.datasets import (RandomImageDataset, dummy_text_classification_dataloader, dummy_tiny_bert_lm_batch,
+                                   dummy_transformer_classifier_batch)
+from tests.common.models import configure_tiny_bert_hf_model
 
 
 class MockFileUploader(LoggerDestination):
@@ -35,17 +38,20 @@ class MockFileUploader(LoggerDestination):
         return True
 
 
-@pytest.mark.parametrize('model_cls, sample_input', [
-    (partial(composer_resnet, 'resnet18'), (torch.rand(4, 3, 224, 224), torch.randint(10, (4,)))),
-    (SimpleTransformerClassifier, dummy_transformer_classifier_batch(vocab_size=10)),
-])
+@pytest.mark.parametrize(
+    'model_cls, sample_input',
+    [(partial(composer_resnet, 'resnet18'), (torch.rand(4, 3, 224, 224), torch.randint(10, (4,)))),
+     pytest.param(SimpleTransformerClassifier, dummy_transformer_classifier_batch()),
+     pytest.param(configure_tiny_bert_hf_model,
+                  dummy_tiny_bert_lm_batch(),
+                  marks=pytest.mark.xfail(reason='TinyBert HuggingFace model does not support torch.jit.script()'))],
+)
 def test_export_for_inference_torchscript(model_cls, sample_input):
     model = model_cls()
 
     model.eval()
 
     orig_out = model(sample_input)
-
     save_format = 'torchscript'
     with tempfile.TemporaryDirectory() as tempdir:
         save_path = os.path.join(tempdir, f'model.pt')
@@ -65,10 +71,15 @@ def test_export_for_inference_torchscript(model_cls, sample_input):
         )
 
 
-def test_huggingface_export_for_inference_onnx(tiny_bert_config):
+@device('cpu', 'gpu')
+@pytest.mark.parametrize('onnx_opset_version', [13, None])
+def test_huggingface_export_for_inference_onnx(onnx_opset_version, tiny_bert_config, device):
     pytest.importorskip('onnx')
     pytest.importorskip('onnxruntime')
     pytest.importorskip('transformers')
+
+    if onnx_opset_version == None and version.parse(torch.__version__) < version.parse('1.13'):
+        pytest.skip("Don't test prior PyTorch version's default Opset version.")
 
     import onnx
     import onnx.checker
@@ -76,6 +87,9 @@ def test_huggingface_export_for_inference_onnx(tiny_bert_config):
     import transformers
 
     from composer.models import HuggingFaceModel
+
+    composer_device = get_device(device)
+    cpu_device = get_device('cpu')
 
     # HuggingFace Bert Model
     # dummy sequence batch with 2 labels, 32 sequence length, and 30522 (bert) vocab size).
@@ -119,98 +133,12 @@ def test_huggingface_export_for_inference_onnx(tiny_bert_config):
 
     model.eval()
 
-    orig_out = model(sample_input)
-
-    save_format = 'onnx'
-    with tempfile.TemporaryDirectory() as tempdir:
-        save_path = os.path.join(tempdir, f'model.{save_format}')
-        inference.export_for_inference(
-            model=model,
-            save_format=save_format,
-            save_path=save_path,
-            sample_input=(sample_input, {}),
-            dynamic_axes=dynamic_axes,
-        )
-        loaded_model = onnx.load(save_path)
-
-        onnx.checker.check_model(loaded_model)
-
-        ort_session = ort.InferenceSession(save_path)
-
-        for key, value in sample_input.items():
-            sample_input[key] = value.numpy()
-
-        loaded_model_out = ort_session.run(None, sample_input)
-
-        torch.testing.assert_close(
-            orig_out['logits'].detach().numpy(),
-            loaded_model_out[1],
-            rtol=1e-4,  # lower tolerance for ONNX
-            atol=1e-3,  # lower tolerance for ONNX
-            msg=f'output mismatch with {save_format}',
-        )
-
-
-@pytest.mark.gpu
-def test_gpu_huggingface_export_for_inference_onnx():
-    pytest.importorskip('onnx')
-    pytest.importorskip('onnxruntime')
-    pytest.importorskip('transformers')
-
-    import onnx
-    import onnx.checker
-    import onnxruntime as ort
-    import transformers
-
-    from composer.functional import apply_low_precision_layernorm
-    from composer.models import HuggingFaceModel
-
-    # HuggingFace Bert Model
-    # dummy sequence batch with 2 labels, 32 sequence length, and 30522 (bert) vocab size).
-    input_ids = torch.randint(low=0, high=30522, size=(2, 32))
-    labels = torch.randint(low=0, high=1, size=(2,))
-    token_type_ids = torch.zeros(size=(2, 32), dtype=torch.int64)
-    attention_mask = torch.randint(low=0, high=1, size=(2, 32))
-    sample_input = {
-        'input_ids': input_ids,
-        'labels': labels,
-        'token_type_ids': token_type_ids,
-        'attention_mask': attention_mask,
-    }
-    dynamic_axes = {
-        'input_ids': {
-            0: 'batch_size',
-            1: 'seq_len'
-        },
-        'labels': {
-            0: 'batch_size'
-        },
-        'token_type_ids': {
-            0: 'batch_size',
-            1: 'seq_len'
-        },
-        'attention_mask': {
-            0: 'batch_size',
-            1: 'seq_len'
-        },
-    }
-    # non pretrained model to avoid a slow test that downloads the weights.
-    config = transformers.AutoConfig.from_pretrained('bert-base-uncased', num_labels=2, hidden_act='gelu_new')
-    hf_model = transformers.AutoModelForSequenceClassification.from_config(config)  # type: ignore (thirdparty)
-
-    model = HuggingFaceModel(hf_model)
-
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
-    apply_gated_linear_units(model, optimizer)
-    apply_low_precision_layernorm(model, Precision('amp_fp16'), optimizer)
-
-    model.eval()
-    orig_out = model(sample_input)
-
-    gpu = torch.device('cuda:0')
-    model.to(gpu)
+    # Move model to device
+    composer_device.module_to_device(model)
     for key, val in sample_input.items():
-        sample_input[key] = val.to(gpu)
+        sample_input[key] = composer_device.tensor_to_device(val)
+
+    orig_out = model(sample_input)
 
     save_format = 'onnx'
     with tempfile.TemporaryDirectory() as tempdir:
@@ -221,6 +149,7 @@ def test_gpu_huggingface_export_for_inference_onnx():
             save_path=save_path,
             sample_input=(sample_input, {}),
             dynamic_axes=dynamic_axes,
+            onnx_opset_version=onnx_opset_version,
         )
         loaded_model = onnx.load(save_path)
 
@@ -229,12 +158,12 @@ def test_gpu_huggingface_export_for_inference_onnx():
         ort_session = ort.InferenceSession(save_path)
 
         for key, value in sample_input.items():
-            sample_input[key] = value.cpu().numpy()
+            sample_input[key] = cpu_device.tensor_to_device(value).numpy()
 
         loaded_model_out = ort_session.run(None, sample_input)
 
         torch.testing.assert_close(
-            orig_out['logits'].detach().numpy(),
+            cpu_device.tensor_to_device(orig_out['logits'].detach()).numpy(),
             loaded_model_out[1],
             rtol=1e-4,  # lower tolerance for ONNX
             atol=1e-3,  # lower tolerance for ONNX
@@ -245,13 +174,17 @@ def test_gpu_huggingface_export_for_inference_onnx():
 @device('cpu', 'gpu')
 @pytest.mark.parametrize(
     'model_cls, sample_input',
-    [
-        (partial(composer_resnet, 'resnet18'), (torch.rand(4, 3, 224, 224), torch.randint(10, (4,)))),
-    ],
+    [(partial(composer_resnet, 'resnet18'), (torch.rand(4, 3, 224, 224), torch.randint(10, (4,)))),
+     (SimpleTransformerClassifier, dummy_transformer_classifier_batch())],
 )
-def test_export_for_inference_onnx(model_cls, sample_input, device):
+@pytest.mark.parametrize('onnx_opset_version', [13, None])
+def test_export_for_inference_onnx(model_cls, sample_input, onnx_opset_version, device):
     pytest.importorskip('onnx')
     pytest.importorskip('onnxruntime')
+
+    if onnx_opset_version == None and version.parse(torch.__version__) < version.parse('1.13'):
+        pytest.skip("Don't test prior PyTorch version's default Opset version.")
+
     import onnx
     import onnx.checker
     import onnxruntime as ort
@@ -265,7 +198,6 @@ def test_export_for_inference_onnx(model_cls, sample_input, device):
                     composer_device.tensor_to_device(sample_input[1]))
     composer_device.module_to_device(model)
     orig_out = model(sample_input)
-
     save_format = 'onnx'
     with tempfile.TemporaryDirectory() as tempdir:
         save_path = os.path.join(tempdir, f'model.{save_format}')
@@ -274,6 +206,7 @@ def test_export_for_inference_onnx(model_cls, sample_input, device):
             save_format=save_format,
             save_path=save_path,
             sample_input=(sample_input, {}),
+            onnx_opset_version=onnx_opset_version,
         )
         loaded_model = onnx.load(save_path)
         onnx.checker.check_model(loaded_model)
@@ -297,75 +230,10 @@ def test_export_for_inference_onnx(model_cls, sample_input, device):
     'model_cls, sample_input',
     [
         (partial(composer_resnet, 'resnet18'), (torch.rand(1, 3, 224, 224), torch.randint(10, (1,)))),
-    ],
-)
-@pytest.mark.world_size(2)
-def test_export_for_inference_onnx_ddp(model_cls, sample_input, request: pytest.FixtureRequest):
-    pytest.importorskip('onnx')
-    pytest.importorskip('onnxruntime')
-    import onnx
-    import onnx.checker
-    import onnxruntime as ort
-
-    model = model_cls()
-    optimizer = torch.optim.SGD(model.parameters(), 0.1)
-    device = None
-    for item in request.session.items:
-        device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
-        break
-    assert device != None
-
-    state = State(
-        model=model,
-        rank_zero_seed=0,
-        device=device,
-        run_name='run_name',
-        optimizers=optimizer,
-        grad_accum=2,
-        max_duration='1ep',
-        dataloader=DataLoader(RandomImageDataset(shape=(3, 224, 224))),
-        dataloader_label='train',
-        precision='fp32',
-    )
-
-    state.model = prepare_ddp_module(state.model, find_unused_parameters=True)
-    state.model.eval()
-    orig_out = state.model(sample_input)
-
-    save_format = 'onnx'
-
-    # Only one rank needs to save/load model
-    if dist.get_local_rank() == 0:
-        with tempfile.TemporaryDirectory() as tempdir:
-            save_path = os.path.join(str(tempdir), f'model.{save_format}')
-            assert isinstance(state.model.module, nn.Module)
-            inference.export_for_inference(
-                model=state.model.module,
-                save_format=save_format,
-                save_path=save_path,
-                sample_input=(sample_input, {}),
-            )
-
-            loaded_model = onnx.load(save_path)
-            onnx.checker.check_model(loaded_model)
-            ort_session = ort.InferenceSession(save_path)
-            loaded_model_out = ort_session.run(
-                None,
-                {'input': sample_input[0].numpy()},
-            )
-
-            torch.testing.assert_close(
-                orig_out.detach().numpy(),
-                loaded_model_out[0],
-                rtol=1e-4,  # lower tolerance for ONNX
-                atol=1e-3,  # lower tolerance for ONNX
-            )
-
-
-@pytest.mark.parametrize(
-    'model_cls, sample_input',
-    [
-        (partial(composer_resnet, 'resnet18'), (torch.rand(1, 3, 224, 224), torch.randint(10, (1,)))),
+        (SimpleTransformerClassifier, dummy_transformer_classifier_batch()),
+        pytest.param(configure_tiny_bert_hf_model,
+                     dummy_tiny_bert_lm_batch(),
+                     marks=pytest.mark.xfail(reason='HuggingFace models do not support torch.jit.script()')),
     ],
 )
 @pytest.mark.world_size(2)
@@ -384,7 +252,6 @@ def test_export_for_inference_torchscript_ddp(model_cls, sample_input, request: 
         device=device,
         run_name='run_name',
         optimizers=optimizer,
-        grad_accum=2,
         max_duration='1ep',
         dataloader=DataLoader(RandomImageDataset(shape=(3, 224, 224))),
         dataloader_label='train',
@@ -419,9 +286,83 @@ def test_export_for_inference_torchscript_ddp(model_cls, sample_input, request: 
     'model_cls, sample_input',
     [
         (partial(composer_resnet, 'resnet18'), (torch.rand(1, 3, 224, 224), torch.randint(10, (1,)))),
+        (SimpleTransformerClassifier, dummy_transformer_classifier_batch()),
     ],
 )
-def test_export_with_file_uploading_logger(model_cls, sample_input):
+@pytest.mark.world_size(2)
+@pytest.mark.parametrize('onnx_opset_version', [13, None])
+def test_export_for_inference_onnx_ddp(model_cls, sample_input, onnx_opset_version, request: pytest.FixtureRequest):
+    pytest.importorskip('onnx')
+    pytest.importorskip('onnxruntime')
+
+    if onnx_opset_version == None and version.parse(torch.__version__) < version.parse('1.13'):
+        pytest.skip("Don't test prior PyTorch version's default Opset version.")
+
+    import onnx
+    import onnx.checker
+    import onnxruntime as ort
+
+    model = model_cls()
+    optimizer = torch.optim.SGD(model.parameters(), 0.1)
+    device = None
+    for item in request.session.items:
+        device = DeviceCPU() if item.get_closest_marker('gpu') is None else DeviceGPU()
+        break
+    assert device != None
+
+    state = State(
+        model=model,
+        rank_zero_seed=0,
+        device=device,
+        run_name='run_name',
+        optimizers=optimizer,
+        max_duration='1ep',
+        dataloader=DataLoader(RandomImageDataset(shape=(3, 224, 224))),
+        dataloader_label='train',
+        precision='fp32',
+    )
+
+    state.model = prepare_ddp_module(state.model, find_unused_parameters=True)
+    state.model.eval()
+    orig_out = state.model(sample_input)
+
+    save_format = 'onnx'
+
+    # Only one rank needs to save/load model
+    if dist.get_local_rank() == 0:
+        with tempfile.TemporaryDirectory() as tempdir:
+            save_path = os.path.join(str(tempdir), f'model.{save_format}')
+            assert isinstance(state.model.module, nn.Module)
+            inference.export_for_inference(
+                model=state.model.module,
+                save_format=save_format,
+                save_path=save_path,
+                sample_input=(sample_input, {}),
+                onnx_opset_version=onnx_opset_version,
+            )
+
+            loaded_model = onnx.load(save_path)
+            onnx.checker.check_model(loaded_model)
+            ort_session = ort.InferenceSession(save_path)
+            loaded_model_out = ort_session.run(
+                None,
+                {'input': sample_input[0].numpy()},
+            )
+
+            torch.testing.assert_close(
+                orig_out.detach().numpy(),
+                loaded_model_out[0],
+                rtol=1e-4,  # lower tolerance for ONNX
+                atol=1e-3,  # lower tolerance for ONNX
+            )
+
+
+@pytest.mark.parametrize(
+    'model_cls, dataloader',
+    [(partial(composer_resnet, 'resnet18'), DataLoader(RandomImageDataset(shape=(3, 224, 224)))),
+     (SimpleTransformerClassifier, dummy_text_classification_dataloader())],
+)
+def test_export_with_file_uploading_logger(model_cls, dataloader):
     with patch('composer.utils.inference.export_for_inference'):
         save_format = 'torchscript'
         model = model_cls()
@@ -432,7 +373,7 @@ def test_export_with_file_uploading_logger(model_cls, sample_input):
             # Construct the trainer and train
             trainer = Trainer(
                 model=model,
-                train_dataloader=DataLoader(RandomImageDataset(shape=(3, 224, 224))),
+                train_dataloader=dataloader,
                 max_duration='1ba',
             )
             trainer.fit()
@@ -457,12 +398,11 @@ def test_export_with_file_uploading_logger(model_cls, sample_input):
 
 
 @pytest.mark.parametrize(
-    'model_cls, sample_input',
-    [
-        (partial(composer_resnet, 'resnet18'), (torch.rand(1, 3, 224, 224), torch.randint(10, (1,)))),
-    ],
+    'model_cls, dataloader',
+    [(partial(composer_resnet, 'resnet18'), DataLoader(RandomImageDataset(shape=(3, 224, 224)))),
+     (SimpleTransformerClassifier, dummy_text_classification_dataloader())],
 )
-def test_export_with_other_logger(model_cls, sample_input):
+def test_export_with_other_logger(model_cls, dataloader):
     with patch('composer.utils.inference.export_for_inference'):
         save_format = 'torchscript'
         model = model_cls()
@@ -473,7 +413,7 @@ def test_export_with_other_logger(model_cls, sample_input):
             # Construct the trainer and train
             trainer = Trainer(
                 model=model,
-                train_dataloader=DataLoader(RandomImageDataset(shape=(3, 224, 224))),
+                train_dataloader=dataloader,
                 max_duration='1ba',
             )
             trainer.fit()
