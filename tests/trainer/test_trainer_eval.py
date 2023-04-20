@@ -332,6 +332,69 @@ def test_eval_dur_interval_token_max(tiny_bert_tokenizer, eval_interval: str, ma
     assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == expected_batch_evals
 
 
+@pytest.mark.parametrize('max_duration', ['1sp', '13sp', '32sp', '33sp'])
+@pytest.mark.parametrize('eval_interval', ['0.1dur', '0.57dur'])
+@pytest.mark.parametrize('batch_size', [1, 4])
+@pytest.mark.parametrize('sequence_length', [1, 16])
+def test_eval_dur_interval_sample_max(tiny_bert_tokenizer, eval_interval: str, max_duration: str, batch_size: int,
+                                      sequence_length: int):
+    """Tests that the trainer evaluates the model at the correct intervals when using duration-based intervals, with max_duration in tokens."""
+    max_duration_time = Time.from_timestring(max_duration)
+    eval_interval_time = Time.from_timestring(eval_interval)
+    samples_per_batch = batch_size
+    eval_interval_samples = math.ceil(max_duration_time.value * eval_interval_time.value)
+
+    # calculate the expected number of evals
+    last_sample_iter = 0
+    next_multiple = eval_interval_samples
+    expected_num_evals = 0
+    last_multiple_added = -1
+    for sample_iter in range(0, max_duration_time.value + samples_per_batch, samples_per_batch):
+        if last_sample_iter < next_multiple <= sample_iter:
+            last_multiple_added = next_multiple
+            expected_num_evals += 1
+        last_sample_iter = sample_iter
+        while next_multiple <= last_sample_iter:
+            next_multiple += eval_interval_samples
+
+    if last_multiple_added + samples_per_batch <= max_duration_time.value:
+        expected_num_evals += 1
+
+    num_eval_batches = 2
+    expected_batch_evals = expected_num_evals * num_eval_batches
+
+    transformers = pytest.importorskip('transformers')
+    model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
+    pretraining_train_dataset = RandomTextLMDataset(size=100,
+                                                    vocab_size=tiny_bert_tokenizer.vocab_size,
+                                                    sequence_length=sequence_length,
+                                                    use_keys=True)
+
+    collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer, mlm_probability=0.15)
+    dataloader = DataLoader(pretraining_train_dataset,
+                            batch_size=batch_size,
+                            sampler=dist.get_sampler(pretraining_train_dataset),
+                            collate_fn=collator)
+    eval_dataloader = DataLoader(pretraining_train_dataset,
+                                 batch_size=batch_size,
+                                 sampler=dist.get_sampler(pretraining_train_dataset),
+                                 collate_fn=collator)
+
+    event_counter_callback = EventCounterCallback()
+    trainer = Trainer(model=model,
+                      train_dataloader=dataloader,
+                      eval_dataloader=eval_dataloader,
+                      max_duration=max_duration_time,
+                      eval_interval=eval_interval_time,
+                      callbacks=[event_counter_callback],
+                      eval_subset_num_batches=num_eval_batches)
+    trainer.fit()
+
+    # we should have one extra call from eval_at_fit_end
+    assert event_counter_callback.event_to_num_calls[Event.EVAL_START] == expected_num_evals
+    assert event_counter_callback.event_to_num_calls[Event.EVAL_BATCH_START] == expected_batch_evals
+
+
 @pytest.mark.parametrize(('eval_interval', 'max_duration', 'eval_at_fit_end', 'expected_eval_start_calls',
                           'expected_eval_batch_start_calls'), [
                               (1, '5ep', True, 4, 4),

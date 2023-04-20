@@ -88,14 +88,12 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
                 last_batch_seen = state.timestamp.batch
                 return True
             elif state.max_duration.unit == TimeUnit.SAMPLE and event == Event.BATCH_END:
-                # If last sample in batch is not evenly divisible by eval_interval, perform evaluation in next batch
-                if int(state.timestamp.batch) > 0:
-                    samples_in_a_batch = int(state.timestamp.sample) // int(state.timestamp.batch)
-                    if int(state.timestamp.sample) // math.ceil(state.max_duration.value * eval_interval) != int(
-                            state.timestamp.sample - samples_in_a_batch) // math.ceil(
-                                state.max_duration.value * eval_interval):
-                        last_batch_seen = state.timestamp.batch
-                        return True
+                samples_per_interval = math.ceil(state.max_duration.value * eval_interval)
+                threshold_passed = math.floor(previous_count / samples_per_interval) != math.floor(
+                    count / samples_per_interval)
+                if threshold_passed:
+                    last_batch_seen = state.timestamp.batch
+                    return True
             elif state.max_duration.unit == TimeUnit.TOKEN and event == Event.BATCH_END:
                 tokens_per_interval = math.ceil(state.max_duration.value * eval_interval)
                 threshold_passed = math.floor(previous_count / tokens_per_interval) != math.floor(
