@@ -416,6 +416,7 @@ class State(Serializable):
         self._train_dataloader = train_dataloader
         self._evaluators = list(ensure_tuple(evaluators))
 
+        self.previous_timestamp: Optional[Timestamp] = None
         self.timestamp = Timestamp()
         self.eval_timestamp = Timestamp()
         self.predict_timestamp = Timestamp()
