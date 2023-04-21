@@ -242,6 +242,7 @@ class EMA(Algorithm):
         if event in [Event.BATCH_CHECKPOINT, Event.EPOCH_CHECKPOINT] and self.ema_started:
             checkpoint_savers = [cb for cb in state.callbacks if isinstance(cb, CheckpointSaver)]
             for checkpoint_saver in checkpoint_savers:
+                assert callable(checkpoint_saver.save_interval)
                 if checkpoint_saver.save_interval(state, event) is True:
                     return True
 

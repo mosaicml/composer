@@ -146,7 +146,7 @@ extra_deps['deepspeed'] = [
 ]
 
 extra_deps['wandb'] = [
-    'wandb>=0.13.2,<0.14',
+    'wandb>=0.13.2,<0.15',
 ]
 
 extra_deps['comet_ml'] = [
@@ -175,7 +175,7 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<4.27.5',
+    'transformers>=4.11,<4.29',
     'datasets>=2.4,<3',
 ]
 
