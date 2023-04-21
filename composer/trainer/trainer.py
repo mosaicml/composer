@@ -2022,7 +2022,7 @@ class Trainer:
             'time/batch': self.state.timestamp.batch.value,
             'time/sample': self.state.timestamp.sample.value,
         })
-        if rank_num_tokens > 0:
+        if self.state.previous_timestamp is not None and self.state.timestamp.token.value - self.state.previous_timestamp.token.value > 0:
             self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
 
         self.engine.run_event(Event.FIT_END)
