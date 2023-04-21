@@ -253,6 +253,7 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
         fsdp_state_dict_type='full',
         shard_strategy='SHARD_GRAD_OP',
         algorithms=EMA(smoothing=0.9999, half_life=None, update_interval='1ba'),
+        save_interval='1ba',
     )
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
@@ -266,6 +267,7 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
         load_path=load_path,
         shard_strategy='SHARD_GRAD_OP',
         algorithms=EMA(smoothing=0.9999, half_life=None, update_interval='1ba'),
+        save_interval='1ba',
     )
     trainer2.fit(duration='1ba')
     state_dict_from_trainer2 = trainer2.state.state_dict()
