@@ -55,13 +55,13 @@ def test_runtime_estimator(time_unit: str):
     )
     trainer.fit()
 
-    wall_clock_remaining_calls = len(in_memory_logger.data['wall_clock/remaining_estimate'])
-    _assert_no_negative_values(in_memory_logger.data['wall_clock/remaining_estimate'])
+    time_remaining_calls = len(in_memory_logger.data['time/remaining_estimate'])
+    _assert_no_negative_values(in_memory_logger.data['time/remaining_estimate'])
 
     expected_calls = int(trainer.state.timestamp.batch) - skip_batches
-    assert wall_clock_remaining_calls == expected_calls
+    assert time_remaining_calls == expected_calls
 
-    ba_2_estimate = in_memory_logger.data['wall_clock/remaining_estimate'][1][-1]
+    ba_2_estimate = in_memory_logger.data['time/remaining_estimate'][1][-1]
     # Should be ~0.2 seconds
     if time_unit == 'seconds':
         assert ba_2_estimate < 1
