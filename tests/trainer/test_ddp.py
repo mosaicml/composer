@@ -136,7 +136,6 @@ def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path
     train_dataloader = DataLoader(
         dataset=train_dataset,
         num_workers=0,
-        prefetch_factor=None,
         persistent_workers=False,
         pin_memory=False,
         timeout=0.0,
