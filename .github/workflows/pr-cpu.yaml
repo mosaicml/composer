@@ -16,11 +16,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - name: 'cpu-3.8-1.11'
-            container: mosaicml/pytorch:1.11.0_cpu-python3.8-ubuntu20.04
-            markers: 'not daily and not remote and not gpu and not vision and not doctest'
-            pytest_command: 'coverage run -m pytest'
-            composer_package_name: 'mosaicml'
           - name: 'cpu-3.9-1.12'
             container: mosaicml/pytorch:1.12.1_cpu-python3.9-ubuntu20.04
             markers: 'not daily and not remote and not gpu and not vision and not doctest'
@@ -33,6 +28,11 @@ jobs:
             composer_package_name: 'mosaicml'
           - name: 'cpu-3.10-1.13-composer'
             container: mosaicml/pytorch:1.13.1_cpu-python3.10-ubuntu20.04
+            markers: 'not daily and not remote and not gpu and not vision and not doctest'
+            pytest_command: 'coverage run -m pytest'
+            composer_package_name: 'composer'
+          - name: 'cpu-3.10-2.0-composer'
+            container: mosaicml/pytorch:2.0.0_cpu-python3.10-ubuntu20.04
             markers: 'not daily and not remote and not gpu and not vision and not doctest'
             pytest_command: 'coverage run -m pytest'
             composer_package_name: 'composer'
