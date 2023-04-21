@@ -458,6 +458,7 @@ class HuggingFaceModel(ComposerModel):
         # We need to call forward once in order for FSDP + generate to work
         # See https://github.com/huggingface/accelerate/issues/570, https://github.com/huggingface/accelerate/issues/947,
         # and https://github.com/pytorch/pytorch/issues/82461 for more info
+        # NOTE: This is a hack for Torch 1.13.x, and there is a different hack below for Torch 2.0
         if not using_torch_2_0() and not self.dummy_forward_called and is_model_fsdp(self.model):
             with torch.no_grad():
                 maybe_decoder_input_ids = {}
@@ -472,8 +473,11 @@ class HuggingFaceModel(ComposerModel):
         if is_model_fsdp(self.model) and using_torch_2_0():
             from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
-            # The above hack no longer works on torch 2.0. So, this is unfortunately necessary at the moment
-            with FSDP.summon_full_params(self.model, writeback=False):
+            # NOTE: We need to use the FSDP.summon_full_params context manager here because the generate function
+            # does not seem to gather the weights for the LM head. This has only been tested with a few models, so
+            # consider FSDP + Torch 2.0 + HuggingFace generate to be beta suppor.
+            # NOTE: We use recurse=False here so that we only summon full params for the LM head, not the entire model.
+            with FSDP.summon_full_params(self.model, writeback=False, recurse=False):
                 return self.model.generate(input_ids, pad_token_id=pad_token_id, **kwargs)
         else:
             return self.model.generate(input_ids, pad_token_id=pad_token_id, **kwargs)
