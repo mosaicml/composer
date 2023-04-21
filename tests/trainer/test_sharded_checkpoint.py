@@ -259,7 +259,7 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
     state_dict_from_trainer1 = trainer1.state.state_dict()
     trainer1.close()
 
-    load_path = str(save_folder / pathlib.Path('ba4-rank{rank}.pt'))
+    load_path = str(save_folder / pathlib.Path('ba1-rank{rank}.pt'))
     trainer2 = get_trainer(
         save_folder=str(save_folder),
         save_filename=save_filename,
