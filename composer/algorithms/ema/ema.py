@@ -48,6 +48,15 @@ def compute_ema(model: torch.nn.Module,
         ema_model (torch.nn.Module, EMAParameters): the model containing the moving average weights to be updated.
         smoothing (float, optional): the coefficient representing the degree to which older observations are kept.
             Must be in the interval :math:`(0, 1)`. Default: ``0.99``.
+
+    Example:
+        .. testcode::
+
+                import composer.functional as cf
+                from torchvision import models
+                model = models.resnet50()
+                ema_model = models.resnet50()
+                cf.compute_ema(model, ema_model, smoothing=0.9)
     """
     model_context_manager = get_model_context_manager(model)
 
