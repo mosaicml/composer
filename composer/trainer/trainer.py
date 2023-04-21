@@ -1885,6 +1885,7 @@ class Trainer:
             try:
                 if int(self.state.timestamp.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
+                    self.logger.log_metrics({'time/epoch': int(self.state.timestamp.epoch)})
 
                 dataloader = self.state.dataloader
                 if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
@@ -1914,7 +1915,6 @@ class Trainer:
 
                     # Log time values
                     self.logger.log_metrics({
-                        'time/epoch': self.state.timestamp.epoch.value,
                         'time/batch': self.state.timestamp.batch.value,
                         'time/sample': self.state.timestamp.sample.value,
                     })

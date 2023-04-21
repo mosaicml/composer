@@ -195,7 +195,7 @@ def test_comet_ml_logging_train_loop(monkeypatch, tmp_path):
     # Check that basic metrics appear in the comet logs
     assert len([
         metric_msg for metric_msg in msg_type_to_msgs['metric_msg']
-        if metric_msg['metric']['metricName'] == 'trainer/epoch'
+        if metric_msg['metric']['metricName'] == 'time/epoch'
     ]) == 2
 
     # Check that basic params appear in the comet logs
