@@ -109,6 +109,10 @@ class ConsoleLogger(LoggerDestination):
             # Clear logged metrics.
             self.logged_metrics = {}
 
+    def fit_end(self, state: State, logger: Logger) -> None:
+        # Always clear logged metrics so they don't get logged in a subsequent eval call.
+        self.logged_metrics = {}
+
     def eval_batch_end(self, state: State, logger: Logger) -> None:
         cur_batch = int(state.eval_timestamp.batch)
         if cur_batch in self.eval_batch_idxs_to_log:
