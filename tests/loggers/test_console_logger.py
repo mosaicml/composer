@@ -72,7 +72,7 @@ def test_console_logger_interval(console_logger_test_stream, console_logger_test
     elif log_interval_unit == 'ba' and max_duration_unit == 'ep':
         expected_num_logging_events = (batches_per_epoch * max_duration) // log_interval
     else:  # for the case where log_interval_unit == 'ep' and max_duration == 'ba'.
-        total_epochs = max_duration // batches_per_epoch
+        total_epochs = math.ceil(max_duration / batches_per_epoch)
         expected_num_logging_events = total_epochs // log_interval
     if log_interval != 1:
         expected_num_logging_events += 1  # Because we automatically log the first batch or epoch.
