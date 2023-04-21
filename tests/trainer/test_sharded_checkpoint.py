@@ -21,6 +21,7 @@ from tests.common.markers import world_size
 def get_trainer(
     save_folder=None,
     save_filename='ba{batch}-rank{rank}.pt',
+    save_overwrite=False,
     num_features=2,
     num_classes=2,
     fsdp_state_dict_type='full',
@@ -51,7 +52,7 @@ def get_trainer(
         max_duration=max_duration,
         save_interval=save_interval,
         save_filename=save_filename,
-        save_overwrite=False,
+        save_overwrite=save_overwrite,
         precision=precision,
         load_path=load_path,
         progress_bar=False,
@@ -269,6 +270,7 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
         shard_strategy='SHARD_GRAD_OP',
         algorithms=EMA(smoothing=0.9999, half_life=None, update_interval='1ba'),
         save_interval='1ba',
+        save_overwrite=True,
     )
     trainer2.fit(duration='1ba')
     state_dict_from_trainer2 = trainer2.state.state_dict()
