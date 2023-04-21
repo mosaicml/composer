@@ -15,11 +15,7 @@ from composer.core import Algorithm, DataSpec, Event, State
 from composer.loggers import Logger
 from composer.loss.utils import ensure_targets_one_hot
 
-# from torchvision.datasets.cifar import CIFAR10, CIFAR100
-
 __all__ = ['LabelSmoothing', 'smooth_labels']
-
-# T_co = TypeVar('T_co', covariant=True)
 
 
 def infer_num_classes(targets: torch.Tensor) -> int:
@@ -334,9 +330,8 @@ class LabelSmoothing(Algorithm):
 
         # update label distrbutions (epoch)
         elif event == Event.EPOCH_END:
-            assert isinstance(
-                self.label_smoother, Union[UniformSmoother, CategoricalSmoother, OnlineSmoother]
-            ), '`self.label_smoother` must be of type `UniformSmoother`, `CategoricalSmoother`, or `OnlineSmoother`, not {}.'.format(
+            err_msg = '`self.label_smoother` must be of type `UniformSmoother`, `CategoricalSmoother`, or `OnlineSmoother`, not `{}`.'.format(
                 type(self.label_smoother))
-
+            assert isinstance(self.label_smoother, Union[UniformSmoother, CategoricalSmoother, OnlineSmoother]), err_msg
+            
             self.label_smoother.update_epoch()
