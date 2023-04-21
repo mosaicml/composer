@@ -53,7 +53,7 @@ def test_current_metrics(eval_interval: str,):
     train_subset_num_batches = 2
     eval_subset_num_batches = 2
     num_epochs = 2
-    metrics_callback = MetricsCallback(compute_val_metrics=compute_val_metrics,)
+    metrics_callback = MetricsCallback(compute_val_metrics=compute_val_metrics)
 
     dataset_kwargs = {
         'num_classes': 2,
@@ -102,13 +102,13 @@ def test_current_metrics(eval_interval: str,):
     num_expected_calls += num_epochs
 
     num_expected_calls += num_epochs * train_subset_num_batches * num_step_and_index_calls
+    num_expected_calls += 1  # timestamp call at end of fit
 
     num_expected_calls += num_epochs * train_subset_num_batches * num_loss_calls_per_epoch
 
-    # computed once per batch
-    # and again at epoch end
+    # Computed once per batch and again at epoch end
     num_expected_calls += (train_subset_num_batches + 1) * num_epochs
-    # computed at eval end
+    # Computed at eval end
     if compute_val_metrics:
         num_evals = 0
         if eval_interval == '1ba':
