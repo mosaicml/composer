@@ -50,8 +50,8 @@ def compute_ema(model: torch.nn.Module,
             Must be in the interval :math:`(0, 1)`. Default: ``0.99``.
 
     Example:
-
         .. testcode::
+
                 import composer.functional as cf
                 from torchvision import models
                 model = models.resnet50()
