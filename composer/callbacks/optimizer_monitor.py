@@ -99,7 +99,7 @@ class OptimizerMonitor(Callback):
 
                 metric_reporter = getattr(state.optimizers[0], 'report_per_parameter_metrics', None)
                 if callable(metric_reporter) and self.log_optimizer_metrics:
-                    optimizer_metrics = metric_reporter(p, name, optimizer_metrics)
+                    optimizer_metrics.update(metric_reporter(p, name, optimizer_metrics))
 
                 # Always log grad norm as a default metric if it's not specified
                 if f'l2_norm/grad/{name}' not in optimizer_metrics:

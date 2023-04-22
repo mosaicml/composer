@@ -57,12 +57,13 @@ def test_optimizer_monitor(log_optimizer_metrics: bool, batch_log_interval: int)
 @world_size(1, 2)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
-def test_fsdp_optimizer_monitor(device, world_size):
+@pytest.mark.parametrize('use_orig_params', [True, False])
+def test_fsdp_optimizer_monitor(device, world_size, use_orig_params):
     # Construct the callback
     grad_monitor = OptimizerMonitor(log_optimizer_metrics=True)
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
-    model = SimpleModel()
-    dataset = RandomClassificationDataset()
+    model = SimpleModel(num_classes=100, num_features=100, num_hidden=100)
+    dataset = RandomClassificationDataset(num_classes=100, shape=(100, 1, 1))
     # Construct the trainer and train
     trainer = Trainer(model=model,
                       callbacks=grad_monitor,
@@ -72,13 +73,14 @@ def test_fsdp_optimizer_monitor(device, world_size):
                       max_duration='3ba',
                       fsdp_config={
                           'sharding_strategy': 'FULL_SHARD',
-                          'min_params': 10,
+                          'min_params': 1,
                           'cpu_offload': False,
                           'mixed_precision': 'PURE',
                           'backward_prefetch': 'BACKWARD_PRE',
                           'activation_checkpointing': False,
                           'activation_ocpu_offload': False,
-                          'verbose': False
+                          'verbose': False,
+                          'use_orig_params': use_orig_params,
                       })
     trainer.fit()
     num_train_steps = int(trainer.state.timestamp.batch)
@@ -87,12 +89,12 @@ def test_fsdp_optimizer_monitor(device, world_size):
     grad_norm_calls = len(in_memory_logger.data['l2_norm/grad/global'])
     layer_norm_calls = [len(calls) for (k, calls) in in_memory_logger.data.items() if 'l2_norm/grad' in k]
     test_keys = [
-        'l2_norm/grad/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param',
-        'l2_norm/moment/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param',
-        'cosine/moment_grad/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param',
-        'l2_norm/second_moment_sqrt/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param',
-        'l2_norm/update/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param',
-        'cosine/update_grad/module._fsdp_wrapped_module._fpw_module.4._fsdp_wrapped_module.flat_param',
+        'l2_norm/grad/module._fsdp_wrapped_module.4._fsdp_wrapped_module',
+        'l2_norm/moment/module._fsdp_wrapped_module.4._fsdp_wrapped_module',
+        'cosine/moment_grad/module._fsdp_wrapped_module.4._fsdp_wrapped_module',
+        'l2_norm/second_moment_sqrt/module._fsdp_wrapped_module.4._fsdp_wrapped_module',
+        'l2_norm/update/module._fsdp_wrapped_module.4._fsdp_wrapped_module',
+        'cosine/update_grad/module._fsdp_wrapped_module.4._fsdp_wrapped_module',
     ]
     for key in test_keys:
         assert key in in_memory_logger.data.keys()
