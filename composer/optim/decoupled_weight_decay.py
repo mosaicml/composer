@@ -11,9 +11,10 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import Iterable, List, Tuple, Union
+from typing import Dict, Iterable, List, Tuple, Union
 
 import torch
+from torch import Tensor
 from torch.optim import SGD, AdamW
 from torch.optim.optimizer import required  # type: ignore
 
@@ -350,33 +351,60 @@ class DecoupledAdamW(AdamW):
 
         return loss
 
-    def dist_reduce_metrics(self, optimizer_metrics):
-        for metric in optimizer_metrics:
-            if metric.startswith('l2_norm'):
-                reduced = optimizer_metrics[metric]
+    def dist_reduce_metrics(self, optimizer_metrics: Dict[str, Tensor]):
+        base_names = set()
+        for metric in optimizer_metrics.keys():
+            if metric.endswith('.weight'):
+                base_names.add(metric[:-7])
+            elif metric.endswith('.bias'):
+                base_names.add(metric[:-5])
+            elif metric.endswith('._flat_param'):
+                base_names.add(metric[:-12])
+            else:
+                base_names.add(metric)
+
+        result_optimizer_metrics = {}
+        for base_name in sorted(base_names):
+            maybe_weight = optimizer_metrics.get(f'{base_name}.weight')
+            maybe_bias = optimizer_metrics.get(f'{base_name}.bias')
+            maybe_flat_param = optimizer_metrics.get(f'{base_name}._flat_param')
+            maybe_original = optimizer_metrics.get(base_name)
+
+            if maybe_flat_param is not None:
+                reduced = maybe_flat_param
+            elif maybe_weight is not None and maybe_bias is not None:
+                reduced = maybe_weight + maybe_bias
+            elif maybe_weight is not None:
+                reduced = maybe_weight
+            elif maybe_bias is not None:
+                reduced = maybe_bias
+            elif maybe_original is not None:
+                reduced = maybe_original
+            else:
+                raise RuntimeError('Impossible internal state.')
+
+            if base_name.startswith('l2_norm'):
                 if dist.get_world_size() > 1:
                     dist.all_reduce(reduced, reduce_operation='SUM')
 
-                optimizer_metrics[metric] = math.sqrt(reduced)
-            elif metric.startswith('cosine'):
-                reduced = optimizer_metrics[metric]
+                result_optimizer_metrics[base_name] = math.sqrt(reduced)
+            elif base_name.startswith('cosine'):
                 if dist.get_world_size() > 1:
                     dist.all_reduce(reduced, reduce_operation='SUM')
 
-                _, vectors, layer = tuple(metric.split('/'))
+                _, vectors, layer = tuple(base_name.split('/'))
 
                 A, B = tuple(vectors.split('_'))
 
                 A_reduced_norm = optimizer_metrics[f'l2_norm/{A}/{layer}']
                 B_reduced_norm = optimizer_metrics[f'l2_norm/{B}/{layer}']
-                optimizer_metrics[metric] = reduced / (A_reduced_norm * B_reduced_norm)
+                result_optimizer_metrics[base_name] = reduced / (A_reduced_norm * B_reduced_norm)
             else:
-                reduced = optimizer_metrics[metric]
                 if dist.get_world_size() > 1:
                     dist.all_reduce(reduced, reduce_operation='SUM')
-                optimizer_metrics[metric] = reduced / dist.get_world_size()
+                result_optimizer_metrics[base_name] = reduced / dist.get_world_size()
 
-        return optimizer_metrics
+        return result_optimizer_metrics
 
     def pre_reduce_metrics(self, optimizer_metrics):
         """Preprocess metrics to reduce across ranks correctly."""

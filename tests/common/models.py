@@ -23,13 +23,18 @@ class SimpleModel(ComposerClassifier):
         num_classes (int): number of classes (default: 2)
     """
 
-    def __init__(self, num_features: int = 1, num_classes: int = 2, device: str = 'cpu', bias: bool = True) -> None:
+    def __init__(self,
+                 num_features: int = 1,
+                 num_classes: int = 2,
+                 num_hidden: int = 8,
+                 device: str = 'cpu',
+                 bias: bool = True) -> None:
 
         self.num_features = num_features
         self.num_classes = num_classes
 
-        fc1 = torch.nn.Linear(num_features, 5, device=device, bias=bias)
-        fc2 = torch.nn.Linear(5, num_classes, device=device, bias=bias)
+        fc1 = torch.nn.Linear(num_features, num_hidden, device=device, bias=bias)
+        fc2 = torch.nn.Linear(num_hidden, num_classes, device=device, bias=bias)
 
         net = torch.nn.Sequential(
             torch.nn.AdaptiveAvgPool2d(1),
