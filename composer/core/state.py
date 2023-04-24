@@ -119,17 +119,9 @@ def fsdp_get_optim_state_dict(model: torch.nn.Module,
     if version.parse(torch.__version__) < version.parse('1.13.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-    if state_dict_type == 'full':
-        # Converts local state dict to full.
-        return FSDP.full_optim_state_dict(model=model, optim=optim)
-    elif state_dict_type == 'sharded':
-        # Converts local state dict to sharded.
-        return FSDP.sharded_optim_state_dict(model=model, optim=optim)
-    elif state_dict_type == 'local':
-        # State dict is already local, so just return state dict.
-        return optim.state_dict()
-    else:
-        raise NotImplementedError(f'No valid FSDP state_dict_type for {state_dict_type}')
+    with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
+        optim_state_dict = FSDP.optim_state_dict(model, optim)
+        return optim_state_dict
 
 
 def get_fsdp_sharded_optim_state_dict(full_optim_state_dict: Dict[str, Any], model: torch.nn.Module):
