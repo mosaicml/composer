@@ -665,11 +665,13 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str) -> Di
     dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
     if 'category' not in dataset.features.keys():
         raise Exception(
-            f"Attempted to partition dataset by category but it doesn't have a category key: {str(dataset)}")
+            f"Attempted to partition dataset by `category` but it doesn't have a `category` key. Got keys: {str(list(dataset.features.keys()))}"
+        )
     categories = sorted(set(dataset['category']))
     output_files = {}
     for cat in categories:
-        cat_dest = '/'.join(destination_path.split('/')[:-1]) + f"/{cat}_{destination_path.split('/')[-1]}"
+        path = destination_path.split('/')
+        cat_dest = '/'.join(path[:-1]) + f'/{cat}_{path[-1]}'
         tmp_path_to_broadcast = str(os.path.abspath(cat_dest))
         gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
         if dist.get_local_rank() == 0:
@@ -736,7 +738,7 @@ def get_icl_task_dataloader(
         continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
         destination_path: (str): This is the local file where remote datasets will be saved.
         question_prelimiter: (str): For QA tasks, this will be prepended to each question.
-        has_categories: (bool): If true, we will search the dataset file for a category key, and partition the dataset into a separate dataloader for each category occurring in the data.
+        has_categories: (bool): If ``True``, we will search the dataset file for a category key, and partition the dataset into a separate dataloader for each category occurring in the data.
 
     Returns:
         DataLoader: A dataloader used for performing in-context learning evaluation on the dataset provided.
@@ -748,7 +750,7 @@ def get_icl_task_dataloader(
         categories = sorted(output_files.keys())
         for category in categories:
             partition_uri = output_files[category]
-            result_dls[category] = build_dl(
+            result_dls[category] = build_icl_dataloader(
                 icl_task_type,
                 partition_uri,
                 tokenizer,
@@ -765,7 +767,7 @@ def get_icl_task_dataloader(
             )
         return result_dls
     else:
-        return build_dl(
+        return build_icl_dataloader(
             icl_task_type,
             dataset_uri,
             tokenizer,

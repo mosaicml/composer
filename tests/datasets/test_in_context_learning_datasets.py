@@ -398,7 +398,8 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
 @pytest.mark.parametrize('dataset_uri', ['mmlu_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 5])
 @device('gpu')
-def test_mc_task_evaluation_subcategories(device, dataset_uri, num_fewshot, tiny_gpt2_tokenizer, tmp_path):
+def test_mc_task_evaluation_subcategories(device, dataset_uri, num_fewshot, tiny_gpt2_model, tiny_gpt2_tokenizer,
+                                          tmp_path):
     pytest.importorskip('datasets')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -407,36 +408,35 @@ def test_mc_task_evaluation_subcategories(device, dataset_uri, num_fewshot, tiny
     dls = get_icl_task_dataloader('multiple_choice',
                                   dataset_uri,
                                   tokenizer,
-                                  2,
-                                  max_seq_len=2048,
+                                  8,
+                                  max_seq_len=1024,
                                   pad_tok_id=tokenizer.eos_token_id,
                                   num_fewshot=num_fewshot,
                                   prompt_string='',
                                   example_delimiter='\n',
-                                  continuation_delimiter='',
+                                  continuation_delimiter=': ',
                                   destination_path=str(tmp_path / 'icl.jsonl'),
                                   has_categories=True)
 
     assert isinstance(dls, dict)
     evaluators = [
-        Evaluator(label='mmlu/' + k, dataloader=dl, metric_names=['InContextLearningLMAccuracy'])
+        Evaluator(label='mmlu/' + k, dataloader=dl, metric_names=['InContextLearningMultipleChoiceAccuracy'])
         for k, dl in dls.items()
     ]
 
-    config = transformers.AutoConfig.from_pretrained('EleutherAI/gpt-neo-125M')
-    model = transformers.AutoModelForCausalLM.from_config(config)
     model = HuggingFaceModel(
-        model=model,
-        tokenizer=None,
-        eval_metrics=[InContextLearningLMAccuracy()],
+        model=tiny_gpt2_model,
+        tokenizer=tiny_gpt2_tokenizer,
+        eval_metrics=[InContextLearningMultipleChoiceAccuracy()],
         use_logits=True,
     )
 
-    trainer = Trainer(model=model, max_duration='1ep', loggers=in_memory_logger)
+    trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
     trainer.eval(eval_dataloader=evaluators, subset_num_batches=2)
-    assert 'metrics/mmlu/computer_security/InContextLearningLMAccuracy' in in_memory_logger.data.keys()
-    assert 'metrics/mmlu/human_aging/InContextLearningLMAccuracy' in in_memory_logger.data.keys()
-    assert in_memory_logger.data['metrics/mmlu/computer_security/InContextLearningLMAccuracy'][0][1].item() == 0
+    assert 'metrics/mmlu/computer_security/InContextLearningMultipleChoiceAccuracy' in in_memory_logger.data.keys()
+    assert 'metrics/mmlu/human_aging/InContextLearningMultipleChoiceAccuracy' in in_memory_logger.data.keys()
+    assert in_memory_logger.data['metrics/mmlu/computer_security/InContextLearningMultipleChoiceAccuracy'][0][1].item(
+    ) > 0
 
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl', 'hellaswag_small.jsonl'])
@@ -465,19 +465,19 @@ def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenize
         destination_path=str(tmp_path / 'icl.jsonl'),
     )
 
-    evaluator = Evaluator(label='lambada', dataloader=dl, metric_names=['InContextLearningMultipleChoiceAccuracy'])
+    evaluator = Evaluator(label='mc', dataloader=dl, metric_names=['InContextLearningMultipleChoiceAccuracy'])
 
     model = HuggingFaceModel(
         model=tiny_gpt2_model,
-        tokenizer=None,
+        tokenizer=tiny_gpt2_tokenizer,
         eval_metrics=[InContextLearningMultipleChoiceAccuracy()],
         use_logits=True,
     )
 
     trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
     trainer.eval(eval_dataloader=evaluator)
-    assert 'metrics/lambada/InContextLearningMultipleChoiceAccuracy' in in_memory_logger.data.keys()
-    assert in_memory_logger.data['metrics/lambada/InContextLearningMultipleChoiceAccuracy'][0][1].item() > 0
+    assert 'metrics/mc/InContextLearningMultipleChoiceAccuracy' in in_memory_logger.data.keys()
+    assert in_memory_logger.data['metrics/mc/InContextLearningMultipleChoiceAccuracy'][0][1].item() > 0
 
 
 @pytest.mark.parametrize('dataset_uri', ['triviaqa_small.jsonl'])
