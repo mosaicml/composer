@@ -151,37 +151,39 @@ def test_fsdp_full_state_dict_save(world_size, tmp_path: pathlib.Path):
     state_dict_in_memory = trainer.state.state_dict()
 
     if dist.get_global_rank() == 0:
+        print(state_dict_in_memory['model'])
+        print([id(v) for v in state_dict_in_memory['model'].values()])
         # Check rank 0 state dict has the full model weights.
         assert set(state_dict_in_memory['model'].keys()) == {
-            'module.2.weight', 'module.2.bias', 'module.4.weight', 'module.4.bias'
+            'fc1.weight', 'fc1.bias', 'fc2.weight', 'fc2.bias'
         }
-        assert state_dict_in_memory['model']['module.2.weight'].ndim == 2
-        assert state_dict_in_memory['model']['module.2.weight'].shape == layer1_weights_shape
-        assert state_dict_in_memory['model']['module.2.bias'].shape == layer1_bias_shape
-        assert state_dict_in_memory['model']['module.4.weight'].shape == layer2_weights_shape
-        assert state_dict_in_memory['model']['module.4.bias'].shape == layer2_bias_shape
+        assert state_dict_in_memory['model']['fc1.weight'].ndim == 2
+        assert state_dict_in_memory['model']['fc1.weight'].shape == layer1_weights_shape
+        assert state_dict_in_memory['model']['fc1.bias'].shape == layer1_bias_shape
+        assert state_dict_in_memory['model']['fc2.weight'].shape == layer2_weights_shape
+        assert state_dict_in_memory['model']['fc2.bias'].shape == layer2_bias_shape
         assert sum([p.numel() for p in state_dict_in_memory['model'].values()]) == expected_total_num_params
 
         # Check rank 0 state dict also has the full optimizer params.
         optim_state_dict = state_dict_in_memory['optimizers']['Adam']['state']
         assert all([
             optim_moment.shape == layer1_weights_shape
-            for moment_name, optim_moment in optim_state_dict['module.2.weight'].items()
+            for moment_name, optim_moment in optim_state_dict['fc1.weight'].items()
             if moment_name != 'step'
         ])
         assert all([
             optim_moment.shape == layer2_weights_shape
-            for moment_name, optim_moment in optim_state_dict['module.4.weight'].items()
+            for moment_name, optim_moment in optim_state_dict['fc2.weight'].items()
             if moment_name != 'step'
         ])
         assert all([
             optim_moment.shape == layer1_bias_shape
-            for moment_name, optim_moment in optim_state_dict['module.2.bias'].items()
+            for moment_name, optim_moment in optim_state_dict['fc1.bias'].items()
             if moment_name != 'step'
         ])
         assert all([
             optim_moment.shape == layer2_bias_shape
-            for moment_name, optim_moment in optim_state_dict['module.4.bias'].items()
+            for moment_name, optim_moment in optim_state_dict['fc2.bias'].items()
             if moment_name != 'step'
         ])
 
@@ -194,6 +196,8 @@ def test_fsdp_full_state_dict_save(world_size, tmp_path: pathlib.Path):
         _compare_metrics_between_state_dicts(state_dict_from_checkpoint, state_dict_in_memory)
 
     if dist.get_global_rank() == 1:
+        print(state_dict_in_memory['model'])
+        print([id(v) for v in state_dict_in_memory['model'].values()])
         # Check rank 1 state dict just has the flattened shards.
         rank1_state_dict_keys = set(state_dict_in_memory['model'].keys())
         # Assert all params flattened
@@ -213,6 +217,7 @@ def test_fsdp_full_state_dict_save(world_size, tmp_path: pathlib.Path):
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
+# @pytest.mark.filterwarnings('ignore::UserWarning') # need to switch to the new FSDP.optim_state_dict
 def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresume: bool, precision: str):
     if autoresume:
         run_name = 'my-cool-autoresume-run'
@@ -408,6 +413,7 @@ def test_fsdp_partitioned_state_dict_save(world_size, tmp_path: pathlib.Path, st
 @pytest.mark.parametrize('autoresume', [True, False])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
+# @pytest.mark.filterwarnings('ignore::UserWarning') # need to switch to the new FSDP.optim_state_dict
 def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool,
                                           precision: str):
     if autoresume:
@@ -454,6 +460,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
 @pytest.mark.parametrize('autoresume', [True])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
+# @pytest.mark.filterwarnings('ignore::UserWarning') # need to switch to the new FSDP.optim_state_dict
 def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool):
     run_name = 'my-run-ar' if autoresume else 'my-run'
     save_folder = str(tmp_path / pathlib.Path(run_name))
