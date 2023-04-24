@@ -641,7 +641,7 @@ def build_icl_dataloader(
 
 
 def partition_dataset_by_category(dataset_uri: str, destination_path: str) -> Dict[str, str]:
-    """If has_categories is enabled, we partition the dataset into a separate dataset for each category value in the data and writes each partition to a local file.
+    """If has_categories is enabled, we partition the dataset into a separate dataset for each category value in the data and write each partition to a local file.
 
     Args:
         dataset_uri (str): Location of dataset.
