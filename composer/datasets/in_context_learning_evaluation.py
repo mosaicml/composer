@@ -663,7 +663,7 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str) -> Di
         if dist.get_local_rank() == 0:
             get_file(dataset_uri, destination_path, overwrite=True)
     dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
-    if 'category' not in dataset:
+    if 'category' not in dataset.features.keys():
         raise Exception(
             f"Attempted to partition dataset by category but it doesn't have a category key: {str(dataset)}")
     categories = sorted(set(dataset['category']))
