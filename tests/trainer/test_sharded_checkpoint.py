@@ -218,14 +218,13 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
     save_folder = tmp_path
     save_filename = 'rank{rank}.pt'
     trainer1 = get_trainer(
-        #save_folder=str(save_folder),
-        #save_filename=save_filename,
+        save_folder=str(save_folder),
+        save_filename=save_filename,
         fsdp_state_dict_type='full',
         run_name=run_name,
         precision=precision,
         #autoresume=autoresume,
     )
-    #assert False
     trainer1.fit()
     assert False
     state_dict_from_trainer1 = trainer1.state.state_dict()
