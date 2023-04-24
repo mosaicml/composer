@@ -364,7 +364,8 @@ class DecoupledAdamW(AdamW):
                 base_names.add(metric)
 
         result_optimizer_metrics = {}
-        for base_name in sorted(base_names):
+        base_names = sorted(base_names, key=lambda metric: 0 if 'l2_norm' in metric else 1)
+        for base_name in base_names:
             maybe_weight = optimizer_metrics.get(f'{base_name}.weight')
             maybe_bias = optimizer_metrics.get(f'{base_name}.bias')
             maybe_flat_param = optimizer_metrics.get(f'{base_name}._flat_param')
@@ -396,8 +397,9 @@ class DecoupledAdamW(AdamW):
 
                 A, B = tuple(vectors.split('_'))
 
-                A_reduced_norm = optimizer_metrics[f'l2_norm/{A}/{layer}']
-                B_reduced_norm = optimizer_metrics[f'l2_norm/{B}/{layer}']
+                print(result_optimizer_metrics)
+                A_reduced_norm = result_optimizer_metrics[f'l2_norm/{A}/{layer}']
+                B_reduced_norm = result_optimizer_metrics[f'l2_norm/{B}/{layer}']
                 result_optimizer_metrics[base_name] = reduced / (A_reduced_norm * B_reduced_norm)
             else:
                 if dist.get_world_size() > 1:
