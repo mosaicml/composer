@@ -105,7 +105,6 @@ class InContextLearningQATaskDataset(Dataset):
         continuation_delimiter: (str): Separator that goes between context and answer in each example (e.g. '\nA: ')
         destination_path (str): Temporary path to store downloaded datasets
         question_prelimiter (str): String to put before each question (e.g. 'Q: ')
-        padding_side (str): Whether to pad on the left or right side of the sequence
         fewshot_random_seed (int): Random seed to use for fewshot sampling
     """
 
@@ -121,7 +120,6 @@ class InContextLearningQATaskDataset(Dataset):
         continuation_delimiter: str,
         destination_path: str,
         question_prelimiter: str,
-        padding_side: str,
         fewshot_random_seed: int,
     ):
         try:
@@ -143,7 +141,7 @@ class InContextLearningQATaskDataset(Dataset):
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
-        self.padding_side = padding_side
+        self.padding_side = 'left'
         self.max_answer_length = 0
         fewshot_rng = random.Random(fewshot_random_seed)
         self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
@@ -584,9 +582,8 @@ def build_dl(
     continuation_delimiter: str,  # e.g. ''
     destination_path: str,
     question_prelimiter: str = '',  # e.g. 'Question: '
-    padding_side: str = 'left',
     fewshot_random_seed: int = 1234,
-):
+) -> DataSpec:
     if icl_task_type == 'multiple_choice':
         dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri,
                                                              tokenizer,
@@ -623,7 +620,6 @@ def build_dl(
                                                  continuation_delimiter,
                                                  destination_path=destination_path,
                                                  question_prelimiter=question_prelimiter,
-                                                 padding_side=padding_side,
                                                  fewshot_random_seed=fewshot_random_seed)
         effective_batchsize = batch_size
     else:
@@ -644,7 +640,19 @@ def build_dl(
     )
 
 
-def partition_dataset_by_category(dataset_uri, destination_path):
+def partition_dataset_by_category(dataset_uri: str, destination_path: str) -> Dict[str, str]:
+    """If has_categories is enabled, we partition the dataset into a separate dataset for each category value in the data and writes each partition to a local file.
+
+    Args:
+        dataset_uri (str): Location of dataset.
+        destination_path (str): Base destination path, we will write a separate partition off this URI for each category.
+
+    Raises:
+        MissingConditionalImportError: If datasets not installed raise exception.
+        Exception: If 'category' key missing from dataset, raise exception.
+    Returns:
+        Dict[str, str]: Mapping of category names to partitioned dataset local files names.
+    """
     try:
         from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
     except ImportError as e:
@@ -655,6 +663,9 @@ def partition_dataset_by_category(dataset_uri, destination_path):
         if dist.get_local_rank() == 0:
             get_file(dataset_uri, destination_path, overwrite=True)
     dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
+    if 'category' not in dataset:
+        raise Exception(
+            f"Attempted to partition dataset by category but it doesn't have a category key: {str(dataset)}")
     categories = sorted(set(dataset['category']))
     output_files = {}
     for cat in categories:
@@ -683,10 +694,9 @@ def get_icl_task_dataloader(
         continuation_delimiter: str,  # e.g. ''
         destination_path: str,
         question_prelimiter: str = '',  # e.g. 'Question: '
-        padding_side: str = 'left',
         fewshot_random_seed: int = 1234,
         has_categories: bool = False) -> Union[DataSpec, Dict[str, DataSpec]]:
-    """This constructs a dataloader capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
+    """This constructs a dataloader (or dataloaders if has_categories is True) capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
 
     >>> dl = get_icl_task_dataloader(
        ... 'language_modeling',
@@ -724,6 +734,9 @@ def get_icl_task_dataloader(
         prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
         example_delimiter (str): Separator that goes between individual examples (e.g. '\n')
         continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
+        destination_path: (str): This is the local file where remote datasets will be saved.
+        question_prelimiter: (str): For QA tasks, this will be prepended to each question.
+        has_categories: (bool): If true, we will search the dataset file for a category key, and partition the dataset into a separate dataloader for each category occurring in the data.
 
     Returns:
         DataLoader: A dataloader used for performing in-context learning evaluation on the dataset provided.
@@ -748,7 +761,6 @@ def get_icl_task_dataloader(
                 continuation_delimiter,
                 partition_uri + '_tmp',
                 question_prelimiter,
-                padding_side,
                 fewshot_random_seed,
             )
         return result_dls
@@ -766,6 +778,5 @@ def get_icl_task_dataloader(
             continuation_delimiter,
             destination_path,
             question_prelimiter,
-            padding_side,
             fewshot_random_seed,
         )
