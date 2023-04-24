@@ -97,7 +97,7 @@ extra_deps['dev'] = [
     # Pinning versions strictly to avoid random test failures.
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
-    'junitparser==2.8.0',
+    'junitparser==3.0.0',
     'coverage[toml]==7.2.2',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.3.1',
@@ -105,7 +105,7 @@ extra_deps['dev'] = [
     'ipython==8.11.0',
     'ipykernel==6.22.0',
     'jupyter==1.0.0',
-    'yamllint==1.30.0',
+    'yamllint==1.31.0',
     'recommonmark==0.7.1',
     'sphinx==4.4.0',
     'pre-commit>=2.18.1,<3',
@@ -115,10 +115,10 @@ extra_deps['dev'] = [
     'sphinx_markdown_tables==0.0.17',
     'sphinx-argparse==0.4.0',
     'sphinxcontrib.katex==0.9.4',
-    'sphinxext.opengraph==0.7.4',
+    'sphinxext.opengraph==0.8.2',
     'sphinxemoji==0.2.0',
     'furo==2022.9.29',
-    'sphinx-copybutton==0.5.0',
+    'sphinx-copybutton==0.5.2',
     'testbook==0.4.2',
     'myst-parser==0.16.1',
     'sphinx_panels==0.6.0',
@@ -146,7 +146,7 @@ extra_deps['deepspeed'] = [
 ]
 
 extra_deps['wandb'] = [
-    'wandb>=0.13.2,<0.14',
+    'wandb>=0.13.2,<0.16',
 ]
 
 extra_deps['comet_ml'] = [
@@ -175,7 +175,7 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<4.27.5',
+    'transformers>=4.11,<4.29',
     'datasets>=2.4,<3',
 ]
 
