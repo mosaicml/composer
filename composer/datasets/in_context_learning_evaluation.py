@@ -569,7 +569,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         return [batch]
 
 
-def build_dl(
+def build_icl_dataloader(
     icl_task_type: str,
     dataset_uri: str,
     tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
