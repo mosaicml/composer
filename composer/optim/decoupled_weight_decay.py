@@ -397,7 +397,6 @@ class DecoupledAdamW(AdamW):
 
                 A, B = tuple(vectors.split('_'))
 
-                print(result_optimizer_metrics)
                 A_reduced_norm = result_optimizer_metrics[f'l2_norm/{A}/{layer}']
                 B_reduced_norm = result_optimizer_metrics[f'l2_norm/{B}/{layer}']
                 result_optimizer_metrics[base_name] = reduced / (A_reduced_norm * B_reduced_norm)
