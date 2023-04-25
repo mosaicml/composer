@@ -62,6 +62,40 @@ def _load_checkpoint(filename: Union[str, pathlib.Path]):
         return torch.load(states_path, map_location='cpu')
 
 
+def _assert_checkpoints_equivalent(file1, file2):
+    checkpoint_1 = _load_checkpoint(file1)
+    checkpoint_2 = _load_checkpoint(file2)
+
+    # Remove the wall clock time
+    del checkpoint_1['state']['timestamp']['Timestamp']['total_wct']
+    del checkpoint_1['state']['timestamp']['Timestamp']['epoch_wct']
+    del checkpoint_1['state']['timestamp']['Timestamp']['batch_wct']
+    del checkpoint_2['state']['timestamp']['Timestamp']['total_wct']
+    del checkpoint_2['state']['timestamp']['Timestamp']['epoch_wct']
+    del checkpoint_2['state']['timestamp']['Timestamp']['batch_wct']
+
+    # Remove run_name, since it's a function of time
+    del checkpoint_1['state']['run_name']
+    del checkpoint_2['state']['run_name']
+
+    # Remove dummy stateful callback
+    for ckpt in [checkpoint_1, checkpoint_2]:
+        if 'DummyStatefulCallback' in ckpt['state']['callbacks']:
+            del ckpt['state']['callbacks']['DummyStatefulCallback']
+
+    deep_compare(checkpoint_1, checkpoint_2)
+
+    # deepspeed checkpoints do not have model or optimizer
+    # so either model, optimizer should be in all checkpoints or in none
+    keys_in = (
+        'model' in checkpoint_1['state'],
+        'optimizers' in checkpoint_1['state'],
+        'model' in checkpoint_2['state'],
+        'optimizers' in checkpoint_2['state'],
+    )
+    assert all(keys_in) or not any(keys_in)
+
+
 @pytest.mark.parametrize(
     'remove_field_paths,filter_params',
     [
@@ -476,6 +510,65 @@ class TestCheckpointLoading:
             assert not metrics_equal
         else:
             assert stateful_callbacks_equal
+            assert metrics_equal
+
+    @pytest.mark.remote
+    @device('cpu')
+    @pytest.mark.parametrize('load_weights_only', [True, False])
+    def test_load_remote_checkpoint(self, device, tmp_path: pathlib.Path, load_weights_only):
+        """
+        This test checks if our checkpointing is backwards compatible.
+        We should be able to load in a saved checkpoint and continue training.
+        The checkpoint weight and metrics should match at load time
+        and should be equivalent after training continues.
+        Checkpoint saved using: Composer 0.13.5 with default dependencies.
+        """
+        import os
+
+        trainer_1 = self.get_trainer(save_folder='first', device=device)
+        trainer_1.fit()
+        trainer_1.close()
+
+        remote_checkpoint = 's3://mosaicml-internal-checkpoints-test/backwards_compatibility/trained_cpu_checkpoint_ep2.pt'
+        trainer_2 = self.get_trainer(
+            save_folder='second',
+            load_path=remote_checkpoint,
+            load_weights_only=load_weights_only,
+            load_strict_model_weights=load_weights_only,
+            device=device,
+        )
+
+        # check weights loaded properly
+        self._assert_weights_equivalent(
+            trainer_1.state.model,
+            trainer_2.state.model,
+        )
+
+        # check metrics loaded
+        metrics_equal = self._metrics_equal(trainer_1.state.train_metrics, trainer_2.state.train_metrics,
+                                            trainer_1.state.eval_metrics, trainer_2.state.eval_metrics)
+
+        if load_weights_only:
+            assert not metrics_equal
+            return
+
+        assert metrics_equal
+
+        # Continue training from old remote checkpoint
+        trainer_2.fit(duration='1ba')
+        trainer_2.close()
+
+        # Continue training from current local checkpoint
+        trainer_3 = self.get_trainer(
+            save_folder='third',
+            save_overwrite=True,
+            load_path=os.path.join('first', 'ep2.pt'),
+            device=device,
+        )
+        trainer_3.fit(duration='1ba')
+        trainer_3.close()
+
+        _assert_checkpoints_equivalent(os.path.join('third', 'ep2.pt'), os.path.join('second', 'ep2.pt'))
 
     def _stateful_callbacks_equal(self, callbacks1, callbacks2):
 
@@ -766,38 +859,10 @@ class TestCheckpointResumption:
         trainer_2.fit()
         trainer_2.close()
 
-        self._assert_checkpoints_equivalent(
+        _assert_checkpoints_equivalent(
             save_folder / 'first' / final_checkpoint,
             save_folder / 'second' / final_checkpoint,
         )
-
-    def _assert_checkpoints_equivalent(self, file1, file2):
-        checkpoint_1 = _load_checkpoint(file1)
-        checkpoint_2 = _load_checkpoint(file2)
-
-        # Remove the wall clock time
-        del checkpoint_1['state']['timestamp']['Timestamp']['total_wct']
-        del checkpoint_1['state']['timestamp']['Timestamp']['epoch_wct']
-        del checkpoint_1['state']['timestamp']['Timestamp']['batch_wct']
-        del checkpoint_2['state']['timestamp']['Timestamp']['total_wct']
-        del checkpoint_2['state']['timestamp']['Timestamp']['epoch_wct']
-        del checkpoint_2['state']['timestamp']['Timestamp']['batch_wct']
-
-        # Remove run_name, since it's a function of time
-        del checkpoint_1['state']['run_name']
-        del checkpoint_2['state']['run_name']
-
-        deep_compare(checkpoint_1, checkpoint_2)
-
-        # deepspeed checkpoints do not have model or optimizer
-        # so either model, optimizer should be in all checkpoints or in none
-        keys_in = (
-            'model' in checkpoint_1['state'],
-            'optimizers' in checkpoint_1['state'],
-            'model' in checkpoint_2['state'],
-            'optimizers' in checkpoint_2['state'],
-        )
-        assert all(keys_in) or not any(keys_in)
 
     def _assert_expected_num_checkpoints(
         self,
