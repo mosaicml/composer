@@ -8,11 +8,12 @@ from torch.utils.data import DataLoader
 
 from composer.callbacks import OptimizerMonitor
 from composer.loggers import InMemoryLogger
+from composer.models import HuggingFaceModel
 from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
 from composer.utils import dist
 from tests.common import device, world_size
-from tests.common.datasets import RandomClassificationDataset
+from tests.common.datasets import RandomClassificationDataset, RandomTextLMDataset
 from tests.common.models import SimpleModel
 
 
@@ -78,7 +79,7 @@ def test_fsdp_optimizer_monitor(device, world_size, use_orig_params):
                           'mixed_precision': 'PURE',
                           'backward_prefetch': 'BACKWARD_PRE',
                           'activation_checkpointing': False,
-                          'activation_ocpu_offload': False,
+                          'activation_cpu_offload': False,
                           'verbose': False,
                           'use_orig_params': use_orig_params,
                       })
@@ -88,6 +89,7 @@ def test_fsdp_optimizer_monitor(device, world_size, use_orig_params):
     # Count the logged steps
     grad_norm_calls = len(in_memory_logger.data['l2_norm/grad/global'])
     layer_norm_calls = [len(calls) for (k, calls) in in_memory_logger.data.items() if 'l2_norm/grad' in k]
+    suffix = '._flat_param' if not use_orig_params else '.weight'
     test_keys = [
         'l2_norm/grad/module._fsdp_wrapped_module.4._fsdp_wrapped_module',
         'l2_norm/moment/module._fsdp_wrapped_module.4._fsdp_wrapped_module',
@@ -96,6 +98,87 @@ def test_fsdp_optimizer_monitor(device, world_size, use_orig_params):
         'l2_norm/update/module._fsdp_wrapped_module.4._fsdp_wrapped_module',
         'cosine/update_grad/module._fsdp_wrapped_module.4._fsdp_wrapped_module',
     ]
+    test_keys = [key + suffix for key in test_keys]
+    for key in test_keys:
+        assert key in in_memory_logger.data.keys()
+
+    # Expected to log gradient norm once per step (total batch)
+    assert grad_norm_calls == num_train_steps
+    for num_calls in layer_norm_calls:
+        assert num_calls == num_train_steps
+
+
+@device('gpu')
+@world_size(1, 2)
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                    reason='requires PyTorch 1.13 or higher')
+@pytest.mark.parametrize('use_orig_params', [True, False])
+def test_fsdp_optimizer_monitor_transformer(device, world_size, tiny_gpt2_model, tiny_gpt2_tokenizer, use_orig_params):
+    transformers = pytest.importorskip('transformers')
+    # Construct the callback
+    grad_monitor = OptimizerMonitor(log_optimizer_metrics=True)
+    in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
+    model = HuggingFaceModel(model=tiny_gpt2_model, tokenizer=tiny_gpt2_tokenizer, use_logits=True)
+    model.model.lm_head._fsdp_wrap = False
+    model.model.transformer._fsdp_wrap = False
+    for block in model.model.transformer.h:
+        block._fsdp_wrap = True
+    train_dataset = RandomTextLMDataset(size=8,
+                                        vocab_size=tiny_gpt2_model.config.vocab_size,
+                                        sequence_length=4,
+                                        use_keys=True,
+                                        use_token_type_ids=False,
+                                        conditional_generation=False,
+                                        causal_lm=True)
+
+    collator = transformers.DefaultDataCollator()
+
+    train_dataloader = DataLoader(train_dataset,
+                                  batch_size=4,
+                                  collate_fn=collator,
+                                  sampler=dist.get_sampler(train_dataset))
+    # Construct the trainer and train
+    trainer = Trainer(model=model,
+                      callbacks=grad_monitor,
+                      loggers=in_memory_logger,
+                      train_dataloader=train_dataloader,
+                      optimizers=DecoupledAdamW(model.parameters()),
+                      max_duration='3ba',
+                      fsdp_config={
+                          'sharding_strategy': 'FULL_SHARD',
+                          'min_params': 1e8,
+                          'cpu_offload': False,
+                          'mixed_precision': 'PURE',
+                          'backward_prefetch': 'BACKWARD_PRE',
+                          'activation_checkpointing': False,
+                          'activation_cpu_offload': False,
+                          'verbose': False,
+                          'use_orig_params': use_orig_params,
+                      })
+    print(trainer.state.model)
+    trainer.fit()
+    num_train_steps = int(trainer.state.timestamp.batch)
+
+    # Count the logged steps
+    grad_norm_calls = len(in_memory_logger.data['l2_norm/grad/global'])
+    layer_norm_calls = [len(calls) for (k, calls) in in_memory_logger.data.items() if 'l2_norm/grad' in k]
+    # an incomplete list of expected keys
+    if not use_orig_params:
+        test_keys = [
+            'l2_norm/grad/model._fsdp_wrapped_module.transformer.h.1._fsdp_wrapped_module._flat_param',
+            'l2_norm/update/model._fsdp_wrapped_module.transformer.h.1._fsdp_wrapped_module._flat_param',
+            'cosine/moment_grad/model._fsdp_wrapped_module.transformer.h.1._fsdp_wrapped_module._flat_param',
+            'cosine/update_grad/model._fsdp_wrapped_module.transformer.h.1._fsdp_wrapped_module._flat_param',
+            'cosine/moment_grad/model._fsdp_wrapped_module.transformer.h.1._fsdp_wrapped_module._flat_param',
+        ]
+    else:
+        test_keys = [
+            'l2_norm/grad/model._fsdp_wrapped_module.transformer.h.1._fsdp_wrapped_module.mlp.c_proj.weight',
+            'l2_norm/update/model._fsdp_wrapped_module.transformer.h.1._fsdp_wrapped_module.mlp.c_proj.weight',
+            'cosine/moment_grad/model._fsdp_wrapped_module.transformer.h.1._fsdp_wrapped_module.attn.c_attn.weight',
+            'cosine/update_grad/model._fsdp_wrapped_module.transformer.h.1._fsdp_wrapped_module.attn.c_attn.weight',
+            'cosine/moment_grad/model._fsdp_wrapped_module.transformer.h.1._fsdp_wrapped_module.mlp.c_proj.weight',
+        ]
     for key in test_keys:
         assert key in in_memory_logger.data.keys()
 
