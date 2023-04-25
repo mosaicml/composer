@@ -2,6 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Log metrics to slack, using Slack postMessage api."""
+
+from __future__ import annotations
+
 import itertools
 import logging
 import os
