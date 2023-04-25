@@ -432,7 +432,7 @@ def test_mc_task_evaluation_subcategories(device, dataset_uri, num_fewshot, tiny
     )
 
     trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
-    trainer.eval(eval_dataloader=evaluators, subset_num_batches=2)
+    trainer.eval(eval_dataloader=evaluators)
     assert 'metrics/mmlu/computer_security/InContextLearningMultipleChoiceAccuracy' in in_memory_logger.data.keys()
     assert 'metrics/mmlu/human_aging/InContextLearningMultipleChoiceAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/mmlu/computer_security/InContextLearningMultipleChoiceAccuracy'][0][1].item(
