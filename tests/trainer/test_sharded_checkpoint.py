@@ -122,6 +122,7 @@ def _compare_model_params_between_state_dicts(state_dict1, state_dict2):
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
+# @pytest.mark.filterwarnings('ignore::UserWarning') # need to switch to the new FSDP.optim_state_dict
 def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresume: bool, precision: str):
     if autoresume:
         run_name = 'my-cool-autoresume-run'
@@ -209,6 +210,7 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
 @pytest.mark.parametrize('autoresume', [True, False])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
+# @pytest.mark.filterwarnings('ignore::UserWarning') # need to switch to the new FSDP.optim_state_dict
 def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool,
                                           precision: str):
     if autoresume:
@@ -255,6 +257,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
 @pytest.mark.parametrize('autoresume', [True])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
+# @pytest.mark.filterwarnings('ignore::UserWarning') # need to switch to the new FSDP.optim_state_dict
 def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool):
     run_name = 'my-run-ar' if autoresume else 'my-run'
     save_folder = str(tmp_path / pathlib.Path(run_name))

@@ -427,4 +427,9 @@ def prepare_fsdp_module(
         optimizers_tuple = ensure_tuple(optimizers)
         optim = optimizers_tuple[0]
         optim.param_groups.clear()
+        # import os
+        # print('+'*10, dist.get_local_rank(), os.getpid(), [p.shape for p in model.parameters()])
+        # print('+'*20, dist.get_local_rank(), os.getpid(), [n for n, _ in model.named_parameters()])
         optim.add_param_group({'params': list(model.parameters())})
+
+        # print('-'*30, optim.param_groups)
