@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+__all__ = ['SlackLogger']
+
 
 class SlackLogger(LoggerDestination):
     """Log metrics to slack, using Slack's postMessage api - https://api.slack.com/methods/chat.postMessage.
