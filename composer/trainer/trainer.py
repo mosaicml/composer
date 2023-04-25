@@ -25,6 +25,7 @@ import torch
 import torch.distributed
 import torch.nn as nn
 import torch.utils.data
+from packaging import version
 from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
@@ -49,7 +50,7 @@ from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectS
                             ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist, get_device,
                             get_file, is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
                             maybe_create_remote_uploader_downloader_from_uri, model_eval_mode, parse_uri,
-                            reproducibility)
+                            reproducibility, using_torch_2_0)
 
 if is_tpu_installed():
     import torch_xla.core.xla_model as xm
@@ -710,6 +711,9 @@ class Trainer:
             See :doc:`FSDP Documentation </notes/distributed_training>` for more details.
             To use FSDP with default values, set to the empty dictionary ``{}``. To
             disable FSDP, set to ``None``. (default: ``None``)
+        fsdp_auto_wrap (bool, optional): option to let trainer wrap the module, or if
+            the module is already wrapped outside, allow the user to disable auto-wrapping.
+
         device (Device | str, optional): The device to use for training, which can be ``'cpu'``, ``'gpu'``,
             ``'tpu'``, or ``'mps'``. (default: ``None``)
 
@@ -759,6 +763,11 @@ class Trainer:
             ``logging.basicConfig`` won't be called).
 
             .. seealso:: The :mod:`logging` module in Python.
+        compile_config (Dict[str, Any], optional): Configuration for torch compile. Only supported with PyTorch 2.0 or higher.
+            Checkout [`torch.compile`](https://pytorch.org/get-started/pytorch-2.0/) for more details.
+            To use torch compile with default values, set it to empty dictionary ``{}``.
+            To use torch compile with custom config, set to a dictionary such as ``{'mode': 'max-autotune'}``.
+            To disable torch compile, set to ``None``. (default: ``None``)
 
     Attributes:
         state (State): The :class:`.State` object used to store training state.
@@ -836,6 +845,7 @@ class Trainer:
         # DeepSpeed
         deepspeed_config: Optional[Dict[str, Any]] = None,
         fsdp_config: Optional[Dict[str, Any]] = None,
+        fsdp_auto_wrap: Optional[bool] = True,
 
         # System/Numerics
         device: Optional[Union[str, Device]] = None,
@@ -855,6 +865,9 @@ class Trainer:
 
         # Python logging
         python_log_level: Optional[str] = None,
+
+        # compile config for PyTorch 2.0 or higher
+        compile_config: Optional[Dict[str, Any]] = None,
     ):
 
         self.auto_log_hparams = auto_log_hparams
@@ -881,6 +894,28 @@ class Trainer:
         elif isinstance(precision, str):
             precision = Precision(precision)
         _validate_precision(precision, device)
+
+        # check if provided model is compiled or not
+        is_torch_2_0 = using_torch_2_0()
+        is_model_compiled = False
+        if is_torch_2_0:
+            from torch._dynamo import OptimizedModule
+            if isinstance(model, OptimizedModule):
+                log.warning(f'Provided `model` is already compiled with `torch.compile`. Ignoring ' +
+                            f'parameter `compile_config` if provided. If you would like `Trainer` ' +
+                            f'to takes care of model compilation, provide a not-compiled model and ' +
+                            f'`compile_config` parameter.')
+                # The `torch.compile` function returns an object of type `torch._dynamo.OptimizedModule`
+                # which wraps the original `nn.Module` object and later patches its forward method to
+                # optimized `self.forward` method.
+                is_model_compiled = True
+                compiled_model = model._orig_mod
+                if not isinstance(compiled_model, ComposerModel):
+                    raise ValueError(f'Provided `model` must be a subclass of ComposerModel. ' +
+                                     f'Instead found as type `{type(compiled_model)}`')
+                compiled_model.forward = model.dynamo_ctx(
+                    compiled_model.forward)  # pyright: ignore [reportGeneralTypeIssues]
+                model = compiled_model
 
         # Microbatching
         auto_microbatching = _is_auto_microbatching(device_train_microbatch_size, device=device)
@@ -910,8 +945,8 @@ class Trainer:
             # And torch.distributed is always required for multi-rank training
             dist.initialize_dist(device, dist_timeout)
 
-        # Handle FSDP sharding
-        if self.fsdp_config is not None:
+        # Handle FSDP wrapping
+        if self.fsdp_config is not None and fsdp_auto_wrap:
             prepare_fsdp_module(model, optimizers, self.fsdp_config, precision, device, auto_microbatching)
 
         # Reproducibility
@@ -1090,7 +1125,7 @@ class Trainer:
         })
 
         if not isinstance(self.state.model, ComposerModel):
-            raise ValueError('Provided model should be a subclass of ComposerModel.')
+            raise ValueError('Provided model must be a subclass of ComposerModel.')
 
         # After running Event.INIT, then set the "optional" elements of state that could be passed in on FIT instead of INIT
         # Setting these attributes here ensures that algorithms do not depend on unavailable attributes during Event.INIT
@@ -1175,8 +1210,6 @@ class Trainer:
         # If using DDP or DeepSpeed, we need to wrap the ComposerModel
         # But store a reference to the original model for functions like `eval_forward`, `get_metrics`, etc.
         self._original_model = self.state.model
-        if not isinstance(self._original_model, ComposerModel):
-            raise ValueError('self.state.model must be a subclass of ComposerModel.')
 
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
@@ -1221,6 +1254,17 @@ class Trainer:
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
         warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
         self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
+
+        if self.fsdp_config is not None:
+            if version.parse(torch.__version__) < version.parse('1.13.0'):
+                raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
+            from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
+
+            # This state should never be reached, but we raise a ValueError just in case
+            if self._use_closures() and self.state.precision == Precision.AMP_FP16:
+                raise ValueError(f'Using closures and precision {self.state.precision} is not supported'
+                                 f' with FSDP. Please use another optimizer or precision type.')
+            self.state.scaler = ShardedGradScaler()
 
         # suppressing FSDP warning when auto grad accum exits the forward pass before completing
         warnings.filterwarnings(action='ignore', message='Forward order differs from that of the first iteration')
@@ -1308,6 +1352,23 @@ class Trainer:
         if not (self.deepspeed_enabled or self.fsdp_enabled) and dist.get_world_size() > 1:
             # Only wrap the module if required
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
+
+        # The model would need to be torch.compile()'d after being wrapped in a distributed strategy
+        # to take advantage of any graph breaks.
+        if is_torch_2_0 and not is_model_compiled and compile_config is not None:
+            compiled_model = torch.compile(  # pyright: ignore [reportGeneralTypeIssues]
+                self.state.model, **compile_config)
+            self.state.model = compiled_model._orig_mod
+            self.state.model.forward = compiled_model.dynamo_ctx(self.state.model.forward)
+            is_model_compiled = True
+            # update local_hparams to ensure the `is_model_compiled` is set correctly for
+            # debugging purpose and for unit test.
+            if self.auto_log_hparams:
+                self.local_hparams['is_model_compiled'] = is_model_compiled
+        elif not is_torch_2_0 and compile_config is not None:
+            raise ValueError(f'`torch.compile` is supported for PyTorch 2.0 or higher.' +
+                             f'Either update your PyTorch version or disable parameter by providing ' +
+                             f'`compile_config` to `None`.')
 
     @property
     def saved_checkpoints(self) -> List[str]:
@@ -1824,7 +1885,7 @@ class Trainer:
             try:
                 if int(self.state.timestamp.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
-                    self.logger.log_metrics({'trainer/epoch': int(self.state.timestamp.epoch)})
+                    self.logger.log_metrics({'time/epoch': self.state.timestamp.epoch.value})
 
                 dataloader = self.state.dataloader
                 if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
@@ -1851,10 +1912,17 @@ class Trainer:
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
                     self.engine.run_event(Event.BATCH_START)
+
+                    # Log time values
                     self.logger.log_metrics({
-                        'trainer/global_step': int(self.state.timestamp.batch),
-                        'trainer/batch_idx': self.state.timestamp.batch_in_epoch.value,
+                        'time/batch': self.state.timestamp.batch.value,
+                        'time/sample': self.state.timestamp.sample.value,
+                        'time/batch_in_epoch': self.state.timestamp.batch_in_epoch.value,
+                        'time/sample_in_epoch': self.state.timestamp.sample_in_epoch.value,
                     })
+                    if rank_num_tokens > 0:
+                        self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
+                        self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
 
                     total_loss_dict = self._train_batch(use_grad_scaling)
 
@@ -1897,6 +1965,7 @@ class Trainer:
                             metrics=self.state.train_metrics,
                         )
 
+                    self.state.previous_timestamp = self.state.timestamp
                     self.state.timestamp = self.state.timestamp.to_next_batch(
                         samples=total_num_samples,
                         tokens=total_num_tokens,
@@ -1935,6 +2004,7 @@ class Trainer:
                         for scheduler in self.state.schedulers:
                             scheduler.step()
 
+                    self.state.previous_timestamp = self.state.timestamp
                     self.state.timestamp = self.state.timestamp.to_next_epoch()
 
                     self.engine.run_event(Event.EPOCH_END)
@@ -1948,6 +2018,18 @@ class Trainer:
                     self.engine.run_event(Event.EPOCH_CHECKPOINT)
             except BreakEpochException:
                 log.info(f'Skipping the rest of Epoch {int(self.state.timestamp.epoch)}')
+
+        # Log final time values
+        self.logger.log_metrics({
+            'time/epoch': self.state.timestamp.epoch.value,
+            'time/batch': self.state.timestamp.batch.value,
+            'time/sample': self.state.timestamp.sample.value,
+            'time/batch_in_epoch': self.state.timestamp.batch_in_epoch.value,
+            'time/sample_in_epoch': self.state.timestamp.sample_in_epoch.value,
+        })
+        if self.state.previous_timestamp is not None and self.state.timestamp.token.value - self.state.previous_timestamp.token.value > 0:
+            self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
+            self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
 
         self.engine.run_event(Event.FIT_END)
         self._run_evaluators(Event.FIT_END)

@@ -10,9 +10,8 @@ import json
 import logging
 import tempfile
 import textwrap
-from collections import UserDict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple, Type, Union
 
 import torch
 from torchmetrics import Metric
@@ -308,7 +307,7 @@ class HuggingFaceModel(ComposerModel):
         return hf_model, hf_tokenizer
 
     def forward(self, batch):
-        if isinstance(batch, dict) or isinstance(batch, UserDict):
+        if isinstance(batch, Mapping):
             # Further input validation is left to the huggingface forward call
             batch = {k: v for k, v in batch.items() if k in self.model_forward_args}
             output = self.model(**batch)  # type: ignore (thirdparty)

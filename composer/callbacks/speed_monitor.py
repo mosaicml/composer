@@ -198,11 +198,11 @@ class SpeedMonitor(Callback):
     |                                     | and `gpu_flops_available`, which can be passed as an      |
     |                                     | argument if not automatically determined by SpeedMonitor  |
     +-------------------------------------+-----------------------------------------------------------+
-    | `wall_clock/train`                  | Total elapsed training time                               |
+    | `time/train`                        | Total elapsed training time                               |
     +-------------------------------------+-----------------------------------------------------------+
-    | `wall_clock/val`                    | Total elapsed validation time                             |
+    | `time/val`                          | Total elapsed validation time                             |
     +-------------------------------------+-----------------------------------------------------------+
-    | `wall_clock/total`                  | Total elapsed time (wall_clock/train + wall_clock/val)    |
+    | `time/total`                        | Total elapsed time (time/train + time/val)                |
     +-------------------------------------+-----------------------------------------------------------+
 
     Args:
@@ -210,7 +210,7 @@ class SpeedMonitor(Callback):
             Defaults to 100.
         gpu_flops_available (float, optional): Number of flops available on the GPU. If not set,
             SpeedMonitor will attempt to determine this automatically. Defaults to None.
-        time_unit (str, optional): Time unit to use for `wall_clock` logging. Can be one of
+        time_unit (str, optional): Time unit to use for `time` logging. Can be one of
             'seconds', 'minutes', 'hours', or 'days'. Defaults to 'hours'.
     """
 
@@ -321,9 +321,9 @@ class SpeedMonitor(Callback):
         # `state.timestamp` excludes any time spent in evaluation
         train_wct = state.timestamp.total_wct.total_seconds()
         logger.log_metrics({
-            'wall_clock/train': train_wct / self.divider,
-            'wall_clock/val': self.total_eval_wct / self.divider,
-            'wall_clock/total': (train_wct + self.total_eval_wct) / self.divider,
+            'time/train': train_wct / self.divider,
+            'time/val': self.total_eval_wct / self.divider,
+            'time/total': (train_wct + self.total_eval_wct) / self.divider,
         })
 
     def eval_end(self, state: State, logger: Logger):

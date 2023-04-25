@@ -257,7 +257,7 @@ class State(Serializable):
         eval_metrics (Dict[str, Dict[str, Metric]]): The current evaluation metrics, organized
             by dataloader label and then by metric name. If not using an :class:`.Evaluator`,
             the eval dataloader is labeled ``'eval'``. Otherwise, in the case of having multiple evaluation datasets,
-            the evaluator label is used. See the `Multiple Datasets Documentation <https://docs.mosaicml.com/en/stable/trainer/evaluation.html#multiple-datasets>`_
+            the evaluator label is used. See the `Multiple Datasets Documentation <https://docs.mosaicml.com/projects/composer/en/stable/trainer/evaluation.html#multiple-datasets>`_
             for more information. ``eval_metrics`` will be deep-copied to ensure that each evaluator updates only its ``eval_metrics``.
 
             For example:
@@ -416,6 +416,7 @@ class State(Serializable):
         self._train_dataloader = train_dataloader
         self._evaluators = list(ensure_tuple(evaluators))
 
+        self.previous_timestamp: Optional[Timestamp] = None
         self.timestamp = Timestamp()
         self.eval_timestamp = Timestamp()
         self.predict_timestamp = Timestamp()
