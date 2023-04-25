@@ -135,7 +135,7 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
         fsdp_state_dict_type='full',
         run_name=run_name,
         precision=precision,
-        #autoresume=autoresume,
+        autoresume=autoresume,
     )
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
