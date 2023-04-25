@@ -15,7 +15,7 @@ from tests.common import RandomClassificationDataset, SimpleModel
 
 
 @pytest.mark.parametrize('include_keys', [['loss*']])
-def test_slack_logger_metrics(include_keys: Optional[Set[str]]):
+def test_slack_logger_metrics(include_keys: Set[str]):
     pytest.importorskip('slack_sdk')
     os.environ['SLACK_LOGGING_API_KEY'] = str('1234')
     os.environ['SLACK_LOGGING_CHANNEL_ID'] = 'C1234'
