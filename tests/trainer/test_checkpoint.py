@@ -536,6 +536,7 @@ class TestCheckpointLoading:
             load_weights_only=load_weights_only,
             load_strict_model_weights=load_weights_only,
             device=device,
+            max_duration='3ep',
         )
 
         # check weights loaded properly
@@ -555,7 +556,7 @@ class TestCheckpointLoading:
         assert metrics_equal
 
         # Continue training from old remote checkpoint
-        trainer_2.fit(duration='1ba')
+        trainer_2.fit()
         trainer_2.close()
 
         # Continue training from current local checkpoint
@@ -564,11 +565,12 @@ class TestCheckpointLoading:
             save_overwrite=True,
             load_path=os.path.join('first', 'ep2.pt'),
             device=device,
+            max_duration='3ep',
         )
-        trainer_3.fit(duration='1ba')
+        trainer_3.fit()
         trainer_3.close()
 
-        _assert_checkpoints_equivalent(os.path.join('third', 'ep2.pt'), os.path.join('second', 'ep2.pt'))
+        _assert_checkpoints_equivalent(os.path.join('third', 'ep3.pt'), os.path.join('second', 'ep3.pt'))
 
     def _stateful_callbacks_equal(self, callbacks1, callbacks2):
 
