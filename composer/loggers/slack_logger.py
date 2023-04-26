@@ -10,6 +10,7 @@ import logging
 import os
 import re
 import time
+import warnings
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Union
 
 from composer.core.time import Time, TimeUnit
@@ -91,9 +92,9 @@ class SlackLogger(LoggerDestination):
         self.channel_id = os.environ.get('SLACK_LOGGING_CHANNEL_ID', None) if channel_id is None else channel_id
 
         if self.slack_logging_api_key is None:
-            raise RuntimeError('SLACK_LOGGING_API_KEY must be set as environment variable')
+            warnings.warn('SLACK_LOGGING_API_KEY must be set as environment variable')
         if self.channel_id is None:
-            raise RuntimeError('SLACK_LOGGING_CHANNEL_ID must be set as environment variable')
+            warnings.warn('SLACK_LOGGING_CHANNEL_ID must be set as environment variable')
 
         self.formatter_func = formatter_func
 
