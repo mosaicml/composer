@@ -408,7 +408,6 @@ class DecoupledAdamW(AdamW):
         return optimizer_metrics
 
     def report_per_parameter_metrics(self, param: torch.Tensor, name: str, optimizer_metrics: dict):
-        print(self.param_groups[0])
         lr = self.param_groups[0]['lr']
         eps = self.param_groups[0]['eps']
         weight_decay = self.param_groups[0]['weight_decay']
