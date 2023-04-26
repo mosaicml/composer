@@ -141,7 +141,7 @@ class SlackLogger(LoggerDestination):
         Args:
             data (Dict[str, Any]): Data to be logged.
             **kwargs: Additional arguments to be passed to the formatter function
-            (Only support "header" argument now)
+            (Only supports "header" argument now)
 
         Returns:
             List[Dict[str, str]]: List of blocks to be sent to Slack.
