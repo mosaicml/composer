@@ -154,9 +154,7 @@ def test_fsdp_full_state_dict_save(world_size, tmp_path: pathlib.Path):
         print(state_dict_in_memory['model'])
         print([id(v) for v in state_dict_in_memory['model'].values()])
         # Check rank 0 state dict has the full model weights.
-        assert set(state_dict_in_memory['model'].keys()) == {
-            'fc1.weight', 'fc1.bias', 'fc2.weight', 'fc2.bias'
-        }
+        assert set(state_dict_in_memory['model'].keys()) == {'fc1.weight', 'fc1.bias', 'fc2.weight', 'fc2.bias'}
         assert state_dict_in_memory['model']['fc1.weight'].ndim == 2
         assert state_dict_in_memory['model']['fc1.weight'].shape == layer1_weights_shape
         assert state_dict_in_memory['model']['fc1.bias'].shape == layer1_bias_shape
