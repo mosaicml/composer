@@ -28,7 +28,7 @@ Batch = Any
 Dataset = torch.utils.data.Dataset[Batch]
 
 try:
-    PyTorchScheduler = Union[torch.optim.lr_scheduler._LRScheduler, torch.optim.lr_scheduler.LRScheduler]
+    PyTorchScheduler = torch.optim.lr_scheduler.LRScheduler
 except:
     PyTorchScheduler = torch.optim.lr_scheduler._LRScheduler
 
