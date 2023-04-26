@@ -47,7 +47,7 @@ class SlackLogger(LoggerDestination):
             ],
             loggers=[
                 SlackLogger(
-                    formatter_func=(lambda data, **kwargs: [{
+                    formatter_func=(lambda data: [{
                         'type': 'section',
                         'text': {
                             'type': 'mrkdwn',
@@ -72,7 +72,7 @@ class SlackLogger(LoggerDestination):
 
     def __init__(
         self,
-        include_keys: Sequence[str],
+        include_keys: Sequence[str] = (),
         formatter_func: Optional[Callable[..., List[Dict[str, Any]]]] = None,
         log_interval: Union[int, str, Time] = '1ba',
         max_logs_per_message: int = 50,
@@ -140,7 +140,8 @@ class SlackLogger(LoggerDestination):
 
         Args:
             data (Dict[str, Any]): Data to be logged.
-            **kwargs: Additional arguments to be passed to the formatter function (eg header)
+            **kwargs: Additional arguments to be passed to the formatter function
+            (Only support "header" argument now)
 
         Returns:
             List[Dict[str, str]]: List of blocks to be sent to Slack.
@@ -192,9 +193,6 @@ class SlackLogger(LoggerDestination):
             max_log_entries_dict = dict(itertools.islice(self.log_dict.items(), inx, inx + self.max_logs_per_message))
             self._format_and_send_blocks_to_slack(max_log_entries_dict, **kwargs)
             inx += self.max_logs_per_message
-
-        # max_log_entries_dict = dict(itertools.islice(self.log_dict.items(), 0, 1))
-        # self._format_and_send_blocks_to_slack(max_log_entries_dict, **kwargs)
 
         self.log_dict = {}  # reset log_dict
 

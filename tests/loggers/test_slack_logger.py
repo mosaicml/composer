@@ -2,8 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-import time
-from typing import Optional, Set
+from typing import Sequence
 from unittest.mock import patch
 
 import pytest
@@ -15,7 +14,8 @@ from tests.common import RandomClassificationDataset, SimpleModel
 
 
 @pytest.mark.parametrize('include_keys', [['loss*']])
-def test_slack_logger_metrics(include_keys: Set[str]):
+@pytest.mark.parametrize('interval', ['1ba', '1ep'])
+def test_slack_logger_metrics(include_keys: Sequence[str], interval: str):
     pytest.importorskip('slack_sdk')
     os.environ['SLACK_LOGGING_API_KEY'] = str('1234')
     os.environ['SLACK_LOGGING_CHANNEL_ID'] = 'C1234'
@@ -29,7 +29,7 @@ def test_slack_logger_metrics(include_keys: Set[str]):
             }
         } for k, v in data.items()]),
         include_keys=include_keys,
-        log_interval='1ep',
+        log_interval=interval,
     )
 
     with patch('slack_sdk.WebClient.chat_postMessage') as mock_slack:
@@ -37,7 +37,7 @@ def test_slack_logger_metrics(include_keys: Set[str]):
             model=SimpleModel(),
             train_dataloader=DataLoader(RandomClassificationDataset()),
             train_subset_num_batches=2,
-            max_duration='1ep',
+            max_duration=interval,
             loggers=[slack_logger],
         )
 
@@ -51,7 +51,7 @@ def test_slack_logger_metrics(include_keys: Set[str]):
     metrics_key = 'loss/train/total'
 
     assert (metrics_key in mock_slack.call_args_list[0][1]['blocks'][0]['text']['text'])
-    mock_slack.call_args_list[0][1]['token'] == '1234'
-    mock_slack.call_args_list[0][1]['channel'] == 'C1234'
+    assert mock_slack.call_args_list[0][1]['token'] == '1234'
+    assert mock_slack.call_args_list[0][1]['channel'] == 'C1234'
 
     del trainer
