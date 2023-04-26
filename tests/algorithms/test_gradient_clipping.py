@@ -195,7 +195,7 @@ def test_gradient_clipping_algorithm_with_deepspeed_enabled(
 
 if not using_torch_2_0():
 
-    def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, unwrapped_params: int) -> bool:
+    def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, unwrapped_params: int) -> bool:  # type: ignore
         if recurse:
             return True
         if hasattr(module, '_fsdp_wrap'):
@@ -240,10 +240,14 @@ def test_gradient_clipping_algorithm_with_fsdp_enabled_does_not_error(
 
     clipping_threshold = 0.1191
     state = dummy_state
+
+    torch_2_kwargs = {}
+    if using_torch_2_0():
+        torch_2_kwargs['use_orig_params'] = True
     state.model = FullyShardedDataParallel(model,
                                            auto_wrap_policy=_auto_wrap_policy,
                                            device_id=torch.cuda.current_device(),
-                                           use_orig_params=True)
+                                           **torch_2_kwargs)
 
     state.algorithms = [GradientClipping(clipping_type=clipping_type, clipping_threshold=clipping_threshold)]
     logger = Mock()
