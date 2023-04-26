@@ -19,9 +19,11 @@ from tests.common.markers import world_size
 from composer.utils.file_helpers import get_file
 
 
+# This model is to be used explicitly for this unit test because it some old reference checkpoints
+# were saved using it exactly as it is. Changing this model will break test_fsdp_load_old_checkpoint.
 class SimpleMLP(ComposerClassifier):
 
-    def __init__(self, num_features: int, num_classes: int = 4):
+    def __init__(self, num_features: int=32, num_classes: int = 8):
         net = torch.nn.Sequential(
             torch.nn.Linear(num_features, num_features, bias=True),
             torch.nn.ReLU(),
@@ -182,8 +184,8 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
 
     trainer2 = get_trainer(
         fsdp_state_dict_type=state_dict_type,
-        num_features=32,
-        num_classes=8,
+        num_features=32, # This parameter setting is very important. Don't change or the test will fail.
+        num_classes=8, # This parameter setting is very important. Don't change or the test will fail.
         sharding_strategy=sharding_strategy,
         load_path=load_path,
         precision=precision,
