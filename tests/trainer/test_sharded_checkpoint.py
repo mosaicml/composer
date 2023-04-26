@@ -16,6 +16,7 @@ from composer.trainer import Trainer
 from composer.utils import dist
 from tests.common import RandomClassificationDataset
 from tests.common.markers import world_size
+from composer.utils.file_helpers import get_file
 
 
 class SimpleMLP(ComposerClassifier):
@@ -41,7 +42,7 @@ def get_trainer(
     run_name=None,
     max_duration='2ba',
     precision='amp_fp16',
-    shard_strategy='FULL_SHARD',
+    sharding_strategy='FULL_SHARD',
     save_interval='2ba',
     algorithms=None,
 ):
@@ -57,7 +58,7 @@ def get_trainer(
         fsdp_config={
             'min_params': 16,
             'state_dict_type': fsdp_state_dict_type,
-            'sharding_strategy': shard_strategy,
+            'sharding_strategy': sharding_strategy,
         },
         save_folder=save_folder,
         max_duration=max_duration,
@@ -166,6 +167,46 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
 @pytest.mark.gpu
 @world_size(2)
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
+@pytest.mark.parametrize('sharding_strategy', ['FULL_SHARD', 'SHARD_GRAD_OP'])
+@pytest.mark.parametrize('state_dict_type', ['full', 'sharded', 'local'])
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                    reason='requires PyTorch 1.13 or higher')
+def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision: str, sharding_strategy: str, state_dict_type: str):
+    if version.parse(torch.__version__) >= version.parse('2.0.0') and state_dict_type == 'local':
+        pytest.xfail("Loading a torch 1.13 checkpoint with torch 2.0 for state_dict_type local is not backwards compatible")
+    
+
+    rank = 0 if state_dict_type == 'full' else '{rank}'
+    load_path = f's3://mosaicml-internal-checkpoints-test/ckpt-compatibility-test/{sharding_strategy.lower()}_{state_dict_type}_{precision}/rank{rank}.pt'
+
+    trainer2 = get_trainer(
+        fsdp_state_dict_type=state_dict_type,
+        num_features=32,
+        num_classes=8,
+        sharding_strategy=sharding_strategy,
+        load_path=load_path,
+        precision=precision,
+        max_duration='4ba',
+    )
+    state_dict2 = trainer2.state.state_dict()
+
+    if (dist.get_global_rank() == 0 and  state_dict_type == 'full') or state_dict_type in ['sharded', 'local']:
+        filled_load_path = load_path.format(rank=dist.get_global_rank())
+        destination = str(tmp_path / pathlib.Path(filled_load_path).name)
+        get_file(filled_load_path, destination=destination)
+        with open(destination, 'rb') as f:
+            state_dict1 = torch.load(f)['state']
+        _compare_model_params_between_state_dicts(state_dict1, state_dict2)
+
+        _compare_optims_between_state_dicts(state_dict1, state_dict2)
+
+    # Continue to fit to make sure we can continue training.
+    trainer2.fit()
+
+
+@pytest.mark.gpu
+@world_size(2)
+@pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, precision: str):
@@ -175,7 +216,7 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
         save_folder=str(save_folder),
         save_filename=save_filename,
         fsdp_state_dict_type='full',
-        shard_strategy='SHARD_GRAD_OP',
+        sharding_strategy='SHARD_GRAD_OP',
         algorithms=EMA(smoothing=0.9999, half_life=None, update_interval='1ba'),
         save_interval='1ba',
         max_duration='5ba',
@@ -190,7 +231,7 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
         save_filename=save_filename,
         fsdp_state_dict_type='full',
         load_path=load_path,
-        shard_strategy='SHARD_GRAD_OP',
+        sharding_strategy='SHARD_GRAD_OP',
         algorithms=EMA(smoothing=0.9999, half_life=None, update_interval='1ba'),
         save_interval='1ba',
         save_overwrite=True,
