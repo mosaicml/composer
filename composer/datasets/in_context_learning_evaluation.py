@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import os
 import random
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any, Dict, Union
 
 import torch
 import transformers
@@ -105,7 +105,6 @@ class InContextLearningQATaskDataset(Dataset):
         continuation_delimiter: (str): Separator that goes between context and answer in each example (e.g. '\nA: ')
         destination_path (str): Temporary path to store downloaded datasets
         question_prelimiter (str): String to put before each question (e.g. 'Q: ')
-        padding_side (str): Whether to pad on the left or right side of the sequence
         fewshot_random_seed (int): Random seed to use for fewshot sampling
     """
 
@@ -121,7 +120,6 @@ class InContextLearningQATaskDataset(Dataset):
         continuation_delimiter: str,
         destination_path: str,
         question_prelimiter: str,
-        padding_side: str,
         fewshot_random_seed: int,
     ):
         try:
@@ -143,7 +141,7 @@ class InContextLearningQATaskDataset(Dataset):
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
-        self.padding_side = padding_side
+        self.padding_side = 'left'
         self.max_answer_length = 0
         fewshot_rng = random.Random(fewshot_random_seed)
         self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
@@ -388,180 +386,6 @@ class InContextLearningLMTaskDataset(Dataset):
         return batch['input_ids'].shape[0]
 
 
-class InContextLearningSchemaTaskDataset(Dataset):
-    """A dataset that construct batches for in-context learning schema evaluation
-    A schema task involves sentences with a fill-in-the-blank where the user needs to choose the correct word
-    to fill in from a set of N options. We use the partial evaluation technique from https://arxiv.org/abs/1806.02847
-    to test determine the model's choice of fill-in word.
-    Each batch then consists of batch_size // N distinct tasks and has the following the structure
-    'input_ids': Input tensor batch x seqlen x # tokens
-    'continuation_indices': List of |batch| consisting of tensors indicating which indices in the sequence correspond to the question answer (aka continuation)
-    'mode': Indicates to the model that this is an ICL task and may rely on a custom code path to properly update metrics
-    'labels': Identical to the input, used by the model to calculate loss/metrics
-    'gold_indices': List of length |batch_size // N| indicating for each question, which of the answers is correct (via an integer [0, N-1])
-    'choice_groupings': Indicates which indices of the batch correspond to which questions
-    Args:
-        dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
-            supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "query",
-            "choices", and "gold" index. See tests/datasets/local_data/piqa_small.jsonl.
-        tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to transform data into batches
-        batch_size (int): Size of a batch used for eval
-        max_seq_len (int): The sequence length expected by the model
-        pad_tok_id (int): The special token reserved for padding the ends of batches
-        num_fewshot (int): The number of complete fewshot examples to prepend before each test example
-        prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
-        example_delimiter (str): Separator that goes between individual (context, continuation) pairs (e.g. '\n')        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
-        destination_path (str): Temporary path to store downloaded datasets
-        fewshot_random_seed (int): Random seed used to select fewshot examples
-    """
-
-    def __init__(
-        self,
-        dataset_uri: str,
-        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
-        max_seq_len: int,
-        pad_tok_id: int,
-        num_fewshot: int,
-        prompt_string: str,
-        example_delimiter: str,
-        continuation_delimiter: str,
-        destination_path: str,
-        fewshot_random_seed: int,
-    ):
-        try:
-            from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
-        except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='nlp',
-                                                conda_package='datasets',
-                                                conda_channel='conda-forge') from e
-
-        with dist.local_rank_zero_download_and_wait(destination_path):
-            if dist.get_local_rank() == 0:
-                get_file(dataset_uri, destination_path, overwrite=True)
-        dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
-        self.samples = list(
-            dataset.map(
-                lambda examples: {
-                    'context_options': examples['context_options'],
-                    'continuation': examples['continuation'],
-                    'gold': examples['gold']
-                }))
-        self.num_choices = len(self.samples[0]['context_options'])
-        self.tokenizer = tokenizer
-        self.max_seq_len = max_seq_len
-        self.pad_tok_id = pad_tok_id
-        fewshot_rng = random.Random(fewshot_random_seed)
-        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
-                                                  fewshot_rng)
-
-    def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
-                      fewshot_rng: random.Random):
-        """Prepares a set of multiple choice questions into tokenized format with prompt and few shot examples.
-        Each question consists of a query and set of answer choices, only one of which is correct. At inference time
-        we construct individual inference examples consisting of the query + a single choice, as well as an optional (prompt) and optional list
-        of example query + correct answers, which precede the test query + choice.
-        For multiple choice, this method provides information relaying which of the answer choices is the correct one. This
-        information is used for computing accuracy metrics.
-        Args:
-            num_fewshot (int): Number of examples context/continuation pairs to prepend to the test pair
-            prompt_string (str): The prompt to prepend to all inputs
-            example_delimiter (str): The delimiter used to separate each example query/answer pair
-            continuation_delimiter (str): The delimiter used to separate each query from its answer
-        Returns:
-            dict: Contains the query, the list of encoded potential answer choices, the preamble (prompt + fewshot examples), and
-                the index of the correct answer choice.
-        """
-
-        examples = []
-        for sample_idx in tqdm(range(len(self.samples))):
-
-            preamble = prompt_string
-            if num_fewshot > 0:
-                fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx, fewshot_rng)
-                for fewshot_idx in fewshot_idxs:
-                    context_options, continuation, gold_idx = self.samples[fewshot_idx][
-                        'context_options'], self.samples[fewshot_idx]['continuation'], self.samples[fewshot_idx]['gold']
-                    context = context_options[gold_idx]
-                    if len(preamble) > 0:
-                        context = f'{example_delimiter}{context}'
-                    preamble += f'{context}{continuation_delimiter}{continuation}'
-
-            encoded_example = {}
-            context_options, continuation, gold_idx = self.samples[sample_idx]['context_options'], self.samples[
-                sample_idx]['continuation'], self.samples[sample_idx]['gold'],
-            if len(preamble) > 0:
-                context_options = [f'{example_delimiter}{c}' for c in context_options]
-            encoded_example['preamble'] = self.tokenizer(
-                preamble
-            )  # if the preamble is empty then these will be 0-length lists, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
-            encoded_example['gold_idx'] = gold_idx
-            encoded_example['context_options'] = [self.tokenizer(c, add_special_tokens=False) for c in context_options]
-            encoded_example['continuation'] = self.tokenizer(f'{continuation_delimiter}{continuation}',
-                                                             add_special_tokens=False)
-            examples.append(encoded_example)
-
-        return examples
-
-    def __getitem__(self, index):
-        return self.encoded_dataset[index]
-
-    def __len__(self):
-        return len(self.encoded_dataset)
-
-    def collate_fn(self, data):
-        inputs = []
-        continuation_indices = []
-        gold_idxs = []
-        choice_groupings = []
-        for data_pair in data:
-
-            continuation_start_idx = len(continuation_indices)
-            preamble, context_options, continuation, gold_idx = (data_pair['preamble'], data_pair['context_options'],
-                                                                 data_pair['continuation'], data_pair['gold_idx'])
-
-            for ctxt in context_options:
-                context_enc = preamble['input_ids'] + ctxt['input_ids']
-                continuation_enc = continuation['input_ids']
-                inp, continuation_span = _make_padded_input(context_enc, continuation_enc, self.max_seq_len,
-                                                            self.pad_tok_id)
-
-                inputs.append(inp)
-                continuation_indices.append(continuation_span)
-
-            gold_idxs.append(gold_idx)
-            continuation_end_idx = len(continuation_indices)
-            choice_groupings.append((continuation_start_idx, continuation_end_idx))
-
-        # We run each distinct query + answer choice through the model separately and determine which
-        # answer has the lowest per-token-perplexity.
-        #
-        # If each question has N possible choices, all N must be grouped together as distinct elements of the batch
-        # since the batch may consist of multiple questions, the choice_groupings indicates
-        # which contiguous sequences of elements in the batch correspond to which question
-        # gold_indices indicates which of the [0, N-1] choices is the correct one for each question.
-        batch = {
-            'input_ids': torch.stack(inputs),
-            'continuation_indices': continuation_indices,
-            'mode': 'icl_task',
-            'labels': torch.stack(inputs),
-            'gold_indices': gold_idxs,
-            'choice_groupings': choice_groupings
-        }
-        batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
-        return batch
-
-    def get_num_samples_in_batch(self, batch) -> int:
-        return batch['input_ids'].shape[0]
-
-    def split_batch(self, batch: Any, microbatch_size: int):
-        if self.get_num_samples_in_batch(batch) // self.num_choices > microbatch_size:
-            raise Exception('Multiple choice tasks do not currently support batch splitting. Please set '
-                            'dataloader batch size to a value less than or equal to the microbatch size. '
-                            'Accordingly, auto microbatching does not work, so the microbatch size '
-                            'should be manually set if using a batch size which does not fit in memory.')
-        return [batch]
-
-
 class InContextLearningMultipleChoiceTaskDataset(Dataset):
     """A dataset that construct batches for in-context learning multiple choice evaluation
 
@@ -745,7 +569,168 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         return [batch]
 
 
-def build_dl(
+class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskDataset):
+    """A dataset that construct batches for in-context learning schema evaluation
+    A schema task involves sentences with a fill-in-the-blank where the user needs to choose the correct word
+    to fill in from a set of N options. We use the partial evaluation technique from https://arxiv.org/abs/1806.02847
+    to test determine the model's choice of fill-in word.
+    Each batch then consists of batch_size // N distinct tasks and has the following the structure
+    'input_ids': Input tensor batch x seqlen x # tokens
+    'continuation_indices': List of |batch| consisting of tensors indicating which indices in the sequence correspond to the question answer (aka continuation)
+    'mode': Indicates to the model that this is an ICL task and may rely on a custom code path to properly update metrics
+    'labels': Identical to the input, used by the model to calculate loss/metrics
+    'gold_indices': List of length |batch_size // N| indicating for each question, which of the answers is correct (via an integer [0, N-1])
+    'choice_groupings': Indicates which indices of the batch correspond to which questions
+    Args:
+        dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
+            supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "query",
+            "choices", and "gold" index. See tests/datasets/local_data/piqa_small.jsonl.
+        tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to transform data into batches
+        batch_size (int): Size of a batch used for eval
+        max_seq_len (int): The sequence length expected by the model
+        pad_tok_id (int): The special token reserved for padding the ends of batches
+        num_fewshot (int): The number of complete fewshot examples to prepend before each test example
+        prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
+        example_delimiter (str): Separator that goes between individual (context, continuation) pairs (e.g. '\n')        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
+        destination_path (str): Temporary path to store downloaded datasets
+        fewshot_random_seed (int): Random seed used to select fewshot examples
+    """
+
+    def __init__(
+        self,
+        dataset_uri: str,
+        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
+        max_seq_len: int,
+        pad_tok_id: int,
+        num_fewshot: int,
+        prompt_string: str,
+        example_delimiter: str,
+        continuation_delimiter: str,
+        destination_path: str,
+        fewshot_random_seed: int,
+    ):
+        try:
+            from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='nlp',
+                                                conda_package='datasets',
+                                                conda_channel='conda-forge') from e
+
+        with dist.local_rank_zero_download_and_wait(destination_path):
+            if dist.get_local_rank() == 0:
+                get_file(dataset_uri, destination_path, overwrite=True)
+        dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
+        self.samples = list(
+            dataset.map(
+                lambda examples: {
+                    'context_options': examples['context_options'],
+                    'continuation': examples['continuation'],
+                    'gold': examples['gold']
+                }))
+        self.num_choices = len(self.samples[0]['context_options'])
+        self.tokenizer = tokenizer
+        self.max_seq_len = max_seq_len
+        self.pad_tok_id = pad_tok_id
+        fewshot_rng = random.Random(fewshot_random_seed)
+        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
+                                                  fewshot_rng)
+
+    def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
+                      fewshot_rng: random.Random):
+        """Prepares a set of multiple choice questions into tokenized format with prompt and few shot examples.
+        Each question consists of a query and set of answer choices, only one of which is correct. At inference time
+        we construct individual inference examples consisting of the query + a single choice, as well as an optional (prompt) and optional list
+        of example query + correct answers, which precede the test query + choice.
+        For multiple choice, this method provides information relaying which of the answer choices is the correct one. This
+        information is used for computing accuracy metrics.
+        Args:
+            num_fewshot (int): Number of examples context/continuation pairs to prepend to the test pair
+            prompt_string (str): The prompt to prepend to all inputs
+            example_delimiter (str): The delimiter used to separate each example query/answer pair
+            continuation_delimiter (str): The delimiter used to separate each query from its answer
+        Returns:
+            dict: Contains the query, the list of encoded potential answer choices, the preamble (prompt + fewshot examples), and
+                the index of the correct answer choice.
+        """
+
+        examples = []
+        for sample_idx in tqdm(range(len(self.samples))):
+
+            preamble = prompt_string
+            if num_fewshot > 0:
+                fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx, fewshot_rng)
+                for fewshot_idx in fewshot_idxs:
+                    context_options, continuation, gold_idx = self.samples[fewshot_idx][
+                        'context_options'], self.samples[fewshot_idx]['continuation'], self.samples[fewshot_idx]['gold']
+                    context = context_options[gold_idx]
+                    if len(preamble) > 0:
+                        context = f'{example_delimiter}{context}'
+                    preamble += f'{context}{continuation_delimiter}{continuation}'
+
+            encoded_example = {}
+            context_options, continuation, gold_idx = self.samples[sample_idx]['context_options'], self.samples[
+                sample_idx]['continuation'], self.samples[sample_idx]['gold'],
+
+            if continuation_delimiter.endswith(' '):
+                continuation_delimiter = continuation_delimiter.rstrip(' ')
+
+            if len(preamble) > 0:
+                context_options = [f'{example_delimiter}{c}{continuation_delimiter}' for c in context_options]
+            encoded_example['preamble'] = self.tokenizer(
+                preamble
+            )  # if the preamble is empty then these will be 0-length lists, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
+            encoded_example['gold_idx'] = gold_idx
+            encoded_example['context_options'] = [self.tokenizer(c, add_special_tokens=False) for c in context_options]
+            encoded_example['continuation'] = self.tokenizer(
+                f' {continuation}' if not continuation.startswith(' ') else continuation, add_special_tokens=False)
+            examples.append(encoded_example)
+
+        return examples
+
+    def collate_fn(self, data):
+        inputs = []
+        continuation_indices = []
+        gold_idxs = []
+        choice_groupings = []
+        for data_pair in data:
+
+            continuation_start_idx = len(continuation_indices)
+            preamble, context_options, continuation, gold_idx = (data_pair['preamble'], data_pair['context_options'],
+                                                                 data_pair['continuation'], data_pair['gold_idx'])
+
+            for ctxt in context_options:
+                context_enc = preamble['input_ids'] + ctxt['input_ids']
+                continuation_enc = continuation['input_ids']
+                inp, continuation_span = _make_padded_input(context_enc, continuation_enc, self.max_seq_len,
+                                                            self.pad_tok_id)
+
+                inputs.append(inp)
+                continuation_indices.append(continuation_span)
+
+            gold_idxs.append(gold_idx)
+            continuation_end_idx = len(continuation_indices)
+            choice_groupings.append((continuation_start_idx, continuation_end_idx))
+
+        # We run each distinct query + answer choice through the model separately and determine which
+        # answer has the lowest per-token-perplexity.
+        #
+        # If each question has N possible choices, all N must be grouped together as distinct elements of the batch
+        # since the batch may consist of multiple questions, the choice_groupings indicates
+        # which contiguous sequences of elements in the batch correspond to which question
+        # gold_indices indicates which of the [0, N-1] choices is the correct one for each question.
+        batch = {
+            'input_ids': torch.stack(inputs),
+            'continuation_indices': continuation_indices,
+            'mode': 'icl_task',
+            'labels': torch.stack(inputs),
+            'gold_indices': gold_idxs,
+            'choice_groupings': choice_groupings
+        }
+        batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
+        return batch
+
+
+def build_icl_dataloader(
     icl_task_type: str,
     dataset_uri: str,
     tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
@@ -760,8 +745,6 @@ def build_dl(
     question_prelimiter: str = '',  # e.g. 'Question: '
     fewshot_random_seed: int = 1234,
 ) -> DataSpec:
-   
-
     if icl_task_type == 'multiple_choice':
         dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri,
                                                              tokenizer,
@@ -831,7 +814,19 @@ def build_dl(
     )
 
 
-def partition_dataset_by_category(dataset_uri, destination_path):
+def partition_dataset_by_category(dataset_uri: str, destination_path: str) -> Dict[str, str]:
+    """If has_categories is enabled, we partition the dataset into a separate dataset for each category value in the data and write each partition to a local file.
+
+    Args:
+        dataset_uri (str): Location of dataset.
+        destination_path (str): Base destination path, we will write a separate partition off this URI for each category.
+
+    Raises:
+        MissingConditionalImportError: If datasets not installed raise exception.
+        Exception: If 'category' key missing from dataset, raise exception.
+    Returns:
+        Dict[str, str]: Mapping of category names to partitioned dataset local files names.
+    """
     try:
         from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
     except ImportError as e:
@@ -842,16 +837,22 @@ def partition_dataset_by_category(dataset_uri, destination_path):
         if dist.get_local_rank() == 0:
             get_file(dataset_uri, destination_path, overwrite=True)
     dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
-    categories = set(dataset['category'])
+    if 'category' not in dataset.features.keys():
+        raise Exception(
+            f"Attempted to partition dataset by `category` but it doesn't have a `category` key. Got keys: {str(list(dataset.features.keys()))}"
+        )
+    categories = sorted(set(dataset['category']))
     output_files = {}
     for cat in categories:
-        cat_dest = '/'.join(destination_path.split('/')[:-1]) + f"/{cat}_{destination_path.split('/')[-1]}"
+        path = destination_path.split('/')
+        cat_dest = '/'.join(path[:-1]) + f'/{cat}_{path[-1]}'
         tmp_path_to_broadcast = str(os.path.abspath(cat_dest))
         gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
-        subset = [l for l in dataset if l['category'] == cat]
-        with open(gathered_paths[0], 'w', encoding='utf8') as f:
-            for l in subset:
-                f.write(json.dumps(l, ensure_ascii=False) + '\n')
+        if dist.get_local_rank() == 0:
+            subset = [l for l in dataset if l['category'] == cat]
+            with open(gathered_paths[0], 'w', encoding='utf8') as f:
+                for l in subset:
+                    f.write(json.dumps(l, ensure_ascii=False) + '\n')
         output_files[cat] = cat_dest
     return output_files
 
@@ -869,10 +870,9 @@ def get_icl_task_dataloader(
         continuation_delimiter: str,  # e.g. ''
         destination_path: str,
         question_prelimiter: str = '',  # e.g. 'Question: '
-        padding_side: str = 'left',
         fewshot_random_seed: int = 1234,
         has_categories: bool = False) -> Union[DataSpec, Dict[str, DataSpec]]:
-    """This constructs a dataloader capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
+    """This constructs a dataloader (or dataloaders if has_categories is True) capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
 
     >>> dl = get_icl_task_dataloader(
        ... 'language_modeling',
@@ -910,6 +910,9 @@ def get_icl_task_dataloader(
         prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
         example_delimiter (str): Separator that goes between individual examples (e.g. '\n')
         continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
+        destination_path: (str): This is the local file where remote datasets will be saved.
+        question_prelimiter: (str): For QA tasks, this will be prepended to each question.
+        has_categories: (bool): If ``True``, we will search the dataset file for a category key, and partition the dataset into a separate dataloader for each category occurring in the data.
 
     Returns:
         DataLoader: A dataloader used for performing in-context learning evaluation on the dataset provided.
@@ -918,8 +921,10 @@ def get_icl_task_dataloader(
     if has_categories:
         result_dls = {}
         output_files = partition_dataset_by_category(dataset_uri, destination_path)
-        for category, partition_uri in output_files.items():
-            result_dls[category] = build_dl(
+        categories = sorted(output_files.keys())
+        for category in categories:
+            partition_uri = output_files[category]
+            result_dls[category] = build_icl_dataloader(
                 icl_task_type,
                 partition_uri,
                 tokenizer,
@@ -932,12 +937,11 @@ def get_icl_task_dataloader(
                 continuation_delimiter,
                 partition_uri + '_tmp',
                 question_prelimiter,
-                padding_side,
                 fewshot_random_seed,
             )
         return result_dls
     else:
-        return build_dl(
+        return build_icl_dataloader(
             icl_task_type,
             dataset_uri,
             tokenizer,
@@ -950,6 +954,5 @@ def get_icl_task_dataloader(
             continuation_delimiter,
             destination_path,
             question_prelimiter,
-            padding_side,
             fewshot_random_seed,
         )

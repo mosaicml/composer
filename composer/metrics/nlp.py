@@ -440,7 +440,6 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
         self.add_state('total', default=torch.tensor(0.0), dist_reduce_fx='sum')
 
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
-        output_logits = torch.softmax(output_logits, dim=2)
         perplexities = []
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
             # continuation indices refer to indices in the original input's token space
