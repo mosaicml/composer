@@ -20,8 +20,9 @@ def extract_hparams(locals_dict: Dict[str, Any]) -> Dict[str, Any]:
             value or to another sub_dict.
     """
     hparams = {}
+    print(locals_dict)
     for k, v in locals_dict.items():
-        if k.startswith('_') or k == 'self':
+        if k.startswith('_') or k == 'self' or type(v) is type:
             continue
         hparams_to_add = _grab_hparams(v)
         hparams[k] = hparams_to_add
