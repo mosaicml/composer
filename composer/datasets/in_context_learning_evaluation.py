@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import os
 import random
-from typing import TYPE_CHECKING, Any, Union
+from typing import TYPE_CHECKING, Any, Dict, Union
 
 import torch
 import transformers
@@ -105,7 +105,6 @@ class InContextLearningQATaskDataset(Dataset):
         continuation_delimiter: (str): Separator that goes between context and answer in each example (e.g. '\nA: ')
         destination_path (str): Temporary path to store downloaded datasets
         question_prelimiter (str): String to put before each question (e.g. 'Q: ')
-        padding_side (str): Whether to pad on the left or right side of the sequence
         fewshot_random_seed (int): Random seed to use for fewshot sampling
     """
 
@@ -121,7 +120,6 @@ class InContextLearningQATaskDataset(Dataset):
         continuation_delimiter: str,
         destination_path: str,
         question_prelimiter: str,
-        padding_side: str,
         fewshot_random_seed: int,
     ):
         try:
@@ -143,7 +141,7 @@ class InContextLearningQATaskDataset(Dataset):
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
-        self.padding_side = padding_side
+        self.padding_side = 'left'
         self.max_answer_length = 0
         fewshot_rng = random.Random(fewshot_random_seed)
         self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
@@ -745,7 +743,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         return [batch]
 
 
-def build_dl(
+def build_icl_dataloader(
     icl_task_type: str,
     dataset_uri: str,
     tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
@@ -760,8 +758,6 @@ def build_dl(
     question_prelimiter: str = '',  # e.g. 'Question: '
     fewshot_random_seed: int = 1234,
 ) -> DataSpec:
-   
-
     if icl_task_type == 'multiple_choice':
         dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri,
                                                              tokenizer,
@@ -831,7 +827,19 @@ def build_dl(
     )
 
 
-def partition_dataset_by_category(dataset_uri, destination_path):
+def partition_dataset_by_category(dataset_uri: str, destination_path: str) -> Dict[str, str]:
+    """If has_categories is enabled, we partition the dataset into a separate dataset for each category value in the data and write each partition to a local file.
+
+    Args:
+        dataset_uri (str): Location of dataset.
+        destination_path (str): Base destination path, we will write a separate partition off this URI for each category.
+
+    Raises:
+        MissingConditionalImportError: If datasets not installed raise exception.
+        Exception: If 'category' key missing from dataset, raise exception.
+    Returns:
+        Dict[str, str]: Mapping of category names to partitioned dataset local files names.
+    """
     try:
         from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
     except ImportError as e:
@@ -842,16 +850,22 @@ def partition_dataset_by_category(dataset_uri, destination_path):
         if dist.get_local_rank() == 0:
             get_file(dataset_uri, destination_path, overwrite=True)
     dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
-    categories = set(dataset['category'])
+    if 'category' not in dataset.features.keys():
+        raise Exception(
+            f"Attempted to partition dataset by `category` but it doesn't have a `category` key. Got keys: {str(list(dataset.features.keys()))}"
+        )
+    categories = sorted(set(dataset['category']))
     output_files = {}
     for cat in categories:
-        cat_dest = '/'.join(destination_path.split('/')[:-1]) + f"/{cat}_{destination_path.split('/')[-1]}"
+        path = destination_path.split('/')
+        cat_dest = '/'.join(path[:-1]) + f'/{cat}_{path[-1]}'
         tmp_path_to_broadcast = str(os.path.abspath(cat_dest))
         gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
-        subset = [l for l in dataset if l['category'] == cat]
-        with open(gathered_paths[0], 'w', encoding='utf8') as f:
-            for l in subset:
-                f.write(json.dumps(l, ensure_ascii=False) + '\n')
+        if dist.get_local_rank() == 0:
+            subset = [l for l in dataset if l['category'] == cat]
+            with open(gathered_paths[0], 'w', encoding='utf8') as f:
+                for l in subset:
+                    f.write(json.dumps(l, ensure_ascii=False) + '\n')
         output_files[cat] = cat_dest
     return output_files
 
@@ -869,10 +883,9 @@ def get_icl_task_dataloader(
         continuation_delimiter: str,  # e.g. ''
         destination_path: str,
         question_prelimiter: str = '',  # e.g. 'Question: '
-        padding_side: str = 'left',
         fewshot_random_seed: int = 1234,
         has_categories: bool = False) -> Union[DataSpec, Dict[str, DataSpec]]:
-    """This constructs a dataloader capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
+    """This constructs a dataloader (or dataloaders if has_categories is True) capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
 
     >>> dl = get_icl_task_dataloader(
        ... 'language_modeling',
@@ -910,6 +923,9 @@ def get_icl_task_dataloader(
         prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
         example_delimiter (str): Separator that goes between individual examples (e.g. '\n')
         continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
+        destination_path: (str): This is the local file where remote datasets will be saved.
+        question_prelimiter: (str): For QA tasks, this will be prepended to each question.
+        has_categories: (bool): If ``True``, we will search the dataset file for a category key, and partition the dataset into a separate dataloader for each category occurring in the data.
 
     Returns:
         DataLoader: A dataloader used for performing in-context learning evaluation on the dataset provided.
@@ -918,8 +934,10 @@ def get_icl_task_dataloader(
     if has_categories:
         result_dls = {}
         output_files = partition_dataset_by_category(dataset_uri, destination_path)
-        for category, partition_uri in output_files.items():
-            result_dls[category] = build_dl(
+        categories = sorted(output_files.keys())
+        for category in categories:
+            partition_uri = output_files[category]
+            result_dls[category] = build_icl_dataloader(
                 icl_task_type,
                 partition_uri,
                 tokenizer,
@@ -932,12 +950,11 @@ def get_icl_task_dataloader(
                 continuation_delimiter,
                 partition_uri + '_tmp',
                 question_prelimiter,
-                padding_side,
                 fewshot_random_seed,
             )
         return result_dls
     else:
-        return build_dl(
+        return build_icl_dataloader(
             icl_task_type,
             dataset_uri,
             tokenizer,
@@ -950,6 +967,5 @@ def get_icl_task_dataloader(
             continuation_delimiter,
             destination_path,
             question_prelimiter,
-            padding_side,
             fewshot_random_seed,
         )
