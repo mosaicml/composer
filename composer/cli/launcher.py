@@ -315,17 +315,17 @@ def _launch_processes(
                     )
                     return open(filename, 'x+')
 
-                # stderr_file = _get_file(stderr_file_format)
-                # stdout_file = _get_file(stdout_file_format)
+                stderr_file = _get_file(stderr_file_format)
+                stdout_file = _get_file(stdout_file_format)
 
                 process = subprocess.Popen(
                     cmd,
-                    # stdout=stdout_file,
-                    # stderr=stderr_file,
+                    stdout=stdout_file,
+                    stderr=stderr_file,
                     text=True,
                 )
-                # process.stderr = stderr_file
-                # process.stdout = stdout_file
+                process.stderr = stderr_file
+                process.stdout = stdout_file
             processes[global_rank] = process
 
 
