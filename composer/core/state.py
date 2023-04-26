@@ -27,6 +27,7 @@ from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit
 from composer.devices import Device
 from composer.utils import batch_get, batch_set, dist, ensure_tuple, get_composer_env_dict, is_model_deepspeed
+from composer.utils.misc import using_torch_2_0
 
 if TYPE_CHECKING:
     import deepspeed
@@ -119,7 +120,7 @@ def fsdp_get_optim_state_dict(model: torch.nn.Module,
     if version.parse(torch.__version__) < version.parse('1.13.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-    if version.parse(torch.__version__) < version.parse('2.0.0'):
+    if using_torch_2_0():
         optim_state_dict = _legacy_fsdp_get_optim_state_dict(model, optim, state_dict_type)
     else:
         with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
@@ -992,7 +993,7 @@ class State(Serializable):
                     raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
                 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
                 log.debug(f'Loading FSDP optimizer with fsdp_state_dict_type={self.fsdp_state_dict_type}')
-                if version.parse(torch.__version__) < version.parse('2.0.0'):
+                if using_torch_2_0():
                     optim_state_dict = _legacy_optim_state_dict_to_load(
                                             optim_state_dict=optim_state_dict,
                                             model=self.model,
