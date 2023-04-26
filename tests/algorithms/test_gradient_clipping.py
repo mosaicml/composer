@@ -193,27 +193,17 @@ def test_gradient_clipping_algorithm_with_deepspeed_enabled(
     apply_gc_fn.assert_not_called()
 
 
-if not using_torch_2_0():
+def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
+    if recurse:
+        return True
 
-    def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, unwrapped_params: int) -> bool:  # type: ignore
-        if recurse:
-            return True
-        if hasattr(module, '_fsdp_wrap'):
-            return bool(module._fsdp_wrap)
+    # With Torch 2.0, there is a bug that emits a nasty warning if you wrap a module with no parameters
+    if len(list(module.parameters())) == 0:
         return False
-else:
 
-    def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
-        if recurse:
-            return True
-
-        # With Torch 2.0, there is a bug that emits a nasty warning if you wrap a module with no parameters
-        if len(list(module.parameters())) == 0:
-            return False
-
-        if hasattr(module, '_fsdp_wrap'):
-            return bool(module._fsdp_wrap)
-        return False
+    if hasattr(module, '_fsdp_wrap'):
+        return bool(module._fsdp_wrap)
+    return False
 
 
 @pytest.mark.parametrize('model_with_grads', [
