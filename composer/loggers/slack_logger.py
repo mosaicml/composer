@@ -10,7 +10,6 @@ import logging
 import os
 import re
 import time
-import warnings
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Union
 
 from composer.core.time import Time, TimeUnit
@@ -92,9 +91,9 @@ class SlackLogger(LoggerDestination):
         self.channel_id = os.environ.get('SLACK_LOGGING_CHANNEL_ID', None) if channel_id is None else channel_id
 
         if self.slack_logging_api_key is None:
-            warnings.warn('SLACK_LOGGING_API_KEY must be set as environment variable')
+            print('WARNING: SLACK_LOGGING_API_KEY must be set as environment variable')
         if self.channel_id is None:
-            warnings.warn('SLACK_LOGGING_CHANNEL_ID must be set as environment variable')
+            print('WARNING: SLACK_LOGGING_CHANNEL_ID must be set as environment variable')
 
         self.formatter_func = formatter_func
 
@@ -202,15 +201,18 @@ class SlackLogger(LoggerDestination):
         log_entries: Dict[str, Any],
         **kwargs,
     ):
-        channel_id = self.channel_id
-        if channel_id is None:
-            raise TypeError
         blocks = self.formatter_func(
             log_entries, **
             kwargs) if self.formatter_func is not None else self._default_log_bold_key_normal_value_pair_with_header(
                 log_entries, **kwargs)
         try:
-            self.client.chat_postMessage(token=f'{self.slack_logging_api_key}',
+            channel_id = self.channel_id
+            slack_logging_key = self.slack_logging_api_key
+            if channel_id is None:
+                raise TypeError('SLACK_LOGGING_CHANNEL_ID cannot be None.')
+            if slack_logging_key is None:
+                raise TypeError('SLACK_LOGGING_API_KEY cannot be None')
+            self.client.chat_postMessage(token=f'{self.slack_logging_api_key if self.slack_logging_api_key else ""}',
                                          channel=channel_id,
                                          blocks=blocks,
                                          text=f'Logged {len(log_entries)} items to Slack')
