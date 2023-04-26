@@ -155,7 +155,7 @@ def test_fsdp_optimizer_monitor_transformer(device, world_size, tiny_gpt2_model,
                           'verbose': False,
                           'use_orig_params': use_orig_params,
                       })
-    print(trainer.state.model)
+
     trainer.fit()
     num_train_steps = int(trainer.state.timestamp.batch)
 
