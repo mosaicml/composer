@@ -98,7 +98,7 @@ class SlackLogger(LoggerDestination):
         self.formatter_func = formatter_func
 
         if len(include_keys) == 0:
-            raise ValueError('The `slack logger include_keys` argument must be a non-empty list of strings.')
+            print('WARNING: The slack logger `include_keys` argument must be a non-empty list of strings.')
         # Create a regex of all keys to include
         self.regex_all_keys = '(' + ')|('.join(include_keys) + ')'
 
@@ -184,10 +184,6 @@ class SlackLogger(LoggerDestination):
         Format slack messages through rich message layouts created using Slack Blocks Kit.
         See documentation here: https://api.slack.com/messaging/composing/layouts.
         """
-        channel_id = self.channel_id
-        if channel_id is None:
-            raise TypeError
-
         inx = 0
         while inx < len(self.log_dict.keys()):
             max_log_entries_dict = dict(itertools.islice(self.log_dict.items(), inx, inx + self.max_logs_per_message))
