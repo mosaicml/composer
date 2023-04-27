@@ -195,8 +195,8 @@ class InContextLearningQATaskDataset(Dataset):
             # If there is an EOS token added, we need to remove it so it is not in the middle of the prompt
             if self.tokenizer.eos_token_id is not None and len(
                     encoded_example['preamble']
-                ['input_ids']) > 0 and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
-                encoded_example['preamble'] = encoded_example['preamble']['input_ids'][:-1]
+                ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
+                encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
 
             encoded_example['context'] = self.tokenizer(ctxt, add_special_tokens=False)
             encoded_example['aliases'] = self.samples[sample_idx]['aliases']
@@ -218,6 +218,8 @@ class InContextLearningQATaskDataset(Dataset):
 
     def collate_fn(self, data):
         inputs, answers = [], []
+        if not isinstance(data, list):
+            data = [data]
         for sample in data:
             preamble, context, aliases = (sample['preamble'], sample['context'], sample['aliases'])
             context_enc = preamble['input_ids'] + context['input_ids']
@@ -344,6 +346,11 @@ class InContextLearningLMTaskDataset(Dataset):
             encoded_example['preamble'] = self.tokenizer(
                 preamble
             )  # if the preamble is empty then these will be 0-length lists, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
+            if self.tokenizer.eos_token_id is not None and len(
+                    encoded_example['preamble']
+                ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
+                encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
+
             encoded_example['context'] = self.tokenizer(ctxt, add_special_tokens=False)
             encoded_example['continuation'] = self.tokenizer(cont, add_special_tokens=False)
 
@@ -501,7 +508,14 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
             encoded_example['preamble'] = self.tokenizer(
                 preamble
             )  # if the preamble is empty then these will be 0-length lists, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
+
+            if self.tokenizer.eos_token_id is not None and len(
+                    encoded_example['preamble']
+                ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
+                encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
+
             encoded_example['gold_idx'] = gold_idx
+
             encoded_example['query'] = self.tokenizer(query, add_special_tokens=False)
             encoded_example['choices'] = [self.tokenizer(choice, add_special_tokens=False) for choice in choices]
 
@@ -679,6 +693,11 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
             encoded_example['preamble'] = self.tokenizer(
                 preamble
             )  # if the preamble is empty then these will be 0-length lists, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
+            if self.tokenizer.eos_token_id is not None and len(
+                    encoded_example['preamble']
+                ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
+                encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
+
             encoded_example['gold_idx'] = gold_idx
             encoded_example['context_options'] = [self.tokenizer(c, add_special_tokens=False) for c in context_options]
             encoded_example['continuation'] = self.tokenizer(
