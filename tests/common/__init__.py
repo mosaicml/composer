@@ -6,11 +6,13 @@ from typing import List, Type
 
 from tests.common.compare import deep_compare
 from tests.common.datasets import (InfiniteClassificationDataset, RandomClassificationDataset, RandomImageDataset,
-                                   RandomSegmentationDataset, RandomTextClassificationDataset, SimpleDataset)
+                                   RandomSegmentationDataset, RandomTextClassificationDataset, RandomTextLMDataset,
+                                   SimpleDataset)
 from tests.common.events import EventCounterCallback
 from tests.common.markers import device, world_size
 from tests.common.models import (ConvModel, EmbeddedWeightTiedModel, SimpleConvModel, SimpleModel,
-                                 SimpleModelWithDropout, SimpleTransformerClassifier, SimpleWeightTiedModel)
+                                 SimpleModelWithDropout, SimpleTransformerClassifier, SimpleTransformerMaskedLM,
+                                 SimpleWeightTiedModel)
 from tests.common.state import assert_state_equivalent
 
 
@@ -23,12 +25,14 @@ __all__ = [
     'assert_state_equivalent',
     'RandomClassificationDataset',
     'RandomTextClassificationDataset',
+    'RandomTextLMDataset',
     'RandomImageDataset',
     'RandomSegmentationDataset',
     'ConvModel',
     'SimpleConvModel',
     'SimpleModel',
     'SimpleTransformerClassifier',
+    'SimpleTransformerMaskedLM',
     'EmbeddedWeightTiedModel',
     'SimpleWeightTiedModel',
     'EventCounterCallback',

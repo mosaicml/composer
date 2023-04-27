@@ -30,8 +30,8 @@ from composer.utils import dist, is_tar
 from composer.utils.checkpoint import glob_filter
 from composer.utils.object_store.object_store import ObjectStore
 from composer.utils.object_store.s3_object_store import S3ObjectStore
-from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, SimpleModel, deep_compare,
-                          device)
+from tests.common import (RandomClassificationDataset, RandomImageDataset, RandomTextLMDataset, SimpleConvModel,
+                          SimpleModel, SimpleTransformerMaskedLM, deep_compare, device)
 from tests.common.markers import world_size
 
 
@@ -60,6 +60,40 @@ def _load_checkpoint(filename: Union[str, pathlib.Path]):
             tarball.extractall(tmp_dir)
         states_path = os.path.join(tmp_dir, 'composer_states.pt')
         return torch.load(states_path, map_location='cpu')
+
+
+def _assert_checkpoints_equivalent(file1, file2):
+    checkpoint_1 = _load_checkpoint(file1)
+    checkpoint_2 = _load_checkpoint(file2)
+
+    # Remove the wall clock time
+    del checkpoint_1['state']['timestamp']['Timestamp']['total_wct']
+    del checkpoint_1['state']['timestamp']['Timestamp']['epoch_wct']
+    del checkpoint_1['state']['timestamp']['Timestamp']['batch_wct']
+    del checkpoint_2['state']['timestamp']['Timestamp']['total_wct']
+    del checkpoint_2['state']['timestamp']['Timestamp']['epoch_wct']
+    del checkpoint_2['state']['timestamp']['Timestamp']['batch_wct']
+
+    # Remove run_name, since it's a function of time
+    del checkpoint_1['state']['run_name']
+    del checkpoint_2['state']['run_name']
+
+    # Remove dummy stateful callback
+    for ckpt in [checkpoint_1, checkpoint_2]:
+        if 'DummyStatefulCallback' in ckpt['state']['callbacks']:
+            del ckpt['state']['callbacks']['DummyStatefulCallback']
+
+    deep_compare(checkpoint_1, checkpoint_2)
+
+    # deepspeed checkpoints do not have model or optimizer
+    # so either model, optimizer should be in all checkpoints or in none
+    keys_in = (
+        'model' in checkpoint_1['state'],
+        'optimizers' in checkpoint_1['state'],
+        'model' in checkpoint_2['state'],
+        'optimizers' in checkpoint_2['state'],
+    )
+    assert all(keys_in) or not any(keys_in)
 
 
 @pytest.mark.parametrize(
@@ -248,6 +282,103 @@ class TestCheckpointSaving:
         expected_folder = expected_path.rstrip('/') if expected_path != '' else '.'
         mock_checkpoint_saver.assert_called_once_with(folder=expected_folder, **rest_of_checkpoint_saver_kwargs)
 
+    @pytest.mark.parametrize('save_interval', ['1tok', '64tok', '65tok'])
+    @pytest.mark.parametrize('batch_size', [1, 4])
+    @pytest.mark.parametrize('sequence_length', [1, 16])
+    def test_checkpoint_save_token_interval(self, tiny_bert_tokenizer, save_interval: str, batch_size: int,
+                                            sequence_length: int, tmp_path: pathlib.Path):
+        tokens_per_batch = batch_size * sequence_length
+        max_duration_time = Time.from_timestring('5ba')
+        save_interval_time = Time.from_timestring(save_interval)
+        max_duration_tokens = max_duration_time.value * tokens_per_batch
+
+        # calculate the expected number of checkpoints
+        last_token_iter = 0
+        next_multiple = save_interval_time.value
+        expected_num_checkpoints = 0
+        last_multiple_added = -1
+        for token_iter in range(0, max_duration_tokens + tokens_per_batch, tokens_per_batch):
+            if last_token_iter < next_multiple <= token_iter:
+                last_multiple_added = next_multiple
+                expected_num_checkpoints += 1
+            last_token_iter = token_iter
+            while next_multiple <= last_token_iter:
+                next_multiple += save_interval_time.value
+
+        if last_multiple_added + tokens_per_batch <= max_duration_tokens:
+            expected_num_checkpoints += 1
+
+        transformers = pytest.importorskip('transformers')
+        model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
+        pretraining_train_dataset = RandomTextLMDataset(size=100,
+                                                        vocab_size=tiny_bert_tokenizer.vocab_size,
+                                                        sequence_length=sequence_length,
+                                                        use_keys=True)
+
+        collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer, mlm_probability=0.15)
+        dataloader = DataLoader(pretraining_train_dataset,
+                                batch_size=batch_size,
+                                sampler=dist.get_sampler(pretraining_train_dataset),
+                                collate_fn=collator)
+
+        trainer = Trainer(model=model,
+                          train_dataloader=dataloader,
+                          max_duration=max_duration_time,
+                          save_interval=save_interval_time,
+                          save_folder=str(tmp_path / 'checkpoints'))
+        trainer.fit()
+
+        assert trainer._checkpoint_saver is not None
+        assert len(trainer._checkpoint_saver.saved_checkpoints) == expected_num_checkpoints
+
+    @pytest.mark.parametrize('save_interval', ['1sp', '4sp', '5sp'])
+    @pytest.mark.parametrize('batch_size', [1, 4])
+    @pytest.mark.parametrize('sequence_length', [1, 16])
+    def test_checkpoint_save_sample_interval(self, tiny_bert_tokenizer, save_interval: str, batch_size: int,
+                                             sequence_length: int, tmp_path: pathlib.Path):
+        max_duration_time = Time.from_timestring('5ba')
+        save_interval_time = Time.from_timestring(save_interval)
+        max_duration_samples = max_duration_time.value * batch_size
+
+        # calculate the expected number of checkpoints
+        last_sample_iter = 0
+        next_multiple = save_interval_time.value
+        expected_num_checkpoints = 0
+        last_multiple_added = -1
+        for sample_iter in range(0, max_duration_samples + batch_size, batch_size):
+            if last_sample_iter < next_multiple <= sample_iter:
+                last_multiple_added = next_multiple
+                expected_num_checkpoints += 1
+            last_token_iter = sample_iter
+            while next_multiple <= last_token_iter:
+                next_multiple += save_interval_time.value
+
+        if last_multiple_added + batch_size <= max_duration_samples:
+            expected_num_checkpoints += 1
+
+        transformers = pytest.importorskip('transformers')
+        model = SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size)
+        pretraining_train_dataset = RandomTextLMDataset(size=100,
+                                                        vocab_size=tiny_bert_tokenizer.vocab_size,
+                                                        sequence_length=sequence_length,
+                                                        use_keys=True)
+
+        collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer, mlm_probability=0.15)
+        dataloader = DataLoader(pretraining_train_dataset,
+                                batch_size=batch_size,
+                                sampler=dist.get_sampler(pretraining_train_dataset),
+                                collate_fn=collator)
+
+        trainer = Trainer(model=model,
+                          train_dataloader=dataloader,
+                          max_duration=max_duration_time,
+                          save_interval=save_interval_time,
+                          save_folder=str(tmp_path / 'checkpoints'))
+        trainer.fit()
+
+        assert trainer._checkpoint_saver is not None
+        assert len(trainer._checkpoint_saver.saved_checkpoints) == expected_num_checkpoints
+
 
 class TestCheckpointLoading:
 
@@ -255,7 +386,15 @@ class TestCheckpointLoading:
         for p1, p2 in zip(m1.parameters(), m2.parameters()):
             torch.testing.assert_close(p1, p2)
 
-    def get_trainer(self, **kwargs):
+    def _metrics_equal(self, train_metrics_1, train_metrics_2, eval_metrics_1, eval_metrics_2):
+        try:
+            deep_compare(train_metrics_1, train_metrics_2)
+            deep_compare(eval_metrics_1, eval_metrics_2)
+            return True
+        except AssertionError:
+            return False
+
+    def get_trainer(self, max_duration='2ep', **kwargs):
         model = SimpleConvModel()
         optimizer = torch.optim.Adam(model.parameters())
 
@@ -282,7 +421,7 @@ class TestCheckpointLoading:
             save_interval='1ep',
             eval_interval='1ep',
             save_filename='ep{epoch}.pt',
-            max_duration='2ep',
+            max_duration=max_duration,
             optimizers=optimizer,
             schedulers=ExponentialScheduler(gamma=0.9),
             callbacks=[DummyStatefulCallback()],
@@ -356,6 +495,10 @@ class TestCheckpointLoading:
             trainer_2.state.model,
         )
 
+        # check metrics loaded
+        metrics_equal = self._metrics_equal(trainer_1.state.train_metrics, trainer_2.state.train_metrics,
+                                            trainer_1.state.eval_metrics, trainer_2.state.eval_metrics)
+
         # check callbacks state
         stateful_callbacks_equal = self._stateful_callbacks_equal(
             trainer_1.state.callbacks,
@@ -364,8 +507,80 @@ class TestCheckpointLoading:
         if load_weights_only:
             # callback state should not have been loaded
             assert not stateful_callbacks_equal
+            assert not metrics_equal
         else:
             assert stateful_callbacks_equal
+            assert metrics_equal
+
+    @pytest.mark.remote
+    @device('cpu')
+    @pytest.mark.parametrize('load_weights_only', [True, False])
+    @pytest.mark.parametrize(
+        'remote_checkpoint_uri, remote_checkpoint_name, continue_training_dur, final_checkpoint_name',
+        [
+            [
+                's3://mosaicml-internal-checkpoints-test/backwards_compatibility/trained_ckpt_cpu_ep2.pt', 'ep2.pt',
+                '3ep', 'ep3.pt'
+            ],
+        ],
+    )
+    def test_load_remote_checkpoint(self, device, tmp_path: pathlib.Path, load_weights_only, remote_checkpoint_uri,
+                                    remote_checkpoint_name, continue_training_dur, final_checkpoint_name):
+        """
+        This test checks if our checkpointing is backwards compatible.
+        We should be able to load in a saved checkpoint and continue training.
+        The checkpoint weight and metrics should match at load time
+        and should be equivalent after training continues.
+        Checkpoint saved using: Composer 0.13.5 with default dependencies.
+        """
+        import os
+
+        trainer_1 = self.get_trainer(save_folder='first', device=device)
+        trainer_1.fit()
+        trainer_1.close()
+
+        trainer_2 = self.get_trainer(
+            max_duration=continue_training_dur,
+            save_folder='second',
+            load_path=remote_checkpoint_uri,
+            load_weights_only=load_weights_only,
+            load_strict_model_weights=load_weights_only,
+            device=device,
+        )
+
+        # check weights loaded properly
+        self._assert_weights_equivalent(
+            trainer_1.state.model,
+            trainer_2.state.model,
+        )
+
+        # check metrics loaded
+        metrics_equal = self._metrics_equal(trainer_1.state.train_metrics, trainer_2.state.train_metrics,
+                                            trainer_1.state.eval_metrics, trainer_2.state.eval_metrics)
+
+        if load_weights_only:
+            assert not metrics_equal
+            return
+
+        assert metrics_equal
+
+        # Continue training from old remote checkpoint
+        trainer_2.fit()
+        trainer_2.close()
+
+        # Continue training from current local checkpoint
+        trainer_3 = self.get_trainer(
+            max_duration=continue_training_dur,
+            save_folder='third',
+            save_overwrite=True,
+            load_path=os.path.join('first', remote_checkpoint_name),
+            device=device,
+        )
+        trainer_3.fit()
+        trainer_3.close()
+
+        _assert_checkpoints_equivalent(os.path.join('third', final_checkpoint_name),
+                                       os.path.join('second', final_checkpoint_name))
 
     def _stateful_callbacks_equal(self, callbacks1, callbacks2):
 
@@ -398,6 +613,11 @@ class TestCheckpointLoading:
             trainer_1.state.model,
             trainer_2.state.model,
         )
+
+        # check metrics loaded properly
+        assert self._metrics_equal(
+            trainer_1.state.train_metrics, trainer_2.state.train_metrics, trainer_1.state.eval_metrics,
+            trainer_2.state.eval_metrics), 'Original metrics do not equal metrics from loaded checkpoint.'
 
     @world_size(1, 2)
     @device('cpu', 'gpu')
@@ -439,6 +659,10 @@ class TestCheckpointLoading:
             trainer_1.state.model,
             trainer_2.state.model,
         )
+
+        assert self._metrics_equal(
+            trainer_1.state.train_metrics, trainer_2.state.train_metrics, trainer_1.state.eval_metrics,
+            trainer_2.state.eval_metrics), 'Original metrics do not equal metrics from loaded checkpoint.'
 
         assert trainer_1.state.run_name == trainer_2.state.run_name
 
@@ -647,38 +871,10 @@ class TestCheckpointResumption:
         trainer_2.fit()
         trainer_2.close()
 
-        self._assert_checkpoints_equivalent(
+        _assert_checkpoints_equivalent(
             save_folder / 'first' / final_checkpoint,
             save_folder / 'second' / final_checkpoint,
         )
-
-    def _assert_checkpoints_equivalent(self, file1, file2):
-        checkpoint_1 = _load_checkpoint(file1)
-        checkpoint_2 = _load_checkpoint(file2)
-
-        # Remove the wall clock time
-        del checkpoint_1['state']['timestamp']['Timestamp']['total_wct']
-        del checkpoint_1['state']['timestamp']['Timestamp']['epoch_wct']
-        del checkpoint_1['state']['timestamp']['Timestamp']['batch_wct']
-        del checkpoint_2['state']['timestamp']['Timestamp']['total_wct']
-        del checkpoint_2['state']['timestamp']['Timestamp']['epoch_wct']
-        del checkpoint_2['state']['timestamp']['Timestamp']['batch_wct']
-
-        # Remove run_name, since it's a function of time
-        del checkpoint_1['state']['run_name']
-        del checkpoint_2['state']['run_name']
-
-        deep_compare(checkpoint_1, checkpoint_2)
-
-        # deepspeed checkpoints do not have model or optimizer
-        # so either model, optimizer should be in all checkpoints or in none
-        keys_in = (
-            'model' in checkpoint_1['state'],
-            'optimizers' in checkpoint_1['state'],
-            'model' in checkpoint_2['state'],
-            'optimizers' in checkpoint_2['state'],
-        )
-        assert all(keys_in) or not any(keys_in)
 
     def _assert_expected_num_checkpoints(
         self,

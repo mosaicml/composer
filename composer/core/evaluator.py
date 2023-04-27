@@ -36,9 +36,6 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
     if isinstance(eval_interval, str):
         eval_interval = Time.from_timestring(eval_interval)
 
-    if eval_interval.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.DURATION):
-        raise ValueError('The `eval_interval` must have units of EPOCH, BATCH, DURATION or be a function.')
-
     last_batch_seen = -1
 
     def should_eval(state: State, event: Event):
@@ -51,17 +48,32 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
         if eval_at_fit_end and event == Event.FIT_END and state.timestamp.batch != last_batch_seen:
             return True
 
-        if eval_interval.unit == TimeUnit.EPOCH and int(
-                state.timestamp.epoch) % int(eval_interval) == 0 and event == Event.EPOCH_END:
+        # Previous timestamp will only be None if training has not started, but we are returning False
+        # in this case, just to be safe
+        if state.previous_timestamp is None:
+            return False
+
+        if eval_interval.unit in {TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE}:
+            previous_count = state.previous_timestamp.get(eval_interval.unit)
+            count = state.timestamp.get(eval_interval.unit)
+        # If the eval_interval is a duration, we will track progress in terms of the unit of max_duration
+        elif eval_interval.unit == TimeUnit.DURATION:
+            assert state.max_duration is not None
+            previous_count = state.previous_timestamp.get(state.max_duration.unit)
+            count = state.timestamp.get(state.max_duration.unit)
+        else:
+            raise ValueError(f'Invalid eval_interval unit: {eval_interval.unit}')
+
+        threshold_passed = math.floor(previous_count / eval_interval.value) != math.floor(count / eval_interval.value)
+
+        if eval_interval.unit == TimeUnit.EPOCH and event == Event.EPOCH_END and threshold_passed:
             last_batch_seen = state.timestamp.batch
             return True
-
-        if eval_interval.unit == TimeUnit.BATCH and int(
-                state.timestamp.batch) % int(eval_interval) == 0 and event == Event.BATCH_END:
+        elif eval_interval.unit in {TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE
+                                   } and event == Event.BATCH_END and threshold_passed:
             last_batch_seen = state.timestamp.batch
             return True
-
-        if eval_interval.unit == TimeUnit.DURATION:
+        elif eval_interval.unit == TimeUnit.DURATION:
             assert state.max_duration is not None, 'max_duration should not be None'
             if state.dataloader_len is None:
                 raise RuntimeError(
@@ -76,16 +88,19 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
                 last_batch_seen = state.timestamp.batch
                 return True
             elif state.max_duration.unit == TimeUnit.SAMPLE and event == Event.BATCH_END:
-                # If last sample in batch is not evenly divisible by eval_interval, perform evaluation in next batch
-                if int(state.timestamp.batch) > 0:
-                    samples_in_a_batch = int(state.timestamp.sample) // int(state.timestamp.batch)
-                    if int(state.timestamp.sample) // math.ceil(state.max_duration.value * eval_interval) != int(
-                            state.timestamp.sample - samples_in_a_batch) // math.ceil(
-                                state.max_duration.value * eval_interval):
-                        last_batch_seen = state.timestamp.batch
-                        return True
+                samples_per_interval = math.ceil(state.max_duration.value * eval_interval)
+                threshold_passed = math.floor(previous_count / samples_per_interval) != math.floor(
+                    count / samples_per_interval)
+                if threshold_passed:
+                    last_batch_seen = state.timestamp.batch
+                    return True
             elif state.max_duration.unit == TimeUnit.TOKEN and event == Event.BATCH_END:
-                raise ValueError(f'Evaluation interval of type `dur` is not supported yet for max_duration as `tok`')
+                tokens_per_interval = math.ceil(state.max_duration.value * eval_interval)
+                threshold_passed = math.floor(previous_count / tokens_per_interval) != math.floor(
+                    count / tokens_per_interval)
+                if threshold_passed:
+                    last_batch_seen = state.timestamp.batch
+                    return True
         return False
 
     return should_eval

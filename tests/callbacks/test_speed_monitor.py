@@ -46,9 +46,9 @@ def test_speed_monitor(flops_per_batch: bool):
     )
     trainer.fit()
 
-    _assert_no_negative_values(in_memory_logger.data['wall_clock/train'])
-    _assert_no_negative_values(in_memory_logger.data['wall_clock/val'])
-    _assert_no_negative_values(in_memory_logger.data['wall_clock/total'])
+    _assert_no_negative_values(in_memory_logger.data['time/train'])
+    _assert_no_negative_values(in_memory_logger.data['time/val'])
+    _assert_no_negative_values(in_memory_logger.data['time/total'])
     _assert_no_negative_values(in_memory_logger.data['throughput/batches_per_sec'])
     _assert_no_negative_values(in_memory_logger.data['throughput/samples_per_sec'])
     _assert_no_negative_values(in_memory_logger.data['throughput/device/batches_per_sec'])
@@ -70,6 +70,6 @@ def test_speed_monitor(flops_per_batch: bool):
         assert len(in_memory_logger.data['throughput/flops_per_sec']) == expected_step_calls
         assert len(in_memory_logger.data['throughput/device/flops_per_sec']) == expected_step_calls
     num_batches = int(trainer.state.timestamp.batch)
-    assert len(in_memory_logger.data['wall_clock/total']) == num_batches
-    assert len(in_memory_logger.data['wall_clock/train']) == num_batches
-    assert len(in_memory_logger.data['wall_clock/val']) == num_batches
+    assert len(in_memory_logger.data['time/total']) == num_batches
+    assert len(in_memory_logger.data['time/train']) == num_batches
+    assert len(in_memory_logger.data['time/val']) == num_batches
