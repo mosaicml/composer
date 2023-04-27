@@ -1078,7 +1078,7 @@ class State(Serializable):
                         metric_state_dict = serialized_value[metric_name].state_dict()
                         metric_computed_field = serialized_value[metric_name]._computed
                     elif isinstance(serialized_value[metric_name], dict):
-                        # For checkpoints saved using Composer > 0.14
+                        # For checkpoints saved using Composer >= 0.14
                         metric_state_dict = serialized_value[metric_name]['state_dict']
                         metric_computed_field = serialized_value[metric_name]['_computed']
                     else:
