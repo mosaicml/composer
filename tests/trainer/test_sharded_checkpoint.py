@@ -17,7 +17,6 @@ from composer.utils import dist
 from composer.utils.file_helpers import get_file
 from tests.common import RandomClassificationDataset
 from tests.common.compare import deep_compare
-from tests.common import RandomClassificationDataset
 from tests.common.markers import world_size
 
 
