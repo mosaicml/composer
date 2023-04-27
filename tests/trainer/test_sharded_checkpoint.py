@@ -125,7 +125,6 @@ def _compare_model_params_between_state_dicts(state_dict1, state_dict2):
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
-# @pytest.mark.filterwarnings('ignore::UserWarning') # need to switch to the new FSDP.optim_state_dict
 def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresume: bool, precision: str):
     if autoresume:
         run_name = 'my-cool-autoresume-run'
