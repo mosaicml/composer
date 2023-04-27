@@ -10,9 +10,8 @@ import json
 import logging
 import tempfile
 import textwrap
-from collections import UserDict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple, Type, Union
 
 import torch
 from torchmetrics import Metric
@@ -308,7 +307,7 @@ class HuggingFaceModel(ComposerModel):
         return hf_model, hf_tokenizer
 
     def forward(self, batch):
-        if isinstance(batch, dict) or isinstance(batch, UserDict):
+        if isinstance(batch, Mapping):
             # Further input validation is left to the huggingface forward call
             batch = {k: v for k, v in batch.items() if k in self.model_forward_args}
             output = self.model(**batch)  # type: ignore (thirdparty)
@@ -510,7 +509,16 @@ def get_hf_config_from_composer_state_dict(state_dict: Dict[str, Any],
     if 'id2label' in hf_config_dict:
         hf_config_dict['id2label'] = {int(k): v for k, v in hf_config_dict['id2label'].items()}
 
-    return transformers.AutoConfig.from_pretrained(hf_config_dict['_name_or_path'], **hf_config_dict)
+    try:
+        return transformers.AutoConfig.for_model(**hf_config_dict)
+    except ValueError:
+        try:
+            return transformers.AutoConfig.from_pretrained(hf_config_dict['_name_or_path'], **hf_config_dict)
+        except KeyError:
+            raise Exception(
+                f'Could not load config from state dict using either `for_model` or `from_pretrained`.'
+                f'Please make sure that the model_type={hf_config_dict.get("model_type")} is valid, or that the'
+                f'config has a valid `_name_or_path`.')
 
 
 def write_huggingface_pretrained_from_composer_checkpoint(

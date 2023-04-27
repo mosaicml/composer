@@ -118,16 +118,25 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
     tokenizer1.init_kwargs.pop('name_or_path', None)
     tokenizer2.init_kwargs.pop('name_or_path', None)
 
-    # tokenizer.init_kwargs['model_max_length'] is unset when the tokenizer does not specify it, but is set
-    # to a very large number when you save and reload, so here we just check that its the same if it is present in
-    # both tokenizers. There is a separate tokenizer.model_max_length that will still get checked for equivalence
+    # The init_kwargs are not always the same between initial load and reload, even though the tokenizers are the same
+    # and have the attributes set correctly. This section removes the keys that are different, only checking for equality if they
+    # are present in both tokenizers
     model_max_length_1 = tokenizer1.init_kwargs.get('model_max_length', None)
     model_max_length_2 = tokenizer2.init_kwargs.get('model_max_length', None)
     if model_max_length_1 is not None and model_max_length_2 is not None:
         assert model_max_length_1 == model_max_length_2
-
     tokenizer1.__dict__['init_kwargs'].pop('model_max_length', None)
     tokenizer2.__dict__['init_kwargs'].pop('model_max_length', None)
+
+    spaces_1 = tokenizer1.init_kwargs.get('clean_up_tokenization_spaces', None)
+    spaces_2 = tokenizer2.init_kwargs.get('clean_up_tokenization_spaces', None)
+    if spaces_1 is not None and spaces_2 is not None:
+        assert spaces_1 == spaces_2
+    tokenizer1.__dict__['init_kwargs'].pop('clean_up_tokenization_spaces', None)
+    tokenizer2.__dict__['init_kwargs'].pop('clean_up_tokenization_spaces', None)
+
+    tokenizer1.__dict__['init_kwargs'].pop('special_tokens_map_file', None)
+    tokenizer2.__dict__['init_kwargs'].pop('special_tokens_map_file', None)
 
     # tokenizer.init_kwargs['tokenizer_file'] is unset when the tokenizer does not specify it, but is set to
     # None when you save and reload, so here we just check that its the same if it is present in both tokenizers.
@@ -143,6 +152,8 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
     # the reloaded tokenizer, so we remove it and don't compare it between the two tokenizers
     tokenizer1.__dict__.pop('vocab_file', None)
     tokenizer2.__dict__.pop('vocab_file', None)
+    tokenizer1.__dict__.pop('special_tokens_map_file', None)
+    tokenizer2.__dict__.pop('special_tokens_map_file', None)
 
     assert tokenizer1.__dict__ == tokenizer2.__dict__
 
@@ -635,6 +646,43 @@ def test_write_hf_from_composer(checkpoint_upload_folder, local_save_filename, t
         write_huggingface_pretrained_from_composer_checkpoint(checkpoint_path,
                                                               tmp_path / 'hf-save-pretrained',
                                                               local_checkpoint_save_location=local_save_filename)
+
+    assert os.path.exists(tmp_path / 'hf-save-pretrained' / 'config.json')
+    assert os.path.exists(tmp_path / 'hf-save-pretrained' / 'pytorch_model.bin')
+
+    loaded_hf_model = transformers.AutoModelForMaskedLM.from_pretrained(tmp_path / 'hf-save-pretrained')
+
+    # set _name_or_path so that the equivalence check passes. It is expected that these are different, because one is loaded from disk, while one is loaded from the hub
+    loaded_hf_model.config._name_or_path = tiny_bert_model.config._name_or_path
+
+    check_hf_model_equivalence(tiny_bert_model, loaded_hf_model)
+
+
+def test_write_hf_from_composer_direct(tiny_bert_tokenizer, tmp_path):
+    # tests that the logic to write out a huggingface checkpoint from a composer checkpoint
+    # still works when the huggingface model is instantiated directly rather than using from_pretrained
+    transformers = pytest.importorskip('transformers')
+
+    from composer.models.huggingface import write_huggingface_pretrained_from_composer_checkpoint
+
+    checkpoint_upload_folder = tmp_path
+
+    tiny_overrides = {
+        'hidden_size': 128,
+        'num_attention_heads': 2,
+        'num_hidden_layers': 2,
+        'intermediate_size': 512,
+    }
+    tiny_bert_config = transformers.BertConfig(**tiny_overrides)
+    tiny_bert_model = transformers.BertForMaskedLM(tiny_bert_config)
+    trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
+    trainer.fit()
+
+    checkpoint_path = os.path.join(checkpoint_upload_folder, 'hf-checkpoint.pt')
+    write_huggingface_pretrained_from_composer_checkpoint(
+        checkpoint_path,
+        tmp_path / 'hf-save-pretrained',
+    )
 
     assert os.path.exists(tmp_path / 'hf-save-pretrained' / 'config.json')
     assert os.path.exists(tmp_path / 'hf-save-pretrained' / 'pytorch_model.bin')

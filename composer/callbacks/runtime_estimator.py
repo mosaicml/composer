@@ -43,14 +43,14 @@ class RuntimeEstimator(Callback):
     +-----------------------------------+---------------------------------------------------------+
     | Key                               | Logged data                                             |
     +===================================+=========================================================+
-    | `wall_clock/remaining_estimate`   | Estimated time to completion                            |
+    | `time/remaining_estimate`         | Estimated time to completion                            |
     +-----------------------------------+---------------------------------------------------------+
 
     Args:
         skip_batches (int, optional): Number of batches to skip before starting clock to estimate
             remaining time. Typically, the first few batches are slower due to dataloader, cache
             warming, and other reasons. Defaults to 1.
-        time_unit (str, optional): Time unit to use for `wall_clock` logging. Can be one of
+        time_unit (str, optional): Time unit to use for `time` logging. Can be one of
             'seconds', 'minutes', 'hours', or 'days'. Defaults to 'hours'.
     """
 
@@ -137,11 +137,11 @@ class RuntimeEstimator(Callback):
                 else:
                     eval_wct_avg = sum(eval_wcts) / num_evals_finished
                 eval_rate = self.eval_frequency_per_label[dataloader_label]
-                num_total_evals = 1 / eval_rate
+                num_total_evals = 1 / eval_rate * (1 - self.start_dur)
                 remaining_calls = num_total_evals - num_evals_finished
                 remaining_time += eval_wct_avg * remaining_calls
 
-            logger.log_metrics({'wall_clock/remaining_estimate': remaining_time / self.divider})
+            logger.log_metrics({'time/remaining_estimate': remaining_time / self.divider})
 
     def eval_end(self, state: State, logger: Logger) -> None:
         # If eval is called before training starts, ignore it

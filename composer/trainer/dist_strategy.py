@@ -212,6 +212,9 @@ def prepare_fsdp_module(
                 f'Consider using `amp` or `bf16` for precision or setting param_dtype in mixed_precision to `None` '
                 f'with sharding strategy `{sharding_map_key}.`')
 
+    if fsdp_config.get('min_params') is not None:
+        warnings.warn(DeprecationWarning('`min_params` in FSDP config will be depricated in composer version 0.16.0.'))
+
     backward_prefetch = backward_prefetch_map[fsdp_config.get('backward_prefetch', 'BACKWARD_POST').upper()]
     min_params = int(float(fsdp_config.get('min_params', 1e9)))
     activation_checkpointing = fsdp_config.get('activation_checkpointing', False)
@@ -222,6 +225,16 @@ def prepare_fsdp_module(
     ignored_modules = fsdp_config.get('ignored_modules', None)
     state_dict_type = fsdp_config.get('state_dict_type', 'full')
     activation_checkpointing_reentrant = fsdp_config.get('activation_checkpointing_reentrant', True)
+
+    kwargs = {}
+    if is_torch_2_0:
+        # Support of new parameter `use_orig_params` in PyTorch 2.0 or higher.
+        # Setting this to `True` has FSDP use `module`'s original parameters via method
+        # `nn.Module.named_parameters` instead of FSDP's internal class `FlatParameter`. However,
+        # setting it to `False` exposes FSDP's internal class `FlatParameter` via method
+        # `nn.Module.named_parameters`.
+        # Setting it to `True` is mandatory when using `torch.compile()`.
+        kwargs['use_orig_params'] = fsdp_config.get('use_orig_params', True)
 
     # We choose to not wrap the ComposerModel directly, but instead wrap any submodules like `ComposerModel.model`
     # This makes it safer to call ComposerModel-specific functions like 'eval_forward' that
@@ -352,6 +365,7 @@ def prepare_fsdp_module(
                 sync_module_states=sync_module_states,
                 forward_prefetch=forward_prefetch,
                 limit_all_gathers=limit_all_gathers,
+                **kwargs,
             )
 
             # Activation Checkpointing

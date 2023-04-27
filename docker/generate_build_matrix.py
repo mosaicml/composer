@@ -19,36 +19,22 @@ import tabulate
 import yaml
 
 LATEST_PYTHON_VERSION = '3.10'
-
-
-def _get_pytorch_version(python_version: str):
-    if python_version == '3.10':
-        return '1.13.1'
-    if python_version == '3.9':
-        return '1.12.1'
-    if python_version in '3.8':
-        return '1.11.0'
-    raise ValueError(f'Invalid python version: {python_version}')
+PRODUCTION_PYTORCH_VERSION = '1.13.1'
 
 
 def _get_torchvision_version(pytorch_version: str):
+    if pytorch_version == '2.0.0':
+        return '0.15.1'
     if pytorch_version == '1.13.1':
         return '0.14.1'
-    if pytorch_version == '1.12.1':
-        return '0.13.1'
-    if pytorch_version == '1.11.0':
-        return '0.12.0'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
 def _get_torchtext_version(pytorch_version: str):
+    if pytorch_version == '2.0.0':
+        return '0.15.1'
     if pytorch_version == '1.13.1':
         return '0.14.1'
-    if pytorch_version == '1.12.1':
-        return '0.13.1'
-    if pytorch_version == '1.11.0':
-        return '0.12.0'
-
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
@@ -61,12 +47,8 @@ def _get_base_image(cuda_version: str):
 def _get_cuda_version(pytorch_version: str, use_cuda: bool):
     if not use_cuda:
         return ''
-    if pytorch_version == '1.13.1':
+    if pytorch_version == '1.13.1' or pytorch_version == '2.0.0':
         return '11.7.1'
-    if pytorch_version == '1.12.1':
-        return '11.6.2'
-    if pytorch_version == '1.11.0':
-        return '11.5.2'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
@@ -86,7 +68,7 @@ def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: s
     cuda_version_tag = _get_cuda_version_tag(cuda_version)
     tags = [f'{base_image_name}:{pytorch_version}_{cuda_version_tag}-python{python_version}-ubuntu20.04']
 
-    if python_version == LATEST_PYTHON_VERSION:
+    if python_version == LATEST_PYTHON_VERSION and pytorch_version == PRODUCTION_PYTORCH_VERSION:
         if not cuda_version:
             tags.append(f'{base_image_name}:latest_cpu')
         else:
@@ -147,17 +129,17 @@ def _write_table(table_tag: str, table_contents: str):
 
 
 def _main():
-    python_versions = ['3.8', '3.9', '3.10']
+    python_versions = ['3.10']
+    pytorch_versions = ['2.0.0', '1.13.1']
     cuda_options = [True, False]
     stages = ['pytorch_stage', 'vision_stage']
     interconnects = ['mellanox', 'EFA']  # mellanox is default, EFA needed for AWS
 
     pytorch_entries = []
 
-    for product in itertools.product(python_versions, cuda_options, stages, interconnects):
-        python_version, use_cuda, stage, interconnect = product
+    for product in itertools.product(python_versions, pytorch_versions, cuda_options, stages, interconnects):
+        python_version, pytorch_version, use_cuda, stage, interconnect = product
 
-        pytorch_version = _get_pytorch_version(python_version)
         cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
 
         entry = {
@@ -213,13 +195,13 @@ def _main():
     composer_entries = []
 
     # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
-    composer_versions = ['0.13.4']  # Only build images for the latest composer version
+    composer_versions = ['0.13.5']  # Only build images for the latest composer version
     composer_python_versions = [LATEST_PYTHON_VERSION]  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):
         python_version, composer_version, use_cuda = product
 
-        pytorch_version = _get_pytorch_version(python_version)
+        pytorch_version = PRODUCTION_PYTORCH_VERSION
         cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
         cpu = '-cpu' if not use_cuda else ''
 

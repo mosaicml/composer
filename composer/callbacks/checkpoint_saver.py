@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
 import pathlib
 import tempfile
@@ -29,7 +30,8 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
     Args:
         interval (Union[str, int, :class:`.Time`]): The interval describing how often checkpoints should be
             saved. If an integer, it will be assumed to be in :attr:`.TimeUnit.EPOCH`\s.
-            Otherwise, the unit must be either :attr:`.TimeUnit.EPOCH` or :attr:`.TimeUnit.BATCH`.
+            Otherwise, the unit must be either :attr:`.TimeUnit.EPOCH`, :attr:`.TimeUnit.BATCH`,
+            :attr:`.TimeUnit.TOKEN`, or :attr:`.TimeUnit.SAMPLE`.
 
             Checkpoints will be saved every ``n`` batches or epochs (depending on the unit),
             and at the end of training.
@@ -45,11 +47,12 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
 
     if interval.unit == TimeUnit.EPOCH:
         save_event = Event.EPOCH_CHECKPOINT
-    elif interval.unit == TimeUnit.BATCH:
+    elif interval.unit in {TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE}:
         save_event = Event.BATCH_CHECKPOINT
     else:
         raise NotImplementedError(
-            f'Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH or TimeUnit.BATCH.')
+            f'Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.'
+        )
 
     def save_interval(state: State, event: Event):
         elapsed_duration = state.get_elapsed_duration()
@@ -59,17 +62,21 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
         if elapsed_duration >= 1.0:
             return True
 
-        if save_event == Event.EPOCH_CHECKPOINT:
-            count = state.timestamp.epoch
-        elif save_event == Event.BATCH_CHECKPOINT:
-            count = state.timestamp.batch
+        # previous timestamp will only be None if training has not started, but we are returning False
+        # in this case, just to be safe
+        if state.previous_timestamp is None:
+            return False
+
+        if interval.unit in {TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE}:
+            previous_count = state.previous_timestamp.get(interval.unit)
+            count = state.timestamp.get(interval.unit)
         else:
-            raise RuntimeError(f'Invalid save_event: {save_event}')
+            raise NotImplementedError(
+                f'Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.'
+            )
 
-        if event == save_event and int(count) % int(interval) == 0:
-            return True
-
-        return False
+        threshold_passed = math.floor(previous_count / interval.value) != math.floor(count / interval.value)
+        return event == save_event and threshold_passed
 
     return save_interval
 
@@ -313,6 +320,8 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
         self.weights_only = weights_only
 
+        self.start_batch = None
+
     def init(self, state: State, logger: Logger) -> None:
         folder = format_name_with_dist(self.folder, state.run_name)
         os.makedirs(folder, exist_ok=True)
@@ -329,7 +338,10 @@ class CheckpointSaver(Callback):  # noqa: D101
         if is_model_deepspeed(state.model) and self.weights_only:
             raise NotImplementedError('weights_only=True is not supported when using DeepSpeed.')
 
+        self.start_batch = state.timestamp.batch
+
     def batch_checkpoint(self, state: State, logger: Logger):
+        assert callable(self.save_interval)
         if self.save_interval(state, Event.BATCH_CHECKPOINT) and self.last_checkpoint_batch != state.timestamp.batch:
             self._save_checkpoint(
                 state,
@@ -337,7 +349,16 @@ class CheckpointSaver(Callback):  # noqa: D101
             )
 
     def epoch_checkpoint(self, state: State, logger: Logger):
+        assert callable(self.save_interval)
         if self.save_interval(state, Event.EPOCH_CHECKPOINT) and self.last_checkpoint_batch != state.timestamp.batch:
+            self._save_checkpoint(
+                state,
+                logger,
+            )
+
+    def close(self, state: State, logger: Logger):
+        trained_at_least_one_batch = self.start_batch is not None and self.start_batch != state.timestamp.batch
+        if self.last_checkpoint_batch != state.timestamp.batch and trained_at_least_one_batch:
             self._save_checkpoint(
                 state,
                 logger,
