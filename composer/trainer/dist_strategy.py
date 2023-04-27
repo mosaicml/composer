@@ -212,6 +212,9 @@ def prepare_fsdp_module(
                 f'Consider using `amp` or `bf16` for precision or setting param_dtype in mixed_precision to `None` '
                 f'with sharding strategy `{sharding_map_key}.`')
 
+    if fsdp_config.get('min_params') is not None:
+        warnings.warn(DeprecationWarning('`min_params` in FSDP config will be depricated in composer version 0.16.0.'))
+
     backward_prefetch = backward_prefetch_map[fsdp_config.get('backward_prefetch', 'BACKWARD_POST').upper()]
     min_params = int(float(fsdp_config.get('min_params', 1e9)))
     activation_checkpointing = fsdp_config.get('activation_checkpointing', False)
