@@ -458,7 +458,7 @@ class HuggingFaceModel(ComposerModel):
         # We need to call forward once in order for FSDP + generate to work
         # See https://github.com/huggingface/accelerate/issues/570, https://github.com/huggingface/accelerate/issues/947,
         # and https://github.com/pytorch/pytorch/issues/82461 for more info
-        # NOTE: This is a hack for Torch 1.13.x, and there is a different hack below for Torch 2.0
+        # Note: This is a hack for Torch 1.13.x, and there is a different hack below for Torch 2.0
         if not using_torch_2_0() and not self.dummy_forward_called and is_model_fsdp(self.model):
             with torch.no_grad():
                 maybe_decoder_input_ids = {}
