@@ -28,7 +28,7 @@ class SimpleModel(ComposerClassifier):
                  num_classes: int = 2,
                  num_hidden: int = 8,
                  device: str = 'cpu',
-                 bias: bool = True) -> None:
+                 bias: bool = True,) -> None:
 
         self.num_features = num_features
         self.num_classes = num_classes
