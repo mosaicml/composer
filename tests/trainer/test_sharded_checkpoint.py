@@ -187,13 +187,13 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision: str, sharding_strategy: str,
-                                  state_dict_type: str):
+                                  state_dict_type: str, s3_bucket: str):
     if version.parse(torch.__version__) >= version.parse('2.0.0') and state_dict_type == 'local':
         pytest.xfail(
             'Loading a torch 1.13 checkpoint with torch 2.0 for state_dict_type local is not backwards compatible')
 
     rank = 0 if state_dict_type == 'full' else '{rank}'
-    load_path = f's3://mosaicml-internal-checkpoints-test/ckpt-compatibility-test/{sharding_strategy.lower()}_{state_dict_type}_{precision}/rank{rank}.pt'
+    load_path = f's3://{s3_bucket}/backwards_compatibility/{sharding_strategy.lower()}_{state_dict_type}_{precision}/rank{rank}.pt'
 
     trainer2 = get_trainer(
         fsdp_state_dict_type=state_dict_type,
