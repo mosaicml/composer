@@ -771,6 +771,8 @@ class State(Serializable):
                     v.persistent(mode=True)
                     # No need to use __qualname__, we already know this corresponds to
                     # a metric object when we deserialize.
+                    # metric._computed stores the cached value of the previous metric computation
+                    # We need to serialize this because it cannot always be recomputed from the state dict.
                     serialized_value[k] = {'state_dict': v.state_dict(), '_computed': v._computed}
             elif attribute_name == 'eval_metrics':
                 serialized_value = {}
