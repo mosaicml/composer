@@ -335,7 +335,7 @@ def prepare_fsdp_module(
 
                 if should_be_wrapped and auto_microbatching:
                     module.register_forward_hook(sync_hook)
-                    module.register_backward_hook(sync_hook)
+                    module.register_full_backward_hook(sync_hook)
                 return should_be_wrapped
 
             if is_torch_2_0:

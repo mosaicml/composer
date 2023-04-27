@@ -159,9 +159,12 @@ def _set_evaluator_interval_and_subset_num_batches(
 
 def _is_auto_microbatching(device_train_microbatch_size: Optional[Union[int, str]], device: Device):
     if device_train_microbatch_size == 'auto':
-        warnings.warn(("Setting `device_train_microbatch_size='auto'` is an experimental feature which may cause "
-                       'uncaught Cuda Out of Memory errors. In this case, please manually '
-                       'set device_train_microbatch_size explicitly to an integer instead.'))
+        warnings.warn(("`device_train_microbatch_size='auto'` may potentially fail with unexpected "
+                       'CUDA errors. Auto microbatching attempts to catch CUDA Out of Memory errors '
+                       'and adjust the batch size, but it is possible CUDA will be put into an '
+                       'irrecoverable state due to PyTorch bugs, e.g. integer overflow. In this case, '
+                       'please manually set device_train_microbatch_size explicitly to an integer '
+                       'instead.'))
         if not isinstance(device, DeviceGPU):
             raise ValueError(
                 'Can only use adaptive device_train_microbatch_size on GPU. Please set device_train_microbatch_size >= 1.'
@@ -2240,7 +2243,7 @@ class Trainer:
         device_batch = deepcopy(self.state.batch)
 
         microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
-        if self.deepspeed_enabled:
+        if self.deepspeed_enabled or not isinstance(self.state.model, DistributedDataParallel):
             sync_context = contextlib.nullcontext()
         elif self.state.auto_microbatching and not self.first_batch_complete:
             # PyTorch DDP rebuilds gradient reduction buckets after 1) a forward pass where the
