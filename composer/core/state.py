@@ -149,7 +149,7 @@ def _legacy_fsdp_get_optim_state_dict(model: torch.nn.Module,
 def _legacy_optim_state_dict_to_load(optim_state_dict: Dict[str, Any],
                                      model: torch.nn.Module,
                                      optim: torch.optim.Optimizer,
-                                     state_dict_type: str = 'full'):
+                                     state_dict_type: str = 'full',):
     if version.parse(torch.__version__) < version.parse('1.13.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
