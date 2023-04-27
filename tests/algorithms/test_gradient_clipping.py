@@ -247,11 +247,7 @@ def test_gradient_clipping_algorithm_with_fsdp_enabled_does_not_error(
     state.model = FullyShardedDataParallel(model,
                                            auto_wrap_policy=_auto_wrap_policy,
                                            device_id=torch.cuda.current_device(),
-<<<<<<< HEAD
-                                           use_orig_params=True)
-=======
                                            **torch_2_kwargs)
->>>>>>> torch2branch2
 
     state.algorithms = [GradientClipping(clipping_type=clipping_type, clipping_threshold=clipping_threshold)]
     logger = Mock()
