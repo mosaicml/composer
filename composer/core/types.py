@@ -28,7 +28,11 @@ Batch = Any
 Dataset = torch.utils.data.Dataset[Batch]
 
 try:
+<<<<<<< HEAD
     PyTorchScheduler = Union[torch.optim.lr_scheduler._LRScheduler, torch.optim.lr_scheduler.LRScheduler]
+=======
+    PyTorchScheduler = torch.optim.lr_scheduler.LRScheduler
+>>>>>>> torch2branch2
 except:
     PyTorchScheduler = torch.optim.lr_scheduler._LRScheduler
 

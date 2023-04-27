@@ -194,16 +194,23 @@ def test_gradient_clipping_algorithm_with_deepspeed_enabled(
 
 
 if not using_torch_2_0():
-    def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, unwrapped_params: int) -> bool:
+
+    def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, unwrapped_params: int) -> bool:  # type: ignore
         if recurse:
             return True
         if hasattr(module, '_fsdp_wrap'):
             return bool(module._fsdp_wrap)
         return False
 else:
+
     def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
         if recurse:
             return True
+
+        # With Torch 2.0, there is a bug that emits a nasty warning if you wrap a module with no parameters
+        if len(list(module.parameters())) == 0:
+            return False
+
         if hasattr(module, '_fsdp_wrap'):
             return bool(module._fsdp_wrap)
         return False
@@ -229,12 +236,22 @@ def test_gradient_clipping_algorithm_with_fsdp_enabled_does_not_error(
 ):
     from torch.distributed.fsdp import FullyShardedDataParallel
 
+    model = model_with_grads()
+
     clipping_threshold = 0.1191
     state = dummy_state
-    state.model = FullyShardedDataParallel(model_with_grads(),
+
+    torch_2_kwargs = {}
+    if using_torch_2_0():
+        torch_2_kwargs['use_orig_params'] = True
+    state.model = FullyShardedDataParallel(model,
                                            auto_wrap_policy=_auto_wrap_policy,
                                            device_id=torch.cuda.current_device(),
+<<<<<<< HEAD
                                            use_orig_params=True)
+=======
+                                           **torch_2_kwargs)
+>>>>>>> torch2branch2
 
     state.algorithms = [GradientClipping(clipping_type=clipping_type, clipping_threshold=clipping_threshold)]
     logger = Mock()
