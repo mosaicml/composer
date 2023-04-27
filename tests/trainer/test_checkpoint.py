@@ -515,7 +515,17 @@ class TestCheckpointLoading:
     @pytest.mark.remote
     @device('cpu')
     @pytest.mark.parametrize('load_weights_only', [True, False])
-    def test_load_remote_checkpoint(self, device, tmp_path: pathlib.Path, load_weights_only):
+    @pytest.mark.parametrize(
+        'remote_checkpoint_uri, remote_checkpoint_name, continue_training_dur, final_checkpoint_name',
+        [
+            [
+                's3://mosaicml-internal-checkpoints-test/backwards_compatibility/trained_ckpt_cpu_ep2.pt', 'ep2.pt',
+                '3ep', 'ep3.pt'
+            ],
+        ],
+    )
+    def test_load_remote_checkpoint(self, device, tmp_path: pathlib.Path, load_weights_only, remote_checkpoint_uri,
+                                    remote_checkpoint_name, continue_training_dur, final_checkpoint_name):
         """
         This test checks if our checkpointing is backwards compatible.
         We should be able to load in a saved checkpoint and continue training.
@@ -529,11 +539,10 @@ class TestCheckpointLoading:
         trainer_1.fit()
         trainer_1.close()
 
-        remote_checkpoint = 's3://mosaicml-internal-checkpoints-test/backwards_compatibility/trained_ckpt_cpu_ep2.pt'
         trainer_2 = self.get_trainer(
-            max_duration='3ep',
+            max_duration=continue_training_dur,
             save_folder='second',
-            load_path=remote_checkpoint,
+            load_path=remote_checkpoint_uri,
             load_weights_only=load_weights_only,
             load_strict_model_weights=load_weights_only,
             device=device,
@@ -561,16 +570,17 @@ class TestCheckpointLoading:
 
         # Continue training from current local checkpoint
         trainer_3 = self.get_trainer(
-            max_duration='3ep',
+            max_duration=continue_training_dur,
             save_folder='third',
             save_overwrite=True,
-            load_path=os.path.join('first', 'ep2.pt'),
+            load_path=os.path.join('first', remote_checkpoint_name),
             device=device,
         )
         trainer_3.fit()
         trainer_3.close()
 
-        _assert_checkpoints_equivalent(os.path.join('third', 'ep3.pt'), os.path.join('second', 'ep3.pt'))
+        _assert_checkpoints_equivalent(os.path.join('third', final_checkpoint_name),
+                                       os.path.join('second', final_checkpoint_name))
 
     def _stateful_callbacks_equal(self, callbacks1, callbacks2):
 
