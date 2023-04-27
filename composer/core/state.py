@@ -933,6 +933,13 @@ class State(Serializable):
         if len(missing_keys) > 0:
             log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
         if len(unexpected_keys) > 0:
+            if self.fsdp_config is not None and self.fsdp_config.get(
+                    'use_orig_params') and self.fsdp_state_dict_type == 'local':
+                log.warning(
+                    'You are using use_orig_params=True and fsdp_state_dict_type=local. '
+                    'This results in both the original parameters and the flat parameters being '
+                    'in the state dict. If you see a warning with unexpected keys ending in ._flat_param, the model'
+                    'was still loaded correctly.')
             log.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
 
     def load_optim_state(self, state_dict: Dict[str, Any]):
