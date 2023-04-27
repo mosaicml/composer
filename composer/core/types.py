@@ -28,8 +28,10 @@ Batch = Any
 Dataset = torch.utils.data.Dataset[Batch]
 
 try:
+    # This is correct for PyTorch >= 2.0
     PyTorchScheduler = torch.optim.lr_scheduler.LRScheduler
 except:
+    # This is correct for PyTorch < 2.0
     PyTorchScheduler = torch.optim.lr_scheduler._LRScheduler
 
 JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
