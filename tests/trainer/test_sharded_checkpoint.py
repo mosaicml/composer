@@ -14,18 +14,18 @@ from composer.algorithms import EMA
 from composer.models import ComposerClassifier
 from composer.trainer import Trainer
 from composer.utils import dist
+from composer.utils.file_helpers import get_file
 from tests.common import RandomClassificationDataset
 from tests.common.compare import deep_compare
 from tests.common import RandomClassificationDataset
 from tests.common.markers import world_size
-from composer.utils.file_helpers import get_file
 
 
 # This model is to be used explicitly for this unit test because it some old reference checkpoints
 # were saved using it exactly as it is. Changing this model will break test_fsdp_load_old_checkpoint.
 class SimpleMLP(ComposerClassifier):
 
-    def __init__(self, num_features: int=32, num_classes: int = 8):
+    def __init__(self, num_features: int = 32, num_classes: int = 8):
         net = torch.nn.Sequential(
             torch.nn.Linear(num_features, num_features, bias=True),
             torch.nn.ReLU(),
@@ -187,18 +187,19 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
 @pytest.mark.parametrize('state_dict_type', ['full', 'sharded', 'local'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
-def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision: str, sharding_strategy: str, state_dict_type: str):
+def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision: str, sharding_strategy: str,
+                                  state_dict_type: str):
     if version.parse(torch.__version__) >= version.parse('2.0.0') and state_dict_type == 'local':
-        pytest.xfail("Loading a torch 1.13 checkpoint with torch 2.0 for state_dict_type local is not backwards compatible")
-    
+        pytest.xfail(
+            'Loading a torch 1.13 checkpoint with torch 2.0 for state_dict_type local is not backwards compatible')
 
     rank = 0 if state_dict_type == 'full' else '{rank}'
     load_path = f's3://mosaicml-internal-checkpoints-test/ckpt-compatibility-test/{sharding_strategy.lower()}_{state_dict_type}_{precision}/rank{rank}.pt'
 
     trainer2 = get_trainer(
         fsdp_state_dict_type=state_dict_type,
-        num_features=32, # This parameter setting is very important. Don't change or the test will fail.
-        num_classes=8, # This parameter setting is very important. Don't change or the test will fail.
+        num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
+        num_classes=8,  # This parameter setting is very important. Don't change or the test will fail.
         sharding_strategy=sharding_strategy,
         load_path=load_path,
         precision=precision,
@@ -206,7 +207,7 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
     )
     state_dict2 = trainer2.state.state_dict()
 
-    if (dist.get_global_rank() == 0 and  state_dict_type == 'full') or state_dict_type in ['sharded', 'local']:
+    if (dist.get_global_rank() == 0 and state_dict_type == 'full') or state_dict_type in ['sharded', 'local']:
         filled_load_path = load_path.format(rank=dist.get_global_rank())
         destination = str(tmp_path / pathlib.Path(filled_load_path).name)
         get_file(filled_load_path, destination=destination)
