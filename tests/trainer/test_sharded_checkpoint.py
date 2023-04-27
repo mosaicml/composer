@@ -21,7 +21,7 @@ from tests.common import RandomClassificationDataset
 from tests.common.markers import world_size
 
 
-# This model is to be used explicitly for this unit test because it some old reference checkpoints
+# This model is to be used explicitly for this unit test because some old reference checkpoints
 # were saved using it exactly as it is. Changing this model will break test_fsdp_load_old_checkpoint.
 class SimpleMLP(ComposerClassifier):
 
