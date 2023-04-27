@@ -481,9 +481,7 @@ class TestTrainerInitOrFit:
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
     @pytest.mark.gpu
-    @pytest.mark.filterwarnings(
-        "ignore:Setting `device_train_microbatch_size='auto'` is an experimental feature which may cause uncaught Cuda Out of Memory errors. In this case, please manually set device_train_microbatch_size explicitly to an integer instead."
-    )
+    @pytest.mark.filterwarnings("ignore:`device_train_microbatch_size='auto'` may potentially fail with unexpected.*")
     @pytest.mark.parametrize('dataloader_in_init', [True, False])
     def test_auto_microbatch(
         self,
