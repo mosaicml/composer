@@ -218,8 +218,7 @@ class InContextLearningQATaskDataset(Dataset):
 
     def collate_fn(self, data):
         inputs, answers = [], []
-        if not isinstance(data, list):
-            data = [data]
+
         for sample in data:
             preamble, context, aliases = (sample['preamble'], sample['context'], sample['aliases'])
             context_enc = preamble['input_ids'] + context['input_ids']
