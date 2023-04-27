@@ -473,7 +473,7 @@ class HuggingFaceModel(ComposerModel):
         if is_model_fsdp(self.model) and using_torch_2_0():
             from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
-            # NOTE: We need to use the FSDP.summon_full_params context manager here because the generate function
+            # Note: We need to use the FSDP.summon_full_params context manager here because the generate function
             # does not seem to gather the weights for the LM head. This has only been tested with a few models, so
             # consider FSDP + Torch 2.0 + HuggingFace generate to be beta support.
             # NOTE: We use recurse=False here so that we only summon full params for the LM head, not the entire model.
