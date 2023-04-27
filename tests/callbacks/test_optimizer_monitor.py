@@ -61,7 +61,7 @@ def test_optimizer_monitor(log_optimizer_metrics: bool, batch_log_interval: int)
 @pytest.mark.parametrize('use_orig_params', [True, False])
 def test_fsdp_optimizer_monitor(device, world_size, use_orig_params):
     if use_orig_params and not using_torch_2_0():
-        pytest.skip('use_orig_params was introcued in pytorch 2.0')
+        pytest.skip('use_orig_params was introduced in pytorch 2.0')
 
     # Construct the callback
     grad_monitor = OptimizerMonitor(log_optimizer_metrics=True)
@@ -119,7 +119,7 @@ def test_fsdp_optimizer_monitor(device, world_size, use_orig_params):
 @pytest.mark.parametrize('use_orig_params', [True, False])
 def test_fsdp_optimizer_monitor_transformer(device, world_size, tiny_gpt2_model, tiny_gpt2_tokenizer, use_orig_params):
     if use_orig_params and not using_torch_2_0():
-        pytest.skip('use_orig_params was introcued in pytorch 2.0')
+        pytest.skip('use_orig_params was introduced in pytorch 2.0')
     transformers = pytest.importorskip('transformers')
     # Construct the callback
     grad_monitor = OptimizerMonitor(log_optimizer_metrics=True)
@@ -161,7 +161,6 @@ def test_fsdp_optimizer_monitor_transformer(device, world_size, tiny_gpt2_model,
                           'verbose': False,
                           'use_orig_params': use_orig_params,
                       })
-
     trainer.fit()
     num_train_steps = int(trainer.state.timestamp.batch)
 
