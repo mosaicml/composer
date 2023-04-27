@@ -441,7 +441,7 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
 
 
 @pytest.mark.parametrize('dataset_uri', ['winograd_small.jsonl'])
-@device('gpu')
+@device('cpu')
 @pytest.mark.parametrize('num_fewshot', [0, 5])
 def test_schema_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tmp_path, tiny_gpt2_model):
     pytest.importorskip('datasets')
@@ -449,8 +449,6 @@ def test_schema_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_toke
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_gpt2_tokenizer
-    # seed because the fewshot selection is currently unseeded
-    reproducibility.seed_all(1234)
     dl = get_icl_task_dataloader(
         'schema',
         dataset_uri,
@@ -469,7 +467,7 @@ def test_schema_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_toke
 
     model = HuggingFaceModel(
         model=tiny_gpt2_model,
-        tokenizer=None,
+        tokenizer=tokenizer,
         eval_metrics=[InContextLearningMultipleChoiceAccuracy()],
         use_logits=True,
     )
@@ -574,7 +572,7 @@ def test_qa_task_evaluation_opt_tokenizer(device, world_size, num_fewshot, datas
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
-    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
+    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m')
 
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)

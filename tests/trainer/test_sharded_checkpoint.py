@@ -15,6 +15,7 @@ from composer.algorithms import EMA
 from composer.trainer import Trainer
 from composer.utils import dist
 from tests.common import RandomClassificationDataset, SimpleModel
+from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 
 
@@ -105,6 +106,18 @@ def _compare_model_params_between_state_dicts(state_dict1, state_dict2):
                            state_dict2_model_tensor), f'Weight named {param_name} not the same between state_dicts'
 
 
+def _compare_metrics_between_state_dicts(state_dict1, state_dict2):
+    # Check that metric states are equal between in memory mode and checkpoint
+    state_dict1_train_metrics = state_dict1['train_metrics']
+    state_dict2_train_metrics = state_dict2['train_metrics']
+
+    state_dict1_eval_metrics = state_dict1['eval_metrics']
+    state_dict2_eval_metrics = state_dict2['eval_metrics']
+
+    deep_compare(state_dict1_train_metrics, state_dict2_train_metrics)
+    deep_compare(state_dict1_eval_metrics, state_dict2_eval_metrics)
+
+
 @pytest.mark.gpu
 @world_size(2)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
@@ -177,8 +190,8 @@ def test_fsdp_full_state_dict_save(world_size, tmp_path: pathlib.Path):
             state_dict_from_checkpoint = torch.load(f)['state']
 
         _compare_model_params_between_state_dicts(state_dict_from_checkpoint, state_dict_in_memory)
-
         _compare_optims_between_state_dicts(state_dict_from_checkpoint, state_dict_in_memory)
+        _compare_metrics_between_state_dicts(state_dict_from_checkpoint, state_dict_in_memory)
 
     if dist.get_global_rank() == 1:
         # Check rank 1 state dict just has the flattened shards.
@@ -233,8 +246,8 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
 
     if dist.get_global_rank() == 0:
         _compare_model_params_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
-
         _compare_optims_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
+        _compare_metrics_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
 
     # Continue to fit to make sure we can continue training.
     trainer2.fit()
@@ -384,8 +397,8 @@ def test_fsdp_partitioned_state_dict_save(world_size, tmp_path: pathlib.Path, st
         state_dict_from_checkpoint = torch.load(f)['state']
 
     _compare_model_params_between_state_dicts(state_dict_from_checkpoint, state_dict_in_memory)
-
     _compare_optims_between_state_dicts(state_dict_from_checkpoint, state_dict_in_memory)
+    _compare_metrics_between_state_dicts(state_dict_from_checkpoint, state_dict_in_memory)
 
 
 @pytest.mark.gpu
@@ -429,8 +442,8 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
 
     # Compare saved state and loaded state for both ranks.
     _compare_model_params_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
-
     _compare_optims_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
+    _compare_metrics_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
 
     trainer2.fit()
 

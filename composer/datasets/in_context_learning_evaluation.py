@@ -218,8 +218,7 @@ class InContextLearningQATaskDataset(Dataset):
 
     def collate_fn(self, data):
         inputs, answers = [], []
-        if not isinstance(data, list):
-            data = [data]
+
         for sample in data:
             preamble, context, aliases = (sample['preamble'], sample['context'], sample['aliases'])
             context_enc = preamble['input_ids'] + context['input_ids']
@@ -605,7 +604,8 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         pad_tok_id (int): The special token reserved for padding the ends of batches
         num_fewshot (int): The number of complete fewshot examples to prepend before each test example
         prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
-        example_delimiter (str): Separator that goes between individual (context, continuation) pairs (e.g. '\n')        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
+        example_delimiter (str): Separator that goes between individual (context, continuation) pairs (e.g. '\n')
+        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
         destination_path (str): Temporary path to store downloaded datasets
         fewshot_random_seed (int): Random seed used to select fewshot examples
     """
@@ -651,11 +651,11 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
 
     def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
                       fewshot_rng: random.Random):
-        """Prepares a set of multiple choice questions into tokenized format with prompt and few shot examples.
-        Each question consists of a query and set of answer choices, only one of which is correct. At inference time
-        we construct individual inference examples consisting of the query + a single choice, as well as an optional (prompt) and optional list
-        of example query + correct answers, which precede the test query + choice.
-        For multiple choice, this method provides information relaying which of the answer choices is the correct one. This
+        """Prepares a set of schema questions into tokenized format with prompt and few shot examples.
+        Each question consists of a set of possible contexts followed by a continuation, only one of the contexts would logically permit the continuation.
+        At inference time we construct individual inference examples consisting of a single context option + the continuation,
+        as well as an optional (prompt) and optional list of example correct context option + continuations, which precede the test context option + continuation.
+        For schema, this method provides information relaying which of the answer choices is the correct one. This
         information is used for computing accuracy metrics.
         Args:
             num_fewshot (int): Number of examples context/continuation pairs to prepend to the test pair
