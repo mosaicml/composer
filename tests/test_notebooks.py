@@ -90,7 +90,7 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
 
 @pytest.mark.parametrize('notebook', [_to_pytest_param(notebook) for notebook in NOTEBOOKS])
 @device('cpu', 'gpu')
-@pytest.mark.daily
+# @pytest.mark.daily
 def test_notebook(notebook: str, device: str, s3_bucket: str):
     trainer_monkeypatch_code = inspect.getsource(patch_notebooks)
     notebook_name = os.path.split(notebook)[-1][:-len('.ipynb')]
