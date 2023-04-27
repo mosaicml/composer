@@ -768,11 +768,12 @@ class State(Serializable):
             elif attribute_name == 'train_metrics':
                 serialized_value = {}
                 for k, v in attribute_value.items():
-                    v.persistent(mode=True)
                     # No need to use __qualname__, we already know this corresponds to
                     # a metric object when we deserialize.
                     # metric._computed stores the cached value of the previous metric computation
                     # We need to serialize this because it cannot always be recomputed from the state dict.
+                    # See https://torchmetrics.readthedocs.io/en/stable/pages/implement.html#torchmetrics.Metric for more details
+                    v.persistent(mode=True)
                     serialized_value[k] = {'state_dict': v.state_dict(), '_computed': v._computed}
             elif attribute_name == 'eval_metrics':
                 serialized_value = {}
@@ -1065,6 +1066,7 @@ class State(Serializable):
                 for metric_name in state_field_value.keys():
                     if metric_name not in serialized_value:
                         continue
+                    # Increment _update_count so it is non-zero, preventing Torchmetrics from warning us when we call metric.compute()
                     state_field_value[metric_name]._update_count += 1
                     if isinstance(serialized_value[metric_name], Metric):
                         serialized_value[metric_name].persistent(mode=True)
