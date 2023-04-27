@@ -50,7 +50,7 @@ from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectS
                             ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist, get_device,
                             get_file, is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
                             maybe_create_remote_uploader_downloader_from_uri, model_eval_mode, parse_uri,
-                            reproducibility, using_torch_2_0)
+                            reproducibility, using_torch_2)
 from composer.utils.misc import is_model_deepspeed
 
 if is_tpu_installed():
@@ -897,7 +897,7 @@ class Trainer:
         _validate_precision(precision, device)
 
         # check if provided model is compiled or not
-        is_torch_2_0 = using_torch_2_0()
+        is_torch_2_0 = using_torch_2()
         is_model_compiled = False
         if is_torch_2_0:
             from torch._dynamo import OptimizedModule

@@ -13,7 +13,7 @@ from composer.algorithms.gradient_clipping import GradientClipping, apply_gradie
 from composer.algorithms.gradient_clipping.gradient_clipping import _apply_agc, _get_clipped_gradient_coeff
 from composer.core import Engine, State
 from composer.core.event import Event
-from composer.utils.misc import using_torch_2_0
+from composer.utils.misc import using_torch_2
 from tests.common import world_size
 from tests.common.datasets import dummy_tiny_bert_classification_batch, dummy_transformer_classifier_batch
 from tests.common.models import SimpleTransformerClassifier, configure_tiny_bert_config
@@ -193,7 +193,7 @@ def test_gradient_clipping_algorithm_with_deepspeed_enabled(
     apply_gc_fn.assert_not_called()
 
 
-if not using_torch_2_0():
+if not using_torch_2():
 
     def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, unwrapped_params: int) -> bool:  # type: ignore
         if recurse:
@@ -242,7 +242,7 @@ def test_gradient_clipping_algorithm_with_fsdp_enabled_does_not_error(
     state = dummy_state
 
     torch_2_kwargs = {}
-    if using_torch_2_0():
+    if using_torch_2():
         torch_2_kwargs['use_orig_params'] = True
     state.model = FullyShardedDataParallel(model,
                                            auto_wrap_policy=_auto_wrap_policy,
