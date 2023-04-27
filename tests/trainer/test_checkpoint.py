@@ -512,7 +512,7 @@ class TestCheckpointLoading:
             assert stateful_callbacks_equal
             assert metrics_equal
 
-    @pytest.mark.remote
+    # @pytest.mark.remote
     @device('cpu')
     @pytest.mark.parametrize('load_weights_only', [True, False])
     @pytest.mark.parametrize(
