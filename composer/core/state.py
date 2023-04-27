@@ -1064,9 +1064,20 @@ class State(Serializable):
                     if metric_name not in serialized_value:
                         continue
                     state_field_value[metric_name]._update_count += 1
-                    missing_keys, unexpected_keys = state_field_value[metric_name].load_state_dict(
-                        serialized_value[metric_name]['state_dict'], strict=False)
-                    state_field_value[metric_name]._computed = serialized_value[metric_name]['_computed']
+                    if isinstance(serialized_value[metric_name], Metric):
+                        serialized_value[metric_name].persistent(mode=True)
+                        metric_state_dict = serialized_value[metric_name].state_dict()
+                        metric_computed_field = serialized_value[metric_name]._computed
+                    elif isinstance(serialized_value[metric_name], dict):
+                        metric_state_dict = serialized_value[metric_name]['state_dict']
+                        metric_computed_field = serialized_value[metric_name]['_computed']
+                    else:
+                        raise ValueError(
+                            'Error while loading train metric. Train metric from serialization is neither a Torchmetrics Metric object nor a dictionary.'
+                        )
+                    missing_keys, unexpected_keys = state_field_value[metric_name].load_state_dict(metric_state_dict,
+                                                                                                   strict=False)
+                    state_field_value[metric_name]._computed = metric_computed_field
                     state_field_value[metric_name].persistent(mode=True)
                     self.device.module_to_device(state_field_value[metric_name])
                     if len(missing_keys) > 0:
@@ -1088,10 +1099,22 @@ class State(Serializable):
                         if metric_name not in serialized_value[eval_key]:
                             continue
                         state_field_value[eval_key][metric_name]._update_count += 1
+
+                        if isinstance(serialized_value[eval_key][metric_name], Metric):
+                            serialized_value[eval_key][metric_name].persistent(mode=True)
+                            eval_metric_state_dict = serialized_value[eval_key][metric_name].state_dict()
+                            eval_metric_computed_field = serialized_value[eval_key][metric_name]._computed
+                        elif isinstance(serialized_value[eval_key][metric_name], dict):
+                            eval_metric_state_dict = serialized_value[eval_key][metric_name]['state_dict']
+                            eval_metric_computed_field = serialized_value[eval_key][metric_name]['_computed']
+                        else:
+                            raise ValueError(
+                                'Error while loading evaluation metric. Evaluation metric from serialization is neither a Torchmetrics Metric object nor a dictionary.'
+                            )
                         missing_keys, unexpected_keys = state_field_value[eval_key][metric_name].load_state_dict(
-                            serialized_value[eval_key][metric_name]['state_dict'], strict=False)
-                        state_field_value[eval_key][metric_name]._computed = serialized_value[eval_key][metric_name][
-                            '_computed']
+                            eval_metric_state_dict, strict=False)
+                        state_field_value[eval_key][metric_name]._computed = eval_metric_computed_field
+                        state_field_value[eval_key][metric_name].persistent(mode=True)
                         self.device.module_to_device(state_field_value[eval_key][metric_name])
                         if len(missing_keys) > 0:
                             warnings.warn(

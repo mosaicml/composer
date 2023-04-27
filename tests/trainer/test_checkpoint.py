@@ -394,7 +394,7 @@ class TestCheckpointLoading:
         except AssertionError:
             return False
 
-    def get_trainer(self, **kwargs):
+    def get_trainer(self, max_duration='2ep', **kwargs):
         model = SimpleConvModel()
         optimizer = torch.optim.Adam(model.parameters())
 
@@ -421,7 +421,7 @@ class TestCheckpointLoading:
             save_interval='1ep',
             eval_interval='1ep',
             save_filename='ep{epoch}.pt',
-            max_duration='2ep',
+            max_duration=max_duration,
             optimizers=optimizer,
             schedulers=ExponentialScheduler(gamma=0.9),
             callbacks=[DummyStatefulCallback()],
@@ -529,14 +529,14 @@ class TestCheckpointLoading:
         trainer_1.fit()
         trainer_1.close()
 
-        remote_checkpoint = 's3://mosaicml-internal-checkpoints-test/backwards_compatibility/trained_cpu_checkpoint_ep2.pt'
+        remote_checkpoint = 's3://mosaicml-internal-checkpoints-test/backwards_compatibility/trained_ckpt_cpu_ep2.pt'
         trainer_2 = self.get_trainer(
+            max_duration='3ep',
             save_folder='second',
             load_path=remote_checkpoint,
             load_weights_only=load_weights_only,
             load_strict_model_weights=load_weights_only,
             device=device,
-            max_duration='3ep',
         )
 
         # check weights loaded properly
@@ -561,11 +561,11 @@ class TestCheckpointLoading:
 
         # Continue training from current local checkpoint
         trainer_3 = self.get_trainer(
+            max_duration='3ep',
             save_folder='third',
             save_overwrite=True,
             load_path=os.path.join('first', 'ep2.pt'),
             device=device,
-            max_duration='3ep',
         )
         trainer_3.fit()
         trainer_3.close()
