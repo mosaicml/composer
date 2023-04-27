@@ -67,6 +67,9 @@ def test_fsdp_optimizer_monitor(device, world_size, use_orig_params):
     grad_monitor = OptimizerMonitor(log_optimizer_metrics=True)
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     model = SimpleModel(num_classes=100, num_features=100, num_hidden=100)
+    for module in model.modules():
+        if len(list(module.parameters())) > 0:
+            module._fsdp_wrap = True
     dataset = RandomClassificationDataset(num_classes=100, shape=(100, 1, 1))
     # Construct the trainer and train
     trainer = Trainer(model=model,
@@ -77,7 +80,6 @@ def test_fsdp_optimizer_monitor(device, world_size, use_orig_params):
                       max_duration='3ba',
                       fsdp_config={
                           'sharding_strategy': 'FULL_SHARD' if world_size > 1 else 'NO_SHARD',
-                          'min_params': 1,
                           'cpu_offload': False,
                           'mixed_precision': 'PURE',
                           'backward_prefetch': 'BACKWARD_PRE',
@@ -152,7 +154,6 @@ def test_fsdp_optimizer_monitor_transformer(device, world_size, tiny_gpt2_model,
                       max_duration='3ba',
                       fsdp_config={
                           'sharding_strategy': 'FULL_SHARD' if world_size > 1 else 'NO_SHARD',
-                          'min_params': 1e8,
                           'cpu_offload': False,
                           'mixed_precision': 'PURE',
                           'backward_prefetch': 'BACKWARD_PRE',
