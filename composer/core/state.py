@@ -1006,7 +1006,7 @@ class State(Serializable):
                 continue
             optim_state_dict = serialized_value[type(optimizer).__qualname__]
             if self.fsdp_enabled:
-                assert self.fsdp_state_dict_type is not None
+                assert self.fsdp_state_dict_type is not None  # pyright
                 if version.parse(torch.__version__) < version.parse('1.13.0'):
                     raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
                 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
