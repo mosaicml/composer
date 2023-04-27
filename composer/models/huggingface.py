@@ -456,9 +456,10 @@ class HuggingFaceModel(ComposerModel):
         from composer.utils.misc import using_torch_2
 
         # We need to call forward once in order for FSDP + generate to work
+        # This solution works because parameters in the root FSDP module are not freed after forward
         # See https://github.com/huggingface/accelerate/issues/570, https://github.com/huggingface/accelerate/issues/947,
-        # and https://github.com/pytorch/pytorch/issues/82461 for more info
-        # Note: This is a hack for Torch 1.13.x, and there is a different hack below for Torch 2.0
+        # and https://github.com/pytorch/pytorch/issues/82461, https://github.com/pytorch/pytorch/issues/100069 for more info
+        # Note: This is a solution for Torch 1.13.x, and there is a different solution below for Torch 2.0
         if not using_torch_2() and not self.dummy_forward_called and is_model_fsdp(self.model):
             with torch.no_grad():
                 maybe_decoder_input_ids = {}
@@ -474,8 +475,9 @@ class HuggingFaceModel(ComposerModel):
             from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
             # Note: We need to use the FSDP.summon_full_params context manager here because the generate function
-            # does not seem to gather the weights for the LM head. This has only been tested with a few models, so
-            # consider FSDP + Torch 2.0 + HuggingFace generate to be beta support.
+            # does not seem to gather the weights for the LM head. This solution works because the tied weights of the LM head
+            # are in the root FSDP module, and are summoned by the below context manager. See https://github.com/pytorch/pytorch/issues/100069
+            # for more info.
             # Note: We use recurse=False here so that we only summon full params for the LM head, not the entire model.
             with FSDP.summon_full_params(self.model, writeback=False, recurse=False):
                 return self.model.generate(input_ids, pad_token_id=pad_token_id, **kwargs)
