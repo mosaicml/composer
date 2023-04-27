@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 import transformers
 from torch.utils.data import DataLoader
-from transformers import AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from composer import Evaluator
 from composer.core import DataSpec
@@ -569,6 +569,48 @@ def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenize
 @device('gpu')
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [0, 5])
+def test_qa_task_evaluation_opt_tokenizer(device, world_size, num_fewshot, dataset_uri, tmp_path):
+    pytest.importorskip('datasets')
+    in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
+
+    tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
+    gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
+    dl = get_icl_task_dataloader(
+        'question_answering',
+        dataset_uri,
+        tokenizer,
+        2,
+        max_seq_len=1024,
+        pad_tok_id=tokenizer.eos_token_id,
+        num_fewshot=num_fewshot,
+        prompt_string='',
+        example_delimiter='\n',
+        continuation_delimiter=': ',
+        destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
+    )
+
+    evaluator = Evaluator(label='triviaqa', dataloader=dl, metric_names=['InContextLearningQAAccuracy'])
+    model = HuggingFaceModel(
+        model=AutoModelForCausalLM.from_pretrained('facebook/opt-125m'),
+        tokenizer=tokenizer,
+        eval_metrics=[InContextLearningQAAccuracy()],
+        use_logits=True,
+    )
+
+    trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
+
+    trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
+    assert 'metrics/triviaqa/InContextLearningQAAccuracy' in in_memory_logger.data.keys()
+    assert in_memory_logger.data['metrics/triviaqa/InContextLearningQAAccuracy'][0][1].item() == 0
+
+
+@pytest.mark.parametrize('dataset_uri', ['triviaqa_small.jsonl'])
+@device('gpu')
+@world_size(1, 2)
+@pytest.mark.parametrize('num_fewshot', [0, 5])
 def test_qa_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tiny_gpt2_model,
                             tmp_path):
     pytest.importorskip('datasets')
@@ -576,7 +618,6 @@ def test_qa_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_g
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_gpt2_tokenizer
-
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
     dl = get_icl_task_dataloader(
