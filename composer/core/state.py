@@ -772,7 +772,7 @@ class State(Serializable):
                     # a metric object when we deserialize.
                     # Along with the rest of a Composer checkpoint, the state_dict() and _computed attributes of 
                     # a Torchmetrics object are enough information to recreate it upon serialization. We only serialize
-                    # the minimum metric information to maximimize backwards compatibility --- old checkpoints 
+                    # the minimum metric information to maximize backwards compatibility --- old checkpoints 
                     # will continue to be compatible even if other Torchmetrics attributes have changed.
                     # metric._computed stores the cached value of the previous metric computation
                     # We need to serialize this because it cannot always be recomputed from the state dict.
