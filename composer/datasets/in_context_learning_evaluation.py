@@ -661,6 +661,9 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
         fewshot_rng = random.Random(fewshot_random_seed)
+
+        self.prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
+
         self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
                                                   fewshot_rng)
 
@@ -716,6 +719,9 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
 
             encoded_example['gold_idx'] = gold_idx
             encoded_example['context_options'] = [self.tokenizer(c, add_special_tokens=False) for c in context_options]
+
+            if self.prefix_space:
+                continuation = f' {continuation}' if not continuation.startswith(' ') else continuation
             encoded_example['continuation'] = self.tokenizer(
                 f' {continuation}' if not continuation.startswith(' ') else continuation, add_special_tokens=False)
             examples.append(encoded_example)
