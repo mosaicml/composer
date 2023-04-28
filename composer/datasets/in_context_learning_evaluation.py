@@ -299,6 +299,13 @@ class InContextLearningLMTaskDataset(Dataset):
         self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
                                                   fewshot_rng)
 
+        # Test for whether a prefix space is needed before the continuation
+        # sentencepiece tokenization should not have a prefix space, but gpt2 style BPE should
+        self.prefix_space = True
+        test = self.tokenizer(' a', add_special_tokens=False)['input_ids']
+        if len(test) > 1:
+            self.prefix_space = False
+
     def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
                       fewshot_rng: random.Random):
         """Prepares a set of language modeling tasks into tokenized format with prompt and fewshot examples.
@@ -337,8 +344,8 @@ class InContextLearningLMTaskDataset(Dataset):
             if continuation_delimiter.endswith(' '):
                 continuation_delimiter = continuation_delimiter.rstrip(' ')
 
-            # if not cont.startswith(' '):
-            #     cont = f' {cont}'
+            if self.prefix_space and not cont.startswith(' '):
+                cont = f' {cont}'
             ctxt += continuation_delimiter
 
             encoded_example['preamble'] = self.tokenizer(
@@ -455,6 +462,13 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
                                                   fewshot_rng)
 
+        # Test for whether a prefix space is needed before the continuation
+        # sentencepiece tokenization should not have a prefix space, but gpt2 style BPE should
+        self.prefix_space = True
+        test = self.tokenizer(' a', add_special_tokens=False)['input_ids']
+        if len(test) > 1:
+            self.prefix_space = False
+
     def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
                       fewshot_rng: random.Random):
         """Prepares a set of multiple choice questions into tokenized format with prompt and few shot examples.
@@ -496,7 +510,9 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
 
             if continuation_delimiter.endswith(' '):
                 continuation_delimiter = continuation_delimiter.rstrip(' ')
-            # choices = [(f' {choice}' if not choice.startswith(' ') else choice) for choice in choices]
+
+            if self.prefix_space:
+                choices = [(f' {choice}' if not choice.startswith(' ') else choice) for choice in choices]
             query += continuation_delimiter
             encoded_example['preamble'] = self.tokenizer(
                 preamble
