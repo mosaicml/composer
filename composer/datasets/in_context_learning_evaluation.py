@@ -296,8 +296,6 @@ class InContextLearningLMTaskDataset(Dataset):
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
         fewshot_rng = random.Random(fewshot_random_seed)
-        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
-                                                  fewshot_rng)
 
         # Test for whether a prefix space is needed before the continuation
         # sentencepiece tokenization should not have a prefix space, but gpt2 style BPE should
@@ -305,6 +303,9 @@ class InContextLearningLMTaskDataset(Dataset):
         test = self.tokenizer(' a', add_special_tokens=False)['input_ids']
         if len(test) > 1:
             self.prefix_space = False
+
+        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
+                                                  fewshot_rng)
 
     def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
                       fewshot_rng: random.Random):
@@ -459,8 +460,6 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
         fewshot_rng = random.Random(fewshot_random_seed)
-        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
-                                                  fewshot_rng)
 
         # Test for whether a prefix space is needed before the continuation
         # sentencepiece tokenization should not have a prefix space, but gpt2 style BPE should
@@ -468,6 +467,9 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         test = self.tokenizer(' a', add_special_tokens=False)['input_ids']
         if len(test) > 1:
             self.prefix_space = False
+
+        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
+                                                  fewshot_rng)
 
     def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
                       fewshot_rng: random.Random):
