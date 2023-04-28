@@ -583,7 +583,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
 
 
 class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskDataset):
-    """A dataset that construct batches for in-context learning schema evaluation
+    """A dataset that constructs batches for in-context learning schema evaluation
     A schema task involves sentences with a fill-in-the-blank where the user needs to choose the correct word
     to fill in from a set of N options. We use the partial evaluation technique from https://arxiv.org/abs/1806.02847
     to test determine the model's choice of fill-in word.
