@@ -351,15 +351,22 @@ class DecoupledAdamW(AdamW):
         return loss
 
     def dist_reduce_metrics(self, optimizer_metrics):
-        for metric in optimizer_metrics:
+        local_keys = list(optimizer_metrics.keys())
+        all_gathered_keys = dist.all_gather_object(local_keys)
+        all_keys = set()
+        for keys in all_gathered_keys:
+            all_keys.update(keys)
+
+        all_keys = sorted(all_keys, key=lambda metric: 0 if 'l2_norm' in metric else 1)
+        for metric in all_keys:
             if metric.startswith('l2_norm'):
-                reduced = optimizer_metrics[metric]
+                reduced = optimizer_metrics.get(metric, torch.tensor(0.0, device=torch.cuda.current_device()))
                 if dist.get_world_size() > 1:
                     dist.all_reduce(reduced, reduce_operation='SUM')
 
                 optimizer_metrics[metric] = math.sqrt(reduced)
             elif metric.startswith('cosine'):
-                reduced = optimizer_metrics[metric]
+                reduced = optimizer_metrics.get(metric, torch.tensor(0.0, device=torch.cuda.current_device()))
                 if dist.get_world_size() > 1:
                     dist.all_reduce(reduced, reduce_operation='SUM')
 
@@ -371,7 +378,7 @@ class DecoupledAdamW(AdamW):
                 B_reduced_norm = optimizer_metrics[f'l2_norm/{B}/{layer}']
                 optimizer_metrics[metric] = reduced / (A_reduced_norm * B_reduced_norm)
             else:
-                reduced = optimizer_metrics[metric]
+                reduced = optimizer_metrics.get(metric, torch.tensor(0.0, device=torch.cuda.current_device()))
                 if dist.get_world_size() > 1:
                     dist.all_reduce(reduced, reduce_operation='SUM')
                 optimizer_metrics[metric] = reduced / dist.get_world_size()

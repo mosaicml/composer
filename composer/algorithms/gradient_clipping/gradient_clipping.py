@@ -14,7 +14,7 @@ from packaging import version
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
 from composer.models import ComposerModel
-from composer.utils import using_torch_2_0
+from composer.utils import using_torch_2
 
 log = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ def apply_gradient_clipping(model: Union[ComposerModel, torch.nn.Module], clippi
             raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
         from torch.distributed.fsdp import FullyShardedDataParallel
 
-        is_torch_2_0 = using_torch_2_0()
+        is_torch_2_0 = using_torch_2()
 
         for module in model.modules():
             if isinstance(module, FullyShardedDataParallel):
