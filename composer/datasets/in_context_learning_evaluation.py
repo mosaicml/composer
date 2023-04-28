@@ -337,8 +337,8 @@ class InContextLearningLMTaskDataset(Dataset):
             if continuation_delimiter.endswith(' '):
                 continuation_delimiter = continuation_delimiter.rstrip(' ')
 
-            if not cont.startswith(' '):
-                cont = f' {cont}'
+            # if not cont.startswith(' '):
+            #     cont = f' {cont}'
             ctxt += continuation_delimiter
 
             encoded_example['preamble'] = self.tokenizer(
@@ -496,7 +496,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
 
             if continuation_delimiter.endswith(' '):
                 continuation_delimiter = continuation_delimiter.rstrip(' ')
-            choices = [(f' {choice}' if not choice.startswith(' ') else choice) for choice in choices]
+            # choices = [(f' {choice}' if not choice.startswith(' ') else choice) for choice in choices]
             query += continuation_delimiter
             encoded_example['preamble'] = self.tokenizer(
                 preamble
