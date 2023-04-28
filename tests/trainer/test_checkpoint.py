@@ -539,7 +539,7 @@ class TestCheckpointLoading:
         trainer_2 = self.get_trainer(
             max_duration=continue_training_dur,
             save_folder='second',
-            load_path=f's3://{s3_bucket}/remote_checkpoint_uri',
+            load_path=f's3://{s3_bucket}/{remote_checkpoint_uri}',
             load_weights_only=load_weights_only,
             load_strict_model_weights=load_weights_only,
             device=device,
