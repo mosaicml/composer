@@ -23,6 +23,12 @@ if TYPE_CHECKING:
 __all__ = ['InContextLearningLMTaskDataset', 'InContextLearningMultipleChoiceTaskDataset', 'get_icl_task_dataloader']
 
 
+def _tokenizer_needs_prefix_space(tokenizer) -> bool:
+    # Test for whether a prefix space is needed before the continuation.
+    # sentencepiece tokenization should not have a prefix space, but gpt2 style BPE should
+    return len(tokenizer(' a', add_special_tokens=False)['input_ids']) == 1
+
+
 def _make_padded_input(context_enc, continuation_enc, max_seq_len, pad_tok_id, padding_side='right'):
     if len(continuation_enc) + len(context_enc) > max_seq_len:
         # clip from the end
@@ -297,12 +303,7 @@ class InContextLearningLMTaskDataset(Dataset):
         self.pad_tok_id = pad_tok_id
         fewshot_rng = random.Random(fewshot_random_seed)
 
-        # Test for whether a prefix space is needed before the continuation
-        # sentencepiece tokenization should not have a prefix space, but gpt2 style BPE should
-        self.prefix_space = True
-        test = self.tokenizer(' a', add_special_tokens=False)['input_ids']
-        if len(test) > 1:
-            self.prefix_space = False
+        self.prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
 
         self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
                                                   fewshot_rng)
@@ -461,12 +462,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         self.pad_tok_id = pad_tok_id
         fewshot_rng = random.Random(fewshot_random_seed)
 
-        # Test for whether a prefix space is needed before the continuation
-        # sentencepiece tokenization should not have a prefix space, but gpt2 style BPE should
-        self.prefix_space = True
-        test = self.tokenizer(' a', add_special_tokens=False)['input_ids']
-        if len(test) > 1:
-            self.prefix_space = False
+        self.prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
 
         self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
                                                   fewshot_rng)
