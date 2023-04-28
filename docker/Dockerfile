@@ -289,9 +289,6 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
 # Install Flash Attention
 ##########################
 RUN if [ -n "$CUDA_VERSION" ] ; then \
-        pip${PYTHON_VERSION} install --no-cache-dir flash-attn==0.2.8; \
-    fi
-RUN if [ -n "$CUDA_VERSION" ] ; then \
         pip${PYTHON_VERSION} install --no-cache-dir flash-attn==1.0.3.post0; \
     fi
 
