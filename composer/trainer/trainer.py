@@ -50,7 +50,8 @@ from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectS
                             ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist, get_device,
                             get_file, is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
                             maybe_create_remote_uploader_downloader_from_uri, model_eval_mode, parse_uri,
-                            reproducibility, using_torch_2_0)
+                            reproducibility, using_torch_2)
+from composer.utils.misc import is_model_deepspeed
 
 if is_tpu_installed():
     import torch_xla.core.xla_model as xm
@@ -158,9 +159,12 @@ def _set_evaluator_interval_and_subset_num_batches(
 
 def _is_auto_microbatching(device_train_microbatch_size: Optional[Union[int, str]], device: Device):
     if device_train_microbatch_size == 'auto':
-        warnings.warn(("Setting `device_train_microbatch_size='auto'` is an experimental feature which may cause "
-                       'uncaught Cuda Out of Memory errors. In this case, please manually '
-                       'set device_train_microbatch_size explicitly to an integer instead.'))
+        warnings.warn(("`device_train_microbatch_size='auto'` may potentially fail with unexpected "
+                       'CUDA errors. Auto microbatching attempts to catch CUDA Out of Memory errors '
+                       'and adjust the batch size, but it is possible CUDA will be put into an '
+                       'irrecoverable state due to PyTorch bugs, e.g. integer overflow. In this case, '
+                       'please manually set device_train_microbatch_size explicitly to an integer '
+                       'instead.'))
         if not isinstance(device, DeviceGPU):
             raise ValueError(
                 'Can only use adaptive device_train_microbatch_size on GPU. Please set device_train_microbatch_size >= 1.'
@@ -896,7 +900,7 @@ class Trainer:
         _validate_precision(precision, device)
 
         # check if provided model is compiled or not
-        is_torch_2_0 = using_torch_2_0()
+        is_torch_2_0 = using_torch_2()
         is_model_compiled = False
         if is_torch_2_0:
             from torch._dynamo import OptimizedModule
@@ -1765,15 +1769,19 @@ class Trainer:
         dist.barrier()
 
     def _ensure_metrics_device_and_dtype(self, metrics: Dict[str, Metric]):
-        # HACK: DeepSpeed somehow manages to convert metric internal states to its own dtype. When
-        # running with FP16, this tends to result in overflows. Let's assume FP32 is good enough.
         for name, metric in metrics.items():
             # Safety check to ensure the metric and data are on the same device. Normally not
             # needed because the metric is automatically on the same device as the model.
             # See https://torchmetrics.readthedocs.io/en/latest/pages/overview.html for details.
             metrics[name] = self.state.device.module_to_device(metric)
-            metric.set_dtype(torch.float32)  # type: ignore
-
+            if is_model_deepspeed(self.state.model):
+                # HACK: DeepSpeed somehow manages to convert metric internal states to its own dtype. When
+                # running with FP16, this tends to result in overflows. Let's assume FP32 is good enough.
+                for key in metric._defaults:
+                    metric_data = getattr(metric, key)
+                    if isinstance(metric_data, torch.Tensor) and metric_data.dtype == torch.float16:
+                        metric_data = metric_data.to(torch.float32)  # type: ignore
+                        setattr(metric, key, metric_data)
         return metrics
 
     def _compute_and_log_metrics(self, dataloader_label: str, metrics: Dict[str, Metric]):
@@ -2235,7 +2243,7 @@ class Trainer:
         device_batch = deepcopy(self.state.batch)
 
         microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
-        if self.deepspeed_enabled:
+        if self.deepspeed_enabled or not isinstance(self.state.model, DistributedDataParallel):
             sync_context = contextlib.nullcontext()
         elif self.state.auto_microbatching and not self.first_batch_complete:
             # PyTorch DDP rebuilds gradient reduction buckets after 1) a forward pass where the
