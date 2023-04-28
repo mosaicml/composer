@@ -518,14 +518,11 @@ class TestCheckpointLoading:
     @pytest.mark.parametrize(
         'remote_checkpoint_uri, remote_checkpoint_name, continue_training_dur, final_checkpoint_name',
         [
-            [
-                's3://mosaicml-internal-checkpoints-test/backwards_compatibility/trained_ckpt_cpu_ep2.pt', 'ep2.pt',
-                '3ep', 'ep3.pt'
-            ],
+            ['backwards_compatibility/trained_ckpt_cpu_ep2.pt', 'ep2.pt', '3ep', 'ep3.pt'],
         ],
     )
     def test_load_remote_checkpoint(self, device, tmp_path: pathlib.Path, load_weights_only, remote_checkpoint_uri,
-                                    remote_checkpoint_name, continue_training_dur, final_checkpoint_name):
+                                    remote_checkpoint_name, continue_training_dur, final_checkpoint_name, s3_bucket):
         """
         This test checks if our checkpointing is backwards compatible.
         We should be able to load in a saved checkpoint and continue training.
@@ -542,7 +539,7 @@ class TestCheckpointLoading:
         trainer_2 = self.get_trainer(
             max_duration=continue_training_dur,
             save_folder='second',
-            load_path=remote_checkpoint_uri,
+            load_path=f's3://{s3_bucket}/remote_checkpoint_uri',
             load_weights_only=load_weights_only,
             load_strict_model_weights=load_weights_only,
             device=device,
