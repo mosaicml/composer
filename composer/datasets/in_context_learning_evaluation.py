@@ -586,7 +586,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
     """A dataset that constructs batches for in-context learning schema evaluation
     A schema task involves sentences with a fill-in-the-blank where the user needs to choose the correct word
     to fill in from a set of N options. We use the partial evaluation technique from https://arxiv.org/abs/1806.02847
-    to test determine the model's choice of fill-in word.
+    to determine the model's choice of fill-in word.
     Each batch then consists of batch_size // N distinct tasks and has the following the structure
     'input_ids': Input tensor batch x seqlen x # tokens
     'continuation_indices': List of |batch| consisting of tensors indicating which indices in the sequence correspond to the question answer (aka continuation)
