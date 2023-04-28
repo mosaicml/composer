@@ -136,7 +136,6 @@ import torch
 torch.use_deterministic_algorithms(False)
 
 ```
--->
 <!--pytest-codeblocks:cont-->
 ```python
 from torch.utils.data import DataLoader
