@@ -80,7 +80,7 @@ def _check_dict_recursively(dict1: Dict[str, Any], dict2: Dict[str, Any], path: 
         val2 = dict2[k]
 
         # special case fused optimizer to allow comparing a GPU checkpoint with a CPU checkpoint
-        if k == 'fused':
+        if k == 'fused' and path == '/state/optimizers/Adam/param_groups/0':
             assert bool(val1) == bool(val2)
             continue
         _check_item(val1, val2, path=f'{path}/{k}', atol=atol, rtol=rtol)
