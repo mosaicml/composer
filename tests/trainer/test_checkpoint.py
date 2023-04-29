@@ -16,6 +16,7 @@ from unittest.mock import MagicMock
 import pytest
 import torch
 import torch.distributed
+from packaging import version
 from pytest import MonkeyPatch
 from torch.utils.data import DataLoader
 
@@ -522,6 +523,8 @@ class TestCheckpointLoading:
         ],
     )
     @pytest.mark.filterwarnings('ignore:.*The checkpoint included CUDA RNG state.*')
+    @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                        reason='requires PyTorch 1.13 or higher')
     def test_load_remote_checkpoint(self, device, tmp_path: pathlib.Path, load_weights_only, remote_checkpoint_uri,
                                     remote_checkpoint_name, continue_training_dur, final_checkpoint_name, s3_bucket):
         """
