@@ -53,7 +53,8 @@ def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: floa
         # Increase update count so Torchmetrics doesn't throw warning when computing two metrics which haven't been updated
         item1._update_count += 1
         item2._update_count += 1
-        assert item1.compute() == item2.compute(), f'{path} differs: {item1.compute()} != {item2.compute()}'
+        assert item1.compute().allclose(item2.compute(), atol=atol,
+                                        rtol=rtol), f'{path} differs: {item1.compute()} != {item2.compute()}'
         item1._update_count -= 1
         item2._update_count -= 1
         return
