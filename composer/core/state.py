@@ -123,7 +123,7 @@ def fsdp_get_optim_state_dict(model: torch.nn.Module,
         optim_state_dict = _legacy_fsdp_get_optim_state_dict(model, optim, state_dict_type)
     else:
         with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
-            optim_state_dict = FSDP.optim_state_dict(model, optim)
+            optim_state_dict = FSDP.optim_state_dict(model, optim)  # type: ignore
     return optim_state_dict
 
 
@@ -1018,9 +1018,8 @@ class State(Serializable):
                                                                         state_dict_type=self.fsdp_state_dict_type)
                 else:
                     with fsdp_state_dict_type_context(module=self.model, state_dict_type=self.fsdp_state_dict_type):
-                        optim_state_dict = FSDP.optim_state_dict_to_load(optim_state_dict=optim_state_dict,
-                                                                         model=self.model,
-                                                                         optim=optimizer)
+                        optim_state_dict = FSDP.optim_state_dict_to_load(  #  type: ignore
+                            optim_state_dict=optim_state_dict, model=self.model, optim=optimizer)
                 optimizer.load_state_dict(optim_state_dict)
             else:
                 log.debug(f'Loading optimizer state dict')
