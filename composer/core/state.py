@@ -8,6 +8,7 @@ import collections.abc
 import logging
 import textwrap
 import warnings
+from collections import OrderedDict
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
 
@@ -1117,6 +1118,8 @@ class State(Serializable):
                     if isinstance(serialized_value[metric_name], Metric):
                         # For checkpoints saved using Composer <= 0.13.5
                         serialized_value[metric_name].persistent(mode=True)
+                        # Add new attr in torch2
+                        serialized_value[metric_name]._state_dict_pre_hooks = OrderedDict()
                         metric_state_dict = serialized_value[metric_name].state_dict()
                         metric_computed_field = serialized_value[metric_name]._computed
                     elif isinstance(serialized_value[metric_name], dict):
@@ -1155,6 +1158,8 @@ class State(Serializable):
                         if isinstance(serialized_value[eval_key][metric_name], Metric):
                             # For checkpoints saved using Composer <= 0.13.5
                             serialized_value[eval_key][metric_name].persistent(mode=True)
+                            # Add new attr in torch2
+                            serialized_value[eval_key][metric_name]._state_dict_pre_hooks = OrderedDict()
                             eval_metric_state_dict = serialized_value[eval_key][metric_name].state_dict()
                             eval_metric_computed_field = serialized_value[eval_key][metric_name]._computed
                         elif isinstance(serialized_value[eval_key][metric_name], dict):
