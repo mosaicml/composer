@@ -8,6 +8,7 @@ import collections.abc
 import logging
 import textwrap
 import warnings
+from collections import OrderedDict
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
 
@@ -123,7 +124,7 @@ def fsdp_get_optim_state_dict(model: torch.nn.Module,
         optim_state_dict = _legacy_fsdp_get_optim_state_dict(model, optim, state_dict_type)
     else:
         with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
-            optim_state_dict = FSDP.optim_state_dict(model, optim)
+            optim_state_dict = FSDP.optim_state_dict(model, optim)  # type: ignore
     return optim_state_dict
 
 
@@ -1018,9 +1019,8 @@ class State(Serializable):
                                                                         state_dict_type=self.fsdp_state_dict_type)
                 else:
                     with fsdp_state_dict_type_context(module=self.model, state_dict_type=self.fsdp_state_dict_type):
-                        optim_state_dict = FSDP.optim_state_dict_to_load(optim_state_dict=optim_state_dict,
-                                                                         model=self.model,
-                                                                         optim=optimizer)
+                        optim_state_dict = FSDP.optim_state_dict_to_load(  #  type: ignore
+                            optim_state_dict=optim_state_dict, model=self.model, optim=optimizer)
                 optimizer.load_state_dict(optim_state_dict)
             else:
                 log.debug(f'Loading optimizer state dict')
@@ -1118,6 +1118,8 @@ class State(Serializable):
                     if isinstance(serialized_value[metric_name], Metric):
                         # For checkpoints saved using Composer <= 0.13.5
                         serialized_value[metric_name].persistent(mode=True)
+                        # Add new attr in torch2
+                        serialized_value[metric_name]._state_dict_pre_hooks = OrderedDict()
                         metric_state_dict = serialized_value[metric_name].state_dict()
                         metric_computed_field = serialized_value[metric_name]._computed
                     elif isinstance(serialized_value[metric_name], dict):
@@ -1156,6 +1158,8 @@ class State(Serializable):
                         if isinstance(serialized_value[eval_key][metric_name], Metric):
                             # For checkpoints saved using Composer <= 0.13.5
                             serialized_value[eval_key][metric_name].persistent(mode=True)
+                            # Add new attr in torch2
+                            serialized_value[eval_key][metric_name]._state_dict_pre_hooks = OrderedDict()
                             eval_metric_state_dict = serialized_value[eval_key][metric_name].state_dict()
                             eval_metric_computed_field = serialized_value[eval_key][metric_name]._computed
                         elif isinstance(serialized_value[eval_key][metric_name], dict):

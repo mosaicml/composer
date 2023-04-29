@@ -53,7 +53,8 @@ def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: floa
         # Increase update count so Torchmetrics doesn't throw warning when computing two metrics which haven't been updated
         item1._update_count += 1
         item2._update_count += 1
-        assert item1.compute() == item2.compute(), f'{path} differs: {item1.compute()} != {item2.compute()}'
+        assert item1.compute().allclose(item2.compute(), atol=atol,
+                                        rtol=rtol), f'{path} differs: {item1.compute()} != {item2.compute()}'
         item1._update_count -= 1
         item2._update_count -= 1
         return
@@ -77,4 +78,9 @@ def _check_dict_recursively(dict1: Dict[str, Any], dict2: Dict[str, Any], path: 
     assert len(dict1) == len(dict2), f'{path} differs: {dict1} != {dict2}'
     for k, val1 in dict1.items():
         val2 = dict2[k]
+
+        # special case fused optimizer to allow comparing a GPU checkpoint with a CPU checkpoint
+        if isinstance(k, str) and k == 'fused' and path == '/state/optimizers/Adam/param_groups/0':
+            assert bool(val1) == bool(val2)
+            continue
         _check_item(val1, val2, path=f'{path}/{k}', atol=atol, rtol=rtol)

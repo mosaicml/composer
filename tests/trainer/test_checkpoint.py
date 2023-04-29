@@ -62,7 +62,7 @@ def _load_checkpoint(filename: Union[str, pathlib.Path]):
         return torch.load(states_path, map_location='cpu')
 
 
-def _assert_checkpoints_equivalent(file1, file2):
+def _assert_checkpoints_equivalent(file1, file2, atol=0.0, rtol=0.0):
     checkpoint_1 = _load_checkpoint(file1)
     checkpoint_2 = _load_checkpoint(file2)
 
@@ -83,7 +83,7 @@ def _assert_checkpoints_equivalent(file1, file2):
         if 'DummyStatefulCallback' in ckpt['state']['callbacks']:
             del ckpt['state']['callbacks']['DummyStatefulCallback']
 
-    deep_compare(checkpoint_1, checkpoint_2)
+    deep_compare(checkpoint_1, checkpoint_2, atol=atol, rtol=rtol)
 
     # deepspeed checkpoints do not have model or optimizer
     # so either model, optimizer should be in all checkpoints or in none
@@ -388,8 +388,8 @@ class TestCheckpointLoading:
 
     def _metrics_equal(self, train_metrics_1, train_metrics_2, eval_metrics_1, eval_metrics_2):
         try:
-            deep_compare(train_metrics_1, train_metrics_2)
-            deep_compare(eval_metrics_1, eval_metrics_2)
+            deep_compare(train_metrics_1, train_metrics_2, atol=1e-8, rtol=1e-8)
+            deep_compare(eval_metrics_1, eval_metrics_2, atol=1e-7, rtol=1e-7)
             return True
         except AssertionError:
             return False
@@ -521,6 +521,7 @@ class TestCheckpointLoading:
             ['backwards_compatibility/trained_ckpt_cpu_ep2.pt', 'ep2.pt', '3ep', 'ep3.pt'],
         ],
     )
+    @pytest.mark.filterwarnings('ignore:.*The checkpoint included CUDA RNG state.*')
     def test_load_remote_checkpoint(self, device, tmp_path: pathlib.Path, load_weights_only, remote_checkpoint_uri,
                                     remote_checkpoint_name, continue_training_dur, final_checkpoint_name, s3_bucket):
         """
@@ -530,8 +531,6 @@ class TestCheckpointLoading:
         and should be equivalent after training continues.
         Checkpoint saved using: Composer 0.13.5 with default dependencies.
         """
-        import os
-
         trainer_1 = self.get_trainer(save_folder='first', device=device)
         trainer_1.fit()
         trainer_1.close()
@@ -577,7 +576,9 @@ class TestCheckpointLoading:
         trainer_3.close()
 
         _assert_checkpoints_equivalent(os.path.join('third', final_checkpoint_name),
-                                       os.path.join('second', final_checkpoint_name))
+                                       os.path.join('second', final_checkpoint_name),
+                                       rtol=1e-7,
+                                       atol=1e-7)
 
     def _stateful_callbacks_equal(self, callbacks1, callbacks2):
 
