@@ -321,23 +321,20 @@ def download_checkpoint(path: str,
                     pass
 
     finally:
-        # Wait for all checkpoints on the node to finish downloading
-        # First we wait for the local rank 0 to finish its download. This prevents timeouts
-        # in cases where the local rank 0 is downloading a monolithic checkpoint, and so takes
-        # much longer than the other ranks, which have nothing to download
-        # Putting the barrier in a finally so the rank will always block on the barrier,
-        # even if it has an exception.
-        # Any exception will be re-raised after the barrier passes. The launcher script
-        # will detect the process crash and terminate the other ranks
-
         signal_file_path = os.path.join(node_checkpoint_folder, '.local_rank0_completed')
         if dist.get_local_rank() == 0:
             with open(signal_file_path, 'wb') as f:
                 f.write(b'local_rank0_completed')
-        dist.local_rank_zero_download_and_wait(signal_file_path)
+
+        # Avoid the collective call until the local rank zero has finished trying to download the
+        # checkpoint so that we don't timeout for large downloads. This syncs all processes on the
+        # node
+        with dist.local_rank_zero_download_and_wait(signal_file_path):
+            # Then, wait to ensure every node has finished downloading the checkpoint
+            dist.barrier()
+
         if dist.get_local_rank() == 0:
             os.remove(signal_file_path)
-
         dist.barrier()
 
     return composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n
