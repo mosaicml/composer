@@ -646,3 +646,42 @@ def test_qa_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_g
     trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
     assert 'metrics/triviaqa/InContextLearningQAAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/triviaqa/InContextLearningQAAccuracy'][0][1].item() == 0
+
+
+@pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
+def test_lm_spacing_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
+    pytest.importorskip('datasets')
+
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+
+    tokenizer = tiny_gpt2_tokenizer
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    batch_size = 1
+    seqlen = 2048
+    dl = get_icl_task_dataloader('language_modeling',
+                                 dataset_uri,
+                                 tokenizer,
+                                 batch_size,
+                                 max_seq_len=seqlen,
+                                 pad_tok_id=tokenizer.eos_token_id,
+                                 num_fewshot=1,
+                                 prompt_string='',
+                                 example_delimiter='\n',
+                                 continuation_delimiter=' UNIQUE ',
+                                 destination_path=str(tmp_path / 'icl.jsonl'))
+    assert isinstance(dl, DataSpec)
+    assert isinstance(dl.dataloader, DataLoader)  # pyright
+    first_batch = next(dl.dataloader._get_iterator())
+    second_batch = next(dl.dataloader._get_iterator())
+
+    first_batch_text = tokenizer.decode(first_batch['input_ids'][0], skip_special_tokens=True)
+    second_batch_text = tokenizer.decode(second_batch['input_ids'][0], skip_special_tokens=True)
+
+    first_batch_without_last_word = ' '.join(first_batch_text.split(' ')[:-1])
+    second_batch_without_last_word = ' '.join(second_batch_text.split(' ')[:-1])
+
+    assert first_batch_without_last_word.endswith('UNIQUE')
+    assert second_batch_without_last_word.endswith('UNIQUE')
+
+    assert first_batch_without_last_word.count('UNIQUE ') == 1
+    assert second_batch_without_last_word.count('UNIQUE ') == 1
