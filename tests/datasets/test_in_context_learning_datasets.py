@@ -680,8 +680,8 @@ def test_lm_spacing_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     first_batch_without_last_word = ' '.join(first_batch_text.split(' ')[:-1])
     second_batch_without_last_word = ' '.join(second_batch_text.split(' ')[:-1])
 
-    assert first_batch_without_last_word.endswith('UNIQUE')
-    assert second_batch_without_last_word.endswith('UNIQUE')
+    assert first_batch_without_last_word.endswith(' UNIQUE')
+    assert second_batch_without_last_word.endswith(' UNIQUE')
 
-    assert first_batch_without_last_word.count('UNIQUE ') == 1
-    assert second_batch_without_last_word.count('UNIQUE ') == 1
+    assert first_batch_without_last_word.count(' UNIQUE ') == 1
+    assert second_batch_without_last_word.count(' UNIQUE ') == 1
