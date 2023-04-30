@@ -175,7 +175,7 @@ def test_extract_hparams_trainer():
         'deterministic_mode': False,
 
         # Distributed Training
-        'dist_timeout': 1800.0,
+        'dist_timeout': 300.0,
         'ddp_sync_strategy': None,
 
         # Profiling
