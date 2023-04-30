@@ -79,6 +79,9 @@ def test_fsdp_meta_initialization_none(model: ComposerClassifier, mixed_precisio
         model=model,
         optimizers=optimizer,
         train_dataloader=dataloader,
-        fsdp_config={'mixed_precision': mixed_precision},
+        fsdp_config={
+            'mixed_precision': mixed_precision,
+            'sharding_strategy': 'NO_SHARD'
+        },
         max_duration='3ba',
     )

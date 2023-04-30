@@ -84,7 +84,7 @@ def model_eval_mode(model: torch.nn.Module):
         model.train(mode=is_training)
 
 
-def using_torch_2_0() -> bool:
+def using_torch_2() -> bool:
     """Check the PyTorch version and compared it with version 2.0.0.
 
     Returns:
