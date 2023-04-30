@@ -266,7 +266,8 @@ class InContextLearningLMTaskDataset(Dataset):
         pad_tok_id (int): The special token reserved for padding the ends of batches
         num_fewshot (int): The number of complete fewshot examples to prepend before each test example
         prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
-        example_delimiter (str): Separator that goes between individual (context, continuation) pairs (e.g. '\n')        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
+        example_delimiter (str): Separator that goes between individual (context, continuation) pairs (e.g. '\n')
+        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
         destination_path (str): Temporary path to store downloaded datasets
         fewshot_random_seed (int): Random seed used to select fewshot examples
     """
@@ -344,12 +345,12 @@ class InContextLearningLMTaskDataset(Dataset):
             if len(preamble) > 0:
                 ctxt = f'{example_delimiter}{ctxt}'
 
-            if continuation_delimiter.endswith(' '):
-                continuation_delimiter = continuation_delimiter.rstrip(' ')
+            # rstrip the continuation delimiter, because the prompt ending in a space results in degenerate output
+            continuation_delimiter_stripped = continuation_delimiter.rstrip()
 
             if self.prefix_space and not cont.startswith(' '):
                 cont = f' {cont}'
-            ctxt += continuation_delimiter
+            ctxt += continuation_delimiter_stripped
 
             encoded_example['preamble'] = self.tokenizer(
                 preamble
@@ -427,7 +428,8 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         pad_tok_id (int): The special token reserved for padding the ends of batches
         num_fewshot (int): The number of complete fewshot examples to prepend before each test example
         prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
-        example_delimiter (str): Separator that goes between individual (context, continuation) pairs (e.g. '\n')        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
+        example_delimiter (str): Separator that goes between individual (context, continuation) pairs (e.g. '\n')
+        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
         destination_path (str): Temporary path to store downloaded datasets
         fewshot_random_seed (int): Random seed used to select fewshot examples
     """
@@ -513,12 +515,12 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
             if len(preamble) > 0:
                 query = f'{example_delimiter}{query}'
 
-            if continuation_delimiter.endswith(' '):
-                continuation_delimiter = continuation_delimiter.rstrip(' ')
+            # rstrip the continuation delimiter, because the prompt ending in a space results in degenerate output
+            continuation_delimiter_stripped = continuation_delimiter.rstrip()
 
             if self.prefix_space:
                 choices = [(f' {choice}' if not choice.startswith(' ') else choice) for choice in choices]
-            query += continuation_delimiter
+            query += continuation_delimiter_stripped
             encoded_example['preamble'] = self.tokenizer(
                 preamble
             )  # if the preamble is empty then these will be 0-length lists, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
@@ -704,11 +706,11 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
             context_options, continuation, gold_idx = self.samples[sample_idx]['context_options'], self.samples[
                 sample_idx]['continuation'], self.samples[sample_idx]['gold'],
 
-            if continuation_delimiter.endswith(' '):
-                continuation_delimiter = continuation_delimiter.rstrip(' ')
+            # rstrip the continuation delimiter, because the prompt ending in a space results in degenerate output
+            continuation_delimiter_stripped = continuation_delimiter.rstrip()
 
             if len(preamble) > 0:
-                context_options = [f'{example_delimiter}{c}{continuation_delimiter}' for c in context_options]
+                context_options = [f'{example_delimiter}{c}{continuation_delimiter_stripped}' for c in context_options]
             encoded_example['preamble'] = self.tokenizer(
                 preamble
             )  # if the preamble is empty then these will be 0-length lists, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
