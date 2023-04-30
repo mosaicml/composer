@@ -51,7 +51,7 @@ def get_trainer(
 ):
     model = SimpleMLP(num_features=num_features, num_classes=num_classes)
     dataset = RandomClassificationDataset(shape=(num_features,), size=128)
-    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=4)
+    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=8)
     optim = torch.optim.Adam(params=model.parameters())
     trainer = Trainer(
         algorithms=algorithms,
