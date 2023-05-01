@@ -182,7 +182,7 @@ extra_deps['nlp'] = [
     'datasets>=2.4,<3',
 ]
 
-extra_deps['sentencepiece'] = ['sentencepiece==0.1.97']
+extra_deps['sentencepiece'] = ['sentencepiece==0.1.98']
 
 extra_deps['mlperf'] = [
     # TODO: use pip when available: https://github.com/mlcommons/logging/issues/218
