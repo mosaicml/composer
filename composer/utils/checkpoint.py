@@ -195,14 +195,12 @@ def load_checkpoint(
     log.debug('Loading checkpoint at %s', path)
     # Each node gets one unique folder to store checkpoints that is shared amongst all local ranks in that node.
     # If fsdp sharded state_dicts is enabled then EVERY rank gets a unique checkpoint folder.
-    tempdir_ctx = (tempfile.TemporaryDirectory() if (state.fsdp_sharded_state_dict_enabled or
-                                                     dist.get_local_rank() == 0) else contextlib.nullcontext(None))
+    tempdir_ctx = tempfile.TemporaryDirectory() if dist.get_local_rank() == 0 else contextlib.nullcontext(None)
     with tempdir_ctx as tempdir:
         try:
             # Get the path to the proper checkpoint folder corresponding to the current rank's node.
             # If fsdp_sharded_state_dict_enabled then just use that rank's unique tempdir.
-            node_checkpoint_folder = (tempdir if state.fsdp_sharded_state_dict_enabled else
-                                      _get_node_checkpoint_download_folder(tempdir))
+            node_checkpoint_folder = _get_local_rank_zero_path(tempdir)
             assert node_checkpoint_folder is not None
 
             composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = download_checkpoint(
@@ -234,7 +232,7 @@ def load_checkpoint(
     return rng_state_dicts
 
 
-def _get_node_checkpoint_download_folder(path: Optional[str]) -> str:
+def _get_local_rank_zero_path(path: Optional[str]) -> str:
     """Broadcasts the ``path`` from the LOCAL rank zero to all LOCAL ranks."""
     local_rank_zero = dist.get_local_world_size() * dist.get_node_rank()
     paths = dist.all_gather_object(path)
