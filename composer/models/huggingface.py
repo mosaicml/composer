@@ -112,7 +112,8 @@ class HuggingFaceModel(ComposerModel):
                 f'The number of tokens in the tokenizer is less than the number of tokens in the model.'
                 f' You may want to resize the model embeddings to {len(tokenizer)} from {self.config.vocab_size}'
                 f' by calling `model.resize_token_embeddings(len(tokenizer))` before calling the `HuggingFaceModel`'
-                f' constructor. This is sometimes done intentionally to improve performance at powers of 2.')
+                f' constructor. The vocab size is sometimes intentionally set to a multiple of 32 or 64 to improve'
+                f' performance.')
 
         self.use_logits = use_logits
 
