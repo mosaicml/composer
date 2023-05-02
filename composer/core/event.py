@@ -47,7 +47,7 @@ class Event(StringEnum):
                     loss.backward()
                     # <AFTER_BACKWARD>
 
-                # Un-scale and clip gradients
+                # Un-scale gradients
 
                 # <AFTER_TRAIN_BATCH>
                 optimizer.step()
