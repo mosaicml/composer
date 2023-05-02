@@ -17,7 +17,7 @@ from torchmetrics import Metric, MetricCollection
 from composer.core import Precision, State
 from composer.devices import Device
 from composer.trainer.meta_safe_apply import meta_safe_apply
-from composer.utils import StringEnum, dist, ensure_tuple, using_torch_2_0
+from composer.utils import StringEnum, dist, ensure_tuple, using_torch_2
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module']
 
@@ -143,7 +143,7 @@ def prepare_fsdp_module(
     """
     if version.parse(torch.__version__) < version.parse('1.13.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-    is_torch_2_0 = using_torch_2_0()
+    is_torch_2_0 = using_torch_2()
     from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (CheckpointImpl,
                                                                              apply_activation_checkpointing,
                                                                              checkpoint_wrapper)
@@ -211,6 +211,9 @@ def prepare_fsdp_module(
                 f'FSDP in PyTorch 1.13 does not support param_dtype `{param_dtype}` with sharding_strategy `{sharding_map_key}` '
                 f'Consider using `amp` or `bf16` for precision or setting param_dtype in mixed_precision to `None` '
                 f'with sharding strategy `{sharding_map_key}.`')
+
+    if fsdp_config.get('min_params') is not None:
+        warnings.warn(DeprecationWarning('`min_params` in FSDP config will be depricated in composer version 0.16.0.'))
 
     backward_prefetch = backward_prefetch_map[fsdp_config.get('backward_prefetch', 'BACKWARD_POST').upper()]
     min_params = int(float(fsdp_config.get('min_params', 1e9)))
@@ -332,7 +335,7 @@ def prepare_fsdp_module(
 
                 if should_be_wrapped and auto_microbatching:
                     module.register_forward_hook(sync_hook)
-                    module.register_backward_hook(sync_hook)
+                    module.register_full_backward_hook(sync_hook)
                 return should_be_wrapped
 
             if is_torch_2_0:

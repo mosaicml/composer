@@ -191,18 +191,18 @@ def load_checkpoint(
         Optional[List[Dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
             :attr:`load_weights_only` is not None. Otherwise, None.
     """
-    # download the checkpoint to the node-local folder
+    # Download the checkpoint to the node-local folder
     log.debug('Loading checkpoint at %s', path)
     # Each node gets one unique folder to store checkpoints that is shared amongst all local ranks in that node.
     # If fsdp sharded state_dicts is enabled then EVERY rank gets a unique checkpoint folder.
-    tempdir_ctx = (tempfile.TemporaryDirectory() if (state.fsdp_sharded_state_dict_enabled or
-                                                     dist.get_local_rank() == 0) else contextlib.nullcontext(None))
+    needs_unique_checkpoint_folder = state.fsdp_sharded_state_dict_enabled or dist.get_local_rank() == 0
+    tempdir_ctx = tempfile.TemporaryDirectory() if needs_unique_checkpoint_folder else contextlib.nullcontext(None)
     with tempdir_ctx as tempdir:
         try:
             # Get the path to the proper checkpoint folder corresponding to the current rank's node.
             # If fsdp_sharded_state_dict_enabled then just use that rank's unique tempdir.
-            node_checkpoint_folder = (tempdir if state.fsdp_sharded_state_dict_enabled else
-                                      _get_node_checkpoint_download_folder(tempdir))
+            node_checkpoint_folder = (tempdir
+                                      if state.fsdp_sharded_state_dict_enabled else _get_local_rank_zero_path(tempdir))
             assert node_checkpoint_folder is not None
 
             composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = download_checkpoint(
@@ -234,7 +234,7 @@ def load_checkpoint(
     return rng_state_dicts
 
 
-def _get_node_checkpoint_download_folder(path: Optional[str]) -> str:
+def _get_local_rank_zero_path(path: Optional[str]) -> str:
     """Broadcasts the ``path`` from the LOCAL rank zero to all LOCAL ranks."""
     local_rank_zero = dist.get_local_world_size() * dist.get_node_rank()
     paths = dist.all_gather_object(path)
@@ -321,23 +321,22 @@ def download_checkpoint(path: str,
                     pass
 
     finally:
-        # Wait for all checkpoints on the node to finish downloading
-        # First we wait for the local rank 0 to finish its download. This prevents timeouts
-        # in cases where the local rank 0 is downloading a monolithic checkpoint, and so takes
-        # much longer than the other ranks, which have nothing to download
-        # Putting the barrier in a finally so the rank will always block on the barrier,
-        # even if it has an exception.
-        # Any exception will be re-raised after the barrier passes. The launcher script
-        # will detect the process crash and terminate the other ranks
+        # Use busy wait to avoid timeouts on large downloads for non-sharded checkpoints
+        if not checkpoint_is_sharded:
+            signal_file_path = os.path.join(node_checkpoint_folder, '.local_rank0_completed')
+            if dist.get_local_rank() == 0:
+                with open(signal_file_path, 'wb') as f:
+                    f.write(b'local_rank0_completed')
 
-        signal_file_path = os.path.join(node_checkpoint_folder, '.local_rank0_completed')
-        if dist.get_local_rank() == 0:
-            with open(signal_file_path, 'wb') as f:
-                f.write(b'local_rank0_completed')
-        dist.local_rank_zero_download_and_wait(signal_file_path)
-        if dist.get_local_rank() == 0:
-            os.remove(signal_file_path)
+            # Avoid the collective call until the local rank zero has finished trying to download the
+            # checkpoint so that we don't timeout for large downloads. This syncs all processes on the
+            # node
+            with dist.local_rank_zero_download_and_wait(signal_file_path):
+                # Then, wait to ensure every node has finished downloading the checkpoint
+                dist.barrier()
 
+            if dist.get_local_rank() == 0:
+                os.remove(signal_file_path)
         dist.barrier()
 
     return composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n
