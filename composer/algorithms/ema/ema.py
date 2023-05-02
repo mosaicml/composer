@@ -83,6 +83,7 @@ def compute_ema(model: torch.nn.Module,
 
 
 def get_model_context_manager(model: torch.nn.Module):
+    """Summons full params for FSDP, which is required to update sharded params."""
     fsdp_enabled = misc.is_model_fsdp(model)
     model_context_manager = contextlib.nullcontext()
     if fsdp_enabled:
