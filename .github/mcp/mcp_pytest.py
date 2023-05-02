@@ -63,7 +63,7 @@ if __name__ == '__main__':
 
     pip install --upgrade --user .[all]
 
-    export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}'"
+    export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}' --s3_bucket mosaicml-internal-integration-testing"
 
     make test PYTEST='{args.pytest_command}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
 
