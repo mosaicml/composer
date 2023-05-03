@@ -752,7 +752,7 @@ class Trainer:
 
             .. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility.
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
-            (default: ``1800.0``)
+            (default: ``300.0``)
         ddp_sync_strategy (str | DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
             Leave unset to let the trainer auto-configure this. See :class:`.DDPSyncStrategy`
             for more details.
@@ -861,7 +861,7 @@ class Trainer:
         deterministic_mode: bool = False,
 
         # Distributed Training
-        dist_timeout: float = 1800.0,
+        dist_timeout: float = 300.0,
         ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
 
         # Profiling
@@ -1480,10 +1480,15 @@ class Trainer:
                 with open(signal_file_path, 'wb') as f:
                     f.write(b'local_rank0_completed_autoresume')
 
-            # avoid the collective call until the local rank zero has finished trying to download the checkpoint
-            # so that we don't timeout for large downloads
+            # Avoid the collective call until the local rank zero has finished trying to download the checkpoint
+            # so that we don't timeout for large downloads. This syncs all processes on the node
             with dist.local_rank_zero_download_and_wait(signal_file_path):
+                # Then, wait to ensure every node has finished downloading the checkpoint
                 dist.barrier()
+
+            if dist.get_local_rank() == 0:
+                os.remove(signal_file_path)
+            dist.barrier()
 
             # At this point the rank 0 filepath should exist on all ranks if the download succeeded
             # list of whether the checkpoint exists on each rank

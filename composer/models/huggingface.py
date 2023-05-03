@@ -108,11 +108,12 @@ class HuggingFaceModel(ComposerModel):
             # when the embedding size is greater than the tokenizer vocab size,
             # the embeddings do not _need_ to be resized to match the tokenizer vocab size,
             # and should be done by the user if desired
-            log.warning(
+            log.info(
                 f'The number of tokens in the tokenizer is less than the number of tokens in the model.'
                 f' You may want to resize the model embeddings to {len(tokenizer)} from {self.config.vocab_size}'
                 f' by calling `model.resize_token_embeddings(len(tokenizer))` before calling the `HuggingFaceModel`'
-                f' constructor.')
+                f' constructor. The vocab size is sometimes intentionally set to a multiple of 32 or 64 to improve'
+                f' performance.')
 
         self.use_logits = use_logits
 
