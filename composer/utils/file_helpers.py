@@ -31,8 +31,21 @@ log = logging.getLogger(__name__)
 __all__ = [
     'get_file', 'ensure_folder_is_empty', 'ensure_folder_has_no_conflicting_files', 'format_name_with_dist',
     'format_name_with_dist_and_time', 'is_tar', 'create_symlink_file', 'maybe_create_object_store_from_uri',
-    'maybe_create_remote_uploader_downloader_from_uri', 'parse_uri'
+    'maybe_create_remote_uploader_downloader_from_uri', 'parse_uri', 'strip_rank_placeholders'
 ]
+
+
+def strip_rank_placeholders(fmt_str: str) -> str:
+    """Strips all rank placeholders from a format string, fmt_str.
+    e.g. ba{batch}-rank{rank}.pt -> ba{batch}.pt
+    e.g. ba{batch}-rank{node_rank}.pt -> ba{batch}.pt
+    e.g. ba{batch}-rank{local_rank}.pt -> ba{batch}.pt
+    e.g. ba{batch}_rank{rank}.pt -> ba{batch}.pt
+    """
+    fmt_str = fmt_str.replace('{node_rank}', '').replace('{local_rank}', '').replace('{rank}', '').replace('rank', '')
+    # Remove any double hyphens or double underscores as a result of removing rank placeholders.
+    fmt_str = fmt_str.replace('--', '-').replace('__', '_')
+    return fmt_str
 
 
 def _get_dist_config(strict: bool = True) -> Dict[str, Any]:

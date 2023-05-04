@@ -348,3 +348,23 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
             autoresume=autoresume,
             run_name=run_name,
         )
+
+
+@pytest.mark.gpu
+@world_size(2)
+@pytest.mark.parametrize('state_dict_type', ['local', 'sharded'])
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                    reason='requires PyTorch 1.13 or higher')
+def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict_type: str):
+    save_folder = str(tmp_path / pathlib.Path(run_name))
+    save_filename = 'ba{batch}-rank{rank}.pt'
+    trainer1 = get_trainer(save_folder=save_folder,
+                           save_filename=save_filename,
+                           fsdp_state_dict_type=state_dict_type,
+                           run_name=run_name,
+                           max_duration='2ba',
+                           save_interval='1ba')
+    trainer1.fit()
+    trainer1.close()
+    expected_checkpoint_path = os.path.join(save_folder, 'ba1', f'ba1-rank{dist.get_global_rank()}.pt')
+    assert os.path.exists(expected_checkpoint_path)
