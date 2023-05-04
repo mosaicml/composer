@@ -13,6 +13,7 @@ from composer.algorithms.gradient_clipping import GradientClipping, apply_gradie
 from composer.algorithms.gradient_clipping.gradient_clipping import _apply_agc, _get_clipped_gradient_coeff
 from composer.core import Engine, State
 from composer.core.event import Event
+from composer.utils.misc import using_torch_2
 from tests.common import world_size
 from tests.common.datasets import dummy_tiny_bert_classification_batch, dummy_transformer_classifier_batch
 from tests.common.models import SimpleTransformerClassifier, configure_tiny_bert_config
@@ -192,12 +193,27 @@ def test_gradient_clipping_algorithm_with_deepspeed_enabled(
     apply_gc_fn.assert_not_called()
 
 
-def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, unwrapped_params: int) -> bool:
-    if recurse:
-        return True
-    if hasattr(module, '_fsdp_wrap'):
-        return bool(module._fsdp_wrap)
-    return False
+if not using_torch_2():
+
+    def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, unwrapped_params: int) -> bool:  # type: ignore
+        if recurse:
+            return True
+        if hasattr(module, '_fsdp_wrap'):
+            return bool(module._fsdp_wrap)
+        return False
+else:
+
+    def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
+        if recurse:
+            return True
+
+        # With Torch 2.0, there is a bug that emits a nasty warning if you wrap a module with no parameters
+        if len(list(module.parameters())) == 0:
+            return False
+
+        if hasattr(module, '_fsdp_wrap'):
+            return bool(module._fsdp_wrap)
+        return False
 
 
 @pytest.mark.parametrize('model_with_grads', [
@@ -220,11 +236,18 @@ def test_gradient_clipping_algorithm_with_fsdp_enabled_does_not_error(
 ):
     from torch.distributed.fsdp import FullyShardedDataParallel
 
+    model = model_with_grads()
+
     clipping_threshold = 0.1191
     state = dummy_state
-    state.model = FullyShardedDataParallel(model_with_grads(),
+
+    torch_2_kwargs = {}
+    if using_torch_2():
+        torch_2_kwargs['use_orig_params'] = True
+    state.model = FullyShardedDataParallel(model,
                                            auto_wrap_policy=_auto_wrap_policy,
-                                           device_id=torch.cuda.current_device())
+                                           device_id=torch.cuda.current_device(),
+                                           **torch_2_kwargs)
 
     state.algorithms = [GradientClipping(clipping_type=clipping_type, clipping_threshold=clipping_threshold)]
     logger = Mock()

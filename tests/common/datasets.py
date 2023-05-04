@@ -218,12 +218,14 @@ class RandomTextLMDataset(Dataset):
                  sequence_length: int = 8,
                  use_keys: bool = False,
                  use_token_type_ids: bool = True,
-                 conditional_generation: bool = False):
+                 conditional_generation: bool = False,
+                 causal_lm: bool = False):
         self.vocab_size = vocab_size
         self.sequence_length = sequence_length
         self.use_keys = use_keys
         self.use_token_type_ids = use_token_type_ids
         self.conditional_generation = conditional_generation
+        self.causal_lm = causal_lm
 
         self.input_key = 'input_ids'
 
@@ -243,6 +245,8 @@ class RandomTextLMDataset(Dataset):
             self.x = torch.randint(low=0, high=self.vocab_size, size=(self.size, self.sequence_length))
             if self.conditional_generation:
                 self.y = torch.randint(low=0, high=self.vocab_size, size=(self.size, 2 * self.sequence_length))
+            if self.causal_lm:
+                self.y = torch.randint(low=0, high=self.vocab_size, size=(self.size, self.sequence_length))
 
         x = self.x[index]
 

@@ -719,17 +719,17 @@ def test_embedding_resizing(tiny_bert_model, tiny_bert_tokenizer, embedding_resi
                                  allow_embedding_resizing=allow_embedding_resizing)
         if embedding_resize == 'lower':
             if allow_embedding_resizing:
-                # when the embedding size is smaller than the tokenizer vocab size,
+                # When the embedding size is smaller than the tokenizer vocab size,
                 # the embeddings should get resized to match the tokenizer vocab size
                 assert tiny_bert_model.config.vocab_size == len(tiny_bert_tokenizer)
                 assert caplog.messages[0].startswith(
                     'The number of tokens in the tokenizer is greater than the number of tokens in the model')
         elif embedding_resize == 'higher':
-            # when the embedding size is greater than the tokenizer vocab size,
+            # When the embedding size is greater than the tokenizer vocab size,
             # no adjustment is needed. Some embeddings will simply not be used
             assert tiny_bert_model.config.vocab_size == original_size + 100
-            assert caplog.messages[0].startswith(
-                'The number of tokens in the tokenizer is less than the number of tokens in the model.')
+            # Raise at info level, so no warning is generated
+            assert len(caplog.messages) == 0
         elif embedding_resize == 'no_resize':
             assert tiny_bert_model.config.vocab_size == original_size
             assert len(caplog.messages) == 0
