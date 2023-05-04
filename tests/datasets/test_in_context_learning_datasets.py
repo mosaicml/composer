@@ -214,6 +214,52 @@ def test_schema_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     assert tokenizer.decode(batch['input_ids'][0][min_idx:max_idx + 1]) == ' feared violence.'
 
 
+@pytest.mark.parametrize('dataset_uri', ['winograd_small.jsonl'])
+def test_schema_task_dataloader_sentpiece_tokenizer(dataset_uri, tmp_path):
+    pytest.importorskip('datasets')
+
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+
+    tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b', use_fast=False)
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    batch_size = 2
+    seqlen = 2048
+    dl = get_icl_task_dataloader('schema',
+                                 dataset_uri,
+                                 tokenizer,
+                                 batch_size,
+                                 max_seq_len=seqlen,
+                                 pad_tok_id=tokenizer.eos_token_id,
+                                 num_fewshot=1,
+                                 prompt_string='',
+                                 example_delimiter='\n',
+                                 continuation_delimiter=' ',
+                                 destination_path=str(tmp_path / 'icl.jsonl'))
+    assert isinstance(dl, DataSpec)
+    assert isinstance(dl.dataloader, DataLoader)
+    batch = next(dl.dataloader._get_iterator())
+
+    choices_per_question = 2
+    assert 'input_ids' in batch
+    assert tuple(batch['input_ids'].shape) == (batch_size, seqlen)
+    assert 'attention_mask' in batch
+    assert tuple(batch['attention_mask'].shape) == (batch_size, seqlen)
+    assert 'continuation_indices' in batch
+    assert isinstance(batch['continuation_indices'], list) and len(batch['continuation_indices']) == batch_size
+    assert 'mode' in batch
+    assert batch['mode'] == 'icl_task'
+    assert 'gold_indices' in batch
+    assert isinstance(batch['gold_indices'], list) and len(batch['gold_indices']) == batch_size // choices_per_question
+    assert 'choice_groupings' in batch
+    assert isinstance(batch['choice_groupings'], list) and len(
+        batch['choice_groupings']) == batch_size // choices_per_question
+
+    max_idx = max(batch['continuation_indices'][0]).item()
+    assert tokenizer.decode(
+        batch['input_ids'][0][0:max_idx + 1]
+    ) == "<s>Paul tried to call George on the phone, but George wasn't available. \nThe city councilmen refused the demonstrators a permit because the city councilmen feared violence."
+
+
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 1])
 def test_lm_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
