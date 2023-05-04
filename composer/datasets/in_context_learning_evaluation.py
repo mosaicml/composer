@@ -724,8 +724,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
 
             if self.prefix_space:
                 continuation = f' {continuation}' if not continuation.startswith(' ') else continuation
-            encoded_example['continuation'] = self.tokenizer(
-                f' {continuation}' if not continuation.startswith(' ') else continuation, add_special_tokens=False)
+            encoded_example['continuation'] = self.tokenizer(continuation, add_special_tokens=False)
             examples.append(encoded_example)
 
         return examples
