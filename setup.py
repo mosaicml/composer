@@ -214,6 +214,10 @@ extra_deps['mcli'] = [
     'mosaicml-cli>=0.3.6,<0.4',
 ]
 
+extra_deps['ffcv'] = [
+    'ffcv>=1.0,<1.0.3',
+]
+
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
 composer_data_files = ['py.typed']

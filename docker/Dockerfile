@@ -381,7 +381,6 @@ ARG CUDA_VERSION
 RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
     MMCV_TORCH_VERSION=$(python -c "print('torch' + ''.join('${PYTORCH_VERSION}'.split('.')[:2]) + '.0')") && \
     sudo pip${PYTHON_VERSION} install --no-cache-dir \
-        "https://github.com/libffcv/ffcv/archive/f9726ce2be6c36d57ed596b94e1e855131f0d732.zip" \
         "opencv-python${OPENCV_VERSION}" \
         "numba${NUMBA_VERSION}" \
         "mmsegmentation${MMSEGMENTATION_VERSION}" && \
