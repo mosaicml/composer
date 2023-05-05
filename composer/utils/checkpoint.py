@@ -537,7 +537,10 @@ def save_checkpoint(
         save_prefix_folder = strip_rank_placeholders(Path(filename).stem).rstrip('-').rstrip('_')
         # New name is now Trainer.save_folder / Trainer.save_filename with rank info removed / Trainer.save_filename
         # e.g. path/to/my/checkpoints/ep{epoch}-ba{batch}/ep{epoch}-ba{batch}-rank{rank}.pt
-        save_filepath = Path(Path(filename).parent) / Path(save_prefix_folder) / Path(Path(filename).name)
+        if save_prefix_folder != '':
+            save_filepath = Path(Path(filename).parent) / Path(save_prefix_folder) / Path(Path(filename).name)
+        else:
+            save_filepath = filename
         # Fill in remaining placeholders.
         save_filename = format_name_with_dist_and_time(str(save_filepath), state.run_name, state.timestamp)
         log.debug('Saving sharded checkpoints to %s...', save_filename)

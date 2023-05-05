@@ -274,7 +274,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
     else:
         run_name = None
     save_folder = tmp_path
-    save_filename = 'rank{rank}.pt'
+    save_filename = 'ba{batch}-rank{rank}.pt'
     trainer1 = get_trainer(
         save_folder=str(save_folder),
         save_filename=save_filename,
@@ -286,7 +286,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
     trainer1.close()
-    load_path = str(save_folder / pathlib.Path('rank{rank}.pt'))
+    load_path = str(save_folder / pathlib.Path('ba2') / pathlib.Path('ba{batch}-rank{{rank}}.pt'.format(batch=2)))
     trainer2 = get_trainer(
         save_folder=str(save_folder),
         save_filename=save_filename,
@@ -330,13 +330,14 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
     # and removing batch 2 checkpoint.
     if dist.get_global_rank() == 1:
         latest_symlink = str(pathlib.Path(save_folder) / pathlib.Path('latest-rank1.pt'))
-        latest_checkpoint_path = pathlib.Path(save_folder) / pathlib.Path(save_filename.format(batch=2, rank=1))
-        assert os.readlink(latest_symlink) == latest_checkpoint_path.name
-        oldest_checkpoint_path = pathlib.Path(save_folder) / pathlib.Path(save_filename.format(batch=1, rank=1))
+        latest_checkpoint_path = pathlib.Path(save_folder) / pathlib.Path('ba2') / pathlib.Path(save_filename.format(batch=2, rank=1))
+        assert os.readlink(latest_symlink) == str(pathlib.Path('ba2') / pathlib.Path(save_filename.format(batch=2, rank=1)))
+        oldest_checkpoint_path = pathlib.Path(save_folder) / pathlib.Path('ba1') / pathlib.Path(save_filename.format(batch=1, rank=1))
+        oldest_checkpoint_relative_path = str(pathlib.Path('ba1') / pathlib.Path(save_filename.format(batch=1, rank=1)))
         os.remove(latest_symlink)
-        os.symlink(src=oldest_checkpoint_path.name, dst=latest_symlink)
+        os.symlink(src=oldest_checkpoint_relative_path, dst=latest_symlink)
         os.remove(latest_checkpoint_path)
-        assert os.readlink(latest_symlink) == oldest_checkpoint_path.name
+        assert os.readlink(latest_symlink) == oldest_checkpoint_relative_path
 
     expected_error = pytest.raises(RuntimeError, match='Timestamp mismatch error:*')
 
@@ -356,7 +357,7 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 def test_sharded_folder(world_size, tmp_path: pathlib.Path, state_dict_type: str):
-    run_name = 'my-run'
+    run_name = 'my-cool-run'
     save_folder = str(tmp_path / pathlib.Path(run_name))
     save_filename = 'ba{batch}-rank{rank}.pt'
     trainer1 = get_trainer(save_folder=save_folder,

@@ -400,19 +400,30 @@ class CheckpointSaver(Callback):  # noqa: D101
                 os.remove(symlink)
             except FileNotFoundError:
                 pass
-            # Sharded checkpoints use directories not files for load_paths
-            src_path = saved_path if not state.fsdp_sharded_state_dict_enabled else str(pathlib.Path(saved_path).parent)
-            os.symlink(os.path.relpath(src_path, os.path.dirname(symlink)), symlink)
+            os.symlink(os.path.relpath(saved_path, os.path.dirname(symlink)), symlink)
 
         # if remote file name provided, upload the checkpoint
         if self.remote_file_name is not None:
-            remote_file_name = self.remote_file_name.format(
-                state,
-                is_deepspeed,
-            ).lstrip('/')
+            # Use the stem of remote_filename (with rank info stripped) as a prefix folder.
+            # e.g. s3://my-bucket/path/to/checkpoints/ep1-ba2-rank3.pt is now s3://my-bucket/path/to/checkpoints/ep1-ba2/ep1-ba2-rank3.pt
+            if state.fsdp_sharded_state_dict_enabled:
+                remote_file_name = self.remote_file_name.format(
+                    state,
+                    is_deepspeed,
+                    keep_placeholders=True,
+                ).lstrip('/')
+                remote_prefix = strip_rank_placeholders(pathlib.Path(remote_file_name).stem).rstrip('-').rstrip('_')
+                remote_file_name = os.path.join(pathlib.Path(remote_file_name).parent, remote_prefix, pathlib.Path(remote_file_name).name)
+                remote_file_name = format_name_with_dist_and_time(remote_file_name, state.run_name, state.timestamp)
+            else:
+                remote_file_name = self.remote_file_name.format(
+                    state,
+                    is_deepspeed,
+                ).lstrip('/')
 
             logger.upload_file(remote_file_name=remote_file_name, file_path=saved_path, overwrite=self.overwrite)
 
+            # symlinks stay the same with sharded checkpointing
             if self.latest_remote_file_name is not None:
                 symlink_name = self.latest_remote_file_name.format(
                     state,
