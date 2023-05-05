@@ -169,8 +169,9 @@ def check_hf_model_equivalence(model1, model2):
 @pytest.mark.parametrize('pass_in_tokenizer', [True, False])
 @pytest.mark.parametrize('modify_tokenizer', [True, False])
 @pytest.mark.parametrize('num_classes', [2, 3])
+@world_size(1, 2)
 def test_hf_state_dict_info(tmp_path: Path, pass_in_tokenizer: bool, modify_tokenizer: bool, num_classes: int,
-                            tiny_bert_tokenizer, tiny_bert_config):
+                            tiny_bert_tokenizer, tiny_bert_config, world_size):
     transformers = pytest.importorskip('transformers')
 
     if not pass_in_tokenizer and modify_tokenizer:
@@ -210,9 +211,15 @@ def test_hf_state_dict_info(tmp_path: Path, pass_in_tokenizer: bool, modify_toke
                       save_folder=str(tmp_path),
                       save_interval='1ep',
                       save_filename='hf-checkpoint.pt')
-    trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
 
-    loaded_checkpoint = torch.load(Path(tmp_path) / 'hf-checkpoint.pt')
+    tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
+    gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
+
+    with dist.local_rank_zero_download_and_wait(str(Path(gathered_paths[0]) / 'hf-checkpoint.pt')):
+        if dist.get_local_rank() == 0:
+            trainer.save_checkpoint(str(Path(gathered_paths[0]) / 'hf-checkpoint.pt'))
+
+    loaded_checkpoint = torch.load(Path(gathered_paths[0]) / 'hf-checkpoint.pt')
     hf_state = loaded_checkpoint['state']['integrations']['huggingface']
     hf_model_state = hf_state['model']
     hf_tokenizer_state = hf_state['tokenizer']
@@ -231,16 +238,23 @@ def test_hf_state_dict_info(tmp_path: Path, pass_in_tokenizer: bool, modify_toke
 
     if pass_in_tokenizer:
         assert tokenizer is not None  # pyright
-        with tempfile.TemporaryDirectory() as _tmp_dir:
-            for filename, saved_content in hf_tokenizer_state.items():
-                with open(Path(_tmp_dir) / f'{filename}{saved_content["file_extension"]}', 'w') as _tmp_file:
-                    if saved_content['file_extension'] == '.json':
-                        json.dump(saved_content['content'], _tmp_file)
-                    elif saved_content['file_extension'] == '.txt':
-                        for line in saved_content['content']:
-                            _tmp_file.write(line)
-                            _tmp_file.write('\n')
-            loaded_tokenizer = transformers.AutoTokenizer.from_pretrained(_tmp_dir)
+
+        with dist.local_rank_zero_download_and_wait(str(Path(gathered_paths[0]) / 'hf-checkpoint.pt')):
+            if dist.get_local_rank() == 0:
+                with tempfile.TemporaryDirectory() as _tmp_dir:
+                    for filename, saved_content in hf_tokenizer_state.items():
+                        with open(Path(_tmp_dir) / f'{filename}{saved_content["file_extension"]}', 'w') as _tmp_file:
+                            if saved_content['file_extension'] == '.json':
+                                json.dump(saved_content['content'], _tmp_file)
+                            elif saved_content['file_extension'] == '.txt':
+                                for line in saved_content['content']:
+                                    _tmp_file.write(line)
+                                    _tmp_file.write('\n')
+
+                        tmp_path_to_broadcast = str(os.path.abspath(_tmp_dir))
+                        gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
+
+                        loaded_tokenizer = transformers.AutoTokenizer.from_pretrained(gathered_paths[0])
 
         # for an unknown reason this key is missing when loading the saved tokenizer, but present with a value of None
         # for the original tokenizer
