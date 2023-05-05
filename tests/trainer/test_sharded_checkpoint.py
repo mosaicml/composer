@@ -355,7 +355,8 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
 @pytest.mark.parametrize('state_dict_type', ['local', 'sharded'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
-def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict_type: str):
+def test_sharded_folder(world_size, tmp_path: pathlib.Path, state_dict_type: str):
+    run_name = 'my-run'
     save_folder = str(tmp_path / pathlib.Path(run_name))
     save_filename = 'ba{batch}-rank{rank}.pt'
     trainer1 = get_trainer(save_folder=save_folder,
@@ -368,3 +369,12 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
     trainer1.close()
     expected_checkpoint_path = os.path.join(save_folder, 'ba1', f'ba1-rank{dist.get_global_rank()}.pt')
     assert os.path.exists(expected_checkpoint_path)
+
+    load_path = os.path.join(save_folder, 'ba1', 'ba1-rank{rank}.pt')
+    trainer2 = get_trainer(
+        fsdp_state_dict_type=state_dict_type,
+        load_path=load_path,
+        max_duration='2ba',
+
+    )
+    trainer2.fit()
