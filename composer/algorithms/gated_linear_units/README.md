@@ -6,7 +6,7 @@
 
 Gated Linear Units replaces the projection matricies in the feed-forward block with [Gated Linear Units](https://arxiv.org/abs/2002.05202).
 
-| ![GatedLinearUnits](https://storage.cloud.google.com/docs.mosaicml.com/images/methods/gated_linear_units.png)|
+| ![GatedLinearUnits](https://storage.googleapis.com/docs.mosaicml.com/images/methods/gated_linear_units.png)|
 |:--|
 |*These equations compare the projection matricies in a standard feed-forward network, and a Gated Linear Unit.
 Following [Shazeer, 2020](https://arxiv.org/abs/2002.05202), we omit the use of bias terms. $\cdot$ represents a dot product.*|
