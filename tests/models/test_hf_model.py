@@ -240,9 +240,8 @@ def test_hf_state_dict_info(tmp_path: Path, pass_in_tokenizer: bool, modify_toke
 
     if pass_in_tokenizer:
         assert tokenizer is not None  # pyright
-
-        if dist.get_local_rank() == 0:
-            with tempfile.TemporaryDirectory() as _tmp_dir:
+        with tempfile.TemporaryDirectory() as _tmp_dir:
+            if dist.get_local_rank() == 0:
                 for filename, saved_content in hf_tokenizer_state.items():
                     with open(Path(_tmp_dir) / f'{filename}{saved_content["file_extension"]}', 'w') as _tmp_file:
                         if saved_content['file_extension'] == '.json':
@@ -254,10 +253,12 @@ def test_hf_state_dict_info(tmp_path: Path, pass_in_tokenizer: bool, modify_toke
 
                     tmp_path_to_broadcast = str(os.path.abspath(_tmp_dir))
 
-        dist.barrier()
+            dist.barrier()
 
-        gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
-        loaded_tokenizer = transformers.AutoTokenizer.from_pretrained(gathered_paths[0])
+            gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
+            loaded_tokenizer = transformers.AutoTokenizer.from_pretrained(gathered_paths[0])
+
+            dist.barrier()
 
         # for an unknown reason this key is missing when loading the saved tokenizer, but present with a value of None
         # for the original tokenizer
