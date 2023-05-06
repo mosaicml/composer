@@ -251,7 +251,7 @@ def test_hf_state_dict_info(tmp_path: Path, pass_in_tokenizer: bool, modify_toke
                                 _tmp_file.write(line)
                                 _tmp_file.write('\n')
 
-                    tmp_path_to_broadcast = str(os.path.abspath(_tmp_dir))
+            tmp_path_to_broadcast = str(os.path.abspath(_tmp_dir))
 
             dist.barrier()
 
