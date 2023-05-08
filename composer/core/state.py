@@ -725,6 +725,8 @@ class State(Serializable):
         integrations = {}
         if isinstance(self.model, HuggingFaceModel):
             integrations['huggingface'] = self.model.get_metadata()
+        elif self.is_model_ddp and isinstance(self.model.module, HuggingFaceModel):
+            integrations['huggingface'] = self.model.module.get_metadata()
         return integrations
 
     def _get_state_metadata(self) -> Dict[str, Any]:
