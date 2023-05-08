@@ -184,7 +184,7 @@ extra_deps['nlp'] = [
 
 extra_deps['sentencepiece'] = [
     'protobuf<3.21',
-    'sentencepiece==0.1.98',
+    'sentencepiece==0.1.99',
 ]
 
 extra_deps['mlperf'] = [
