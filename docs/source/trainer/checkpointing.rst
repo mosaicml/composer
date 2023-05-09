@@ -356,7 +356,7 @@ To do this you can just set the ``S3_ENDPOINT_URL`` environment variable before 
 
     trainer.fit()
 
-Uploading checkpoints to `Cloudflare's R2 object store <https://developers.cloudflare.com/r2/get-started/>`_, like Coreweave, 
+Uploading checkpoints to `Cloudflare's R2 object store <https://developers.cloudflare.com/r2/get-started/>`_, like Coreweave,
 is as easy as using the above S3 uploading code and then setting the ``S3_ENDPOINT_URL`` environment variable before creating the
 :class:`.Trainer`, like so:
 
