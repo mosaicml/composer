@@ -128,7 +128,6 @@ if __name__ == '__main__':
     # from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
     # from torch.distributed.fsdp.fully_sharded_data_parallel import FullyShardedDataParallel as FSDP
     # from torch.distributed.fsdp.fully_sharded_data_parallel import StateDictType
-
     from composer.core.state import fsdp_state_dict_type_context
     num_features = 16
     num_classes = 8
@@ -149,7 +148,8 @@ if __name__ == '__main__':
                           max_duration='4ba',
                           fsdp_state_dict_type='sharded',
                           save_num_checkpoints_to_keep=-1,
-                          log_to_console=True,python_log_level='debug')
+                          log_to_console=True,
+                          python_log_level='debug')
     trainer.fit()
     # run_name = trainer.state.run_name
     # print(run_name)

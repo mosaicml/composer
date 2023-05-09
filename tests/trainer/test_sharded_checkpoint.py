@@ -330,9 +330,10 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
     # and removing batch 2 checkpoint.
     if dist.get_global_rank() == 1:
         latest_symlink = str(pathlib.Path(save_folder) / pathlib.Path('latest-rank1.pt'))
-        latest_checkpoint_path = pathlib.Path(save_folder) / pathlib.Path('ba2') / pathlib.Path(save_filename.format(batch=2, rank=1))
-        assert os.readlink(latest_symlink) == str(pathlib.Path('ba2') / pathlib.Path(save_filename.format(batch=2, rank=1)))
-        oldest_checkpoint_path = pathlib.Path(save_folder) / pathlib.Path('ba1') / pathlib.Path(save_filename.format(batch=1, rank=1))
+        latest_checkpoint_path = pathlib.Path(save_folder) / pathlib.Path('ba2') / pathlib.Path(
+            save_filename.format(batch=2, rank=1))
+        assert os.readlink(latest_symlink) == str(
+            pathlib.Path('ba2') / pathlib.Path(save_filename.format(batch=2, rank=1)))
         oldest_checkpoint_relative_path = str(pathlib.Path('ba1') / pathlib.Path(save_filename.format(batch=1, rank=1)))
         os.remove(latest_symlink)
         os.symlink(src=oldest_checkpoint_relative_path, dst=latest_symlink)
@@ -376,6 +377,5 @@ def test_sharded_folder(world_size, tmp_path: pathlib.Path, state_dict_type: str
         fsdp_state_dict_type=state_dict_type,
         load_path=load_path,
         max_duration='2ba',
-
     )
     trainer2.fit()

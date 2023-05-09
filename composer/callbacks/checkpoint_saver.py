@@ -413,7 +413,9 @@ class CheckpointSaver(Callback):  # noqa: D101
                     keep_placeholders=True,
                 ).lstrip('/')
                 remote_prefix = strip_rank_placeholders(pathlib.Path(remote_file_name).stem).rstrip('-').rstrip('_')
-                remote_file_name = os.path.join(pathlib.Path(remote_file_name).parent, remote_prefix, pathlib.Path(remote_file_name).name)
+                remote_file_name = os.path.join(
+                    pathlib.Path(remote_file_name).parent, remote_prefix,
+                    pathlib.Path(remote_file_name).name)
                 remote_file_name = format_name_with_dist_and_time(remote_file_name, state.run_name, state.timestamp)
             else:
                 remote_file_name = self.remote_file_name.format(
