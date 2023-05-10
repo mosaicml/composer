@@ -395,8 +395,9 @@ class TestCheckpointLoading:
         except AssertionError:
             return False
 
-    def get_trainer(self, max_duration='2ep', **kwargs):
-        model = SimpleConvModel()
+    def get_trainer(self, model=None, max_duration='2ep', **kwargs):
+        if model is None:
+            model = SimpleConvModel()
         optimizer = torch.optim.Adam(model.parameters())
 
         train_dataset = RandomImageDataset()
@@ -474,6 +475,34 @@ class TestCheckpointLoading:
         monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
         with pytest.raises(NotImplementedError):
             self.get_trainer(load_path=load_path)
+
+    @pytest.mark.parametrize('missing_key', [True, False])
+    @pytest.mark.parametrize('unexpected_key', [True, False])
+    def test_strict_errors(self, missing_key: bool, unexpected_key: bool):
+        model1 = SimpleConvModel()
+        if unexpected_key:
+            model1.unexpected_dummy = torch.nn.Parameter(torch.zeros(1))
+
+        trainer_1 = self.get_trainer(model=model1, save_folder='first')
+        trainer_1.fit()
+        trainer_1.close()
+
+        model2 = SimpleConvModel()
+        if missing_key:
+            model2.missing_dummy = torch.nn.Parameter(torch.zeros(1))
+
+        last_checkpoint = os.path.join('first', 'ep2.pt')
+        if missing_key or unexpected_key:
+            error_context = pytest.raises(RuntimeError, match='Failed to load checkpoint due to')
+        else:
+            error_context = contextlib.nullcontext()
+
+        with error_context:
+            _ = self.get_trainer(
+                model=model2,
+                load_path=last_checkpoint,
+                load_weights_only=True,
+            )
 
     @device('cpu', 'gpu')
     @pytest.mark.parametrize('load_weights_only', [True, False])
