@@ -45,8 +45,7 @@ def strip_rank_placeholders(fmt_str: str) -> str:
     """
     fmt_str = fmt_str.replace('{node_rank}', '').replace('{local_rank}', '').replace('{rank}', '').replace('rank', '')
     # Remove any double hyphens or double underscores as a result of removing rank placeholders.
-    fmt_str = fmt_str.replace('--', '-').replace('__', '_')
-    return fmt_str
+    return fmt_str.replace('--', '-').replace('__', '_')
 
 
 def _get_dist_config(strict: bool = True) -> Dict[str, Any]:
