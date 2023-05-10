@@ -2670,12 +2670,15 @@ class Trainer:
                 metric.reset()
 
             dataloader = self.state.dataloader
+            dist_sampler = None
+            last_batch = False
             if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
                 # The distributed sampler uses `set_epoch` to set the random seed
                 # Because evaluation can run on each batch, we use the batch to seed the sampler
                 # so each evaluation will get a proper shuffle.
                 # The epoch provided to `set_epoch` need not be sequential, so this is fine.
-                dataloader.sampler.set_epoch(int(self.state.timestamp.batch))
+                dist_sampler = dataloader.sampler
+                dist_sampler.set_epoch(int(self.state.timestamp.batch))
 
             for self.state.batch in self._iter_dataloader(TrainerMode.EVAL):
                 self.state.batch = self.state.device.batch_to_device(self.state.batch)
@@ -2685,6 +2688,13 @@ class Trainer:
                 # Count the batch size and num tokens before any events run
                 rank_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
                 rank_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
+
+                # If using a distributed sampler, keep track of last_batch for metrics update
+                if dist_sampler is not None:
+                    batch_num_samples_tensor = torch.tensor(rank_num_samples, device=self.state.device)
+                    dist.all_reduce(batch_num_samples_tensor, reduce_operation='SUM')
+                    batch_num_samples = batch_num_samples_tensor.item()
+                    last_batch = self.state.eval_timestamp.sample + batch_num_samples > len(dist_sampler.dataset)
 
                 if self.deepspeed_enabled:
                     self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
@@ -2698,12 +2708,11 @@ class Trainer:
                     # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
                     found_cuda_oom = 0
                     try:
-                        for self.state.batch in data_spec.split_batch(device_batch,
-                                                                      evaluator.device_eval_microbatch_size):
+                        microbatches = data_spec.split_batch(device_batch, evaluator.device_eval_microbatch_size)
+                        for i, self.state.batch in enumerate(microbatches):
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
                             with _get_precision_context(self.state.precision, self.deepspeed_enabled):
                                 self.state.outputs = self._original_model.eval_forward(self.state.batch)
-                                target = None
 
                             self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
@@ -2716,16 +2725,23 @@ class Trainer:
                                 else:
                                     outputs = self.state.outputs
 
-                                if hasattr(self._original_model, 'validate'):
-                                    for _, metric in self.state.train_metrics.items():
-                                        metric.update(outputs, target)
-                                else:
-                                    for _, metric in metrics.items():
-                                        self._original_model.update_metric(
-                                            self.state.batch,
-                                            outputs,
-                                            metric,
-                                        )
+                                # Distributed samplers pad batches to be the same size. If using a
+                                # distributed sampler and on last batch, remove the padding
+                                if dist_sampler is not None and last_batch and i == len(microbatches) - 1:
+                                    padding = dist_sampler.total_size - len(dist_sampler.dataset)
+                                    if dist.get_global_rank() >= dist.get_world_size() - padding:
+                                        # Skip updating metric if batch is only padded samples
+                                        if len(outputs) == 1:
+                                            continue
+                                        self.state.batch = self.state.batch[:-1]
+                                        outputs = outputs[:-1]
+
+                                for _, metric in metrics.items():
+                                    self._original_model.update_metric(
+                                        self.state.batch,
+                                        outputs,
+                                        metric,
+                                    )
 
                     except RuntimeError as e:
                         if evaluator.auto_microbatching and _is_cuda_oom(e):
