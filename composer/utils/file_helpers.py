@@ -36,7 +36,7 @@ __all__ = [
 
 
 def strip_rank_placeholders(fmt_str: str) -> str:
-    """Strips all rank placeholders from a format string, fmt_str.
+    """Strips all rank placeholders from a format string, called fmt_str.
 
     e.g. ba{batch}-rank{rank}.pt -> ba{batch}.pt
     e.g. ba{batch}-rank{node_rank}.pt -> ba{batch}.pt
