@@ -20,11 +20,9 @@ class ZeroModel(ComposerClassifier):
 
     def __init__(self, num_classes: int = 2):
         # Create dummy model as ComposerClassifier needs params for optimizer
-        net = torch.nn.Sequential(
-            torch.nn.Linear(1, num_classes),
-        )
+        net = torch.nn.Sequential(torch.nn.Linear(1, num_classes))
         super().__init__(module=net, num_classes=num_classes)
-    
+
     def forward(self, x):
         out = torch.rand([x[1].shape[0], 2], dtype=x[0].dtype, device=x[0].get_device())
         out[:, 0] = 0.99

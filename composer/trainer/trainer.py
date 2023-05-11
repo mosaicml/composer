@@ -2671,6 +2671,7 @@ class Trainer:
 
             dataloader = self.state.dataloader
             dist_sampler = None
+            dataset_len = None
             last_batch = False
             if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
                 # The distributed sampler uses `set_epoch` to set the random seed
@@ -2679,6 +2680,10 @@ class Trainer:
                 # The epoch provided to `set_epoch` need not be sequential, so this is fine.
                 dist_sampler = dataloader.sampler
                 dist_sampler.set_epoch(int(self.state.timestamp.batch))
+                try:
+                    dataset_len = len(dist_sampler.dataset)  # type: ignore
+                except AttributeError:
+                    pass
 
             for self.state.batch in self._iter_dataloader(TrainerMode.EVAL):
                 self.state.batch = self.state.device.batch_to_device(self.state.batch)
@@ -2690,11 +2695,11 @@ class Trainer:
                 rank_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
 
                 # If using a distributed sampler, keep track of last_batch for metrics update
-                if dist_sampler is not None:
+                if dist_sampler is not None and dataset_len is not None:
                     batch_num_samples_tensor = self.state.device.tensor_to_device(torch.tensor(rank_num_samples))
                     dist.all_reduce(batch_num_samples_tensor, reduce_operation='SUM')
                     batch_num_samples = batch_num_samples_tensor.item()
-                    last_batch = self.state.eval_timestamp.sample + batch_num_samples > len(dist_sampler.dataset)
+                    last_batch = self.state.eval_timestamp.sample + batch_num_samples > dataset_len
 
                 if self.deepspeed_enabled:
                     self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
@@ -2727,8 +2732,9 @@ class Trainer:
 
                                 # Distributed samplers pad batches to be the same size. If using a
                                 # distributed sampler and on last batch, remove the padding
-                                if dist_sampler is not None and last_batch and i == len(microbatches) - 1:
-                                    padding = dist_sampler.total_size - len(dist_sampler.dataset)
+                                if dist_sampler is not None and dataset_len is not None and last_batch and i == len(
+                                        microbatches) - 1:
+                                    padding = dist_sampler.total_size - dataset_len
                                     if dist.get_global_rank() >= dist.get_world_size() - padding:
                                         # Skip updating metric if batch is only padded samples
                                         if len(outputs) == 1:

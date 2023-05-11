@@ -15,8 +15,8 @@ from composer.core.state import State
 from composer.core.time import Time, TimeUnit
 from composer.trainer import Trainer
 from composer.utils import dist
-from tests.common import (EventCounterCallback, RandomClassificationDataset, RandomTextLMDataset, SimpleModel,
-                          SimpleTransformerMaskedLM, ParityDataset, ZeroModel, device, world_size)
+from tests.common import (EventCounterCallback, ParityDataset, RandomClassificationDataset, RandomTextLMDataset,
+                          SimpleModel, SimpleTransformerMaskedLM, ZeroModel, device, world_size)
 
 
 def test_eval():

@@ -5,14 +5,14 @@ import types
 from typing import List, Type
 
 from tests.common.compare import deep_compare
-from tests.common.datasets import (InfiniteClassificationDataset, RandomClassificationDataset, RandomImageDataset,
-                                   RandomSegmentationDataset, RandomTextClassificationDataset, RandomTextLMDataset,
-                                   SimpleDataset, ParityDataset)
+from tests.common.datasets import (InfiniteClassificationDataset, ParityDataset, RandomClassificationDataset,
+                                   RandomImageDataset, RandomSegmentationDataset, RandomTextClassificationDataset,
+                                   RandomTextLMDataset, SimpleDataset)
 from tests.common.events import EventCounterCallback
 from tests.common.markers import device, world_size
-from tests.common.models import (ConvModel, EmbeddedWeightTiedModel, SimpleConvModel, SimpleModel, ZeroModel,
+from tests.common.models import (ConvModel, EmbeddedWeightTiedModel, SimpleConvModel, SimpleModel,
                                  SimpleModelWithDropout, SimpleTransformerClassifier, SimpleTransformerMaskedLM,
-                                 SimpleWeightTiedModel)
+                                 SimpleWeightTiedModel, ZeroModel)
 from tests.common.state import assert_state_equivalent
 
 
