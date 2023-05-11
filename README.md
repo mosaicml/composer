@@ -45,7 +45,7 @@
 
 # 👋 Welcome
 
-Composer is a PyTorch library that enables you to <b>train neural networks faster, at lower cost, and to higher accuracy</b>. We've implemented more than two dozen speedup methods that can be applied to your training loop in just a few lines of code, or used with our built-in Trainer. We continually integrate the latest state-of-the-art in efficient neural network training.
+Composer is a PyTorch library that enables you to <b>train neural networks faster, at lower cost, and to higher accuracy</b>. We've implemented more than two dozen speedup methods that can be applied to your training loop in just a few lines of code, or used with our built-in Trainer. We continually integrate the latest state-of-the-art in efficient neural network training
 
 Composer features:
 - 20+ methods for speeding up training networks for computer vision and natural language. Don't waste hours trying to reproduce research papers when Composer has done the work for you.
