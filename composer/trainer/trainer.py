@@ -2730,8 +2730,9 @@ class Trainer:
                                         skip_metric_update = True
                                     # Remove padded samples from batch
                                     else:
-                                        self.state.batch = data_spec.split_batch(self.state.batch, num_samples_in_microbatch-1)[0]
-                            
+                                        self.state.batch = data_spec.split_batch(self.state.batch,
+                                                                                 num_samples_in_microbatch - 1)[0]
+
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
 
                             with _get_precision_context(self.state.precision, self.deepspeed_enabled):
