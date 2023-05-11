@@ -12,6 +12,23 @@ from composer.utils import dist
 from tests.common.models import configure_tiny_bert_tokenizer, configure_tiny_gpt2_tokenizer
 
 
+class ParityDataset(Dataset):
+    """A dataset of numbers where the output is the parity.
+
+    Args:
+        size (int): number of samples (default: 100)
+    """
+
+    def __init__(self, size: int = 100):
+        self.size = size
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, index: int):
+        return torch.tensor(index, dtype=torch.float32), torch.tensor(index % 2)
+
+
 class InfiniteClassificationDataset(IterableDataset):
     """Classification dataset that never ends.
 

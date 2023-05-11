@@ -2691,7 +2691,7 @@ class Trainer:
 
                 # If using a distributed sampler, keep track of last_batch for metrics update
                 if dist_sampler is not None:
-                    batch_num_samples_tensor = torch.tensor(rank_num_samples, device=self.state.device)
+                    batch_num_samples_tensor = self.state.device.tensor_to_device(torch.tensor(rank_num_samples))
                     dist.all_reduce(batch_num_samples_tensor, reduce_operation='SUM')
                     batch_num_samples = batch_num_samples_tensor.item()
                     last_batch = self.state.eval_timestamp.sample + batch_num_samples > len(dist_sampler.dataset)
