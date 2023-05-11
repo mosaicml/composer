@@ -54,8 +54,8 @@ def test_eval_call():
 
 @device('gpu')
 @world_size(2)
-@pytest.mark.parametrize('size', [4, 5])
-@pytest.mark.parametrize('batch_size', [1, 2])
+@pytest.mark.parametrize('size', [3, 4, 5, 6, 7])
+@pytest.mark.parametrize('batch_size', [1, 2, 3])
 @pytest.mark.filterwarnings(r'ignore:Cannot split tensor of length.*:UserWarning')
 def test_eval_with_nondivisible_dataset(device, world_size, size, batch_size):
     # Construct the trainer

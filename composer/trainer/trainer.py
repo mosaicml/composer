@@ -2717,11 +2717,32 @@ class Trainer:
                     try:
                         microbatches = data_spec.split_batch(device_batch, evaluator.device_eval_microbatch_size)
                         for i, self.state.batch in enumerate(microbatches):
+                            last_microbatch = i == len(microbatches) - 1
+                            skip_metric_update = False
+                            # Distributed samplers pad batches to be the same size. If using a
+                            # distributed sampler and on last batch, remove the padding
+                            if dist_sampler is not None and dataset_len is not None and drop_last == False and last_batch and last_microbatch:
+                                padding = dist_sampler.total_size - dataset_len
+                                if dist.get_global_rank() >= dist.get_world_size() - padding:
+                                    num_samples_in_microbatch = data_spec.get_num_samples_in_batch(self.state.batch)
+                                    # Skip updating metric if batch is only padded samples
+                                    if num_samples_in_microbatch == 1:
+                                        skip_metric_update = True
+                                    # Remove padded samples from batch
+                                    else:
+                                        self.state.batch = data_spec.split_batch(self.state.batch, num_samples_in_microbatch-1)[0]
+                            
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
+
                             with _get_precision_context(self.state.precision, self.deepspeed_enabled):
                                 self.state.outputs = self._original_model.eval_forward(self.state.batch)
 
                             self.engine.run_event(Event.EVAL_AFTER_FORWARD)
+
+                            # Skip metric update if batch is only padded samples. We do this after
+                            # forward as all models must run forward for FSDP.
+                            if skip_metric_update:
+                                continue
 
                             # Run in same precision context to avoid NaNs
                             with _get_precision_context(self.state.precision, self.deepspeed_enabled):
@@ -2731,18 +2752,6 @@ class Trainer:
                                     outputs = self.state.outputs.cpu()
                                 else:
                                     outputs = self.state.outputs
-
-                                # Distributed samplers pad batches to be the same size. If using a
-                                # distributed sampler and on last batch, remove the padding
-                                if dist_sampler is not None and dataset_len is not None and drop_last == False and last_batch and i == len(
-                                        microbatches) - 1:
-                                    padding = dist_sampler.total_size - dataset_len
-                                    if dist.get_global_rank() >= dist.get_world_size() - padding:
-                                        # Skip updating metric if batch is only padded samples
-                                        if len(outputs) == 1:
-                                            continue
-                                        self.state.batch = self.state.batch[:-1]
-                                        outputs = outputs[:-1]
 
                                 for _, metric in metrics.items():
                                     self._original_model.update_metric(
