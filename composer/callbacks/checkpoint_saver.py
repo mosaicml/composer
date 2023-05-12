@@ -412,7 +412,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                     is_deepspeed,
                     keep_placeholders=True,
                 ).lstrip('/')
-                remote_prefix = strip_rank_placeholders(pathlib.Path(remote_file_name).stem).rstrip('-').rstrip('_')
+                remote_prefix = state.sharded_ckpt_prefix_dir
                 remote_file_name = os.path.join(
                     pathlib.Path(remote_file_name).parent, remote_prefix,
                     pathlib.Path(remote_file_name).name)
