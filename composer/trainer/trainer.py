@@ -609,7 +609,7 @@ class Trainer:
         load_weights_only (bool, optional): Whether or not to only restore the weights from the checkpoint without
             restoring the associated state. Ignored if ``load_path`` is ``None``. (default: ``False``)
         load_strict_model_weights (bool, optional): Ensure that the set of weights in the checkpoint and model must exactly match.
-            Ignored if ``load_path`` is ``None``. (default: ``False``)
+            Ignored if ``load_path`` is ``None``. (default: ``True``)
         load_progress_bar (bool, optional): Display the progress bar for downloading the checkpoint.
             Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``True``)
         load_ignore_keys (List[str] | (Dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
@@ -829,7 +829,7 @@ class Trainer:
         load_path: Optional[str] = None,
         load_object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
         load_weights_only: bool = False,
-        load_strict_model_weights: bool = False,
+        load_strict_model_weights: bool = True,
         load_progress_bar: bool = True,
         load_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
         load_exclude_algorithms: Optional[List[str]] = None,

@@ -118,6 +118,7 @@ def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, pretra
                                  save_folder='finetuning_checkpoints',
                                  load_path=checkpoint_path,
                                  load_weights_only=True,
+                                 load_strict_model_weights=False,
                                  loggers=[rud],
                                  max_duration='1ep',
                                  seed=17,
