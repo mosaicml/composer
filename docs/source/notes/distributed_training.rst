@@ -198,6 +198,7 @@ The full spec and defaults for Composer's `fsdp_config` is here:
       'activation_cpu_offload': bool = True | False, # Default: False
       'verbose': bool = True | False,
       'state_dict_type': str = 'full' | 'local' | 'sharded' # Default: full
+      'sharded_ckpt_prefix_dir': str = 'ep{epoch}-ba{batch}' # Default: 'ep{epoch}-ba{batch}'
     }
 
 All values come with defaults and can be optionally defined in the :code:`fsdp_config`. Most parameters map directly to parameters in the `FSDP documentation <https://pytorch.org/docs/stable/fsdp.html#torch.distributed.fsdp.FullyShardedDataParallel>`__.
@@ -399,6 +400,12 @@ loads in the checkpoint file corresponding to their unflattened shard.
 
 See `The FSDP docs <https://pytorch.org/docs/stable/fsdp.html#torch.distributed.fsdp.FullyShardedDataParallel.state_dict>`__ for more info.
 
+If you use sharded checkpoints (`state_dict_type='sharded'` or `state_dict_type='local'`), your run will save as many files as you have
+ranks at each checkpointing event. This can quicky pollute your `save_folder` with a lot of files after a couple checkpointing events.
+To help keep your checkpoint shard files organized, Composer will save each set of shards in it's own prefix directory, which you can configure
+by using `'sharded_ckpt_prefix_dir'` ( default value `sharded_ckpt_prefix_dir='ep{epoch}-ba{batch}'`). Checkpoint shards will be saved to
+`{save_folder} / {sharded_ckpt_prefix_dir}`
+
 For example, to save local, sharded checkpoints (`state_dict_type='local'`) with FSDP, you can do:
 
 .. code:: python
@@ -448,12 +455,14 @@ For example, to save local, sharded checkpoints (`state_dict_type='local'`) with
     fsdp_config = {
         'sharding_strategy': 'FULL_SHARD',
         'state_dict_type': 'local',
+        'sharded_ckpt_prefix_dir': 'ba{batch}-shards' # will save each set of shards checkpoint to a unique folder based on batch
+        
     }
 
 
     trainer = Trainer(
         model=composer_model,
-        max_duration='2ba'
+        max_duration='4ba'
         fsdp_config=fsdp_config,
         save_folder='checkpoints',
         save_filename='ba{batch}_rank{rank}.pt',
@@ -463,9 +472,9 @@ For example, to save local, sharded checkpoints (`state_dict_type='local'`) with
 
     trainer.fit()
 
-This code will save N checkpoint files to the local directory ``./checkpoints``. For example,
-if you trained with 4 ranks, ```./checkpoints``` would contain 4 files: ``ba2_rank0.pt``, ``ba2_rank1.pt``, ``ba2_rank2.pt``, and ``ba2_rank3.pt``.
-
+After the second batch, this code will save N checkpoint files to the local directory ``./checkpoints/ba2-shards``. For example,
+if you trained with 4 ranks, ``./checkpoints/ba2-shards`` would contain 4 files: ``ba2_rank0.pt``, ``ba2_rank1.pt``, ``ba2_rank2.pt``, and ``ba2_rank3.pt``.
+After the fourth batch, N checkpoint files (``ba4_rank0.pt``, ``ba4_rank1.pt``, etc.) will saved to ``./checkpoints/ba4-shards``
 To load these checkpoint files, you would need to do something like this:
 
 .. code:: python
@@ -482,7 +491,7 @@ To load these checkpoint files, you would need to do something like this:
         model=composer_model,
         max_duration='4ba'
         fsdp_config=fsdp_config,
-        load_path='./checkpoints/ba2_rank{rank}.pt'
+        load_path='./checkpoints/ba2-shards/ba2_rank{rank}.pt'
         ...
     )
 
