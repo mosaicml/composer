@@ -217,7 +217,7 @@ extra_deps['mlflow'] = [
 ]
 
 extra_deps['mcli'] = [
-    'mosaicml-cli>=0.3.6,<0.4',
+    'mosaicml-cli>=0.3.6,<0.5',
 ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
