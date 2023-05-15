@@ -2575,8 +2575,8 @@ class Trainer:
 
             If evaluating with multiple GPUs using a DistributedSampler with `drop_last=False`, the last
             batch will contain duplicate samples, which may affect metrics. To avoid this, as long as
-            the dataset passed to the DistributedSampler has a length defined, duplicate samples will
-            correctly be dropped.
+            the dataset passed to the DistributedSampler has a length defined, Composer will correctly
+            drop duplicate samples.
 
         Args:
             eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): Dataloaders
@@ -2697,9 +2697,9 @@ class Trainer:
                     except AttributeError:
                         warnings.warn("DistributedSampler's dataset attribute does not have length. When "
                                       '`drop_last=False`, metrics may be incorrect as DistributedSampler '
-                                      'duplicates samples to make all batches the same size. To fix this, '
-                                      'provide a dataset with a length attribute to the DistributedSampler '
-                                      'to correctly drop duplicate samples.')
+                                      'duplicates samples to make the dataset divisible by world size. To '
+                                      'fix this, provide a dataset with a length attribute to the '
+                                      'DistributedSampler to correctly drop duplicate samples.')
 
             for self.state.batch in self._iter_dataloader(TrainerMode.EVAL):
                 self.state.batch = self.state.device.batch_to_device(self.state.batch)
