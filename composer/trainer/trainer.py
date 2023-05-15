@@ -2571,6 +2571,13 @@ class Trainer:
         The metrics used are defined in your model's ``get_metrics()`` method. For more information,
         see :doc:`/trainer/evaluation`.
 
+        .. note::
+
+            If evaluating with multiple GPUs using a DistributedSampler with `drop_last=False`, the last
+            batch will contain duplicate samples, which may affect metrics. To avoid this, as long as
+            the dataset passed to the DistributedSampler has a length defined, duplicate samples will
+            correctly be dropped.
+
         Args:
             eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): Dataloaders
                 for evaluation.  If not provided, defaults to using the
@@ -2671,8 +2678,8 @@ class Trainer:
 
             dataloader = self.state.dataloader
             dist_sampler = None
-            dataset_len = None
             drop_last = None
+            dataset_len = None
             last_batch = False
             if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
                 # The distributed sampler uses `set_epoch` to set the random seed
@@ -2681,11 +2688,18 @@ class Trainer:
                 # The epoch provided to `set_epoch` need not be sequential, so this is fine.
                 dist_sampler = dataloader.sampler
                 dist_sampler.set_epoch(int(self.state.timestamp.batch))
-                try:
-                    dataset_len = len(dist_sampler.dataset)  # type: ignore
-                except AttributeError:
-                    pass
                 drop_last = dataloader.drop_last
+                # Only compute the dataset length if drop_last is False, as otherwise we don't need
+                # to remove any duplicate samples.
+                if drop_last == False:
+                    try:
+                        dataset_len = len(dist_sampler.dataset)  # type: ignore
+                    except AttributeError:
+                        warnings.warn("DistributedSampler's dataset attribute does not have length. When "
+                                      '`drop_last=False`, metrics may be incorrect as DistributedSampler '
+                                      'duplicates samples to make all batches the same size. To fix this, '
+                                      'provide a dataset with a length attribute to the DistributedSampler '
+                                      'to correctly drop duplicate samples.')
 
             for self.state.batch in self._iter_dataloader(TrainerMode.EVAL):
                 self.state.batch = self.state.device.batch_to_device(self.state.batch)
@@ -2697,7 +2711,7 @@ class Trainer:
                 rank_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
 
                 # If using a distributed sampler, keep track of last_batch for metrics update
-                if dist_sampler is not None and dataset_len is not None and drop_last == False:
+                if dist_sampler is not None and drop_last == False and dataset_len is not None:
                     batch_num_samples_tensor = self.state.device.tensor_to_device(torch.tensor(rank_num_samples))
                     dist.all_reduce(batch_num_samples_tensor, reduce_operation='SUM')
                     batch_num_samples = batch_num_samples_tensor.item()
@@ -2721,7 +2735,7 @@ class Trainer:
                             skip_metric_update = False
                             # Distributed samplers pad batches to be the same size. If using a
                             # distributed sampler and on last batch, remove the padding
-                            if dist_sampler is not None and dataset_len is not None and drop_last == False and last_batch and last_microbatch:
+                            if dist_sampler is not None and drop_last == False and dataset_len is not None and last_batch and last_microbatch:
                                 padding = dist_sampler.total_size - dataset_len
                                 if dist.get_global_rank() >= dist.get_world_size() - padding:
                                     num_samples_in_microbatch = data_spec.get_num_samples_in_batch(self.state.batch)
