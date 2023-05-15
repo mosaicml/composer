@@ -21,7 +21,7 @@ import torch
 
 from composer.utils import dist, reproducibility
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist,
-                                         format_name_with_dist_and_time, get_file, is_tar, strip_rank_placeholders)
+                                         format_name_with_dist_and_time, get_file, is_tar)
 from composer.utils.misc import is_model_deepspeed
 from composer.utils.object_store import ObjectStore
 

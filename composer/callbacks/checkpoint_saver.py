@@ -17,8 +17,7 @@ from composer.core import Callback, Event, State, Time, TimeUnit
 from composer.loggers import Logger
 from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, PartialFilePath,
                             checkpoint, create_symlink_file, dist, ensure_folder_has_no_conflicting_files,
-                            format_name_with_dist, format_name_with_dist_and_time, is_model_deepspeed, reproducibility,
-                            strip_rank_placeholders)
+                            format_name_with_dist, format_name_with_dist_and_time, is_model_deepspeed, reproducibility)
 
 log = logging.getLogger(__name__)
 
