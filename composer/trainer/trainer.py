@@ -2701,7 +2701,7 @@ class Trainer:
                     batch_num_samples_tensor = self.state.device.tensor_to_device(torch.tensor(rank_num_samples))
                     dist.all_reduce(batch_num_samples_tensor, reduce_operation='SUM')
                     batch_num_samples = batch_num_samples_tensor.item()
-                    last_batch = self.state.eval_timestamp.sample + batch_num_samples > dataset_len
+                    last_batch = self.state.eval_timestamp.sample + batch_num_samples >= dataset_len
 
                 if self.deepspeed_enabled:
                     self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
