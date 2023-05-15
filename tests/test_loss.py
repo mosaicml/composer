@@ -109,9 +109,9 @@ class TestSoftCrossEntropy:
         assert infer_target_type(input, target_indices) == 'indices'
         assert infer_target_type(input, target_onehot) == 'one_hot'
 
+    # Note: Weights xfail as our implementation differs from PyTorch
     @pytest.mark.parametrize('reduction', ['mean', 'sum'])
     @pytest.mark.parametrize('use_weights', [xfail(True), False])
-    # TODO(Cory): Remove this filterwarning
     @pytest.mark.filterwarnings(r'ignore:Some targets have less than 1 total probability:UserWarning')
     def test_soft_cross_entropy(self, tensors, use_weights, reduction):
         input, target_indices, target_onehot = tensors
