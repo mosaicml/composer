@@ -15,10 +15,11 @@ from functools import reduce
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import torch
+from mcli import MAPIException, update_run_metadata
 
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import MissingConditionalImportError, dist
+from composer.utils import dist
 
 if TYPE_CHECKING:
     from composer.core import State
@@ -62,13 +63,6 @@ class MosaicMLLogger(LoggerDestination):
             self.time_last_logged = 0
             self.buffered_metadata: Dict[str, Any] = {}
 
-            try:
-                import mcli
-                del mcli
-            except ImportError as e:
-                raise MissingConditionalImportError(extra_deps_group='mcli',
-                                                    conda_package='mcli',
-                                                    conda_channel='conda-forge') from e
             self.run_name = os.environ.get(RUN_NAME_ENV_VAR)
             if self.run_name is not None:
                 log.info(f'Logging to mosaic run {self.run_name}')
@@ -113,8 +107,6 @@ class MosaicMLLogger(LoggerDestination):
     def _flush_metadata(self, force_flush: bool = False) -> None:
         """Flush buffered metadata to MosaicML if enough time has passed since last flush."""
         if self._enabled and (time.time() - self.time_last_logged > self.log_interval or force_flush):
-            from mcli import update_run_metadata
-            from mcli.api.exceptions import MAPIException
             try:
                 update_run_metadata(self.run_name, self.buffered_metadata)
                 self.buffered_metadata = {}
