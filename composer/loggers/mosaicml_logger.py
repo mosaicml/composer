@@ -113,8 +113,8 @@ class MosaicMLLogger(LoggerDestination):
     def _flush_metadata(self, force_flush: bool = False) -> None:
         """Flush buffered metadata to MosaicML if enough time has passed since last flush."""
         if self._enabled and (time.time() - self.time_last_logged > self.log_interval or force_flush):
+            from mcli import update_run_metadata
             from mcli.api.exceptions import MAPIException
-            from mcli.sdk import update_run_metadata
             try:
                 update_run_metadata(self.run_name, self.buffered_metadata)
                 self.buffered_metadata = {}

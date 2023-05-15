@@ -38,8 +38,8 @@ def test_logged_data_is_json_serializable(monkeypatch, callback_cls: Type[Callba
     pytest.importorskip('mcli')
 
     mock_mapi = MockMAPI()
-    import mcli.sdk
-    monkeypatch.setattr(mcli.sdk, 'update_run_metadata', mock_mapi.update_run_metadata)
+    import mcli
+    monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
     run_name = 'small_chungus'
     monkeypatch.setenv('RUN_NAME', run_name)
 
@@ -69,8 +69,8 @@ def test_metric_partial_filtering(monkeypatch):
     pytest.importorskip('mcli')
 
     mock_mapi = MockMAPI()
-    import mcli.sdk
-    monkeypatch.setattr(mcli.sdk, 'update_run_metadata', mock_mapi.update_run_metadata)
+    import mcli
+    monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
     run_name = 'small_chungus'
     monkeypatch.setenv('RUN_NAME', run_name)
 
@@ -91,8 +91,8 @@ def test_metric_full_filtering(monkeypatch):
     pytest.importorskip('mcli')
 
     mock_mapi = MockMAPI()
-    import mcli.sdk
-    monkeypatch.setattr(mcli.sdk, 'update_run_metadata', mock_mapi.update_run_metadata)
+    import mcli
+    monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
     run_name = 'small_chungus'
     monkeypatch.setenv('RUN_NAME', run_name)
 
