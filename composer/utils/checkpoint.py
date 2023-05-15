@@ -527,7 +527,7 @@ def save_checkpoint(
         state_dict['state'] = {'model': state_dict['state']['model']}
 
     # Sharded checkpoints get their own little folder.
-    if state.fsdp_sharded_state_dict_enabled:
+    if state.fsdp_sharded_state_dict_enabled and state.sharded_ckpt_prefix_dir is not None:
         save_prefix_folder = state.sharded_ckpt_prefix_dir
         # New name is now Trainer.save_folder / sharded_ckpt_prefix_dir / Trainer.save_filename
         # e.g. path/to/my/checkpoints/ep{epoch}-ba{batch}/ep{epoch}-ba{batch}-rank{rank}.pt

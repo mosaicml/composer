@@ -474,7 +474,10 @@ class State(Serializable):
             else:
                 self.fsdp_state_dict_type = 'full'
 
-        self.sharded_ckpt_prefix_dir = self.fsdp_config.get('sharded_ckpt_prefix_dir', 'ep{epoch}-ba{batch}')
+        self.sharded_ckpt_prefix_dir: Optional[str] = None
+
+        if self.fsdp_config is not None:
+            self.sharded_ckpt_prefix_dir = self.fsdp_config.get('sharded_ckpt_prefix_dir', 'ep{epoch}-ba{batch}')
 
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None
