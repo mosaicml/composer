@@ -71,7 +71,7 @@ def test_eval_with_nondivisible_dataset(world_size, size, batch_size):
     expected_acc = 1 - (size // 2) / size
     metric = trainer.state.eval_metrics['eval']['MulticlassAccuracy']
     assert metric.compute() - expected_acc < 1e-5
-    assert metric.tp.item() + metric.fn.item() == size  # type: ignore
+    assert metric.tp.item() + metric.fn.item() + metric.tn.item() + metric.fp.item() == size  # type: ignore
 
 
 def test_eval_call_with_trainer_evaluators():
