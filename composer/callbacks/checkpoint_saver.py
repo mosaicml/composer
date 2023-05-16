@@ -318,13 +318,11 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.overwrite = overwrite
         self.saved_checkpoints: List[str] = []
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
-        self.fsdp_sharded_state_dict_enabled: Optional[bool] = None
         self.weights_only = weights_only
 
         self.start_batch = None
 
     def init(self, state: State, logger: Logger) -> None:
-        self.fsdp_sharded_state_dict_enabled = state.fsdp_sharded_state_dict_enabled
         folder = format_name_with_dist(self.folder, state.run_name)
         os.makedirs(folder, exist_ok=True)
 
