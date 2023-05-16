@@ -977,11 +977,21 @@ class State(Serializable):
             # with the `module.` prefix
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
 
-        if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
-            with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
+        try:
+            if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
+                with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
+                    missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
+            else:
                 missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
-        else:
-            missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
+        except RuntimeError as e:
+            if 'Missing key(s) in state_dict' in str(e) or 'Unexpected key(s) in state_dict' in str(e):
+                raise RuntimeError(
+                    textwrap.dedent('Failed to load checkpoint due to missing or unexpected keys in state_dict. '
+                                    'This is likely due to a change in the model architecture. If this is intentional, '
+                                    'you can set load_strict_model_weights=False in the Trainer.')) from e
+            else:
+                raise e
+
         if len(missing_keys) > 0:
             log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
         if len(unexpected_keys) > 0:
