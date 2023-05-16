@@ -81,9 +81,9 @@ class PartialFilePath:
         if self.folder:
             if keep_placeholders:
                 return os.path.join(
-                self.folder,
-                self.filename,
-            ) + extra_suffix
+                    self.folder,
+                    self.filename,
+                ) + extra_suffix
             else:
                 return os.path.join(
                     format_name_with_dist(self.folder, state.run_name),
@@ -97,7 +97,7 @@ class PartialFilePath:
                     self.filename,
                     state.run_name,
                     state.timestamp,
-                ) + extra_suffix 
+                ) + extra_suffix
 
 
 def load_checkpoint(

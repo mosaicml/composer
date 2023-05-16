@@ -456,7 +456,7 @@ For example, to save local, sharded checkpoints (`state_dict_type='local'`) with
         'sharding_strategy': 'FULL_SHARD',
         'state_dict_type': 'local',
         'sharded_ckpt_prefix_dir': 'ba{batch}-shards' # will save each set of shards checkpoint to a unique folder based on batch
-        
+
     }
 
 
