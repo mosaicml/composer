@@ -79,21 +79,25 @@ class PartialFilePath:
         # if filename already has a suffix (e.g. file.pt), this would append to be file.pt.tar
         extra_suffix = '.tar' if is_deepspeed and not is_tar(self.filename) else ''
         if self.folder:
-            folder = os.path.join(
-                format_name_with_dist(self.folder, state.run_name),
-                format_name_with_dist_and_time(self.filename, state.run_name, state.timestamp),
-            ) if not keep_placeholders else os.path.join(
+            if keep_placeholders:
+                return os.path.join(
                 self.folder,
                 self.filename,
-            )
-            folder += extra_suffix
+            ) + extra_suffix
+            else:
+                return os.path.join(
+                    format_name_with_dist(self.folder, state.run_name),
+                    format_name_with_dist_and_time(self.filename, state.run_name, state.timestamp),
+                ) + extra_suffix
         else:
-            folder = format_name_with_dist_and_time(
-                self.filename,
-                state.run_name,
-                state.timestamp,
-            ) + extra_suffix if not keep_placeholders else self.filename + extra_suffix
-        return folder
+            if keep_placeholders:
+                return self.filename + extra_suffix
+            else:
+                return format_name_with_dist_and_time(
+                    self.filename,
+                    state.run_name,
+                    state.timestamp,
+                ) + extra_suffix 
 
 
 def load_checkpoint(
