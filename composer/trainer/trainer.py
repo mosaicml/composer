@@ -2738,6 +2738,7 @@ class Trainer:
                             if dist_sampler is not None and drop_last == False and dataset_len is not None and last_batch and last_microbatch:
                                 padding = dist_sampler.total_size - dataset_len
                                 if dist.get_global_rank() >= dist.get_world_size() - padding:
+                                    rank_num_samples -= 1
                                     num_samples_in_microbatch = data_spec.get_num_samples_in_batch(self.state.batch)
                                     # Skip updating metric if batch is only padded samples
                                     if num_samples_in_microbatch == 1:
