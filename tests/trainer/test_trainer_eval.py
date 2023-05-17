@@ -56,7 +56,7 @@ def test_eval_call():
 @pytest.mark.parametrize('size', [12, 13, 14, 15, 16])
 @pytest.mark.parametrize('batch_size', [1, 2, 3, 4, 6])
 @pytest.mark.filterwarnings(r'ignore:Cannot split tensor of length.*:UserWarning')
-def test_eval_with_nondivisible_dataset(world_size, size, batch_size):
+def test_eval_with_nondivisible_dataset(world_size: int, size: int, batch_size: int):
     # Construct the trainer
     trainer = Trainer(model=ZeroModel())
 

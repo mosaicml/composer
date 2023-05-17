@@ -2695,8 +2695,8 @@ class Trainer:
                     try:
                         dataset_len = len(dist_sampler.dataset)  # type: ignore
                     except AttributeError:
-                        warnings.warn("DistributedSampler's dataset attribute does not have length. When "
-                                      '`drop_last=False`, metrics may be incorrect as DistributedSampler '
+                        warnings.warn("DistributedSampler's dataset does not have length defined. When "
+                                      '`drop_last=False`, metrics may be incorrect, as DistributedSampler '
                                       'duplicates samples to make the dataset divisible by world size. To '
                                       'fix this, provide a dataset with a length attribute to the '
                                       'DistributedSampler to correctly drop duplicate samples.')

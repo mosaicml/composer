@@ -593,13 +593,15 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
 
     def split_batch(self, batch: Any, microbatch_size: int):
         """Split batch while ensuring all continuations are in the same microbatch.
-        
+
         In ICL Multiple Choice, we duplicate each data point for each possible continuation.
         When splitting a batch, we have logical samples, which refer to one possible question,
-        and real samples, which refers to one possible continuation.
+        and real samples, which refers to one possible continuation. As sample count and
+        microbatch_size are tracked in logical samples, we split logical attributes by
+        microbatch_size and real attributes by microbatch_size * num_choices.
         """
         no_split = ['mode']
-        # Real 
+        # Real
         real = ['input_ids', 'labels', 'attention_mask']
         logical = ['gold_indices']
         chunked = {}
@@ -625,6 +627,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
             if isinstance(v, (int, float, str, bool)):
                 chunked[k] = [v] * num_chunks
         return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
+
 
 class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskDataset):
     """A dataset that constructs batches for in-context learning schema evaluation
