@@ -18,7 +18,7 @@ from composer.core import Precision, State
 from composer.devices import Device
 from composer.trainer.meta_safe_apply import meta_safe_apply
 from composer.utils import StringEnum, dist, ensure_tuple, using_torch_2
-from torch.distributed.fsdp._common_utils import clean_tensor_name
+
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module']
 
@@ -133,6 +133,11 @@ def _map_fsdp_params_to_saved_param_groups(fsdp_named_params: list[Tuple[str, to
     info such as LR, eps, etc. is saved in param_group_kwargs and the FSDP and vanilla parameters are mapped 
     together via their names.
     """
+    is_torch_2_0 = using_torch_2()
+    if not is_torch_2_0:
+        raise RuntimeError("The mapping parameter function is only supported for torch 2.0")
+
+    from torch.distributed.fsdp._common_utils import clean_tensor_name
     num_param_groups = len(param_group_kwargs)
 
     fsdp_name_to_group_num = [[] for _ in range(num_param_groups)]
