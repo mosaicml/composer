@@ -135,7 +135,7 @@ def _map_fsdp_params_to_saved_param_groups(fsdp_named_params: list[Tuple[str, to
     """
     is_torch_2_0 = using_torch_2()
     if not is_torch_2_0:
-        raise RuntimeError("The mapping parameter function is only supported for torch 2.0")
+        raise RuntimeError("Helper function is only supported in torch 2.0")
 
     from torch.distributed.fsdp._common_utils import clean_tensor_name
     num_param_groups = len(param_group_kwargs)
@@ -221,7 +221,8 @@ def prepare_fsdp_module(
         
         if num_param_groups > 1:
             if not (is_torch_2_0 and kwargs['use_orig_params']):
-                raise RuntimeError("Multiple optimizer groups are only supported on torch 2.0 with use_orig_params=True.")
+                raise RuntimeError("Multiple optimizer groups are only supported on torch 2.0 \
+                                   with use_orig_params=True.")
             # optimizer.param_groups do not contain parameter names which are needed
             # to keep track of the different parameters in each group
             # so we use the pointers between model.parameters() and model.named_parameters()
