@@ -360,11 +360,7 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
 @pytest.mark.parametrize('state_dict_type', ['local', 'sharded'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
-def test_sharded_folder(world_size,
-                        use_remote,
-                        tmp_path: pathlib.Path,
-                        state_dict_type: str,
-                        s3_bucket):
+def test_sharded_folder(world_size, use_remote, tmp_path: pathlib.Path, state_dict_type: str, s3_bucket):
     run_name = 'my-cool-s3-run'
     if use_remote:
         save_folder = 's3://' + str(pathlib.Path(s3_bucket) / pathlib.Path(run_name))
