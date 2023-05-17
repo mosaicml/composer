@@ -37,16 +37,16 @@ def test_fsdp_param_groups_without_orig_params(mixed_precision: str, device: str
     optimizer = torch.optim.SGD(param_groups, lr=0)
 
     with pytest.raises(RuntimeError):
-            Trainer(model=model,
-                        optimizers=optimizer,
-                        train_dataloader=dataloader,
-                        fsdp_config={
-                            'activation_checkpointing_reentrant': reentrant,
-                            'mixed_precision': mixed_precision,
-                            'use_orig_params': False
-                        },
-                        max_duration='3ba',
-                        device=device)
+        Trainer(model=model,
+                optimizers=optimizer,
+                train_dataloader=dataloader,
+                fsdp_config={
+                    'activation_checkpointing_reentrant': reentrant,
+                    'mixed_precision': mixed_precision,
+                    'use_orig_params': False
+                },
+                max_duration='3ba',
+                device=device)
 
 
 @pytest.mark.parametrize('mixed_precision', ['FULL', 'DEFAULT', 'PURE'])
