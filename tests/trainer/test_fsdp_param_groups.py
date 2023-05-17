@@ -1,18 +1,17 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import copy
+
 import pytest
 import torch
 from packaging import version
 from torch.utils.data import DataLoader
 
-from composer.models import ComposerClassifier
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, misc
-from tests.common import RandomClassificationDataset, SimpleModel 
-from tests.common import device, world_size
+from tests.common import RandomClassificationDataset, SimpleModel, device, world_size
 
-import copy
 
 @pytest.mark.parametrize('mixed_precision', ['FULL', 'DEFAULT', 'PURE'])
 @pytest.mark.parametrize('reentrant', [True, False])
@@ -21,38 +20,35 @@ import copy
 @world_size(1, 2)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2'),
                     reason='FSDP use_orig_params requires torch 2.0 or higher')
-def test_fsdp_without_orig_params(mixed_precision: str, device: str, reentrant: bool, world_size: int):
+def test_fsdp_param_groups_without_orig_params(mixed_precision: str, device: str, reentrant: bool, world_size: int):
     """
-    
-    Ensure that FSDP with 'use_orig_params=False' raises an exception
+
+    Ensure that FSDP with 'use_orig_params=False' raises an exception when passing in an optimizer
+    with multiple param groups
 
     """
     num_classes = 10
     model = SimpleModel(num_features=1, num_classes=num_classes)
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
-    
 
     # create a different parameter per group
-    param_groups = [{'params': param, 'lr' : (0.1 + 0.1 * i)} for i, param in enumerate(model.parameters())]
-    optimizer = torch.optim.SGD(param_groups)
+    param_groups = [{'params': param, 'lr': (0.1 + 0.1 * i)} for i, param in enumerate(model.parameters())]
+    optimizer = torch.optim.SGD(param_groups, lr=0)
 
     with pytest.raises(RuntimeError):
-        trainer = Trainer(
-            model=model,
-            optimizers=optimizer,
-            train_dataloader=dataloader,
-            fsdp_config={
-                'activation_checkpointing_reentrant': reentrant,
-                'mixed_precision': mixed_precision,
-                'use_orig_params': False
-            },
-            max_duration='3ba',
-            device=device
-        )
+            Trainer(model=model,
+                        optimizers=optimizer,
+                        train_dataloader=dataloader,
+                        fsdp_config={
+                            'activation_checkpointing_reentrant': reentrant,
+                            'mixed_precision': mixed_precision,
+                            'use_orig_params': False
+                        },
+                        max_duration='3ba',
+                        device=device)
 
 
-        
 @pytest.mark.parametrize('mixed_precision', ['FULL', 'DEFAULT', 'PURE'])
 @pytest.mark.parametrize('reentrant', [True, False])
 @pytest.mark.filterwarnings('ignore::UserWarning')
@@ -63,36 +59,33 @@ def test_fsdp_without_orig_params(mixed_precision: str, device: str, reentrant: 
 def test_fsdp_with_param_groups(mixed_precision: str, device: str, reentrant: bool, world_size: int):
     """
     Test whether an optimizer with multiple param groups maintains the same param groups when
-    wrapped with FSDP. 
-    We assert that the model is FSDP, and that the shapes and LRs of each 
-    FSDP wrapped-parameter match the unwrapped parameter, while pointing to different underlying weight 
+    wrapped with FSDP.
+    We assert that the model is FSDP, and that the shapes and LRs of each
+    FSDP wrapped-parameter match the unwrapped parameter, while pointing to different underlying weight
     tensors
     """
     num_classes = 10
     model = SimpleModel(num_features=1, num_classes=num_classes)
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
-    
 
     # create a different parameter per group
-    param_groups = [{'params': param, 'lr' : (0.1 + 0.1 * i)} for i, param in enumerate(model.parameters())]
-    optimizer = torch.optim.SGD(param_groups)
+    param_groups = [{'params': param, 'lr': (0.1 + 0.1 * i)} for i, param in enumerate(model.parameters())]
+    optimizer = torch.optim.SGD(param_groups, lr=0)
 
     unwrapped_optimizer = copy.deepcopy(optimizer)
 
     number_of_optimizer_groups_pre_fsdp = optimizer.param_groups
 
-    trainer = Trainer(
-        model=model,
-        optimizers=optimizer,
-        train_dataloader=dataloader,
-        fsdp_config={
-            'activation_checkpointing_reentrant': reentrant,
-            'mixed_precision': mixed_precision
-        },
-        max_duration='3ba',
-        device=device
-    )
+    trainer = Trainer(model=model,
+                      optimizers=optimizer,
+                      train_dataloader=dataloader,
+                      fsdp_config={
+                          'activation_checkpointing_reentrant': reentrant,
+                          'mixed_precision': mixed_precision
+                      },
+                      max_duration='3ba',
+                      device=device)
     trainer.fit()
 
     assert misc.is_model_fsdp(trainer.state.model)
@@ -100,12 +93,12 @@ def test_fsdp_with_param_groups(mixed_precision: str, device: str, reentrant: bo
     assert len(trainer_optimizer.param_groups) > 1
     assert len(trainer_optimizer.param_groups) == len(number_of_optimizer_groups_pre_fsdp)
 
-
     with trainer.state.model.module.summon_full_params(trainer.state.model.module):  # type: ignore
-        for unwrapped_param_group, wrapped_param_group in zip(unwrapped_optimizer.param_groups, trainer_optimizer.param_groups):
+        for unwrapped_param_group, wrapped_param_group in zip(unwrapped_optimizer.param_groups,
+                                                              trainer_optimizer.param_groups):
 
-            unwrapped_param_list =  unwrapped_param_group['params']
-            wrapped_param_list =  wrapped_param_group['params']
+            unwrapped_param_list = unwrapped_param_group['params']
+            wrapped_param_list = wrapped_param_group['params']
 
             assert len(unwrapped_param_list) == 1
             assert len(wrapped_param_list) == 1
@@ -119,5 +112,3 @@ def test_fsdp_with_param_groups(mixed_precision: str, device: str, reentrant: bo
             assert id(unwrapped_param) != id(wrapped_param)
 
             assert unwrapped_param_group['lr'] == wrapped_param_group['lr']
-
-        

@@ -7,7 +7,7 @@ import collections
 import logging
 import warnings
 from contextlib import contextmanager, nullcontext
-from typing import Any, Callable, ContextManager, Dict, Optional, Tuple, Sequence, Union, cast
+from typing import Any, Callable, ContextManager, Dict, Iterator, Optional, Sequence, Tuple, Union, cast
 
 import torch
 from packaging import version
@@ -18,7 +18,6 @@ from composer.core import Precision, State
 from composer.devices import Device
 from composer.trainer.meta_safe_apply import meta_safe_apply
 from composer.utils import StringEnum, dist, ensure_tuple, using_torch_2
-
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module']
 
@@ -124,33 +123,49 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
                        'with distributed support.')
 
 
-def _map_fsdp_params_to_saved_param_groups(fsdp_named_params: list[Tuple[str, torch.nn.Parameter]],
-                                            non_wrapped_params_to_group_num: Dict[str, int], 
-                                            param_group_kwargs: list[Dict[str, Any]]):
-    """
-    This is used to create the mapping between a flat list of fsdp parameters and multiple param groups
-    Since we need to clear the optimizer param groups when setting up FSDP, all of the optimizer-specific
-    info such as LR, eps, etc. is saved in param_group_kwargs and the FSDP and vanilla parameters are mapped 
-    together via their names.
+def _recreate_fsdp_param_groups_from_unwrapped_opt_info(fsdp_wrapped_named_params: Iterator[Tuple[str,
+                                                                                                  torch.nn.Parameter]],
+                                                        non_wrapped_param_names_to_group_num: Dict[str, int],
+                                                        group_num_to_optimizer_info: Dict[int, Dict[str, Any]]):
+    """Helper function to recreate optimizer groups for FSDP wrapped modules.
+
+    Optimizer param groups are formatted as:
+    [
+        {'params': [p1, p2], 'lr' : lr1}, # group 0
+        {'params': [p3], 'lr' : lr2} # group 1
+    ]
+    ie. there are multiple parameters per group. Here, we track the group number in order to map
+    multiple parameters to the same group
+
+    Args:
+        fsdp_wrapped_named_params: output of model.named_parameters() of an FSDP wrapped model
+        non_wrapped_param_names_to_group_num: a Dict mapping from the original model param names
+                                            to the param group number
+        group_num_to_optimizer_info: stores info like lr, eps for each group
+
+    Returns a list of param groups, referencing the fsdp parameters
     """
     is_torch_2_0 = using_torch_2()
     if not is_torch_2_0:
-        raise RuntimeError("Helper function is only supported in torch 2.0")
+        raise RuntimeError('Helper function is only supported in torch 2.0')
 
     from torch.distributed.fsdp._common_utils import clean_tensor_name
-    num_param_groups = len(param_group_kwargs)
 
-    fsdp_name_to_group_num = [[] for _ in range(num_param_groups)]
+    # initialize an empty list of parameters for each optimizer group
+    for group_num in group_num_to_optimizer_info.keys():
+        group_num_to_optimizer_info[group_num]['params'] = []
 
-    for fsdp_name, param in fsdp_named_params:
+    for fsdp_name, param in fsdp_wrapped_named_params:
 
-        clean_fsdp_name = clean_tensor_name(fsdp_name)
+        unwrapped_name = clean_tensor_name(fsdp_name)
         # need to have a 1:1 mapping between a fsdp param name and the non-wrapped vanilla param name
-        retrieved_group_num = non_wrapped_params_to_group_num[clean_fsdp_name]
-        fsdp_name_to_group_num[retrieved_group_num].append(param)
+        retrieved_group_num = non_wrapped_param_names_to_group_num[unwrapped_name]
+        group_num_to_optimizer_info[retrieved_group_num]['params'].append(param)
 
-    return zip(fsdp_name_to_group_num, param_group_kwargs)
-            
+    # the values of the list contains the list of param groups
+    return list(group_num_to_optimizer_info.values())
+
+
 def prepare_fsdp_module(
     model: torch.nn.Module,
     optimizers: Optional[Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]]],
@@ -208,6 +223,11 @@ def prepare_fsdp_module(
         # Setting it to `True` is mandatory when using `torch.compile()`.
         kwargs['use_orig_params'] = fsdp_config.get('use_orig_params', True)
 
+    # necessary variables for optimizers with multiple param groups in FSDP
+    num_param_groups = None
+    param_name_to_group_num = None
+    group_num_to_param_group_info = None
+
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
         if len(optimizers_tuple) != 1:
@@ -218,26 +238,26 @@ def prepare_fsdp_module(
         optim = optimizers_tuple[0]
 
         num_param_groups = len(optim.param_groups)
-        
+
         if num_param_groups > 1:
             if not (is_torch_2_0 and kwargs['use_orig_params']):
-                raise RuntimeError("Multiple optimizer groups are only supported on torch 2.0 \
-                                   with use_orig_params=True.")
+                raise RuntimeError('Multiple optimizer groups are only supported on torch 2.0 \
+                                   with use_orig_params=True.')
             # optimizer.param_groups do not contain parameter names which are needed
             # to keep track of the different parameters in each group
             # so we use the pointers between model.parameters() and model.named_parameters()
             # to get the names of the parameters within optimizer.param_groups
-            param_pointer_to_param_name = {id(p):n for n, p in model.named_parameters()}
+            param_pointer_to_param_name = {id(p): n for n, p in model.named_parameters()}
             param_name_to_group_num = {}
-            param_group_info = []
+            group_num_to_param_group_info = {}
             for group_num, group in enumerate(optim.param_groups):
-                for param in group["params"]:
+                for param in group['params']:
                     param_name_to_group_num[param_pointer_to_param_name[id(param)]] = group_num
 
                 # this includes optimizer-specific values like lr, eps
                 # this will be used as the kwargs for the optim param groups later
-                all_non_param_values = {k: v for k, v in group.items() if k != "params"}
-                param_group_info.append(all_non_param_values)
+                optimizer_specific_group_info = {k: v for k, v in group.items() if k != 'params'}
+                group_num_to_param_group_info[group_num] = optimizer_specific_group_info
 
         optim.param_groups.clear()
         optim.state.clear()
@@ -286,8 +306,6 @@ def prepare_fsdp_module(
     ignored_modules = fsdp_config.get('ignored_modules', None)
     state_dict_type = fsdp_config.get('state_dict_type', 'full')
     activation_checkpointing_reentrant = fsdp_config.get('activation_checkpointing_reentrant', True)
-
-
 
     # We choose to not wrap the ComposerModel directly, but instead wrap any submodules like `ComposerModel.model`
     # This makes it safer to call ComposerModel-specific functions like 'eval_forward' that
@@ -484,12 +502,15 @@ def prepare_fsdp_module(
         optim = optimizers_tuple[0]
         optim.param_groups.clear()
 
+        assert num_param_groups is not None
         if num_param_groups > 1:
-            param_groups = _map_fsdp_params_to_saved_param_groups(model.named_parameters(),
-                                                    param_name_to_group_num, 
-                                                    param_group_info)
-            for params, param_kwargs in param_groups:
-                param_kwargs['params'] = params
-                optim.add_param_group(param_kwargs)
+            assert param_name_to_group_num is not None
+            assert group_num_to_param_group_info is not None
+
+            param_groups = _recreate_fsdp_param_groups_from_unwrapped_opt_info(model.named_parameters(),
+                                                                               param_name_to_group_num,
+                                                                               group_num_to_param_group_info)
+            for param_group in param_groups:
+                optim.add_param_group(param_group)
         else:
             optim.add_param_group({'params': list(model.parameters())})
