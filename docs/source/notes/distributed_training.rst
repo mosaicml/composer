@@ -403,7 +403,7 @@ See `The FSDP docs <https://pytorch.org/docs/stable/fsdp.html#torch.distributed.
 If you use sharded checkpoints (`state_dict_type='sharded'` or `state_dict_type='local'`), your run will save as many files as you have
 ranks at each checkpointing event. This can quicky pollute your `save_folder` with a lot of files after a couple checkpointing events.
 To help keep your checkpoint shard files organized, Composer will save each set of shards in it's own prefix directory, which you can configure
-by using `'sharded_ckpt_prefix_dir'` ( default value `sharded_ckpt_prefix_dir='ep{epoch}-ba{batch}'`). Checkpoint shards will be saved to
+by using `'sharded_ckpt_prefix_dir'` (default value `sharded_ckpt_prefix_dir='ep{epoch}-ba{batch}'`). Checkpoint shards will be saved to
 `{save_folder} / {sharded_ckpt_prefix_dir}`
 
 For example, to save local, sharded checkpoints (`state_dict_type='local'`) with FSDP, you can do:
