@@ -487,9 +487,9 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
 
 
 @pytest.mark.parametrize('dataset_uri', ['winograd_small.jsonl'])
-@device('cpu')
 @pytest.mark.parametrize('num_fewshot', [0, 5])
-def test_schema_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tmp_path, tiny_gpt2_model):
+@pytest.mark.filterwarnings(r'ignore:Cannot split .* of length.*:UserWarning')
+def test_schema_task_evaluation(num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tmp_path, tiny_gpt2_model):
     pytest.importorskip('datasets')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -519,16 +519,22 @@ def test_schema_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_toke
     )
 
     trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
-    trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
+    trainer.eval(eval_dataloader=evaluator)
     assert 'metrics/winograd/InContextLearningMultipleChoiceAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/winograd/InContextLearningMultipleChoiceAccuracy'][0][1].item() > 0
+    num_samples = 0
+    with open(dataset_uri) as f:
+        for _ in f:
+            num_samples += 1
+    assert trainer.state.eval_metrics['winograd']['InContextLearningMultipleChoiceAccuracy'].total == num_samples
 
 
 @pytest.mark.parametrize('dataset_uri', ['mmlu_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 5])
 @device('gpu')
-def test_mc_task_evaluation_subcategories(device, dataset_uri, num_fewshot, tiny_gpt2_model, tiny_gpt2_tokenizer,
-                                          tmp_path):
+@world_size(1, 2)
+def test_mc_task_evaluation_subcategories(device, world_size, dataset_uri, num_fewshot, tiny_gpt2_model,
+                                          tiny_gpt2_tokenizer, tmp_path):
     pytest.importorskip('datasets')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -566,6 +572,11 @@ def test_mc_task_evaluation_subcategories(device, dataset_uri, num_fewshot, tiny
     assert 'metrics/mmlu/human_aging/InContextLearningMultipleChoiceAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/mmlu/computer_security/InContextLearningMultipleChoiceAccuracy'][0][1].item(
     ) > 0
+    num_samples = 0
+    with open(dataset_uri) as f:
+        for _ in f:
+            num_samples += 1
+    assert trainer.state.eval_metrics['mmlu']['InContextLearningMultipleChoiceAccuracy'].total == num_samples
 
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl', 'hellaswag_small.jsonl'])
@@ -607,6 +618,11 @@ def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenize
     trainer.eval(eval_dataloader=evaluator)
     assert 'metrics/mc/InContextLearningMultipleChoiceAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/mc/InContextLearningMultipleChoiceAccuracy'][0][1].item() > 0
+    num_samples = 0
+    with open(dataset_uri) as f:
+        for _ in f:
+            num_samples += 1
+    assert trainer.state.eval_metrics['mc']['InContextLearningMultipleChoiceAccuracy'].total == num_samples
 
 
 @pytest.mark.parametrize('dataset_uri', ['triviaqa_small.jsonl'])
