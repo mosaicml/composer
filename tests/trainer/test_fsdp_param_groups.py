@@ -14,12 +14,52 @@ from tests.common import device, world_size
 
 import copy
 
-
 @pytest.mark.parametrize('mixed_precision', ['FULL', 'DEFAULT', 'PURE'])
 @pytest.mark.parametrize('reentrant', [True, False])
 @pytest.mark.filterwarnings('ignore::UserWarning')
 @device('cpu', 'gpu')
 @world_size(1, 2)
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2'),
+                    reason='FSDP use_orig_params requires torch 2.0 or higher')
+def test_fsdp_without_orig_params(mixed_precision: str, device: str, reentrant: bool, world_size: int):
+    """
+    
+    Ensure that FSDP with 'use_orig_params=False' raises an exception
+
+    """
+    num_classes = 10
+    model = SimpleModel(num_features=1, num_classes=num_classes)
+    dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
+    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
+    
+
+    # create a different parameter per group
+    param_groups = [{'params': param, 'lr' : (0.1 + 0.1 * i)} for i, param in enumerate(model.parameters())]
+    optimizer = torch.optim.SGD(param_groups)
+
+    with pytest.raises(RuntimeError):
+        trainer = Trainer(
+            model=model,
+            optimizers=optimizer,
+            train_dataloader=dataloader,
+            fsdp_config={
+                'activation_checkpointing_reentrant': reentrant,
+                'mixed_precision': mixed_precision,
+                'use_orig_params': False
+            },
+            max_duration='3ba',
+            device=device
+        )
+
+
+        
+@pytest.mark.parametrize('mixed_precision', ['FULL', 'DEFAULT', 'PURE'])
+@pytest.mark.parametrize('reentrant', [True, False])
+@pytest.mark.filterwarnings('ignore::UserWarning')
+@device('cpu', 'gpu')
+@world_size(1, 2)
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2'),
+                    reason='FSDP use_orig_params requires torch 2.0 or higher')
 def test_fsdp_with_param_groups(mixed_precision: str, device: str, reentrant: bool, world_size: int):
     """
     Test whether an optimizer with multiple param groups maintains the same param groups when
