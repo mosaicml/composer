@@ -591,7 +591,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         return batch['input_ids'].shape[0] // self.num_choices
 
     def split_batch(self, batch: Any, microbatch_size: int):
-        if self.get_num_samples_in_batch(batch) // self.num_choices > microbatch_size:
+        if self.get_num_samples_in_batch(batch) > microbatch_size:
             raise Exception('Multiple choice tasks do not currently support batch splitting. Please set '
                             'dataloader batch size to a value less than or equal to the microbatch size. '
                             'Accordingly, auto microbatching does not work, so the microbatch size '
