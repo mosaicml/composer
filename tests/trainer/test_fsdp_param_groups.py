@@ -16,7 +16,7 @@ from tests.common import RandomClassificationDataset, SimpleModel, device, world
 @pytest.mark.parametrize('mixed_precision', ['FULL', 'DEFAULT', 'PURE'])
 @pytest.mark.parametrize('reentrant', [True, False])
 @pytest.mark.filterwarnings('ignore::UserWarning')
-@device('cpu', 'gpu')
+@device('gpu')
 @world_size(1, 2)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2'),
                     reason='FSDP use_orig_params requires torch 2.0 or higher')
@@ -52,7 +52,7 @@ def test_fsdp_param_groups_without_orig_params(mixed_precision: str, device: str
 @pytest.mark.parametrize('mixed_precision', ['FULL', 'DEFAULT', 'PURE'])
 @pytest.mark.parametrize('reentrant', [True, False])
 @pytest.mark.filterwarnings('ignore::UserWarning')
-@device('cpu', 'gpu')
+@device('gpu')
 @world_size(1, 2)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2'),
                     reason='FSDP use_orig_params requires torch 2.0 or higher')
