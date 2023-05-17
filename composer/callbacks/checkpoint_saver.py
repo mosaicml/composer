@@ -401,14 +401,13 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         # if remote file name provided, upload the checkpoint
         if self.remote_file_name is not None:
-            # Use the stem of remote_filename (with rank info stripped) as a prefix folder.
-            # e.g. s3://my-bucket/path/to/checkpoints/ep1-ba2-rank3.pt is now s3://my-bucket/path/to/checkpoints/ep1-ba2/ep1-ba2-rank3.pt
-            if state.fsdp_sharded_state_dict_enabled and state.sharded_ckpt_prefix_dir is not None:
+            if state.fsdp_sharded_state_dict_enabled:
                 remote_file_name = self.remote_file_name.format(
                     state,
                     is_deepspeed,
                     keep_placeholders=True,
                 ).lstrip('/')
+                assert state.sharded_ckpt_prefix_dir is not None
                 remote_prefix = state.sharded_ckpt_prefix_dir
                 remote_file_name = os.path.join(
                     pathlib.Path(remote_file_name).parent, remote_prefix,
