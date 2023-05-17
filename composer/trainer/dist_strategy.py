@@ -7,7 +7,7 @@ import collections
 import logging
 import warnings
 from contextlib import contextmanager, nullcontext
-from typing import Any, Callable, ContextManager, Dict, Optional, Sequence, Union, cast, Tuple
+from typing import Any, Callable, ContextManager, Dict, Optional, Tuple, Sequence, Union, cast
 
 import torch
 from packaging import version
@@ -18,6 +18,7 @@ from composer.core import Precision, State
 from composer.devices import Device
 from composer.trainer.meta_safe_apply import meta_safe_apply
 from composer.utils import StringEnum, dist, ensure_tuple, using_torch_2
+from torch.distributed.fsdp._common_utils import clean_tensor_name
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module']
 
@@ -124,33 +125,24 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
 
 
 def _map_fsdp_params_to_saved_param_groups(fsdp_named_params: list[Tuple[str, torch.nn.Parameter]],
-                                            non_wrapped_params_to_group_num: list[Tuple[str, int]], 
+                                            non_wrapped_params_to_group_num: Dict[str, int], 
                                             param_group_kwargs: list[Dict[str, Any]]):
     """
     This is used to create the mapping between a flat list of fsdp parameters and multiple param groups
-    Since we need to clear the optimizer param groups when setting up FSDP, the info is saved as kwargs,
-    and the FSDP and vanilla parameters are mapped together via their names.
-    
+    Since we need to clear the optimizer param groups when setting up FSDP, all of the optimizer-specific
+    info such as LR, eps, etc. is saved in param_group_kwargs and the FSDP and vanilla parameters are mapped 
+    together via their names.
     """
     num_param_groups = len(param_group_kwargs)
 
     fsdp_name_to_group_num = [[] for _ in range(num_param_groups)]
 
-    def process_fsdp_name(full_fsdp_name):
-        # removing the "_fsdp_wrapped_module" substring
-        split_fsdp_name = full_fsdp_name.split(".")
-        removed_fsdp_module_name = [substr for substr in split_fsdp_name if "_fsdp_wrapped_module" != substr]
-        processed_fsdp_name = ".".join(removed_fsdp_module_name)
-        return processed_fsdp_name
-
     for fsdp_name, param in fsdp_named_params:
 
-        clean_fsdp_name = process_fsdp_name(fsdp_name)
+        clean_fsdp_name = clean_tensor_name(fsdp_name)
         # need to have a 1:1 mapping between a fsdp param name and the non-wrapped vanilla param name
         retrieved_group_num = non_wrapped_params_to_group_num[clean_fsdp_name]
         fsdp_name_to_group_num[retrieved_group_num].append(param)
-
-        print(clean_fsdp_name, retrieved_group_num, param_group_kwargs[retrieved_group_num])
 
     return zip(fsdp_name_to_group_num, param_group_kwargs)
             
@@ -211,16 +203,19 @@ def prepare_fsdp_module(
         optim = optimizers_tuple[0]
 
         num_param_groups = len(optim.param_groups)
-        print(optim.param_groups)
-        # this means we have more groups than model.parameters()
+        
+        # handling multiple param groups
         if num_param_groups > 1:
-            # need to get a mapping between a Parameter and its name
-            pointer_to_param_name = {id(p):n for n, p in model.named_parameters()}
+            # optimizer.param_groups do not contain parameter names which are needed
+            # to keep track of the different parameters in each group
+            # so we use the pointers between model.parameters() and model.named_parameters()
+            # to get the names of the parameters within optimizer.param_groups
+            param_pointer_to_param_name = {id(p):n for n, p in model.named_parameters()}
             param_name_to_group_num = {}
             param_group_info = []
             for group_num, group in enumerate(optim.param_groups):
                 for param in group["params"]:
-                    param_name_to_group_num[pointer_to_param_name[id(param)]] = group_num
+                    param_name_to_group_num[param_pointer_to_param_name[id(param)]] = group_num
 
                 # this includes optimizer-specific values like lr, eps
                 # this will be used as the kwargs for the optim param groups later
