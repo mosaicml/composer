@@ -588,7 +588,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         return batch
 
     def get_num_samples_in_batch(self, batch) -> int:
-        return batch['input_ids'].shape[0]
+        return batch['input_ids'].shape[0] // self.num_choices
 
     def split_batch(self, batch: Any, microbatch_size: int):
         if self.get_num_samples_in_batch(batch) // self.num_choices > microbatch_size:
