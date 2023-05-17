@@ -364,7 +364,7 @@ def test_sharded_folder(world_size,
                         use_remote,
                         tmp_path: pathlib.Path,
                         state_dict_type: str,
-                        s3_bucket: str = 'mosaicml-internal-checkpoints-test/ckpt_folder_test/'):
+                        s3_bucket):
     run_name = 'my-cool-s3-run'
     if use_remote:
         save_folder = 's3://' + str(pathlib.Path(s3_bucket) / pathlib.Path(run_name))
