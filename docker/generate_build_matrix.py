@@ -23,7 +23,7 @@ PRODUCTION_PYTORCH_VERSION = '1.13.1'
 
 
 def _get_torchvision_version(pytorch_version: str):
-    if pytorch_version == '2.0.0':
+    if pytorch_version == '2.0.1':
         return '0.15.1'
     if pytorch_version == '1.13.1':
         return '0.14.1'
@@ -31,7 +31,7 @@ def _get_torchvision_version(pytorch_version: str):
 
 
 def _get_torchtext_version(pytorch_version: str):
-    if pytorch_version == '2.0.0':
+    if pytorch_version == '2.0.1':
         return '0.15.1'
     if pytorch_version == '1.13.1':
         return '0.14.1'
@@ -47,7 +47,7 @@ def _get_base_image(cuda_version: str):
 def _get_cuda_version(pytorch_version: str, use_cuda: bool):
     if not use_cuda:
         return ''
-    if pytorch_version == '1.13.1' or pytorch_version == '2.0.0':
+    if pytorch_version == '1.13.1' or pytorch_version == '2.0.1':
         return '11.7.1'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
@@ -130,7 +130,7 @@ def _write_table(table_tag: str, table_contents: str):
 
 def _main():
     python_versions = ['3.10']
-    pytorch_versions = ['2.0.0', '1.13.1']
+    pytorch_versions = ['2.0.1', '1.13.1']
     cuda_options = [True, False]
     stages = ['pytorch_stage', 'vision_stage']
     interconnects = ['mellanox', 'EFA']  # mellanox is default, EFA needed for AWS

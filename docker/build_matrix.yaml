@@ -2,60 +2,60 @@
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 11.7.1
-  IMAGE_NAME: torch-2-0-0-cu117
+  IMAGE_NAME: torch-2-0-1-cu117
   MOFED_VERSION: 5.5-1.0.3.2
   PYTHON_VERSION: '3.10'
-  PYTORCH_VERSION: 2.0.0
+  PYTORCH_VERSION: 2.0.1
   TAGS:
-  - mosaicml/pytorch:2.0.0_cu117-python3.10-ubuntu20.04
+  - mosaicml/pytorch:2.0.1_cu117-python3.10-ubuntu20.04
   TARGET: pytorch_stage
   TORCHTEXT_VERSION: 0.15.1
   TORCHVISION_VERSION: 0.15.1
 - AWS_OFI_NCCL_VERSION: v1.5.0-aws
   BASE_IMAGE: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 11.7.1
-  IMAGE_NAME: torch-2-0-0-cu117-aws
+  IMAGE_NAME: torch-2-0-1-cu117-aws
   MOFED_VERSION: ''
   PYTHON_VERSION: '3.10'
-  PYTORCH_VERSION: 2.0.0
+  PYTORCH_VERSION: 2.0.1
   TAGS:
-  - mosaicml/pytorch:2.0.0_cu117-python3.10-ubuntu20.04-aws
+  - mosaicml/pytorch:2.0.1_cu117-python3.10-ubuntu20.04-aws
   TARGET: pytorch_stage
   TORCHTEXT_VERSION: 0.15.1
   TORCHVISION_VERSION: 0.15.1
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 11.7.1
-  IMAGE_NAME: torch-vision-2-0-0-cu117
+  IMAGE_NAME: torch-vision-2-0-1-cu117
   MOFED_VERSION: 5.5-1.0.3.2
   PYTHON_VERSION: '3.10'
-  PYTORCH_VERSION: 2.0.0
+  PYTORCH_VERSION: 2.0.1
   TAGS:
-  - mosaicml/pytorch_vision:2.0.0_cu117-python3.10-ubuntu20.04
+  - mosaicml/pytorch_vision:2.0.1_cu117-python3.10-ubuntu20.04
   TARGET: vision_stage
   TORCHTEXT_VERSION: 0.15.1
   TORCHVISION_VERSION: 0.15.1
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: ubuntu:20.04
   CUDA_VERSION: ''
-  IMAGE_NAME: torch-2-0-0-cpu
+  IMAGE_NAME: torch-2-0-1-cpu
   MOFED_VERSION: ''
   PYTHON_VERSION: '3.10'
-  PYTORCH_VERSION: 2.0.0
+  PYTORCH_VERSION: 2.0.1
   TAGS:
-  - mosaicml/pytorch:2.0.0_cpu-python3.10-ubuntu20.04
+  - mosaicml/pytorch:2.0.1_cpu-python3.10-ubuntu20.04
   TARGET: pytorch_stage
   TORCHTEXT_VERSION: 0.15.1
   TORCHVISION_VERSION: 0.15.1
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: ubuntu:20.04
   CUDA_VERSION: ''
-  IMAGE_NAME: torch-vision-2-0-0-cpu
+  IMAGE_NAME: torch-vision-2-0-1-cpu
   MOFED_VERSION: ''
   PYTHON_VERSION: '3.10'
-  PYTORCH_VERSION: 2.0.0
+  PYTORCH_VERSION: 2.0.1
   TAGS:
-  - mosaicml/pytorch_vision:2.0.0_cpu-python3.10-ubuntu20.04
+  - mosaicml/pytorch_vision:2.0.1_cpu-python3.10-ubuntu20.04
   TARGET: vision_stage
   TORCHTEXT_VERSION: 0.15.1
   TORCHVISION_VERSION: 0.15.1
