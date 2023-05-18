@@ -533,6 +533,7 @@ def test_schema_task_evaluation(num_fewshot, dataset_uri, tiny_gpt2_tokenizer, t
 @pytest.mark.parametrize('num_fewshot', [0, 5])
 @device('gpu')
 @world_size(1, 2)
+@pytest.mark.filterwarnings(r'ignore:Cannot split .* of length.*:UserWarning')
 def test_mc_task_evaluation_subcategories(device, world_size, dataset_uri, num_fewshot, tiny_gpt2_model,
                                           tiny_gpt2_tokenizer, tmp_path):
     pytest.importorskip('datasets')
