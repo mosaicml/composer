@@ -87,6 +87,7 @@ install_requires = [
     'py-cpuinfo>=8.0.0,<10',
     'packaging>=21.3.0,<23',
     'importlib-metadata>=5.0.0,<7',
+    'mosaicml-cli>=0.4.0,<0.5',
 ]
 extra_deps = {}
 
@@ -214,10 +215,6 @@ extra_deps['onnx'] = [
 
 extra_deps['mlflow'] = [
     'mlflow>=2.0.1,<3.0',
-]
-
-extra_deps['mcli'] = [
-    'mosaicml-cli>=0.3.6,<0.4',
 ]
 
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
