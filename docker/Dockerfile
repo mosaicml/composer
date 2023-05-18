@@ -292,6 +292,11 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         pip${PYTHON_VERSION} install --no-cache-dir flash-attn==1.0.3.post0; \
     fi
 
+###############
+# Install cmake
+###############
+RUN pip${PYTHON_VERSION} install --no-cache-dir cmake==3.26.3
+
 ###########################
 # Install Pandoc Dependency
 ###########################
