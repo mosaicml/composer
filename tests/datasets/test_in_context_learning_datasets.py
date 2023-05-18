@@ -311,7 +311,7 @@ def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
 
     dataset_uri = f'{local_data}/{dataset_uri}'
-    batch_size = 2
+    batch_size = 4
     seqlen = 2048
     dl = get_icl_task_dataloader('multiple_choice',
                                  dataset_uri,
@@ -329,6 +329,7 @@ def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
     batch = next(dl.dataloader._get_iterator())
 
     choices_per_question = 2
+    assert dl.get_num_samples_in_batch(batch) == 2
     assert 'input_ids' in batch
     assert tuple(batch['input_ids'].shape) == (batch_size, seqlen)
     assert 'attention_mask' in batch
@@ -348,6 +349,38 @@ def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
     assert tokenizer.decode(batch['input_ids'][0][min_idx:max_idx + 1]) == ' Pour it onto a plate'
     assert tokenizer.decode(batch['input_ids'][0][0:min_idx]).startswith('</s>')
     assert tokenizer.decode(batch['input_ids'][0][0:min_idx]).count('</s>') == 1
+
+    microbatches = dl.split_batch(batch, 1)
+    assert len(microbatches) == 2
+    microbatch_size = batch_size / 2
+    for i, microbatch in enumerate(microbatches):
+        assert dl.get_num_samples_in_batch(microbatch) == 1
+        assert 'input_ids' in microbatch
+        assert tuple(microbatch['input_ids'].shape) == (microbatch_size, seqlen)
+        assert 'attention_mask' in microbatch
+        assert tuple(microbatch['attention_mask'].shape) == (microbatch_size, seqlen)
+        assert 'continuation_indices' in microbatch
+        assert isinstance(microbatch['continuation_indices'], list) and len(
+            microbatch['continuation_indices']) == microbatch_size
+        assert 'mode' in microbatch
+        assert microbatch['mode'] == 'icl_task'
+        assert 'gold_indices' in microbatch
+        assert isinstance(microbatch['gold_indices'], list) and len(
+            microbatch['gold_indices']) == microbatch_size // choices_per_question
+        assert 'choice_groupings' in microbatch
+        assert isinstance(microbatch['choice_groupings'], list) and len(
+            microbatch['choice_groupings']) == microbatch_size // choices_per_question
+
+        min_idx = min(microbatch['continuation_indices'][0]).item()
+        max_idx = max(microbatch['continuation_indices'][0]).item()
+        if i == 0:
+            assert tokenizer.decode(microbatch['input_ids'][0][min_idx:max_idx + 1]) == ' Pour it onto a plate'
+        elif i == 1:
+            assert tokenizer.decode(
+                microbatch['input_ids'][0][min_idx:max_idx +
+                                           1]) == ' Weld the metal together to get it to stay firmly in place'
+        assert tokenizer.decode(microbatch['input_ids'][0][0:min_idx]).startswith('</s>')
+        assert tokenizer.decode(microbatch['input_ids'][0][0:min_idx]).count('</s>') == 1
 
 
 @pytest.mark.parametrize('dataset_uri', ['triviaqa_small.jsonl'])
@@ -577,7 +610,10 @@ def test_mc_task_evaluation_subcategories(device, world_size, dataset_uri, num_f
     with open(dataset_uri) as f:
         for _ in f:
             num_samples += 1
-    assert trainer.state.eval_metrics['mmlu']['InContextLearningMultipleChoiceAccuracy'].total == num_samples
+    assert trainer.state.eval_metrics['mmlu/computer_security'][
+        'InContextLearningMultipleChoiceAccuracy'].total == num_samples
+    assert trainer.state.eval_metrics['mmlu/human_aging'][
+        'InContextLearningMultipleChoiceAccuracy'].total == num_samples
 
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl', 'hellaswag_small.jsonl'])
