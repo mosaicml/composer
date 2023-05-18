@@ -96,14 +96,6 @@ filterwarnings = [
     # allow training metrics
     'ignore:Computing model evaluation metrics during training doubles the number of forward passes:UserWarning',
     'ignore:No optimizer was specified.:UserWarning',  # OK to not specify an optimizer in the tests
-    # Ignore deprecation warnings in pillow. TODO: remove this ignore for when we upgrade pillow-simd +
-    # use torchvision 0.13  -- it appears to be fixed in main -- see
-    # https://github.com/pytorch/vision/blob/main/torchvision/transforms/functional_pil.py
-    'ignore:.*is deprecated and will be removed in Pillow 10.*:DeprecationWarning',
-    # Ignore deprecation warnings in deepspeed. TODO: remove this when we upgrade to v0.6.1+ -- it has been fixed
-    'ignore::DeprecationWarning:deepspeed.*:',
-    # Ingore validate is deprecated warnings. TODO(ravi) Need to manually remove on hparams.validate functionality
-    'ignore:.*Instead, perform any validation directly in initialize_object\(\):DeprecationWarning',
     # Ignore a bug in the pytorch dataloader
     '''ignore:Exception ignored in. <function _MultiProcessingDataLoaderIter.__del__:pytest.PytestUnraisableExceptionWarning''',
     # Ignore torchvision complaining about no c libraries (happens in the conda build)
@@ -112,11 +104,6 @@ filterwarnings = [
     'ignore:distutils Version classes are deprecated:DeprecationWarning',
     # Ignore a UserWarning from TorchMetrics about potentially large memory usage when batch sizes are extremely large
     'ignore:Metric `SpearmanCorrcoef` will save all targets and predictions in the buffer:UserWarning:torchmetrics',
-    # Ignore a UserWarning from torch 1.12 due to DeepSpeed's use of positional args
-    'ignore:Positional args are being deprecated, use kwargs instead.*:UserWarning',
-    'ignore:Torchmetrics v0.9 introduced a new argument class property:UserWarning',
-    'ignore:torch.distributed._all_gather_base is a private function and will be deprecated.*:UserWarning',
-    'ignore:torch.distributed._reduce_scatter_base is a private function and will be deprecated.*:UserWarning',
     # Ignore tensorboard deprecation warnings
     'ignore:Call to deprecated create function Descriptor().*:DeprecationWarning:tensorboard',
     'ignore:Call to deprecated create function EnumDescriptor().*:DeprecationWarning:tensorboard',

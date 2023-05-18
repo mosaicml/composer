@@ -10,11 +10,10 @@ import pytest
 import torch
 from torch.nn.functional import cross_entropy
 
-from composer.metrics.nlp import (BinaryF1Score, HFCrossEntropy, InContextLearningExpectedCalibrationError,
-                                  InContextLearningLMAccuracy, InContextLearningLMExpectedCalibrationError,
+from composer.metrics.nlp import (BinaryF1Score, InContextLearningExpectedCalibrationError, InContextLearningLMAccuracy,
+                                  InContextLearningLMExpectedCalibrationError,
                                   InContextLearningMCExpectedCalibrationError, InContextLearningMultipleChoiceAccuracy,
-                                  InContextLearningQAAccuracy, LanguageCrossEntropy, LanguagePerplexity, MaskedAccuracy,
-                                  Perplexity)
+                                  InContextLearningQAAccuracy, LanguageCrossEntropy, LanguagePerplexity, MaskedAccuracy)
 
 
 @pytest.mark.parametrize('ignore_index', [-100])
@@ -149,9 +148,9 @@ def test_hf_cross_entropy_equivalence():
     generated_preds = torch.randn((batch_size, sequence_length, num_classes))
     generated_true = torch.randint(low=0, high=num_classes, size=(batch_size, sequence_length))
 
-    ce_with_keys_metric = HFCrossEntropy(dist_sync_on_step=False)
-    ce_direct_loss_metric = HFCrossEntropy(dist_sync_on_step=False)
-    ce_tensors_metric = HFCrossEntropy(dist_sync_on_step=False)
+    ce_with_keys_metric = LanguageCrossEntropy(dist_sync_on_step=False)
+    ce_direct_loss_metric = LanguageCrossEntropy(dist_sync_on_step=False)
+    ce_tensors_metric = LanguageCrossEntropy(dist_sync_on_step=False)
 
     labels_mask = torch.rand((batch_size, sequence_length))
     labels_mask[labels_mask > 0.8] = 1
@@ -191,8 +190,8 @@ def test_hf_perplexity():
     generated_preds = torch.randn((batch_size, sequence_length, num_classes))
     generated_true = torch.randint(low=0, high=num_classes, size=(batch_size, sequence_length))
 
-    ce_metric = HFCrossEntropy(dist_sync_on_step=False)
-    perplexity_metric = Perplexity(dist_sync_on_step=False)
+    ce_metric = LanguageCrossEntropy(dist_sync_on_step=False)
+    perplexity_metric = LanguagePerplexity(dist_sync_on_step=False)
 
     labels_mask = torch.rand((batch_size, sequence_length))
     labels_mask[labels_mask > 0.8] = 1
