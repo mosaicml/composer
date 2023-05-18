@@ -107,6 +107,7 @@ filterwarnings = [
     # Ignore a UserWarning from torch 1.12 due to DeepSpeed's use of positional args
     'ignore:Positional args are being deprecated, use kwargs instead.*:UserWarning',
     'ignore:torch.distributed._all_gather_base is a private function and will be deprecated.*:UserWarning',
+    'ignore:torch.distributed._reduce_scatter_base is a private function and will be deprecated.*:UserWarning',
     # Ignore tensorboard deprecation warnings
     'ignore:Call to deprecated create function Descriptor().*:DeprecationWarning:tensorboard',
     'ignore:Call to deprecated create function EnumDescriptor().*:DeprecationWarning:tensorboard',
