@@ -12,40 +12,41 @@ from composer.trainer.trainer import Trainer
 from composer.utils import dist, misc
 from tests.common import RandomClassificationDataset, SimpleModel, device, world_size
 
-# @pytest.mark.parametrize('mixed_precision', ['FULL', 'DEFAULT', 'PURE'])
-# @pytest.mark.parametrize('reentrant', [True, False])
-# @pytest.mark.filterwarnings('ignore::UserWarning')
-# @device('gpu')
-# @world_size(1, 2)
-# @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2'),
-#                     reason='FSDP use_orig_params requires torch 2.0 or higher')
-# def test_fsdp_param_groups_without_orig_params(mixed_precision: str, device: str, reentrant: bool, world_size: int):
-#     """
 
-#     Ensure that FSDP with 'use_orig_params=False' raises an exception when passing in an optimizer
-#     with multiple param groups
+@pytest.mark.parametrize('mixed_precision', ['FULL', 'DEFAULT', 'PURE'])
+@pytest.mark.parametrize('reentrant', [True, False])
+@pytest.mark.filterwarnings('ignore::UserWarning')
+@device('gpu')
+@world_size(1, 2)
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2'),
+                    reason='FSDP use_orig_params requires torch 2.0 or higher')
+def test_fsdp_param_groups_without_orig_params(mixed_precision: str, device: str, reentrant: bool, world_size: int):
+    """
 
-#     """
-#     num_classes = 10
-#     model = SimpleModel(num_features=1, num_classes=num_classes)
-#     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
-#     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
+    Ensure that FSDP with 'use_orig_params=False' raises an exception when passing in an optimizer
+    with multiple param groups
 
-#     # create a different parameter per group
-#     param_groups = [{'params': param, 'lr': (0.1 + 0.1 * i)} for i, param in enumerate(model.parameters())]
-#     optimizer = torch.optim.SGD(param_groups, lr=0)
+    """
+    num_classes = 10
+    model = SimpleModel(num_features=1, num_classes=num_classes)
+    dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
+    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
 
-#     with pytest.raises(RuntimeError):
-#         Trainer(model=model,
-#                 optimizers=optimizer,
-#                 train_dataloader=dataloader,
-#                 fsdp_config={
-#                     'activation_checkpointing_reentrant': reentrant,
-#                     'mixed_precision': mixed_precision,
-#                     'use_orig_params': False
-#                 },
-#                 max_duration='3ba',
-#                 device=device)
+    # create a different parameter per group
+    param_groups = [{'params': param, 'lr': (0.1 + 0.1 * i)} for i, param in enumerate(model.parameters())]
+    optimizer = torch.optim.SGD(param_groups, lr=0)
+
+    with pytest.raises(RuntimeError):
+        _ = Trainer(model=model,
+                    optimizers=optimizer,
+                    train_dataloader=dataloader,
+                    fsdp_config={
+                        'activation_checkpointing_reentrant': reentrant,
+                        'mixed_precision': mixed_precision,
+                        'use_orig_params': False
+                    },
+                    max_duration='3ba',
+                    device=device)
 
 @pytest.mark.parametrize('mixed_precision', ['FULL', 'DEFAULT', 'PURE'])
 @pytest.mark.parametrize('reentrant', [True, False])
