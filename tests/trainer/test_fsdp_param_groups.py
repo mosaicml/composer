@@ -12,7 +12,6 @@
 # from composer.utils import dist, misc
 # from tests.common import RandomClassificationDataset, SimpleModel, device, world_size
 
-
 # @pytest.mark.parametrize('mixed_precision', ['FULL', 'DEFAULT', 'PURE'])
 # @pytest.mark.parametrize('reentrant', [True, False])
 # @pytest.mark.filterwarnings('ignore::UserWarning')
@@ -47,7 +46,6 @@
 #                 },
 #                 max_duration='3ba',
 #                 device=device)
-
 
 # @pytest.mark.parametrize('mixed_precision', ['FULL', 'DEFAULT', 'PURE'])
 # @pytest.mark.parametrize('reentrant', [True, False])
