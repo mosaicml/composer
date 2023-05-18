@@ -48,6 +48,7 @@ def test_fsdp_param_groups_without_orig_params(mixed_precision: str, device: str
                     max_duration='3ba',
                     device=device)
 
+
 @pytest.mark.parametrize('mixed_precision', ['FULL', 'DEFAULT', 'PURE'])
 @pytest.mark.parametrize('reentrant', [True, False])
 @pytest.mark.filterwarnings('ignore::UserWarning')
