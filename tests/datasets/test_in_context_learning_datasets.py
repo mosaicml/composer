@@ -606,14 +606,8 @@ def test_mc_task_evaluation_subcategories(device, world_size, dataset_uri, num_f
     assert 'metrics/mmlu/human_aging/InContextLearningMultipleChoiceAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/mmlu/computer_security/InContextLearningMultipleChoiceAccuracy'][0][1].item(
     ) > 0
-    num_samples = 0
-    with open(dataset_uri) as f:
-        for _ in f:
-            num_samples += 1
-    assert trainer.state.eval_metrics['mmlu/computer_security'][
-        'InContextLearningMultipleChoiceAccuracy'].total == num_samples
-    assert trainer.state.eval_metrics['mmlu/human_aging'][
-        'InContextLearningMultipleChoiceAccuracy'].total == num_samples
+    assert trainer.state.eval_metrics['mmlu/computer_security']['InContextLearningMultipleChoiceAccuracy'].total == 8
+    assert trainer.state.eval_metrics['mmlu/human_aging']['InContextLearningMultipleChoiceAccuracy'].total == 7
 
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl', 'hellaswag_small.jsonl'])
