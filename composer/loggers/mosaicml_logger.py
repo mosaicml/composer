@@ -14,8 +14,8 @@ import time
 from functools import reduce
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
+import mcli
 import torch
-from mcli import MAPIException, update_run_metadata
 
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
@@ -108,10 +108,10 @@ class MosaicMLLogger(LoggerDestination):
         """Flush buffered metadata to MosaicML if enough time has passed since last flush."""
         if self._enabled and (time.time() - self.time_last_logged > self.log_interval or force_flush):
             try:
-                update_run_metadata(self.run_name, self.buffered_metadata)
+                mcli.update_run_metadata(self.run_name, self.buffered_metadata)
                 self.buffered_metadata = {}
                 self.time_last_logged = time.time()
-            except MAPIException as e:
+            except mcli.MAPIException as e:
                 log.error(f'Failed to log metadata to Mosaic with error: {e}')
 
 

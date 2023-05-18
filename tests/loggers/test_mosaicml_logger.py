@@ -4,6 +4,7 @@
 import json
 from typing import Type
 
+import mcli
 import pytest
 import torch
 from torch.utils.data import DataLoader
@@ -35,10 +36,8 @@ class MockMAPI:
 @world_size(1, 2)
 def test_logged_data_is_json_serializable(monkeypatch, callback_cls: Type[Callback], world_size):
     """Test that all logged data is json serializable, which is a requirement to use MAPI."""
-    pytest.importorskip('mcli')
 
     mock_mapi = MockMAPI()
-    import mcli
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
     run_name = 'small_chungus'
     monkeypatch.setenv('RUN_NAME', run_name)
@@ -66,10 +65,7 @@ def test_logged_data_is_json_serializable(monkeypatch, callback_cls: Type[Callba
 
 
 def test_metric_partial_filtering(monkeypatch):
-    pytest.importorskip('mcli')
-
     mock_mapi = MockMAPI()
-    import mcli
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
     run_name = 'small_chungus'
     monkeypatch.setenv('RUN_NAME', run_name)
@@ -88,10 +84,7 @@ def test_metric_partial_filtering(monkeypatch):
 
 
 def test_metric_full_filtering(monkeypatch):
-    pytest.importorskip('mcli')
-
     mock_mapi = MockMAPI()
-    import mcli
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
     run_name = 'small_chungus'
     monkeypatch.setenv('RUN_NAME', run_name)
