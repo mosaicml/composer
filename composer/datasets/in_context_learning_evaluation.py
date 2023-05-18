@@ -253,6 +253,27 @@ class InContextLearningQATaskDataset(Dataset):
     def get_num_samples_in_batch(self, batch) -> int:
         return batch['input_ids'].shape[0]
 
+    def split_batch(self, batch: Any, microbatch_size: int):
+        no_split = ['mode', 'generation_length', 'generation_kwargs']
+        normal_split = ['input_ids', 'attention_mask']
+        list_split = ['labels']
+        chunked = {}
+        for k, v in batch.items():
+            if k in no_split:
+                # Defer broadcasting until we know num_chunks
+                pass
+            elif k in list_split:
+                chunked[k] = _split_list(v, microbatch_size)
+            elif k in normal_split:
+                chunked[k] = _default_split_batch(v, microbatch_size)
+            else:
+                raise ValueError(f'Unexpected key {k}')
+        num_chunks = len(chunked['input_ids'])
+        for k, v in batch.items():
+            if isinstance(v, (int, float, str, bool, dict)):
+                chunked[k] = [v] * num_chunks
+        return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
+
 
 class InContextLearningLMTaskDataset(Dataset):
     """A dataset that construct batches for in-context learning language modeling evaluation
@@ -873,6 +894,10 @@ def build_icl_dataloader(
 
     sampler = dist.get_sampler(dataset, drop_last=False, shuffle=False)
 
+    split_batch = None
+    if isinstance(dataset, (InContextLearningMultipleChoiceTaskDataset, InContextLearningQATaskDataset)):
+        split_batch = dataset.split_batch
+
     return DataSpec(
         DataLoader(
             dataset,
@@ -882,7 +907,7 @@ def build_icl_dataloader(
         ),
         device_transforms=None,
         get_num_samples_in_batch=dataset.get_num_samples_in_batch,
-        split_batch=dataset.split_batch if isinstance(dataset, InContextLearningMultipleChoiceTaskDataset) else None,
+        split_batch=split_batch,
     )
 
 

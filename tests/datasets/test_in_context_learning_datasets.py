@@ -350,6 +350,34 @@ def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
     assert tokenizer.decode(batch['input_ids'][0][0:min_idx]).startswith('</s>')
     assert tokenizer.decode(batch['input_ids'][0][0:min_idx]).count('</s>') == 1
 
+
+@pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl'])
+@pytest.mark.parametrize('num_fewshot', [0, 1])
+def test_mc_split_batch(dataset_uri, num_fewshot, tmp_path):
+    pytest.importorskip('datasets')
+
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+
+    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
+
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    batch_size = 4
+    seqlen = 2048
+    dl = get_icl_task_dataloader('multiple_choice',
+                                 dataset_uri,
+                                 tokenizer,
+                                 batch_size,
+                                 max_seq_len=seqlen,
+                                 pad_tok_id=tokenizer.eos_token_id,
+                                 num_fewshot=num_fewshot,
+                                 prompt_string='',
+                                 example_delimiter='\n',
+                                 continuation_delimiter=': ',
+                                 destination_path=str(tmp_path / 'icl.jsonl'))
+    assert isinstance(dl, DataSpec)
+    assert isinstance(dl.dataloader, DataLoader)  # pyright
+    batch = next(dl.dataloader._get_iterator())
+    choices_per_question = 2
     microbatches = dl.split_batch(batch, 1)
     assert len(microbatches) == 2
     microbatch_size = batch_size / 2
@@ -381,6 +409,58 @@ def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
                                            1]) == ' Weld the metal together to get it to stay firmly in place'
         assert tokenizer.decode(microbatch['input_ids'][0][0:min_idx]).startswith('</s>')
         assert tokenizer.decode(microbatch['input_ids'][0][0:min_idx]).count('</s>') == 1
+
+
+@pytest.mark.parametrize('dataset_uri', ['triviaqa_small.jsonl'])
+def test_qa_split_batch(dataset_uri, tmp_path):
+    pytest.importorskip('datasets')
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m')
+
+    tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
+    gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
+    dl = get_icl_task_dataloader(
+        'question_answering',
+        dataset_uri,
+        tokenizer,
+        8,
+        max_seq_len=1024,
+        pad_tok_id=tokenizer.eos_token_id,
+        num_fewshot=0,
+        prompt_string='',
+        example_delimiter='\n',
+        continuation_delimiter=': ',
+        destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
+    )
+
+    assert isinstance(dl, DataSpec)  # pyright
+
+    batch = next(iter(dl.dataloader))
+    split_batch = dl.split_batch(batch, 6)
+
+    assert len(split_batch) == 2
+    split1 = split_batch[0]
+    split2 = split_batch[1]
+
+    assert split1['input_ids'].shape[0] == 6
+    assert split2['input_ids'].shape[0] == 2
+
+    assert split1['attention_mask'].shape[0] == 6
+    assert split2['attention_mask'].shape[0] == 2
+
+    assert isinstance(split1['mode'], str)
+    assert isinstance(split2['mode'], str)
+
+    assert len(split1['labels']) == 6
+    assert len(split2['labels']) == 2
+    assert all(isinstance(v, list) for v in split1['labels'] + split2['labels'])
+
+    assert isinstance(split1['generation_length'], int)
+    assert isinstance(split2['generation_length'], int)
+
+    assert isinstance(split1['generation_kwargs'], dict)
+    assert isinstance(split2['generation_kwargs'], dict)
 
 
 @pytest.mark.parametrize('dataset_uri', ['triviaqa_small.jsonl'])
