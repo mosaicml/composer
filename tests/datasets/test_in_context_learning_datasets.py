@@ -7,7 +7,6 @@ import random
 from pathlib import Path
 
 import pytest
-import torch
 import transformers
 from torch.utils.data import DataLoader
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -690,11 +689,11 @@ def test_mc_task_evaluation_subcategories(device, world_size, dataset_uri, num_f
     assert in_memory_logger.data['metrics/mmlu/computer_security/InContextLearningMultipleChoiceAccuracy'][0][1].item(
     ) > 0
     total = trainer.state.eval_metrics['mmlu/computer_security']['InContextLearningMultipleChoiceAccuracy'].total
-    dist.all_reduce(total)
-    assert total.item() == 8
+    dist.all_reduce(total)  # type: ignore
+    assert total.item() == 8  # type: ignore
     total = trainer.state.eval_metrics['mmlu/human_aging']['InContextLearningMultipleChoiceAccuracy'].total
-    dist.all_reduce(total)
-    assert total.item() == 7
+    dist.all_reduce(total)  # type: ignore
+    assert total.item() == 7  # type: ignore
 
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl', 'hellaswag_small.jsonl'])
