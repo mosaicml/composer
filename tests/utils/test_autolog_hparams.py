@@ -144,7 +144,7 @@ def test_extract_hparams_trainer():
         'load_path': None,
         'load_object_store': None,
         'load_weights_only': False,
-        'load_strict_model_weights': False,
+        'load_strict_model_weights': True,
         'load_progress_bar': True,
         'load_ignore_keys': None,
         'load_exclude_algorithms': None,
