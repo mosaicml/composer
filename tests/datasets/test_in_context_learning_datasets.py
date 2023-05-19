@@ -654,6 +654,8 @@ def test_mc_task_evaluation_subcategories(device, world_size, dataset_uri, num_f
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_gpt2_tokenizer
+    tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
+    gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
     dls = get_icl_task_dataloader('multiple_choice',
                                   dataset_uri,
                                   tokenizer,
@@ -664,7 +666,7 @@ def test_mc_task_evaluation_subcategories(device, world_size, dataset_uri, num_f
                                   prompt_string='',
                                   example_delimiter='\n',
                                   continuation_delimiter=': ',
-                                  destination_path=str(tmp_path / 'icl.jsonl'),
+                                  destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
                                   has_categories=True)
 
     assert isinstance(dls, dict)
