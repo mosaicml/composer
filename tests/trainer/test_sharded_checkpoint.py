@@ -12,13 +12,13 @@ from torch.utils.data import DataLoader
 
 from composer.algorithms import EMA
 from composer.models import ComposerClassifier
+from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
 from composer.utils import dist
 from composer.utils.file_helpers import get_file
 from tests.common import RandomClassificationDataset
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
-from composer.optim import DecoupledAdamW
 
 
 # This model is to be used explicitly for this unit test because some old reference checkpoints
@@ -34,29 +34,27 @@ class SimpleMLP(ComposerClassifier):
         super().__init__(module=net, num_classes=num_classes)
 
 
-def get_trainer(
-    save_folder=None,
-    save_filename='ba{batch}-rank{rank}.pt',
-    save_overwrite=False,
-    num_features=2,
-    num_classes=2,
-    fsdp_state_dict_type='full',
-    load_path=None,
-    autoresume=False,
-    run_name=None,
-    max_duration='2ba',
-    precision='amp_fp16',
-    sharding_strategy='FULL_SHARD',
-    save_interval='2ba',
-    algorithms=None,
-    optimizer='adam'
-):
+def get_trainer(save_folder=None,
+                save_filename='ba{batch}-rank{rank}.pt',
+                save_overwrite=False,
+                num_features=2,
+                num_classes=2,
+                fsdp_state_dict_type='full',
+                load_path=None,
+                autoresume=False,
+                run_name=None,
+                max_duration='2ba',
+                precision='amp_fp16',
+                sharding_strategy='FULL_SHARD',
+                save_interval='2ba',
+                algorithms=None,
+                optimizer='adam'):
     model = SimpleMLP(num_features=num_features, num_classes=num_classes)
     dataset = RandomClassificationDataset(shape=(num_features,), size=128)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=8)
     if optimizer == 'adam':
-        optim = torch.optim.Adam(params=model.parameters()) 
-    elif optimizer== 'adamw':
+        optim = torch.optim.Adam(params=model.parameters())
+    elif optimizer == 'adamw':
         optim = DecoupledAdamW(model.parameters())
     else:
         raise ValueError(f'Unsupported optimizer name {optimizer}')
@@ -146,7 +144,8 @@ def _compare_metrics_between_state_dicts(state_dict1, state_dict2):
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
-def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresume: bool, precision: str, optimizer: str):
+def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresume: bool, precision: str,
+                                   optimizer: str):
     if autoresume:
         run_name = 'my-cool-autoresume-run'
     else:
