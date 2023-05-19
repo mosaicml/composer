@@ -4,6 +4,7 @@
 """Check GPU Health during training."""
 import logging
 import os
+import warnings
 from collections import deque
 from datetime import datetime
 from typing import List, Optional, Tuple
@@ -52,6 +53,7 @@ class HealthChecker(Callback):
         slack_webhook_url: Optional[str] = None,
         test_mode: bool = False,
     ) -> None:
+        warnings.warn(f'HealthChecker is deprecated and will be removed in v0.16.')
         self.sample_freq = sample_freq
         self.window_size = window_size
         self.wait = wait
