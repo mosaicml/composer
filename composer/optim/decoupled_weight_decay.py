@@ -225,7 +225,7 @@ class DecoupledAdamW(AdamW):
 
     @staticmethod
     def adamw(params: List[torch.Tensor], grads: List[torch.Tensor], exp_avgs: List[torch.Tensor],
-              exp_avg_sqs: List[torch.Tensor], max_exp_avg_sqs: List[torch.Tensor], state_steps: List[int], *,
+              exp_avg_sqs: List[torch.Tensor], max_exp_avg_sqs: List[torch.Tensor], state_steps: List[torch.Tensor], *,
               amsgrad: bool, beta1: float, beta2: float, lr: float, initial_lr: float, weight_decay: float,
               eps: float) -> None:
         r"""Functional API that performs AdamW algorithm computation with decoupled weight decay.
@@ -315,7 +315,7 @@ class DecoupledAdamW(AdamW):
 
                 # State initialization
                 if 'step' not in state:
-                    state['step'] = 0
+                    state['step'] = torch.zeros((), dtype=torch.float, device=p.device)
                     # Exponential moving average of gradient values
                     state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
                     # Exponential moving average of squared gradient values
