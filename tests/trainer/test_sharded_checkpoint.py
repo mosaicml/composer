@@ -18,6 +18,7 @@ from composer.utils.file_helpers import get_file
 from tests.common import RandomClassificationDataset
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
+from composer.optim import DecoupledAdamW
 
 
 # This model is to be used explicitly for this unit test because some old reference checkpoints
@@ -48,11 +49,17 @@ def get_trainer(
     sharding_strategy='FULL_SHARD',
     save_interval='2ba',
     algorithms=None,
+    optimizer='adam'
 ):
     model = SimpleMLP(num_features=num_features, num_classes=num_classes)
     dataset = RandomClassificationDataset(shape=(num_features,), size=128)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=8)
-    optim = torch.optim.Adam(params=model.parameters())
+    if optimizer == 'adam':
+        optim = torch.optim.Adam(params=model.parameters()) 
+    elif optimizer== 'adamw':
+        optim = DecoupledAdamW(model.parameters())
+    else:
+        raise ValueError(f'Unsupported optimizer name {optimizer}')
     trainer = Trainer(
         algorithms=algorithms,
         model=model,
@@ -134,11 +141,12 @@ def _compare_metrics_between_state_dicts(state_dict1, state_dict2):
 
 @pytest.mark.gpu
 @world_size(2)
+@pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
 @pytest.mark.parametrize('autoresume', [True, False])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
-def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresume: bool, precision: str):
+def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresume: bool, precision: str, optimizer: str):
     if autoresume:
         run_name = 'my-cool-autoresume-run'
     else:
@@ -152,6 +160,7 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
         run_name=run_name,
         precision=precision,
         autoresume=autoresume,
+        optimizer=optimizer,
     )
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
@@ -166,6 +175,7 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
         precision=precision,
         autoresume=autoresume,
         max_duration='4ba',
+        optimizer=optimizer,
     )
     state_dict_from_trainer2 = trainer2.state.state_dict()
 
@@ -222,10 +232,11 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
 
 @pytest.mark.gpu
 @world_size(2)
+@pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
-def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, precision: str):
+def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, precision: str, optimizer: str):
     save_folder = tmp_path
     save_filename = 'ba{batch}-rank{rank}.pt'
     trainer1 = get_trainer(
@@ -236,6 +247,7 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
         algorithms=EMA(smoothing=0.9999, half_life=None, update_interval='1ba'),
         save_interval='1ba',
         max_duration='5ba',
+        optimizer=optimizer,
     )
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
@@ -251,6 +263,7 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
         algorithms=EMA(smoothing=0.9999, half_life=None, update_interval='1ba'),
         save_interval='1ba',
         save_overwrite=True,
+        optimizer=optimizer,
     )
     trainer2.fit(duration='1ba')
     state_dict_from_trainer2 = trainer2.state.state_dict()
@@ -262,13 +275,14 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
 
 @pytest.mark.gpu
 @world_size(2)
+@pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
 @pytest.mark.parametrize('state_dict_type', ['local', 'sharded'])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.parametrize('autoresume', [True, False])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool,
-                                          precision: str):
+                                          precision: str, optimizer: str):
     if autoresume:
         run_name = 'my-autoresume-run'
     else:
@@ -282,6 +296,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
         run_name=run_name,
         precision=precision,
         autoresume=autoresume,
+        optimizer=optimizer,
     )
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
@@ -296,6 +311,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
         autoresume=autoresume,
         run_name=run_name,
         max_duration='4ba',
+        optimizer=optimizer,
     )
     state_dict_from_trainer2 = trainer2.state.state_dict()
 
