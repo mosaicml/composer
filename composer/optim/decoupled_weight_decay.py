@@ -315,7 +315,7 @@ class DecoupledAdamW(AdamW):
 
                 # State initialization
                 if 'step' not in state:
-                    state['step'] = torch.zeros((), dtype=torch.float, device=p.device)
+                    state['step'] =  torch.tensor(0.)
                     # Exponential moving average of gradient values
                     state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
                     # Exponential moving average of squared gradient values
