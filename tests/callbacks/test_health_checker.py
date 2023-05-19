@@ -24,6 +24,7 @@ class MockUtil:
 
 @pytest.mark.gpu
 @world_size(1, 2)
+@pytest.mark.filterwarnings('ignore:.*HealthChecker is deprecated.*')
 def test_gpu_utilization(world_size):
     assert HealthChecker._is_available()
 
@@ -52,6 +53,7 @@ def test_gpu_utilization(world_size):
 
 @pytest.mark.gpu
 @world_size(1, 2)
+@pytest.mark.filterwarnings('ignore:.*HealthChecker is deprecated.*')
 def test_health_checker(world_size):
 
     state = MagicMock()
@@ -86,6 +88,7 @@ def test_health_checker(world_size):
         assert health_checker.metrics[0].alerted == should_alert
 
 
+@pytest.mark.filterwarnings('ignore:.*HealthChecker is deprecated.*')
 def test_health_checker_sampling():
     timestamp = Timestamp(total_wct=datetime.timedelta(seconds=0))
 
