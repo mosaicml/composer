@@ -32,6 +32,35 @@ class MockMAPI:
         json.dumps(self.run_metadata[run_name])
 
 
+def test_format_data_to_json_serializable():
+    data = {
+        'key1': 'value1',
+        'key2': 42,
+        'key3': 3.14,
+        'key4': True,
+        'key5': torch.tensor([1, 2, 3]),
+        'key6': {
+            'inner_key': 'inner_value'
+        },
+        'key7': [1, 2, 3],
+    }
+    formatted_data = format_data_to_json_serializable(data)
+
+    expected_formatted_data = {
+        'key1': 'value1',
+        'key2': 42,
+        'key3': 3.14,
+        'key4': True,
+        'key5': 'Tensor of shape torch.Size([3])',
+        'key6': {
+            'inner_key': 'inner_value'
+        },
+        'key7': [1, 2, 3],
+    }
+
+    assert formatted_data == expected_formatted_data
+
+
 @pytest.mark.parametrize('callback_cls', get_cbs_and_marks(callbacks=True))
 @world_size(1, 2)
 def test_logged_data_is_json_serializable(monkeypatch, callback_cls: Type[Callback], world_size):
@@ -99,32 +128,3 @@ def test_metric_full_filtering(monkeypatch):
     trainer.fit()
 
     assert len(mock_mapi.run_metadata[run_name].keys()) == 0
-
-
-def test_format_data_to_json_serializable():
-    data = {
-        'key1': 'value1',
-        'key2': 42,
-        'key3': 3.14,
-        'key4': True,
-        'key5': torch.tensor([1, 2, 3]),
-        'key6': {
-            'inner_key': 'inner_value'
-        },
-        'key7': [1, 2, 3],
-    }
-    formatted_data = format_data_to_json_serializable(data)
-
-    expected_formatted_data = {
-        'key1': 'value1',
-        'key2': 42,
-        'key3': 3.14,
-        'key4': True,
-        'key5': 'Tensor of shape torch.Size([3])',
-        'key6': {
-            'inner_key': 'inner_value'
-        },
-        'key7': [1, 2, 3],
-    }
-
-    assert formatted_data == expected_formatted_data
