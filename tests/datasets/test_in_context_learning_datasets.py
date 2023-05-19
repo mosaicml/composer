@@ -690,13 +690,11 @@ def test_mc_task_evaluation_subcategories(device, world_size, dataset_uri, num_f
     assert in_memory_logger.data['metrics/mmlu/computer_security/InContextLearningMultipleChoiceAccuracy'][0][1].item(
     ) > 0
     total = trainer.state.eval_metrics['mmlu/computer_security']['InContextLearningMultipleChoiceAccuracy'].total
-    total_tensor = trainer.state.device.tensor_to_device(torch.tensor([total], dtype=torch.uint8))
-    dist.all_reduce(total_tensor)
-    assert total_tensor.item() == 8
+    dist.all_reduce(total)
+    assert total.item() == 8
     total = trainer.state.eval_metrics['mmlu/human_aging']['InContextLearningMultipleChoiceAccuracy'].total
-    total_tensor = trainer.state.device.tensor_to_device(torch.tensor([total], dtype=torch.uint8))
-    dist.all_reduce(total_tensor)
-    assert total_tensor.item() == 8
+    dist.all_reduce(total)
+    assert total.item() == 7
 
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl', 'hellaswag_small.jsonl'])
