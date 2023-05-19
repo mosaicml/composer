@@ -7,6 +7,7 @@ import random
 from pathlib import Path
 
 import pytest
+import torch
 import transformers
 from torch.utils.data import DataLoader
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -688,8 +689,14 @@ def test_mc_task_evaluation_subcategories(device, world_size, dataset_uri, num_f
     assert 'metrics/mmlu/human_aging/InContextLearningMultipleChoiceAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/mmlu/computer_security/InContextLearningMultipleChoiceAccuracy'][0][1].item(
     ) > 0
-    assert trainer.state.eval_metrics['mmlu/computer_security']['InContextLearningMultipleChoiceAccuracy'].total == 8
-    assert trainer.state.eval_metrics['mmlu/human_aging']['InContextLearningMultipleChoiceAccuracy'].total == 7
+    total = trainer.state.eval_metrics['mmlu/computer_security']['InContextLearningMultipleChoiceAccuracy'].total
+    total_tensor = trainer.state.device.tensor_to_device(torch.tensor([total], dtype=torch.uint8))
+    dist.all_reduce(total_tensor)
+    assert total_tensor.item() == 8
+    total = trainer.state.eval_metrics['mmlu/human_aging']['InContextLearningMultipleChoiceAccuracy'].total
+    total_tensor = trainer.state.device.tensor_to_device(torch.tensor([total], dtype=torch.uint8))
+    dist.all_reduce(total_tensor)
+    assert total_tensor.item() == 8
 
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl', 'hellaswag_small.jsonl'])
