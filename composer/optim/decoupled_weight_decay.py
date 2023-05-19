@@ -249,7 +249,7 @@ class DecoupledAdamW(AdamW):
             grad = grads[i]
             exp_avg = exp_avgs[i]
             exp_avg_sq = exp_avg_sqs[i]
-            step = state_steps[i]
+            step = state_steps[i].item()
 
             # Perform stepweight decay
             if weight_decay != 0:
@@ -416,7 +416,7 @@ class DecoupledAdamW(AdamW):
         beta1, beta2 = self.param_groups[0]['betas']
         if param in self.state:
             param_optim_state = self.state[param]
-            step = param_optim_state['step']
+            step = param_optim_state['step'].item()
             bias_correction1 = 1 - beta1**step
             bias_correction2 = 1 - beta2**step
             denom = (param_optim_state['exp_avg_sq'].sqrt() / math.sqrt(bias_correction2)).add_(eps)
