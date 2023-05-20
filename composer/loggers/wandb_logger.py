@@ -107,6 +107,7 @@ class WandBLogger(LoggerDestination):
         self.project = project
 
         self.run_dir: Optional[str] = None
+        self.run_url: Optional[str] = None
 
     def _set_is_in_atexit(self):
         self._is_in_atexit = True
@@ -204,6 +205,7 @@ class WandBLogger(LoggerDestination):
             assert wandb.run is not None, 'The wandb run is set after init'
             entity_and_project = [str(wandb.run.entity), str(wandb.run.project)]
             self.run_dir = wandb.run.dir
+            self.run_url = wandb.run.get_url()
             atexit.register(self._set_is_in_atexit)
         else:
             entity_and_project = [None, None]
