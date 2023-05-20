@@ -10,6 +10,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from composer.core import Callback
+from composer.loggers import WandBLogger
 from composer.loggers.mosaicml_logger import MosaicMLLogger, format_data_to_json_serializable
 from composer.trainer import Trainer
 from composer.utils import dist
@@ -30,6 +31,35 @@ class MockMAPI:
             self.run_metadata[run_name][k] = v
         # Serialize the data to ensure it is json serializable
         json.dumps(self.run_metadata[run_name])
+
+
+def test_format_data_to_json_serializable():
+    data = {
+        'key1': 'value1',
+        'key2': 42,
+        'key3': 3.14,
+        'key4': True,
+        'key5': torch.tensor([1, 2, 3]),
+        'key6': {
+            'inner_key': 'inner_value'
+        },
+        'key7': [1, 2, 3],
+    }
+    formatted_data = format_data_to_json_serializable(data)
+
+    expected_formatted_data = {
+        'key1': 'value1',
+        'key2': 42,
+        'key3': 3.14,
+        'key4': True,
+        'key5': 'Tensor of shape torch.Size([3])',
+        'key6': {
+            'inner_key': 'inner_value'
+        },
+        'key7': [1, 2, 3],
+    }
+
+    assert formatted_data == expected_formatted_data
 
 
 @pytest.mark.parametrize('callback_cls', get_cbs_and_marks(callbacks=True))
@@ -101,30 +131,32 @@ def test_metric_full_filtering(monkeypatch):
     assert len(mock_mapi.run_metadata[run_name].keys()) == 0
 
 
-def test_format_data_to_json_serializable():
-    data = {
-        'key1': 'value1',
-        'key2': 42,
-        'key3': 3.14,
-        'key4': True,
-        'key5': torch.tensor([1, 2, 3]),
-        'key6': {
-            'inner_key': 'inner_value'
-        },
-        'key7': [1, 2, 3],
-    }
-    formatted_data = format_data_to_json_serializable(data)
+class SetWandBRunURL(Callback):
+    """Sets run_url attribute on WandB for offline unit testing."""
 
-    expected_formatted_data = {
-        'key1': 'value1',
-        'key2': 42,
-        'key3': 3.14,
-        'key4': True,
-        'key5': 'Tensor of shape torch.Size([3])',
-        'key6': {
-            'inner_key': 'inner_value'
-        },
-        'key7': [1, 2, 3],
-    }
+    def __init__(self, run_url) -> None:
+        self.run_url = run_url
 
-    assert formatted_data == expected_formatted_data
+    def init(self, state, event) -> None:
+        for callback in state.callbacks:
+            if isinstance(callback, WandBLogger):
+                callback.run_url = self.run_url
+
+
+def test_wandb_run_url(monkeypatch):
+    mock_mapi = MockMAPI()
+    monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
+    run_name = 'small_chungus'
+    monkeypatch.setenv('RUN_NAME', run_name)
+
+    run_url = 'my_run_url'
+    monkeypatch.setenv('WANDB_MODE', 'offline')
+
+    Trainer(model=SimpleModel(), loggers=[
+        MosaicMLLogger(),
+        WandBLogger(),
+    ], callbacks=[
+        SetWandBRunURL(run_url),
+    ])
+
+    assert mock_mapi.run_metadata[run_name]['mosaicml/wandb/run_url'] == run_url

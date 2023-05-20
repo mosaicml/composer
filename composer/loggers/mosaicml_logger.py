@@ -17,8 +17,10 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 import mcli
 import torch
 
+from composer.loggers import Logger
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
+from composer.loggers.wandb_logger import WandBLogger
 from composer.utils import dist
 
 if TYPE_CHECKING:
@@ -76,6 +78,14 @@ class MosaicMLLogger(LoggerDestination):
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         self._log_metadata(metrics)
+
+    def after_load(self, state: State, logger: Logger) -> None:
+        # Log WandB run URL if it exists. Must run on after_load as WandB is setup on event init
+        for callback in state.callbacks:
+            if isinstance(callback, WandBLogger):
+                run_url = callback.run_url
+                if run_url is not None:
+                    self._log_metadata({'wandb/run_url': run_url})
 
     def batch_end(self, state: State, logger: Logger) -> None:
         self._flush_metadata()
