@@ -77,7 +77,7 @@ def test_fsdp_with_param_groups(mixed_precision: str, device: str, reentrant: bo
 
     unwrapped_optimizer = copy.deepcopy(optimizer)
 
-    number_of_optimizer_groups_pre_fsdp = optimizer.param_groups
+    optimizer_groups_pre_fsdp = optimizer.param_groups
 
     trainer = Trainer(model=model,
                       optimizers=optimizer,
@@ -93,7 +93,7 @@ def test_fsdp_with_param_groups(mixed_precision: str, device: str, reentrant: bo
     assert misc.is_model_fsdp(trainer.state.model)
     trainer_optimizer = trainer.state.optimizers[0]
     assert len(trainer_optimizer.param_groups) > 1
-    assert len(trainer_optimizer.param_groups) == len(number_of_optimizer_groups_pre_fsdp)
+    assert len(trainer_optimizer.param_groups) == len(optimizer_groups_pre_fsdp)
 
     with trainer.state.model.module.summon_full_params(trainer.state.model.module):  # type: ignore
         for unwrapped_param_group, wrapped_param_group in zip(unwrapped_optimizer.param_groups,

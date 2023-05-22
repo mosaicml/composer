@@ -241,7 +241,7 @@ def prepare_fsdp_module(
 
         if num_param_groups > 1:
             if not (is_torch_2_0 and kwargs['use_orig_params']):
-                raise RuntimeError('Multiple optimizer groups are only supported on torch 2.0 \
+                raise RuntimeError('Multiple optimizer groups with FSDP are only supported on torch 2.0 \
                                    with use_orig_params=True.')
             # optimizer.param_groups do not contain parameter names which are needed
             # to keep track of the different parameters in each group
