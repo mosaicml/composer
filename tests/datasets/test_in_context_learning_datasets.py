@@ -311,7 +311,7 @@ def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
 
     dataset_uri = f'{local_data}/{dataset_uri}'
-    batch_size = 2
+    batch_size = 4
     seqlen = 2048
     dl = get_icl_task_dataloader('multiple_choice',
                                  dataset_uri,
@@ -329,6 +329,7 @@ def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
     batch = next(dl.dataloader._get_iterator())
 
     choices_per_question = 2
+    assert dl.get_num_samples_in_batch(batch) == 2
     assert 'input_ids' in batch
     assert tuple(batch['input_ids'].shape) == (batch_size, seqlen)
     assert 'attention_mask' in batch
@@ -348,6 +349,119 @@ def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
     assert tokenizer.decode(batch['input_ids'][0][min_idx:max_idx + 1]) == ' Pour it onto a plate'
     assert tokenizer.decode(batch['input_ids'][0][0:min_idx]).startswith('</s>')
     assert tokenizer.decode(batch['input_ids'][0][0:min_idx]).count('</s>') == 1
+
+
+@pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl'])
+@pytest.mark.parametrize('num_fewshot', [0, 1])
+def test_mc_split_batch(dataset_uri, num_fewshot, tmp_path):
+    pytest.importorskip('datasets')
+
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+
+    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
+
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    batch_size = 4
+    seqlen = 2048
+    dl = get_icl_task_dataloader('multiple_choice',
+                                 dataset_uri,
+                                 tokenizer,
+                                 batch_size,
+                                 max_seq_len=seqlen,
+                                 pad_tok_id=tokenizer.eos_token_id,
+                                 num_fewshot=num_fewshot,
+                                 prompt_string='',
+                                 example_delimiter='\n',
+                                 continuation_delimiter=': ',
+                                 destination_path=str(tmp_path / 'icl.jsonl'))
+    assert isinstance(dl, DataSpec)
+    assert isinstance(dl.dataloader, DataLoader)  # pyright
+    batch = next(dl.dataloader._get_iterator())
+    choices_per_question = 2
+    real_microbatch_size = batch_size // 2
+    logical_microbatch_size = real_microbatch_size // choices_per_question
+    microbatches = dl.split_batch(batch, logical_microbatch_size)
+    assert len(microbatches) == 2
+    for i, microbatch in enumerate(microbatches):
+        assert dl.get_num_samples_in_batch(microbatch) == 1
+        assert 'input_ids' in microbatch
+        assert tuple(microbatch['input_ids'].shape) == (real_microbatch_size, seqlen)
+        assert 'attention_mask' in microbatch
+        assert tuple(microbatch['attention_mask'].shape) == (real_microbatch_size, seqlen)
+        assert 'continuation_indices' in microbatch
+        assert isinstance(microbatch['continuation_indices'], list) and len(
+            microbatch['continuation_indices']) == real_microbatch_size
+        assert 'mode' in microbatch
+        assert microbatch['mode'] == 'icl_task'
+        assert 'gold_indices' in microbatch
+        assert isinstance(microbatch['gold_indices'], list) and len(
+            microbatch['gold_indices']) == real_microbatch_size // choices_per_question
+        assert 'choice_groupings' in microbatch
+        assert isinstance(microbatch['choice_groupings'], list) and len(
+            microbatch['choice_groupings']) == real_microbatch_size // choices_per_question
+
+        min_idx = min(microbatch['continuation_indices'][0]).item()
+        max_idx = max(microbatch['continuation_indices'][0]).item()
+        if i == 0:
+            assert tokenizer.decode(microbatch['input_ids'][0][min_idx:max_idx + 1]) == ' Pour it onto a plate'
+        elif i == 1:
+            assert tokenizer.decode(
+                microbatch['input_ids'][0][min_idx:max_idx +
+                                           1]) == ' Weld the metal together to get it to stay firmly in place'
+        assert tokenizer.decode(microbatch['input_ids'][0][0:min_idx]).startswith('</s>')
+        assert tokenizer.decode(microbatch['input_ids'][0][0:min_idx]).count('</s>') == 1
+
+
+@pytest.mark.parametrize('dataset_uri', ['triviaqa_small.jsonl'])
+def test_qa_split_batch(dataset_uri, tmp_path):
+    pytest.importorskip('datasets')
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m')
+
+    tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
+    gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
+    dl = get_icl_task_dataloader(
+        'question_answering',
+        dataset_uri,
+        tokenizer,
+        8,
+        max_seq_len=1024,
+        pad_tok_id=tokenizer.eos_token_id,
+        num_fewshot=0,
+        prompt_string='',
+        example_delimiter='\n',
+        continuation_delimiter=': ',
+        destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
+    )
+
+    assert isinstance(dl, DataSpec)  # pyright
+
+    batch = next(iter(dl.dataloader))
+    split_batch = dl.split_batch(batch, 6)
+
+    assert len(split_batch) == 2
+    split1 = split_batch[0]
+    split2 = split_batch[1]
+
+    assert split1['input_ids'].shape[0] == 6
+    assert split2['input_ids'].shape[0] == 2
+
+    assert split1['attention_mask'].shape[0] == 6
+    assert split2['attention_mask'].shape[0] == 2
+
+    assert isinstance(split1['mode'], str)
+    assert isinstance(split2['mode'], str)
+
+    assert len(split1['labels']) == 6
+    assert len(split2['labels']) == 2
+    assert all(isinstance(v, list) for v in split1['labels'] + split2['labels'])
+
+    assert isinstance(split1['generation_length'], int)
+    assert isinstance(split2['generation_length'], int)
+
+    assert isinstance(split1['generation_kwargs'], dict)
+    assert isinstance(split2['generation_kwargs'], dict)
 
 
 @pytest.mark.parametrize('dataset_uri', ['triviaqa_small.jsonl'])
@@ -487,9 +601,9 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
 
 
 @pytest.mark.parametrize('dataset_uri', ['winograd_small.jsonl'])
-@device('cpu')
 @pytest.mark.parametrize('num_fewshot', [0, 5])
-def test_schema_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tmp_path, tiny_gpt2_model):
+@pytest.mark.filterwarnings(r'ignore:Cannot split .* of length.*:UserWarning')
+def test_schema_task_evaluation(num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tmp_path, tiny_gpt2_model):
     pytest.importorskip('datasets')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -519,21 +633,30 @@ def test_schema_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_toke
     )
 
     trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
-    trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
+    trainer.eval(eval_dataloader=evaluator)
     assert 'metrics/winograd/InContextLearningMultipleChoiceAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/winograd/InContextLearningMultipleChoiceAccuracy'][0][1].item() > 0
+    num_samples = 0
+    with open(dataset_uri) as f:
+        for _ in f:
+            num_samples += 1
+    assert trainer.state.eval_metrics['winograd']['InContextLearningMultipleChoiceAccuracy'].total == num_samples
 
 
 @pytest.mark.parametrize('dataset_uri', ['mmlu_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 5])
 @device('gpu')
-def test_mc_task_evaluation_subcategories(device, dataset_uri, num_fewshot, tiny_gpt2_model, tiny_gpt2_tokenizer,
-                                          tmp_path):
+@world_size(1, 2)
+@pytest.mark.filterwarnings(r'ignore:Cannot split .* of length.*:UserWarning')
+def test_mc_task_evaluation_subcategories(device, world_size, dataset_uri, num_fewshot, tiny_gpt2_model,
+                                          tiny_gpt2_tokenizer, tmp_path):
     pytest.importorskip('datasets')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_gpt2_tokenizer
+    tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
+    gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
     dls = get_icl_task_dataloader('multiple_choice',
                                   dataset_uri,
                                   tokenizer,
@@ -544,7 +667,7 @@ def test_mc_task_evaluation_subcategories(device, dataset_uri, num_fewshot, tiny
                                   prompt_string='',
                                   example_delimiter='\n',
                                   continuation_delimiter=': ',
-                                  destination_path=str(tmp_path / 'icl.jsonl'),
+                                  destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
                                   has_categories=True)
 
     assert isinstance(dls, dict)
@@ -560,12 +683,18 @@ def test_mc_task_evaluation_subcategories(device, dataset_uri, num_fewshot, tiny
         use_logits=True,
     )
 
-    trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
+    trainer = Trainer(model=model, loggers=in_memory_logger)
     trainer.eval(eval_dataloader=evaluators)
     assert 'metrics/mmlu/computer_security/InContextLearningMultipleChoiceAccuracy' in in_memory_logger.data.keys()
     assert 'metrics/mmlu/human_aging/InContextLearningMultipleChoiceAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/mmlu/computer_security/InContextLearningMultipleChoiceAccuracy'][0][1].item(
     ) > 0
+    total = trainer.state.eval_metrics['mmlu/computer_security']['InContextLearningMultipleChoiceAccuracy'].total
+    dist.all_reduce(total)  # type: ignore
+    assert total.item() == 8  # type: ignore
+    total = trainer.state.eval_metrics['mmlu/human_aging']['InContextLearningMultipleChoiceAccuracy'].total
+    dist.all_reduce(total)  # type: ignore
+    assert total.item() == 7  # type: ignore
 
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl', 'hellaswag_small.jsonl'])
@@ -607,6 +736,11 @@ def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenize
     trainer.eval(eval_dataloader=evaluator)
     assert 'metrics/mc/InContextLearningMultipleChoiceAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/mc/InContextLearningMultipleChoiceAccuracy'][0][1].item() > 0
+    num_samples = 0
+    with open(dataset_uri) as f:
+        for _ in f:
+            num_samples += 1
+    assert trainer.state.eval_metrics['mc']['InContextLearningMultipleChoiceAccuracy'].total == num_samples
 
 
 @pytest.mark.parametrize('dataset_uri', ['triviaqa_small.jsonl'])

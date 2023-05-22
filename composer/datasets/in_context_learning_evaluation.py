@@ -15,6 +15,7 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 from composer.core import DataSpec
+from composer.core.data_spec import _default_split_batch, _split_list
 from composer.utils import MissingConditionalImportError, dist, get_file
 
 if TYPE_CHECKING:
@@ -251,6 +252,27 @@ class InContextLearningQATaskDataset(Dataset):
 
     def get_num_samples_in_batch(self, batch) -> int:
         return batch['input_ids'].shape[0]
+
+    def split_batch(self, batch: Any, microbatch_size: int):
+        no_split = ['mode', 'generation_length', 'generation_kwargs']
+        normal_split = ['input_ids', 'attention_mask']
+        list_split = ['labels']
+        chunked = {}
+        for k, v in batch.items():
+            if k in no_split:
+                # Defer broadcasting until we know num_chunks
+                pass
+            elif k in list_split:
+                chunked[k] = _split_list(v, microbatch_size)
+            elif k in normal_split:
+                chunked[k] = _default_split_batch(v, microbatch_size)
+            else:
+                raise ValueError(f'Unexpected key {k}')
+        num_chunks = len(chunked['input_ids'])
+        for k, v in batch.items():
+            if isinstance(v, (int, float, str, bool, dict)):
+                chunked[k] = [v] * num_chunks
+        return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
 
 
 class InContextLearningLMTaskDataset(Dataset):
@@ -588,15 +610,44 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         return batch
 
     def get_num_samples_in_batch(self, batch) -> int:
-        return batch['input_ids'].shape[0]
+        return batch['input_ids'].shape[0] // self.num_choices
 
     def split_batch(self, batch: Any, microbatch_size: int):
-        if self.get_num_samples_in_batch(batch) // self.num_choices > microbatch_size:
-            raise Exception('Multiple choice tasks do not currently support batch splitting. Please set '
-                            'dataloader batch size to a value less than or equal to the microbatch size. '
-                            'Accordingly, auto microbatching does not work, so the microbatch size '
-                            'should be manually set if using a batch size which does not fit in memory.')
-        return [batch]
+        """Split batch while ensuring all continuations are in the same microbatch.
+
+        In ICL Multiple Choice, we duplicate each data point for each possible continuation.
+        When splitting a batch, we have logical samples, which refer to one possible question,
+        and real samples, which refers to one possible continuation. As sample count and
+        microbatch_size are tracked in logical samples, we split logical attributes by
+        microbatch_size and real attributes by microbatch_size * num_choices.
+        """
+        no_split = ['mode']
+        # Real
+        real = ['input_ids', 'labels', 'attention_mask']
+        logical = ['gold_indices']
+        chunked = {}
+        for k, v in batch.items():
+            if k in no_split:
+                # Defer broadcasting primitives until we know num_chunks
+                pass
+            elif k == 'continuation_indices':
+                # List of list, so we have to directly call _split_list
+                chunked[k] = _split_list(v, microbatch_size * self.num_choices)
+            elif k == 'choice_groupings':
+                # List of list, so we have to directly call _split_list
+                chunked[k] = _split_list(v, microbatch_size)
+            elif k in real:
+                chunked[k] = _default_split_batch(v, microbatch_size * self.num_choices)
+            elif k in logical:
+                chunked[k] = _default_split_batch(v, microbatch_size)
+            else:
+                raise ValueError(f'Unexpected key {k}')
+        num_chunks = len(chunked['input_ids'])
+        # Broadcast primitives to all chunks
+        for k, v in batch.items():
+            if isinstance(v, (int, float, str, bool)):
+                chunked[k] = [v] * num_chunks
+        return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
 
 
 class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskDataset):
@@ -843,6 +894,10 @@ def build_icl_dataloader(
 
     sampler = dist.get_sampler(dataset, drop_last=False, shuffle=False)
 
+    split_batch = None
+    if isinstance(dataset, (InContextLearningMultipleChoiceTaskDataset, InContextLearningQATaskDataset)):
+        split_batch = dataset.split_batch
+
     return DataSpec(
         DataLoader(
             dataset,
@@ -852,7 +907,7 @@ def build_icl_dataloader(
         ),
         device_transforms=None,
         get_num_samples_in_batch=dataset.get_num_samples_in_batch,
-        split_batch=dataset.split_batch if isinstance(dataset, InContextLearningMultipleChoiceTaskDataset) else None,
+        split_batch=split_batch,
     )
 
 

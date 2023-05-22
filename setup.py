@@ -75,7 +75,7 @@ while True:
 install_requires = [
     'pyyaml>=6.0,<7',
     'tqdm>=4.62.3,<5',
-    'torchmetrics>=0.10.0,<0.11.4',
+    'torchmetrics>=0.10.0,<0.12',
     'torch_optimizer>=0.3.0,<0.4',
     'torchvision>=0.13.1,<0.16',
     'torch>=1.13.1,<2.1',
@@ -104,7 +104,7 @@ extra_deps['dev'] = [
     'pytest==7.3.1',
     'toml==0.10.2',
     'ipython==8.11.0',
-    'ipykernel==6.22.0',
+    'ipykernel==6.23.1',
     'jupyter==1.0.0',
     'yamllint==1.31.0',
     'recommonmark==0.7.1',
@@ -179,7 +179,7 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<4.29',
+    'transformers>=4.11,<4.30',
     'datasets>=2.4,<3',
 ]
 
