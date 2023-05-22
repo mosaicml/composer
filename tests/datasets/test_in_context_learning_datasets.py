@@ -378,26 +378,27 @@ def test_mc_split_batch(dataset_uri, num_fewshot, tmp_path):
     assert isinstance(dl.dataloader, DataLoader)  # pyright
     batch = next(dl.dataloader._get_iterator())
     choices_per_question = 2
-    microbatches = dl.split_batch(batch, 1)
+    real_microbatch_size = batch_size // 2
+    logical_microbatch_size = real_microbatch_size // choices_per_question
+    microbatches = dl.split_batch(batch, logical_microbatch_size)
     assert len(microbatches) == 2
-    microbatch_size = batch_size / 2
     for i, microbatch in enumerate(microbatches):
         assert dl.get_num_samples_in_batch(microbatch) == 1
         assert 'input_ids' in microbatch
-        assert tuple(microbatch['input_ids'].shape) == (microbatch_size, seqlen)
+        assert tuple(microbatch['input_ids'].shape) == (real_microbatch_size, seqlen)
         assert 'attention_mask' in microbatch
-        assert tuple(microbatch['attention_mask'].shape) == (microbatch_size, seqlen)
+        assert tuple(microbatch['attention_mask'].shape) == (real_microbatch_size, seqlen)
         assert 'continuation_indices' in microbatch
         assert isinstance(microbatch['continuation_indices'], list) and len(
-            microbatch['continuation_indices']) == microbatch_size
+            microbatch['continuation_indices']) == real_microbatch_size
         assert 'mode' in microbatch
         assert microbatch['mode'] == 'icl_task'
         assert 'gold_indices' in microbatch
         assert isinstance(microbatch['gold_indices'], list) and len(
-            microbatch['gold_indices']) == microbatch_size // choices_per_question
+            microbatch['gold_indices']) == real_microbatch_size // choices_per_question
         assert 'choice_groupings' in microbatch
         assert isinstance(microbatch['choice_groupings'], list) and len(
-            microbatch['choice_groupings']) == microbatch_size // choices_per_question
+            microbatch['choice_groupings']) == real_microbatch_size // choices_per_question
 
         min_idx = min(microbatch['continuation_indices'][0]).item()
         max_idx = max(microbatch['continuation_indices'][0]).item()
