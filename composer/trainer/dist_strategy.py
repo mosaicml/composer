@@ -123,10 +123,11 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
                        'with distributed support.')
 
 
-def _recreate_fsdp_param_groups_from_unwrapped_opt_info(fsdp_wrapped_named_params: Iterator[Tuple[str,
-                                                                                                  torch.nn.Parameter]],
-                                                        non_wrapped_param_names_to_group_num: Dict[str, int],
-                                                        group_num_to_optimizer_info: Dict[int, Dict[str, Any]]):
+def _recreate_fsdp_param_groups_from_unwrapped_opt_info(
+        fsdp_wrapped_named_params: Iterator[Tuple[str,
+                                                  torch.nn.Parameter]], non_wrapped_param_names_to_group_num: Dict[str,
+                                                                                                                   int],
+        group_num_to_optimizer_info: Dict[int, Dict[str, Any]]) -> list[Dict[str, Any]]:
     """Helper function to recreate optimizer groups for FSDP wrapped modules.
 
     Optimizer param groups are formatted as:
@@ -162,8 +163,8 @@ def _recreate_fsdp_param_groups_from_unwrapped_opt_info(fsdp_wrapped_named_param
         retrieved_group_num = non_wrapped_param_names_to_group_num[unwrapped_name]
         group_num_to_optimizer_info[retrieved_group_num]['params'].append(param)
 
-    # the values of the list contains the list of param groups
-    return list(group_num_to_optimizer_info.values())
+    # return sorted optimizer info groups
+    return [group_num_to_optimizer_info[num] for num in sorted(group_num_to_optimizer_info.keys())]
 
 
 def prepare_fsdp_module(

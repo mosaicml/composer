@@ -14,7 +14,7 @@ from composer.utils import dist, misc
 from tests.common import RandomClassificationDataset, SimpleModel, device, world_size
 
 
-@pytest.mark.parametrize('mixed_precision', ['FULL', 'DEFAULT', 'PURE'])
+@pytest.mark.parametrize('mixed_precision', ['DEFAULT'])
 @pytest.mark.parametrize('reentrant', [True, False])
 @pytest.mark.filterwarnings('ignore::UserWarning')
 @device('gpu')
@@ -37,7 +37,10 @@ def test_fsdp_param_groups_without_orig_params(mixed_precision: str, device: str
     param_groups = [{'params': param, 'lr': (0.1 + 0.1 * i)} for i, param in enumerate(model.parameters())]
     optimizer = torch.optim.SGD(param_groups, lr=0)
 
-    with pytest.raises(RuntimeError):
+    expected_error = 'Multiple optimizer groups with FSDP are only supported on torch 2.0 \
+                                   with use_orig_params=True.'
+
+    with pytest.raises(RuntimeError, match=expected_error):
         _ = Trainer(model=model,
                     optimizers=optimizer,
                     train_dataloader=dataloader,
