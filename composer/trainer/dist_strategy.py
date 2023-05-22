@@ -7,7 +7,7 @@ import collections
 import logging
 import warnings
 from contextlib import contextmanager, nullcontext
-from typing import Any, Callable, ContextManager, Dict, Iterator, Optional, Sequence, Tuple, Union, cast
+from typing import Any, Callable, ContextManager, Dict, Iterator, List, Optional, Sequence, Tuple, Union, cast
 
 import torch
 from packaging import version
@@ -127,7 +127,7 @@ def _recreate_fsdp_param_groups_from_unwrapped_opt_info(
         fsdp_wrapped_named_params: Iterator[Tuple[str,
                                                   torch.nn.Parameter]], non_wrapped_param_names_to_group_num: Dict[str,
                                                                                                                    int],
-        group_num_to_optimizer_info: Dict[int, Dict[str, Any]]) -> list[Dict[str, Any]]:
+        group_num_to_optimizer_info: Dict[int, Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Helper function to recreate optimizer groups for FSDP wrapped modules.
 
     Optimizer param groups are formatted as:
