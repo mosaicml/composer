@@ -17,6 +17,7 @@ from torch.utils.data import DataLoader
 from torchmetrics import Metric
 from torchmetrics.classification import MulticlassAccuracy
 
+from composer.loggers import InMemoryLogger
 from composer.metrics import InContextLearningLMAccuracy, LanguageCrossEntropy, MaskedAccuracy
 from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
@@ -275,7 +276,13 @@ def get_lm_trainer(hf_model,
                    load_path: Optional[str] = None,
                    is_conditional_generation: bool = False,
                    do_eval: bool = False,
-                   fsdp_config: Optional[Dict[str, Any]] = None):
+                   fsdp_config: Optional[Dict[str, Any]] = None,
+                   mlm: bool = True,
+                   add_padding: bool = False,
+                   device_train_microbatch_size: Optional[int] = None,
+                   batch_size: int = 4,
+                   sequence_length: int = 4,
+                   size: int = 4):
     transformers = pytest.importorskip('transformers')
 
     metrics: List[Metric] = [LanguageCrossEntropy(ignore_index=-100)]
@@ -289,15 +296,18 @@ def get_lm_trainer(hf_model,
     size = 4
     batch_size = 4
 
+    if add_padding:
+        hf_tokenizer.pad_token_id = hf_tokenizer.eos_token_id
     train_dataset = RandomTextLMDataset(size=size,
                                         vocab_size=vocab_size,
                                         sequence_length=sequence_length,
                                         use_keys=True,
                                         use_token_type_ids=not is_conditional_generation,
-                                        conditional_generation=is_conditional_generation)
+                                        conditional_generation=is_conditional_generation,
+                                        pad_token_id=hf_tokenizer.pad_token_id if add_padding else None)
 
     if not is_conditional_generation:
-        collator = transformers.DataCollatorForLanguageModeling(tokenizer=hf_tokenizer, mlm_probability=0.15)
+        collator = transformers.DataCollatorForLanguageModeling(tokenizer=hf_tokenizer, mlm=mlm, mlm_probability=0.15)
     else:
         # Note: this could be transformers.DataCollatorForSeq2Seq(tokenizer=hf_tokenizer, model=hf_model),
         # but we want to test the scenario where the input batch does not have decoder_input_ids,
@@ -316,6 +326,7 @@ def get_lm_trainer(hf_model,
                                      collate_fn=collator,
                                      sampler=dist.get_sampler(train_dataset))
 
+    in_memory_logger = InMemoryLogger()
     trainer = Trainer(model=model,
                       train_dataloader=train_dataloader,
                       eval_dataloader=eval_dataloader,
@@ -324,8 +335,51 @@ def get_lm_trainer(hf_model,
                       save_interval='1ep',
                       save_filename='hf-checkpoint.pt',
                       load_path=load_path,
-                      fsdp_config=fsdp_config)
+                      fsdp_config=fsdp_config,
+                      loggers=in_memory_logger,
+                      device_train_microbatch_size=batch_size
+                      if device_train_microbatch_size is None else device_train_microbatch_size)
     return trainer
+
+
+def test_loss_vs_ce_metric(tiny_gpt2_tokenizer, tiny_gpt2_model):
+    trainer = get_lm_trainer(tiny_gpt2_model,
+                             tiny_gpt2_tokenizer,
+                             is_conditional_generation=False,
+                             save_folder=None,
+                             mlm=False)
+    trainer.fit()
+
+    in_memory_logger = [callback for callback in trainer.state.callbacks if isinstance(callback, InMemoryLogger)][0]
+
+    assert in_memory_logger.data['loss/train/total'][0][1] == in_memory_logger.data[
+        'metrics/train/LanguageCrossEntropy'][0][1].item()
+
+
+@pytest.mark.xfail(
+    raises=AssertionError,
+    reason=('This test serves to show that the LanguageCrossEntropy metric, and the equivalent loss function, '
+            'compute differently. In particular, the LanguageCrossEntropy metric takes into account padding tokens '
+            'by keeping track of the total number of loss generating tokens and using that as the denominator, whereas '
+            'the microbatch engine uses get_num_samples_in_batch to determine the weighted averaging, thus '
+            'ignoring when microbatches have different numbers of loss generating tokens.'))
+def test_loss_vs_ce_metric_with_padding_and_microbatching(tiny_gpt2_tokenizer, tiny_gpt2_model):
+    trainer = get_lm_trainer(tiny_gpt2_model,
+                             tiny_gpt2_tokenizer,
+                             is_conditional_generation=False,
+                             save_folder=None,
+                             mlm=False,
+                             add_padding=True,
+                             sequence_length=16,
+                             batch_size=16,
+                             size=64,
+                             device_train_microbatch_size=1)
+    trainer.fit()
+
+    in_memory_logger = [callback for callback in trainer.state.callbacks if isinstance(callback, InMemoryLogger)][0]
+
+    assert in_memory_logger.data['loss/train/total'][0][1] == in_memory_logger.data[
+        'metrics/train/LanguageCrossEntropy'][0][1].item()
 
 
 @pytest.mark.parametrize('pass_in_tokenizer', [True, False])
