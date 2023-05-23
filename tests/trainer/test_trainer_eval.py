@@ -15,8 +15,8 @@ from composer.core.state import State
 from composer.core.time import Time, TimeUnit
 from composer.trainer import Trainer
 from composer.utils import dist
-from tests.common import (EventCounterCallback, RandomClassificationDataset, RandomTextLMDataset, SimpleModel,
-                          SimpleTransformerMaskedLM)
+from tests.common import (EventCounterCallback, ParityDataset, RandomClassificationDataset, RandomTextLMDataset,
+                          SimpleModel, SimpleTransformerMaskedLM, ZeroModel, world_size)
 
 
 def test_eval():
@@ -50,6 +50,30 @@ def test_eval_call():
 
     # Assert that there is some accuracy
     assert trainer.state.eval_metrics['eval']['MulticlassAccuracy'].compute() != 0.0
+
+
+@world_size(1, 2)
+@pytest.mark.parametrize('size', [12, 13, 14, 15, 16])
+@pytest.mark.parametrize('batch_size', [1, 2, 3, 4, 6])
+@pytest.mark.filterwarnings(r'ignore:Cannot split tensor of length.*:UserWarning')
+def test_eval_with_nondivisible_dataset(world_size: int, size: int, batch_size: int):
+    # Construct the trainer
+    trainer = Trainer(model=ZeroModel())
+
+    # Evaluate the model
+    dataset = ParityDataset(size=size)
+    trainer.eval(eval_dataloader=DataLoader(
+        dataset=dataset,
+        batch_size=batch_size,
+        sampler=dist.get_sampler(dataset),
+    ))
+
+    expected_acc = 1 - (size // 2) / size
+    metric = trainer.state.eval_metrics['eval']['MulticlassAccuracy']
+    assert metric.compute() - expected_acc < 1e-5
+    count = metric.tp + metric.fn  # type: ignore
+    dist.all_reduce(count)
+    assert count.item() == size
 
 
 def test_eval_call_with_trainer_evaluators():
