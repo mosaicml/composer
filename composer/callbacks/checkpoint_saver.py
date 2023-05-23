@@ -17,7 +17,7 @@ from composer.core import Callback, Event, State, Time, TimeUnit
 from composer.loggers import Logger
 from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, PartialFilePath,
                             checkpoint, create_symlink_file, dist, ensure_folder_has_no_conflicting_files,
-                            format_name_with_dist, is_model_deepspeed, reproducibility)
+                            format_name_with_dist, format_name_with_dist_and_time, is_model_deepspeed, reproducibility)
 
 log = logging.getLogger(__name__)
 
@@ -379,11 +379,11 @@ class CheckpointSaver(Callback):  # noqa: D101
             raise ValueError(f'Save filename {self.filename.filename} must have {{rank}} for deepspeed.')
 
         # save the checkpoint to the filename
-        filename = self.filename.format(state, is_deepspeed)
+        filename_with_placeholders = self.filename.format(state, is_deepspeed, keep_placeholders=True)
 
         saved_path = checkpoint.save_checkpoint(
             state=state,
-            filename=filename,
+            filename=filename_with_placeholders,
             weights_only=self.weights_only,
         )
 
@@ -397,17 +397,31 @@ class CheckpointSaver(Callback):  # noqa: D101
                 os.remove(symlink)
             except FileNotFoundError:
                 pass
-            os.symlink(os.path.relpath(filename, os.path.dirname(symlink)), symlink)
+            os.symlink(os.path.relpath(saved_path, os.path.dirname(symlink)), symlink)
 
         # if remote file name provided, upload the checkpoint
         if self.remote_file_name is not None:
-            remote_file_name = self.remote_file_name.format(
-                state,
-                is_deepspeed,
-            ).lstrip('/')
+            if state.fsdp_sharded_state_dict_enabled:
+                remote_file_name = self.remote_file_name.format(
+                    state,
+                    is_deepspeed,
+                    keep_placeholders=True,
+                ).lstrip('/')
+                assert state.sharded_ckpt_prefix_dir is not None
+                remote_prefix = state.sharded_ckpt_prefix_dir
+                remote_file_name = os.path.join(
+                    pathlib.Path(remote_file_name).parent, remote_prefix,
+                    pathlib.Path(remote_file_name).name)
+                remote_file_name = format_name_with_dist_and_time(remote_file_name, state.run_name, state.timestamp)
+            else:
+                remote_file_name = self.remote_file_name.format(
+                    state,
+                    is_deepspeed,
+                ).lstrip('/')
 
-            logger.upload_file(remote_file_name=remote_file_name, file_path=filename, overwrite=self.overwrite)
+            logger.upload_file(remote_file_name=remote_file_name, file_path=saved_path, overwrite=self.overwrite)
 
+            # symlinks stay the same with sharded checkpointing
             if self.latest_remote_file_name is not None:
                 symlink_name = self.latest_remote_file_name.format(
                     state,
@@ -424,7 +438,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                         overwrite=True,
                     )
 
-        self.saved_checkpoints.append(filename)
+        self.saved_checkpoints.append(saved_path)
 
         if self.num_checkpoints_to_keep >= 0:
             self._rotate_checkpoints()
