@@ -555,7 +555,8 @@ class TestCheckpointLoading:
     @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                         reason='requires PyTorch 1.13 or higher')
     def test_load_remote_checkpoint(self, device, tmp_path: pathlib.Path, load_weights_only, remote_checkpoint_uri,
-                                    remote_checkpoint_name, continue_training_dur, final_checkpoint_name, s3_bucket, s3_read_only_prefix):
+                                    remote_checkpoint_name, continue_training_dur, final_checkpoint_name, s3_bucket,
+                                    s3_read_only_prefix):
         """
         This test checks if our checkpointing is backwards compatible.
         We should be able to load in a saved checkpoint and continue training.
