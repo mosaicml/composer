@@ -1,6 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-from typing import Sequence
+from typing import Optional, Sequence
 
 import pytest
 import torch
@@ -10,6 +10,23 @@ from torchvision.datasets import VisionDataset
 
 from composer.utils import dist
 from tests.common.models import configure_tiny_bert_tokenizer, configure_tiny_gpt2_tokenizer
+
+
+class ParityDataset(Dataset):
+    """A dataset of numbers where the output is the parity.
+
+    Args:
+        size (int): number of samples (default: 100)
+    """
+
+    def __init__(self, size: int = 100):
+        self.size = size
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, index: int):
+        return torch.tensor(index, dtype=torch.float32), torch.tensor(index % 2)
 
 
 class InfiniteClassificationDataset(IterableDataset):
@@ -219,13 +236,15 @@ class RandomTextLMDataset(Dataset):
                  use_keys: bool = False,
                  use_token_type_ids: bool = True,
                  conditional_generation: bool = False,
-                 causal_lm: bool = False):
+                 causal_lm: bool = False,
+                 pad_token_id: Optional[int] = None):
         self.vocab_size = vocab_size
         self.sequence_length = sequence_length
         self.use_keys = use_keys
         self.use_token_type_ids = use_token_type_ids
         self.conditional_generation = conditional_generation
         self.causal_lm = causal_lm
+        self.pad_token_id = pad_token_id
 
         self.input_key = 'input_ids'
 
@@ -243,6 +262,9 @@ class RandomTextLMDataset(Dataset):
         # dataset across multiple calls when using the same seed.
         if self.x is None:
             self.x = torch.randint(low=0, high=self.vocab_size, size=(self.size, self.sequence_length))
+            if self.pad_token_id is not None:
+                mask = torch.randint(low=0, high=2, size=(self.size, self.sequence_length // 2)).bool()
+                self.x[:, :self.sequence_length // 2][mask] = self.pad_token_id
             if self.conditional_generation:
                 self.y = torch.randint(low=0, high=self.vocab_size, size=(self.size, 2 * self.sequence_length))
             if self.causal_lm:

@@ -15,6 +15,21 @@ from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.models import ComposerClassifier, HuggingFaceModel
 
 
+class ZeroModel(ComposerClassifier):
+    """Always predict 0."""
+
+    def __init__(self, num_classes: int = 2):
+        # Create dummy model as ComposerClassifier needs params for optimizer
+        net = torch.nn.Sequential(torch.nn.Linear(1, num_classes))
+        super().__init__(module=net, num_classes=num_classes)
+
+    def forward(self, x):
+        out = torch.rand([x[1].shape[0], 2], dtype=x[0].dtype)
+        out[:, 0] = 0.99
+        out[:, 1] = 0.01
+        return out
+
+
 class SimpleModel(ComposerClassifier):
     """Small classification model.
 

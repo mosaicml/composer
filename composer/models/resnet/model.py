@@ -4,12 +4,8 @@
 """A :class:`.ComposerClassifier` wrapper around the torchvision implementations of the ResNet model family."""
 
 import logging
-import textwrap
-import warnings
 from typing import List, Optional
 
-import torchvision
-from packaging import version
 from torchmetrics import MetricCollection
 from torchmetrics.classification import MulticlassAccuracy
 from torchvision.models import resnet
@@ -29,7 +25,6 @@ valid_model_names = ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152
 def composer_resnet(model_name: str,
                     num_classes: int = 1000,
                     weights: Optional[str] = None,
-                    pretrained: bool = False,
                     groups: int = 1,
                     width_per_group: int = 64,
                     initializers: Optional[List[Initializer]] = None,
@@ -43,8 +38,6 @@ def composer_resnet(model_name: str,
             ``"resnet152"``].
         num_classes (int, optional): The number of classes. Needed for classification tasks. Default: ``1000``.
         weights (str, optional): If provided, pretrained weights can be specified, such as with ``IMAGENET1K_V2``. Default: ``None``.
-        pretrained (bool, optional): If True, use ImageNet pretrained weights. Default: ``False``. This parameter is deprecated and
-            will soon be removed in favor of ``weights``.
         groups (int, optional): Number of filter groups for the 3x3 convolution layer in bottleneck blocks. Default: ``1``.
         width_per_group (int, optional): Initial width for each convolution group. Width doubles after each stage.
             Default: ``64``.
@@ -84,31 +77,9 @@ def composer_resnet(model_name: str,
     if initializers is None:
         initializers = []
 
-    # Configure pretrained/weights based on torchvision version
-    if pretrained and weights:
-        raise ValueError(
-            'composer_resnet expects only one of ``pretrained`` or ``weights`` to be specified, but both were specified.'
-        )
-    if pretrained:
-        weights = 'IMAGENET1K_V2'
-        warnings.warn(
-            DeprecationWarning(
-                'The ``pretrained`` argument for composer_resnet is deprecated and will be removed in the future when torch 1.11 is no longer supported. Please use ``weights`` instead.'
-            ))
-
     # Instantiate model
     model_fn = getattr(resnet, model_name)
-    model = None
-    if version.parse(torchvision.__version__) < version.parse('0.13.0'):
-        if weights:
-            pretrained = True
-            warnings.warn(
-                textwrap.dedent(f'The current torchvision version {torchvision.__version__} does not support the '
-                                '``weights`` argument, so ``pretrained=True`` will be used instead. To enable '
-                                '``weights``, please upgrade to the latest version of torchvision.'))
-        model = model_fn(pretrained=pretrained, num_classes=num_classes, groups=groups, width_per_group=width_per_group)
-    else:
-        model = model_fn(weights=weights, num_classes=num_classes, groups=groups, width_per_group=width_per_group)
+    model = model_fn(weights=weights, num_classes=num_classes, groups=groups, width_per_group=width_per_group)
 
     # Grab loss function from loss registry
     loss_fn = loss_registry[loss_name]
