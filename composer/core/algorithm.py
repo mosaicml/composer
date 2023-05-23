@@ -56,7 +56,7 @@ class Algorithm(Serializable, ABC):
 
     @property
     def backwards_create_graph(self) -> bool:
-        """Return ``True`` to indicate this algorithm requires a second derivative to be computed. Defaults to ``False``.
+        """Whether this algorithm requires the backwards pass to be differentiable. Defaults to ``False``.
 
         If it returns ``True``, ``create_graph=True`` will be passed to :meth:`torch.Tensor.backward` which will result in
         the graph of the gradient also being constructed. This allows the computation of second order derivatives.
