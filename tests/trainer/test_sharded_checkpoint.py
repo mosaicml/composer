@@ -86,8 +86,11 @@ def get_trainer(save_folder=None,
 
 def _compare_optims_between_state_dicts(state_dict1, state_dict2):
     # Check that optim params are equal between checkpoint and in memory optimizer
-    state_dict1_optim_params = state_dict1['optimizers']['Adam']['state']
-    state_dict2_optim_params = state_dict2['optimizers']['Adam']['state']
+    optim_key1 = list(state_dict1['optimizers'].keys()).pop()
+    optim_key2 = list(state_dict2['optimizers'].keys()).pop()
+    assert optim_key1 == optim_key2
+    state_dict1_optim_params = state_dict1['optimizers'][optim_key1]['state']
+    state_dict2_optim_params = state_dict2['optimizers'][optim_key2]['state']
     state_dict1_keys = set(state_dict1_optim_params.keys())
     state_dict2_keys = set(state_dict2_optim_params.keys())
     assert len(state_dict1_keys.symmetric_difference(state_dict2_keys)) == 0, textwrap.dedent(
