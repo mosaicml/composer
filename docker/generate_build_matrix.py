@@ -47,7 +47,9 @@ def _get_base_image(cuda_version: str):
 def _get_cuda_version(pytorch_version: str, use_cuda: bool):
     if not use_cuda:
         return ''
-    if pytorch_version == '1.13.1' or pytorch_version == '2.0.1':
+    if pytorch_version == '2.0.1':
+        return '11.8.0'
+    if pytorch_version == '1.13.1':
         return '11.7.1'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
