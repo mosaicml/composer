@@ -307,6 +307,7 @@ def prepare_fsdp_module(
     ignored_modules = fsdp_config.get('ignored_modules', None)
     state_dict_type = fsdp_config.get('state_dict_type', 'full')
     activation_checkpointing_reentrant = fsdp_config.get('activation_checkpointing_reentrant', True)
+    sharded_ckpt_prefix_dir = fsdp_config.get('sharded_ckpt_prefix_dir', 'ep{epoch}-ba{batch}')
 
     # We choose to not wrap the ComposerModel directly, but instead wrap any submodules like `ComposerModel.model`
     # This makes it safer to call ComposerModel-specific functions like 'eval_forward' that
@@ -496,6 +497,7 @@ def prepare_fsdp_module(
         print(f'FSDP: Using forward_prefetch={forward_prefetch}')
         print(f'FSDP: Using limit_all_gathers={limit_all_gathers}')
         print(f'FSDP: Using state_dict_type={state_dict_type}')
+        print(f'FSDP: Using sharded_ckpt_prefix_dir={sharded_ckpt_prefix_dir}')
 
     # Rebuild optimizer now that parameters are sharded
     if optimizers:
