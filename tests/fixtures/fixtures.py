@@ -115,6 +115,18 @@ def s3_bucket(request: pytest.FixtureRequest):
         return _get_option(request.config, 's3_bucket')
 
 
+@pytest.fixture
+def s3_ephemeral_prefix():
+    '''Objects under this prefix purged according to the bucket's lifecycle policy.'''
+    return 'epemeral'
+
+
+@pytest.fixture
+def s3_read_only_prefix():
+    '''Tests can only read from this prefix, but it won't ever be purged.'''
+    return 'read_only'
+
+
 # Note: These session scoped fixtures should not be used directly in tests, but the non session scoped fixtures
 # below should be used instead. This is because the session scoped fixtures return the same object to every
 # test that requests it, so tests would have side effects on each other. Instead, the non session

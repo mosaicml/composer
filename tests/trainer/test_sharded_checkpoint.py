@@ -186,16 +186,24 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.parametrize('sharding_strategy', ['FULL_SHARD', 'SHARD_GRAD_OP'])
 @pytest.mark.parametrize('state_dict_type', ['full', 'sharded', 'local'])
+@pytest.mark.parametrize('composer_version', [
+    pytest.param(
+        '0.13.5',
+        marks=pytest.mark.filterwarnings(
+            r'ignore:ShardedGradScaler is not in the state_dict. Its state will not be restored.:UserWarning')),
+    '0.14.0', '0.14.1'
+])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision: str, sharding_strategy: str,
-                                  state_dict_type: str, s3_bucket: str):
+                                  state_dict_type: str, s3_bucket: str, s3_read_only_prefix: str,
+                                  composer_version: str):
     if version.parse(torch.__version__) >= version.parse('2.0.0') and state_dict_type == 'local':
         pytest.xfail(
             'Loading a torch 1.13 checkpoint with torch 2.0 for state_dict_type local is not backwards compatible')
 
     rank = 0 if state_dict_type == 'full' else '{rank}'
-    load_path = f's3://{s3_bucket}/backwards_compatibility/{sharding_strategy.lower()}_{state_dict_type}_{precision}/rank{rank}.pt'
+    load_path = f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_{precision}/ba2_rank{rank}.pt'
 
     trainer2 = get_trainer(
         fsdp_state_dict_type=state_dict_type,
