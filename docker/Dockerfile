@@ -393,7 +393,10 @@ RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_
         "mmsegmentation${MMSEGMENTATION_VERSION}" && \
     sudo pip${PYTHON_VERSION} install --no-cache-dir \
         "mmcv-full${MMCV_VERSION}" \
-        -f https://download.openmmlab.com/mmcv/dist/${CUDA_VERSION_TAG}/${MMCV_TORCH_VERSION}/index.html
+        -f https://download.openmmlab.com/mmcv/dist/${CUDA_VERSION_TAG}/${MMCV_TORCH_VERSION}/index.html && \
+    if [ -n "$CUDA_VERSION" ] ; then \
+        sudo pip${PYTHON_VERSION} install --no-cache-dir cupy-11x${CUPY_VERSION}; \
+    fi
 
 
 ################
