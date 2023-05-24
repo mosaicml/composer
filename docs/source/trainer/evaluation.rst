@@ -23,7 +23,7 @@ To provide a deeper intuition, here's pseudocode for the evaluation logic that o
 
 .. code:: python
 
-    metrics = model.get_metrics(train=False)
+    metrics = model.get_metrics(is_train=False)
 
     for batch in eval_dataloader:
         outputs, targets = model.eval_forward(batch)
@@ -35,7 +35,7 @@ To provide a deeper intuition, here's pseudocode for the evaluation logic that o
 - Outputs of ``model.eval_forward`` are used to update the metrics (a :class:`torchmetrics.Metric` returned by :meth:`.ComposerModel.get_metrics <model.get_metrics(train=False)>`).
 - Finally, metrics over the whole validation dataset are computed.
 
-Note that the tuple returned by :meth:`.ComposerModel.eval_forward` provide the positional arguments to ``metric.update``.
+Note that the tuple returned by :meth:`.ComposerModel.eval_forward` provides the positional arguments to ``metric.update``.
 Please keep this in mind when using custom models and/or metrics.
 
 Multiple Datasets
@@ -61,13 +61,13 @@ can be specified as in the following example:
     glue_mrpc_task = Evaluator(
         label='glue_mrpc',
         dataloader=mrpc_dataloader,
-        metric_names=['BinaryF1Score', 'Accuracy']
+        metric_names=['BinaryF1Score', 'MulticlassAccuracy']
     )
 
     glue_mnli_task = Evaluator(
         label='glue_mnli',
         dataloader=mnli_dataloader,
-        metric_names=['Accuracy']
+        metric_names=['MulticlassAccuracy']
     )
 
     trainer = Trainer(

@@ -10,6 +10,7 @@ on:
       - .github/workflows/docker-configure-build-push.yaml
       - .github/workflows/pr-docker.yaml
       - docker/**
+  workflow_dispatch:
 defaults:
   run:
     working-directory: .

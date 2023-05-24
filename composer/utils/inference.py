@@ -19,10 +19,10 @@ import torch
 import torch.nn as nn
 
 from composer.utils import dist
-from composer.utils.checkpoint import download_checkpoint
+from composer.utils.checkpoint import download_checkpoint, safe_torch_load
 from composer.utils.device import get_device
 from composer.utils.iter_helpers import ensure_tuple
-from composer.utils.misc import is_model_ddp, is_model_deepspeed, model_eval_mode
+from composer.utils.misc import is_model_ddp, is_model_deepspeed, is_model_fsdp, model_eval_mode
 from composer.utils.object_store import ObjectStore
 from composer.utils.string_enum import StringEnum
 
@@ -91,6 +91,7 @@ def export_for_inference(
     dynamic_axes: Optional[Any] = None,
     surgery_algs: Optional[Union[Callable[[nn.Module], nn.Module], Sequence[Callable[[nn.Module], nn.Module]]]] = None,
     transforms: Optional[Sequence[Transform]] = None,
+    onnx_opset_version: Optional[int] = None,
     load_path: Optional[str] = None,
     load_object_store: Optional[ObjectStore] = None,
     load_strict: bool = False,
@@ -120,6 +121,8 @@ def export_for_inference(
         transforms (Sequence[Transform], optional): transformations (usually optimizations) that should
             be applied to the model. Each Transform should be a callable that takes a model and returns a modified model.
             ``transforms`` are applied after ``surgery_algs``. (default: ``None``)
+        onnx_opset_version (int, optional): The opset version ONNX should use for exporting. Only used if save_format is ``"onnx"``.
+            Defaults to Pytorch's default torch.onnx.export opset version, which changes by PyTorch version. (default: ``None``)
         load_path (str): The path to an existing checkpoint file.
             It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
             for a checkpoint in a cloud bucket. For example, run_name/checkpoints/ep0-ba4-rank0. (default: ``None``)
@@ -141,6 +144,12 @@ def export_for_inference(
     if is_model_ddp(model):
         raise ValueError(
             f'Directly exporting a DistributedDataParallel model is not supported. Export the module instead.')
+
+    if is_model_fsdp(model):
+        raise ValueError(
+            'Directly exporting a FSDP wrapped module is not supported as the model is deepcopied to avoid '
+            'side-effects, and FSDP does not support deepcopying. To export the model, load it without FSDP '
+            'wrapping.')
 
     # Only rank0 exports the model
     if dist.get_global_rank() != 0:
@@ -172,7 +181,7 @@ def export_for_inference(
                                                                  node_checkpoint_folder=tempdir,
                                                                  object_store=load_object_store,
                                                                  progress_bar=True)
-            state_dict = torch.load(composer_states_filepath, map_location='cpu')
+            state_dict = safe_torch_load(composer_states_filepath)
             missing_keys, unexpected_keys = model.load_state_dict(state_dict['state']['model'], strict=load_strict)
             if len(missing_keys) > 0:
                 log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
@@ -235,7 +244,7 @@ def export_for_inference(
                     input_names=input_names,
                     output_names=['output'],
                     dynamic_axes=dynamic_axes,
-                    opset_version=13,
+                    opset_version=onnx_opset_version,
                 )
 
             # upload if required.

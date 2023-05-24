@@ -65,10 +65,7 @@ def test_streaming_datasets(num_workers, dataset, dataset_args, seed, tiny_bert_
                                              batch_size=4,
                                              **dataset_args)
 
-    pretraining_metrics = [
-        LanguageCrossEntropy(ignore_index=-100, vocab_size=tiny_bert_tokenizer.vocab_size),
-        MaskedAccuracy(ignore_index=-100)
-    ]
+    pretraining_metrics = [LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100)]
     model = HuggingFaceModel(model=tiny_bert_model, use_logits=True, metrics=pretraining_metrics)
     collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer,
                                                             mlm_probability=0.15) if dataset != 'enwiki' else None

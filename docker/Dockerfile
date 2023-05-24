@@ -15,20 +15,20 @@ ARG BASE_IMAGE=${CUDA_VERSION:+"nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu2
 ARG BASE_IMAGE=${BASE_IMAGE:-"ubuntu:20.04"}
 
 # The Python version to install
-ARG PYTHON_VERSION=3.9
+ARG PYTHON_VERSION=3.10
 
 # The Pytorch Version to install
-ARG PYTORCH_VERSION=1.11.0
+ARG PYTORCH_VERSION=1.13.1
 
 # The Torchvision version to install.
 # Reference https://github.com/pytorch/vision#installation to determine the Torchvision
 # version that corresponds to the PyTorch version
-ARG TORCHVISION_VERSION=0.12.0
+ARG TORCHVISION_VERSION=0.14.1
 
 # The Torchtext version to install.
 # Reference https://github.com/pytorch/text#installation to determine the Torchtext
 # version that corresponds to the PyTorch version
-ARG TORCHTEXT_VERSION=0.12.0
+ARG TORCHTEXT_VERSION=0.14.1
 
 # In the Dockerimage, Pillow-SIMD is installed instead of Pillow. To trick pip into thinking that
 # Pillow is also installed (so it won't override it with a future pip install), a Pillow stub is included
@@ -47,6 +47,9 @@ ARG AWS_OFI_NCCL_VERSION=v1.5.0-aws
 
 # Upgrade certifi to resolve CVE-2022-23491
 ARG CERTIFI_VERSION='>=2022.12.7'
+
+# Upgrade ipython to resolve CVE-2023-24816
+ARG IPYTHON_VERSION='>=8.10.0'
 
 # Upgrade urllib to resolve CVE-2021-33503
 ARG URLLIB3_VERSION='>=1.26.5,<2'
@@ -286,8 +289,13 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
 # Install Flash Attention
 ##########################
 RUN if [ -n "$CUDA_VERSION" ] ; then \
-        pip${PYTHON_VERSION} install --no-cache-dir flash-attn==0.2.8; \
+        pip${PYTHON_VERSION} install --no-cache-dir flash-attn==1.0.3.post0; \
     fi
+
+###############
+# Install cmake
+###############
+RUN pip${PYTHON_VERSION} install --no-cache-dir cmake==3.26.3
 
 ###########################
 # Install Pandoc Dependency
@@ -340,8 +348,10 @@ RUN apt-get update && \
 #########################
 # Upgrade pip packages
 #########################
-RUN pip install --no-cache-dir --upgrade urllib3${URLLIB3_VERSION} \
-        certifi${CERTIFI_VERSION}
+RUN pip install --no-cache-dir --upgrade \
+        certifi${CERTIFI_VERSION} \
+        ipython${IPYTHON_VERSION} \
+        urllib3${URLLIB3_VERSION}
 
 
 ######################
@@ -376,7 +386,7 @@ ARG CUDA_VERSION
 RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
     MMCV_TORCH_VERSION=$(python -c "print('torch' + ''.join('${PYTORCH_VERSION}'.split('.')[:2]) + '.0')") && \
     sudo pip${PYTHON_VERSION} install --no-cache-dir \
-        "https://github.com/libffcv/ffcv/archive/f9726ce2be6c36d57ed596b94e1e855131f0d732.zip" \
+        "ffcv<1.0.3" \
         "opencv-python${OPENCV_VERSION}" \
         "numba${NUMBA_VERSION}" \
         "mmsegmentation${MMSEGMENTATION_VERSION}" && \

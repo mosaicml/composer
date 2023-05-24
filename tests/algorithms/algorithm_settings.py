@@ -268,6 +268,18 @@ def get_algs_with_marks():
             marks.append(
                 pytest.mark.filterwarnings(
                     r'ignore:Detected call of `lr_scheduler.step\(\)` before `optimizer.step\(\)`:UserWarning'))
+            marks.append(
+                pytest.mark.filterwarnings('ignore:SWA has known issues when resuming from a checkpoint.*:UserWarning'))
+
+        if alg_cls == GyroDropout:
+            marks.append(
+                pytest.mark.filterwarnings(
+                    'ignore:GyroDropout is not implemented in a way that allows correct resumption.*:UserWarning'))
+
+        if alg_cls == SAM:
+            marks.append(
+                pytest.mark.filterwarnings(
+                    'ignore:SAM has known issues of weight mismatch when loading from a checkpoint.*:UserWarning'))
 
         if alg_cls == MixUp:
             # TODO(Landen): Fix
@@ -277,6 +289,11 @@ def get_algs_with_marks():
         if alg_cls == FusedLayerNorm:
             # FusedLayerNorm requires a GPU in order for the class to exist
             marks.append(pytest.mark.gpu)
+
+        if alg_cls == SelectiveBackprop:
+            marks.append(
+                pytest.mark.filterwarnings(
+                    r'ignore:Cannot split tensor of length .* into batches of size .*:UserWarning'))
 
         if settings is None:
             marks.append(pytest.mark.xfail(reason=f'Algorithm {alg_cls.__name__} is missing settings.'))

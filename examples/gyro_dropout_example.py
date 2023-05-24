@@ -65,10 +65,10 @@ class VGG13Model(composer.models.ComposerClassifier):
             nn.Linear(512, 512),
             nn.ReLU(True),
             nn.Dropout(),
-            nn.Linear(512, 10),
+            nn.Linear(512, num_classes),
         )
 
-        super().__init__(module=module)
+        super().__init__(module=module, num_classes=num_classes)
 
 
 # Your custom train dataloader

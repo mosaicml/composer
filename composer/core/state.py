@@ -8,6 +8,7 @@ import collections.abc
 import logging
 import textwrap
 import warnings
+from collections import OrderedDict
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
 
@@ -26,6 +27,7 @@ from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit
 from composer.devices import Device
 from composer.utils import batch_get, batch_set, dist, ensure_tuple, get_composer_env_dict, is_model_deepspeed
+from composer.utils.misc import using_torch_2
 
 if TYPE_CHECKING:
     import deepspeed
@@ -118,6 +120,20 @@ def fsdp_get_optim_state_dict(model: torch.nn.Module,
     if version.parse(torch.__version__) < version.parse('1.13.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+    if not using_torch_2():
+        optim_state_dict = _legacy_fsdp_get_optim_state_dict(model, optim, state_dict_type)
+    else:
+        with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
+            optim_state_dict = FSDP.optim_state_dict(model, optim)  # type: ignore
+    return optim_state_dict
+
+
+def _legacy_fsdp_get_optim_state_dict(model: torch.nn.Module,
+                                      optim: torch.optim.Optimizer,
+                                      state_dict_type: str = 'full') -> Dict[str, Any]:
+    if version.parse(torch.__version__) < version.parse('1.13.0'):
+        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
+    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
     if state_dict_type == 'full':
         # Converts local state dict to full.
         return FSDP.full_optim_state_dict(model=model, optim=optim)
@@ -131,10 +147,40 @@ def fsdp_get_optim_state_dict(model: torch.nn.Module,
         raise NotImplementedError(f'No valid FSDP state_dict_type for {state_dict_type}')
 
 
+def _legacy_optim_state_dict_to_load(
+    optim_state_dict: Dict[str, Any],
+    model: torch.nn.Module,
+    optim: torch.optim.Optimizer,
+    state_dict_type: str = 'full',
+):
+    if version.parse(torch.__version__) < version.parse('1.13.0'):
+        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
+    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+    if state_dict_type == 'sharded':
+        # Optimizer and optimizer state dict are already sharded, but not
+        # flattened, so we flatten the state dict then load it.
+        flattened_optim_state_dict = FSDP.flatten_sharded_optim_state_dict(sharded_optim_state_dict=optim_state_dict,
+                                                                           model=model,
+                                                                           optim=optim)
+        return flattened_optim_state_dict
+    elif state_dict_type == 'local':
+        # Optimizer and optimizer state dict are already sharded and flattened,
+        # so just load the state_dict.
+        return optim_state_dict
+    else:  # fsdp_state_dict_type == 'full'
+        # FSDP enabled, but fsdp_state_dict is set to 'full', so the state dict
+        # is a full state dict and we must shard and flatten it first before loading it.
+        sharded_optim_state_dict = FSDP.scatter_full_optim_state_dict(full_optim_state_dict=optim_state_dict,
+                                                                      model=model)
+        return sharded_optim_state_dict
+
+
 def get_fsdp_sharded_optim_state_dict(full_optim_state_dict: Dict[str, Any], model: torch.nn.Module):
     if version.parse(torch.__version__) < version.parse('1.13.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+    log.debug(
+        f'Scattering optimizer state dict with keys {full_optim_state_dict.keys()} and model of type {type(model)}')
     return FSDP.scatter_full_optim_state_dict(full_optim_state_dict=full_optim_state_dict, model=model)
 
 
@@ -149,12 +195,12 @@ def _ensure_backwards_compatible_checkpointing(state_dict: Dict[str, Any]):
     # v0.4.1 removed the leading underscores for the keys in the state_dict
     # It also renamed _is_model_ddp_wrapped to is_model_ddp
     state = {}
-    for k, v in state_dict.items():
-        if k == '_is_model_ddp_wrapped':
-            k = 'is_model_ddp'
-        if k.startswith('_'):
-            k = k[1:]
-        state[k] = v
+    for attribute_name, serialized_value in state_dict.items():
+        if attribute_name == '_is_model_ddp_wrapped':
+            attribute_name = 'is_model_ddp'
+        if attribute_name.startswith('_'):
+            attribute_name = attribute_name[1:]
+        state[attribute_name] = serialized_value
     return state
 
 
@@ -190,13 +236,8 @@ class State(Serializable):
             ``rank_zero_seed + dist.get_global_rank()``.
         run_name (str): The name for this training run.
         device (Device): The device used by this process. The trainer moves the model and loaded data to this device.
-        grad_accum (int, optional): The number of gradient accumulation steps to use. With this argument, micro batch
-            size for each device becomes ``microbatch_size = train_batch_size / (num_devices * grad_accum)``.
-        eval_batch_split (int, optional): The mirror of grad_accum for eval. With this argument, micro batch
-            size for each device becomes ``microbatch_size = eval_batch_size / (num_devices * eval_batch_split)``.
         device_train_microbatch_size (int, optional): The microbatch size for each device during training.
         auto_microbatching (bool, optional): Whether automatic microbatching is enabled.
-        using_device_microbatch_size (bool, optional): Whether device_train_microbatch_size is set by the user.
         train_dataloader (Iterable, optional): Dataloader used for training
         evaluators (Evaluator | Evaluators, optional): :class:`.Evaluator` used for evaluation.
         dataloader (Iterable, optional): The active DataLoader.
@@ -240,17 +281,16 @@ class State(Serializable):
             ... )
             >>> trainer.fit()
             >>> trainer.state.train_metrics
-            {'Accuracy': Accuracy()}
+            {'MulticlassAccuracy': MulticlassAccuracy()}
 
         eval_metrics (Dict[str, Dict[str, Metric]]): The current evaluation metrics, organized
             by dataloader label and then by metric name. If not using an :class:`.Evaluator`,
             the eval dataloader is labeled ``'eval'``. Otherwise, in the case of having multiple evaluation datasets,
-            the evaluator label is used. See the `Multiple Datasets Documentation <https://docs.mosaicml.com/en/stable/trainer/evaluation.html#multiple-datasets>`_
+            the evaluator label is used. See the `Multiple Datasets Documentation <https://docs.mosaicml.com/projects/composer/en/stable/trainer/evaluation.html#multiple-datasets>`_
             for more information. ``eval_metrics`` will be deep-copied to ensure that each evaluator updates only its ``eval_metrics``.
 
             For example:
-            >>> from torchmetrics import Accuracy
-            >>> from composer.metrics.metrics import CrossEntropy
+            >>> from composer.metrics import CrossEntropy
             >>> trainer = Trainer(
             ...     ...,
             ...     train_dataloader=train_dataloader,
@@ -258,7 +298,7 @@ class State(Serializable):
             ... )
             >>> trainer.fit()
             >>> trainer.state.eval_metrics
-            {'eval': {'CrossEntropy': CrossEntropy(), 'Accuracy': Accuracy()}}
+            {'eval': {'CrossEntropy': CrossEntropy(), 'MulticlassAccuracy': MulticlassAccuracy()}}
 
             Or, when using an :class:`.Evaluator` for multiple evaluation datasets:
 
@@ -267,23 +307,21 @@ class State(Serializable):
                 eval_1_dl = eval_dataloader
                 eval_2_dl = eval_dataloader
 
-            >>> from torchmetrics import Accuracy
             >>> from composer.core import Evaluator
             >>> trainer = Trainer(
             ...     ...,
             ...     train_dataloader=train_dataloader,
             ...     eval_dataloader=[
-            ...         Evaluator(label='eval1', dataloader=eval_1_dl, metric_names=['Accuracy']),
-            ...         Evaluator(label='eval2', dataloader=eval_2_dl, metric_names=['Accuracy']),
+            ...         Evaluator(label='eval1', dataloader=eval_1_dl, metric_names=['MulticlassAccuracy']),
+            ...         Evaluator(label='eval2', dataloader=eval_2_dl, metric_names=['MulticlassAccuracy']),
             ...     ],
             ... )
             >>> trainer.fit()
             >>> trainer.state.eval_metrics
-            {'eval1': {'Accuracy': Accuracy()}, 'eval2': {'Accuracy': Accuracy()}}
+            {'eval1': {'MulticlassAccuracy': MulticlassAccuracy()}, 'eval2': {'MulticlassAccuracy': MulticlassAccuracy()}}
         eval_timestamp (Timestamp): The timestamp for the current evaluation dataloader. This timestamp is reset
             before the dataloader is evaluated. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
             ``0``.
-        grad_accum (int): The number of gradient accumulation steps per batch.
         device_train_microbatch_size (int): The size of each train microbatch per device.
         loss (torch.Tensor | Sequence[torch.Tensor]): The most recently computed loss.
         model (torch.nn.Module): The training model.
@@ -357,11 +395,8 @@ class State(Serializable):
         max_duration: Optional[Union[str, Time[int]]] = None,
 
         # data configurations
-        grad_accum: Optional[int] = 1,
-        eval_batch_split: int = 1,
         device_train_microbatch_size: Optional[int] = None,
         auto_microbatching: bool = False,
-        using_device_microbatch_size: bool = True,
 
         # dataloaders
         train_dataloader: Optional[Iterable] = None,
@@ -396,11 +431,8 @@ class State(Serializable):
         self.model = model
         self.run_name = run_name
         self.device = device
-        self.grad_accum = grad_accum
-        self.eval_batch_split = eval_batch_split
         self.device_train_microbatch_size = device_train_microbatch_size
         self.auto_microbatching = auto_microbatching
-        self.using_device_microbatch_size = using_device_microbatch_size
         self._dataloader_len = None
         self._dataloader = None
         self._dataloader_label = None
@@ -413,6 +445,7 @@ class State(Serializable):
         self._train_dataloader = train_dataloader
         self._evaluators = list(ensure_tuple(evaluators))
 
+        self.previous_timestamp: Optional[Timestamp] = None
         self.timestamp = Timestamp()
         self.eval_timestamp = Timestamp()
         self.predict_timestamp = Timestamp()
@@ -440,6 +473,11 @@ class State(Serializable):
                 self.fsdp_state_dict_type = self.fsdp_config.get('state_dict_type', 'full')
             else:
                 self.fsdp_state_dict_type = 'full'
+
+        self.sharded_ckpt_prefix_dir: Optional[str] = None
+
+        if self.fsdp_config is not None:
+            self.sharded_ckpt_prefix_dir = self.fsdp_config.get('sharded_ckpt_prefix_dir', 'ep{epoch}-ba{batch}')
 
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None
@@ -526,13 +564,6 @@ class State(Serializable):
                 dataset.load_state_dict(self.dataset_state['train'])  # pyright: ignore
                 self.dataset_resumption['train'] = True
             self.dataset_state['train'] = None
-
-    @property
-    def current_metrics(self):
-        warnings.warn(
-            'The ``current_metrics`` argument for a :class:`Trainer`. state is deprecated and will be removed in the future. Please use ``train_metrics`` and'
-            '``eval_metrics`` instead.')
-        return {'train': self.train_metrics, **self.eval_metrics}
 
     @property
     def seed(self):
@@ -699,6 +730,8 @@ class State(Serializable):
         integrations = {}
         if isinstance(self.model, HuggingFaceModel):
             integrations['huggingface'] = self.model.get_metadata()
+        elif self.is_model_ddp and isinstance(self.model.module, HuggingFaceModel):
+            integrations['huggingface'] = self.model.module.get_metadata()
         return integrations
 
     def _get_state_metadata(self) -> Dict[str, Any]:
@@ -783,6 +816,27 @@ class State(Serializable):
                 serialized_value = [(type(obj).__qualname__, obj.state_dict()) for obj in ensure_tuple(attribute_value)]
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                 serialized_value = {type(obj).__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)}
+            elif attribute_name == 'train_metrics':
+                serialized_value = {}
+                for k, v in attribute_value.items():
+                    # No need to use __qualname__, we already know this corresponds to
+                    # a metric object when we deserialize.
+                    # Along with the rest of a Composer checkpoint, the state_dict() and _computed attributes of
+                    # a Torchmetrics object are enough information to recreate it upon serialization. We only serialize
+                    # the minimum metric information to maximize backwards compatibility --- old checkpoints
+                    # will continue to be compatible even if other Torchmetrics attributes have changed.
+                    # metric._computed stores the cached value of the previous metric computation
+                    # We need to serialize this because it cannot always be recomputed from the state dict.
+                    # See https://torchmetrics.readthedocs.io/en/stable/pages/implement.html#torchmetrics.Metric for more details
+                    v.persistent(mode=True)
+                    serialized_value[k] = {'state_dict': v.state_dict(), '_computed': v._computed}
+            elif attribute_name == 'eval_metrics':
+                serialized_value = {}
+                for eval_key, eval_metrics in attribute_value.items():
+                    serialized_value[eval_key] = {}
+                    for k, v in eval_metrics.items():
+                        v.persistent(mode=True)
+                        serialized_value[eval_key][k] = {'state_dict': v.state_dict(), '_computed': v._computed}
             else:
                 serialized_value = attribute_value
 
@@ -928,14 +982,31 @@ class State(Serializable):
             # with the `module.` prefix
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
 
-        if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
-            with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
+        try:
+            if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
+                with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
+                    missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
+            else:
                 missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
-        else:
-            missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
+        except RuntimeError as e:
+            if 'Missing key(s) in state_dict' in str(e) or 'Unexpected key(s) in state_dict' in str(e):
+                raise RuntimeError(
+                    textwrap.dedent('Failed to load checkpoint due to missing or unexpected keys in state_dict. '
+                                    'This is likely due to a change in the model architecture. If this is intentional, '
+                                    'you can set load_strict_model_weights=False in the Trainer.')) from e
+            else:
+                raise e
+
         if len(missing_keys) > 0:
             log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
         if len(unexpected_keys) > 0:
+            if self.fsdp_config is not None and self.fsdp_config.get(
+                    'use_orig_params') and self.fsdp_state_dict_type == 'local':
+                log.warning(
+                    'You are using use_orig_params=True and fsdp_state_dict_type=local. '
+                    'This results in both the original parameters and the flat parameters being '
+                    'in the state dict. If you see a warning with unexpected keys ending in ._flat_param, the model'
+                    'was still loaded correctly.')
             log.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
 
     def load_optim_state(self, state_dict: Dict[str, Any]):
@@ -953,28 +1024,23 @@ class State(Serializable):
                 continue
             optim_state_dict = serialized_value[type(optimizer).__qualname__]
             if self.fsdp_enabled:
-                if self.fsdp_state_dict_type == 'sharded':
-                    if version.parse(torch.__version__) < version.parse('1.13.0'):
-                        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-                    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-
-                    # Optimizer and optimizer state dict are already sharded, but not
-                    # flattened, so we flatten the state dict then load it.
-                    flattened_optim_state_dict = FSDP.flatten_sharded_optim_state_dict(
-                        sharded_optim_state_dict=optim_state_dict, model=self.model, optim=optimizer)
-                    optimizer.load_state_dict(flattened_optim_state_dict)
-                elif self.fsdp_state_dict_type == 'local':
-                    # Optimizer and optimizer state dict are already sharded and flattened,
-                    # so just load the state_dict.
-                    optimizer.load_state_dict(optim_state_dict)
-                else:  # fsdp_state_dict_type == 'full'
-                    # FSDP enabled, but fsdp_state_dict is set to 'full', so the state dict
-                    # is a full state dict and we must shard and flatten it first before loading it.
-                    sharded_optim_state_dict = get_fsdp_sharded_optim_state_dict(full_optim_state_dict=optim_state_dict,
-                                                                                 model=self.model)
-                    optimizer.load_state_dict(sharded_optim_state_dict)
-            # No FSDP, so just load the optim state dict.
+                assert self.fsdp_state_dict_type is not None  # pyright
+                if version.parse(torch.__version__) < version.parse('1.13.0'):
+                    raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
+                from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+                log.debug(f'Loading FSDP optimizer with fsdp_state_dict_type={self.fsdp_state_dict_type}')
+                if not using_torch_2():
+                    optim_state_dict = _legacy_optim_state_dict_to_load(optim_state_dict=optim_state_dict,
+                                                                        model=self.model,
+                                                                        optim=optimizer,
+                                                                        state_dict_type=self.fsdp_state_dict_type)
+                else:
+                    with fsdp_state_dict_type_context(module=self.model, state_dict_type=self.fsdp_state_dict_type):
+                        optim_state_dict = FSDP.optim_state_dict_to_load(  #  type: ignore
+                            optim_state_dict=optim_state_dict, model=self.model, optim=optimizer)
+                optimizer.load_state_dict(optim_state_dict)
             else:
+                log.debug(f'Loading optimizer state dict')
                 optimizer.load_state_dict(optim_state_dict)
 
     def _load_dataset_state(self, obj: Dict[str, Any]) -> None:
@@ -1047,6 +1113,8 @@ class State(Serializable):
             if attribute_name == 'metadata':
                 continue
 
+            log.debug(f'Loading {attribute_name} into state.')
+
             # Restructure algorithms serialized_value from list to dict
             if attribute_name == 'algorithms' and isinstance(serialized_value, list):
                 serialized_value = {algo_name: algo_serialized for algo_name, algo_serialized in serialized_value}
@@ -1056,16 +1124,83 @@ class State(Serializable):
             elif attribute_name == 'optimizers':
                 self.load_optim_state(state)
             elif attribute_name == 'train_metrics':
+                # Get current metrics object and populate each metric present
+                # in serialization with serialized data via load_state_dict()
                 state_field_value = getattr(self, attribute_name)
-                for metric_name, metric in serialized_value.items():
-                    state_field_value[metric_name] = metric
-                    metric._device = self.device._device
+                for metric_name in state_field_value.keys():
+                    if metric_name not in serialized_value:
+                        continue
+                    # Increment _update_count so it is non-zero, preventing Torchmetrics from warning us when we call metric.compute()
+                    state_field_value[metric_name]._update_count += 1
+                    if isinstance(serialized_value[metric_name], Metric):
+                        # For checkpoints saved using Composer <= 0.13.5
+                        serialized_value[metric_name].persistent(mode=True)
+                        # Add new attr in torch2
+                        serialized_value[metric_name]._state_dict_pre_hooks = OrderedDict()
+                        metric_state_dict = serialized_value[metric_name].state_dict()
+                        metric_computed_field = serialized_value[metric_name]._computed
+                    elif isinstance(serialized_value[metric_name], dict):
+                        # For checkpoints saved using Composer >= 0.14
+                        metric_state_dict = serialized_value[metric_name]['state_dict']
+                        metric_computed_field = serialized_value[metric_name]['_computed']
+                    else:
+                        raise ValueError(
+                            'Error while loading train metric. Train metric from serialization is neither a Torchmetrics Metric object nor a dictionary.'
+                        )
+                    missing_keys, unexpected_keys = state_field_value[metric_name].load_state_dict(metric_state_dict,
+                                                                                                   strict=False)
+                    state_field_value[metric_name]._computed = metric_computed_field
+                    state_field_value[metric_name].persistent(mode=True)
+                    self.device.module_to_device(state_field_value[metric_name])
+                    if len(missing_keys) > 0:
+                        warnings.warn(
+                            f"While loading train metric: {metric_name}, missing these keys:  {', '.join(missing_keys)}"
+                        )
+                    if len(unexpected_keys) > 0:
+                        warnings.warn(
+                            f"While loading train metric: {metric_name}, found these unexpected keys:  {', '.join(unexpected_keys)}"
+                        )
             elif attribute_name == 'eval_metrics':
+                # Get current metrics object and populate each metric present
+                # in serialization with serialized data via load_state_dict()
                 state_field_value = getattr(self, attribute_name)
-                for eval_key, eval_metrics in serialized_value.items():
-                    for metric_name, metric in eval_metrics.items():
-                        state_field_value[eval_key][metric_name] = metric
-                        metric._device = self.device._device
+                for eval_key in state_field_value.keys():
+                    if eval_key not in serialized_value:
+                        continue
+                    for metric_name in state_field_value[eval_key].keys():
+                        if metric_name not in serialized_value[eval_key]:
+                            continue
+                        # Increment _update_count so it is non-zero, preventing Torchmetrics from warning us when we call metric.compute()
+                        state_field_value[eval_key][metric_name]._update_count += 1
+                        if isinstance(serialized_value[eval_key][metric_name], Metric):
+                            # For checkpoints saved using Composer <= 0.13.5
+                            serialized_value[eval_key][metric_name].persistent(mode=True)
+                            # Add new attr in torch2
+                            serialized_value[eval_key][metric_name]._state_dict_pre_hooks = OrderedDict()
+                            eval_metric_state_dict = serialized_value[eval_key][metric_name].state_dict()
+                            eval_metric_computed_field = serialized_value[eval_key][metric_name]._computed
+                        elif isinstance(serialized_value[eval_key][metric_name], dict):
+                            # For checkpoints saved using Composer >= 0.14
+                            eval_metric_state_dict = serialized_value[eval_key][metric_name]['state_dict']
+                            eval_metric_computed_field = serialized_value[eval_key][metric_name]['_computed']
+                        else:
+                            raise ValueError(
+                                'Error while loading evaluation metric. Evaluation metric from serialization is neither a Torchmetrics Metric object nor a dictionary.'
+                            )
+                        missing_keys, unexpected_keys = state_field_value[eval_key][metric_name].load_state_dict(
+                            eval_metric_state_dict, strict=False)
+                        state_field_value[eval_key][metric_name]._computed = eval_metric_computed_field
+                        state_field_value[eval_key][metric_name].persistent(mode=True)
+                        self.device.module_to_device(state_field_value[eval_key][metric_name])
+                        if len(missing_keys) > 0:
+                            warnings.warn(
+                                f"While loading evaluation metric: {metric_name} for eval dataloader {eval_key}, missing these keys: {', '.join(missing_keys)}"
+                            )
+                        if len(unexpected_keys) > 0:
+                            warnings.warn(
+                                f"While loading evaluation metric: {metric_name} for eval dataloader {eval_key}, found these unexpected keys: {', '.join(unexpected_keys)}"
+                            )
+
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                 state_field_value = getattr(self, attribute_name)
                 for target in ensure_tuple(state_field_value):

@@ -33,7 +33,7 @@ class Event(StringEnum):
 
                 # <BEFORE_TRAIN_BATCH>
 
-                for microbatch in batch.split(grad_accum):
+                for microbatch in batch.split(device_train_microbatch_size):
 
                     # <BEFORE_FORWARD>
                     outputs = model(batch)
@@ -47,7 +47,7 @@ class Event(StringEnum):
                     loss.backward()
                     # <AFTER_BACKWARD>
 
-                # Un-scale and clip gradients
+                # Un-scale gradients
 
                 # <AFTER_TRAIN_BATCH>
                 optimizer.step()

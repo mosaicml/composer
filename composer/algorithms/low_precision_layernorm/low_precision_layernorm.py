@@ -89,17 +89,19 @@ class LowPrecisionLayerNorm(Algorithm):
 class LPLayerNorm(torch.nn.LayerNorm):
 
     def __init__(self, normalized_shape, eps=1e-05, elementwise_affine=True, device=None, dtype=None):
-        super().__init__(normalized_shape=normalized_shape,
-                         eps=eps,
-                         elementwise_affine=elementwise_affine,
-                         device=device,
-                         dtype=dtype)
+        super().__init__(
+            normalized_shape=normalized_shape,
+            eps=eps,
+            elementwise_affine=elementwise_affine,
+            device=device,
+            dtype=dtype,
+        )
 
     def forward(self, x):
         module_device = x.device
         downcast_x = _cast_if_autocast_enabled(x)
-        downcast_weight = _cast_if_autocast_enabled(self.weight)
-        downcast_bias = _cast_if_autocast_enabled(self.bias)
+        downcast_weight = _cast_if_autocast_enabled(self.weight) if self.weight is not None else self.weight
+        downcast_bias = _cast_if_autocast_enabled(self.bias) if self.bias is not None else self.bias
         with torch.autocast(enabled=False, device_type=module_device.type):
             return F.layer_norm(downcast_x, self.normalized_shape, downcast_weight, downcast_bias, self.eps)
 
@@ -127,11 +129,18 @@ def _to_LPLayerNorm(layer: torch.nn.Module, module_index: int) -> LPLayerNorm:
     """Defines a replacement policy from a `torch.nn.LayerNorm` to a `LPLayerNorm`"""
     if not isinstance(layer, torch.nn.LayerNorm):
         raise TypeError(f'Expected torch.nn.LayerNorm, got {type(layer)}')
-    lp_layernorm = LPLayerNorm(layer.normalized_shape, layer.eps, layer.elementwise_affine, layer.weight.device,
-                               layer.weight.dtype)
+    lp_layernorm = LPLayerNorm(layer.normalized_shape, layer.eps, layer.elementwise_affine)
+
     with torch.no_grad():
-        lp_layernorm.weight.copy_(layer.weight)
-        lp_layernorm.bias.copy_(layer.bias)
+        if layer.weight is None:
+            lp_layernorm.register_parameter('weight', None)
+        else:
+            lp_layernorm.weight.copy_(layer.weight)  # type: ignore
+        if layer.bias is None:
+            lp_layernorm.register_parameter('bias', None)
+        else:
+            lp_layernorm.bias.copy_(layer.bias)  # type: ignore
+
     return lp_layernorm
 
 
@@ -140,7 +149,15 @@ def _to_FusedLayerNorm(layer: torch.nn.Module, module_index: int) -> APEXFusedLa
     if not isinstance(layer, torch.nn.LayerNorm):
         raise TypeError(f'Expected torch.nn.LayerNorm, got {type(layer)}')
     fused_layernorm = APEXFusedLayerNorm(normalized_shape=layer.normalized_shape, eps=layer.eps)
+
     with torch.no_grad():
-        fused_layernorm.weight.copy_(layer.weight)
-        fused_layernorm.bias.copy_(layer.bias)
+        if layer.weight is None:
+            fused_layernorm.weight = None
+        else:
+            fused_layernorm.weight.copy_(layer.weight)
+        if layer.bias is None:
+            fused_layernorm.bias = None
+        else:
+            fused_layernorm.bias.copy_(layer.bias)
+
     return fused_layernorm

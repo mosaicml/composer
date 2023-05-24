@@ -46,7 +46,7 @@ class WandBLogger(LoggerDestination):
             highly recommended to log on all ranks.  Artifacts from ranks ≥1 will not be
             stored, which may discard pertinent information. For example, when using
             Deepspeed ZeRO, it would be impossible to restore from checkpoints without
-            artifacts from all ranks (default: ``False``).
+            artifacts from all ranks (default: ``True``).
         init_kwargs (Dict[str, Any], optional): Any additional init kwargs
             ``wandb.init`` (see
             `WandB documentation <https://docs.wandb.ai/ref/python/init>`_).
@@ -107,6 +107,7 @@ class WandBLogger(LoggerDestination):
         self.project = project
 
         self.run_dir: Optional[str] = None
+        self.run_url: Optional[str] = None
 
     def _set_is_in_atexit(self):
         self._is_in_atexit = True
@@ -204,6 +205,7 @@ class WandBLogger(LoggerDestination):
             assert wandb.run is not None, 'The wandb run is set after init'
             entity_and_project = [str(wandb.run.entity), str(wandb.run.project)]
             self.run_dir = wandb.run.dir
+            self.run_url = wandb.run.get_url()
             atexit.register(self._set_is_in_atexit)
         else:
             entity_and_project = [None, None]

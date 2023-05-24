@@ -2,6 +2,9 @@ name: Pytest GPU
 on:
   workflow_call:
     inputs:
+      composer_package_name:
+        required: true
+        type: string
       container:
         required: true
         type: string
@@ -51,8 +54,7 @@ jobs:
       - name: Setup MCLI
         run: |
           set -ex
-          python -m pip install --upgrade mosaicml-cli
-          mcli init --mcloud
+          python -m pip install mosaicml-cli
           mcli version
       - name: Submit Run
         id: tests
@@ -73,4 +75,4 @@ jobs:
             REF_ARGS="--pr_number $PR_NUMBER"
           fi
 
-          python .github/mcp/mcp_pytest.py --image '${{ inputs.container }}' --pytest_markers '${{ inputs.pytest-markers }}' --pytest_command '${{ inputs.pytest-command }}' --timeout ${{ inputs.mcloud-timeout }} ${REF_ARGS}
+          python .github/mcli/mcli_pytest.py --image '${{ inputs.container }}' --pip_package_name '${{ inputs.composer_package_name }}' --pytest_markers '${{ inputs.pytest-markers }}' --pytest_command '${{ inputs.pytest-command }}' --timeout ${{ inputs.mcloud-timeout }} ${REF_ARGS}

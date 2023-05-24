@@ -74,7 +74,7 @@ def dummy_state(
         run_name='dummy_run_name',
         device=device,
         precision='fp32',
-        grad_accum=1,
+        device_train_microbatch_size=1,
         rank_zero_seed=rank_zero_seed,
         optimizers=optimizer,
         max_duration='10ep',
@@ -175,6 +175,7 @@ def tiny_gpt2_config_helper():
         'n_embd': 2,
         'n_head': 2,
         'n_layer': 2,
+        'vocab_size': 50258  # 50257 + 1 for pad token
     }
     return transformers.AutoConfig.from_pretrained('gpt2', **tiny_overrides)
 
@@ -197,8 +198,7 @@ def _session_tiny_gpt2_tokenizer():  # type: ignore
     return tiny_gpt2_tokenizer_helper()
 
 
-@pytest.fixture(scope='session')
-def _session_tiny_t5_config():  # type: ignore
+def tiny_t5_config_helper():
     transformers = pytest.importorskip('transformers')
 
     tiny_overrides = {'d_ff': 128, 'd_model': 64, 'num_layers': 2, 'num_decoder_layers': 2, 'num_heads': 2}
@@ -206,7 +206,11 @@ def _session_tiny_t5_config():  # type: ignore
 
 
 @pytest.fixture(scope='session')
-def _session_tiny_t5_tokenizer():  # type: ignore
+def _session_tiny_t5_config():  # type: ignore
+    return tiny_t5_config_helper()
+
+
+def tiny_t5_tokenizer_helper():
     transformers = pytest.importorskip('transformers')
 
     hf_tokenizer = transformers.AutoTokenizer.from_pretrained('t5-small', model_max_length=512)
@@ -214,10 +218,19 @@ def _session_tiny_t5_tokenizer():  # type: ignore
 
 
 @pytest.fixture(scope='session')
-def _session_tiny_t5_model(_session_tiny_t5_config):  # type: ignore
+def _session_tiny_t5_tokenizer():  # type: ignore
+    return tiny_t5_tokenizer_helper()
+
+
+def tiny_t5_model_helper(config):
     transformers = pytest.importorskip('transformers')
 
-    return transformers.T5ForConditionalGeneration(config=_session_tiny_t5_config)
+    return transformers.T5ForConditionalGeneration(config=config)
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_t5_model(_session_tiny_t5_config):  # type: ignore
+    return tiny_t5_model_helper(_session_tiny_t5_config)
 
 
 @pytest.fixture

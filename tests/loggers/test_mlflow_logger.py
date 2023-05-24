@@ -90,7 +90,8 @@ def test_mlflow_logging_works(tmp_path):
 
     # Test metrics logged.
     for metric_name in [
-            'metrics/train/Accuracy', 'metrics/eval/Accuracy', 'metrics/eval/CrossEntropy', 'loss/train/total'
+            'metrics/train/MulticlassAccuracy', 'metrics/eval/MulticlassAccuracy', 'metrics/eval/CrossEntropy',
+            'loss/train/total'
     ]:
         metric_file = run_file_path / Path('metrics') / Path(metric_name)
         with open(metric_file) as f:
@@ -103,5 +104,5 @@ def test_mlflow_logging_works(tmp_path):
     param_path = run_file_path / Path('params')
     actual_params_list = [param_filepath.stem for param_filepath in param_path.iterdir()]
 
-    expected_params_list = ['num_cpus_per_node', 'num_nodes', 'rank_zero_seed']
-    assert set(actual_params_list) == set(expected_params_list)
+    expected_params_list = ['num_cpus_per_node', 'node_name', 'num_nodes', 'rank_zero_seed']
+    assert set(expected_params_list) == set(actual_params_list)

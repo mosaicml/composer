@@ -6,17 +6,17 @@
 from __future__ import annotations
 
 import math
+import textwrap
 import warnings
 from typing import Any, Callable, Dict, Iterable, List, Optional, Union
-
-from torchmetrics import Metric, MetricCollection
 
 from composer.core.data_spec import DataSpec, ensure_data_spec
 from composer.core.event import Event
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
+from composer.devices import Device, DeviceGPU
 
-__all__ = ['Evaluator', 'evaluate_periodically', 'ensure_evaluator']
+__all__ = ['Evaluator', 'evaluate_periodically', 'ensure_evaluator', 'validate_eval_automicrobatching']
 
 
 def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end: bool = True):
@@ -36,9 +36,6 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
     if isinstance(eval_interval, str):
         eval_interval = Time.from_timestring(eval_interval)
 
-    if eval_interval.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.DURATION):
-        raise ValueError('The `eval_interval` must have units of EPOCH, BATCH, DURATION or be a function.')
-
     last_batch_seen = -1
 
     def should_eval(state: State, event: Event):
@@ -51,17 +48,32 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
         if eval_at_fit_end and event == Event.FIT_END and state.timestamp.batch != last_batch_seen:
             return True
 
-        if eval_interval.unit == TimeUnit.EPOCH and int(
-                state.timestamp.epoch) % int(eval_interval) == 0 and event == Event.EPOCH_END:
+        # Previous timestamp will only be None if training has not started, but we are returning False
+        # in this case, just to be safe
+        if state.previous_timestamp is None:
+            return False
+
+        if eval_interval.unit in {TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE}:
+            previous_count = state.previous_timestamp.get(eval_interval.unit)
+            count = state.timestamp.get(eval_interval.unit)
+        # If the eval_interval is a duration, we will track progress in terms of the unit of max_duration
+        elif eval_interval.unit == TimeUnit.DURATION:
+            assert state.max_duration is not None
+            previous_count = state.previous_timestamp.get(state.max_duration.unit)
+            count = state.timestamp.get(state.max_duration.unit)
+        else:
+            raise ValueError(f'Invalid eval_interval unit: {eval_interval.unit}')
+
+        threshold_passed = math.floor(previous_count / eval_interval.value) != math.floor(count / eval_interval.value)
+
+        if eval_interval.unit == TimeUnit.EPOCH and event == Event.EPOCH_END and threshold_passed:
             last_batch_seen = state.timestamp.batch
             return True
-
-        if eval_interval.unit == TimeUnit.BATCH and int(
-                state.timestamp.batch) % int(eval_interval) == 0 and event == Event.BATCH_END:
+        elif eval_interval.unit in {TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE
+                                   } and event == Event.BATCH_END and threshold_passed:
             last_batch_seen = state.timestamp.batch
             return True
-
-        if eval_interval.unit == TimeUnit.DURATION:
+        elif eval_interval.unit == TimeUnit.DURATION:
             assert state.max_duration is not None, 'max_duration should not be None'
             if state.dataloader_len is None:
                 raise RuntimeError(
@@ -76,16 +88,19 @@ def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end:
                 last_batch_seen = state.timestamp.batch
                 return True
             elif state.max_duration.unit == TimeUnit.SAMPLE and event == Event.BATCH_END:
-                # If last sample in batch is not evenly divisible by eval_interval, perform evaluation in next batch
-                if int(state.timestamp.batch) > 0:
-                    samples_in_a_batch = int(state.timestamp.sample) // int(state.timestamp.batch)
-                    if int(state.timestamp.sample) // math.ceil(state.max_duration.value * eval_interval) != int(
-                            state.timestamp.sample - samples_in_a_batch) // math.ceil(
-                                state.max_duration.value * eval_interval):
-                        last_batch_seen = state.timestamp.batch
-                        return True
+                samples_per_interval = math.ceil(state.max_duration.value * eval_interval)
+                threshold_passed = math.floor(previous_count / samples_per_interval) != math.floor(
+                    count / samples_per_interval)
+                if threshold_passed:
+                    last_batch_seen = state.timestamp.batch
+                    return True
             elif state.max_duration.unit == TimeUnit.TOKEN and event == Event.BATCH_END:
-                raise ValueError(f'Evaluation interval of type `dur` is not supported yet for max_duration as `tok`')
+                tokens_per_interval = math.ceil(state.max_duration.value * eval_interval)
+                threshold_passed = math.floor(previous_count / tokens_per_interval) != math.floor(
+                    count / tokens_per_interval)
+                if threshold_passed:
+                    last_batch_seen = state.timestamp.batch
+                    return True
         return False
 
     return should_eval
@@ -99,16 +114,16 @@ class Evaluator:
     .. doctest::
 
        >>> eval_evaluator = Evaluator(
-       ...     label="myEvaluator",
+       ...     label='myEvaluator',
        ...     dataloader=eval_dataloader,
-       ...     metric_names=['Accuracy']
+       ...     metric_names=['MulticlassAccuracy']
        ... )
        >>> trainer = Trainer(
        ...     model=model,
        ...     train_dataloader=train_dataloader,
        ...     eval_dataloader=eval_evaluator,
        ...     optimizers=optimizer,
-       ...     max_duration="1ep",
+       ...     max_duration='1ep',
        ... )
 
     Args:
@@ -116,7 +131,7 @@ class Evaluator:
         dataloader (DataSpec | Iterable | Dict[str, Any]): Iterable that yields batches, a :class:`.DataSpec`
             for evaluation, or a Dict of :class:`.DataSpec` kwargs.
         metric_names: The list of metric names to compute.
-            Each value in this list can be a regex string (e.g. "Accuracy", "f1" for "BinaryF1Score",
+            Each value in this list can be a regex string (e.g. "MulticlassAccuracy", "f1" for "BinaryF1Score",
             "Top-." for "Top-1", "Top-2", etc). Each regex string will be matched against the keys of the dictionary returned
             by ``model.get_metrics()``. All matching metrics will be evaluated.
 
@@ -140,6 +155,9 @@ class Evaluator:
 
             When specifying ``eval_interval``, the evaluator(s) are also run at the ``Event.FIT_END`` if it doesn't
             evenly divide the training duration.
+        device_eval_microbatch_size (int, optional): The number of samples to use for each microbatch when evaluating.
+            If set to ``auto``, dynamically decreases device_eval_microbatch_size if microbatch is too large for GPU.
+            If None, sets `device_eval_microbatch_size` to per rank batch size. (default: ``None``)
     """
 
     def __init__(
@@ -148,30 +166,28 @@ class Evaluator:
         label: str,
         dataloader: Union[DataSpec, Iterable, Dict[str, Any]],
         metric_names: Optional[List[str]] = None,
-        metrics: Optional[Union[Metric, MetricCollection]] = None,
         subset_num_batches: Optional[int] = None,
         eval_interval: Optional[Union[int, str, Time, Callable[[State, Event], bool]]] = None,
+        device_eval_microbatch_size: Optional[Union[int, str]] = None,
     ):
         self.label = label
         self.dataloader = ensure_data_spec(dataloader)
 
         self.metric_names = []
-        if metric_names is not None and metrics is not None:
-            raise ValueError('only one of ``metrics`` or ``metric_names`` should be specified.')
-        elif metric_names is not None:
+        if metric_names is not None:
             if not isinstance(metric_names, list):
                 raise ValueError(f'``metric_names`` should be a list of strings, not a {type(metric_names)}')
             self.metric_names = metric_names
-        elif metrics is not None:
-            warnings.warn(DeprecationWarning('``metrics`` is deprecated and will be removed in 0.13.0.'))
-            if isinstance(metrics, Metric):
-                self.metric_names = [metrics.__class__.__name__]
-            else:
-                self.metric_names = [str(k) for k, _ in metrics.items()]
 
         self.subset_num_batches = subset_num_batches
         self._eval_interval = None
         self.eval_interval = eval_interval
+        self.auto_microbatching = _is_auto_microbatching(device_eval_microbatch_size)
+        self.device_eval_microbatch_size = _get_initial_device_eval_microbatch_size(
+            device_eval_microbatch_size,
+            self.auto_microbatching,
+            self.dataloader.dataloader,
+        )
 
     @property
     def eval_interval(self):
@@ -207,3 +223,51 @@ def ensure_evaluator(evaluator: Union[Evaluator, DataSpec, Iterable, Dict[str, A
             dataloader=evaluator,
             metric_names=default_metric_names,
         )
+
+
+def validate_eval_automicrobatching(auto_microbatching: bool, device: Device):
+    """Ensure automicrobatching is only on GPU.
+
+    Unlike `device_train_microbatch_size`, this validation must be done separately from the
+    `_is_auto_microbatching` check because `device` is not available during `Evaluator`
+    initialization.
+    """
+    if auto_microbatching and not isinstance(device, DeviceGPU):
+        raise ValueError(
+            'Can only use adaptive device_eval_microbatch_size on GPU. Please set device_eval_microbatch_size >= 1.')
+
+
+def _is_auto_microbatching(device_eval_microbatch_size: Optional[Union[int, str]]):
+    if device_eval_microbatch_size == 'auto':
+        warnings.warn(("Setting `device_eval_microbatch_size='auto'` is an experimental feature which may cause "
+                       'uncaught Cuda Out of Memory errors. In this case, please manually '
+                       'set device_eval_microbatch_size explicitly to an integer instead.'))
+        return True
+    else:
+        return False
+
+
+def _get_initial_device_eval_microbatch_size(device_eval_microbatch_size: Optional[Union[int, str]],
+                                             auto_microbatching: bool, dataloader: Iterable) -> int:
+    """Sets initial value of device_eval_microbatch_size.
+
+    If auto_microbatching, sets initial `device_eval_microbatch_size` to per rank batch size.
+    """
+    if auto_microbatching or device_eval_microbatch_size is None:
+        try:
+            batch_size = getattr(dataloader, 'batch_size')
+        except AttributeError as e:
+            if auto_microbatching:
+                raise AttributeError(
+                    "`device_eval_microbatch_size='auto'` requires the `dataloader` to have a `batch_size` attribute."
+                ) from e
+            else:
+                raise AttributeError(
+                    textwrap.dedent(
+                        '`device_eval_microbatch_size` is not set and `dataloader` does not have a `batch_size` attribute. '
+                        'Please either set `device_eval_microbatch_size` or `dataloader.batch_size`.')) from e
+        return batch_size
+    elif isinstance(device_eval_microbatch_size, int):
+        return device_eval_microbatch_size
+    else:
+        raise ValueError("device_eval_microbatch_size must be an int or ``'auto'``")

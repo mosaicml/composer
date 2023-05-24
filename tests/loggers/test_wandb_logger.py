@@ -15,12 +15,8 @@ import pytest
 import torch
 from torch.utils.data import DataLoader
 
-from composer.core import Engine, Event
-from composer.core.callback import Callback
-from composer.core.state import State
-from composer.loggers import InMemoryLogger
-from composer.loggers.logger import Logger
-from composer.loggers.wandb_logger import WandBLogger
+from composer.core import Callback, Engine, Event, State
+from composer.loggers import InMemoryLogger, Logger, WandBLogger
 from composer.trainer import Trainer
 from composer.utils import dist, retry
 from tests.callbacks.callback_settings import get_cb_kwargs, get_cbs_and_marks
@@ -198,8 +194,8 @@ def test_wandb_log_metrics(test_wandb_logger):
     with open(run_file, encoding='latin-1') as _wandb_file:
         all_run_text = _wandb_file.read()
 
-    train_metrics_accuracy_count = all_run_text.count('metrics/train/Accuracy')
-    eval_metrics_accuracy_count = all_run_text.count('metrics/eval/Accuracy')
+    train_metrics_accuracy_count = all_run_text.count('metrics/train/MulticlassAccuracy')
+    eval_metrics_accuracy_count = all_run_text.count('metrics/eval/MulticlassAccuracy')
     eval_metrics_cross_entropy_count = all_run_text.count('metrics/eval/CrossEntropy')
     train_loss_count = all_run_text.count('loss/train/total')
 
@@ -232,9 +228,8 @@ def test_logged_data_is_json_serializable(callback_cls: Type[Callback]):
     trainer.fit()
 
     for log_calls in logger.data.values():
-        for timestamp, data in log_calls:
-            del timestamp  # unused
-            # manually filter out custom W&B data types and tensors, which are allowed, but cannot be json serialized
+        for _, data in log_calls:
+            # Manually filter out custom W&B data types and tensors, which are allowed, but cannot be json serialized
             if isinstance(data, (WBValue, torch.Tensor)):
                 continue
             json.dumps(data)

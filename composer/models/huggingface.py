@@ -10,17 +10,15 @@ import json
 import logging
 import tempfile
 import textwrap
-import warnings
-from collections import UserDict
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple, Type, Union
 
 import torch
 from torchmetrics import Metric
 
-from composer.metrics import METRIC_DEFAULT_CTORS, InContextLearningMetric
+from composer.metrics import InContextLearningMetric
 from composer.models.base import ComposerModel
-from composer.utils import MissingConditionalImportError, get_file, import_object
+from composer.utils import MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp, safe_torch_load
 
 if TYPE_CHECKING:
     import transformers
@@ -46,6 +44,7 @@ class HuggingFaceModel(ComposerModel):
         metrics (list[Metric], optional): list of torchmetrics to apply to the output of `eval_forward` during training. If ``eval_metrics`` is ``None``, these will also be used as ``eval_metrics``.  Default: ``None``.
         eval_metrics (list[Metric], optional): list of torchmetrics to compute on the eval_dataloader, or be accessible to :class:`Evaluator`s. Default: ``None``.
         shift_labels (bool, optional): If True, the batch's labels will be shifted before being used to calculate metrics. This should be set to true for CausalLM models and false otherwise. If not specified, `shift_labels` will be set automatically based on the model class name. Default: ``None``.
+        allow_embedding_resizing (bool, optional): If True, the model's embeddings will be automatically resized when they are smaller than the tokenizer vocab size. Default: ``False``.
 
         .. note:: To ensure correct behavior, set `shift_labels` manually if using a custom model (i.e., if `model` is not
         an instance of a registered 🤗 Transformers class).
@@ -70,7 +69,8 @@ class HuggingFaceModel(ComposerModel):
                  use_logits: Optional[bool] = False,
                  metrics: Optional[List[Metric]] = None,
                  eval_metrics: Optional[List[Metric]] = None,
-                 shift_labels: Optional[bool] = None) -> None:
+                 shift_labels: Optional[bool] = None,
+                 allow_embedding_resizing: bool = False) -> None:
         try:
             import transformers
             del transformers  # unused
@@ -89,23 +89,44 @@ class HuggingFaceModel(ComposerModel):
             log.warning(
                 'The tokenizer was not provided. This means the tokenizer config will not be saved in the checkpoint.')
 
-        if tokenizer is not None and self.config.vocab_size != len(tokenizer):
-            # set model's word embedding matrix and final lm_head to vocab size according to tokenizer
-            log.warning(f'The number of tokens in the tokenizer and the number of tokens in the model are different.'
-                        f' Resizing the model tokenizer to {len(tokenizer)} from {self.config.vocab_size}.')
-            self.model.resize_token_embeddings(len(tokenizer))
+        if tokenizer is not None and self.config.vocab_size < len(tokenizer):
+            if allow_embedding_resizing:
+                # when the embedding size is smaller than the tokenizer vocab size,
+                # the embeddings should get resized to match the tokenizer vocab size
+                log.warning(f'The number of tokens in the tokenizer is greater than the number of tokens in the model.'
+                            f' This would cause an error during training.'
+                            f' Resizing the model embeddings to {len(tokenizer)} from {self.config.vocab_size}.')
+                self.model.resize_token_embeddings(len(tokenizer))
+            else:
+                raise ValueError(
+                    f'The number of tokens in the tokenizer is greater than the number of tokens in the model.'
+                    f' This would cause an error during training.'
+                    f' You can resize the model embeddings to {len(tokenizer)} from {self.config.vocab_size}'
+                    f' by calling `model.resize_token_embeddings(len(tokenizer))` before calling the `HuggingFaceModel`'
+                    f' constructor, or pass `allow_embedding_resizing=True` to have it done automatically.')
+        elif tokenizer is not None and self.config.vocab_size > len(tokenizer):
+            # when the embedding size is greater than the tokenizer vocab size,
+            # the embeddings do not _need_ to be resized to match the tokenizer vocab size,
+            # and should be done by the user if desired
+            log.info(
+                f'The number of tokens in the tokenizer is less than the number of tokens in the model.'
+                f' You may want to resize the model embeddings to {len(tokenizer)} from {self.config.vocab_size}'
+                f' by calling `model.resize_token_embeddings(len(tokenizer))` before calling the `HuggingFaceModel`'
+                f' constructor. The vocab size is sometimes intentionally set to a multiple of 32 or 64 to improve'
+                f' performance.')
 
         self.use_logits = use_logits
 
         self.train_metrics: Optional[Dict] = None
         self.val_metrics: Optional[Dict] = None
 
+        if eval_metrics is not None:
+            self.val_metrics = {metric.__class__.__name__: metric for metric in eval_metrics}
         if metrics is not None:
             self.train_metrics = {metric.__class__.__name__: metric for metric in metrics}
+            # if eval_metrics is None, use the same metrics as train_metrics
             if eval_metrics is None:
                 self.val_metrics = {metric.__class__.__name__: metric for metric in metrics}
-            else:
-                self.val_metrics = {metric.__class__.__name__: metric for metric in eval_metrics}
 
         self.labels: Optional[torch.Tensor] = None  # set in eval_forward() if exists
 
@@ -115,6 +136,8 @@ class HuggingFaceModel(ComposerModel):
             log.warning('The shift_labels argument was set to False but the model is an instance of a'
                         ' HuggingFace Causal LM. This may lead to incorrect behavior.')
             # Note: No warning if shift_labels and not is_causal_lm, since the model may simply be a custom class.
+
+        self.dummy_forward_called = False
 
     @staticmethod
     def hf_from_composer_checkpoint(
@@ -205,7 +228,7 @@ class HuggingFaceModel(ComposerModel):
         get_file(checkpoint_path, str(local_checkpoint_save_location))
 
         # load the state dict in
-        loaded_state_dict = torch.load(local_checkpoint_save_location, map_location='cpu')
+        loaded_state_dict = safe_torch_load(local_checkpoint_save_location)
 
         hf_state = loaded_state_dict['state']['integrations']['huggingface']
         hf_model_state = hf_state['model']
@@ -253,19 +276,30 @@ class HuggingFaceModel(ComposerModel):
         if hf_tokenizer_state != {}:
             with tempfile.TemporaryDirectory() as _tmp_dir:
                 for filename, saved_content in hf_tokenizer_state.items():
-                    with open(Path(_tmp_dir) / f'{filename}{saved_content["file_extension"]}', 'w') as _tmp_file:
-                        if saved_content['file_extension'] == '.json':
+                    tokenizer_file_path = Path(_tmp_dir) / f'{filename}{saved_content["file_extension"]}'
+                    if saved_content['file_extension'] == '.json':
+                        with open(tokenizer_file_path, 'w') as _tmp_file:
                             json.dump(saved_content['content'], _tmp_file)
-                        elif saved_content['file_extension'] == '.txt':
+                    elif saved_content['file_extension'] == '.txt':
+                        with open(tokenizer_file_path, 'w') as _tmp_file:
                             for line in saved_content['content']:
                                 _tmp_file.write(line)
                                 _tmp_file.write('\n')
+                    elif saved_content['file_extension'] == '.model':
+                        try:
+                            import sentencepiece as spm
+                        except ImportError as e:
+                            raise MissingConditionalImportError(extra_deps_group='sentencepiece',
+                                                                conda_package='sentencepiece') from e
+                        s = spm.SentencePieceProcessor()
+                        s.load_from_serialized_proto(saved_content['content'])
+                        with open(tokenizer_file_path, 'wb') as _tmp_file:
+                            _tmp_file.write(s.serialized_model_proto())
                 hf_tokenizer = transformers.AutoTokenizer.from_pretrained(_tmp_dir)
 
                 # we need to set the name_or_path back because otherwise it is the tmp dir we are loading from here
-                hf_tokenizer.name_or_path = hf_tokenizer_state['tokenizer_config']['content']['name_or_path']
-                hf_tokenizer.init_kwargs['name_or_path'] = hf_tokenizer_state['tokenizer_config']['content'][
-                    'name_or_path']
+                hf_tokenizer.name_or_path = hf_tokenizer_state['tokenizer_config']['content'].get('name_or_path', '')
+                hf_tokenizer.init_kwargs['name_or_path'] = hf_tokenizer.name_or_path
 
                 # for an unknown reason this key is missing when loading the saved tokenizer, but present with a value of None
                 # for the original tokenizer, so we default it to None
@@ -274,7 +308,7 @@ class HuggingFaceModel(ComposerModel):
         return hf_model, hf_tokenizer
 
     def forward(self, batch):
-        if isinstance(batch, dict) or isinstance(batch, UserDict):
+        if isinstance(batch, Mapping):
             # Further input validation is left to the huggingface forward call
             batch = {k: v for k, v in batch.items() if k in self.model_forward_args}
             output = self.model(**batch)  # type: ignore (thirdparty)
@@ -292,6 +326,22 @@ class HuggingFaceModel(ComposerModel):
             return outputs[0]
 
     def eval_forward(self, batch, outputs: Optional[Any] = None):
+        # If the batch mode is generate, we will generate a requested number of tokens using the underlying
+        # model's generate function. Extra generation kwargs can be passed in via the batch. Strings will
+        # be returned from eval_forward
+        if batch.get('mode', None) == 'generate':
+            if self.tokenizer is None:
+                raise ValueError(
+                    'Generation eval cannot be used without providing a tokenizer to the model constructor.')
+
+            self.labels = batch.pop('labels')
+            generation = self.generate(batch['input_ids'],
+                                       attention_mask=batch['attention_mask'],
+                                       max_new_tokens=batch['generation_length'],
+                                       synced_gpus=dist.get_world_size() > 1,
+                                       **batch.get('generation_kwargs', {}))
+            return self.tokenizer.batch_decode(generation[:, batch['input_ids'].shape[1]:], skip_special_tokens=True)
+
         if self.use_logits or batch.get('mode', None) == 'icl_task':
             # pop labels first to avoid computing loss
             self.labels = batch.pop('labels')
@@ -367,30 +417,73 @@ class HuggingFaceModel(ComposerModel):
             if self.tokenizer is not None:
                 for tokenizer_file_name in tokenizer_dir.iterdir():
                     tokenizer_file_path = tokenizer_dir / tokenizer_file_name
-                    with open(tokenizer_file_path) as _tokenizer_file:
-                        tokenizer_file_extension = tokenizer_file_path.suffix
-                        if tokenizer_file_extension == '.txt':
+                    tokenizer_file_extension = tokenizer_file_path.suffix
+                    if tokenizer_file_extension == '.txt':
+                        with open(tokenizer_file_path) as _tokenizer_file:
                             tokenizer_file_content = _tokenizer_file.read().split('\n')
-                        elif tokenizer_file_extension == '.json':
+                    elif tokenizer_file_extension == '.json':
+                        with open(tokenizer_file_path) as _tokenizer_file:
                             tokenizer_file_content = json.load(_tokenizer_file)
-                        else:
-                            raise ValueError(
-                                f'Unexpected file ending {tokenizer_file_name} in output of tokenizer.save_pretrained.')
+                    elif tokenizer_file_extension == '.model':
+                        try:
+                            import sentencepiece as spm
+                        except ImportError as e:
+                            raise MissingConditionalImportError(extra_deps_group='sentencepiece',
+                                                                conda_package='sentencepiece') from e
+                        s = spm.SentencePieceProcessor(model_file=str(tokenizer_file_path))
+                        tokenizer_file_content = s.serialized_model_proto()
+                    else:
+                        raise ValueError(
+                            f'Unexpected file ending {tokenizer_file_name} in output of tokenizer.save_pretrained.')
                     tokenizer_output[tokenizer_file_path.stem] = {
                         'file_extension': tokenizer_file_extension,
                         'content': tokenizer_file_content
                     }
         return {'model': model_output, 'tokenizer': tokenizer_output}
 
-    def add_eval_metrics(self, evaluator):
-        warnings.warn(
-            DeprecationWarning('The add_eval_metrics method is deprecated and will be removed in a future release. '
-                               'Please pass in `eval_metrics` directly to the constructor.'))
-        evaluator_metrics = {m: METRIC_DEFAULT_CTORS[m]() for m in evaluator.metric_names}
-        if self.val_metrics is not None:
-            self.val_metrics.update(evaluator_metrics)
+    def generate(self, input_ids: torch.Tensor, **kwargs):
+        """Generate from the underlying HuggingFace model.
+
+        Except for ``pad_token_id``, which is optionally read from ``self.tokenizer``, all args are passed along
+        to :meth:`transformers.GenerationMixin.generate` function.
+
+        Args:
+            input_ids (torch.Tensor): Input ids to generate from.
+            **kwargs: Additional arguments passed to :meth:`transformers.GenerationMixin.generate` function.
+                See :class:`transformers.GenerationConfig` for all available arguments.
+        """
+        pad_token_id = kwargs.pop('pad_token_id', self.tokenizer.pad_token_id if self.tokenizer is not None else None)
+
+        from composer.utils.misc import using_torch_2
+
+        # We need to call forward once in order for FSDP + generate to work
+        # This solution works because parameters in the root FSDP module are not freed after forward
+        # See https://github.com/huggingface/accelerate/issues/570, https://github.com/huggingface/accelerate/issues/947,
+        # and https://github.com/pytorch/pytorch/issues/82461, https://github.com/pytorch/pytorch/issues/100069 for more info
+        # Note: This is a solution for Torch 1.13.x, and there is a different solution below for Torch 2.0
+        if not using_torch_2() and not self.dummy_forward_called and is_model_fsdp(self.model):
+            with torch.no_grad():
+                maybe_decoder_input_ids = {}
+                if self.model.config.is_encoder_decoder:
+                    maybe_decoder_input_ids['decoder_input_ids'] = torch.tensor([[0]],
+                                                                                dtype=torch.long,
+                                                                                device=input_ids.device)
+                self.model(input_ids=torch.tensor([[0]], dtype=torch.long, device=input_ids.device),
+                           **maybe_decoder_input_ids)
+            self.dummy_forward_called = True
+
+        if is_model_fsdp(self.model) and using_torch_2():
+            from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+
+            # Note: We need to use the FSDP.summon_full_params context manager here because the generate function
+            # does not seem to gather the weights for the LM head. This solution works because the tied weights of the LM head
+            # are in the root FSDP module, and are summoned by the below context manager. See https://github.com/pytorch/pytorch/issues/100069
+            # for more info.
+            # Note: We use recurse=False here so that we only summon full params for the LM head, not the entire model.
+            with FSDP.summon_full_params(self.model, writeback=False, recurse=False):
+                return self.model.generate(input_ids, pad_token_id=pad_token_id, **kwargs)
         else:
-            self.val_metrics = evaluator_metrics
+            return self.model.generate(input_ids, pad_token_id=pad_token_id, **kwargs)
 
 
 def _is_registered_causal_lm(model: transformers.PreTrainedModel) -> bool:
@@ -433,7 +526,16 @@ def get_hf_config_from_composer_state_dict(state_dict: Dict[str, Any],
     if 'id2label' in hf_config_dict:
         hf_config_dict['id2label'] = {int(k): v for k, v in hf_config_dict['id2label'].items()}
 
-    return transformers.AutoConfig.from_pretrained(hf_config_dict['_name_or_path'], **hf_config_dict)
+    try:
+        return transformers.AutoConfig.for_model(**hf_config_dict)
+    except ValueError:
+        try:
+            return transformers.AutoConfig.from_pretrained(hf_config_dict['_name_or_path'], **hf_config_dict)
+        except KeyError:
+            raise Exception(
+                f'Could not load config from state dict using either `for_model` or `from_pretrained`.'
+                f'Please make sure that the model_type={hf_config_dict.get("model_type")} is valid, or that the'
+                f'config has a valid `_name_or_path`.')
 
 
 def write_huggingface_pretrained_from_composer_checkpoint(
@@ -501,7 +603,7 @@ def write_huggingface_pretrained_from_composer_checkpoint(
     # download the checkpoint file
     get_file(str(checkpoint_path), str(local_checkpoint_save_location))
 
-    composer_state_dict = torch.load(local_checkpoint_save_location, map_location='cpu')
+    composer_state_dict = safe_torch_load(local_checkpoint_save_location)
 
     config = get_hf_config_from_composer_state_dict(composer_state_dict)
     config.save_pretrained(output_folder)

@@ -15,9 +15,9 @@
 
 <h4><p align='center'>
 <a href="https://www.mosaicml.com">[Website]</a>
-- <a href="https://docs.mosaicml.com/en/stable/getting_started/installation.html">[Getting Started]</a>
-- <a href="https://docs.mosaicml.com/">[Docs]</a>
-- <a href="https://docs.mosaicml.com/en/stable/method_cards/methods_overview.html">[Methods]</a>
+- <a href="https://docs.mosaicml.com/projects/composer/en/stable/getting_started/installation.html">[Getting Started]</a>
+- <a href="https://docs.mosaicml.com/projects/composer/">[Docs]</a>
+- <a href="https://docs.mosaicml.com/projects/composer/en/stable/method_cards/methods_overview.html">[Methods]</a>
 - <a href="https://www.mosaicml.com/team">[We're Hiring!]</a>
 </p></h4>
 
@@ -31,10 +31,10 @@
     <a href="https://pepy.tech/project/mosaicml/">
         <img alt="PyPi Downloads" src="https://static.pepy.tech/personalized-badge/mosaicml?period=month&units=international_system&left_color=grey&right_color=blue&left_text=Downloads/month">
     </a>
-    <a href="https://docs.mosaicml.com/en/stable/">
+    <a href="https://docs.mosaicml.com/projects/composer/en/stable/">
         <img alt="Documentation" src="https://readthedocs.org/projects/composer/badge/?version=stable">
     </a>
-    <a href="https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg">
+    <a href="https://mosaicml-community.slack.com/join/shared_invite/zt-1btms90mc-GipE2ufuPkKY0QBrmF3LSA#/shared-invite/email">
         <img alt="Chat @ Slack" src="https://img.shields.io/badge/slack-chat-2eb67d.svg?logo=slack">
     </a>
     <a href="https://github.com/mosaicml/composer/blob/dev/LICENSE">
@@ -102,7 +102,7 @@ You can use Composer's speedup methods in two ways:
 
 ### Example: Functional API [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/functional_api.ipynb)
 
-Integrate our speedup methods into your training loop with just a few lines of code, and see the results. Here we easily apply [BlurPool](https://docs.mosaicml.com/en/stable/method_cards/blurpool.html) and [SqueezeExcite](https://docs.mosaicml.com/en/stable/method_cards/squeeze_excite.html):
+Integrate our speedup methods into your training loop with just a few lines of code, and see the results. Here we easily apply [BlurPool](https://docs.mosaicml.com/projects/composer/en/stable/method_cards/blurpool.html) and [SqueezeExcite](https://docs.mosaicml.com/projects/composer/en/stable/method_cards/squeeze_excite.html):
 
 <!-- begin_example_1 --->
 ```python
@@ -119,7 +119,7 @@ cf.apply_squeeze_excite(my_model)
 ```
 <!-- end_example_1 --->
 
-For more examples, see the [Composer Functional API Colab notebook](https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/functional_api.ipynb) and [Functional API guide](https://docs.mosaicml.com/en/latest/functional_api.html).
+For more examples, see the [Composer Functional API Colab notebook](https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/functional_api.ipynb) and [Functional API guide](https://docs.mosaicml.com/projects/composer/en/latest/functional_api.html).
 
 ### Example: Trainer [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/getting_started.ipynb)
 
@@ -128,7 +128,7 @@ For the best experience and the most efficient possible training, we recommend u
 <!-- begin_example_2 --->
 <!--pytest.mark.gpu-->
 <!--pytest.mark.filterwarnings(r'ignore:Some targets have less than 1 total probability:UserWarning')-->
-<!--
+<!--pytest.mark.filterwarnings('ignore:Cannot split tensor of length .* into batches of size 128.*:UserWarning')-->
 ```python
 import torch
 
@@ -167,23 +167,23 @@ trainer.fit()
 ```
 <!-- end_example_2 -->
 
-Composer's built-in [trainer](https://docs.mosaicml.com/en/stable/trainer/using_the_trainer.html) makes it easy to **add multiple speedup methods in a single line of code!**
+Composer's built-in [trainer](https://docs.mosaicml.com/projects/composer/en/stable/trainer/using_the_trainer.html) makes it easy to **add multiple speedup methods in a single line of code!**
 Trying out new methods or combinations of methods is as easy as changing a single list.
 
-Here are some examples of methods available in Composer ([_see here for the full list_](https://docs.mosaicml.com/en/latest/trainer/algorithms.html)):
+Here are some examples of methods available in Composer ([_see here for the full list_](https://docs.mosaicml.com/projects/composer/en/latest/trainer/algorithms.html)):
 
 Name|Attribution|tl;dr|Example Benchmark|Speed Up*|
 ----|-----------|-----|---------|---------|
 [Alibi](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/alibi)|[Press et al, 2021](https://arxiv.org/abs/2108.12409)|Replace attention with AliBi.|GPT-2|1.5x
 [BlurPool](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/blurpool)|[Zhang, 2019](https://arxiv.org/abs/1904.11486)|Applies an anti-aliasing filter before every downsampling operation.|ResNet-101|1.2x
 [ChannelsLast](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/channels_last)|[PyTorch](https://pytorch.org/tutorials/intermediate/memory_format_tutorial.html)|Uses channels last memory format (NHWC).|ResNet-101|1.5x
-[CutOut](https://docs.mosaicml.com/en/latest/method_cards/cutout.html)|[DeVries et al, 2017](https://arxiv.org/abs/1708.04552)|Randomly erases rectangular blocks from the image.|ResNet-101|1.2x
+[CutOut](https://docs.mosaicml.com/projects/composer/en/latest/method_cards/cutout.html)|[DeVries et al, 2017](https://arxiv.org/abs/1708.04552)|Randomly erases rectangular blocks from the image.|ResNet-101|1.2x
 [LabelSmoothing](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/label_smoothing)|[Szegedy et al, 2015](https://arxiv.org/abs/1512.00567)|Smooths the labels with a uniform prior|ResNet-101|1.5x
 [MixUp](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/mixup)|[Zhang et al, 2017](https://arxiv.org/abs/1710.09412)|Blends pairs of examples and labels.|ResNet-101|1.5x
 [RandAugment](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/randaugment)|[Cubuk et al, 2020](https://openaccess.thecvf.com/content_CVPRW_2020/html/w40/Cubuk_Randaugment_Practical_Automated_Data_Augmentation_With_a_Reduced_Search_Space_CVPRW_2020_paper.html)|Applies a series of random augmentations to each image.|ResNet-101|1.3x
 [SAM](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/sam)|[Foret et al, 2021](https://arxiv.org/abs/2010.01412)|An optimization strategy that seeks flatter minima.|ResNet-101|1.4x
 [SeqLengthWarmup](https://github.com/mosaicml/composer/tree/dev/composer/algorithms/seq_length_warmup)|[Li et al, 2021](https://arxiv.org/abs/2108.06084)|Progressively increase sequence length.|GPT-2|1.2x
-[Stochastic Depth](https://docs.mosaicml.com/en/latest/method_cards/stochastic_depth.html)|[Huang et al, 2016](https://arxiv.org/abs/1603.09382)|Replaces a specified layer with a stochastic version that randomly drops the layer or samples during training|ResNet-101|1.1x
+[Stochastic Depth](https://docs.mosaicml.com/projects/composer/en/latest/method_cards/stochastic_depth.html)|[Huang et al, 2016](https://arxiv.org/abs/1603.09382)|Replaces a specified layer with a stochastic version that randomly drops the layer or samples during training|ResNet-101|1.1x
 <p align="right">* = time-to-train to the same quality as the baseline.</p>
 
 ## 🛠 Building Speedup Recipes
@@ -193,9 +193,6 @@ They may optimize the [same part of the training process](https://en.wikipedia.o
 Determining which methods to compose together isn't as simple as assembling a set of methods that perform best individually.
 
 **We have come up with compositions of methods that work especially well together** through rigorous exploration of the design space of recipes and research on the science behind composition.
-The [MosaicML Explorer](https://app.mosaicml.com/) contains all of the data we have collected so far on composition, and it highlights the compositions of methods that are _pareto-optimal_ - that provide the **best possible tradeoffs between training time or cost and the quality of the trained model**.
-Whether you want to reach the same quality faster or get better quality within your current budget, Explorer can help you decide which speedup methods to use.
-We update this data regularly as we add new methods and develop better recipes.
 
 <p align="center">
 <img src="https://storage.googleapis.com/docs.mosaicml.com/images/methods/explorer.png"/>

@@ -4,6 +4,7 @@ import copy
 import json
 import os
 import tempfile
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from unittest.mock import patch
@@ -14,15 +15,17 @@ import torch
 from packaging import version
 from torch.utils.data import DataLoader
 from torchmetrics import Metric
-from torchmetrics.classification import Accuracy
+from torchmetrics.classification import MulticlassAccuracy
 
-from composer.core import Evaluator
-from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
+from composer.loggers import InMemoryLogger
+from composer.metrics import InContextLearningLMAccuracy, LanguageCrossEntropy, MaskedAccuracy
+from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
 from composer.utils import dist, is_model_fsdp
 from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset
+from tests.common.markers import device, world_size
 from tests.common.models import (configure_tiny_bert_model, configure_tiny_bert_tokenizer, configure_tiny_gpt2_model,
-                                 configure_tiny_gpt2_tokenizer)
+                                 configure_tiny_gpt2_tokenizer, configure_tiny_t5_model, configure_tiny_t5_tokenizer)
 from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
 
 
@@ -30,13 +33,11 @@ from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
 def test_hf_train_eval_predict(num_classes: int, tiny_bert_config):
     transformers = pytest.importorskip('transformers')
 
-    from composer.models import HuggingFaceModel
-
     tiny_bert_config.num_labels = num_classes
     hf_model = transformers.AutoModelForSequenceClassification.from_config(
         tiny_bert_config)  # type: ignore (thirdparty)
 
-    metrics = Accuracy()
+    metrics = MulticlassAccuracy(num_classes=num_classes, average='micro')
     model = HuggingFaceModel(hf_model, metrics=[metrics], use_logits=True)
 
     vocab_size = 30522  # Match bert vocab size
@@ -76,8 +77,8 @@ def test_hf_train_eval_predict(num_classes: int, tiny_bert_config):
     trainer.eval()
 
     # Check that there is some train/eval accuracy
-    assert trainer.state.train_metrics['Accuracy'].compute() != 0.0
-    assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
+    assert trainer.state.train_metrics['MulticlassAccuracy'].compute() != 0.0
+    assert trainer.state.eval_metrics['eval']['MulticlassAccuracy'].compute() != 0.0
 
     predictions = trainer.predict(predict_dataloader)
 
@@ -88,7 +89,13 @@ def test_hf_train_eval_predict(num_classes: int, tiny_bert_config):
 
 
 def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
-    # below is a best effort attempt to compare two tokenizers for equivalence
+    """This is a best effort attempt to compare two tokenizers for equivalence
+
+    This is not a perfect test, but it should catch most issues. We first check that the vocab is identical
+    and that a string is tokenized the same one. Then we compare the __dict__ of the tokenizers, but we remove
+    some keys that are not important for equivalence. See the inline explanations for each one.
+    """
+    #
     assert tokenizer1.vocab == tokenizer2.vocab
     assert type(tokenizer1) == type(tokenizer2)
 
@@ -105,16 +112,32 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
     tokenizer1.__dict__.pop('deprecation_warnings')
     tokenizer2.__dict__.pop('deprecation_warnings')
 
-    # tokenizer.init_kwargs['model_max_length'] is unset when the tokenizer does not specify it, but is set
-    # to a very large number when you save and reload, so here we just check that its the same if it is present in
-    # both tokenizers. There is a separate tokenizer.model_max_length that will still get checked for equivalence
+    # name_or_path will be the path that the tokenizer was loaded from, which will just be a temporary directory for
+    # the reloaded tokenizer, so we remove it and don't compare it between the two tokenizers
+    tokenizer1.__dict__.pop('name_or_path')
+    tokenizer2.__dict__.pop('name_or_path')
+    tokenizer1.init_kwargs.pop('name_or_path', None)
+    tokenizer2.init_kwargs.pop('name_or_path', None)
+
+    # The init_kwargs are not always the same between initial load and reload, even though the tokenizers are the same
+    # and have the attributes set correctly. This section removes the keys that are different, only checking for equality if they
+    # are present in both tokenizers
     model_max_length_1 = tokenizer1.init_kwargs.get('model_max_length', None)
     model_max_length_2 = tokenizer2.init_kwargs.get('model_max_length', None)
     if model_max_length_1 is not None and model_max_length_2 is not None:
         assert model_max_length_1 == model_max_length_2
-
     tokenizer1.__dict__['init_kwargs'].pop('model_max_length', None)
     tokenizer2.__dict__['init_kwargs'].pop('model_max_length', None)
+
+    spaces_1 = tokenizer1.init_kwargs.get('clean_up_tokenization_spaces', None)
+    spaces_2 = tokenizer2.init_kwargs.get('clean_up_tokenization_spaces', None)
+    if spaces_1 is not None and spaces_2 is not None:
+        assert spaces_1 == spaces_2
+    tokenizer1.__dict__['init_kwargs'].pop('clean_up_tokenization_spaces', None)
+    tokenizer2.__dict__['init_kwargs'].pop('clean_up_tokenization_spaces', None)
+
+    tokenizer1.__dict__['init_kwargs'].pop('special_tokens_map_file', None)
+    tokenizer2.__dict__['init_kwargs'].pop('special_tokens_map_file', None)
 
     # tokenizer.init_kwargs['tokenizer_file'] is unset when the tokenizer does not specify it, but is set to
     # None when you save and reload, so here we just check that its the same if it is present in both tokenizers.
@@ -125,6 +148,13 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
 
     tokenizer1.__dict__['init_kwargs'].pop('tokenizer_file', None)
     tokenizer2.__dict__['init_kwargs'].pop('tokenizer_file', None)
+
+    # vocab_file will be the path that the tokenizer was loaded from, which will just be a temporary directory for
+    # the reloaded tokenizer, so we remove it and don't compare it between the two tokenizers
+    tokenizer1.__dict__.pop('vocab_file', None)
+    tokenizer2.__dict__.pop('vocab_file', None)
+    tokenizer1.__dict__.pop('special_tokens_map_file', None)
+    tokenizer2.__dict__.pop('special_tokens_map_file', None)
 
     assert tokenizer1.__dict__ == tokenizer2.__dict__
 
@@ -140,11 +170,11 @@ def check_hf_model_equivalence(model1, model2):
 @pytest.mark.parametrize('pass_in_tokenizer', [True, False])
 @pytest.mark.parametrize('modify_tokenizer', [True, False])
 @pytest.mark.parametrize('num_classes', [2, 3])
+@world_size(1, 2)
+@device('cpu')
 def test_hf_state_dict_info(tmp_path: Path, pass_in_tokenizer: bool, modify_tokenizer: bool, num_classes: int,
-                            tiny_bert_tokenizer, tiny_bert_config):
+                            tiny_bert_tokenizer, tiny_bert_config, world_size, device):
     transformers = pytest.importorskip('transformers')
-
-    from composer.models import HuggingFaceModel
 
     if not pass_in_tokenizer and modify_tokenizer:
         pytest.skip("Invalid parametrization. Cannot modify the tokenizer if it doesn't exist.")
@@ -161,7 +191,7 @@ def test_hf_state_dict_info(tmp_path: Path, pass_in_tokenizer: bool, modify_toke
         tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
         hf_model.resize_token_embeddings(len(tokenizer))
 
-    metrics = Accuracy()
+    metrics = MulticlassAccuracy(num_classes=num_classes, average='micro')
     model = HuggingFaceModel(hf_model, tokenizer=tokenizer, metrics=[metrics], use_logits=True)
 
     vocab_size = 30522  # Match bert vocab size
@@ -182,10 +212,17 @@ def test_hf_state_dict_info(tmp_path: Path, pass_in_tokenizer: bool, modify_toke
                       max_duration='1ep',
                       save_folder=str(tmp_path),
                       save_interval='1ep',
-                      save_filename='hf-checkpoint.pt')
-    trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
+                      save_filename='hf-checkpoint.pt',
+                      device=device)
 
-    loaded_checkpoint = torch.load(Path(tmp_path) / 'hf-checkpoint.pt')
+    tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
+    gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
+
+    trainer.save_checkpoint(str(Path(gathered_paths[0]) / 'hf-checkpoint.pt'))
+
+    dist.barrier()
+
+    loaded_checkpoint = torch.load(Path(gathered_paths[0]) / 'hf-checkpoint.pt')
     hf_state = loaded_checkpoint['state']['integrations']['huggingface']
     hf_model_state = hf_state['model']
     hf_tokenizer_state = hf_state['tokenizer']
@@ -205,19 +242,24 @@ def test_hf_state_dict_info(tmp_path: Path, pass_in_tokenizer: bool, modify_toke
     if pass_in_tokenizer:
         assert tokenizer is not None  # pyright
         with tempfile.TemporaryDirectory() as _tmp_dir:
-            for filename, saved_content in hf_tokenizer_state.items():
-                with open(Path(_tmp_dir) / f'{filename}{saved_content["file_extension"]}', 'w') as _tmp_file:
-                    if saved_content['file_extension'] == '.json':
-                        json.dump(saved_content['content'], _tmp_file)
-                    elif saved_content['file_extension'] == '.txt':
-                        for line in saved_content['content']:
-                            _tmp_file.write(line)
-                            _tmp_file.write('\n')
-            loaded_tokenizer = transformers.AutoTokenizer.from_pretrained(_tmp_dir)
-            # we need to set the name_or_path back because otherwise it is the tmp dir we are loading from here
-            loaded_tokenizer.name_or_path = hf_tokenizer_state['tokenizer_config']['content']['name_or_path']
-            loaded_tokenizer.init_kwargs['name_or_path'] = hf_tokenizer_state['tokenizer_config']['content'][
-                'name_or_path']
+            if dist.get_local_rank() == 0:
+                for filename, saved_content in hf_tokenizer_state.items():
+                    with open(Path(_tmp_dir) / f'{filename}{saved_content["file_extension"]}', 'w') as _tmp_file:
+                        if saved_content['file_extension'] == '.json':
+                            json.dump(saved_content['content'], _tmp_file)
+                        elif saved_content['file_extension'] == '.txt':
+                            for line in saved_content['content']:
+                                _tmp_file.write(line)
+                                _tmp_file.write('\n')
+
+            tmp_path_to_broadcast = str(os.path.abspath(_tmp_dir))
+
+            dist.barrier()
+
+            gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
+            loaded_tokenizer = transformers.AutoTokenizer.from_pretrained(gathered_paths[0])
+
+            dist.barrier()
 
         # for an unknown reason this key is missing when loading the saved tokenizer, but present with a value of None
         # for the original tokenizer
@@ -234,9 +276,14 @@ def get_lm_trainer(hf_model,
                    load_path: Optional[str] = None,
                    is_conditional_generation: bool = False,
                    do_eval: bool = False,
-                   fsdp_config: Optional[Dict[str, Any]] = None):
+                   fsdp_config: Optional[Dict[str, Any]] = None,
+                   mlm: bool = True,
+                   add_padding: bool = False,
+                   device_train_microbatch_size: Optional[int] = None,
+                   batch_size: int = 4,
+                   sequence_length: int = 4,
+                   size: int = 4):
     transformers = pytest.importorskip('transformers')
-    from composer.models import HuggingFaceModel
 
     metrics: List[Metric] = [LanguageCrossEntropy(ignore_index=-100)]
     if not is_conditional_generation:
@@ -249,15 +296,18 @@ def get_lm_trainer(hf_model,
     size = 4
     batch_size = 4
 
+    if add_padding:
+        hf_tokenizer.pad_token_id = hf_tokenizer.eos_token_id
     train_dataset = RandomTextLMDataset(size=size,
                                         vocab_size=vocab_size,
                                         sequence_length=sequence_length,
                                         use_keys=True,
                                         use_token_type_ids=not is_conditional_generation,
-                                        conditional_generation=is_conditional_generation)
+                                        conditional_generation=is_conditional_generation,
+                                        pad_token_id=hf_tokenizer.pad_token_id if add_padding else None)
 
     if not is_conditional_generation:
-        collator = transformers.DataCollatorForLanguageModeling(tokenizer=hf_tokenizer, mlm_probability=0.15)
+        collator = transformers.DataCollatorForLanguageModeling(tokenizer=hf_tokenizer, mlm=mlm, mlm_probability=0.15)
     else:
         # Note: this could be transformers.DataCollatorForSeq2Seq(tokenizer=hf_tokenizer, model=hf_model),
         # but we want to test the scenario where the input batch does not have decoder_input_ids,
@@ -276,6 +326,7 @@ def get_lm_trainer(hf_model,
                                      collate_fn=collator,
                                      sampler=dist.get_sampler(train_dataset))
 
+    in_memory_logger = InMemoryLogger()
     trainer = Trainer(model=model,
                       train_dataloader=train_dataloader,
                       eval_dataloader=eval_dataloader,
@@ -284,16 +335,57 @@ def get_lm_trainer(hf_model,
                       save_interval='1ep',
                       save_filename='hf-checkpoint.pt',
                       load_path=load_path,
-                      fsdp_config=fsdp_config)
+                      fsdp_config=fsdp_config,
+                      loggers=in_memory_logger,
+                      device_train_microbatch_size=batch_size
+                      if device_train_microbatch_size is None else device_train_microbatch_size)
     return trainer
+
+
+def test_loss_vs_ce_metric(tiny_gpt2_tokenizer, tiny_gpt2_model):
+    trainer = get_lm_trainer(tiny_gpt2_model,
+                             tiny_gpt2_tokenizer,
+                             is_conditional_generation=False,
+                             save_folder=None,
+                             mlm=False)
+    trainer.fit()
+
+    in_memory_logger = [callback for callback in trainer.state.callbacks if isinstance(callback, InMemoryLogger)][0]
+
+    assert in_memory_logger.data['loss/train/total'][0][1] == in_memory_logger.data[
+        'metrics/train/LanguageCrossEntropy'][0][1].item()
+
+
+@pytest.mark.xfail(
+    raises=AssertionError,
+    reason=('This test serves to show that the LanguageCrossEntropy metric, and the equivalent loss function, '
+            'compute differently. In particular, the LanguageCrossEntropy metric takes into account padding tokens '
+            'by keeping track of the total number of loss generating tokens and using that as the denominator, whereas '
+            'the microbatch engine uses get_num_samples_in_batch to determine the weighted averaging, thus '
+            'ignoring when microbatches have different numbers of loss generating tokens.'))
+def test_loss_vs_ce_metric_with_padding_and_microbatching(tiny_gpt2_tokenizer, tiny_gpt2_model):
+    trainer = get_lm_trainer(tiny_gpt2_model,
+                             tiny_gpt2_tokenizer,
+                             is_conditional_generation=False,
+                             save_folder=None,
+                             mlm=False,
+                             add_padding=True,
+                             sequence_length=16,
+                             batch_size=16,
+                             size=64,
+                             device_train_microbatch_size=1)
+    trainer.fit()
+
+    in_memory_logger = [callback for callback in trainer.state.callbacks if isinstance(callback, InMemoryLogger)][0]
+
+    assert in_memory_logger.data['loss/train/total'][0][1] == in_memory_logger.data[
+        'metrics/train/LanguageCrossEntropy'][0][1].item()
 
 
 @pytest.mark.parametrize('pass_in_tokenizer', [True, False])
 def test_hf_no_tokenizer_warning(caplog, pass_in_tokenizer: bool, tiny_bert_model, tiny_bert_tokenizer):
     pytest.importorskip('transformers')
     import logging
-
-    from composer.models import HuggingFaceModel
 
     with caplog.at_level(logging.WARNING, logger='composer'):
         _ = HuggingFaceModel(tiny_bert_model,
@@ -313,7 +405,6 @@ def test_hf_no_tokenizer_warning(caplog, pass_in_tokenizer: bool, tiny_bert_mode
 def test_hf_loading_load_save_paths(checkpoint_upload_path: Optional[str], local_save_filename: Optional[str],
                                     tmp_path: Path, tiny_bert_model, tiny_bert_tokenizer):
     pytest.importorskip('transformers')
-    from composer.models import HuggingFaceModel
 
     trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
     trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
@@ -350,9 +441,31 @@ def test_hf_loading_load_save_paths(checkpoint_upload_path: Optional[str], local
 
 
 @pytest.mark.parametrize('modify_tokenizer', [False, True])
+def test_hf_loading_sentencepiece_tokenizer(modify_tokenizer: bool, tmp_path: Path, tiny_t5_model):
+    transformers = pytest.importorskip('transformers')
+
+    t0_pp_tokenizer = transformers.AutoTokenizer.from_pretrained('bigscience/T0pp')
+
+    if modify_tokenizer:
+        assert t0_pp_tokenizer is not None  # pyright
+        t0_pp_tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
+        t0_pp_tokenizer.add_special_tokens({'additional_special_tokens': ['[MOSAICML']})
+        t0_pp_tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
+        tiny_t5_model.resize_token_embeddings(len(t0_pp_tokenizer))
+
+    trainer = get_lm_trainer(tiny_t5_model, t0_pp_tokenizer, str(tmp_path), is_conditional_generation=True)
+    trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
+
+    hf_loaded_model, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
+        checkpoint_path=str(tmp_path / 'hf-checkpoint.pt'))
+
+    check_hf_model_equivalence(hf_loaded_model, tiny_t5_model)
+    check_hf_tokenizer_equivalence(hf_loaded_tokenizer, t0_pp_tokenizer)
+
+
+@pytest.mark.parametrize('modify_tokenizer', [False, True])
 def test_hf_loading_tokenizer(modify_tokenizer: bool, tmp_path: Path, tiny_bert_model, tiny_bert_tokenizer):
     pytest.importorskip('transformers')
-    from composer.models import HuggingFaceModel
 
     if modify_tokenizer:
         assert tiny_bert_tokenizer is not None  # pyright
@@ -377,8 +490,6 @@ def test_hf_loading_tokenizer(modify_tokenizer: bool, tmp_path: Path, tiny_bert_
 def test_hf_loading_model_classes(model_class_name: str, num_classes: Optional[int], tmp_path: Path, tiny_bert_model,
                                   tiny_bert_tokenizer):
     transformers = pytest.importorskip('transformers')
-
-    from composer.models import HuggingFaceModel
 
     if num_classes is not None and model_class_name not in {'autoseq', 'bertseq', 'customseq'}:
         pytest.skip('Invalid parametrization. num_classes is only for loading sequence classification models.')
@@ -441,7 +552,6 @@ def test_hf_loading_model_classes(model_class_name: str, num_classes: Optional[i
 
 def test_hf_loading_full_model_equivalence(tmp_path: Path, tiny_bert_model, tiny_bert_tokenizer):
     pytest.importorskip('transformers')
-    from composer.models import HuggingFaceModel
 
     trainer1 = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
     trainer1.fit()
@@ -462,8 +572,6 @@ def test_hf_loading_full_model_equivalence(tmp_path: Path, tiny_bert_model, tiny
 @pytest.mark.parametrize('model_class_name', ['gpt', 'not_a_module', 'not_a_class'])
 def test_hf_loading_errors(tiny_bert_model, tiny_bert_tokenizer, model_class_name, tmp_path):
     transformers = pytest.importorskip('transformers')
-
-    from composer.models import HuggingFaceModel
 
     trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
     trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
@@ -490,8 +598,6 @@ def test_hf_loading_errors(tiny_bert_model, tiny_bert_tokenizer, model_class_nam
                                              (configure_tiny_bert_model, configure_tiny_bert_tokenizer)])
 def test_hf_auto_shift_labels(caplog, model, tokenizer):
     pytest.importorskip('transformers')
-
-    from composer.models import HuggingFaceModel
 
     hf_model = model()
     hf_tokenizer = tokenizer()
@@ -524,7 +630,7 @@ def test_hf_auto_shift_labels(caplog, model, tokenizer):
 def test_hf_causal_shift_labels(tiny_gpt2_model, tiny_gpt2_tokenizer):
     pytest.importorskip('transformers')
 
-    from composer.models import HuggingFaceModel
+    tiny_gpt2_model.resize_token_embeddings(len(tiny_gpt2_tokenizer))
     model = HuggingFaceModel(tiny_gpt2_model, tokenizer=tiny_gpt2_tokenizer, use_logits=True)
 
     batch = tiny_gpt2_tokenizer('a b c d e f g h i j k', return_tensors='pt')
@@ -575,41 +681,17 @@ def test_hf_fsdp(tiny_bert_config, tiny_bert_tokenizer):
 def test_separate_eval_metrics(tiny_bert_model, tiny_bert_tokenizer):
     pytest.importorskip('transformers')
 
-    from composer.models import HuggingFaceModel
-
-    metrics: List[Metric] = [LanguageCrossEntropy(ignore_index=-100)]
-    eval_metrics: List[Metric] = [MaskedAccuracy(ignore_index=-100)]
-
-    hf_model = HuggingFaceModel(tiny_bert_model,
-                                tokenizer=tiny_bert_tokenizer,
-                                metrics=metrics,
-                                eval_metrics=eval_metrics)
+    hf_model = HuggingFaceModel(
+        tiny_bert_model,
+        tokenizer=tiny_bert_tokenizer,
+        metrics=[LanguageCrossEntropy()],
+        eval_metrics=[MaskedAccuracy(), InContextLearningLMAccuracy()],
+    )
 
     assert hf_model.train_metrics is not None
     assert hf_model.val_metrics is not None
     assert hf_model.train_metrics.keys() == {'LanguageCrossEntropy'}
-    assert hf_model.val_metrics.keys() == {'MaskedAccuracy'}
-
-
-def test_add_eval_metrics(tiny_bert_model, tiny_bert_tokenizer):
-    pytest.importorskip('transformers')
-
-    from composer.models import HuggingFaceModel
-
-    metrics: List[Metric] = [LanguageCrossEntropy(ignore_index=-100)]
-
-    dataset = RandomTextClassificationDataset(size=1, vocab_size=1, sequence_length=1, num_classes=1, use_keys=True)
-
-    dataloader = DataLoader(dataset, batch_size=1, sampler=dist.get_sampler(dataset))
-    evaluator = Evaluator(label='evaluator', dataloader=dataloader, metric_names=['InContextLearningLMAccuracy'])
-
-    hf_model = HuggingFaceModel(tiny_bert_model, tokenizer=tiny_bert_tokenizer, metrics=metrics)
-    hf_model.add_eval_metrics(evaluator)
-
-    assert hf_model.train_metrics is not None
-    assert hf_model.val_metrics is not None
-    assert hf_model.train_metrics.keys() == {'LanguageCrossEntropy'}
-    assert hf_model.val_metrics.keys() == {'LanguageCrossEntropy', 'InContextLearningLMAccuracy'}
+    assert hf_model.val_metrics.keys() == {'InContextLearningLMAccuracy', 'MaskedAccuracy'}
 
 
 @pytest.mark.parametrize('checkpoint_upload_folder', [None, 's3://checkpoints-bucket/'])
@@ -646,3 +728,210 @@ def test_write_hf_from_composer(checkpoint_upload_folder, local_save_filename, t
     loaded_hf_model.config._name_or_path = tiny_bert_model.config._name_or_path
 
     check_hf_model_equivalence(tiny_bert_model, loaded_hf_model)
+
+
+def test_write_hf_from_composer_direct(tiny_bert_tokenizer, tmp_path):
+    # tests that the logic to write out a huggingface checkpoint from a composer checkpoint
+    # still works when the huggingface model is instantiated directly rather than using from_pretrained
+    transformers = pytest.importorskip('transformers')
+
+    from composer.models.huggingface import write_huggingface_pretrained_from_composer_checkpoint
+
+    checkpoint_upload_folder = tmp_path
+
+    tiny_overrides = {
+        'hidden_size': 128,
+        'num_attention_heads': 2,
+        'num_hidden_layers': 2,
+        'intermediate_size': 512,
+    }
+    tiny_bert_config = transformers.BertConfig(**tiny_overrides)
+    tiny_bert_model = transformers.BertForMaskedLM(tiny_bert_config)
+    trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path))
+    trainer.fit()
+
+    checkpoint_path = os.path.join(checkpoint_upload_folder, 'hf-checkpoint.pt')
+    write_huggingface_pretrained_from_composer_checkpoint(
+        checkpoint_path,
+        tmp_path / 'hf-save-pretrained',
+    )
+
+    assert os.path.exists(tmp_path / 'hf-save-pretrained' / 'config.json')
+    assert os.path.exists(tmp_path / 'hf-save-pretrained' / 'pytorch_model.bin')
+
+    loaded_hf_model = transformers.AutoModelForMaskedLM.from_pretrained(tmp_path / 'hf-save-pretrained')
+
+    # set _name_or_path so that the equivalence check passes. It is expected that these are different, because one is loaded from disk, while one is loaded from the hub
+    loaded_hf_model.config._name_or_path = tiny_bert_model.config._name_or_path
+
+    check_hf_model_equivalence(tiny_bert_model, loaded_hf_model)
+
+
+@pytest.mark.parametrize('embedding_resize', ['higher', 'lower', 'no_resize'])
+@pytest.mark.parametrize('allow_embedding_resizing', [True, False])
+def test_embedding_resizing(tiny_bert_model, tiny_bert_tokenizer, embedding_resize, allow_embedding_resizing, caplog):
+    pytest.importorskip('transformers')
+
+    import logging
+
+    from composer.models import HuggingFaceModel
+
+    original_size = tiny_bert_model.config.vocab_size
+    if embedding_resize == 'higher':
+        tiny_bert_model.resize_token_embeddings(original_size + 100)
+    elif embedding_resize == 'lower':
+        tiny_bert_model.resize_token_embeddings(original_size - 100)
+
+    error_context = pytest.raises(ValueError) if (not allow_embedding_resizing and
+                                                  embedding_resize == 'lower') else nullcontext()
+    with caplog.at_level(logging.WARNING, logger='composer'):
+        with error_context:
+            _ = HuggingFaceModel(tiny_bert_model,
+                                 tokenizer=tiny_bert_tokenizer,
+                                 allow_embedding_resizing=allow_embedding_resizing)
+        if embedding_resize == 'lower':
+            if allow_embedding_resizing:
+                # When the embedding size is smaller than the tokenizer vocab size,
+                # the embeddings should get resized to match the tokenizer vocab size
+                assert tiny_bert_model.config.vocab_size == len(tiny_bert_tokenizer)
+                assert caplog.messages[0].startswith(
+                    'The number of tokens in the tokenizer is greater than the number of tokens in the model')
+        elif embedding_resize == 'higher':
+            # When the embedding size is greater than the tokenizer vocab size,
+            # no adjustment is needed. Some embeddings will simply not be used
+            assert tiny_bert_model.config.vocab_size == original_size + 100
+            # Raise at info level, so no warning is generated
+            assert len(caplog.messages) == 0
+        elif embedding_resize == 'no_resize':
+            assert tiny_bert_model.config.vocab_size == original_size
+            assert len(caplog.messages) == 0
+        else:
+            raise ValueError(f'Unknown embedding_resize: {embedding_resize}')
+
+
+@device('cpu', 'gpu')
+@world_size(1, 2)
+@pytest.mark.parametrize('use_fsdp', [True, False])
+@pytest.mark.parametrize('hf_model,hf_tokenizer', [(configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer),
+                                                   (configure_tiny_t5_model, configure_tiny_t5_tokenizer)])
+def test_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
+    if use_fsdp and version.parse(torch.__version__) < version.parse('1.13.0'):
+        pytest.skip('FSDP requires torch >= 1.13.0')
+
+    transformers = pytest.importorskip('transformers')
+    if device == 'cpu' and use_fsdp:
+        pytest.skip('FSDP is not supported on CPU.')
+    if world_size == 1 and use_fsdp:
+        pytest.xfail((
+            'Generation with world size 1 and FSDP fails with '
+            '`RuntimeError: The tensor has a non-zero number of elements, '
+            'but its data is not allocated yet. Caffe2 uses a lazy allocation, '
+            'so you will need to call mutable_data() or raw_mutable_data() to actually allocate memory.` '
+            'This issue is resolved with world size > 1 by a dummy call to forward (see HuggingFaceModel.dummy_forward_called), '
+            'but for some reason fails with world size 1.'))
+
+    hf_model = hf_model()
+    if device == 'cpu' and world_size > 1 and isinstance(hf_model,
+                                                         transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel):
+        pytest.xfail(
+            'GPT2 is not currently supported with DDP. See https://github.com/huggingface/transformers/issues/22482 for more details.'
+        )
+
+    fsdp_config = None
+    if use_fsdp:
+        fsdp_config = {
+            'sharding_strategy': 'FULL_SHARD',
+        }
+
+    hf_tokenizer = hf_tokenizer()
+
+    model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, use_logits=True)
+
+    # just instantiating Trainer to go through the normal FSDP code path
+    trainer = Trainer(model=model, fsdp_config=fsdp_config, device=device)
+
+    device = trainer.state.device
+
+    if isinstance(hf_tokenizer, transformers.models.gpt2.tokenization_gpt2_fast.GPT2TokenizerFast):
+        hf_tokenizer.padding_side = 'left'
+    input_dict = hf_tokenizer(['hello', 'goodbyes'], return_tensors='pt', padding=True)
+    for k, v in input_dict.items():
+        input_dict[k] = device.tensor_to_device(v)
+
+    generation1 = model.generate(**input_dict, max_new_tokens=5, pad_token_id=hf_tokenizer.pad_token_id)
+    generation2 = model.generate(**input_dict, max_new_tokens=3, pad_token_id=hf_tokenizer.pad_token_id)
+
+    assert generation1.shape == (2,
+                                 (input_dict['input_ids'].shape[1] if not hf_model.config.is_encoder_decoder else 1) +
+                                 5)
+    assert generation2.shape == (2,
+                                 (input_dict['input_ids'].shape[1] if not hf_model.config.is_encoder_decoder else 1) +
+                                 3)
+
+    decoded_generation1 = hf_tokenizer.batch_decode(generation1, skip_special_tokens=True)
+    decoded_generation2 = hf_tokenizer.batch_decode(generation2, skip_special_tokens=True)
+
+    assert len(decoded_generation1) == len(decoded_generation2) == 2
+    assert all(isinstance(decoded_generation, str) for decoded_generation in decoded_generation1)
+    assert all(isinstance(decoded_generation, str) for decoded_generation in decoded_generation2)
+
+
+@device('cpu', 'gpu')
+@world_size(1, 2)
+@pytest.mark.parametrize('use_fsdp', [True, False])
+@pytest.mark.parametrize('hf_model,hf_tokenizer', [(configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer),
+                                                   (configure_tiny_t5_model, configure_tiny_t5_tokenizer)])
+def test_eval_forward_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
+    if use_fsdp and version.parse(torch.__version__) < version.parse('1.13.0'):
+        pytest.skip('FSDP requires torch >= 1.13.0')
+    transformers = pytest.importorskip('transformers')
+    if device == 'cpu' and use_fsdp:
+        pytest.skip('FSDP is not supported on CPU.')
+    if world_size == 1 and use_fsdp:
+        pytest.xfail((
+            'Generation with world size 1 and FSDP fails with '
+            '`RuntimeError: The tensor has a non-zero number of elements, '
+            'but its data is not allocated yet. Caffe2 uses a lazy allocation, '
+            'so you will need to call mutable_data() or raw_mutable_data() to actually allocate memory.` '
+            'This issue is resolved with world size > 1 by a dummy call to forward (see HuggingFaceModel.dummy_forward_called), '
+            'but for some reason fails with world size 1.'))
+
+    hf_model = hf_model()
+    if device == 'cpu' and world_size > 1 and isinstance(hf_model,
+                                                         transformers.models.gpt2.modeling_gpt2.GPT2LMHeadModel):
+        pytest.xfail(
+            'GPT2 is not currently supported with DDP. See https://github.com/huggingface/transformers/issues/22482 for more details.'
+        )
+
+    fsdp_config = None
+    if use_fsdp:
+        fsdp_config = {
+            'sharding_strategy': 'FULL_SHARD',
+        }
+
+    hf_tokenizer = hf_tokenizer()
+
+    model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, use_logits=True)
+
+    # just instantiating Trainer to go through the normal FSDP code path
+    trainer = Trainer(model=model, fsdp_config=fsdp_config, device=device)
+
+    device = trainer.state.device
+
+    if isinstance(hf_tokenizer, transformers.models.gpt2.tokenization_gpt2_fast.GPT2TokenizerFast):
+        hf_tokenizer.padding_side = 'left'
+    input_dict = hf_tokenizer(['hello', 'goodbyes'], return_tensors='pt', padding=True)
+    for k, v in input_dict.items():
+        input_dict[k] = device.tensor_to_device(v)
+    input_dict['mode'] = 'generate'
+
+    input_dict['generation_length'] = 5
+    input_dict['labels'] = [['answer1'], ['answer2']]
+    generation1 = model.eval_forward(input_dict, None)
+    input_dict['generation_length'] = 3
+    input_dict['labels'] = [['answer1'], ['answer2']]
+    generation2 = model.eval_forward(input_dict, None)
+
+    assert len(generation1) == len(generation2) == 2
+    assert all(isinstance(decoded_generation, str) for decoded_generation in generation1)
+    assert all(isinstance(decoded_generation, str) for decoded_generation in generation2)

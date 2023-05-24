@@ -10,7 +10,7 @@ import os
 import torch
 from torch.utils.data import DataLoader
 from torchmetrics import MetricCollection
-from torchmetrics.classification import Accuracy
+from torchmetrics.classification import MulticlassAccuracy
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 from torchvision.models import resnet
@@ -182,8 +182,8 @@ def _main():
     model.apply(weight_init)
 
     # Performance metrics to log other than training loss
-    train_metrics = Accuracy()
-    val_metrics = MetricCollection([CrossEntropy(), Accuracy()])
+    train_metrics = MulticlassAccuracy(num_classes=1000, average='micro')
+    val_metrics = MetricCollection([CrossEntropy(), MulticlassAccuracy(num_classes=1000, average='micro')])
 
     # Cross entropy loss that can handle both index and one-hot targets
 
@@ -285,7 +285,7 @@ def _main():
                       load_path=args.load_checkpoint_path,
                       device=device,
                       precision=precision,
-                      grad_accum='auto',
+                      device_train_microbatch_size='auto',
                       seed=args.seed)
     logging.info('Built Trainer\n')
 
