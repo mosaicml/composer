@@ -126,6 +126,7 @@ jobs:
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
       python-version: 3.9
+      pytest-s3-bucket: 'mosaicml-internal-integration-testing'
     secrets:
       mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
       aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
