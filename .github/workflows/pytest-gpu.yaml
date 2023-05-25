@@ -12,6 +12,9 @@ on:
         required: false
         type: number
         default: 1800
+      pytest-s3-bucket:
+        required: false
+        type: string
       name:
         required: true
         type: string
