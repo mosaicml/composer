@@ -31,6 +31,10 @@ on:
     secrets:
       mcloud-api-key:
         required: true
+      aws-access-key-id:
+        required: true
+      aws-secret-access-key:
+        required: true
 jobs:
   pytest-gpu:
     timeout-minutes: 60 # ${{ inputs.gha-timeout }} for some reason not able to turn this into an input
