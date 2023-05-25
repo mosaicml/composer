@@ -105,8 +105,8 @@ def _compare_optims_between_state_dicts(state_dict1, state_dict2):
         state_dict1_param_moment_dict = state_dict1_optim_params[param_name]
         state_dict2_param_moment_dict = state_dict2_optim_params[param_name]
         for moment_name in state_dict2_param_moment_dict.keys():
-            state_dict1_moment = state_dict1_param_moment_dict[moment_name]
-            state_dict2_moment = state_dict2_param_moment_dict[moment_name]
+            state_dict1_moment = state_dict1_param_moment_dict[moment_name].cpu()
+            state_dict2_moment = state_dict2_param_moment_dict[moment_name].cpu()
             assert torch.equal(
                 state_dict1_moment,
                 state_dict2_moment), f'Moment {moment_name} for parameter {param_name} not the same between state dicts'
