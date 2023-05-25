@@ -15,7 +15,7 @@ from tests.utils.object_store.object_store_settings import get_object_store_ctx,
 
 
 @pytest.fixture
-def bucket_uri_and_kwargs(request, s3_bucket: str, sftp_uri: str, test_session_name: str):
+def bucket_uri_and_kwargs(request, s3_bucket: str, s3_ephemeral_prefix: str, sftp_uri: str, test_session_name: str):
     remote = request.node.get_closest_marker('remote') is not None
 
     if request.param is LibcloudObjectStore:
@@ -34,7 +34,7 @@ def bucket_uri_and_kwargs(request, s3_bucket: str, sftp_uri: str, test_session_n
     elif request.param is S3ObjectStore:
         if remote:
             bucket_uri = f's3://{s3_bucket}'
-            kwargs = {'bucket': s3_bucket, 'prefix': test_session_name}
+            kwargs = {'bucket': s3_bucket, 'prefix': s3_ephemeral_prefix + '/' + test_session_name}
         else:
             bucket_uri = 's3://my-bucket'
             kwargs = {'bucket': 'my-bucket', 'prefix': 'folder/subfolder'}
