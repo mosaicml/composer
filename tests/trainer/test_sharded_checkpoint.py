@@ -204,7 +204,7 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
 
     rank = 0 if state_dict_type == 'full' else '{rank}'
     load_path = f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_{precision}/ba2_rank{rank}.pt'
-
+    assert load_path == f's3://mosaicml-internal-integration-testing/read_only/backwards_compatibility/{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_{precision}/ba2_rank{rank}.pt'
     trainer2 = get_trainer(
         fsdp_state_dict_type=state_dict_type,
         num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
