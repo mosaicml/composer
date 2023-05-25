@@ -81,13 +81,13 @@ if __name__ == '__main__':
     import os
 
     # Create S3 secrets.
-    aws_secret_access_key = MCLIEnvVarSecret(name='aws_secret_access_key', 
+    aws_secret_access_key = MCLIEnvVarSecret(name='aws_secret_access_key2', 
                                   secret_type=SecretType.environment,
                                   key='AWS_SECRET_ACCESS_KEY',
                                   value=os.environ['AWS_SECRET_ACCESS_KEY'])
     create_secret(secret=aws_secret_access_key)
 
-    aws_access_key_id = MCLIEnvVarSecret(name='aws_access_key_id', 
+    aws_access_key_id = MCLIEnvVarSecret(name='aws_access_key_id2', 
                                   secret_type=SecretType.environment,
                                   key='AWS_ACCESS_KEY_ID',
                                   value=os.environ['AWS_ACCESS_KEY_ID'])
