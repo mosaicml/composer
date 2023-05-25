@@ -1,8 +1,11 @@
 name: Daily
 on:
-  schedule:
-    - cron: '30 2 * * *' # 2:30 every day
-  push:
+  pull_request:
+    branches:
+      - dev
+      - main
+      - release/**
+  pull_request_target:
     branches:
       - dev
       - main
@@ -123,5 +126,8 @@ jobs:
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
       python-version: 3.9
+      pytest-s3-bucket: 'mosaicml-internal-integration-testing'
     secrets:
       mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
+      aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}

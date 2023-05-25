@@ -75,4 +75,8 @@ jobs:
             REF_ARGS="--pr_number $PR_NUMBER"
           fi
 
+          export AWS_ACCESS_KEY_ID='${{ secrets.aws-access-key-id }}'
+          export AWS_SECRET_ACCESS_KEY='${{ secrets.aws-secret-access-key }}'
+          export S3_BUCKET='${{ inputs.pytest-s3-bucket }}'
+
           python .github/mcli/mcli_pytest.py --image '${{ inputs.container }}' --pip_package_name '${{ inputs.composer_package_name }}' --pytest_markers '${{ inputs.pytest-markers }}' --pytest_command '${{ inputs.pytest-command }}' --timeout ${{ inputs.mcloud-timeout }} ${REF_ARGS}
