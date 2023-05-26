@@ -75,20 +75,29 @@ class PartialFilePath:
         self.folder = folder
         self.filename = filename
 
-    def format(self, state: State, is_deepspeed: bool = False) -> str:
+    def format(self, state: State, is_deepspeed: bool = False, keep_placeholders: bool = False) -> str:
         # if filename already has a suffix (e.g. file.pt), this would append to be file.pt.tar
         extra_suffix = '.tar' if is_deepspeed and not is_tar(self.filename) else ''
         if self.folder:
-            return os.path.join(
-                format_name_with_dist(self.folder, state.run_name),
-                format_name_with_dist_and_time(self.filename, state.run_name, state.timestamp),
-            ) + extra_suffix
+            if keep_placeholders:
+                return os.path.join(
+                    self.folder,
+                    self.filename,
+                ) + extra_suffix
+            else:
+                return os.path.join(
+                    format_name_with_dist(self.folder, state.run_name),
+                    format_name_with_dist_and_time(self.filename, state.run_name, state.timestamp),
+                ) + extra_suffix
         else:
-            return format_name_with_dist_and_time(
-                self.filename,
-                state.run_name,
-                state.timestamp,
-            ) + extra_suffix
+            if keep_placeholders:
+                return self.filename + extra_suffix
+            else:
+                return format_name_with_dist_and_time(
+                    self.filename,
+                    state.run_name,
+                    state.timestamp,
+                ) + extra_suffix
 
 
 def load_checkpoint(
@@ -521,7 +530,19 @@ def save_checkpoint(
     if weights_only and not is_deepspeed:
         state_dict['state'] = {'model': state_dict['state']['model']}
 
-    save_filename = PartialFilePath(filename).format(state, is_deepspeed)
+    # Sharded checkpoints get their own little folder.
+    if state.fsdp_sharded_state_dict_enabled:
+        assert state.sharded_ckpt_prefix_dir is not None
+        save_prefix_folder = state.sharded_ckpt_prefix_dir
+        # New name is now Trainer.save_folder / sharded_ckpt_prefix_dir / Trainer.save_filename
+        # e.g. path/to/my/checkpoints/ep{epoch}-ba{batch}/ep{epoch}-ba{batch}-rank{rank}.pt
+        save_filepath = Path(Path(filename).parent) / Path(save_prefix_folder) / Path(Path(filename).name)
+        # Fill in remaining placeholders.
+        save_filename = format_name_with_dist_and_time(str(save_filepath), state.run_name, state.timestamp)
+        log.debug('Saving sharded checkpoints to %s...', save_filename)
+    else:
+        save_filename = PartialFilePath(filename).format(state, is_deepspeed)
+
     dirname = os.path.dirname(save_filename)
     if dirname:
         os.makedirs(dirname, exist_ok=True)
