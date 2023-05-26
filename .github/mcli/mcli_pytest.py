@@ -4,7 +4,6 @@
 """Run pytest using MCLI."""
 
 import argparse
-import os
 import time
 
 from mcli import RunConfig, RunStatus, create_run, follow_run_logs, stop_run, wait_for_run_status
@@ -58,16 +57,13 @@ if __name__ == '__main__':
     if len(name) > 56:
         name = name[:56]
 
-    s3_bucket = os.environ.get('S3_BUCKET', '')
-    s3_bucket_flag = f"--s3_bucket {os.environ['S3_BUCKET']}" if s3_bucket != '' else ''
-
     command += f'''
 
     export COMPOSER_PACKAGE_NAME='{args.pip_package_name}'
 
     pip install --upgrade --user .[all]
 
-    export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}' {s3_bucket_flag}"
+    export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}' --s3_bucket mosaicml-internal-integration-testing"
 
     make test PYTEST='{args.pytest_command}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
 
