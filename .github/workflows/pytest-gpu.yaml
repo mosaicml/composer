@@ -31,18 +31,12 @@ on:
     secrets:
       mcloud-api-key:
         required: true
-      aws-access-key-id:
-        required: true
-      aws-secret-access-key:
-        required: true
 jobs:
   pytest-gpu:
     timeout-minutes: 60 # ${{ inputs.gha-timeout }} for some reason not able to turn this into an input
     runs-on: ubuntu-latest
     env:
       MOSAICML_API_KEY: ${{ secrets.mcloud-api-key }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       S3_BUCKET: '${{ inputs.pytest-s3-bucket }}'
     steps:
       - name: Checkout Repo

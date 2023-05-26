@@ -8,9 +8,6 @@ import os
 import time
 
 from mcli import RunConfig, RunStatus, create_run, follow_run_logs, stop_run, wait_for_run_status
-from mcli.api.secrets import create_secret
-from mcli.models import SecretType
-from mcli.objects.secrets import MCLIEnvVarSecret
 
 if __name__ == '__main__':
 
@@ -61,13 +58,16 @@ if __name__ == '__main__':
     if len(name) > 56:
         name = name[:56]
 
+    s3_bucket = os.environ.get('S3_BUCKET', None)
+    s3_bucket_flag = "--s3_bucket {os.environ['S3_BUCKET']}" if s3_bucket is not None else ''
+    
     command += f'''
 
     export COMPOSER_PACKAGE_NAME='{args.pip_package_name}'
 
     pip install --upgrade --user .[all]
 
-    export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}' --s3_bucket {os.environ['S3_BUCKET']}"
+    export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}' {s3_bucket_flag}"
 
     make test PYTEST='{args.pytest_command}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
 
@@ -77,21 +77,6 @@ if __name__ == '__main__':
 
     python -m coverage report
     '''
-
-    import os
-
-    # # Create S3 secrets.
-    # aws_secret_access_key = MCLIEnvVarSecret(name='aws_secret_access_key2',
-    #                               secret_type=SecretType.environment,
-    #                               key='AWS_SECRET_ACCESS_KEY',
-    #                               value=os.environ['AWS_SECRET_ACCESS_KEY'])
-    # create_secret(secret=aws_secret_access_key)
-    # aws_access_key_id = MCLIEnvVarSecret(name='aws_access_key_id2',
-    #                               secret_type=SecretType.environment,
-    #                               key='AWS_ACCESS_KEY_ID',
-    #                               value=os.environ['AWS_ACCESS_KEY_ID'])
-    # create_secret(secret=aws_access_key_id)
-
     config = RunConfig(
         name=name,
         cluster=args.cluster,
