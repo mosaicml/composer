@@ -60,7 +60,7 @@ if __name__ == '__main__':
 
     s3_bucket = os.environ.get('S3_BUCKET', None)
     s3_bucket_flag = "--s3_bucket {os.environ['S3_BUCKET']}" if s3_bucket is not None else ''
-    
+
     command += f'''
 
     export COMPOSER_PACKAGE_NAME='{args.pip_package_name}'
