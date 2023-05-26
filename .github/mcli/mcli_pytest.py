@@ -59,7 +59,7 @@ if __name__ == '__main__':
         name = name[:56]
 
     s3_bucket = os.environ.get('S3_BUCKET', None)
-    s3_bucket_flag = "--s3_bucket {os.environ['S3_BUCKET']}" if s3_bucket is not None else ''
+    s3_bucket_flag = f"--s3_bucket {os.environ['S3_BUCKET']}" if s3_bucket is not None else ''
 
     command += f'''
 
