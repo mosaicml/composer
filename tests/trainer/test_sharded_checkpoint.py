@@ -178,6 +178,7 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
 
     # Continue to fit to make sure we can continue training.
     trainer2.fit()
+    trainer2.close()
 
 
 @pytest.mark.gpu
@@ -228,6 +229,7 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
 
     # Continue to fit to make sure we can continue training.
     trainer2.fit()
+    trainer2.close()
 
 
 @pytest.mark.gpu
@@ -268,6 +270,8 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
     if dist.get_global_rank() == 0:
         _compare_model_params_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
         _compare_optims_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
+
+    trainer2.close()
 
 
 @pytest.mark.gpu
@@ -315,6 +319,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
     _compare_metrics_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
 
     trainer2.fit()
+    trainer2.close()
 
 
 @pytest.mark.gpu
