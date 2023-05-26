@@ -33,24 +33,23 @@ class SimpleMLP(ComposerClassifier):
         )
         super().__init__(module=net, num_classes=num_classes)
 
-def get_trainer(
-    save_folder=None,
-    save_filename='ba{batch}-rank{rank}.pt',
-    save_overwrite=False,
-    num_features=2,
-    num_classes=2,
-    fsdp_state_dict_type='full',
-    fsdp_sharded_ckpt_prefix_dir='ba{batch}',
-    load_path=None,
-    autoresume=False,
-    run_name=None,
-    max_duration='2ba',
-    precision='amp_fp16',
-    sharding_strategy='FULL_SHARD',
-    save_interval='2ba',
-    algorithms=None,
-    optimizer='adam'
-):
+
+def get_trainer(save_folder=None,
+                save_filename='ba{batch}-rank{rank}.pt',
+                save_overwrite=False,
+                num_features=2,
+                num_classes=2,
+                fsdp_state_dict_type='full',
+                fsdp_sharded_ckpt_prefix_dir='ba{batch}',
+                load_path=None,
+                autoresume=False,
+                run_name=None,
+                max_duration='2ba',
+                precision='amp_fp16',
+                sharding_strategy='FULL_SHARD',
+                save_interval='2ba',
+                algorithms=None,
+                optimizer='adam'):
     model = SimpleMLP(num_features=num_features, num_classes=num_classes)
     dataset = RandomClassificationDataset(shape=(num_features,), size=128)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=8)
