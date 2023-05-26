@@ -387,38 +387,38 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
         )
 
 
-# @pytest.mark.gpu
-# @world_size(2)
-# @pytest.mark.parametrize('use_remote', [pytest.param(True, marks=pytest.mark.remote), False])
-# @pytest.mark.parametrize('state_dict_type', ['local', 'sharded'])
-# @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-#                     reason='requires PyTorch 1.13 or higher')
-# def test_sharded_folder(world_size, use_remote, tmp_path: pathlib.Path, state_dict_type: str, s3_bucket):
-#     run_name = 'my-cool-s3-run'
-#     if use_remote:
-#         save_folder = 's3://' + str(pathlib.Path(s3_bucket) / pathlib.Path(run_name))
-#     else:
-#         save_folder = str(tmp_path / pathlib.Path(run_name))
-#     save_filename = 'ba{batch}-rank{rank}.pt'
-#     trainer1 = get_trainer(save_folder=save_folder,
-#                            save_filename=save_filename,
-#                            fsdp_state_dict_type=state_dict_type,
-#                            fsdp_sharded_ckpt_prefix_dir='ba{batch}',
-#                            run_name=run_name,
-#                            max_duration='2ba',
-#                            save_interval='1ba',
-#                            save_overwrite=True)
-#     trainer1.fit()
-#     trainer1.close()
-#     if not use_remote:
-#         expected_checkpoint_path = os.path.join(save_folder, 'ba1', f'ba1-rank{dist.get_global_rank()}.pt')
-#         assert os.path.exists(expected_checkpoint_path)
+@pytest.mark.gpu
+@world_size(2)
+@pytest.mark.parametrize('use_remote', [pytest.param(True, marks=pytest.mark.remote), False])
+@pytest.mark.parametrize('state_dict_type', ['local', 'sharded'])
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                    reason='requires PyTorch 1.13 or higher')
+def test_sharded_folder(world_size, use_remote, tmp_path: pathlib.Path, state_dict_type: str, s3_bucket):
+    run_name = 'my-cool-s3-run'
+    if use_remote:
+        save_folder = 's3://' + str(pathlib.Path(s3_bucket) / pathlib.Path(run_name))
+    else:
+        save_folder = str(tmp_path / pathlib.Path(run_name))
+    save_filename = 'ba{batch}-rank{rank}.pt'
+    trainer1 = get_trainer(save_folder=save_folder,
+                           save_filename=save_filename,
+                           fsdp_state_dict_type=state_dict_type,
+                           fsdp_sharded_ckpt_prefix_dir='ba{batch}',
+                           run_name=run_name,
+                           max_duration='2ba',
+                           save_interval='1ba',
+                           save_overwrite=True)
+    trainer1.fit()
+    trainer1.close()
+    if not use_remote:
+        expected_checkpoint_path = os.path.join(save_folder, 'ba1', f'ba1-rank{dist.get_global_rank()}.pt')
+        assert os.path.exists(expected_checkpoint_path)
 
-#     load_path = os.path.join(save_folder, 'ba1', 'ba1-rank{rank}.pt')
-#     trainer2 = get_trainer(
-#         fsdp_state_dict_type=state_dict_type,
-#         load_path=load_path,
-#         max_duration='2ba',
-#     )
-#     trainer2.fit()
-#     trainer2.close()
+    load_path = os.path.join(save_folder, 'ba1', 'ba1-rank{rank}.pt')
+    trainer2 = get_trainer(
+        fsdp_state_dict_type=state_dict_type,
+        load_path=load_path,
+        max_duration='2ba',
+    )
+    trainer2.fit()
+    trainer2.close()
