@@ -12,9 +12,6 @@ on:
         required: false
         type: number
         default: 1800
-      pytest-s3-bucket:
-        required: false
-        type: string
       name:
         required: true
         type: string
@@ -37,7 +34,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       MOSAICML_API_KEY: ${{ secrets.mcloud-api-key }}
-      S3_BUCKET: '${{ inputs.pytest-s3-bucket }}'
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v3

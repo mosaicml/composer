@@ -118,7 +118,7 @@ def s3_bucket(request: pytest.FixtureRequest):
 @pytest.fixture
 def s3_ephemeral_prefix():
     '''Objects under this prefix purged according to the bucket's lifecycle policy.'''
-    return 'epemeral'
+    return 'ephemeral'
 
 
 @pytest.fixture
