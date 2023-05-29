@@ -126,7 +126,7 @@ extra_deps['dev'] = [
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.16.1',
     'traitlets==5.9.0',
-    'nbsphinx==0.9.1',
+    'nbsphinx==0.9.2',
     'pandoc==2.3',
     'pypandoc==1.11',
     'GitPython==3.1.31',
