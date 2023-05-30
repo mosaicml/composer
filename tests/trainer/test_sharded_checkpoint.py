@@ -440,14 +440,21 @@ def test_new_sharded_save(world_size, tmp_path: pathlib.Path, state_dict_type: s
         save_filename=save_filename,
         fsdp_state_dict_type=state_dict_type,
         weights_only=weights_only,
+        save_interval='1ba',
+        fsdp_sharded_ckpt_prefix_dir='ba{batch}',
     )
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
     trainer1.close()
 
-    # import torch.distributed.checkpoint as dist_cp
-    # storage_reader = dist_cp.FileSystemReader(load_path_dir)
-    # model_state_dict = {'model': state.state_dict()['model']}
+
+    trainer2 = get_trainer(
+        fsdp_state_dict_type=state_dict_type,
+    )
+    load_path_dir = str(save_folder / pathlib.Path('ba1'))
+    import torch.distributed.checkpoint as dist_cp
+    storage_reader = dist_cp.FileSystemReader(load_path_dir)
+    model_state_dict = {'model': trainer2.state.state_dict()['model']}
     # dist_cp.load_state_dict(model_state_dict, storage_reader)
     # # check model state same as model state during save
     # optim_state = dist_cp.load_sharded_optimizer_state_dict(model_state_dict=state.state_dict()['model'], optimizer_key='optimizers', storage_reader=storage_reader)
