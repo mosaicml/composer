@@ -431,8 +431,7 @@ def test_sharded_folder(world_size, use_remote, tmp_path: pathlib.Path, state_di
 @pytest.mark.parametrize('weights_only', [True, False])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
                     reason='requires PyTorch 2.0.0 or higher')
-def test_new_sharded_save(world_size, tmp_path: pathlib.Path, state_dict_type: str,
-                                          precision: str, weights_only: bool):
+def test_new_sharded_save(world_size, tmp_path: pathlib.Path, state_dict_type: str, weights_only: bool):
     save_folder = tmp_path
     save_filename = 'ba{batch}-rank{rank}.pt'
     trainer1 = get_trainer(
