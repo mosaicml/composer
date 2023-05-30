@@ -452,11 +452,12 @@ def test_new_sharded_save(world_size, tmp_path: pathlib.Path, state_dict_type: s
         fsdp_state_dict_type=state_dict_type,
     )
     load_path_dir = str(save_folder / pathlib.Path('ba1'))
-    import torch.distributed.checkpoint as dist_cp
-    storage_reader = dist_cp.FileSystemReader(load_path_dir)
-    model_state_dict = {'model': trainer2.state.state_dict()['model']}
-    dist_cp.load_state_dict(model_state_dict, storage_reader)
-    _compare_model_params_between_state_dicts(state_dict_from_trainer1, model_state_dict)
+    assert os.listdir(load_path_dir) == 'foo'
+    # import torch.distributed.checkpoint as dist_cp
+    # storage_reader = dist_cp.FileSystemReader(load_path_dir)
+    # model_state_dict = {'model': trainer2.state.state_dict()['model']}
+    # dist_cp.load_state_dict(model_state_dict, storage_reader)
+    # _compare_model_params_between_state_dicts(state_dict_from_trainer1, model_state_dict)
     # # check model state same as model state during save
     # optim_state = dist_cp.load_sharded_optimizer_state_dict(model_state_dict=state.state_dict()['model'], optimizer_key='optimizers', storage_reader=storage_reader)
     # # check optim state the same
