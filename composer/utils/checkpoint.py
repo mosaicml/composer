@@ -16,7 +16,7 @@ import textwrap
 import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
-
+from composer.utils import dist, using_torch_2
 import torch
 
 from composer.utils import dist, reproducibility
@@ -36,7 +36,7 @@ __all__ = ['load_checkpoint', 'save_checkpoint', 'download_checkpoint']
 
 _COMPOSER_STATES_FILENAME = 'composer_states.pt'
 _DEEPSPEED_TAG = 'deepspeed'  # always tag with the same, deterministic name. We'll rename the tarball to the appropriate name.
-
+_TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME = f"__{dist.get_global_rank()}_0.distcp"
 
 def _format_path_with_rank_zero(path: str) -> str:
     """Formats ``path`` with the rank zero values."""
@@ -532,14 +532,24 @@ def save_checkpoint(
 
     # Sharded checkpoints get their own little folder.
     if state.fsdp_sharded_state_dict_enabled:
+        if using_torch_2():
+            # Make state dict.
+            if weights_only:
+                state_dict = {'model': state.state_dict()['model']}
+            else:
+                # Dictionary must be flat to faciliate loading optimizer params.
+                state_dict = {
+                    **state.state_dict(),
+                    'rng': reproducibility.get_rng_state(),
+                }
+
+        # Specify save directory path and save_f
         assert state.sharded_ckpt_prefix_dir is not None
-        save_prefix_folder = state.sharded_ckpt_prefix_dir
-        # New name is now Trainer.save_folder / sharded_ckpt_prefix_dir / Trainer.save_filename
-        # e.g. path/to/my/checkpoints/ep{epoch}-ba{batch}/ep{epoch}-ba{batch}-rank{rank}.pt
-        save_filepath = Path(Path(filename).parent) / Path(save_prefix_folder) / Path(Path(filename).name)
-        # Fill in remaining placeholders.
-        save_filename = format_name_with_dist_and_time(str(save_filepath), state.run_name, state.timestamp)
-        log.debug('Saving sharded checkpoints to %s...', save_filename)
+        save_dirpath = Path(Path(filename).parent) / Path(state.sharded_ckpt_prefix_dir)
+        save_dirpath = format_name_with_dist_and_time(str(save_dirpath), state.run_name, state.timestamp)
+        # New name is now Trainer.save_folder / sharded_ckpt_prefix_dir / __{dist.get_global_rank()}_0.distcp’
+        # e.g. path/to/my/checkpoints/ep1-ba2/__1_0.distcp
+        save_filename = Path(save_dirpath) / Path(_TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME)
     else:
         save_filename = PartialFilePath(filename).format(state, is_deepspeed)
 
@@ -547,18 +557,31 @@ def save_checkpoint(
     if dirname:
         os.makedirs(dirname, exist_ok=True)
 
-    # only rank 0 saves the state_dict unless state.fsdp_sharded_state_dict_enabled=True.
-    if dist.get_global_rank() == 0 or state.fsdp_sharded_state_dict_enabled:
+    # All ranks save for deepspeed
+    if is_deepspeed:
+        log.debug('Saving deepspeed checkpoints to %s...', save_filename)
+        _save_deepspeed_model(state.deepspeed_model, save_filename)  
+
+    # Sharded checkpointing for torch >=2.0 uses the torch.distributed.checkpoint module.
+    elif state.fsdp_sharded_state_dict_enabled and using_torch_2():
+        import torch.distributed.checkpoint as dist_cp
+        log.debug('Saving sharded checkpoints to %s...', save_filename)
+        dist_cp.save_state_dict(state_dict=state_dict,
+                                storage_writer=dist_cp.FileSystemWriter(dirname))
+
+    # Only rank 0 saves the state_dict unless you are using sharded checkpointing with torch <2.0
+    elif dist.get_global_rank() == 0 or state.fsdp_sharded_state_dict_enabled:
+        log_msg = f'Saving sharded checkpoints to {save_filename}...' if state.fsdp_sharded_state_dict_enabled else f'Saving monolithic checkpoint to {save_filename}'
         with open(save_filename, 'wb') as f:
+            log.debug(log_msg)
             torch.save(state_dict, f)
 
         if is_tar(save_filename):
             _compress_file(save_filename, basename=_COMPOSER_STATES_FILENAME)
 
-    # all ranks save for deepspeed
-    if is_deepspeed:
-        _save_deepspeed_model(state.deepspeed_model, save_filename)
-
+    else:
+       log.debug(f'Rank 0 is saving a checkpoint right now, but this rank {dist.get_global_rank()} doesn''t need to...') 
+    
     dist.barrier()  # ensure all ranks saved their files
 
     if dist.get_global_rank() == 0 or is_deepspeed or state.fsdp_sharded_state_dict_enabled:

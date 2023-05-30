@@ -48,6 +48,7 @@ def get_trainer(save_folder=None,
                 precision='amp_fp16',
                 sharding_strategy='FULL_SHARD',
                 save_interval='2ba',
+                weights_only=False,
                 algorithms=None,
                 optimizer='adam'):
     model = SimpleMLP(num_features=num_features, num_classes=num_classes)
@@ -82,6 +83,7 @@ def get_trainer(save_folder=None,
         autoresume=autoresume,
         run_name=run_name,
         save_latest_filename='latest-rank{rank}.pt',
+        save_weights_only=weights_only,
     )
     return trainer
 
@@ -422,3 +424,37 @@ def test_sharded_folder(world_size, use_remote, tmp_path: pathlib.Path, state_di
     )
     trainer2.fit()
     trainer2.close()
+
+@pytest.mark.gpu
+@world_size(2)
+@pytest.mark.parametrize('state_dict_type', ['local', 'sharded'])
+@pytest.mark.parametrize('weights_only', [True, False])
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
+                    reason='requires PyTorch 2.0.0 or higher')
+def test_new_sharded_save(world_size, tmp_path: pathlib.Path, state_dict_type: str,
+                                          precision: str, weights_only: bool):
+    save_folder = tmp_path
+    save_filename = 'ba{batch}-rank{rank}.pt'
+    trainer1 = get_trainer(
+        save_folder=str(save_folder),
+        save_filename=save_filename,
+        fsdp_state_dict_type=state_dict_type,
+        weights_only=weights_only,
+        precision=precision,
+    )
+    trainer1.fit()
+    state_dict_from_trainer1 = trainer1.state.state_dict()
+    trainer1.close()
+
+    # import torch.distributed.checkpoint as dist_cp
+    # storage_reader = dist_cp.FileSystemReader(load_path_dir)
+    # model_state_dict = {'model': state.state_dict()['model']}
+    # dist_cp.load_state_dict(model_state_dict, storage_reader)
+    # # check model state same as model state during save
+    # optim_state = dist_cp.load_sharded_optimizer_state_dict(model_state_dict=state.state_dict()['model'], optimizer_key='optimizers', storage_reader=storage_reader)
+    # # check optim state the same
+    # cur_state_dict = state.state_dict()
+    # cur_state_dict.pop('model')
+    # cur_state_dict.pop('optimizers')
+    # dist_cp.load_state_dict(cur_state_dict, storage_reader)
+    # # check cur_state_dict matches everything else
