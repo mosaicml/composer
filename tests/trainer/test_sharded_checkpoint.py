@@ -439,7 +439,6 @@ def test_new_sharded_save(world_size, tmp_path: pathlib.Path, state_dict_type: s
         save_filename=save_filename,
         fsdp_state_dict_type=state_dict_type,
         weights_only=weights_only,
-        precision=precision,
     )
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
