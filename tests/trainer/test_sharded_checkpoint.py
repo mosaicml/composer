@@ -433,14 +433,14 @@ def test_sharded_folder(world_size, use_remote, tmp_path: pathlib.Path, state_di
                     reason='requires PyTorch 2.0.0 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 def test_new_sharded_save(world_size, tmp_path: pathlib.Path, state_dict_type: str, weights_only: bool):
-    save_folder = tmp_path
+    save_folder = "/tmp/test_checkpoints"
     save_filename = 'ba{batch}-rank{rank}.pt'
     trainer1 = get_trainer(
         save_folder=str(save_folder),
         save_filename=save_filename,
         fsdp_state_dict_type=state_dict_type,
         weights_only=weights_only,
-        save_interval='1ba',
+        save_interval='2ba',
         fsdp_sharded_ckpt_prefix_dir='ba{batch}',
     )
     trainer1.fit()
@@ -451,18 +451,14 @@ def test_new_sharded_save(world_size, tmp_path: pathlib.Path, state_dict_type: s
     trainer2 = get_trainer(
         fsdp_state_dict_type=state_dict_type,
     )
-    load_path_dir = str(save_folder / pathlib.Path('ba1'))
-    assert os.listdir(load_path_dir) == 'foo'
-    # import torch.distributed.checkpoint as dist_cp
-    # storage_reader = dist_cp.FileSystemReader(load_path_dir)
-    # model_state_dict = {'model': trainer2.state.state_dict()['model']}
-    # dist_cp.load_state_dict(model_state_dict, storage_reader)
-    # _compare_model_params_between_state_dicts(state_dict_from_trainer1, model_state_dict)
-    # # check model state same as model state during save
-    # optim_state = dist_cp.load_sharded_optimizer_state_dict(model_state_dict=state.state_dict()['model'], optimizer_key='optimizers', storage_reader=storage_reader)
-    # # check optim state the same
-    # cur_state_dict = state.state_dict()
-    # cur_state_dict.pop('model')
-    # cur_state_dict.pop('optimizers')
-    # dist_cp.load_state_dict(cur_state_dict, storage_reader)
-    # # check cur_state_dict matches everything else
+    load_path_dir = str(save_folder / pathlib.Path('ba2'))
+    import torch.distributed.checkpoint as dist_cp
+    from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
+    storage_reader = dist_cp.FileSystemReader(load_path_dir)
+    model_state_dict = {'model': trainer2.state.state_dict()['model']}
+    dist_cp.load_state_dict(model_state_dict, storage_reader)
+    _compare_model_params_between_state_dicts(state_dict_from_trainer1, model_state_dict)
+    if not weights_only:
+        optim_state = load_sharded_optimizer_state_dict(model_state_dict=trainer2.state.state_dict()['model'], optimizer_key='optimizers', storage_reader=storage_reader)
+        trainer2.state.load_optim_state(optim_state)
+        _compare_optims_between_state_dicts(state_dict_from_trainer1, trainer2.state.state_dict())
