@@ -455,9 +455,9 @@ def test_new_sharded_save(world_size, tmp_path: pathlib.Path, state_dict_type: s
     import torch.distributed.checkpoint as dist_cp
     from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
     storage_reader = dist_cp.FileSystemReader(load_path_dir)
-    model_state_dict = {'model': trainer2.state.state_dict()['model']}
+    model_state_dict = {'state': {'model': trainer2.state.state_dict()['model']}}
     dist_cp.load_state_dict(model_state_dict, storage_reader)
-    _compare_model_params_between_state_dicts(state_dict_from_trainer1, model_state_dict)
+    _compare_model_params_between_state_dicts(state_dict_from_trainer1, model_state_dict['state'])
     if not weights_only:
         optim_state = load_sharded_optimizer_state_dict(model_state_dict=trainer2.state.state_dict()['model'], optimizer_key='optimizers', storage_reader=storage_reader)
         trainer2.state.load_optim_state(optim_state)

@@ -531,15 +531,8 @@ def save_checkpoint(
     # Sharded checkpoints get their own little folder.
     if state.fsdp_sharded_state_dict_enabled:
         if using_torch_2():
-            # Make state dict.
-            if weights_only:
-                state_dict = {'model': state.state_dict()['model']}
-            else:
-                # Dictionary must be flat to faciliate loading optimizer params.
-                state_dict = {
-                    **state.state_dict(),
-                    'rng': reproducibility.get_rng_state(),
-                }
+            if not weights_only:
+                state_dict['optimizers'] = state_dict['state'].pop('optimizers')
 
         # Specify save directory path and save_f
         assert state.sharded_ckpt_prefix_dir is not None
