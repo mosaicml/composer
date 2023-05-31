@@ -571,7 +571,7 @@ def save_checkpoint(
             _compress_file(save_filename, basename=_COMPOSER_STATES_FILENAME)
 
     else:
-       log.debug(f'Rank 0 is saving a checkpoint right now, but this rank {dist.get_global_rank()} doesn''t need to...') 
+       log.debug(f'Only rank 0 is saving a checkpoint, so rank {dist.get_global_rank()} skips checkpointing.') 
     
     dist.barrier()  # ensure all ranks saved their files
 
