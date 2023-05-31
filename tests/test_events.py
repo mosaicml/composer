@@ -34,6 +34,18 @@ class TestEventCalls:
         eval_dataset = RandomClassificationDataset()
         train_batch_size = 4
 
+        evaluator1 = DataLoader(
+            dataset=eval_dataset,
+            batch_size=8,
+            sampler=dist.get_sampler(eval_dataset),
+        )
+
+        evaluator2 = DataLoader(
+            dataset=eval_dataset,
+            batch_size=4,
+            sampler=dist.get_sampler(eval_dataset),
+        )
+
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
@@ -41,15 +53,7 @@ class TestEventCalls:
                 batch_size=train_batch_size,
                 sampler=dist.get_sampler(train_dataset),
             ),
-            eval_dataloader=(DataLoader(
-                dataset=eval_dataset,
-                batch_size=8,
-                sampler=dist.get_sampler(eval_dataset),
-            ), DataLoader(
-                dataset=eval_dataset,
-                batch_size=4,
-                sampler=dist.get_sampler(eval_dataset),
-            )),
+            eval_dataloader=(evaluator1, evaluator2),
             device_train_microbatch_size=train_batch_size // 2,
             precision=precision,
             train_subset_num_batches=self.train_subset_num_batches,
