@@ -217,7 +217,7 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
                                   composer_version: str):
     if version.parse(torch.__version__) >= version.parse('2.0.0') and state_dict_type == 'local':
         pytest.xfail(
-            'Loading a torch 1.13 checkpoint with torch 2.0 for state_dict_type local is not backwards compatible')
+            'Loading a torch 1.13 checkpoint with torch 2.0 for state_dict_type local is not backwards compatible. See https://github.com/pytorch/pytorch/issues/102667 for more info')
 
     rank = 0 if state_dict_type == 'full' else '{rank}'
     load_path = f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_{precision}/ba2_rank{rank}.pt'
@@ -433,6 +433,9 @@ def test_sharded_folder(world_size, use_remote, tmp_path: pathlib.Path, state_di
                     reason='requires PyTorch 2.0.0 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 def test_new_sharded_save(world_size, tmp_path: pathlib.Path, state_dict_type: str, weights_only: bool):
+    if state_dict_type == 'local':
+        pytest.xfail(
+            'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info')
     save_folder = "/tmp/test_checkpoints"
     save_filename = 'ba{batch}-rank{rank}.pt'
     trainer1 = get_trainer(
@@ -457,7 +460,8 @@ def test_new_sharded_save(world_size, tmp_path: pathlib.Path, state_dict_type: s
     storage_reader = dist_cp.FileSystemReader(load_path_dir)
     model_state_dict = {'state': {'model': trainer2.state.state_dict()['model']}}
     dist_cp.load_state_dict(model_state_dict, storage_reader)
-    _compare_model_params_between_state_dicts(state_dict_from_trainer1, model_state_dict['state'])
+    trainer2.state.load_model_state(model_state_dict['state'], strict=True, logger=None)
+    _compare_model_params_between_state_dicts(state_dict_from_trainer1, trainer2.state.state_dict())
     if not weights_only:
         optim_state = load_sharded_optimizer_state_dict(model_state_dict=trainer2.state.state_dict()['model'], optimizer_key='optimizers', storage_reader=storage_reader)
         trainer2.state.load_optim_state(optim_state)
