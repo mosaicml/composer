@@ -2077,15 +2077,24 @@ class Trainer:
 
     def _run_evaluators(self, event: Event):
         """Runs evaluators periodically during training."""
+        evaluators_executing = []
         for evaluator in self.state.evaluators:
             assert evaluator.eval_interval is not None, 'eval_interval should have been set on __init__() or fit()'
             assert evaluator.subset_num_batches is not None, 'subset_num_batches should have been set on __init__() or fit()'
-            if evaluator.eval_interval(self.state, event):
+            evaluators_executing.append(evaluator.eval_interval(self.state, event))
+        if not any(evaluators_executing):
+            return
+
+        self.engine.run_event(Event.EVAL_BEFORE_ALL)
+        for index, evaluator in enumerate(self.state.evaluators):
+            if evaluators_executing[index]:
                 self._eval_loop(
                     evaluator=evaluator,
                     subset_num_batches=evaluator.subset_num_batches,
                     metrics=self.state.eval_metrics[evaluator.label],
                 )
+
+        self.engine.run_event(Event.EVAL_AFTER_ALL)
 
     def _train_batch(self, use_grad_scaling: bool) -> Dict[str, torch.Tensor]:
         """Compute loss by training on a full batch of data.
