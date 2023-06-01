@@ -97,7 +97,7 @@ def get_gpu_flops_available(state: State):
     device_name = torch.cuda.get_device_name().lower()
     if 'h100' in device_name and 'hbm3' in device_name:
         device_name = 'h100-sxm'
-    elif 'h100' in device_name and 'pcie' in device_name:
+    elif 'h100' in device_name and ('pcie' in device_name or 'hbm2e' in device_name):
         device_name = 'h100-pcie'
     elif 'a100' in device_name:
         device_name = 'a100'
