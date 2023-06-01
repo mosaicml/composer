@@ -28,6 +28,8 @@ on:
     secrets:
       mcloud-api-key:
         required: true
+      slack-notifications-bot-token:
+        required: false
 jobs:
   pytest-gpu:
     timeout-minutes: 60 # ${{ inputs.gha-timeout }} for some reason not able to turn this into an input
@@ -76,3 +78,12 @@ jobs:
           fi
 
           python .github/mcli/mcli_pytest.py --image '${{ inputs.container }}' --pip_package_name '${{ inputs.composer_package_name }}' --pytest_markers '${{ inputs.pytest-markers }}' --pytest_command '${{ inputs.pytest-command }}' --timeout ${{ inputs.mcloud-timeout }} ${REF_ARGS}
+      - name: Notify slack fail
+        if: failure() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.slack-notifications-bot-token }}
+        uses: voxmedia/github-action-slack-notify-build@v1
+        with:
+          channel: composer-helpdesk
+          status: FAILED
+          color: danger
