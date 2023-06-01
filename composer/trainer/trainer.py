@@ -419,6 +419,11 @@ class Trainer:
             This setting will end each epoch early to avoid additional training that will not be profiled.
 
             This parameter is ignored if ``train_dataloader`` is not specified.
+        spin_dataloaders (bool, optional): If ``True``, dataloaders will be spun up to the current timestamp.
+            This ensures dataloaders continue from the same batch when resuming training. (default: ``True``)
+
+            .. note:: Spinning dataloaders can be potentially very slow. If resuming from a checkpoint where
+                determinism is not required, it is possible to resume faster by setting ``spin_dataloaders=False``.
         max_duration (Time | str | int, optional): The maximum duration to train. Can be an integer, which will be
             interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.
 
@@ -791,6 +796,7 @@ class Trainer:
         train_dataloader: Optional[Union[Iterable, DataSpec, Dict[str, Any]]] = None,
         train_dataloader_label: str = 'train',
         train_subset_num_batches: int = -1,
+        spin_dataloaders: bool = True,
 
         # Stopping Condition
         max_duration: Optional[Union[int, str, Time]] = None,
@@ -1187,6 +1193,7 @@ class Trainer:
                 self.state.train_dataloader = self.state.dataloader
             self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
                 self.state.device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
+        self.spin_dataloaders = spin_dataloaders
 
         # Max Duration
         if max_duration is not None:
@@ -1883,7 +1890,8 @@ class Trainer:
 
         use_grad_scaling = self._use_grad_scaling(self.state.precision, self.state.scaler)
 
-        self._spin_dataloaders()
+        if self.spin_dataloaders:
+            self._spin_dataloaders()
 
         if self.state.timestamp.batch_in_epoch == 0 and self._rng_state is not None:
             # only restore the rng state here if the step in the current epoch is zero.
@@ -1905,8 +1913,8 @@ class Trainer:
                     dataloader.sampler.set_epoch(int(self.state.timestamp.epoch))
 
                 for batch_idx, self.state.batch in enumerate(self._iter_dataloader(TrainerMode.TRAIN)):
-                    # Don't spin if dataloader handles it internally. Otherwise, if resuming, skip dataloader forward
-                    if 'train' not in self.state.dataset_resumption and batch_idx < int(
+                    # Spin dataloader forward unless dataloader handles internally with dataset_resumption
+                    if self.spin_dataloaders and 'train' not in self.state.dataset_resumption and batch_idx < int(
                             self.state.timestamp.batch_in_epoch):
                         # Restore the RNG state immediately before the next batch is yielded from the dataloader
                         if batch_idx + 1 == int(self.state.timestamp.batch_in_epoch) and self._rng_state is not None:
