@@ -295,7 +295,7 @@ def prepare_fsdp_module(
                 f'with sharding strategy `{sharding_map_key}.`')
 
     if fsdp_config.get('min_params') is not None:
-        warnings.warn(DeprecationWarning('`min_params` in FSDP config will be depricated in composer version 0.16.0.'))
+        warnings.warn(DeprecationWarning('`min_params` in FSDP config will be deprecated in composer version 0.16.0.'))
 
     backward_prefetch = backward_prefetch_map[fsdp_config.get('backward_prefetch', 'BACKWARD_POST').upper()]
     min_params = int(float(fsdp_config.get('min_params', 1e9)))
