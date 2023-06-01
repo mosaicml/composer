@@ -1149,7 +1149,8 @@ class Trainer:
             evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in dataloader_tupled]
 
             if any(evaluator_types) and not all(evaluator_types):
-                warnings.warn('Mixing Evaluator and DataLoader is not recommended.')
+                raise ValueError('Mixing Evaluator and DataLoader is allowed, please wrap'
+                                 'DataLoaders in the Evaluator class if you wish to do so.')
 
             evaluators = [
                 ensure_evaluator(evaluator, default_metric_names=model_metric_names) for evaluator in dataloader_tupled
@@ -1716,9 +1717,15 @@ class Trainer:
             eval_metrics = self._original_model.get_metrics(is_train=False)
             metric_names = [str(k) for k in eval_metrics.keys()]
 
+            dataloader_tupled = ensure_tuple(eval_dataloader)
+
+            evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in dataloader_tupled]
+
+            if any(evaluator_types) and not all(evaluator_types):
+                raise ValueError('Mixing Evaluator and DataLoader is allowed, please wrap'
+                                 'DataLoaders in the Evaluator class if you wish to do so.')
             evaluators = [
-                ensure_evaluator(evaluator, default_metric_names=metric_names)
-                for evaluator in ensure_tuple(eval_dataloader)
+                ensure_evaluator(evaluator, default_metric_names=metric_names) for evaluator in dataloader_tupled
             ]
 
             # match metric names to model metrics
@@ -2596,9 +2603,16 @@ class Trainer:
             eval_metrics = deepcopy(self._original_model.get_metrics(is_train=False))
             metric_names = [str(k) for k in eval_metrics.keys()]
 
+            dataloader_tupled = ensure_tuple(eval_dataloader)
+
+            evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in dataloader_tupled]
+
+            if any(evaluator_types) and not all(evaluator_types):
+                raise ValueError('Mixing Evaluator and DataLoader is allowed, please wrap'
+                                 'DataLoaders in the Evaluator class if you wish to do so.')
+
             evaluators = [
-                ensure_evaluator(evaluator, default_metric_names=metric_names)
-                for evaluator in ensure_tuple(eval_dataloader)
+                ensure_evaluator(evaluator, default_metric_names=metric_names) for evaluator in dataloader_tupled
             ]
 
             if self.state.eval_metrics:
