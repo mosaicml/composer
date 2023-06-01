@@ -469,12 +469,13 @@ class Trainer:
             Setting this to ``True`` will force schedulers to be stepped every batch,
             while ``False`` means schedulers stepped every epoch. ``None`` indicates the default behavior.
             (default: ``None``)
-        eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): The :class:`.DataLoader`,
+        eval_dataloader (Iterable | DataSpec | Evaluator | Sequence[Evaluator], optional): The :class:`.Iterable`,
             :class:`.DataSpec`, :class:`.Evaluator`, or sequence of evaluators for the evaluation data.
 
             To evaluate one or more specific metrics across one or more datasets, pass in an
-            :class:`.Evaluator`. If a :class:`.DataSpec` or :class:`.DataLoader` is passed in, then all
-            metrics returned by ``model.get_metrics()`` will be used during evaluation.
+            :class:`.Evaluator`. If a :class:`.DataSpec` or :class:`.Iterable` is passed in, then all
+            metrics returned by ``model.get_metrics()`` will be used during evaluation. If another class is used
+            with :class:`.Evaluator` in a list, a ValueError will be raised.
             ``None`` results in no evaluation. (default: ``None``)
         eval_interval (int | str | Time | (State, Event) -> bool, optional): Specifies how frequently to run evaluation.
             An integer, which will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time`
@@ -2591,9 +2592,10 @@ class Trainer:
             drop duplicate samples.
 
         Args:
-            eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): Dataloaders
+            eval_dataloader (Iterable | DataSpec | Evaluator | Sequence[Evaluator], optional): Dataloaders
                 for evaluation.  If not provided, defaults to using the
-                ``eval_dataloader`` provided to the trainer init().
+                ``eval_dataloader`` provided to the trainer init(). If a list of Evaluators is provided
+                mixed with other classes, a ValueError will be raised.
             subset_num_batches (int, optional): Evaluate on this many batches. Default to ``-1`` (the entire
                 dataloader. Can also be provided in the trainer.__init__() as ``eval_subset_num_batches``.
 
