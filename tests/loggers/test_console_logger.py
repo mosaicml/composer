@@ -9,10 +9,11 @@ import pytest
 from torch.utils.data import DataLoader
 from torchmetrics import MetricCollection
 
-from composer.callbacks import SpeedMonitor
+from composer.callbacks import OptimizerMonitor, SpeedMonitor
 from composer.core import Evaluator
 from composer.loggers import ConsoleLogger
 from composer.loggers.console_logger import NUM_EVAL_LOGGING_EVENTS
+from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
 from tests.common import RandomClassificationDataset, SimpleModel
 
@@ -287,3 +288,50 @@ def test_console_logger_with_a_callback(console_logger_test_stream, console_logg
     expected_speed_monitor_lines = num_speed_monitor_lines_per_log_event * expected_num_logging_events
 
     assert actual_num_speed_monitor_lines == expected_speed_monitor_lines
+
+
+@pytest.mark.filterwarnings('ignore:Cannot split tensor of length .* into batches of size .*:UserWarning')
+def test_console_logger_overlapping(console_logger_test_stream, console_logger_test_file_path):
+
+    batch_size = 1
+    dataset_size = 96
+
+    grad_monitor = OptimizerMonitor(log_optimizer_metrics=True, batch_log_interval=5)
+
+    model = SimpleModel()
+    trainer = Trainer(
+        model=model,
+        callbacks=grad_monitor,
+        console_stream=console_logger_test_stream,
+        console_log_interval='98ba',
+        log_to_console=True,
+        progress_bar=False,
+        train_dataloader=DataLoader(RandomClassificationDataset(size=dataset_size), batch_size=batch_size),
+        optimizers=DecoupledAdamW(model.parameters()),
+        max_duration='2ep',
+    )
+    trainer.fit()
+    console_logger_test_stream.flush()
+    console_logger_test_stream.close()
+
+    with open(console_logger_test_file_path, 'r') as f:
+        lines = f.readlines()
+
+    # Make a regular expression for matches for any line that contains "Train" followed by
+    # a colon.
+    reg_exp = re.compile('Train *:*')
+    actual_num_log_lines = sum(
+        [1 if bool(reg_exp.search(line)) and ('trainer/' not in line and 'time/' not in line) else 0 for line in lines])
+
+    assert model.train_metrics is not None
+    num_metrics = len(list(model.train_metrics.keys())) if isinstance(model.train_metrics, MetricCollection) else 1
+    num_metrics += len(list(model.parameters())) * 7 + 1  # number from Adam
+    for line in lines:
+        print(line)
+    num_losses = 1
+    num_metrics_and_losses_per_logging_event = num_metrics + num_losses
+
+    expected_num_lines = 2 + num_metrics_and_losses_per_logging_event
+    # metrics for optimizer are only calculated at second log
+
+    assert actual_num_log_lines == expected_num_lines
