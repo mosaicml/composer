@@ -130,9 +130,7 @@ class ConsoleLogger(LoggerDestination):
             self._log_hparams_to_console()
 
     def eval_start(self, state: State, logger: Logger) -> None:
-        self.logged_metrics = {}
-        # Clear logged metrics before eval so they don't get logged
-        # subsequently.
+        self.logged_metrics = {}  # Clear logged metrics before eval so they don't get logged subsequently.
         total_eval_batches = self._get_total_eval_batches(state)
         deciles = np.linspace(0, 1, NUM_EVAL_LOGGING_EVENTS)
         batch_idxs = np.arange(1, total_eval_batches + 1)
