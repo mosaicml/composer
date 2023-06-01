@@ -419,11 +419,15 @@ class Trainer:
             This setting will end each epoch early to avoid additional training that will not be profiled.
 
             This parameter is ignored if ``train_dataloader`` is not specified.
-        spin_dataloaders (bool, optional): If ``True``, dataloaders will be spun up to the current timestamp.
-            This ensures dataloaders continue from the same batch when resuming training. (default: ``True``)
+        spin_dataloaders (bool, optional): If ``True``, dataloaders will be spun up to the current timestamp
+            by skipping samples which have already been trained on if a dataloader does not have a way to
+            resume from the current batch. This ensures dataloaders continue from the same batch when resuming
+            training. (default: ``True``)
 
-            .. note:: Spinning dataloaders can be potentially very slow. If resuming from a checkpoint where
-                determinism is not required, it is possible to resume faster by setting ``spin_dataloaders=False``.
+            .. note:: Spinning dataloaders can be potentially very slow but is required to skip samples which
+                have already been trained on. If it is acceptable to repeat samples when resuming training,
+                it is possible to resume faster by setting ``spin_dataloaders=False``. This may have severe
+                performance implications and is generally not recommended.
         max_duration (Time | str | int, optional): The maximum duration to train. Can be an integer, which will be
             interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.
 
@@ -1825,8 +1829,8 @@ class Trainer:
                 self.state.eval_metrics[dataloader_label][metric_name] = metric
                 self.state.eval_metric_values[metric_name] = computed_metrics[metric_name]
 
-    def _spin_dataloaders(self):
-        """Spin the dataloaders to restore sampler state.
+    def _spin_dataloaders_to_cur_epoch(self):
+        """Spin the dataloaders to restore sampler state for current epoch.
 
         Only one batch must be loaded to seed the sampler's generator. since only the first batch is being loaded, the
         dataloader may not be completely iterated through.
@@ -1891,7 +1895,7 @@ class Trainer:
         use_grad_scaling = self._use_grad_scaling(self.state.precision, self.state.scaler)
 
         if self.spin_dataloaders:
-            self._spin_dataloaders()
+            self._spin_dataloaders_to_cur_epoch()
 
         if self.state.timestamp.batch_in_epoch == 0 and self._rng_state is not None:
             # only restore the rng state here if the step in the current epoch is zero.
