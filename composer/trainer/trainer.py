@@ -469,13 +469,13 @@ class Trainer:
             Setting this to ``True`` will force schedulers to be stepped every batch,
             while ``False`` means schedulers stepped every epoch. ``None`` indicates the default behavior.
             (default: ``None``)
-        eval_dataloader (Iterable | DataSpec | Evaluator | Sequence[Evaluator], optional): The :class:`.Iterable`,
+        eval_dataloader (Iterable | DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): The :class:`.Iterable`,
             :class:`.DataSpec`, :class:`.Evaluator`, or sequence of evaluators for the evaluation data.
 
             To evaluate one or more specific metrics across one or more datasets, pass in an
             :class:`.Evaluator`. If a :class:`.DataSpec` or :class:`.Iterable` is passed in, then all
-            metrics returned by ``model.get_metrics()`` will be used during evaluation. If another class is used
-            with :class:`.Evaluator` in a list, a ValueError will be raised.
+            metrics returned by ``model.get_metrics()`` will be used during evaluation. If a :class:`.Evaluator`
+            is specified in a list, all eval dataloaders must be :class:`.Evaluator` instances.
             ``None`` results in no evaluation. (default: ``None``)
         eval_interval (int | str | Time | (State, Event) -> bool, optional): Specifies how frequently to run evaluation.
             An integer, which will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time`
@@ -1145,16 +1145,16 @@ class Trainer:
         else:
             eval_metrics = deepcopy(self.state.model.get_metrics(is_train=False))
             model_metric_names = [str(k) for k in eval_metrics.keys()]
-            dataloader_tupled = ensure_tuple(eval_dataloader)
+            eval_dataloader = ensure_tuple(eval_dataloader)
 
-            evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in dataloader_tupled]
+            evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in eval_dataloader]
 
             if any(evaluator_types) and not all(evaluator_types):
-                raise ValueError('Mixing Evaluator and DataLoader is allowed, please wrap'
-                                 'DataLoaders in the Evaluator class if you wish to do so.')
+                raise ValueError('Mixing Evaluator with other classes is not allowed, please wrap'
+                                 'all other classes with the Evaluator class.')
 
             evaluators = [
-                ensure_evaluator(evaluator, default_metric_names=model_metric_names) for evaluator in dataloader_tupled
+                ensure_evaluator(evaluator, default_metric_names=model_metric_names) for evaluator in eval_dataloader
             ]
             # match metric names to model metrics
             self.state.eval_metrics = {
@@ -1717,16 +1717,16 @@ class Trainer:
             # could be DDP / DeepSpeed wrapped.
             eval_metrics = self._original_model.get_metrics(is_train=False)
             metric_names = [str(k) for k in eval_metrics.keys()]
+            eval_dataloader = ensure_tuple(eval_dataloader)
 
-            dataloader_tupled = ensure_tuple(eval_dataloader)
-
-            evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in dataloader_tupled]
+            evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in eval_dataloader]
 
             if any(evaluator_types) and not all(evaluator_types):
-                raise ValueError('Mixing Evaluator and DataLoader is allowed, please wrap'
-                                 'DataLoaders in the Evaluator class if you wish to do so.')
+                raise ValueError('Mixing Evaluator with other classes is not allowed, please wrap'
+                                 'all other classes with the Evaluator class.')
+
             evaluators = [
-                ensure_evaluator(evaluator, default_metric_names=metric_names) for evaluator in dataloader_tupled
+                ensure_evaluator(evaluator, default_metric_names=metric_names) for evaluator in eval_dataloader
             ]
 
             # match metric names to model metrics
@@ -2592,10 +2592,9 @@ class Trainer:
             drop duplicate samples.
 
         Args:
-            eval_dataloader (Iterable | DataSpec | Evaluator | Sequence[Evaluator], optional): Dataloaders
+            eval_dataloader (Iterable | DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): Dataloaders
                 for evaluation.  If not provided, defaults to using the
-                ``eval_dataloader`` provided to the trainer init(). If a list of Evaluators is provided
-                mixed with other classes, a ValueError will be raised.
+                ``eval_dataloader`` provided to the trainer init().
             subset_num_batches (int, optional): Evaluate on this many batches. Default to ``-1`` (the entire
                 dataloader. Can also be provided in the trainer.__init__() as ``eval_subset_num_batches``.
 
@@ -2605,16 +2604,16 @@ class Trainer:
             eval_metrics = deepcopy(self._original_model.get_metrics(is_train=False))
             metric_names = [str(k) for k in eval_metrics.keys()]
 
-            dataloader_tupled = ensure_tuple(eval_dataloader)
+            eval_dataloader = ensure_tuple(eval_dataloader)
 
-            evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in dataloader_tupled]
+            evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in eval_dataloader]
 
             if any(evaluator_types) and not all(evaluator_types):
-                raise ValueError('Mixing Evaluator and DataLoader is allowed, please wrap'
-                                 'DataLoaders in the Evaluator class if you wish to do so.')
+                raise ValueError('Mixing Evaluator with other classes is not allowed, please wrap'
+                                 'all other classes with the Evaluator class.')
 
             evaluators = [
-                ensure_evaluator(evaluator, default_metric_names=metric_names) for evaluator in dataloader_tupled
+                ensure_evaluator(evaluator, default_metric_names=metric_names) for evaluator in eval_dataloader
             ]
 
             if self.state.eval_metrics:
