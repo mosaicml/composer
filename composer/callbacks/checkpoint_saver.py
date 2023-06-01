@@ -9,6 +9,7 @@ import logging
 import math
 import os
 import pathlib
+from pathlib import Path
 import tempfile
 import textwrap
 from typing import Callable, List, Optional, Union
@@ -18,10 +19,13 @@ from composer.loggers import Logger
 from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, PartialFilePath,
                             checkpoint, create_symlink_file, dist, ensure_folder_has_no_conflicting_files,
                             format_name_with_dist, format_name_with_dist_and_time, is_model_deepspeed, reproducibility)
+from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
 
 log = logging.getLogger(__name__)
 
 __all__ = ['CheckpointSaver', 'checkpoint_periodically']
+
+_TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME = '.metadata'
 
 
 def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State, Event], bool]:
@@ -411,14 +415,28 @@ class CheckpointSaver(Callback):  # noqa: D101
                 remote_prefix = state.sharded_ckpt_prefix_dir
                 remote_file_name = os.path.join(
                     pathlib.Path(remote_file_name).parent, remote_prefix,
-                    pathlib.Path(remote_file_name).name)
+                    _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME)
                 remote_file_name = format_name_with_dist_and_time(remote_file_name, state.run_name, state.timestamp)
+
+                # Upload metadata file.
+                if dist.get_global_rank() == 0:
+                    metadata_local_file_name = os.path.join(
+                        Path(saved_path).parent,
+                        _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME
+                        )
+                    metadata_local_file_name = format_name_with_dist_and_time(metadata_local_file_name, state.run_name, state.timestamp)
+                    metadata_remote_file_name = os.path.join(
+                        Path(remote_file_name).parent,
+                        _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME)
+                    metadata_remote_file_name = format_name_with_dist_and_time(metadata_remote_file_name, state.run_name, state.timestamp)
+                    logger.upload_file(remote_file_name=metadata_remote_file_name, 	file_path=metadata_local_file_name, overwrite=self.overwrite)
             else:
                 remote_file_name = self.remote_file_name.format(
                     state,
                     is_deepspeed,
                 ).lstrip('/')
 
+            # Upload remote file.
             logger.upload_file(remote_file_name=remote_file_name, file_path=saved_path, overwrite=self.overwrite)
 
             # symlinks stay the same with sharded checkpointing

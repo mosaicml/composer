@@ -517,8 +517,6 @@ def save_checkpoint(
     weights_only: bool = False,
 ) -> Union[str, None]:  # noqa: D103
 
-    log.debug('Saving checkpoint to %s', filename)
-
     is_deepspeed = is_model_deepspeed(state.model)
 
     state_dict = {
