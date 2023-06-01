@@ -1148,7 +1148,6 @@ class Trainer:
             eval_dataloader = ensure_tuple(eval_dataloader)
 
             evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in eval_dataloader]
-
             if any(evaluator_types) and not all(evaluator_types):
                 raise ValueError('Mixing Evaluator with other classes is not allowed, please wrap'
                                  'all other classes with the Evaluator class.')
@@ -1720,7 +1719,6 @@ class Trainer:
             eval_dataloader = ensure_tuple(eval_dataloader)
 
             evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in eval_dataloader]
-
             if any(evaluator_types) and not all(evaluator_types):
                 raise ValueError('Mixing Evaluator with other classes is not allowed, please wrap'
                                  'all other classes with the Evaluator class.')
@@ -2616,7 +2614,6 @@ class Trainer:
             eval_dataloader = ensure_tuple(eval_dataloader)
 
             evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in eval_dataloader]
-
             if any(evaluator_types) and not all(evaluator_types):
                 raise ValueError('Mixing Evaluator with other classes is not allowed, please wrap'
                                  'all other classes with the Evaluator class.')
