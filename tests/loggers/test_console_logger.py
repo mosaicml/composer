@@ -292,9 +292,17 @@ def test_console_logger_with_a_callback(console_logger_test_stream, console_logg
 
 @pytest.mark.filterwarnings('ignore:Cannot split tensor of length .* into batches of size .*:UserWarning')
 def test_console_logger_overlapping(console_logger_test_stream, console_logger_test_file_path):
+    """
+    Test that the console logger does not throw away metrics at the end of an epoch, instead logging these
+    metrics at the typical log period.
 
+    Uses OptimizerMonitor as a logger that only logs every 5 batches, on a model training for two epochs of
+    6 batches, with log period of 8 batches. With prior implementations, this would discard metrics from the
+    logger at the end of the first epoch and not log them. Now, these metrics will be printed at the log
+    flush, which this test checks.
+    """
     batch_size = 1
-    dataset_size = 96
+    dataset_size = 6
 
     grad_monitor = OptimizerMonitor(log_optimizer_metrics=True, batch_log_interval=5)
 
@@ -303,7 +311,7 @@ def test_console_logger_overlapping(console_logger_test_stream, console_logger_t
         model=model,
         callbacks=grad_monitor,
         console_stream=console_logger_test_stream,
-        console_log_interval='98ba',
+        console_log_interval='8ba',
         log_to_console=True,
         progress_bar=False,
         train_dataloader=DataLoader(RandomClassificationDataset(size=dataset_size), batch_size=batch_size),
