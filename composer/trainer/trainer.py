@@ -1144,10 +1144,15 @@ class Trainer:
         else:
             eval_metrics = deepcopy(self.state.model.get_metrics(is_train=False))
             model_metric_names = [str(k) for k in eval_metrics.keys()]
+            dataloader_tupled = ensure_tuple(eval_dataloader)
+
+            evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in dataloader_tupled]
+
+            if any(evaluator_types) and not all(evaluator_types):
+                warnings.warn('Mixing Evaluator and DataLoader is not recommended.')
 
             evaluators = [
-                ensure_evaluator(evaluator, default_metric_names=model_metric_names)
-                for evaluator in ensure_tuple(eval_dataloader)
+                ensure_evaluator(evaluator, default_metric_names=model_metric_names) for evaluator in dataloader_tupled
             ]
             # match metric names to model metrics
             self.state.eval_metrics = {

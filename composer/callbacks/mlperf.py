@@ -87,7 +87,7 @@ class MLPerfCallback(Callback):
                 target='0.759',
             )
 
-    During training, the metric found in ``state.eval_metrics[metric_label][metric_name]``
+    During training, the metric found in ``state.eval_metrics[metric_name][metric_label]``
     will be compared against the target criterion.
 
     .. note::
