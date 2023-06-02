@@ -420,14 +420,15 @@ class Trainer:
 
             This parameter is ignored if ``train_dataloader`` is not specified.
         spin_dataloaders (bool, optional): If ``True``, dataloaders will be spun up to the current timestamp
-            by skipping samples which have already been trained on if a dataloader does not have a way to
-            resume from the current batch. This ensures dataloaders continue from the same batch when resuming
-            training. (default: ``True``)
+            by skipping samples which have already been trained on. If a dataloader has a way to resume from
+            the current batch without spinning, this will be a no-op. This ensures dataloaders continue from
+            the same batch when resuming training. (default: ``True``)
 
             .. note:: Spinning dataloaders can be potentially very slow but is required to skip samples which
                 have already been trained on. If it is acceptable to repeat samples when resuming training,
                 it is possible to resume faster by setting ``spin_dataloaders=False``. This may have severe
-                performance implications and is generally not recommended unless you confidently understand the implications.
+                performance implications and is generally not recommended unless you confidently understand the
+                implications.
         max_duration (Time | str | int, optional): The maximum duration to train. Can be an integer, which will be
             interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.
 
