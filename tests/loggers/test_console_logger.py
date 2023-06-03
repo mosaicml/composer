@@ -57,6 +57,8 @@ def test_console_logger_interval(console_logger_test_stream, console_logger_test
     with open(console_logger_test_file_path, 'r') as f:
         lines = f.readlines()
 
+    for line in lines:
+        print(line)
     # Make a regular expression for matches for any line that contains "Train" followed by
     # a colon.
     reg_exp = re.compile('Train *:*')
@@ -68,15 +70,22 @@ def test_console_logger_interval(console_logger_test_stream, console_logger_test
     num_losses = 1
     num_metrics_and_losses_per_logging_event = num_metrics + num_losses
 
+    logs_at_end = None
     if log_interval_unit == max_duration_unit:
         expected_num_logging_events = max_duration // log_interval
+        logs_at_end = max_duration % log_interval
     elif log_interval_unit == 'ba' and max_duration_unit == 'ep':
         expected_num_logging_events = (batches_per_epoch * max_duration) // log_interval
+        logs_at_end = (batches_per_epoch * max_duration) % log_interval
     else:  # for the case where log_interval_unit == 'ep' and max_duration == 'ba'.
         total_epochs = max_duration // batches_per_epoch
         expected_num_logging_events = total_epochs // log_interval
+        logs_at_end = max_duration % (batches_per_epoch * log_interval)
     if log_interval != 1:
         expected_num_logging_events += 1  # Because we automatically log the first batch or epoch.
+
+    if logs_at_end != 0:
+        expected_num_logging_events += 1  # Log for fit
 
     expected_num_lines = expected_num_logging_events * num_metrics_and_losses_per_logging_event
 
@@ -267,15 +276,22 @@ def test_console_logger_with_a_callback(console_logger_test_stream, console_logg
     console_logger_test_stream.flush()
     console_logger_test_stream.close()
 
+    logs_at_end = None
     if log_interval_unit == max_duration_unit:
         expected_num_logging_events = max_duration // log_interval
+        logs_at_end = max_duration % log_interval
     elif log_interval_unit == 'ba' and max_duration_unit == 'ep':
         expected_num_logging_events = (batches_per_epoch * max_duration) // log_interval
+        logs_at_end = (batches_per_epoch * max_duration) % log_interval
     else:  # for the case where log_interval_unit == 'ep' and max_duration == 'ba'.
-        total_epochs = math.ceil(max_duration / batches_per_epoch)
+        total_epochs = max_duration // batches_per_epoch
         expected_num_logging_events = total_epochs // log_interval
+        logs_at_end = max_duration % (batches_per_epoch * log_interval)
     if log_interval != 1:
         expected_num_logging_events += 1  # Because we automatically log the first batch or epoch.
+
+    if logs_at_end != 0:
+        expected_num_logging_events += 1  # Log for fit
 
     with open(console_logger_test_file_path, 'r') as f:
         lines = f.readlines()
@@ -338,7 +354,7 @@ def test_console_logger_overlapping(console_logger_test_stream, console_logger_t
     num_losses = 1
     num_metrics_and_losses_per_logging_event = num_metrics + num_losses
 
-    expected_num_lines = 2 + num_metrics_and_losses_per_logging_event
-    # metrics for optimizer are only calculated at second log
+    expected_num_lines = 2 + 2 * num_metrics_and_losses_per_logging_event
+    # metrics for optimizer are only calculated at second log and at FIT_END
 
     assert actual_num_log_lines == expected_num_lines
