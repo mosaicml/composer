@@ -16,13 +16,14 @@ from packaging import version
 from torch.utils.data import DataLoader
 from torchmetrics import Metric
 from torchmetrics.classification import MulticlassAccuracy
+from torchmetrics.regression import PearsonCorrCoef
 
 from composer.loggers import InMemoryLogger
 from composer.metrics import InContextLearningLMAccuracy, LanguageCrossEntropy, MaskedAccuracy
 from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
 from composer.utils import dist, is_model_fsdp
-from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset
+from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset, RandomTextRegressionDataset
 from tests.common.markers import device, world_size
 from tests.common.models import (configure_tiny_bert_model, configure_tiny_bert_tokenizer, configure_tiny_gpt2_model,
                                  configure_tiny_gpt2_tokenizer, configure_tiny_t5_model, configure_tiny_t5_tokenizer)
@@ -86,6 +87,66 @@ def test_hf_train_eval_predict(num_classes: int, tiny_bert_config):
     num_predict_batches_expected = ((size - 1) // batch_size) + 1
     assert len(predictions) == num_predict_batches_expected
     assert predictions[0]['logits'].shape == (batch_size, num_classes)
+
+
+@pytest.mark.parametrize('num_classes', [1, 1])
+def test_hf_train_eval_predict_regression(num_classes: int, tiny_deberta_config):
+    transformers = pytest.importorskip('transformers')
+
+    tiny_deberta_config.num_labels = num_classes
+    hf_model = transformers.AutoModelForSequenceClassification.from_config(
+        tiny_deberta_config)  # type: ignore (thirdparty)
+
+    metrics = PearsonCorrCoef(num_outputs=1)
+    model = HuggingFaceModel(hf_model, metrics=[metrics], use_logits=True)
+
+    vocab_size = 30522  # Match bert vocab size
+    sequence_length = 4
+    num_classes = num_classes
+    size = 16
+    batch_size = 8
+
+    train_dataset = RandomTextRegressionDataset(size=size,
+                                                vocab_size=vocab_size,
+                                                sequence_length=sequence_length,
+                                                num_classes=num_classes,
+                                                use_keys=True)
+    eval_dataset = RandomTextRegressionDataset(size=size,
+                                               vocab_size=vocab_size,
+                                               sequence_length=sequence_length,
+                                               num_classes=num_classes,
+                                               use_keys=True)
+    predict_dataset = RandomTextRegressionDataset(size=size,
+                                                  vocab_size=vocab_size,
+                                                  sequence_length=sequence_length,
+                                                  num_classes=num_classes,
+                                                  use_keys=True)
+
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=dist.get_sampler(train_dataset))
+    eval_dataloader = DataLoader(eval_dataset, batch_size=batch_size, sampler=dist.get_sampler(eval_dataset))
+    predict_dataloader = DataLoader(predict_dataset, batch_size=batch_size)
+
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration='1ep',
+        eval_dataloader=eval_dataloader,
+    )
+
+    trainer.fit()
+    trainer.eval()
+
+    # Check that there is some train/eval accuracy
+    assert trainer.state.train_metrics['PearsonCorrCoef'].compute() != 0.0
+    assert trainer.state.eval_metrics['eval']['PearsonCorrCoef'].compute() != 0.0
+
+    predictions = trainer.predict(predict_dataloader)
+
+    # Check that the output predictions are the expected shape
+    # for regression, the output is a single value
+    num_predict_batches_expected = ((size - 1) // batch_size) + 1
+    assert len(predictions) == num_predict_batches_expected
+    assert predictions[0]['logits'].shape == (batch_size,)
 
 
 def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
