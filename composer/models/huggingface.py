@@ -145,7 +145,8 @@ class HuggingFaceModel(ComposerModel):
         model_instantiation_class: Optional[Union[Type[transformers.PreTrainedModel], Type['_BaseAutoModelClass'],
                                                   str]] = None,
         model_config_kwargs: Optional[dict] = None,
-        local_checkpoint_save_location: Optional[Union[Path, str]] = None
+        local_checkpoint_save_location: Optional[Union[Path, str]] = None,
+        trust_remote_code: bool = False,
     ) -> Tuple[transformers.PreTrainedModel, Optional[transformers.PreTrainedTokenizer]]:
         """Loads a HuggingFace model (and tokenizer if present) from a composer checkpoint.
 
@@ -285,6 +286,9 @@ class HuggingFaceModel(ComposerModel):
                             for line in saved_content['content']:
                                 _tmp_file.write(line)
                                 _tmp_file.write('\n')
+                    elif saved_content['file_extension'] == '.py':
+                        with open(tokenizer_file_path, 'w') as _tmp_file:
+                            _tmp_file.write(saved_content['content'])
                     elif saved_content['file_extension'] == '.model':
                         try:
                             import sentencepiece as spm
@@ -295,7 +299,7 @@ class HuggingFaceModel(ComposerModel):
                         s.load_from_serialized_proto(saved_content['content'])
                         with open(tokenizer_file_path, 'wb') as _tmp_file:
                             _tmp_file.write(s.serialized_model_proto())
-                hf_tokenizer = transformers.AutoTokenizer.from_pretrained(_tmp_dir)
+                hf_tokenizer = transformers.AutoTokenizer.from_pretrained(_tmp_dir, trust_remote_code=trust_remote_code)
 
                 # we need to set the name_or_path back because otherwise it is the tmp dir we are loading from here
                 hf_tokenizer.name_or_path = hf_tokenizer_state['tokenizer_config']['content'].get('name_or_path', '')
@@ -424,6 +428,9 @@ class HuggingFaceModel(ComposerModel):
                     elif tokenizer_file_extension == '.json':
                         with open(tokenizer_file_path) as _tokenizer_file:
                             tokenizer_file_content = json.load(_tokenizer_file)
+                    elif tokenizer_file_extension == '.py':
+                        with open(tokenizer_file_path) as _tokenizer_file:
+                            tokenizer_file_content = _tokenizer_file.read()
                     elif tokenizer_file_extension == '.model':
                         try:
                             import sentencepiece as spm
