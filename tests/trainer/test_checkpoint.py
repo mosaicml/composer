@@ -907,6 +907,39 @@ class TestCheckpointResumption:
             save_folder / 'second' / final_checkpoint,
         )
 
+    @pytest.mark.parametrize('spin_dataloaders', [False, True])
+    def test_spin_dataloaders(
+        self,
+        spin_dataloaders: bool,
+        tmp_path: pathlib.Path,
+    ):
+        save_folder = tmp_path
+        trainer_1 = self.get_trainer(
+            save_folder=os.path.join(save_folder, 'first'),
+            save_filename='ep{epoch}-rank{rank}.pt',
+            save_interval='1ep',
+        )
+
+        trainer_1.fit()
+        trainer_1.close()
+
+        resume_file = os.path.join(save_folder, 'first', 'ep1-rank0.pt')
+        trainer_2 = self.get_trainer(
+            save_folder=os.path.join(save_folder, 'second'),
+            save_filename='ep{epoch}-rank{rank}.pt',
+            save_interval='1ep',
+            load_path=resume_file,  # <-- resume training from file
+            spin_dataloaders=spin_dataloaders,
+        )
+        trainer_2.fit()
+        trainer_2.close()
+
+        with contextlib.nullcontext() if spin_dataloaders else pytest.raises(AssertionError):
+            _assert_checkpoints_equivalent(
+                save_folder / 'first' / 'latest-rank{rank}.pt',
+                save_folder / 'second' / 'latest-rank{rank}.pt',
+            )
+
     def _assert_expected_num_checkpoints(
         self,
         save_folder: str,
