@@ -103,6 +103,7 @@ def test_extract_hparams_trainer():
         'train_dataloader': 'DataLoader',
         'train_dataloader_label': 'train',
         'train_subset_num_batches': -1,
+        'spin_dataloaders': True,
 
         # Stopping Condition
         'max_duration': None,
