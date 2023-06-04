@@ -89,37 +89,32 @@ def test_hf_train_eval_predict(num_classes: int, tiny_bert_config):
     assert predictions[0]['logits'].shape == (batch_size, num_classes)
 
 
-@pytest.mark.parametrize('num_classes', [1, 1])
-def test_hf_train_eval_predict_regression(num_classes: int, tiny_deberta_config):
+def test_hf_train_eval_predict_regression(tiny_deberta_config):
     transformers = pytest.importorskip('transformers')
 
-    tiny_deberta_config.num_labels = num_classes
+    tiny_deberta_config.num_labels = 1
     hf_model = transformers.AutoModelForSequenceClassification.from_config(
         tiny_deberta_config)  # type: ignore (thirdparty)
 
     metrics = PearsonCorrCoef(num_outputs=1)
     model = HuggingFaceModel(hf_model, metrics=[metrics], use_logits=True)
 
-    vocab_size = 30522  # Match bert vocab size
+    vocab_size = 50265  # Match deberta vocab size
     sequence_length = 4
-    num_classes = num_classes
     size = 16
     batch_size = 8
 
     train_dataset = RandomTextRegressionDataset(size=size,
                                                 vocab_size=vocab_size,
                                                 sequence_length=sequence_length,
-                                                num_classes=num_classes,
                                                 use_keys=True)
     eval_dataset = RandomTextRegressionDataset(size=size,
                                                vocab_size=vocab_size,
                                                sequence_length=sequence_length,
-                                               num_classes=num_classes,
                                                use_keys=True)
     predict_dataset = RandomTextRegressionDataset(size=size,
                                                   vocab_size=vocab_size,
                                                   sequence_length=sequence_length,
-                                                  num_classes=num_classes,
                                                   use_keys=True)
 
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=dist.get_sampler(train_dataset))

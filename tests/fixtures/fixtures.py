@@ -176,7 +176,7 @@ def tiny_deberta_model_helper(config):
 
 
 @pytest.fixture(scope='session')
-def _session_tiny_berta_model(_session_tiny_deberta_config):  # type: ignore
+def _session_tiny_deberta_model(_session_tiny_deberta_config):  # type: ignore
     return tiny_deberta_model_helper(_session_tiny_deberta_config)
 
 
