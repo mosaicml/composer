@@ -203,6 +203,7 @@ class HuggingFaceModel(ComposerModel):
             local_checkpoint_save_location (Optional[Union[Path, str]], optional): If specified, where to save the checkpoint file to locally.
                                                                                    If the input ``checkpoint_path`` is already a local path, this will be a symlink.
                                                                                    Defaults to None, which will use a temporary file.
+            trust_remote_code (bool, optional): Whether to trust the remote code when loading the tokenizer. Defaults to False.
 
         Raises:
             ValueError: If the ``model_instantiation_class``, or the model class saved in the checkpoint, is not able to be imported

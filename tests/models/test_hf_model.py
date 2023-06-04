@@ -480,16 +480,16 @@ def test_hf_loading_sentencepiece_tokenizer(modify_tokenizer: bool, tmp_path: Pa
 def test_hf_loading_tokenizer_with_python_file(modify_tokenizer: bool, tmp_path: Path, tiny_gpt2_model):
     transformers = pytest.importorskip('transformers')
 
-    t0_pp_tokenizer = transformers.AutoTokenizer.from_pretrained('replit/replit-code-v1-3b', trust_remote_code=True)
+    replit_tokenizer = transformers.AutoTokenizer.from_pretrained('replit/replit-code-v1-3b', trust_remote_code=True)
 
     if modify_tokenizer:
-        assert t0_pp_tokenizer is not None  # pyright
-        t0_pp_tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
-        t0_pp_tokenizer.add_special_tokens({'additional_special_tokens': ['[MOSAICML']})
-        t0_pp_tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
-        tiny_gpt2_model.resize_token_embeddings(len(t0_pp_tokenizer))
+        assert replit_tokenizer is not None  # pyright
+        replit_tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
+        replit_tokenizer.add_special_tokens({'additional_special_tokens': ['[MOSAICML']})
+        replit_tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
+        tiny_gpt2_model.resize_token_embeddings(len(replit_tokenizer))
 
-    trainer = get_lm_trainer(tiny_gpt2_model, t0_pp_tokenizer, str(tmp_path), is_conditional_generation=True)
+    trainer = get_lm_trainer(tiny_gpt2_model, replit_tokenizer, str(tmp_path), is_conditional_generation=True)
     trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
 
     hf_loaded_model, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(checkpoint_path=str(
@@ -497,7 +497,7 @@ def test_hf_loading_tokenizer_with_python_file(modify_tokenizer: bool, tmp_path:
                                                                                         trust_remote_code=True)
 
     check_hf_model_equivalence(hf_loaded_model, tiny_gpt2_model)
-    check_hf_tokenizer_equivalence(hf_loaded_tokenizer, t0_pp_tokenizer)
+    check_hf_tokenizer_equivalence(hf_loaded_tokenizer, replit_tokenizer)
 
 
 @pytest.mark.parametrize('modify_tokenizer', [False, True])
