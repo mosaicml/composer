@@ -372,7 +372,7 @@ class HuggingFaceModel(ComposerModel):
                 output = output[1] if len(output[0].shape) == 0 else output[0]
 
             # if we are in the single class case, then remove the classes dimension
-            if output.shape[1] == 1:
+            if output.ndim == 2 and output.shape[1] == 1:
                 output = output.squeeze(dim=1)
         else:
             output = outputs if outputs else self.forward(batch)
