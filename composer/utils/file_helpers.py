@@ -581,7 +581,7 @@ def _get_file(
 
     if os.path.exists(destination) and overwrite:
         os.remove(destination)
-        
+
     os.symlink(os.path.abspath(path), destination)
 
 
