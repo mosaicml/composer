@@ -967,6 +967,7 @@ class TestCheckpointResumption:
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
+@pytest.mark.parametrize('num_keep', list(range(-1, 5)))
 @pytest.mark.parametrize('device,deepspeed_enabled,zero_stage', [
     pytest.param('cpu', False, None, id='cpu-ddp'),
     pytest.param('gpu', False, None, id='gpu-ddp', marks=pytest.mark.gpu),
@@ -979,10 +980,9 @@ def test_rotate_checkpoints(
     device,
     deepspeed_enabled,
     zero_stage,
+    num_keep,
     tmp_path: pathlib.Path,
 ):
-    num_keep = 5
-
     # all ranks use rank 0 folder
     tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
     save_folder = tmp_paths[0]
@@ -1013,9 +1013,13 @@ def test_rotate_checkpoints(
     dist.barrier()  # ensure all checkpoints rotated across ranks
 
     # deepspeed saves 1 file per rank
+    total_checkpoints = 10
+    num_keep = num_keep if num_keep >= 0 else total_checkpoints
     expected_num = num_keep if not deepspeed_enabled else num_keep * world_size
 
     files = glob(os.path.join(save_folder, 'checkpoint_*'))
+    symlink_files = glob(os.path.join(save_folder, 'latest-rank*'))
     assert len(files) == expected_num
+    assert len(symlink_files) == (world_size if num_keep != 0 else 0)
 
     dist.barrier()  # all ranks finish before cleaning up tmpdir
