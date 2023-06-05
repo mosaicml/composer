@@ -151,9 +151,11 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
     and that a string is tokenized the same one. Then we compare the __dict__ of the tokenizers, but we remove
     some keys that are not important for equivalence. See the inline explanations for each one.
     """
-    #
-    assert tokenizer1.vocab == tokenizer2.vocab
-    assert type(tokenizer1) == type(tokenizer2)
+    if hasattr(tokenizer1, 'vocab') or hasattr(tokenizer2, 'vocab'):
+        assert tokenizer1.vocab == tokenizer2.vocab
+
+    # we only care about the file and class name, not the full import path
+    assert str(type(tokenizer1)).split('.')[-2:] == str(type(tokenizer2)).split('.')[-2:]
 
     expected_tokenizer_output = tokenizer2('This is some text that should get tokenizer !? @ totallyarealtoken')
     actual_tokenizer_output = tokenizer1('This is some text that should get tokenizer !? @ totallyarealtoken')
@@ -161,12 +163,23 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
 
     # we remove the actual _tokenizer object because it is an instantiated object and so does not pass equality
     # the tokenizers are not usable below these pops
-    tokenizer1.__dict__.pop('_tokenizer')
-    tokenizer2.__dict__.pop('_tokenizer')
+    if hasattr(tokenizer1, '_tokenizer') or hasattr(tokenizer2, '_tokenizer'):
+        tokenizer1.__dict__.pop('_tokenizer')
+        tokenizer2.__dict__.pop('_tokenizer')
+
+    # we remove a couple more objects because they are instantiated objects and so do not pass equality
+    if hasattr(tokenizer1, 'sp_model') or hasattr(tokenizer2, 'sp_model'):
+        tokenizer1.__dict__.pop('sp_model')
+        tokenizer2.__dict__.pop('sp_model')
+
+    if hasattr(tokenizer1, 'tokens_trie') or hasattr(tokenizer2, 'tokens_trie'):
+        tokenizer1.__dict__.pop('tokens_trie')
+        tokenizer2.__dict__.pop('tokens_trie')
 
     # extra key that is not important
-    tokenizer1.__dict__.pop('deprecation_warnings')
-    tokenizer2.__dict__.pop('deprecation_warnings')
+    if hasattr(tokenizer1, 'deprecation_warnings') or hasattr(tokenizer2, 'deprecation_warnings'):
+        tokenizer1.__dict__.pop('deprecation_warnings')
+        tokenizer2.__dict__.pop('deprecation_warnings')
 
     # name_or_path will be the path that the tokenizer was loaded from, which will just be a temporary directory for
     # the reloaded tokenizer, so we remove it and don't compare it between the two tokenizers
@@ -517,6 +530,30 @@ def test_hf_loading_sentencepiece_tokenizer(modify_tokenizer: bool, tmp_path: Pa
 
     check_hf_model_equivalence(hf_loaded_model, tiny_t5_model)
     check_hf_tokenizer_equivalence(hf_loaded_tokenizer, t0_pp_tokenizer)
+
+
+@pytest.mark.parametrize('modify_tokenizer', [False, True])
+def test_hf_loading_tokenizer_with_python_file(modify_tokenizer: bool, tmp_path: Path, tiny_gpt2_model):
+    transformers = pytest.importorskip('transformers')
+
+    replit_tokenizer = transformers.AutoTokenizer.from_pretrained('replit/replit-code-v1-3b', trust_remote_code=True)
+
+    if modify_tokenizer:
+        assert replit_tokenizer is not None  # pyright
+        replit_tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
+        replit_tokenizer.add_special_tokens({'additional_special_tokens': ['[MOSAICML']})
+        replit_tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
+        tiny_gpt2_model.resize_token_embeddings(len(replit_tokenizer))
+
+    trainer = get_lm_trainer(tiny_gpt2_model, replit_tokenizer, str(tmp_path), is_conditional_generation=True)
+    trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
+
+    hf_loaded_model, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(checkpoint_path=str(
+        tmp_path / 'hf-checkpoint.pt'),
+                                                                                        trust_remote_code=True)
+
+    check_hf_model_equivalence(hf_loaded_model, tiny_gpt2_model)
+    check_hf_tokenizer_equivalence(hf_loaded_tokenizer, replit_tokenizer)
 
 
 @pytest.mark.parametrize('modify_tokenizer', [False, True])
