@@ -57,8 +57,6 @@ def test_console_logger_interval(console_logger_test_stream, console_logger_test
     with open(console_logger_test_file_path, 'r') as f:
         lines = f.readlines()
 
-    for line in lines:
-        print(line)
     # Make a regular expression for matches for any line that contains "Train" followed by
     # a colon.
     reg_exp = re.compile('Train *:*')
