@@ -1020,6 +1020,6 @@ def test_rotate_checkpoints(
     files = glob(os.path.join(save_folder, 'checkpoint_*'))
     symlink_files = glob(os.path.join(save_folder, 'latest-rank*'))
     assert len(files) == expected_num
-    assert len(symlink_files) == (world_size if num_keep != 0 else 0)
+    assert len(symlink_files) == ((1 if not deepspeed_enabled else world_size) if num_keep != 0 else 0)
 
     dist.barrier()  # all ranks finish before cleaning up tmpdir
