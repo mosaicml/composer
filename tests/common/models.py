@@ -452,6 +452,31 @@ def configure_tiny_bert_hf_model(use_logits=True):
     return HuggingFaceModel(configure_tiny_bert_model(), configure_tiny_bert_tokenizer(), use_logits)
 
 
+def configure_tiny_deberta_model():
+    try:
+        return copy.deepcopy(pytest.tiny_deberta_model)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_deberta_tokenizer():
+    try:
+        return copy.deepcopy(pytest.tiny_deberta_tokenizer)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_deberta_config():
+    try:
+        return copy.deepcopy(pytest.tiny_deberta_config)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_deberta_hf_model(use_logits=True):
+    return HuggingFaceModel(configure_tiny_deberta_model(), configure_tiny_deberta_tokenizer(), use_logits)
+
+
 def configure_tiny_gpt2_model():
     try:
         return copy.deepcopy(pytest.tiny_gpt2_model)

@@ -34,6 +34,18 @@ class TestEventCalls:
         eval_dataset = RandomClassificationDataset()
         train_batch_size = 4
 
+        evaluator1 = DataLoader(
+            dataset=eval_dataset,
+            batch_size=8,
+            sampler=dist.get_sampler(eval_dataset),
+        )
+
+        evaluator2 = DataLoader(
+            dataset=eval_dataset,
+            batch_size=4,
+            sampler=dist.get_sampler(eval_dataset),
+        )
+
         return Trainer(
             model=model,
             train_dataloader=DataLoader(
@@ -41,11 +53,7 @@ class TestEventCalls:
                 batch_size=train_batch_size,
                 sampler=dist.get_sampler(train_dataset),
             ),
-            eval_dataloader=DataLoader(
-                dataset=eval_dataset,
-                batch_size=8,
-                sampler=dist.get_sampler(eval_dataset),
-            ),
+            eval_dataloader=(evaluator1, evaluator2),
             device_train_microbatch_size=train_batch_size // 2,
             precision=precision,
             train_subset_num_batches=self.train_subset_num_batches,
@@ -130,9 +138,11 @@ class TestEventCalls:
 
         if trainer.state.evaluators:
             steps_per_eval = self.eval_subset_num_batches
+            total_evals_start = total_evals * len(trainer.state.evaluators)
             total_eval_steps = total_evals * steps_per_eval * len(trainer.state.evaluators)
         else:
             total_eval_steps = 0
+            total_evals_start = 0
 
         expected_num_calls = {
             Event.INIT: 1,
@@ -153,12 +163,14 @@ class TestEventCalls:
             Event.BATCH_CHECKPOINT: total_steps,
             Event.EPOCH_END: num_epochs,
             Event.EPOCH_CHECKPOINT: num_epochs,
-            Event.EVAL_START: total_evals,
+            Event.EVAL_BEFORE_ALL: total_evals,
+            Event.EVAL_START: total_evals_start,
             Event.EVAL_BATCH_START: total_eval_steps,
             Event.EVAL_BEFORE_FORWARD: total_eval_steps,
             Event.EVAL_AFTER_FORWARD: total_eval_steps,
             Event.EVAL_BATCH_END: total_eval_steps,
-            Event.EVAL_END: total_evals,
+            Event.EVAL_END: total_evals_start,
+            Event.EVAL_AFTER_ALL: total_evals,
         }
 
         counter_callback = (cb for cb in trainer.state.callbacks if isinstance(cb, EventCounterCallback))
