@@ -578,6 +578,10 @@ def _get_file(
     # It's a local filepath
     if not os.path.exists(path):
         raise FileNotFoundError(f'Local path {path} does not exist')
+
+    if os.path.exists(destination) and overwrite:
+        os.remove(destination)
+
     os.symlink(os.path.abspath(path), destination)
 
 
