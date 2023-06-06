@@ -415,14 +415,11 @@ def maybe_create_remote_uploader_downloader_from_uri(
                                   's3 or one of the supported RemoteUploaderDownloader object stores')
 
 
-def get_file(
-    path: str,
-    destination: str,
-    object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
-    overwrite: bool = False,
-    progress_bar: bool = True,
-    marker: Optional[str] = '',
-):
+def get_file(path: str,
+             destination: str,
+             object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
+             overwrite: bool = False,
+             progress_bar: bool = True):
     """Get a file from a local folder, URL, or object store.
 
     Args:
@@ -482,14 +479,11 @@ def get_file(
                 log.debug(f'Read path {real_path} from symlink file.')
 
         # Recurse
-        return get_file(
-            path=real_path,
-            destination=destination,
-            object_store=object_store,
-            overwrite=overwrite,
-            progress_bar=progress_bar,
-            marker=marker,
-        )
+        return get_file(path=real_path,
+                        destination=destination,
+                        object_store=object_store,
+                        overwrite=overwrite,
+                        progress_bar=progress_bar)
 
     try:
         _get_file(
@@ -503,14 +497,11 @@ def get_file(
         new_path = path + '.symlink'
         try:
             # Follow the symlink
-            return get_file(
-                path=new_path,
-                destination=destination,
-                object_store=object_store,
-                overwrite=overwrite,
-                progress_bar=progress_bar,
-                marker=marker,
-            )
+            return get_file(path=new_path,
+                            destination=destination,
+                            object_store=object_store,
+                            overwrite=overwrite,
+                            progress_bar=progress_bar)
         except FileNotFoundError as ee:
             # Raise the original not found error first, which contains the path to the user-specified file
             raise e from ee

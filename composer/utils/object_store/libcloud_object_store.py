@@ -182,7 +182,6 @@ class LibcloudObjectStore(ObjectStore):
                 for chunk in iterate_with_callback(stream, obj.size, callback):
                     f.write(chunk)
         except Exception as e:
-            print('yup')
             # The download failed for some reason. Make a best-effort attempt to remove the temporary file.
             try:
                 os.remove(tmp_filepath)

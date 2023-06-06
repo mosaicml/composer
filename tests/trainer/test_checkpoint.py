@@ -655,16 +655,20 @@ class TestCheckpointLoading:
     @device('cpu', 'gpu')
     @pytest.mark.parametrize('use_object_store', [True, False])
     @pytest.mark.parametrize('delete_local', [True, False])
+    @pytest.mark.parametrize('test_slashed', [True, False])
     def test_autoresume(self, device: str, tmp_path: pathlib.Path, use_object_store: bool, delete_local: bool,
-                        world_size: int):
+                        test_slashed: bool, world_size: int):
         if delete_local and not use_object_store:
             pytest.skip('Invalid test setting.')
 
         if use_object_store:
             pytest.importorskip('libcloud')
 
+        latest_filename = 'latest-rank{rank}.pt'
+        if test_slashed:
+            latest_filename = 'testdir/' + latest_filename
         trainer_1 = self.get_trainer(
-            latest_filename='testdir/latest-rank{rank}.pt',
+            latest_filename=latest_filename,
             save_folder='first',
             device=device,
             run_name='big-chungus',
@@ -680,7 +684,7 @@ class TestCheckpointLoading:
             shutil.rmtree('first')
 
         trainer_2 = self.get_trainer(
-            latest_filename='testdir/latest-rank{rank}.pt',
+            latest_filename=latest_filename,
             save_folder='first',
             device=device,
             run_name='big-chungus',
