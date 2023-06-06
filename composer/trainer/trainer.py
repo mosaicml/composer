@@ -1242,12 +1242,13 @@ class Trainer:
         # original model for functions like `eval_forward`, `get_metrics`, etc.
         self._original_model = self.state.model
 
-        # If using DeepSpeed, the model must be loaded from checkpoint after the engine has been
-        # initialized, but if using PyTorch DDP, the model must be loaded before it is wrapped with
-        # DDP.
+        # If using PyTorch DDP, the model must be loaded before it is wrapped with DDP.
+        # If using DeepSpeed, the engine must be initialized before the model is loaded.
+        # If using FSDP, the model must be loaded before it is wrapped with FSDP unless sharded
+        # checkpointing is enabled, in which case the order is reversed.
 
-        # Handle FSDP wrapping
-        if self.fsdp_config is not None and fsdp_auto_wrap:
+        # FSDP wrap if using sharded state dict
+        if self.fsdp_config is not None and fsdp_auto_wrap and self.state.fsdp_sharded_state_dict_enabled:
             prepare_fsdp_module(model, optimizers, self.fsdp_config, precision, device, auto_microbatching)
 
         # Configure Deepspeed
@@ -1365,8 +1366,12 @@ class Trainer:
         log.info(f'Setting seed to {self.state.seed}')
         reproducibility.seed_all(self.state.seed)
 
+        # FSDP wrap if not using sharded state dict
+        if self.fsdp_config is not None and fsdp_auto_wrap and not self.state.fsdp_sharded_state_dict_enabled:
+            prepare_fsdp_module(model, optimizers, self.fsdp_config, precision, device, auto_microbatching)
+
+        # DDP wrap if required
         if not (self.deepspeed_enabled or self.fsdp_enabled) and dist.get_world_size() > 1:
-            # Only wrap the module if required
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
 
         # The model would need to be torch.compile()'d after being wrapped in a distributed strategy
