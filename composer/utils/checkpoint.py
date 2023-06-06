@@ -528,6 +528,11 @@ def save_checkpoint(
 
     # Sharded checkpoints get their own little folder.
     if state.fsdp_sharded_state_dict_enabled:
+        # To load optimizer states with torch 2.0, the optimizer state must be at the top
+        # level of the state dict because the load_sharded_optimizer_state_dict function
+        # requires a top level state dict key for the optimizer. 
+        # See https://github.com/pytorch/pytorch/blob/v2.0.1/torch/distributed/checkpoint/optimizer.py#L271
+        # for more info.
         if using_torch_2():
             if not weights_only:
                 state_dict['optimizers'] = state_dict['state'].pop('optimizers')

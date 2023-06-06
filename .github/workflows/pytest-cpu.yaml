@@ -33,6 +33,8 @@ on:
         required: false
       aws-secret-access-key:
         required: false
+      slack-notifications-bot-token:
+        required: false
 jobs:
   pytest-cpu:
     timeout-minutes: 30
@@ -72,3 +74,12 @@ jobs:
         with:
           name: coverage-${{ github.sha }}-${{ inputs.name }}
           path: .coverage
+      - name: Notify slack fail
+        if: failure() && !cancelled() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.slack-notifications-bot-token }}
+        uses: voxmedia/github-action-slack-notify-build@v1
+        with:
+          channel: composer-helpdesk
+          status: FAILED
+          color: danger
