@@ -395,7 +395,7 @@ class TestCheckpointLoading:
         except AssertionError:
             return False
 
-    def get_trainer(self, model=None, max_duration='2ep', **kwargs):
+    def get_trainer(self, model=None, max_duration='2ep', latest_filename='latest-rank{rank}.pt', **kwargs):
         if model is None:
             model = SimpleConvModel()
         optimizer = torch.optim.Adam(model.parameters())
@@ -422,6 +422,7 @@ class TestCheckpointLoading:
             eval_subset_num_batches=1,
             save_interval='1ep',
             eval_interval='1ep',
+            save_latest_filename=latest_filename,
             save_filename='ep{epoch}.pt',
             max_duration=max_duration,
             optimizers=optimizer,
@@ -663,6 +664,7 @@ class TestCheckpointLoading:
             pytest.importorskip('libcloud')
 
         trainer_1 = self.get_trainer(
+            latest_filename='testdir/latest-rank{rank}.pt',
             save_folder='first',
             device=device,
             run_name='big-chungus',
@@ -678,6 +680,7 @@ class TestCheckpointLoading:
             shutil.rmtree('first')
 
         trainer_2 = self.get_trainer(
+            latest_filename='testdir/latest-rank{rank}.pt',
             save_folder='first',
             device=device,
             run_name='big-chungus',
