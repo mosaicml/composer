@@ -421,7 +421,6 @@ def get_file(
     object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
     overwrite: bool = False,
     progress_bar: bool = True,
-    marker: Optional[str] = '',
 ):
     """Get a file from a local folder, URL, or object store.
 
@@ -488,7 +487,6 @@ def get_file(
             object_store=object_store,
             overwrite=overwrite,
             progress_bar=progress_bar,
-            marker=marker,
         )
 
     try:
@@ -509,7 +507,6 @@ def get_file(
                 object_store=object_store,
                 overwrite=overwrite,
                 progress_bar=progress_bar,
-                marker=marker,
             )
         except FileNotFoundError as ee:
             # Raise the original not found error first, which contains the path to the user-specified file
