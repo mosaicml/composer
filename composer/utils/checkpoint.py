@@ -294,8 +294,7 @@ def download_checkpoint(path: str,
             get_file(destination=rank_zero_checkpoint_filepath,
                      path=path,
                      object_store=object_store,
-                     progress_bar=progress_bar,
-                     marker=object_store.__class__.__name__ + 'foo')
+                     progress_bar=progress_bar)
             if extracted_checkpoint_folder is not None:
                 try:
                     with tarfile.open(rank_zero_checkpoint_filepath) as tarball:
