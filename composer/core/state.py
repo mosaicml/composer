@@ -467,13 +467,6 @@ class State(Serializable):
         self.deepspeed_config = deepspeed_config
         self.fsdp_config = fsdp_config
 
-        self.fsdp_state_dict_type: Optional[str] = None
-        if self.fsdp_enabled:
-            if self.fsdp_config is not None:
-                self.fsdp_state_dict_type = self.fsdp_config.get('state_dict_type', 'full')
-            else:
-                self.fsdp_state_dict_type = 'full'
-
         self.sharded_ckpt_prefix_dir: Optional[str] = None
 
         if self.fsdp_config is not None:
@@ -713,6 +706,14 @@ class State(Serializable):
             if isinstance(module, FullyShardedDataParallel):
                 return True
         return False
+
+    @property
+    def fsdp_state_dict_type(self):
+        if not self.fsdp_enabled:
+            return None
+        if self.fsdp_config is not None:
+            return self.fsdp_config.get('state_dict_type', 'full')
+        return 'full'
 
     @property
     def fsdp_sharded_state_dict_enabled(self):
