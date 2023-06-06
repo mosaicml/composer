@@ -1414,6 +1414,7 @@ class Trainer:
                     object_store=logger,
                     overwrite=True,
                     progress_bar=load_progress_bar,
+                    marker=logger.__class__.__name__,
                 )
                 break
             except (NotImplementedError, FileNotFoundError):
