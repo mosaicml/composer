@@ -672,6 +672,7 @@ class TestCheckpointLoading:
             save_folder='first',
             device=device,
             run_name='big-chungus',
+            autoresume=True,
             loggers=[self.get_logger(tmp_path)] if use_object_store else [],
         )
 
