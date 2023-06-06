@@ -1101,6 +1101,14 @@ class State(Serializable):
                 algorithm_passes=algorithm_passes,
             )
 
+        # FSDP wrap if not using sharded state dict
+        # TODO: Write comment
+        # TODO: Replace true w fsdp_auto_wrap
+        if self.fsdp_config is not None and True and not self.fsdp_sharded_state_dict_enabled:
+            from composer.trainer.dist_strategy import prepare_fsdp_module
+            prepare_fsdp_module(self.model, self.optimizers, self.fsdp_config, self.precision, self.device,
+                                self.auto_microbatching)
+
         for attribute_name, serialized_value in state.items():
             # Skip removed attributes as well as algorithms and model, which was already loaded
             if attribute_name not in self.serialized_attributes or attribute_name == 'model':

@@ -1245,7 +1245,8 @@ class Trainer:
         # If using PyTorch DDP, the model must be loaded before it is wrapped with DDP.
         # If using DeepSpeed, the engine must be initialized before the model is loaded.
         # If using FSDP, the model must be loaded before it is wrapped with FSDP unless sharded
-        # checkpointing is enabled, in which case the order is reversed.
+        # checkpointing is enabled, in which case the model must be wrapped after loading but
+        # before optimizer loading.
 
         # FSDP wrap if using sharded state dict
         if self.fsdp_config is not None and fsdp_auto_wrap and self.state.fsdp_sharded_state_dict_enabled:
@@ -1365,10 +1366,6 @@ class Trainer:
         # same rng state as in the original run.
         log.info(f'Setting seed to {self.state.seed}')
         reproducibility.seed_all(self.state.seed)
-
-        # FSDP wrap if not using sharded state dict
-        if self.fsdp_config is not None and fsdp_auto_wrap and not self.state.fsdp_sharded_state_dict_enabled:
-            prepare_fsdp_module(model, optimizers, self.fsdp_config, precision, device, auto_microbatching)
 
         # DDP wrap if required
         if not (self.deepspeed_enabled or self.fsdp_enabled) and dist.get_world_size() > 1:
