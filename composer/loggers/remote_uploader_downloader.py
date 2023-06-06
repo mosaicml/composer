@@ -438,7 +438,8 @@ class RemoteUploaderDownloader(LoggerDestination):
                  destination=destination,
                  object_store=self.remote_backend,
                  overwrite=overwrite,
-                 progress_bar=progress_bar)
+                 progress_bar=progress_bar,
+                 marker=self.remote_backend.__class__.__name__ + 'bar')
 
     def fit_end(self, state: State, logger: Logger):
         self.wait_for_workers()
