@@ -419,6 +419,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 remote_file_name = format_name_with_dist_and_time(remote_file_name, state.run_name, state.timestamp)
 
                 # Upload metadata file.
+                # The metadata file contains info related to which shards are saved where.
                 if dist.get_global_rank() == 0:
                     metadata_local_file_name = os.path.join(
                         Path(saved_path).parent,
