@@ -960,10 +960,6 @@ class Trainer:
             # And torch.distributed is always required for multi-rank training
             dist.initialize_dist(device, dist_timeout)
 
-        # Handle FSDP wrapping
-        if self.fsdp_config is not None and fsdp_auto_wrap:
-            prepare_fsdp_module(model, optimizers, self.fsdp_config, precision, device, auto_microbatching)
-
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, device)
         # If hparams is used to create the Trainer this function is called twice
@@ -1223,9 +1219,36 @@ class Trainer:
         self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, self.state.algorithms))
         self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
 
-        # If using DDP or DeepSpeed, we need to wrap the ComposerModel
-        # But store a reference to the original model for functions like `eval_forward`, `get_metrics`, etc.
+        # Suppressing GradScaler warnings as they are always created
+        # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
+        warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
+        self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
+
+        if self.fsdp_config is not None:
+            if version.parse(torch.__version__) < version.parse('1.13.0'):
+                raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
+            from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
+
+            # This state should never be reached, but we raise a ValueError just in case
+            if self._use_closures() and self.state.precision == Precision.AMP_FP16:
+                raise ValueError(f'Using closures and precision {self.state.precision} is not supported'
+                                 f' with FSDP. Please use another optimizer or precision type.')
+            self.state.scaler = ShardedGradScaler()
+
+        # suppressing FSDP warning when auto grad accum exits the forward pass before completing
+        warnings.filterwarnings(action='ignore', message='Forward order differs from that of the first iteration')
+
+        # If using DDP or DeepSpeed, we need to wrap the ComposerModel but store a reference to the
+        # original model for functions like `eval_forward`, `get_metrics`, etc.
         self._original_model = self.state.model
+
+        # If using DeepSpeed, the model must be loaded from checkpoint after the engine has been
+        # initialized, but if using PyTorch DDP, the model must be loaded before it is wrapped with
+        # DDP.
+
+        # Handle FSDP wrapping
+        if self.fsdp_config is not None and fsdp_auto_wrap:
+            prepare_fsdp_module(model, optimizers, self.fsdp_config, precision, device, auto_microbatching)
 
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
@@ -1261,29 +1284,6 @@ class Trainer:
 
             if 'optimizers' in self.state.serialized_attributes:
                 self.state.serialized_attributes.remove('optimizers')
-
-        # If using DeepSpeed, the model must be loaded from checkpoint after the engine has been
-        # initialized, but if using PyTorch DDP, the model must be loaded before it is wrapped with
-        # DDP.
-
-        # suppressing GradScaler warnings as they are always created
-        # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
-        warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
-        self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
-
-        if self.fsdp_config is not None:
-            if version.parse(torch.__version__) < version.parse('1.13.0'):
-                raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-            from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
-
-            # This state should never be reached, but we raise a ValueError just in case
-            if self._use_closures() and self.state.precision == Precision.AMP_FP16:
-                raise ValueError(f'Using closures and precision {self.state.precision} is not supported'
-                                 f' with FSDP. Please use another optimizer or precision type.')
-            self.state.scaler = ShardedGradScaler()
-
-        # suppressing FSDP warning when auto grad accum exits the forward pass before completing
-        warnings.filterwarnings(action='ignore', message='Forward order differs from that of the first iteration')
 
         # Load Checkpoint
         self._rng_state = None
