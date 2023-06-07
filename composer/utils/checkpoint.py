@@ -278,7 +278,7 @@ def load_sharded_checkpoint(
     from torch.distributed.checkpoint.metadata import Metadata
     from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
 
-    # This function is used so we can figure out which ranks need to load saved rng's and which can just make their own.
+    # This function is used so we can figure out which ranks need to load saved rngs and which can just make their own.
     def _get_num_ranks_that_saved_rng(metadata: Metadata):
         rng_inds = []
         for field_name, field_value in metadata.planner_data.items():
