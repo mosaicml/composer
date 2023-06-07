@@ -22,7 +22,7 @@ from composer.utils.reproducibility import get_rng_state
 from tests.common import RandomClassificationDataset
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
-
+from composer.utils.misc import using_torch_2
 
 # This model is to be used explicitly for this unit test because some old reference checkpoints
 # were saved using it exactly as it is. Changing this model will break test_fsdp_load_old_checkpoint.
@@ -343,7 +343,7 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool,
                                           precision: str, optimizer: str, weights_only: bool):
-    if state_dict_type == 'local':
+    if state_dict_type == 'local' and using_torch_2():
         pytest.xfail(
             'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info'
         )
