@@ -198,48 +198,152 @@ def load_checkpoint(
         Optional[List[Dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
             :attr:`load_weights_only` is not None. Otherwise, None.
     """
-    # Download the checkpoint to the node-local folder
-    log.debug('Loading checkpoint at %s', path)
-    # Each node gets one unique folder to store checkpoints that is shared amongst all local ranks in that node.
-    # If fsdp sharded state_dicts is enabled then EVERY rank gets a unique checkpoint folder.
-    needs_unique_checkpoint_folder = state.fsdp_sharded_state_dict_enabled or dist.get_local_rank() == 0
-    tempdir_ctx = tempfile.TemporaryDirectory() if needs_unique_checkpoint_folder else contextlib.nullcontext(None)
-    with tempdir_ctx as tempdir:
-        try:
-            # Get the path to the proper checkpoint folder corresponding to the current rank's node.
-            # If fsdp_sharded_state_dict_enabled then just use that rank's unique tempdir.
-            node_checkpoint_folder = (tempdir
-                                      if state.fsdp_sharded_state_dict_enabled else _get_local_rank_zero_path(tempdir))
-            assert node_checkpoint_folder is not None
+    if state.fsdp_sharded_state_dict_enabled:
+        rng_state_dicts = load_sharded_checkpoint(
+            source_path=path,
+            state=state,
+            logger=logger,
+            object_store=object_store,
+            load_weights_only=load_weights_only,
+            strict_model_weights=strict_model_weights,
+            progress_bar=progress_bar,
+            ignore_keys=ignore_keys,
+            exclude_algorithms=exclude_algorithms,
+            algorithm_passes=algorithm_passes,
+        )
+    else:
+        # Download the checkpoint to the node-local folder
+        log.debug('Loading checkpoint at %s', path)
+        # Each node gets one unique folder to store checkpoints that is shared amongst all local ranks in that node.
+        # If fsdp sharded state_dicts is enabled then EVERY rank gets a unique checkpoint folder.
+        needs_unique_checkpoint_folder = state.fsdp_sharded_state_dict_enabled or dist.get_local_rank() == 0
+        tempdir_ctx = tempfile.TemporaryDirectory() if needs_unique_checkpoint_folder else contextlib.nullcontext(None)
+        with tempdir_ctx as tempdir:
+            try:
+                # Get the path to the proper checkpoint folder corresponding to the current rank's node.
+                # If fsdp_sharded_state_dict_enabled then just use that rank's unique tempdir.
+                node_checkpoint_folder = (tempdir
+                                        if state.fsdp_sharded_state_dict_enabled else _get_local_rank_zero_path(tempdir))
+                assert node_checkpoint_folder is not None
 
-            composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = download_checkpoint(
-                path=path,
-                node_checkpoint_folder=node_checkpoint_folder,
-                object_store=object_store,
-                progress_bar=progress_bar,
-                fsdp_sharded_state_dict_enabled=state.fsdp_sharded_state_dict_enabled,
-                deepspeed_sharded_checkpoint=is_model_deepspeed(state.model),
-            )
-            rng_state_dicts = _restore_checkpoint(
-                state,
-                logger,
-                composer_states_filepath,
-                extracted_rank_n,
-                extracted_checkpoint_folder,
-                load_weights_only=load_weights_only,
-                strict_model_weights=strict_model_weights,
-                ignore_keys=ignore_keys,
-                exclude_algorithms=exclude_algorithms,
-                algorithm_passes=algorithm_passes,
-            )
-        finally:
-            # Wait for all ranks to finish restoring the checkpoint before releasing the tempdir, since tempdir can
-            # be a shared resource between nodes.
-            dist.barrier()
+                composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = download_checkpoint(
+                    path=path,
+                    node_checkpoint_folder=node_checkpoint_folder,
+                    object_store=object_store,
+                    progress_bar=progress_bar,
+                    fsdp_sharded_state_dict_enabled=state.fsdp_sharded_state_dict_enabled,
+                    deepspeed_sharded_checkpoint=is_model_deepspeed(state.model),
+                )
+                rng_state_dicts = _restore_checkpoint(
+                    state,
+                    logger,
+                    composer_states_filepath,
+                    extracted_rank_n,
+                    extracted_checkpoint_folder,
+                    load_weights_only=load_weights_only,
+                    strict_model_weights=strict_model_weights,
+                    ignore_keys=ignore_keys,
+                    exclude_algorithms=exclude_algorithms,
+                    algorithm_passes=algorithm_passes,
+                )
+            finally:
+                # Wait for all ranks to finish restoring the checkpoint before releasing the tempdir, since tempdir can
+                # be a shared resource between nodes.
+                dist.barrier()
 
-    log.info('%s loaded from %s', 'Model weights' if load_weights_only else 'Trainer checkpoint', path)
+        log.info('%s loaded from %s', 'Model weights' if load_weights_only else 'Trainer checkpoint', path)
     return rng_state_dicts
 
+
+def load_sharded_checkpoint(
+    source_path: str,
+    state: State,
+    logger: Logger,
+    object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
+    load_weights_only: bool = False,
+    strict_model_weights: bool = False,
+    progress_bar: bool = True,
+    ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
+    exclude_algorithms: Optional[List[str]] = None,
+    algorithm_passes: Optional[List[AlgorithmPass]] = None,
+) -> Dict:
+
+    if not using_torch_2():
+        raise ValueError(f'Sharded checkpoint loading requires torch version >= 2.0.0 Got {torch.__version__}')
+    
+    from torch.distributed import checkpoint as dist_cp
+    from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
+    from torch.distributed.checkpoint.metadata import Metadata
+
+    # This function is used so we can figure out which ranks need to load saved rng's and which can just make their own.
+    def _get_num_ranks_that_saved_rng(metadata: Metadata):
+        rng_inds = []
+        for field_name, field_value in metadata.planner_data.items():
+            if 'rng' in field_name:
+                _, rng_rank_index, _ = field_value
+                rng_inds.append(rng_rank_index)
+        rng_inds = set(rng_inds)
+        return max(rng_inds) + 1
+
+    if os.path.exists(source_path):
+        if not os.path.isdir(source_path):
+            raise ValueError(f'load_path must be a directory when using sharded state dict. Got {source_path}')
+    else:
+        raise FileNotFoundError(f'{source_path} not found!')
+
+    storage_reader = dist_cp.FileSystemReader(source_path)
+    # We need no_grad because we overwrite tensor values with set_() when we do elastic loading and we don't want the set_ op recorded in the computation graph.
+    with torch.no_grad():
+        # 1. Load just model first.
+        model_state_dict = {'state': {'model': state.state_dict()['model']}}
+        dist_cp.load_state_dict(model_state_dict, storage_reader)
+
+        state.load_model_state(model_state_dict['state'], logger, strict=strict_model_weights, exclude_algorithms=exclude_algorithms, algorithm_passes=algorithm_passes,)
+        
+        # 2. Optionally load optimizer
+        if not load_weights_only:
+            optim_state = load_sharded_optimizer_state_dict(model_state_dict=state.state_dict()['model'],
+                                                            optimizer_key='optimizers',
+                                                            storage_reader=storage_reader)
+            state.load_optim_state(optim_state)
+
+    # 3. Optionally, load RNG.
+    rng_state_dicts = reproducibility.get_rng_state()
+    if not load_weights_only:
+        # If we are resuming on more ranks than were used at save time we only want to load in rng's for those ranks
+        num_ranks_that_saved_rng = _get_num_ranks_that_saved_rng(storage_reader.read_metadata())
+        rng_state_dicts_load = {}
+        rng_state_dicts_load['rng'] = rng_state_dicts[:num_ranks_that_saved_rng] if len(
+            rng_state_dicts) > num_ranks_that_saved_rng else rng_state_dicts
+        dist_cp.load_state_dict(rng_state_dicts_load, storage_reader)
+        # We also want to append newly generated rng states for the ranks that don't have an rng state to load in
+        # if we are resuming on more ranks than were used at save time.
+        if len(rng_state_dicts) > num_ranks_that_saved_rng:
+            rng_state_dicts_load['rng'].extend(rng_state_dicts[num_ranks_that_saved_rng:])
+        rng_state_dicts = rng_state_dicts_load['rng']
+
+    # 4. Optionally, load the rest of state.
+    if not load_weights_only:
+        cur_state_dict = state.state_dict()
+
+        if ignore_keys:
+            # Filter provided list of key paths
+            if not callable(ignore_keys):
+                ignore_keys = glob_filter(ignore_keys)
+            # Call function to modify state_dict
+            ignore_keys(cur_state_dict)
+
+        # Remove model and optimizers because they were already loaded.
+        cur_state_dict.pop('model')
+        cur_state_dict.pop('optimizers')
+
+        rest_of_the_state_dict = {'state': cur_state_dict}
+        dist_cp.load_state_dict(rest_of_the_state_dict, storage_reader)
+        state.load_state_dict(rest_of_the_state_dict['state'],
+                            logger,
+                            )
+        
+    return rng_state_dicts
 
 def _get_local_rank_zero_path(path: Optional[str]) -> str:
     """Broadcasts the ``path`` from the LOCAL rank zero to all LOCAL ranks."""
