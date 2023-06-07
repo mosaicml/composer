@@ -272,7 +272,7 @@ def load_sharded_checkpoint(
 ) -> Dict:
 
     if not using_torch_2():
-        raise ValueError(f'Sharded checkpoint loading requires torch version >= 2.0.0 Got {torch.__version__}')
+        raise ValueError(f'Sharded checkpoint loading requires torch version >= 2.0.0. You have torch version {torch.__version__}')
 
     from torch.distributed import checkpoint as dist_cp
     from torch.distributed.checkpoint.metadata import Metadata
