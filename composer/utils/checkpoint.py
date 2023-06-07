@@ -319,7 +319,7 @@ def load_sharded_checkpoint(
     # 3. Optionally, load RNG.
     rng_state_dicts = reproducibility.get_rng_state()
     if not load_weights_only:
-        # If we are resuming on more ranks than were used at save time we only want to load in rng's for those ranks
+        # If we are resuming on more ranks than were used at save time we only want to load in rngs for those ranks
         num_ranks_that_saved_rng = _get_num_ranks_that_saved_rng(storage_reader.read_metadata())
         rng_state_dicts_load = {}
         rng_state_dicts_load['rng'] = rng_state_dicts[:num_ranks_that_saved_rng] if len(
