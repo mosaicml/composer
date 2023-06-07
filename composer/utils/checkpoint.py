@@ -455,7 +455,7 @@ def safe_torch_load(
             # Broadcast values to all ranks
             values = []
             for key in keys:
-                if key != 'model':  # and key != 'optimizers':
+                if key != 'model' and key != 'optimizers':
                     if dist.get_global_rank() == 0:
                         values.append(state_dict[key])
                     else:
