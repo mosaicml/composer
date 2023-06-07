@@ -30,6 +30,26 @@ from tests.common.models import (configure_tiny_bert_model, configure_tiny_bert_
 from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
 
 
+def test_hf_tokenizer_save(tmp_path: Path, tiny_bert_model, tiny_bert_tokenizer):
+    transformers = pytest.importorskip('transformers')
+
+    trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path), is_conditional_generation=True)
+    trainer.save_checkpoint(str(tmp_path / 'composer-checkpoint.pt'))
+
+    _, composer_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
+        checkpoint_path=str(tmp_path / 'composer-checkpoint.pt'))
+
+    from composer.models import write_huggingface_pretrained_from_composer_checkpoint
+    write_huggingface_pretrained_from_composer_checkpoint(str(tmp_path / 'composer-checkpoint.pt'), str(tmp_path))
+
+    hf_loaded_tokenizer = transformers.AutoTokenizer.from_pretrained(str(tmp_path))
+
+    composer_tiny_bert = copy.deepcopy(tiny_bert_tokenizer)
+    hf_tiny_bert = copy.deepcopy(tiny_bert_tokenizer)
+    check_hf_tokenizer_equivalence(composer_tiny_bert, composer_loaded_tokenizer)
+    check_hf_tokenizer_equivalence(hf_tiny_bert, hf_loaded_tokenizer)
+
+
 @pytest.mark.parametrize('num_classes', [2, 3])
 def test_hf_train_eval_predict(num_classes: int, tiny_bert_config):
     transformers = pytest.importorskip('transformers')
@@ -145,7 +165,11 @@ def test_hf_train_eval_predict_regression(tiny_deberta_config):
 
 
 def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
-    """This is a best effort attempt to compare two tokenizers for equivalence
+    """
+    WARNING: Parameters are updated within the check so don't call check_hf_tokenizer_equivalence on the same
+    params more than once
+
+    This is a best effort attempt to compare two tokenizers for equivalence
 
     This is not a perfect test, but it should catch most issues. We first check that the vocab is identical
     and that a string is tokenized the same one. Then we compare the __dict__ of the tokenizers, but we remove
