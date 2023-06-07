@@ -480,10 +480,10 @@ class Trainer:
             while ``False`` means schedulers stepped every epoch. ``None`` indicates the default behavior.
             (default: ``None``)
         eval_dataloader (Iterable | DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): The :class:`.Iterable`,
-            :class:`.DataSpec`, :class:`.Evaluator`, or sequence of evaluators for the evaluation data.
+            :class:`.DataLoader`, :class:`.DataSpec`, :class:`.Evaluator`, or sequence of evaluators for the evaluation data.
 
             To evaluate one or more specific metrics across one or more datasets, pass in an
-            :class:`.Evaluator`. If a :class:`.DataSpec` or :class:`.Iterable` is passed in, then all
+            :class:`.Evaluator`. If a :class:`.DataLoader`, :class:`.DataSpec`, or :class:`.Iterable` is passed in, then all
             metrics returned by ``model.get_metrics()`` will be used during evaluation. If a :class:`.Evaluator`
             is specified in a list, all eval dataloaders must be :class:`.Evaluator` instances.
             ``None`` results in no evaluation. (default: ``None``)
@@ -1161,7 +1161,8 @@ class Trainer:
             evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in eval_dataloader]
             if any(evaluator_types) and not all(evaluator_types):
                 raise ValueError('Mixing Evaluator with other classes is not allowed, please wrap'
-                                 'all other classes with the Evaluator class.')
+                                 'all other classes with the Evaluator class. These are the classes'
+                                 'that were detected:' + str([type(evaluator) for evaluator in eval_dataloader]))
 
             evaluators = [
                 ensure_evaluator(evaluator, default_metric_names=model_metric_names) for evaluator in eval_dataloader
