@@ -1496,6 +1496,7 @@ class Trainer:
             signal_file_path = os.path.join(os.path.dirname(latest_checkpoint_path),
                                             '.local_rank0_completed_autoresume')
             if dist.get_local_rank() == 0:
+                os.makedirs(os.path.dirname(signal_file_path), exist_ok=True)
                 with open(signal_file_path, 'wb') as f:
                     f.write(b'local_rank0_completed_autoresume')
 
