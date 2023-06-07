@@ -263,6 +263,7 @@ class State(Serializable):
         callbacks (Callback | Sequence[Callback], optional): The callbacks used for training.
         deepspeed_config (Dict[str, Any], optional): The configuration dictionary for deepspeed.
         fsdp_config (Dict[str, Any], optional): The configuration dictionary for FSDP.
+        fsdp_auto_wrap (bool, optional): Whether to automatically wrap the model with FSDP.
 
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
@@ -426,6 +427,7 @@ class State(Serializable):
         # Distributed training configs
         deepspeed_config: Optional[Dict[str, Any]] = None,
         fsdp_config: Optional[Dict[str, Any]] = None,
+        fsdp_auto_wrap: bool = True,
     ):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
@@ -466,9 +468,9 @@ class State(Serializable):
 
         self.deepspeed_config = deepspeed_config
         self.fsdp_config = fsdp_config
+        self.fsdp_auto_wrap = fsdp_auto_wrap
 
         self.sharded_ckpt_prefix_dir: Optional[str] = None
-
         if self.fsdp_config is not None:
             self.sharded_ckpt_prefix_dir = self.fsdp_config.get('sharded_ckpt_prefix_dir', 'ep{epoch}-ba{batch}')
 
@@ -984,11 +986,15 @@ class State(Serializable):
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
 
         try:
-            if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
-                with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
+            # Load model if it exists. For FSDP monolith checkpoints, the model does not exist on ranks > 0
+            if 'model' in state_dict:
+                if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
+                    with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
+                        missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
+                else:
                     missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
             else:
-                missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
+                missing_keys, unexpected_keys = [], []
         except RuntimeError as e:
             if 'Missing key(s) in state_dict' in str(e) or 'Unexpected key(s) in state_dict' in str(e):
                 raise RuntimeError(
@@ -1009,6 +1015,12 @@ class State(Serializable):
                     'in the state dict. If you see a warning with unexpected keys ending in ._flat_param, the model'
                     'was still loaded correctly.')
             log.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
+
+        # If using FSDP, the model must be wrapped after loading
+        if self.fsdp_config is not None and self.fsdp_auto_wrap and not self.fsdp_sharded_state_dict_enabled:
+            from composer.trainer.dist_strategy import prepare_fsdp_module
+            prepare_fsdp_module(self.model, self.optimizers, self.fsdp_config, self.precision, self.device,
+                                self.auto_microbatching)
 
     def load_optim_state(self, state_dict: Dict[str, Any]):
         """Load the optimizer state.
@@ -1091,23 +1103,15 @@ class State(Serializable):
         """
         state = _ensure_backwards_compatible_checkpointing(state)
 
-        # Call load_model_state since it applies required algorithms
-        if 'model' in state:
-            self.load_model_state(
-                state,
-                logger,
-                strict=strict,
-                exclude_algorithms=exclude_algorithms,
-                algorithm_passes=algorithm_passes,
-            )
-
-        # FSDP wrap if not using sharded state dict
-        # TODO: Write comment
-        # TODO: Replace true w fsdp_auto_wrap
-        if self.fsdp_config is not None and True and not self.fsdp_sharded_state_dict_enabled:
-            from composer.trainer.dist_strategy import prepare_fsdp_module
-            prepare_fsdp_module(self.model, self.optimizers, self.fsdp_config, self.precision, self.device,
-                                self.auto_microbatching)
+        # Call load_model_state first since it applies required algorithms
+        # Has to happen there bc of case of load weights only
+        self.load_model_state(
+            state,
+            logger,
+            strict=strict,
+            exclude_algorithms=exclude_algorithms,
+            algorithm_passes=algorithm_passes,
+        )
 
         for attribute_name, serialized_value in state.items():
             # Skip removed attributes as well as algorithms and model, which was already loaded

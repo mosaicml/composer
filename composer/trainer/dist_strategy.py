@@ -300,7 +300,7 @@ def prepare_fsdp_module(
     min_params = int(float(fsdp_config.get('min_params', 1e9)))
     activation_checkpointing = fsdp_config.get('activation_checkpointing', False)
     activation_cpu_offload = fsdp_config.get('activation_cpu_offload', False)
-    sync_module_states = fsdp_config.get('sync_module_states', False)
+    sync_module_states = fsdp_config.get('sync_module_states', True)  # TODO: make this only True when monolith
     forward_prefetch = fsdp_config.get('forward_prefetch', False)
     limit_all_gathers = fsdp_config.get('limit_all_gathers', False)
     ignored_modules = fsdp_config.get('ignored_modules', None)

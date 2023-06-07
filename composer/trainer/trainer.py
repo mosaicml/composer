@@ -860,7 +860,7 @@ class Trainer:
         # DeepSpeed
         deepspeed_config: Optional[Dict[str, Any]] = None,
         fsdp_config: Optional[Dict[str, Any]] = None,
-        fsdp_auto_wrap: Optional[bool] = True,
+        fsdp_auto_wrap: bool = True,
 
         # System/Numerics
         device: Optional[Union[str, Device]] = None,
@@ -1013,6 +1013,7 @@ class Trainer:
             run_name=run_name,
             deepspeed_config=deepspeed_config,
             fsdp_config=fsdp_config,
+            fsdp_auto_wrap=fsdp_auto_wrap,
         )
 
         # Profiler
@@ -1251,6 +1252,7 @@ class Trainer:
         # FSDP wrap if using sharded state dict
         if self.fsdp_config is not None and fsdp_auto_wrap and self.state.fsdp_sharded_state_dict_enabled:
             prepare_fsdp_module(model, optimizers, self.fsdp_config, precision, device, auto_microbatching)
+        monolith_fsdp_checkpoint = self.fsdp_config is not None and fsdp_auto_wrap and not self.state.fsdp_sharded_state_dict_enabled
 
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
@@ -1352,6 +1354,7 @@ class Trainer:
                 ignore_keys=load_ignore_keys,
                 exclude_algorithms=load_exclude_algorithms,
                 algorithm_passes=self.engine.algorithm_passes,
+                monolith_fsdp_checkpoint=monolith_fsdp_checkpoint,
             )
             self.state.run_name = run_name
 
