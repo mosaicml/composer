@@ -286,7 +286,7 @@ def load_sharded_checkpoint(
                 _, rng_rank_index, _ = field_value
                 rng_inds.append(rng_rank_index)
         rng_inds = set(rng_inds)
-        return max(rng_inds) + 1
+        return len(rng_inds)
 
     if os.path.exists(source_path):
         if not os.path.isdir(source_path):
