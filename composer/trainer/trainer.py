@@ -1738,7 +1738,8 @@ class Trainer:
             evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in eval_dataloader]
             if any(evaluator_types) and not all(evaluator_types):
                 raise ValueError('Mixing Evaluator with other classes is not allowed, please wrap'
-                                 'all other classes with the Evaluator class.')
+                                 'all other classes with the Evaluator class. These are the classes'
+                                 'that were detected:' + str([type(evaluator) for evaluator in eval_dataloader]))
 
             evaluators = [
                 ensure_evaluator(evaluator, default_metric_names=metric_names) for evaluator in eval_dataloader
@@ -2634,7 +2635,8 @@ class Trainer:
             evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in eval_dataloader]
             if any(evaluator_types) and not all(evaluator_types):
                 raise ValueError('Mixing Evaluator with other classes is not allowed, please wrap'
-                                 'all other classes with the Evaluator class.')
+                                 'all other classes with the Evaluator class. These are the classes'
+                                 'that were detected:' + str([type(evaluator) for evaluator in eval_dataloader]))
 
             evaluators = [
                 ensure_evaluator(evaluator, default_metric_names=metric_names) for evaluator in eval_dataloader
