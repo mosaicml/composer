@@ -641,3 +641,16 @@ def test_evaluator_metric_names_string_errors(metric_names):
         ValueError, match='should be a list of strings')
     with context:
         _ = Evaluator(label='evaluator', dataloader=eval_dataloader, metric_names=metric_names)
+
+
+# Test that trainer throws a value error if the eval is passed a mixed list of evaluators/dataloaders
+def test_evaluator_dataloader_value_error():
+    eval_dataset = RandomClassificationDataset(size=8)
+    eval_data1 = DataLoader(eval_dataset, batch_size=4, sampler=dist.get_sampler(eval_dataset))
+    eval_data2 = Evaluator(label='eval', dataloader=eval_data1, metric_names=['MulticlassAccuracy'])
+
+    eval_dataloader = (eval_data1, eval_data2)
+    with pytest.raises(ValueError,
+                       match='Mixing Evaluator with other classes is not allowed, please wrap'
+                       'all other classes with the Evaluator class.') as _:
+        _ = Trainer(model=SimpleModel(), train_dataloader=None, eval_dataloader=eval_dataloader, max_duration='1ep')
