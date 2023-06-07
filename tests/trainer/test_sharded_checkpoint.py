@@ -4,23 +4,24 @@
 import os
 import pathlib
 import textwrap
+from typing import Dict, List
 
+import numpy as np
 import pytest
 import torch
 from packaging import version
 from torch.utils.data import DataLoader
-from typing import List, Dict
+
 from composer.algorithms import EMA
 from composer.models import ComposerClassifier
 from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
 from composer.utils import dist
 from composer.utils.file_helpers import get_file
+from composer.utils.reproducibility import get_rng_state
 from tests.common import RandomClassificationDataset
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
-import numpy as np
-from composer.utils.reproducibility import get_rng_state
 
 
 # This model is to be used explicitly for this unit test because some old reference checkpoints
@@ -63,32 +64,30 @@ def get_trainer(save_folder=None,
         optim = DecoupledAdamW(model.parameters())
     else:
         raise ValueError(f'Unsupported optimizer name {optimizer}')
-    trainer = Trainer(
-        algorithms=algorithms,
-        model=model,
-        optimizers=optim,
-        train_dataloader=dataloader,
-        fsdp_config={
-            'min_params': 16,
-            'state_dict_type': fsdp_state_dict_type,
-            'sharding_strategy': sharding_strategy,
-            'sharded_ckpt_prefix_dir': fsdp_sharded_ckpt_prefix_dir,
-        },
-        save_folder=save_folder,
-        max_duration=max_duration,
-        save_interval=save_interval,
-        save_filename=save_filename,
-        save_overwrite=save_overwrite,
-        precision=precision,
-        load_path=load_path,
-        progress_bar=False,
-        log_to_console=False,
-        autoresume=autoresume,
-        run_name=run_name,
-        save_latest_filename='latest-rank{rank}.pt',
-        save_weights_only=save_weights_only,
-        load_weights_only=load_weights_only
-    )
+    trainer = Trainer(algorithms=algorithms,
+                      model=model,
+                      optimizers=optim,
+                      train_dataloader=dataloader,
+                      fsdp_config={
+                          'min_params': 16,
+                          'state_dict_type': fsdp_state_dict_type,
+                          'sharding_strategy': sharding_strategy,
+                          'sharded_ckpt_prefix_dir': fsdp_sharded_ckpt_prefix_dir,
+                      },
+                      save_folder=save_folder,
+                      max_duration=max_duration,
+                      save_interval=save_interval,
+                      save_filename=save_filename,
+                      save_overwrite=save_overwrite,
+                      precision=precision,
+                      load_path=load_path,
+                      progress_bar=False,
+                      log_to_console=False,
+                      autoresume=autoresume,
+                      run_name=run_name,
+                      save_latest_filename='latest-rank{rank}.pt',
+                      save_weights_only=save_weights_only,
+                      load_weights_only=load_weights_only)
     return trainer
 
 
@@ -136,11 +135,11 @@ def _compare_model_params_between_state_dicts(state_dict1, state_dict2):
         state_dict2_model_tensor = state_dict2_model_params[param_name]
         assert torch.equal(state_dict1_model_tensor,
                            state_dict2_model_tensor), f'Weight named {param_name} not the same between state_dicts'
-        
+
 
 def _compare_rng_states_between_trainers(rng_state1: List[Dict], rng_state2: List[Dict]):
     assert len(rng_state1) == len(rng_state2)
-    for rank, rank_state1, rank_state2 in zip( range(len(rng_state1)), rng_state1, rng_state2):
+    for rank, rank_state1, rank_state2 in zip(range(len(rng_state1)), rng_state1, rng_state2):
         rank_state1_keys = set(rank_state1.keys())
         rank_state2_keys = set(rank_state2.keys())
         assert len(rank_state1_keys.symmetric_difference(rank_state2_keys)) == 0, textwrap.dedent(
@@ -155,20 +154,21 @@ def _compare_rng_states_between_trainers(rng_state1: List[Dict], rng_state2: Lis
         numpy_state2 = rank_state2['numpy']
         _, keys1, pos1, has_gauss1, cached_gaussian1 = numpy_state1
         _, keys2, pos2, has_gauss2, cached_gaussian2 = numpy_state2
-        assert np.allclose(keys1, keys2, equal_nan=True), f'Numpy rng keys state not the same between state_dicts for rank {rank}'
+        assert np.allclose(keys1, keys2,
+                           equal_nan=True), f'Numpy rng keys state not the same between state_dicts for rank {rank}'
         assert pos1 == pos2, f'Numpy rng pos state not the same between state_dicts for rank {rank}'
         assert has_gauss1 == has_gauss2, f'Numpy rng has_gauss state not the same between state_dicts for rank {rank}'
         assert cached_gaussian1 == cached_gaussian2, f'Numpy rng cached_gaussian state not the same between state_dicts for rank {rank}'
 
         torch_state1 = rank_state1['torch']
         torch_state2 = rank_state2['torch']
-        assert torch.equal(torch_state1, torch_state2), f'Torch rng state not the same between state_dicts for rank {rank}'
+        assert torch.equal(torch_state1,
+                           torch_state2), f'Torch rng state not the same between state_dicts for rank {rank}'
 
         if 'cuda' in rank_state1_keys:
             cuda_state1 = rank_state1['cuda']
             cuda_state2 = rank_state2['cuda']
             torch.equal(cuda_state1, cuda_state2), f'Cuda rng state not the same between state_dicts for rank {rank}'
-        
 
 
 def _compare_metrics_between_state_dicts(state_dict1, state_dict2):
@@ -254,7 +254,8 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
                                   composer_version: str):
     if version.parse(torch.__version__) >= version.parse('2.0.0') and state_dict_type == 'local':
         pytest.xfail(
-            'Loading a torch 1.13 checkpoint with torch 2.0 for state_dict_type local is not backwards compatible. See https://github.com/pytorch/pytorch/issues/102667 for more info')
+            'Loading a torch 1.13 checkpoint with torch 2.0 for state_dict_type local is not backwards compatible. See https://github.com/pytorch/pytorch/issues/102667 for more info'
+        )
 
     rank = 0 if state_dict_type == 'full' else '{rank}'
     load_path = f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_{precision}/ba2_rank{rank}.pt'
@@ -336,7 +337,7 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
 @pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
 @pytest.mark.parametrize('state_dict_type', ['local', 'sharded'])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
-@pytest.mark.parametrize('autoresume', [False]) # True commented out for now
+@pytest.mark.parametrize('autoresume', [False])  # True commented out for now
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
@@ -344,41 +345,38 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
                                           precision: str, optimizer: str, weights_only: bool):
     if state_dict_type == 'local':
         pytest.xfail(
-            'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info')
+            'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info'
+        )
     if autoresume:
         run_name = 'my-autoresume-run'
     else:
         run_name = None
-    save_folder = "/tmp/test_checkpoints"
+    save_folder = '/tmp/test_checkpoints'
     save_filename = 'ba{batch}-rank{rank}.pt'
-    trainer1 = get_trainer(
-        save_folder=str(save_folder),
-        save_filename=save_filename,
-        fsdp_state_dict_type=state_dict_type,
-        run_name=run_name,
-        precision=precision,
-        autoresume=autoresume,
-        optimizer=optimizer,
-        save_weights_only=weights_only,
-        fsdp_sharded_ckpt_prefix_dir='ba{batch}'
-    )
+    trainer1 = get_trainer(save_folder=str(save_folder),
+                           save_filename=save_filename,
+                           fsdp_state_dict_type=state_dict_type,
+                           run_name=run_name,
+                           precision=precision,
+                           autoresume=autoresume,
+                           optimizer=optimizer,
+                           save_weights_only=weights_only,
+                           fsdp_sharded_ckpt_prefix_dir='ba{batch}')
     trainer1.fit()
     rng1 = get_rng_state()
     state_dict_from_trainer1 = trainer1.state.state_dict()
     trainer1.close()
     load_path = str(save_folder / pathlib.Path('ba2'))
-    trainer2 = get_trainer(
-        save_folder=str(save_folder),
-        save_filename=save_filename,
-        fsdp_state_dict_type=state_dict_type,
-        load_path=load_path,
-        precision=precision,
-        autoresume=autoresume,
-        run_name=run_name,
-        max_duration='4ba',
-        optimizer=optimizer,
-        load_weights_only=weights_only
-    )
+    trainer2 = get_trainer(save_folder=str(save_folder),
+                           save_filename=save_filename,
+                           fsdp_state_dict_type=state_dict_type,
+                           load_path=load_path,
+                           precision=precision,
+                           autoresume=autoresume,
+                           run_name=run_name,
+                           max_duration='4ba',
+                           optimizer=optimizer,
+                           load_weights_only=weights_only)
     state_dict_from_trainer2 = trainer2.state.state_dict()
     rng2 = trainer2._rng_state
     # Compare saved state and loaded state for both ranks.
@@ -473,6 +471,7 @@ def test_sharded_folder(world_size, use_remote, tmp_path: pathlib.Path, state_di
     trainer2.fit()
     trainer2.close()
 
+
 @pytest.mark.gpu
 @world_size(2)
 @pytest.mark.parametrize('state_dict_type', ['local', 'sharded'])
@@ -483,8 +482,9 @@ def test_sharded_folder(world_size, use_remote, tmp_path: pathlib.Path, state_di
 def test_new_sharded_save(world_size, tmp_path: pathlib.Path, state_dict_type: str, weights_only: bool):
     if state_dict_type == 'local':
         pytest.xfail(
-            'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info')
-    save_folder = "/tmp/test_checkpoints"
+            'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info'
+        )
+    save_folder = '/tmp/test_checkpoints'
     save_filename = 'ba{batch}-rank{rank}.pt'
     trainer1 = get_trainer(
         save_folder=str(save_folder),
@@ -498,10 +498,7 @@ def test_new_sharded_save(world_size, tmp_path: pathlib.Path, state_dict_type: s
     state_dict_from_trainer1 = trainer1.state.state_dict()
     trainer1.close()
 
-
-    trainer2 = get_trainer(
-        fsdp_state_dict_type=state_dict_type,
-    )
+    trainer2 = get_trainer(fsdp_state_dict_type=state_dict_type,)
     load_path_dir = str(save_folder / pathlib.Path('ba2'))
     import torch.distributed.checkpoint as dist_cp
     from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
@@ -511,10 +508,11 @@ def test_new_sharded_save(world_size, tmp_path: pathlib.Path, state_dict_type: s
     trainer2.state.load_model_state(model_state_dict['state'], strict=True, logger=None)
     _compare_model_params_between_state_dicts(state_dict_from_trainer1, trainer2.state.state_dict())
     if not weights_only:
-        optim_state = load_sharded_optimizer_state_dict(model_state_dict=trainer2.state.state_dict()['model'], optimizer_key='optimizers', storage_reader=storage_reader)
+        optim_state = load_sharded_optimizer_state_dict(model_state_dict=trainer2.state.state_dict()['model'],
+                                                        optimizer_key='optimizers',
+                                                        storage_reader=storage_reader)
         trainer2.state.load_optim_state(optim_state)
         _compare_optims_between_state_dicts(state_dict_from_trainer1, trainer2.state.state_dict())
-
 
 
 @pytest.mark.gpu
@@ -525,11 +523,13 @@ def test_new_sharded_save(world_size, tmp_path: pathlib.Path, state_dict_type: s
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
                     reason='requires PyTorch 2.0.0 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
-def test_new_remote_sharded_save(world_size, tmp_path: pathlib.Path, state_dict_type: str, weights_only: bool, s3_bucket, s3_ephemeral_prefix):
+def test_new_remote_sharded_save(world_size, tmp_path: pathlib.Path, state_dict_type: str, weights_only: bool,
+                                 s3_bucket, s3_ephemeral_prefix):
     if state_dict_type == 'local':
         pytest.xfail(
-            'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info')
-    save_folder = f"s3://{s3_bucket}/{s3_ephemeral_prefix}/checkpoints/{{run_name}}"
+            'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info'
+        )
+    save_folder = f's3://{s3_bucket}/{s3_ephemeral_prefix}/checkpoints/{{run_name}}'
     save_filename = 'ba{batch}-rank{rank}.pt'
     trainer1 = get_trainer(
         save_folder=str(save_folder),
@@ -547,26 +547,19 @@ def test_new_remote_sharded_save(world_size, tmp_path: pathlib.Path, state_dict_
     from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
     from composer.utils.object_store.s3_object_store import S3ObjectStore
     s3os = S3ObjectStore(bucket=s3_bucket)
-    remote_folder = save_folder.format(run_name=run_name).replace(f"s3://{s3_bucket}/", "")
+    remote_folder = save_folder.format(run_name=run_name).replace(f's3://{s3_bucket}/', '')
     assert remote_folder == f'ephemeral/checkpoints/{run_name}'
-    local_folder = f"/tmp/checkpoints/{run_name}"
+    local_folder = f'/tmp/checkpoints/{run_name}'
     os.makedirs(local_folder, exist_ok=True)
-    s3os.download_object(
-        object_name=os.path.join(remote_folder, 'ba2', _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME),
-        filename=os.path.join(local_folder, _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME)
-        )
-    
-    if dist.get_global_rank() == 0:
-        s3os.download_object(
-            object_name=os.path.join(remote_folder, 'ba2', '.metadata'),
-            filename=os.path.join(local_folder,'.metadata')
-        )
-    dist.barrier()
-    
+    s3os.download_object(object_name=os.path.join(remote_folder, 'ba2', _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME),
+                         filename=os.path.join(local_folder, _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME))
 
-    trainer2 = get_trainer(
-        fsdp_state_dict_type=state_dict_type,
-    )
+    if dist.get_global_rank() == 0:
+        s3os.download_object(object_name=os.path.join(remote_folder, 'ba2', '.metadata'),
+                             filename=os.path.join(local_folder, '.metadata'))
+    dist.barrier()
+
+    trainer2 = get_trainer(fsdp_state_dict_type=state_dict_type,)
     load_path_dir = local_folder
     import torch.distributed.checkpoint as dist_cp
     from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
@@ -576,6 +569,8 @@ def test_new_remote_sharded_save(world_size, tmp_path: pathlib.Path, state_dict_
     trainer2.state.load_model_state(model_state_dict['state'], strict=True, logger=None)
     _compare_model_params_between_state_dicts(state_dict_from_trainer1, trainer2.state.state_dict())
     if not weights_only:
-        optim_state = load_sharded_optimizer_state_dict(model_state_dict=trainer2.state.state_dict()['model'], optimizer_key='optimizers', storage_reader=storage_reader)
+        optim_state = load_sharded_optimizer_state_dict(model_state_dict=trainer2.state.state_dict()['model'],
+                                                        optimizer_key='optimizers',
+                                                        storage_reader=storage_reader)
         trainer2.state.load_optim_state(optim_state)
         _compare_optims_between_state_dicts(state_dict_from_trainer1, trainer2.state.state_dict())

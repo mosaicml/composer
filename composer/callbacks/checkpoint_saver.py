@@ -9,9 +9,9 @@ import logging
 import math
 import os
 import pathlib
-from pathlib import Path
 import tempfile
 import textwrap
+from pathlib import Path
 from typing import Callable, List, Optional, Union
 
 from composer.core import Callback, Event, State, Time, TimeUnit
@@ -414,17 +414,20 @@ class CheckpointSaver(Callback):  # noqa: D101
                 assert state.sharded_ckpt_prefix_dir is not None
                 remote_prefix = state.sharded_ckpt_prefix_dir
                 remote_file_name = os.path.join(
-                    pathlib.Path(remote_file_name).parent, remote_prefix,
-                    _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME)
+                    pathlib.Path(remote_file_name).parent, remote_prefix, _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME)
                 remote_file_name = format_name_with_dist_and_time(remote_file_name, state.run_name, state.timestamp)
 
                 # Upload metadata file.
                 # The metadata file contains info related to which shards are saved where.
                 if dist.get_global_rank() == 0:
                     metadata_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME
-                    metadata_local_file_name = format_name_with_dist_and_time(os.path.join(Path(saved_path).parent, metadata_filename), state.run_name, state.timestamp)
-                    metadata_remote_file_name = format_name_with_dist_and_time(os.path.join(Path(remote_file_name).parent, metadata_filename), state.run_name, state.timestamp)
-                    logger.upload_file(remote_file_name=metadata_remote_file_name, 	file_path=metadata_local_file_name, overwrite=self.overwrite)
+                    metadata_local_file_name = format_name_with_dist_and_time(
+                        os.path.join(Path(saved_path).parent, metadata_filename), state.run_name, state.timestamp)
+                    metadata_remote_file_name = format_name_with_dist_and_time(
+                        os.path.join(Path(remote_file_name).parent, metadata_filename), state.run_name, state.timestamp)
+                    logger.upload_file(remote_file_name=metadata_remote_file_name,
+                                       file_path=metadata_local_file_name,
+                                       overwrite=self.overwrite)
             else:
                 remote_file_name = self.remote_file_name.format(
                     state,
