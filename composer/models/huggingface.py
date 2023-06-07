@@ -140,9 +140,16 @@ class HuggingFaceModel(ComposerModel):
         self.dummy_forward_called = False
 
     @staticmethod
-    def write_huggingface_tokenizer_from_composer_checkpoint(
-        hf_state: Dict[str, Any]
-    ) -> Optional[Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]]:
+    def load_huggingface_tokenizer_from_saved_state(
+            hf_state: Dict[str, Any]) -> Optional[transformers.PreTrainedTokenizer]:
+        """A helper function that loads a HuggingFace tokenizer from a loaded in hf state.
+
+        Args:
+            hf_state (Dict[str, Any]): A loaded state from a checkpoint save location of a hf model.
+
+        Returns:
+            Optional[transformers.PreTrainedTokenizer]: The loaded HuggingFace tokenizer
+        """
         try:
             import transformers
         except ImportError as e:
@@ -185,10 +192,18 @@ class HuggingFaceModel(ComposerModel):
         return hf_tokenizer
 
     @staticmethod
-    def write_huggingface_model_from_composer_checkpoint(
+    def load_huggingface_model_from_saved_state(
             hf_state: Dict[str, Any], loaded_state_dict: Dict[str, Dict[str, Dict[str, Dict[str, Any]]]],
             model_instantiation_class: type | str | None,
             model_config_kwargs: Dict[str, Any] | None) -> transformers.PreTrainedModel:
+        """A helper function that loads a HuggingFace model from a loaded in hf state.
+
+        Args:
+            hf_state (Dict[str, Any]): A loaded state from a checkpoint save location of a hf model.
+
+        Returns:
+            transformers.PreTrainedModel: The loaded HuggingFace model
+        """
         try:
             import transformers
         except ImportError as e:
@@ -307,14 +322,6 @@ class HuggingFaceModel(ComposerModel):
         Returns:
             Tuple[transformers.PreTrainedModel, Optional[transformers.PreTrainedTokenizer]]: The loaded HuggingFace model and (if present) tokenizer
         """
-        '''
-        try:
-            import transformers
-        except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='nlp',
-                                                conda_package='transformers',
-                                                conda_channel='conda-forge') from e
-        '''
 
         # default local path to a tempfile if path is not provided
         if local_checkpoint_save_location is None:
@@ -331,9 +338,10 @@ class HuggingFaceModel(ComposerModel):
         loaded_state_dict = safe_torch_load(local_checkpoint_save_location)
 
         hf_state = loaded_state_dict['state']['integrations']['huggingface']
-        hf_tokenizer = HuggingFaceModel.write_huggingface_tokenizer_from_composer_checkpoint(hf_state)
-        hf_model = HuggingFaceModel.write_huggingface_model_from_composer_checkpoint(
-            hf_state, loaded_state_dict, model_instantiation_class, model_config_kwargs)
+        hf_tokenizer = HuggingFaceModel.load_huggingface_tokenizer_from_saved_state(hf_state)
+        hf_model = HuggingFaceModel.load_huggingface_model_from_saved_state(hf_state, loaded_state_dict,
+                                                                            model_instantiation_class,
+                                                                            model_config_kwargs)
 
         return hf_model, hf_tokenizer
 
@@ -640,7 +648,7 @@ def write_huggingface_pretrained_from_composer_checkpoint(
 
     # load tokenizer
     hf_state = composer_state_dict['state']['integrations']['huggingface']
-    hf_tokenizer = HuggingFaceModel.write_huggingface_tokenizer_from_composer_checkpoint(hf_state)
+    hf_tokenizer = HuggingFaceModel.load_huggingface_tokenizer_from_saved_state(hf_state)
     assert hf_tokenizer is not None
     hf_tokenizer.save_pretrained(output_folder)
 

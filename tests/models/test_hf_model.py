@@ -33,7 +33,7 @@ from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
 def test_hf_tokenizer_save(tmp_path: Path, tiny_bert_model, tiny_bert_tokenizer):
     transformers = pytest.importorskip('transformers')
 
-    trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path), is_conditional_generation=True)
+    trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path), is_conditional_generation=False)
     trainer.save_checkpoint(str(tmp_path / 'composer-checkpoint.pt'))
 
     _, composer_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
