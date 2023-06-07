@@ -253,8 +253,24 @@ def load_checkpoint(
                 # Wait for all ranks to finish restoring the checkpoint before releasing the tempdir, since tempdir can
                 # be a shared resource between nodes.
                 dist.barrier()
-
         log.info('%s loaded from %s', 'Model weights' if load_weights_only else 'Trainer checkpoint', path)
+    step_to_resume_from = state.timestamp.batch.value
+    max_step_to_resume_from = state.device.tensor_to_device(
+        torch.tensor(state.timestamp.batch.value, dtype=torch.int64))
+    min_step_to_resume_from = state.device.tensor_to_device(
+        torch.tensor(state.timestamp.batch.value, dtype=torch.int64))
+    dist.all_reduce(max_step_to_resume_from, reduce_operation='MAX')
+    dist.all_reduce(min_step_to_resume_from, reduce_operation='MIN')
+    if max_step_to_resume_from.data != min_step_to_resume_from.data:
+        raise RuntimeError(
+            textwrap.dedent(
+                f'Timestamp mismatch error: batch to resume from {step_to_resume_from} is not the same on all ranks. '
+                'This usually occurs when at least one rank fails to save the last checkpoint '
+                'while using sharded checkpointing + autoresume. '
+                'Please manually resume by disabling autoresume and explicitly setting load_path '
+                'to the most recent checkpoints that all ranks have saved. '
+                'E.g. for the 10th batch: trainer = Trainer(autoresume=False, load_path="/path/to/checkpoint/ba10-rank{rank}.pt", ...). '
+                'Remember to keep the {rank} placeholder!'))
     return rng_state_dicts
 
 
@@ -277,6 +293,7 @@ def load_sharded_checkpoint(
     from torch.distributed import checkpoint as dist_cp
     from torch.distributed.checkpoint.metadata import Metadata
     from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
+    from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
 
     # This function is used so we can figure out which ranks need to load saved rngs and which can just make their own.
     def _get_num_ranks_that_saved_rng(metadata: Metadata):
@@ -288,70 +305,129 @@ def load_sharded_checkpoint(
         rng_inds = set(rng_inds)
         return len(rng_inds)
 
-    if os.path.exists(source_path):
-        if not os.path.isdir(source_path):
-            raise ValueError(f'load_path must be a directory when using sharded state dict. Got {source_path}')
+    # A subclass of FileSystemReader that downloads files from the object store before reading them from the local filesystem.
+    class DistCPObjectStoreReader(dist_cp.FileSystemReader):
+
+        def __init__(self, source_path: str, destination_path: str, object_store):  # path to metadata
+            self.source_path = source_path
+            self.destination_path = destination_path
+            self.object_store = object_store
+
+            # Download metadata file.
+            Path(self.destination_path).mkdir(parents=True, exist_ok=True)
+            metadata_destination = os.path.join(self.destination_path, '.metadata')
+            if dist.get_local_rank() == 0:
+                object_store.download_object(object_name=str(Path(source_path) / Path('.metadata')),
+                                             filename=metadata_destination)
+            dist.barrier()
+                
+            # Instantiate FileSystemReader with destination path b/c that's where we will download files to.
+            # Because we already download the metadata file to the destination, everything will work swimmingly
+            super().__init__(destination_path)
+
+        def read_data(self, plan: LoadPlan, planner: LoadPlanner):
+            # 1. Download to the destination all files that this rank is responsible for.
+            for plan_item in plan.items:
+                relative_file_path = self.storage_data[plan_item.storage_index].relative_path
+                file_destination = str(Path(self.destination_path) / Path(relative_file_path))
+                if not os.path.exists(file_destination):
+                    self.object_store.download_object(object_name=str(
+                        Path(self.source_path) / Path(relative_file_path)),
+                                                      filename=file_destination)
+
+            # 2. Wait for all ranks to finish.
+            dist.barrier()
+
+            # 3. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
+            return super().read_data(plan, planner)
+        
+
+    if object_store is not None:
+        try:
+            with tempfile.TemporaryDirectory() as tempdir:
+                get_file(source_path, object_store=object_store, destination=tempdir)
+            raise ValueError(
+                f'load_path must be a prefix not an object when using sharded state dict. Got {object_store.get_uri(source_path)}'
+            )
+        except FileNotFoundError:
+            pass  # This error means the user passed a non-object. Passing an object is an error, so this is potentially good.
     else:
-        raise FileNotFoundError(f'{source_path} not found!')
+        if os.path.exists(source_path):
+            if not os.path.isdir(source_path):
+                raise ValueError(f'load_path must be a directory when using sharded state dict. Got {source_path}')
+        else:
+            raise FileNotFoundError(f'{source_path} not found!')
+        
 
-    storage_reader = dist_cp.FileSystemReader(source_path)
-    # We need no_grad because we overwrite tensor values with set_() when we do elastic loading and we don't want the set_ op recorded in the computation graph.
-    with torch.no_grad():
-        # 1. Load just model first.
-        model_state_dict = {'state': {'model': state.state_dict()['model']}}
-        dist_cp.load_state_dict(model_state_dict, storage_reader)
+    download_dir_context = tempfile.TemporaryDirectory if object_store is not None else contextlib.nullcontext
 
-        state.load_model_state(
-            model_state_dict['state'],
-            logger,
-            strict=strict_model_weights,
-            exclude_algorithms=exclude_algorithms,
-            algorithm_passes=algorithm_passes,
-        )
+    with download_dir_context() as temp_download_dir:
+        if object_store is not None:
+            # Get the tempfile made on local rank 0.
+            rank0_download_tempdir = dist.all_gather_object(temp_download_dir)[dist.get_local_world_size() * dist.get_node_rank()]
+            storage_reader = DistCPObjectStoreReader(source_path=source_path,
+                                                     destination_path= str(Path(rank0_download_tempdir) / Path('checkpoints')),
+                                                     object_store=object_store)
+        else:
+            storage_reader = dist_cp.FileSystemReader(source_path)
 
-        # 2. Optionally load optimizer
+        # We need no_grad because we overwrite tensor values with set_() when we do elastic loading and we don't want the set_ op recorded in the computation graph.
+        with torch.no_grad():
+            # 1. Load just model first.
+            model_state_dict = {'state': {'model': state.state_dict()['model']}}
+            dist_cp.load_state_dict(model_state_dict, storage_reader)
+
+            state.load_model_state(
+                model_state_dict['state'],
+                logger,
+                strict=strict_model_weights,
+                exclude_algorithms=exclude_algorithms,
+                algorithm_passes=algorithm_passes,
+            )
+
+            # 2. Optionally load optimizer
+            if not load_weights_only:
+                optim_state = load_sharded_optimizer_state_dict(model_state_dict=state.state_dict()['model'],
+                                                                optimizer_key='optimizers',
+                                                                storage_reader=storage_reader)
+                state.load_optim_state(optim_state)
+
+        # 3. Optionally, load RNG.
+        rng_state_dicts = reproducibility.get_rng_state()
         if not load_weights_only:
-            optim_state = load_sharded_optimizer_state_dict(model_state_dict=state.state_dict()['model'],
-                                                            optimizer_key='optimizers',
-                                                            storage_reader=storage_reader)
-            state.load_optim_state(optim_state)
+            # If we are resuming on more ranks than were used at save time we only want to load in rngs for those ranks
+            num_ranks_that_saved_rng = _get_num_ranks_that_saved_rng(storage_reader.read_metadata())
+            rng_state_dicts_load = {}
+            rng_state_dicts_load['rng'] = rng_state_dicts[:num_ranks_that_saved_rng] if len(
+                rng_state_dicts) > num_ranks_that_saved_rng else rng_state_dicts
+            dist_cp.load_state_dict(rng_state_dicts_load, storage_reader)
+            # We also want to append newly generated rng states for the ranks that don't have an rng state to load in
+            # if we are resuming on more ranks than were used at save time.
+            if len(rng_state_dicts) > num_ranks_that_saved_rng:
+                rng_state_dicts_load['rng'].extend(rng_state_dicts[num_ranks_that_saved_rng:])
+            rng_state_dicts = rng_state_dicts_load['rng']
 
-    # 3. Optionally, load RNG.
-    rng_state_dicts = reproducibility.get_rng_state()
-    if not load_weights_only:
-        # If we are resuming on more ranks than were used at save time we only want to load in rngs for those ranks
-        num_ranks_that_saved_rng = _get_num_ranks_that_saved_rng(storage_reader.read_metadata())
-        rng_state_dicts_load = {}
-        rng_state_dicts_load['rng'] = rng_state_dicts[:num_ranks_that_saved_rng] if len(
-            rng_state_dicts) > num_ranks_that_saved_rng else rng_state_dicts
-        dist_cp.load_state_dict(rng_state_dicts_load, storage_reader)
-        # We also want to append newly generated rng states for the ranks that don't have an rng state to load in
-        # if we are resuming on more ranks than were used at save time.
-        if len(rng_state_dicts) > num_ranks_that_saved_rng:
-            rng_state_dicts_load['rng'].extend(rng_state_dicts[num_ranks_that_saved_rng:])
-        rng_state_dicts = rng_state_dicts_load['rng']
+        # 4. Optionally, load the rest of state.
+        if not load_weights_only:
+            cur_state_dict = state.state_dict()
 
-    # 4. Optionally, load the rest of state.
-    if not load_weights_only:
-        cur_state_dict = state.state_dict()
+            if ignore_keys:
+                # Filter provided list of key paths
+                if not callable(ignore_keys):
+                    ignore_keys = glob_filter(ignore_keys)
+                # Call function to modify state_dict
+                ignore_keys(cur_state_dict)
 
-        if ignore_keys:
-            # Filter provided list of key paths
-            if not callable(ignore_keys):
-                ignore_keys = glob_filter(ignore_keys)
-            # Call function to modify state_dict
-            ignore_keys(cur_state_dict)
+            # Remove model and optimizers because they were already loaded.
+            cur_state_dict.pop('model')
+            cur_state_dict.pop('optimizers')
 
-        # Remove model and optimizers because they were already loaded.
-        cur_state_dict.pop('model')
-        cur_state_dict.pop('optimizers')
-
-        rest_of_the_state_dict = {'state': cur_state_dict}
-        dist_cp.load_state_dict(rest_of_the_state_dict, storage_reader)
-        state.load_state_dict(
-            rest_of_the_state_dict['state'],
-            logger,
-        )
+            rest_of_the_state_dict = {'state': cur_state_dict}
+            dist_cp.load_state_dict(rest_of_the_state_dict, storage_reader)
+            state.load_state_dict(
+                rest_of_the_state_dict['state'],
+                logger,
+            )
 
     return rng_state_dicts
 
@@ -605,23 +681,6 @@ def _restore_checkpoint(
             exclude_algorithms=exclude_algorithms,
             algorithm_passes=algorithm_passes,
         )
-        step_to_resume_from = state.timestamp.batch.value
-        max_step_to_resume_from = state.device.tensor_to_device(
-            torch.tensor(state.timestamp.batch.value, dtype=torch.int64))
-        min_step_to_resume_from = state.device.tensor_to_device(
-            torch.tensor(state.timestamp.batch.value, dtype=torch.int64))
-        dist.all_reduce(max_step_to_resume_from, reduce_operation='MAX')
-        dist.all_reduce(min_step_to_resume_from, reduce_operation='MIN')
-        if max_step_to_resume_from.data != min_step_to_resume_from.data:
-            raise RuntimeError(
-                textwrap.dedent(
-                    f'Timestamp mismatch error: batch to resume from {step_to_resume_from} is not the same on all ranks. '
-                    'This usually occurs when at least one rank fails to save the last checkpoint '
-                    'while using sharded checkpointing + autoresume. '
-                    'Please manually resume by disabling autoresume and explicitly setting load_path '
-                    'to the most recent checkpoints that all ranks have saved. '
-                    'E.g. for the 10th batch: trainer = Trainer(autoresume=False, load_path="/path/to/checkpoint/ba10-rank{rank}.pt", ...). '
-                    'Remember to keep the {rank} placeholder!'))
         return state_dict['rng']
 
 
