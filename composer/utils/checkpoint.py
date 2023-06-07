@@ -669,6 +669,12 @@ def save_checkpoint(
     # All ranks save for deepspeed
     if is_deepspeed:
         log.debug('Saving deepspeed checkpoints to %s...', save_filename)
+        if dist.get_global_rank() == 0:
+            with open(save_filename, 'wb') as f:
+                torch.save(state_dict, f)
+            if is_tar(save_filename):
+                _compress_file(save_filename, basename=_COMPOSER_STATES_FILENAME)
+                
         _save_deepspeed_model(state.deepspeed_model, save_filename)
 
     # Sharded checkpointing for torch >=2.0 uses the torch.distributed.checkpoint module.
