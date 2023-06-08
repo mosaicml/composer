@@ -149,6 +149,33 @@ def test_get_file_local_path(tmp_path: pathlib.Path):
         assert f.read() == 'hi!'
 
 
+def test_get_file_local_path_overwrite_false(tmp_path: pathlib.Path):
+    tmpfile_name = os.path.join(tmp_path, 'file.txt')
+    with open(tmpfile_name, 'x') as f:
+        f.write('hi!')
+
+    with open(str(tmp_path / 'example'), 'w') as f:
+        f.write('already exists!')
+
+    with pytest.raises(FileExistsError):
+        get_file(path=tmpfile_name, object_store=None, destination=str(tmp_path / 'example'), overwrite=False)
+        with open(str(tmp_path / 'example'), 'r') as f:
+            assert f.read() == 'hi!'
+
+
+def test_get_file_local_path_overwrite_true(tmp_path: pathlib.Path):
+    tmpfile_name = os.path.join(tmp_path, 'file.txt')
+    with open(tmpfile_name, 'x') as f:
+        f.write('hi!')
+
+    with open(str(tmp_path / 'example'), 'w') as f:
+        f.write('already exists!')
+
+    get_file(path=tmpfile_name, object_store=None, destination=str(tmp_path / 'example'), overwrite=True)
+    with open(str(tmp_path / 'example'), 'r') as f:
+        assert f.read() == 'hi!'
+
+
 def test_get_file_local_path_not_found():
     with pytest.raises(FileNotFoundError):
         get_file(
