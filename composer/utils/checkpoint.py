@@ -446,13 +446,13 @@ def safe_torch_load(
                 num_keys[0] = len(state_dict.keys())
             dist.broadcast_object_list(num_keys, src=0)
 
-            # Broadcast keys to all ranks
+            log.debug(f'Broadcasting keys to all ranks.')
             keys = [None for _ in range(num_keys[0])]
             if dist.get_global_rank() == 0:
                 keys = list(state_dict.keys())
             dist.broadcast_object_list(keys, src=0)
 
-            # Broadcast values to all ranks
+            log.debug(f'Broadcasting values to all ranks.')
             values = []
             for key in keys:
                 if key != 'model' and key != 'optimizers':
@@ -462,7 +462,7 @@ def safe_torch_load(
                         values.append(None)
             dist.broadcast_object_list(values, src=0)
 
-            # Build state dict without model/optimizers on non-rank 0
+            log.debug(f'Building state dict without model/optimizers on non-rank 0.')
             if dist.get_global_rank() != 0:
                 state_dict = {k: v for k, v in zip(keys, values)}
             return state_dict
