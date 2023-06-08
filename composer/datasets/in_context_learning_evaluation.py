@@ -823,6 +823,216 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         return batch
 
 
+class InContextLearningCodeEvalDataset(Dataset):
+    """ A dataset that constructs batches for in-context learning code evaluation
+
+	The input format is expected to be a jsonl file with the following fields:
+	- task_id: label of given task
+	- prompt: the code snippet that must be completed
+    - entry_point: the entry to the function/code snippet to generate
+	- canonical_solution: working solution
+	- test: checker
+	- test_inputs: list of test inputs
+    - test_outputs: list of test outputs
+
+	Args:
+		num_evals: how many outputs to generate per prompt
+		dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
+            supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "task_id",
+            "prompt", "entry_point", "canonical_solution", "test", "test_inputs", and "test_outputs". See tests/datasets/local_data/human_eval_small.jsonl.
+        tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to map between strings and token ids
+        batch_size (int): Size of a batch used for eval
+        max_seq_len (int): The maximum sequence length supported by the model
+        pad_tok_id (int): The special token reserved for padding batches
+        num_fewshot (int): The number of complete fewshot examples to prepend before each test example
+        prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
+        example_delimiter (str): Separator that goes between individual (context, answer) pairs (e.g. '\n')
+        destination_path (str): Temporary path to store downloaded datasets
+        code_prelimiter (str): String to put before each code prompt (e.g. 'Q: ')
+        fewshot_random_seed (int): Random seed to use for fewshot sampling
+	"""
+
+
+def __init__(
+    self,
+    num_evals: int,
+    dataset_uri: str,
+    tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
+    max_seq_len: int,
+    pad_tok_id: int,
+    num_fewshot: int,
+    prompt_string: str,
+    example_delimiter: str,
+    destination_path: str,
+    code_prelimiter: str,
+    fewshot_random_seed: int,
+):
+    try:
+        from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='nlp',
+                                            conda_package='datasets',
+                                            conda_channel='conda-forge') from e
+    with dist.local_rank_zero_download_and_wait(destination_path):
+        if dist.get_local_rank() == 0:
+            get_file(dataset_uri, destination_path, overwrite=True)
+    dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
+    self.samples = list(
+        dataset.map(
+            lambda examples: {
+                'task_id': examples['task_id'],
+                'prompt': examples['prompt'],
+                'canonical_solution': examples['canonical_solution'],
+                'test': examples['test'],
+                'entry_point': examples['entry_point'],
+                'test_inputs': examples['test_inputs'],
+                'test_outputs': examples['test_outputs'],
+            }))
+    self.num_evals = num_evals
+    self.tokenizer = tokenizer
+    self.max_seq_len = max_seq_len
+    self.pad_tok_id = pad_tok_id
+    self.padding_side = 'left'
+    self.max_answer_length = 0
+    fewshot_rng = random.Random(fewshot_random_seed)
+    self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, code_prelimiter,
+                                              fewshot_rng)
+
+
+def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, code_prelimiter: str,
+                  fewshot_rng: random.Random):
+    """Prepares a set of language modeling tasks into tokenized format with prompt and fewshot examples.
+
+    Each task consists of a context and a continuation as well as an optional prompt and optional list of
+    example context/continuation pairs which precede the test context/continuation pair.
+
+    Args:
+        num_fewshot (int): Number of examples context/continuation pairs to prepend to the test pair
+        prompt_string (str): The prompt to prepend to all inputs
+        example_delimiter (str): The delimiter used to separate each individual context/continuation pair
+        code_prelimiter (str): The text to prepend to each code prompt
+        fewshot_rng (random.Random): Random number generator to use for fewshot sampling
+
+    Returns:
+        dict: Contains the context, the continuation, and the preamble (prompt + fewshot examples)
+    """
+    max_answer_length = 0
+    examples = []
+    for sample_idx in tqdm(range(len(self.samples))):
+        encoded_example = {}
+
+        preamble = prompt_string
+
+        if num_fewshot > 0:
+            fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx, fewshot_rng)
+            for fewshot_idx in fewshot_idxs:
+                ctxt, cont = self.samples[fewshot_idx]['context'], self.samples[fewshot_idx]['answer']
+                ctxt = f'{code_prelimiter}{ctxt}'
+                if len(preamble) > 0:
+                    ctxt = f'{example_delimiter}{ctxt}'
+                preamble += f'{ctxt}{cont}'
+
+        ctxt = self.samples[sample_idx]['context']
+        ctxt = f'{code_prelimiter}{ctxt}'
+        if len(preamble) > 0:
+            ctxt = f'{example_delimiter}{ctxt}'
+
+        # rstrip the continuation delimiter, because the prompt ending in a space results in degenerate output
+
+        # If the preamble is empty then this will be a 0-length list, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
+        encoded_example['preamble'] = self.tokenizer(preamble)
+        # If there is an EOS token added, we need to remove it so it is not in the middle of the prompt
+        if self.tokenizer.eos_token_id is not None and len(
+                encoded_example['preamble']
+            ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
+            encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
+
+        encoded_example['context'] = self.tokenizer(ctxt, add_special_tokens=False)
+        encoded_example['task_id'] = self.samples[sample_idx]['task_id']
+        encoded_example['canonical_solution'] = self.samples[sample_idx]['canonical_solution']
+        encoded_example['test'] = self.samples[sample_idx]['test']
+        encoded_example['entry_point'] = self.samples[sample_idx]['entry_point']
+        encoded_example['test_inputs'] = self.samples[sample_idx]['test_inputs']
+        encoded_example['test_outputs'] = self.samples[sample_idx]['test_outputs']
+
+        examples.append(encoded_example)
+
+    self.max_answer_length = max_answer_length
+    return examples
+
+
+def __getitem__(self, index):
+    return self.encoded_dataset[index]
+
+
+def __len__(self):
+    return len(self.encoded_dataset)
+
+
+def collate_fn(self, data):
+    inputs, tests, canonical_solutions, entry_points, test_inputs, test_outputs = [], [], [], [], [], []
+
+    for sample in data:
+        preamble, prompt, canonical_solution, test, entry_point, test_input, test_output = (
+            sample['preamble'], sample['prompt'], sample['canonical_solution'], sample['test'], sample['entry_point'],
+            sample['test_inputs'], sample['test_outputs'])
+        context_enc = preamble['input_ids'] + prompt['input_ids']
+        inp, _ = _make_padded_input(context_enc, [],
+                                    self.max_seq_len - self.max_answer_length,
+                                    self.pad_tok_id,
+                                    padding_side=self.padding_side)
+
+        inputs.append(inp)
+        tests.append(test)
+        canonical_solutions.append(canonical_solution)
+        entry_points.append(entry_point)
+        test_inputs.append(test_input)
+        test_outputs.append(test_output)
+
+    batch = {
+        'input_ids': torch.stack(inputs),
+        'mode': 'generate',
+        'labels': inputs,
+        'tests': tests,  # list of tests
+        'canonical_solutions': canonical_solutions,  # list of solutions
+        'entry_points': entry_points,  # list of entry points
+        'generation_length': self.max_answer_length,
+        'generation_kwargs': {
+            'pad_token_id': self.pad_tok_id,
+            'num_beams': self.num_evals,  # change strategy to beam search
+            'num_return_sequences': self.num_evals,  # how many gens per prompt
+        }
+    }
+    batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
+    return batch
+
+
+def get_num_samples_in_batch(self, batch) -> int:
+    return batch['input_ids'].shape[0]
+
+
+def split_batch(self, batch: Any, microbatch_size: int):
+    no_split = ['mode', 'generation_length', 'generation_kwargs']
+    normal_split = ['input_ids', 'attention_mask']
+    list_split = ['labels']
+    chunked = {}
+    for k, v in batch.items():
+        if k in no_split:
+            # Defer broadcasting until we know num_chunks
+            pass
+        elif k in list_split:
+            chunked[k] = _split_list(v, microbatch_size)
+        elif k in normal_split:
+            chunked[k] = _default_split_batch(v, microbatch_size)
+        else:
+            raise ValueError(f'Unexpected key {k}')
+    num_chunks = len(chunked['input_ids'])
+    for k, v in batch.items():
+        if isinstance(v, (int, float, str, bool, dict)):
+            chunked[k] = [v] * num_chunks
+    return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
+
+
 def build_icl_dataloader(
     icl_task_type: str,
     dataset_uri: str,
