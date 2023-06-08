@@ -988,7 +988,8 @@ class State(Serializable):
         try:
             # Load model if it exists. For FSDP monolith checkpoints, the model does not exist on ranks > 0
             if 'model' in state_dict:
-                if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
+                monolith_fsdp_checkpoint = self.fsdp_config is not None and self.fsdp_auto_wrap and not self.fsdp_sharded_state_dict_enabled
+                if self.fsdp_enabled and self.fsdp_state_dict_type is not None and not monolith_fsdp_checkpoint:
                     with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
                         missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
                 else:
