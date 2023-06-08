@@ -145,7 +145,7 @@ class HuggingFaceModel(ComposerModel):
         """A helper function that loads a HuggingFace tokenizer from a loaded in hf state.
 
         Args:
-            hf_state (Dict[str, Any]): A loaded state from a checkpoint save location of a hf model.
+            hf_state (Dict[str, Any]): HF state loaded from a Composer checkpoint.
 
         Returns:
             Optional[transformers.PreTrainedTokenizer]: The loaded HuggingFace tokenizer
@@ -196,11 +196,16 @@ class HuggingFaceModel(ComposerModel):
             hf_state: Dict[str, Any], loaded_state_dict: Dict[str, Dict[str, Dict[str, Dict[str, Any]]]],
             model_instantiation_class: type | str | None,
             model_config_kwargs: Dict[str, Any] | None) -> transformers.PreTrainedModel:
-        """A helper function that loads a HuggingFace model from a loaded in hf state.
+        """A helper function that loads a HuggingFace model class from a loaded in hf state.
 
         Args:
-            hf_state (Dict[str, Any]): A loaded state from a checkpoint save location of a hf model.
-
+            hf_state (Dict[str, Any]): HF state loaded from a Composer checkpoint.
+            model_instantiation_class (Union[Type[:class:`transformers.PreTrainedModel`], Type[:class:`transformers.AutoModel`], str]), optional):
+                Class to use to create the HuggingFace model. Defaults to the model class used in the original checkpoint. If this argument is
+                a HuggingFace auto class (e.g. :class:`transformers.AutoModel` or :class:`transformers.AutoModelForSequenceClassification`), the ``from_config`` method will be used,
+                while if it is of type :class:`transformers.PreTrainedModel`, the constructor will be called. This argument can also be a string,
+                which will attempt to be imported as the class to use.
+            model_config_kwargs: Dict[str, Any]: Extra arguments to pass in for the model config creation (e.g. ``num_labels`` for creating a sequence classification model)
         Returns:
             transformers.PreTrainedModel: The loaded HuggingFace model
         """
