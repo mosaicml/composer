@@ -2977,6 +2977,23 @@ class Trainer:
             weights_only=weights_only,
         )
 
+    def save_checkpoint_to_save_folder(self):
+        """Checkpoints the training :class:`~.State` using a CheckpointSaver if it exists.
+
+        Args:
+            None
+
+        Raises:
+            ValueError: If ``_checkpoint_saver`` does not exist.
+
+        Returns:
+            None
+        """
+        if self._checkpoint_saver == None:
+            raise ValueError('Checkpoint_path must be passed in!')
+        else:
+            self._checkpoint_saver._save_checkpoint
+
     def export_for_inference(
         self,
         save_format: Union[str, ExportFormat],
