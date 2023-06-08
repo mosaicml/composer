@@ -456,10 +456,12 @@ def safe_torch_load(
             values = []
             for key in keys:
                 if key != 'model' and key != 'optimizers':
+                    log.debug(f'Broadcasting {key} to all ranks.')
                     if dist.get_global_rank() == 0:
                         values.append(state_dict[key])
                     else:
                         values.append(None)
+            log.debug(f'Broadcasting values to all ranks. {len(values)} values to broadcast.')
             dist.broadcast_object_list(values, src=0)
 
             log.debug(f'Building state dict without model/optimizers on non-rank 0.')
