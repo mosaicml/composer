@@ -990,9 +990,13 @@ class State(Serializable):
             if 'model' in state_dict:
                 monolith_fsdp_checkpoint = self.fsdp_config is not None and self.fsdp_auto_wrap and not self.fsdp_sharded_state_dict_enabled
                 if self.fsdp_enabled and self.fsdp_state_dict_type is not None and not monolith_fsdp_checkpoint:
+                    log.debug(
+                        f'Loading model state dict with strict={strict} and FSDP state_dict_type={self.fsdp_state_dict_type}'
+                    )
                     with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
                         missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
                 else:
+                    log.debug(f'Loading model state dict with strict={strict}')
                     missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
             else:
                 missing_keys, unexpected_keys = [], []
@@ -1019,6 +1023,7 @@ class State(Serializable):
 
         # If using FSDP, the model must be wrapped after loading
         if self.fsdp_config is not None and self.fsdp_auto_wrap and not self.fsdp_sharded_state_dict_enabled:
+            log.debug('Wrapping model with FSDP after loading model_state.')
             from composer.trainer.dist_strategy import prepare_fsdp_module
             prepare_fsdp_module(self.model, self.optimizers, self.fsdp_config, self.precision, self.device,
                                 self.auto_microbatching)
