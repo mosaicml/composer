@@ -439,17 +439,23 @@ def safe_torch_load(
         if monolith_fsdp_checkpoint:
             log.info(
                 'Loading monolith FSDP checkpoint. Only rank 0 will load and broadcast non-weight/optimizer state.')
-            state_dict = {}
+            flat_state_dict = {}
             num_keys = [0]
             if dist.get_global_rank() == 0:
-                state_dict = torch.load(composer_states_filepath, map_location=map_location)
-                num_keys[0] = len(state_dict.keys())
+                flat_state_dict = torch.load(composer_states_filepath, map_location=map_location)
+
+                # Flatten state_dict state to broadcast while filtering model/optimizers
+                for key in flat_state_dict['state'].keys():
+                    flat_state_dict[key] = flat_state_dict['state'][key]
+                del flat_state_dict['state']
+
+                num_keys[0] = len(flat_state_dict.keys())
             dist.broadcast_object_list(num_keys, src=0)
 
             log.debug(f'Broadcasting keys to all ranks.')
             keys = [None for _ in range(num_keys[0])]
             if dist.get_global_rank() == 0:
-                keys = list(state_dict.keys())
+                keys = list(flat_state_dict.keys())
             dist.broadcast_object_list(keys, src=0)
 
             log.debug(f'Broadcasting values to all ranks.')
@@ -458,7 +464,7 @@ def safe_torch_load(
                 if key != 'model' and key != 'optimizers':
                     log.debug(f'Broadcasting {key} to all ranks.')
                     if dist.get_global_rank() == 0:
-                        values.append(state_dict[key])
+                        values.append(flat_state_dict[key])
                     else:
                         values.append(None)
             log.debug(f'Broadcasting values to all ranks. {len(values)} values to broadcast.')
@@ -466,7 +472,12 @@ def safe_torch_load(
 
             log.debug(f'Building state dict without model/optimizers on non-rank 0.')
             if dist.get_global_rank() != 0:
-                state_dict = {k: v for k, v in zip(keys, values)}
+                flat_state_dict = {k: v for k, v in zip(keys, values)}
+
+            # Unflatten state_dict by pulling out rng
+            state_dict = {'rng': flat_state_dict['rng']}
+            del flat_state_dict['rng']
+            state_dict['state'] = flat_state_dict
             return state_dict
         else:
             return torch.load(composer_states_filepath, map_location=map_location)
