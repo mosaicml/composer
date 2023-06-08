@@ -16,17 +16,38 @@ from packaging import version
 from torch.utils.data import DataLoader
 from torchmetrics import Metric
 from torchmetrics.classification import MulticlassAccuracy
+from torchmetrics.regression import PearsonCorrCoef
 
 from composer.loggers import InMemoryLogger
 from composer.metrics import InContextLearningLMAccuracy, LanguageCrossEntropy, MaskedAccuracy
 from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
 from composer.utils import dist, is_model_fsdp
-from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset
+from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset, RandomTextRegressionDataset
 from tests.common.markers import device, world_size
 from tests.common.models import (configure_tiny_bert_model, configure_tiny_bert_tokenizer, configure_tiny_gpt2_model,
                                  configure_tiny_gpt2_tokenizer, configure_tiny_t5_model, configure_tiny_t5_tokenizer)
 from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
+
+
+def test_hf_tokenizer_save(tmp_path: Path, tiny_bert_model, tiny_bert_tokenizer):
+    transformers = pytest.importorskip('transformers')
+
+    trainer = get_lm_trainer(tiny_bert_model, tiny_bert_tokenizer, str(tmp_path), is_conditional_generation=False)
+    trainer.save_checkpoint(str(tmp_path / 'composer-checkpoint.pt'))
+
+    _, composer_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
+        checkpoint_path=str(tmp_path / 'composer-checkpoint.pt'))
+
+    from composer.models import write_huggingface_pretrained_from_composer_checkpoint
+    write_huggingface_pretrained_from_composer_checkpoint(str(tmp_path / 'composer-checkpoint.pt'), str(tmp_path))
+
+    hf_loaded_tokenizer = transformers.AutoTokenizer.from_pretrained(str(tmp_path))
+
+    composer_tiny_bert = copy.deepcopy(tiny_bert_tokenizer)
+    hf_tiny_bert = copy.deepcopy(tiny_bert_tokenizer)
+    check_hf_tokenizer_equivalence(composer_tiny_bert, composer_loaded_tokenizer)
+    check_hf_tokenizer_equivalence(hf_tiny_bert, hf_loaded_tokenizer)
 
 
 @pytest.mark.parametrize('num_classes', [2, 3])
@@ -88,16 +109,77 @@ def test_hf_train_eval_predict(num_classes: int, tiny_bert_config):
     assert predictions[0]['logits'].shape == (batch_size, num_classes)
 
 
+def test_hf_train_eval_predict_regression(tiny_deberta_config):
+    transformers = pytest.importorskip('transformers')
+
+    tiny_deberta_config.num_labels = 1
+    hf_model = transformers.AutoModelForSequenceClassification.from_config(
+        tiny_deberta_config)  # type: ignore (thirdparty)
+
+    metrics = PearsonCorrCoef(num_outputs=1)
+    model = HuggingFaceModel(hf_model, metrics=[metrics], use_logits=True)
+
+    vocab_size = 50265  # Match deberta vocab size
+    sequence_length = 4
+    size = 16
+    batch_size = 8
+
+    train_dataset = RandomTextRegressionDataset(size=size,
+                                                vocab_size=vocab_size,
+                                                sequence_length=sequence_length,
+                                                use_keys=True)
+    eval_dataset = RandomTextRegressionDataset(size=size,
+                                               vocab_size=vocab_size,
+                                               sequence_length=sequence_length,
+                                               use_keys=True)
+    predict_dataset = RandomTextRegressionDataset(size=size,
+                                                  vocab_size=vocab_size,
+                                                  sequence_length=sequence_length,
+                                                  use_keys=True)
+
+    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=dist.get_sampler(train_dataset))
+    eval_dataloader = DataLoader(eval_dataset, batch_size=batch_size, sampler=dist.get_sampler(eval_dataset))
+    predict_dataloader = DataLoader(predict_dataset, batch_size=batch_size)
+
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        max_duration='1ep',
+        eval_dataloader=eval_dataloader,
+    )
+
+    trainer.fit()
+    trainer.eval()
+
+    # Check that there is some train/eval accuracy
+    assert trainer.state.train_metrics['PearsonCorrCoef'].compute() != 0.0
+    assert trainer.state.eval_metrics['eval']['PearsonCorrCoef'].compute() != 0.0
+
+    predictions = trainer.predict(predict_dataloader)
+
+    # Check that the output predictions are the expected shape
+    # for regression, the output is a single value
+    num_predict_batches_expected = ((size - 1) // batch_size) + 1
+    assert len(predictions) == num_predict_batches_expected
+    assert predictions[0]['logits'].shape == (batch_size,)
+
+
 def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
-    """This is a best effort attempt to compare two tokenizers for equivalence
+    """
+    WARNING: Parameters are updated within the check so don't call check_hf_tokenizer_equivalence on the same
+    params more than once
+
+    This is a best effort attempt to compare two tokenizers for equivalence
 
     This is not a perfect test, but it should catch most issues. We first check that the vocab is identical
     and that a string is tokenized the same one. Then we compare the __dict__ of the tokenizers, but we remove
     some keys that are not important for equivalence. See the inline explanations for each one.
     """
-    #
-    assert tokenizer1.vocab == tokenizer2.vocab
-    assert type(tokenizer1) == type(tokenizer2)
+    if hasattr(tokenizer1, 'vocab') or hasattr(tokenizer2, 'vocab'):
+        assert tokenizer1.vocab == tokenizer2.vocab
+
+    # we only care about the file and class name, not the full import path
+    assert str(type(tokenizer1)).split('.')[-2:] == str(type(tokenizer2)).split('.')[-2:]
 
     expected_tokenizer_output = tokenizer2('This is some text that should get tokenizer !? @ totallyarealtoken')
     actual_tokenizer_output = tokenizer1('This is some text that should get tokenizer !? @ totallyarealtoken')
@@ -105,12 +187,23 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
 
     # we remove the actual _tokenizer object because it is an instantiated object and so does not pass equality
     # the tokenizers are not usable below these pops
-    tokenizer1.__dict__.pop('_tokenizer')
-    tokenizer2.__dict__.pop('_tokenizer')
+    if hasattr(tokenizer1, '_tokenizer') or hasattr(tokenizer2, '_tokenizer'):
+        tokenizer1.__dict__.pop('_tokenizer')
+        tokenizer2.__dict__.pop('_tokenizer')
+
+    # we remove a couple more objects because they are instantiated objects and so do not pass equality
+    if hasattr(tokenizer1, 'sp_model') or hasattr(tokenizer2, 'sp_model'):
+        tokenizer1.__dict__.pop('sp_model')
+        tokenizer2.__dict__.pop('sp_model')
+
+    if hasattr(tokenizer1, 'tokens_trie') or hasattr(tokenizer2, 'tokens_trie'):
+        tokenizer1.__dict__.pop('tokens_trie')
+        tokenizer2.__dict__.pop('tokens_trie')
 
     # extra key that is not important
-    tokenizer1.__dict__.pop('deprecation_warnings')
-    tokenizer2.__dict__.pop('deprecation_warnings')
+    if hasattr(tokenizer1, 'deprecation_warnings') or hasattr(tokenizer2, 'deprecation_warnings'):
+        tokenizer1.__dict__.pop('deprecation_warnings')
+        tokenizer2.__dict__.pop('deprecation_warnings')
 
     # name_or_path will be the path that the tokenizer was loaded from, which will just be a temporary directory for
     # the reloaded tokenizer, so we remove it and don't compare it between the two tokenizers
@@ -461,6 +554,30 @@ def test_hf_loading_sentencepiece_tokenizer(modify_tokenizer: bool, tmp_path: Pa
 
     check_hf_model_equivalence(hf_loaded_model, tiny_t5_model)
     check_hf_tokenizer_equivalence(hf_loaded_tokenizer, t0_pp_tokenizer)
+
+
+@pytest.mark.parametrize('modify_tokenizer', [False, True])
+def test_hf_loading_tokenizer_with_python_file(modify_tokenizer: bool, tmp_path: Path, tiny_gpt2_model):
+    transformers = pytest.importorskip('transformers')
+
+    replit_tokenizer = transformers.AutoTokenizer.from_pretrained('replit/replit-code-v1-3b', trust_remote_code=True)
+
+    if modify_tokenizer:
+        assert replit_tokenizer is not None  # pyright
+        replit_tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
+        replit_tokenizer.add_special_tokens({'additional_special_tokens': ['[MOSAICML']})
+        replit_tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
+        tiny_gpt2_model.resize_token_embeddings(len(replit_tokenizer))
+
+    trainer = get_lm_trainer(tiny_gpt2_model, replit_tokenizer, str(tmp_path), is_conditional_generation=True)
+    trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
+
+    hf_loaded_model, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(checkpoint_path=str(
+        tmp_path / 'hf-checkpoint.pt'),
+                                                                                        trust_remote_code=True)
+
+    check_hf_model_equivalence(hf_loaded_model, tiny_gpt2_model)
+    check_hf_tokenizer_equivalence(hf_loaded_tokenizer, replit_tokenizer)
 
 
 @pytest.mark.parametrize('modify_tokenizer', [False, True])

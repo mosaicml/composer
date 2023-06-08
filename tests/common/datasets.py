@@ -220,6 +220,48 @@ class RandomTextClassificationDataset(Dataset):
             return x, y
 
 
+class RandomTextRegressionDataset(Dataset):
+    """ Text Regression dataset with values (just input token ids) drawn uniformly
+    Args:
+        vocab_size (int): vocab size to use (default: 10)
+        size (int): number of samples (default: 100)
+        sequence_length (int): sequence length to use, all sequences will be of this length with no padding (default: 8)
+        use_keys: (bool): whether to return the item in a dictionary with keys for input and output
+    """
+
+    def __init__(self, size: int = 100, vocab_size: int = 10, sequence_length: int = 8, use_keys: bool = False):
+        self.vocab_size = vocab_size
+        self.sequence_length = sequence_length
+        self.use_keys = use_keys
+
+        self.input_key = 'input_ids'
+        self.label_key = 'labels'
+
+        self.size = size
+        self.x = None
+        self.y = None
+
+        super().__init__()
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, index: int):
+        # Note: lazily generate data so it runs after Composer seeds everything, giving the same
+        # dataset across multiple calls when using the same seed.
+        if self.x is None:
+            self.x = torch.randint(low=0, high=self.vocab_size, size=(self.size, self.sequence_length))
+        if self.y is None:
+            self.y = torch.rand(size=(self.size,))
+
+        x = self.x[index]
+        y = self.y[index]
+        if self.use_keys:
+            return {'input_ids': x, 'labels': y}
+        else:
+            return x, y
+
+
 class RandomTextLMDataset(Dataset):
     """ Text LM dataset with values (just input token ids) drawn uniformly
     Args:
