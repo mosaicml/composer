@@ -43,6 +43,9 @@
 </p>
 <br />
 
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmosaicml%2Fcomposer.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmosaicml%2Fcomposer?ref=badge_large)
+
 # 👋 Welcome
 
 Composer is a PyTorch library that enables you to <b>train neural networks faster, at lower cost, and to higher accuracy</b>. We've implemented more than two dozen speedup methods that can be applied to your training loop in just a few lines of code, or used with our built-in Trainer. We continually integrate the latest state-of-the-art in efficient neural network training.
@@ -101,6 +104,7 @@ You can use Composer's speedup methods in two ways:
 * Using Composer's built-in **Trainer**, which is designed to be performant and automatically takes care of the details of using speedup methods.
 
 ### Example: Functional API [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/functional_api.ipynb)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fmosaicml%2Fcomposer.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fmosaicml%2Fcomposer?ref=badge_shield)
 
 Integrate our speedup methods into your training loop with just a few lines of code, and see the results. Here we easily apply [BlurPool](https://docs.mosaicml.com/projects/composer/en/stable/method_cards/blurpool.html) and [SqueezeExcite](https://docs.mosaicml.com/projects/composer/en/stable/method_cards/squeeze_excite.html):
 
