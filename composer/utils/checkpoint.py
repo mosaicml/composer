@@ -478,6 +478,11 @@ def safe_torch_load(
             state_dict = {'rng': flat_state_dict['rng']}
             del flat_state_dict['rng']
             state_dict['state'] = flat_state_dict
+
+            if dist.get_global_rank() != 0:
+                log.debug(f'State dict on non-rank 0: {state_dict["state"].keys()}')
+                log.debug(f'State dict on non-rank 0: {state_dict["state"]}')
+
             return state_dict
         else:
             return torch.load(composer_states_filepath, map_location=map_location)
