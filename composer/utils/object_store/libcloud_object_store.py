@@ -170,6 +170,9 @@ class LibcloudObjectStore(ObjectStore):
             # If the file already exits, short-circuit and skip the download
             raise FileExistsError(f'filename {filename} exists and overwrite was set to False.')
 
+        dirname = os.path.dirname(filename)
+        if dirname:
+            os.makedirs(dirname, exist_ok=True)
         obj = self._get_object(object_name)
         # Download first to a tempfile, and then rename, in case if the file gets corrupted in transit
         tmp_filepath = str(filename) + f'.{uuid.uuid4()}.tmp'
