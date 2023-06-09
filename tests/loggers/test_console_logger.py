@@ -347,12 +347,13 @@ def test_console_logger_overlapping(console_logger_test_stream, console_logger_t
 
     assert model.train_metrics is not None
     num_metrics = len(list(model.train_metrics.keys())) if isinstance(model.train_metrics, MetricCollection) else 1
-    num_metrics += len(list(model.parameters())) * 7 + 1  # number from Adam
+    num_metrics += len(list(model.parameters())) * 7 + 1  # number from Adam, 7 metrics per layer
 
     num_losses = 1
-    num_metrics_and_losses_per_logging_event = num_metrics + num_losses
+    num_metrics_and_losses_per_logging_event = num_metrics + num_losses  # prints loss and all metrics at each log
 
     expected_num_lines = 2 + 2 * num_metrics_and_losses_per_logging_event
     # metrics for optimizer are only calculated at second log and at FIT_END
+    # prints only loss/accuracy at the first batch
 
     assert actual_num_log_lines == expected_num_lines
