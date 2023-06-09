@@ -893,7 +893,7 @@ class InContextLearningCodeEvalDataset(Dataset):
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
         self.padding_side = 'left'
-        self.max_answer_length = 0
+        self.max_prompt_length = 0
         fewshot_rng = random.Random(fewshot_random_seed)
         self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, code_prelimiter,
                                                   fewshot_rng)
@@ -915,7 +915,7 @@ class InContextLearningCodeEvalDataset(Dataset):
         Returns:
             dict: Contains the context, the continuation, and the preamble (prompt + fewshot examples)
         """
-        max_answer_length = 0
+        max_prompt_length = 0
         examples = []
         for sample_idx in tqdm(range(len(self.samples))):
             encoded_example = {}
@@ -925,13 +925,13 @@ class InContextLearningCodeEvalDataset(Dataset):
             if num_fewshot > 0:
                 fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx, fewshot_rng)
                 for fewshot_idx in fewshot_idxs:
-                    ctxt, cont = self.samples[fewshot_idx]['context'], self.samples[fewshot_idx]['answer']
+                    ctxt, cont = self.samples[fewshot_idx]['prompt'], self.samples[fewshot_idx]['canonical_solution']
                     ctxt = f'{code_prelimiter}{ctxt}'
                     if len(preamble) > 0:
                         ctxt = f'{example_delimiter}{ctxt}'
                     preamble += f'{ctxt}{cont}'
 
-            ctxt = self.samples[sample_idx]['context']
+            ctxt = self.samples[sample_idx]['prompt']
             ctxt = f'{code_prelimiter}{ctxt}'
             if len(preamble) > 0:
                 ctxt = f'{example_delimiter}{ctxt}'
@@ -946,7 +946,8 @@ class InContextLearningCodeEvalDataset(Dataset):
                 ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
                 encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
 
-            encoded_example['context'] = self.tokenizer(ctxt, add_special_tokens=False)
+            encoded_example['prompt'] = self.tokenizer(ctxt, add_special_tokens=False)
+            encoded_example['prompt_text'] = self.samples[sample_idx]['prompt']
             encoded_example['task_id'] = self.samples[sample_idx]['task_id']
             encoded_example['canonical_solution'] = self.samples[sample_idx]['canonical_solution']
             encoded_example['test'] = self.samples[sample_idx]['test']
@@ -955,8 +956,11 @@ class InContextLearningCodeEvalDataset(Dataset):
             encoded_example['test_outputs'] = self.samples[sample_idx]['test_outputs']
 
             examples.append(encoded_example)
+            max_prompt_length = max(
+                max_prompt_length,
+                len(encoded_example['preamble']['input_ids'] + encoded_example['prompt']['input_ids']))
 
-        self.max_answer_length = max_answer_length
+        self.max_prompt_length = max_prompt_length
         return examples
 
     def __getitem__(self, index):
@@ -966,20 +970,20 @@ class InContextLearningCodeEvalDataset(Dataset):
         return len(self.encoded_dataset)
 
     def collate_fn(self, data):
-        inputs, tests, canonical_solutions, entry_points, test_inputs, test_outputs = [], [], [], [], [], []
-
+        inputs, prompts, tests, canonical_solutions, entry_points, test_inputs, test_outputs = [], [], [], [], [], [], []
         for sample in data:
-            preamble, prompt, canonical_solution, test, entry_point, test_input, test_output = (
-                sample['preamble'], sample['prompt'], sample['canonical_solution'], sample['test'],
-                sample['entry_point'], sample['test_inputs'], sample['test_outputs'])
+            preamble, prompt, text_prompt, canonical_solution, test, entry_point, test_input, test_output = (
+                sample['preamble'], sample['prompt'], sample['prompt_text'], sample['canonical_solution'],
+                sample['test'], sample['entry_point'], sample['test_inputs'], sample['test_outputs'])
             context_enc = preamble['input_ids'] + prompt['input_ids']
             inp, _ = _make_padded_input(context_enc, [],
-                                        self.max_seq_len - self.max_answer_length,
+                                        self.max_prompt_length,
                                         self.pad_tok_id,
                                         padding_side=self.padding_side)
 
             inputs.append(inp)
             tests.append(test)
+            prompts.append(text_prompt)
             canonical_solutions.append(canonical_solution)
             entry_points.append(entry_point)
             test_inputs.append(test_input)
@@ -988,11 +992,14 @@ class InContextLearningCodeEvalDataset(Dataset):
         batch = {
             'input_ids': torch.stack(inputs),
             'mode': 'generate',
-            'labels': inputs,
+            'labels': canonical_solutions,
+            'prompts': prompts,  # list of prompts
             'tests': tests,  # list of tests
             'canonical_solutions': canonical_solutions,  # list of solutions
             'entry_points': entry_points,  # list of entry points
-            'generation_length': self.max_answer_length,
+            'test_inputs': test_inputs,  # list of test inputs
+            'test_outputs': test_outputs,  # list of test outputs
+            'generation_length': self.max_prompt_length,
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
                 'num_beams': self.num_evals,  # change strategy to beam search
@@ -1008,7 +1015,9 @@ class InContextLearningCodeEvalDataset(Dataset):
     def split_batch(self, batch: Any, microbatch_size: int):
         no_split = ['mode', 'generation_length', 'generation_kwargs']
         normal_split = ['input_ids', 'attention_mask']
-        list_split = ['labels']
+        list_split = [
+            'labels', 'tests', 'canonical_solutions', 'entry_points', 'test_inputs', 'test_outputs', 'prompts'
+        ]
         chunked = {}
         for k, v in batch.items():
             if k in no_split:
@@ -1024,6 +1033,7 @@ class InContextLearningCodeEvalDataset(Dataset):
         for k, v in batch.items():
             if isinstance(v, (int, float, str, bool, dict)):
                 chunked[k] = [v] * num_chunks
+
         return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
 
 
@@ -1188,6 +1198,7 @@ def get_icl_task_dataloader(
         destination_path: str,
         question_prelimiter: str = '',  # e.g. 'Question: '
         fewshot_random_seed: int = 1234,
+        num_evals: int = 1,
         has_categories: bool = False) -> Union[DataSpec, Dict[str, DataSpec]]:
     """This constructs a dataloader (or dataloaders if has_categories is True) capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
 
@@ -1255,6 +1266,7 @@ def get_icl_task_dataloader(
                 partition_uri + '_tmp',
                 question_prelimiter,
                 fewshot_random_seed,
+                num_evals,
             )
         return result_dls
     else:
@@ -1272,4 +1284,5 @@ def get_icl_task_dataloader(
             destination_path,
             question_prelimiter,
             fewshot_random_seed,
+            num_evals,
         )

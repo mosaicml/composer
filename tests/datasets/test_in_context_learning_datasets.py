@@ -560,6 +560,121 @@ def test_mc_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     assert tokenizer.decode(batch['input_ids'][0][min_idx:max_idx + 1]) == ' Pour it onto a plate'
 
 
+@pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
+def test_code_eval_split_batch(dataset_uri, tmp_path):
+    pytest.importorskip('datasets')
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    tokenizer = AutoTokenizer.from_pretrained('EleutherAI/gpt-neox-20b')
+
+    tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
+    gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
+    dl = get_icl_task_dataloader(
+        'code_evaluation',
+        dataset_uri,
+        tokenizer,
+        8,
+        max_seq_len=1024,
+        pad_tok_id=tokenizer.eos_token_id,
+        num_fewshot=0,
+        prompt_string='',
+        example_delimiter='\n',
+        continuation_delimiter=': ',
+        destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
+        num_evals=4,
+    )
+
+    assert isinstance(dl, DataSpec)  # pyright
+
+    batch = next(iter(dl.dataloader))
+    split_batch = dl.split_batch(batch, 6)
+
+    assert len(split_batch) == 2
+    split1 = split_batch[0]
+    split2 = split_batch[1]
+
+    assert split1['input_ids'].shape[0] == 6
+    assert split2['input_ids'].shape[0] == 2
+
+    assert split1['attention_mask'].shape[0] == 6
+    assert split2['attention_mask'].shape[0] == 2
+
+    assert isinstance(split1['mode'], str)
+    assert isinstance(split2['mode'], str)
+
+    list_split = {
+        'labels': str,
+        'prompts': str,
+        'tests': str,
+        'canonical_solutions': str,
+        'entry_points': str,
+        'test_inputs': list,
+        'test_outputs': list,
+    }
+    for k, v in list_split.items():
+        assert len(split1[k]) == 6
+        assert len(split2[k]) == 2
+        assert all(isinstance(val, v) for val in split1[k] + split2[k])
+
+    assert isinstance(split1['generation_length'], int)
+    assert isinstance(split2['generation_length'], int)
+
+    assert isinstance(split1['generation_kwargs'], dict)
+    assert isinstance(split2['generation_kwargs'], dict)
+
+
+@pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
+@pytest.mark.parametrize('num_fewshot', [0, 1, 2])
+@pytest.mark.parametrize('prompt_string', ['Code below:\n', ''])
+@pytest.mark.parametrize('num_evals', range(1, 5))
+def test_code_eval_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fewshot, prompt_string, num_evals):
+    pytest.importorskip('datasets')
+
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+
+    tokenizer = tiny_gpt2_tokenizer
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    batch_size = 2
+    seqlen = 2048
+    # empirical number from the small test dataset
+    maximum_answer_length = 9
+    dl = get_icl_task_dataloader('code_evaluation',
+                                 dataset_uri,
+                                 tokenizer,
+                                 batch_size,
+                                 max_seq_len=seqlen,
+                                 pad_tok_id=tokenizer.eos_token_id,
+                                 num_fewshot=num_fewshot,
+                                 prompt_string=prompt_string,
+                                 example_delimiter='\n',
+                                 question_prelimiter='Q: ',
+                                 continuation_delimiter='\nA:',
+                                 destination_path=str(tmp_path / f'icl_{num_fewshot}.jsonl'))
+    assert isinstance(dl, DataSpec)
+
+    assert isinstance(dl.dataloader, DataLoader)  # pyright
+    batch = next(dl.dataloader._get_iterator())
+
+    assert tuple(batch['input_ids'].shape) == (batch_size, seqlen - maximum_answer_length)
+    assert tuple(batch['attention_mask'].shape) == (batch_size, seqlen - maximum_answer_length)
+    assert batch['mode'] == 'generate'
+    # the maximum generation length from the small test data
+    assert batch['generation_length'] == maximum_answer_length
+    assert all(item[0] == tokenizer.eos_token_id for item in batch['input_ids'])
+
+    decoded_batch = tokenizer.batch_decode(batch['input_ids'])
+    assert all([item.count('Q: ') == num_fewshot + 1 for item in decoded_batch])
+    assert all([item.count('\nA:') == num_fewshot + 1 for item in decoded_batch])
+
+    if len(prompt_string) > 0:
+        assert all([item.count('I am a prompt') == 1 for item in decoded_batch])
+
+    assert batch['labels'] == [['David Seville'], ['Scorpio', 'Skorpio']]
+
+    assert decoded_batch[0].endswith('Q: Who was the man behind The Chipmunks?\nA:')
+    assert decoded_batch[1].endswith('Q: What star sign is Jamie Lee Curtis?\nA:')
+
+
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 5])
 @device('gpu')
