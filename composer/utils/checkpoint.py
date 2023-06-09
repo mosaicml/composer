@@ -460,7 +460,7 @@ def safe_torch_load(
 
             log.debug(f'Broadcasting values to all ranks.')
             values = []
-            broadcast_keys = [key for key in keys if key != 'model' and key != 'optimizers']
+            broadcast_keys = [key for key in keys if key != 'model'] #and key != 'optimizers']
             for key in broadcast_keys:
                 log.debug(f'Broadcasting {key} to all ranks.')
                 if dist.get_global_rank() == 0:
