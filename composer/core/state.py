@@ -985,6 +985,7 @@ class State(Serializable):
             # with the `module.` prefix
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
 
+        missing_keys, unexpected_keys = [], []
         try:
             # Load model if it exists. For FSDP monolith checkpoints, the model does not exist on ranks > 0
             if 'model' in state_dict:
@@ -998,8 +999,6 @@ class State(Serializable):
                 else:
                     log.debug(f'Loading model state dict with strict={strict}')
                     missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
-            else:
-                missing_keys, unexpected_keys = [], []
         except RuntimeError as e:
             if 'Missing key(s) in state_dict' in str(e) or 'Unexpected key(s) in state_dict' in str(e):
                 raise RuntimeError(
@@ -1009,9 +1008,9 @@ class State(Serializable):
             else:
                 raise e
 
-        if len(missing_keys) > 0:
+        if 'model' in state_dict and len(missing_keys) > 0:
             log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
-        if len(unexpected_keys) > 0:
+        if 'model' in state_dict and len(unexpected_keys) > 0:
             if self.fsdp_config is not None and self.fsdp_config.get(
                     'use_orig_params') and self.fsdp_state_dict_type == 'local':
                 log.warning(
