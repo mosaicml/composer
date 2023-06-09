@@ -1035,7 +1035,7 @@ class State(Serializable):
         """
         serialized_value = state_dict['optimizers']
         for optimizer in ensure_tuple(self.optimizers):
-            if type(optimizer).__qualname__ not in serialized_value:
+            if serialized_value is not None and type(optimizer).__qualname__ not in serialized_value:
                 warnings.warn(
                     f'{type(optimizer).__qualname__} is not in the state_dict. Its state will not be restored.',
                     category=UserWarning)
