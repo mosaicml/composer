@@ -480,9 +480,7 @@ def safe_torch_load(
             state_dict['state'] = flat_state_dict
 
             if dist.get_global_rank() != 0:
-                state_dict['state']['optimizers'] = None  # Add dummy key so optimizer state load runs
-                log.debug(f'State dict on non-rank 0: {state_dict["state"].keys()}')
-                log.debug(f'State dict on non-rank 0: {state_dict["state"]}')
+                state_dict['state']['optimizers'] = None  # Add dummy key so optimizer state load runs)
 
             return state_dict
         else:
