@@ -21,7 +21,10 @@ from composer.utils import MissingConditionalImportError, dist, get_file
 if TYPE_CHECKING:
     import transformers
 
-__all__ = ['InContextLearningLMTaskDataset', 'InContextLearningMultipleChoiceTaskDataset', 'get_icl_task_dataloader']
+__all__ = [
+    'InContextLearningLMTaskDataset', 'InContextLearningMultipleChoiceTaskDataset', 'InContextLearningCodeEvalDataset',
+    'get_icl_task_dataloader'
+]
 
 
 def _tokenizer_needs_prefix_space(tokenizer) -> bool:
@@ -1194,8 +1197,8 @@ def get_icl_task_dataloader(
         num_fewshot: int,
         prompt_string: str,  # e.g. 'translate english to french:'
         example_delimiter: str,  # e.g. '\n'
-        continuation_delimiter: str,  # e.g. ''
-        destination_path: str,
+        continuation_delimiter: str = '',  # e.g. ''
+        destination_path: str = '',
         question_prelimiter: str = '',  # e.g. 'Question: '
         fewshot_random_seed: int = 1234,
         num_evals: int = 1,
