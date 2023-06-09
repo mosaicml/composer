@@ -23,6 +23,8 @@ from tests.common import RandomClassificationDataset
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
 from composer.utils.misc import using_torch_2
+from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_context
+import copy
 
 # This model is to be used explicitly for this unit test because some old reference checkpoints
 # were saved using it exactly as it is. Changing this model will break test_fsdp_load_old_checkpoint.
@@ -115,7 +117,7 @@ def _compare_optims_between_state_dicts(state_dict1, state_dict2):
             state_dict2_moment = state_dict2_param_moment_dict[moment_name].cpu()
             assert torch.equal(
                 state_dict1_moment,
-                state_dict2_moment), f'Moment {moment_name} for parameter {param_name} not the same between state dicts'
+                state_dict2_moment), f'Moment {moment_name} for parameter {param_name} not the same between state dicts,\n\t{state_dict1_moment}\n\t{state_dict2_moment}'
 
 
 def _compare_model_params_between_state_dicts(state_dict1, state_dict2):
@@ -370,18 +372,20 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
                            precision=precision,
                            autoresume=autoresume,
                            optimizer=optimizer,
+                           max_duration='2ba',
                            save_weights_only=weights_only,
                            fsdp_sharded_ckpt_prefix_dir='ba{batch}')
     run_name = trainer1.state.run_name
     trainer1.fit()
     rng1 = get_rng_state()
-    state_dict_from_trainer1 = trainer1.state.state_dict()
+    state_dict_from_trainer1_ba2 = trainer1.state.state_dict()
     trainer1.close()
 
     if use_remote:
         load_path = "s3://" + save_folder.strip('s3://').format(run_name=run_name) + '/ba2'
     else:
         load_path = str(save_folder.format(run_name=run_name) / pathlib.Path('ba2'))
+        
     trainer2 = get_trainer(save_folder=str(save_folder),
                            save_filename=save_filename,
                            fsdp_state_dict_type=state_dict_type,
@@ -390,22 +394,96 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
                            autoresume=autoresume,
                            run_name=run_name,
                            max_duration='4ba',
-                           optimizer=optimizer,
                            save_interval='4ba',
+                           optimizer=optimizer,
                            load_weights_only=weights_only)
     state_dict_from_trainer2 = trainer2.state.state_dict()
     rng2 = trainer2._rng_state
     # Compare saved state and loaded state for both ranks.
-    _compare_model_params_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
+    _compare_model_params_between_state_dicts(state_dict_from_trainer1_ba2, state_dict_from_trainer2)
     if not weights_only:
         _compare_rng_states_between_trainers(rng1, rng2)
-        _compare_optims_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
-        _compare_metrics_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
-        _compare_timestamps_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
+        _compare_optims_between_state_dicts(state_dict_from_trainer1_ba2, state_dict_from_trainer2)
+        _compare_metrics_between_state_dicts(state_dict_from_trainer1_ba2, state_dict_from_trainer2)
+        _compare_timestamps_between_state_dicts(state_dict_from_trainer1_ba2, state_dict_from_trainer2)
 
     trainer2.fit()
     trainer2.close()
 
+
+@pytest.mark.gpu
+@pytest.mark.remote
+@world_size(2)
+@pytest.mark.parametrize('state_dict_type', ['sharded'])
+@pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
+@pytest.mark.parametrize('autoresume', [False])  # True commented out for now
+@pytest.mark.parametrize('num_shards', [2, 4, 7])
+@pytest.mark.parametrize('sharding_strategy', ['FULL_SHARD'])
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.1'),
+                    reason='requires PyTorch 2.01 or higher')
+@pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
+def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool,
+                                          precision: str, sharding_strategy, s3_bucket, s3_read_only_prefix, num_shards: int):
+    if state_dict_type == 'local' and using_torch_2():
+        pytest.xfail(
+            'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info'
+        )
+    if autoresume:
+        run_name = 'my-autoresume-run'
+    else:
+        run_name = None
+
+        
+    mono_load_path = f"s3://{s3_bucket}/{s3_read_only_prefix}/elastic_test/{sharding_strategy.lower()}_{state_dict_type}_{precision}_{num_shards}/mono.pt"
+    mono_trainer = get_trainer(fsdp_state_dict_type='full',
+                           load_path=mono_load_path,
+                           num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
+                           num_classes=8,  # This parameter setting is very important. Don't change or the test will fail.
+                           precision=precision,
+                           autoresume=autoresume,
+                           run_name=run_name,
+                           max_duration='4ba',)
+
+    sharded_load_path = f"s3://{s3_bucket}/{s3_read_only_prefix}/elastic_test/{sharding_strategy.lower()}_{state_dict_type}_{precision}_{num_shards}/ba2/"
+    sharded_trainer = get_trainer(fsdp_state_dict_type=state_dict_type,
+                           load_path=sharded_load_path,
+                           num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
+                           num_classes=8,  # This parameter setting is very important. Don't change or the test will fail.
+                           precision=precision,
+                           autoresume=autoresume,
+                           run_name=run_name,
+                           max_duration='4ba',
+                           load_weights_only=False)
+    
+    def get_mono_state_dict_from_sharded_one(trainer):
+        state_dict = trainer.state.state_dict()
+        state_dict.pop('optimizers')
+        state_dict.pop('model')
+
+        # Add in unsharded model params.
+        with fsdp_state_dict_type_context(trainer.state.model,
+                                            state_dict_type='full'):
+            state_dict['model'] = trainer.state.model.state_dict()
+
+        optimizer = trainer.state.optimizers[0]
+        state_dict['optimizers'] = {
+            type(optimizer).__qualname__: fsdp_get_optim_state_dict(
+                                                                trainer.state.model,
+                                                                optimizer, 
+                                                                state_dict_type='full')}
+        return state_dict
+        
+    
+    def compare_state_dicts():
+        state_dict_from_trainer1 = mono_trainer.state.state_dict()
+        state_dict_from_trainer2 = get_mono_state_dict_from_sharded_one(sharded_trainer)
+        _compare_model_params_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
+        _compare_optims_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
+        _compare_metrics_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
+        _compare_timestamps_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
+    
+    # Compare state dicts.
+    compare_state_dicts()
 
 @pytest.mark.gpu
 @world_size(2)
