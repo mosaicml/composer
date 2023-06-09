@@ -1040,7 +1040,7 @@ class State(Serializable):
                     f'{type(optimizer).__qualname__} is not in the state_dict. Its state will not be restored.',
                     category=UserWarning)
                 continue
-            optim_state_dict = serialized_value[type(optimizer).__qualname__]
+            optim_state_dict = serialized_value.get(type(optimizer).__qualname__, None)
             if self.fsdp_enabled:
                 assert self.fsdp_state_dict_type is not None  # pyright
                 if version.parse(torch.__version__) < version.parse('1.13.0'):
@@ -1118,7 +1118,8 @@ class State(Serializable):
             algorithm_passes=algorithm_passes,
         )
 
-        for attribute_name, serialized_value in state.items():
+        for attribute_name in sorted(list(state.keys())):  # Sort so all ranks load in the same order
+            serialized_value = state[attribute_name]
             # Skip removed attributes as well as algorithms and model, which was already loaded
             if attribute_name not in self.serialized_attributes or attribute_name == 'model':
                 continue
