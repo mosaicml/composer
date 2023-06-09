@@ -460,26 +460,26 @@ def safe_torch_load(
 
             log.debug(f'Broadcasting values to all ranks.')
             values = []
-            for key in keys:
-                if key != 'model' and key != 'optimizers':
-                    log.debug(f'Broadcasting {key} to all ranks.')
-                    if dist.get_global_rank() == 0:
-                        values.append(flat_state_dict[key])
-                    else:
-                        values.append(None)
+            broadcast_keys = [key for key in keys if key != 'model' and key != 'optimizers']
+            for key in broadcast_keys:
+                log.debug(f'Broadcasting {key} to all ranks.')
+                if dist.get_global_rank() == 0:
+                    values.append(flat_state_dict[key])
+                else:
+                    values.append(None)
             log.debug(f'Broadcasting values to all ranks. {len(values)} values to broadcast.')
             dist.broadcast_object_list(values, src=0)
 
             log.debug(f'Building state dict without model/optimizers on non-rank 0.')
             if dist.get_global_rank() != 0:
-                flat_state_dict = {k: v for k, v in zip(keys, values)}
+                flat_state_dict = {k: v for k, v in zip(broadcast_keys, values)}
 
             # Unflatten state_dict by pulling out rng
             state_dict = {'rng': flat_state_dict['rng']}
             del flat_state_dict['rng']
             state_dict['state'] = flat_state_dict
             if dist.get_global_rank() != 0:
-                log.debug(f'Rank {dist.get_global_rank()} loaded state_dict: {state_dict}')
+                log.debug(f'Rank {dist.get_global_rank()} loaded state_dict: {state_dict["state"]}')
             return state_dict
         else:
             return torch.load(composer_states_filepath, map_location=map_location)
