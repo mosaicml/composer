@@ -1040,7 +1040,7 @@ class State(Serializable):
                     f'{type(optimizer).__qualname__} is not in the state_dict. Its state will not be restored.',
                     category=UserWarning)
                 continue
-            optim_state_dict = serialized_value.get(type(optimizer).__qualname__, None)
+            optim_state_dict = serialized_value[type(optimizer).__qualname__] if serialized_value is not None else None
             if self.fsdp_enabled:
                 assert self.fsdp_state_dict_type is not None  # pyright
                 if version.parse(torch.__version__) < version.parse('1.13.0'):
