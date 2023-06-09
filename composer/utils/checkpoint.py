@@ -308,7 +308,7 @@ def load_sharded_checkpoint(
     # A subclass of FileSystemReader that downloads files from the object store before reading them from the local filesystem.
     class DistCPObjectStoreReader(dist_cp.FileSystemReader):
 
-        def __init__(self, source_path: str, destination_path: str, object_store):  # path to metadata
+        def __init__(self, source_path: str, destination_path: str, object_store):
             self.source_path = source_path
             self.destination_path = destination_path
             self.object_store = object_store
@@ -321,14 +321,18 @@ def load_sharded_checkpoint(
                                              filename=metadata_destination)
             dist.barrier()
                 
-            # Instantiate FileSystemReader with destination path b/c that's where we will download files to.
-            # Because we already download the metadata file to the destination, everything will work swimmingly
+            # FileSystemReader takes in a root directory in its constructor, which is the dir where 
+            # the metadata is expected to be stored. Also, this is parent directory for any shard file relative paths
+            # specified in the metadata file.
             super().__init__(destination_path)
 
         def read_data(self, plan: LoadPlan, planner: LoadPlanner):
             # 1. Download to the destination all files that this rank is responsible for.
             for plan_item in plan.items:
+                # Each plan item has a storage index which points to the relative path of the shard file at save time.
                 relative_file_path = self.storage_data[plan_item.storage_index].relative_path
+                # Download the shard file to the relative path it's associated to and save that relative path
+                # to the root directory specified to the FileSystem reader constructor.
                 file_destination = str(Path(self.destination_path) / Path(relative_file_path))
                 if not os.path.exists(file_destination):
                     self.object_store.download_object(object_name=str(
@@ -341,17 +345,8 @@ def load_sharded_checkpoint(
             # 3. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
             return super().read_data(plan, planner)
         
-
-    if object_store is not None:
-        try:
-            with tempfile.TemporaryDirectory() as tempdir:
-                get_file(source_path, object_store=object_store, destination=tempdir)
-            raise ValueError(
-                f'load_path must be a prefix not an object when using sharded state dict. Got {object_store.get_uri(source_path)}'
-            )
-        except FileNotFoundError:
-            pass  # This error means the user passed a non-object. Passing an object is an error, so this is potentially good.
-    else:
+    # Check to make sure source_path is a directory.
+    if object_store is None:
         if os.path.exists(source_path):
             if not os.path.isdir(source_path):
                 raise ValueError(f'load_path must be a directory when using sharded state dict. Got {source_path}')
@@ -364,7 +359,8 @@ def load_sharded_checkpoint(
     with download_dir_context() as temp_download_dir:
         if object_store is not None:
             # Get the tempfile made on local rank 0.
-            rank0_download_tempdir = dist.all_gather_object(temp_download_dir)[dist.get_local_world_size() * dist.get_node_rank()]
+            local_rank0_index = dist.get_global_rank() - dist.get_local_rank()
+            rank0_download_tempdir = dist.all_gather_object(temp_download_dir)[local_rank0_index]
             storage_reader = DistCPObjectStoreReader(source_path=source_path,
                                                      destination_path= str(Path(rank0_download_tempdir) / Path('checkpoints')),
                                                      object_store=object_store)
