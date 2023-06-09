@@ -334,6 +334,7 @@ def load_sharded_checkpoint(
                 # Download the shard file to the relative path it's associated to and save that relative path
                 # to the root directory specified to the FileSystem reader constructor.
                 file_destination = str(Path(self.destination_path) / Path(relative_file_path))
+                # THe file could have already been downloaded as diffeent plan items can point to same file.
                 if not os.path.exists(file_destination):
                     self.object_store.download_object(object_name=str(
                         Path(self.source_path) / Path(relative_file_path)),
