@@ -1047,15 +1047,17 @@ class State(Serializable):
                     raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
                 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
                 log.debug(f'Loading FSDP optimizer with fsdp_state_dict_type={self.fsdp_state_dict_type}')
-                if not using_torch_2():
-                    optim_state_dict = _legacy_optim_state_dict_to_load(optim_state_dict=optim_state_dict,
-                                                                        model=self.model,
-                                                                        optim=optimizer,
-                                                                        state_dict_type=self.fsdp_state_dict_type)
-                else:
-                    with fsdp_state_dict_type_context(module=self.model, state_dict_type=self.fsdp_state_dict_type):
-                        optim_state_dict = FSDP.optim_state_dict_to_load(  #  type: ignore
-                            optim_state_dict=optim_state_dict, model=self.model, optim=optimizer)
+                # if not using_torch_2():
+                #     optim_state_dict = _legacy_optim_state_dict_to_load(optim_state_dict=optim_state_dict,
+                #                                                         model=self.model,
+                #                                                         optim=optimizer,
+                #                                                         state_dict_type=self.fsdp_state_dict_type)
+                # else:
+                #     with fsdp_state_dict_type_context(module=self.model, state_dict_type=self.fsdp_state_dict_type):
+                #         optim_state_dict = FSDP.optim_state_dict_to_load(  #  type: ignore
+                #             optim_state_dict=optim_state_dict, model=self.model, optim=optimizer)
+                optim_state_dict = FSDP.scatter_full_optim_state_dict(full_optim_state_dict=optim_state_dict,
+                                                                      model=self.model)
                 optimizer.load_state_dict(optim_state_dict)
             else:
                 log.debug(f'Loading optimizer state dict')
