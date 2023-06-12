@@ -445,9 +445,9 @@ def safe_torch_load(
             if dist.get_global_rank() == 0:
                 state_dict_list[0] = torch.load(composer_states_filepath, map_location=map_location)
                 model = state_dict_list[0]['state']['model']
-                optimizer = state_dict_list[0]['state']['optimizer']
+                optimizer = state_dict_list[0]['state']['optimizers']
                 del state_dict_list[0]['state']['model']
-                del state_dict_list[0]['state']['optimizer']
+                del state_dict_list[0]['state']['optimizers']
 
             log.debug('Broadcasting state_dict to all ranks.')
             dist.broadcast_object_list(state_dict_list, src=0)
@@ -455,7 +455,7 @@ def safe_torch_load(
 
             if dist.get_global_rank() == 0:
                 state_dict['state']['model'] = model
-                state_dict['state']['optimizer'] = optimizer
+                state_dict['state']['optimizers'] = optimizer
             else:
                 state_dict['state']['optimizers'] = None  # Add dummy key to trigger `load_optim_state`
 
