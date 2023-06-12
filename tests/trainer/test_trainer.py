@@ -687,7 +687,7 @@ class TestTrainerInitOrFit:
     def test_save_checkpoint_to_folder(
         self,
         model: ComposerModel,
-        checkpoint_path: str | None,
+        checkpoint_path: Optional[str],
         max_duration: Time[int],
         train_dataloader: DataLoader,
     ):
