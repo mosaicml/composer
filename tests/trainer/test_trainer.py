@@ -692,7 +692,7 @@ class TestTrainerInitOrFit:
         train_dataloader: DataLoader,
     ):
         copied_model = copy.deepcopy(model)
-        #Define Trainer
+        #Define Trainer tmp
         trainer1 = Trainer(model=model,
                            device='cpu',
                            max_duration=max_duration,

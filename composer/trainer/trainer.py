@@ -2981,7 +2981,7 @@ class Trainer:
         """Checkpoints the training :class:`~.State` using a CheckpointSaver if it exists.
 
         Raises:
-            ValueError: If ``_checkpoint_saver`` does not exist.
+            ValueError: If ``_checkpoint_saver`` does not exist. tmp
 
         Returns:
             None
