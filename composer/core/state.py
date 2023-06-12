@@ -1063,6 +1063,7 @@ class State(Serializable):
                 optim_state_dict = FSDP.scatter_full_optim_state_dict(full_optim_state_dict=optim_state_dict,
                                                                       model=self.model)
                 optimizer.load_state_dict(optim_state_dict)
+                log.info('Loaded optimizer state dict')
             else:
                 log.debug(f'Loading optimizer state dict')
                 optimizer.load_state_dict(optim_state_dict)
