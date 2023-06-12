@@ -698,8 +698,7 @@ class TestTrainerInitOrFit:
                            max_duration=max_duration,
                            train_dataloader=train_dataloader,
                            save_folder=checkpoint_path)
-        trainer1.fit(duration='2ba')
-        name = 'ep0-ba2-rank0.pt'
+        name = 'ep0-ba0-rank0.pt'
         if checkpoint_path is not None:
             trainer1.save_checkpoint_to_save_folder()
             trainer2 = Trainer(model=copied_model,

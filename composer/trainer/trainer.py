@@ -2990,7 +2990,7 @@ class Trainer:
             raise ValueError(
                 'In order to use save_checkpoint_to_save_folder you must pass a save_folder to the Trainer.')
         else:
-            self._checkpoint_saver._save_checkpoint
+            self._checkpoint_saver._save_checkpoint(self.state, self.logger)
 
     def export_for_inference(
         self,
