@@ -20,6 +20,7 @@ from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WI
                             checkpoint, create_symlink_file, dist, ensure_folder_has_no_conflicting_files,
                             format_name_with_dist, format_name_with_dist_and_time, is_model_deepspeed, reproducibility)
 from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
+from composer.utils.misc import using_torch_2
 
 log = logging.getLogger(__name__)
 
@@ -315,7 +316,6 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         self.filename = PartialFilePath(filename.lstrip('/'), folder)
         self.latest_filename = PartialFilePath(latest_filename.lstrip('/'), folder) if latest_filename else None
-
         self.remote_file_name = PartialFilePath(remote_file_name) if remote_file_name else None
         self.latest_remote_file_name = PartialFilePath(latest_remote_file_name) if latest_remote_file_name else None
 
@@ -413,13 +413,13 @@ class CheckpointSaver(Callback):  # noqa: D101
                 ).lstrip('/')
                 assert state.sharded_ckpt_prefix_dir is not None
                 remote_prefix = state.sharded_ckpt_prefix_dir
+                ckpt_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME if using_torch_2() else pathlib.Path(remote_file_name).name
                 remote_file_name = os.path.join(
-                    pathlib.Path(remote_file_name).parent, remote_prefix, _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME)
+                    pathlib.Path(remote_file_name).parent, remote_prefix, ckpt_filename)
                 remote_file_name = format_name_with_dist_and_time(remote_file_name, state.run_name, state.timestamp)
-
                 # Upload metadata file.
                 # The metadata file contains info related to which shards are saved where.
-                if dist.get_global_rank() == 0:
+                if dist.get_global_rank() == 0 and using_torch_2():
                     metadata_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME
                     metadata_local_file_name = format_name_with_dist_and_time(
                         os.path.join(Path(saved_path).parent, metadata_filename), state.run_name, state.timestamp)

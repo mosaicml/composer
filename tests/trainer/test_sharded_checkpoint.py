@@ -341,9 +341,9 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.parametrize('weights_only', [True, False])
+@pytest.mark.parametrize('weights_only', [False, True])
 @pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
-@pytest.mark.parametrize('state_dict_type', ['local', 'sharded'])
+@pytest.mark.parametrize('state_dict_type', ['sharded', 'local'])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.parametrize('use_remote', [pytest.param(True, marks=pytest.mark.remote), False])
 @pytest.mark.parametrize('autoresume', [False])  # True commented out for now
@@ -353,6 +353,7 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
 def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool,
                                           precision: str, optimizer: str, 
                                           weights_only: bool, use_remote, s3_bucket, s3_ephemeral_prefix):
+    
     if state_dict_type == 'local' and using_torch_2():
         pytest.xfail(
             'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info'
@@ -364,7 +365,8 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
     if use_remote:
         save_folder = f"s3://{s3_bucket}/{s3_ephemeral_prefix}/checkpoints/{{run_name}}"
     else:
-        save_folder = '/tmp/test_checkpoints'
+        save_folder = '/tmp/test_checkpoints/{run_name}'
+
     save_filename = 'ba{batch}-rank{rank}.pt'
     trainer1 = get_trainer(save_folder=str(save_folder),
                            save_filename=save_filename,
@@ -377,6 +379,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
                            save_weights_only=weights_only,
                            fsdp_sharded_ckpt_prefix_dir='ba{batch}')
     run_name = trainer1.state.run_name
+    print(run_name)
     trainer1.fit()
     rng1 = get_rng_state()
     state_dict_from_trainer1_ba2 = trainer1.state.state_dict()
@@ -386,6 +389,12 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
         load_path = "s3://" + save_folder.strip('s3://').format(run_name=run_name) + '/ba2'
     else:
         load_path = str(save_folder.format(run_name=run_name) / pathlib.Path('ba2'))
+
+    if not using_torch_2():
+        load_filename = f"{save_filename.format(batch=2, rank='{rank}')}"
+        assert load_filename == "ba2-rank{rank}.pt"
+        load_path +=  '/' + load_filename
+        
         
     trainer2 = get_trainer(save_folder=str(save_folder),
                            save_filename=save_filename,
