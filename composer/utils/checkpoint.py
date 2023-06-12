@@ -439,48 +439,25 @@ def safe_torch_load(
         if monolith_fsdp_checkpoint:
             log.info(
                 'Loading monolith FSDP checkpoint. Only rank 0 will load and broadcast non-weight/optimizer state.')
-            flat_state_dict = {}
-            num_keys = [0]
+            state_dict_list = [None]
+            model = None
+            optimizer = None
             if dist.get_global_rank() == 0:
-                flat_state_dict = torch.load(composer_states_filepath, map_location=map_location)
+                state_dict_list[0] = torch.load(composer_states_filepath, map_location=map_location)
+                model = state_dict_list[0]['state']['model']
+                optimizer = state_dict_list[0]['state']['optimizer']
+                del state_dict_list[0]['state']['model']
+                del state_dict_list[0]['state']['optimizer']
 
-                # Flatten state_dict state to broadcast while filtering model/optimizers
-                for key in flat_state_dict['state'].keys():
-                    flat_state_dict[key] = flat_state_dict['state'][key]
-                del flat_state_dict['state']
+            log.debug('Broadcasting state_dict to all ranks.')
+            dist.broadcast_object_list(state_dict_list, src=0)
+            state_dict: Dict[str, Any] = state_dict_list[0]  # type: ignore
 
-                num_keys[0] = len(flat_state_dict.keys())
-            dist.broadcast_object_list(num_keys, src=0)
-
-            log.debug(f'Broadcasting keys to all ranks.')
-            keys = [None for _ in range(num_keys[0])]
             if dist.get_global_rank() == 0:
-                keys = list(flat_state_dict.keys())
-            dist.broadcast_object_list(keys, src=0)
-
-            log.debug(f'Broadcasting values to all ranks.')
-            values = []
-            broadcast_keys = [key for key in keys if key != 'model']  #and key != 'optimizers']
-            for key in broadcast_keys:
-                log.debug(f'Broadcasting {key} to all ranks.')
-                if dist.get_global_rank() == 0:
-                    values.append(flat_state_dict[key])
-                else:
-                    values.append(None)
-            log.debug(f'Broadcasting values to all ranks. {len(values)} values to broadcast.')
-            dist.broadcast_object_list(values, src=0)
-
-            log.debug(f'Building state dict without model/optimizers on non-rank 0.')
-            if dist.get_global_rank() != 0:
-                flat_state_dict = {k: v for k, v in zip(broadcast_keys, values)}
-
-            # Unflatten state_dict by pulling out rng
-            state_dict = {'rng': flat_state_dict['rng']}
-            del flat_state_dict['rng']
-            state_dict['state'] = flat_state_dict
-
-            if dist.get_global_rank() != 0:
-                state_dict['state']['optimizers'] = None  # Add dummy key so optimizer state load runs
+                state_dict['state']['model'] = model
+                state_dict['state']['optimizer'] = optimizer
+            else:
+                state_dict['state']['optimizers'] = None  # Add dummy key to trigger `load_optim_state`
 
             return state_dict
 
