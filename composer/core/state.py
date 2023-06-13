@@ -1073,15 +1073,16 @@ class State(Serializable):
                                                                                     LocalOptimStateDictConfig,
                                                                                     ShardedOptimStateDictConfig,
                                                                                     ShardedStateDictConfig)
+                    optim_state_dict_config = FullOptimStateDictConfig(offload_to_cpu=True, rank0_only=True)
                     with FSDP.state_dict_type(self.model,
                                               state_dict_type=StateDictType.FULL_STATE_DICT,
                                               state_dict_config=FullStateDictConfig(offload_to_cpu=True,
                                                                                     rank0_only=True),
-                                              optim_state_dict_config=FullOptimStateDictConfig(offload_to_cpu=True,
-                                                                                               rank0_only=True)):
+                                              optim_state_dict_config=optim_state_dict_config):
 
                         state_dict_settings = FSDP.get_state_dict_type(self.model)
-                        log.debug(f'FSDP state_dict_settings={state_dict_settings}')
+                        log.debug(f'Requested optim settings: {optim_state_dict_config}')
+                        log.debug(f'Fetched state_dict_settings={state_dict_settings}')
 
                         optim_state_dict = FSDP.optim_state_dict_to_load(  #  type: ignore
                             optim_state_dict=optim_state_dict, model=self.model, optim=optimizer)
