@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 import transformers
+import torch
 from torch.utils.data import DataLoader
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -1026,7 +1027,7 @@ def test_code_eval_task_evaluation_opt_tokenizer(device, world_size, num_fewshot
 
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
 @device('gpu')
-@world_size(1, 2)
+@world_size(1,2)
 @pytest.mark.parametrize('num_fewshot', [0, 5])
 @pytest.mark.parametrize('num_evals', range(1, 5))
 def test_code_eval_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tiny_gpt2_model,
