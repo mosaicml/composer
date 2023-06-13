@@ -401,7 +401,14 @@ class CheckpointSaver(Callback):  # noqa: D101
                 os.remove(symlink)
             except FileNotFoundError:
                 pass
-            os.symlink(os.path.relpath(saved_path, os.path.dirname(symlink)), symlink)
+            # Sharded checkpoints for torch >2.0 use directories not files for load_paths
+            if state.fsdp_sharded_state_dict_enabled and using_torch_2():
+                src_path = str(pathlib.Path(saved_path).parent)
+            else:
+                src_path = saved_path
+            
+            os.symlink(os.path.relpath(src_path, os.path.dirname(symlink)), symlink)
+            # assert False, f"os.symlink(os.path.relpath({src_path}, {os.path.dirname(symlink)}, {symlink}"
 
         # if remote file name provided, upload the checkpoint
         if self.remote_file_name is not None:

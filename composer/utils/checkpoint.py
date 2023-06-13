@@ -348,6 +348,8 @@ def load_sharded_checkpoint(
         
     # Check to make sure source_path is a directory.
     if object_store is None:
+        if os.path.islink(source_path):
+            source_path = os.path.join(os.path.dirname(source_path), os.readlink(source_path)) 
         if os.path.exists(source_path):
             if not os.path.isdir(source_path):
                 raise ValueError(f'load_path must be a directory when using sharded state dict. Got {source_path}')

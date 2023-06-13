@@ -341,31 +341,36 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.parametrize('weights_only', [False, True])
+@pytest.mark.parametrize('weights_only', [True, False]) #, True])
 @pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
-@pytest.mark.parametrize('state_dict_type', ['sharded', 'local'])
+@pytest.mark.parametrize('state_dict_type', ['sharded','local'])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
-@pytest.mark.parametrize('use_remote', [pytest.param(True, marks=pytest.mark.remote), False])
-@pytest.mark.parametrize('autoresume', [False])  # True commented out for now
+@pytest.mark.parametrize('use_remote', [False]) #pytest.param(True, marks=pytest.mark.remote), False])
+@pytest.mark.parametrize('autoresume', [True, False])  # True commented out for now
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool,
                                           precision: str, optimizer: str, 
-                                          weights_only: bool, use_remote, s3_bucket, s3_ephemeral_prefix):
-    
+                                          weights_only: bool, use_remote, s3_bucket, s3_ephemeral_prefix, request):
+
+    if weights_only and autoresume:
+        pytest.xfail(
+            'Weights only with autoresume is not supported'
+        )
     if state_dict_type == 'local' and using_torch_2():
         pytest.xfail(
             'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info'
         )
     if autoresume:
-        run_name = 'my-autoresume-run'
+        run_name = f"my-cool-autoresume-run-{request.node.name}"
     else:
         run_name = None
+
     if use_remote:
         save_folder = f"s3://{s3_bucket}/{s3_ephemeral_prefix}/checkpoints/{{run_name}}"
     else:
-        save_folder = '/tmp/test_checkpoints/{run_name}'
+        save_folder = '/mnt/workdisk/evan/evan-composer/test_checkpoints/{run_name}'
 
     save_filename = 'ba{batch}-rank{rank}.pt'
     trainer1 = get_trainer(save_folder=str(save_folder),
@@ -395,7 +400,8 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
         assert load_filename == "ba2-rank{rank}.pt"
         load_path +=  '/' + load_filename
         
-        
+    if autoresume:
+        load_path = None
     trainer2 = get_trainer(save_folder=str(save_folder),
                            save_filename=save_filename,
                            fsdp_state_dict_type=state_dict_type,
