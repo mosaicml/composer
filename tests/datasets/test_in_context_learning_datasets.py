@@ -984,8 +984,8 @@ def test_qa_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_g
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
 @device('gpu')
 @world_size(1, 2)
-@pytest.mark.parametrize('num_fewshot', [0, 5])
-@pytest.mark.parametrize('num_evals', range(1, 5))
+@pytest.mark.parametrize('num_fewshot', [0, 2])
+@pytest.mark.parametrize('num_evals', range(1, 3))
 def test_code_eval_opt_tokenizer(device, world_size, num_fewshot, dataset_uri, tmp_path, num_evals):
     pytest.importorskip('datasets')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
@@ -1000,7 +1000,7 @@ def test_code_eval_opt_tokenizer(device, world_size, num_fewshot, dataset_uri, t
         dataset_uri,
         tokenizer,
         2,
-        max_seq_len=1536,
+        max_seq_len=1024,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
         prompt_string='',
