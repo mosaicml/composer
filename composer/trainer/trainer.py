@@ -45,7 +45,8 @@ from composer.profiler import Profiler
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
-from composer.trainer.dist_strategy import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module
+from composer.trainer.dist_strategy import (DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module,
+                                            set_fsdp_default)
 from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectStore, Transform, checkpoint, dist,
                             ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist, get_device,
                             get_file, is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
@@ -654,6 +655,9 @@ class Trainer:
             Example 2: ``load_exclude_algorithms = ["FusedLayerNorm", "Alibi"]`` would exclude FusedLayerNorm and Alibi from loading.
 
             (default: ``None``)
+        load_fsdp_monolith_rank0_only (bool, optional): If ``True``, when loading a monolith (non-sharded) checkpoint
+            with FSDP, only rank 0 will load the checkpoint and broadcast weights/optimizers to other ranks.
+            This will dramatically reduce the memory usage on system. (default: ``True``)
 
         save_folder (str, optional): Format string for the folder where checkpoints are saved.
             If ``None``, checkpoints will not be saved. Can also be a URI for S3 paths only.
@@ -844,6 +848,7 @@ class Trainer:
         load_progress_bar: bool = True,
         load_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
         load_exclude_algorithms: Optional[List[str]] = None,
+        load_fsdp_monolith_rank0_only: bool = True,
 
         # Save Checkpoint
         save_folder: Optional[str] = None,
@@ -949,13 +954,10 @@ class Trainer:
         assert not isinstance(device_train_microbatch_size, str)
 
         # Determine whether DeepSpeed and FSDP are enabled
-        self.deepspeed_config = deepspeed_config
-        self.fsdp_config = fsdp_config
-        self.deepspeed_enabled = self.deepspeed_config is not None
-        self.fsdp_enabled = self.fsdp_config is not None
+        self.deepspeed_enabled = deepspeed_config is not None  # TODO: move to state
 
         # Distributed
-        if self.deepspeed_enabled or self.fsdp_enabled or dist.get_world_size() > 1:
+        if self.deepspeed_enabled or fsdp_config is not None or dist.get_world_size() > 1:
             # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
             # And torch.distributed is always required for multi-rank training
             dist.initialize_dist(device, dist_timeout)
@@ -980,7 +982,7 @@ class Trainer:
             raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
 
         # Move the model and optimizers to the device
-        if not (self.deepspeed_enabled or self.fsdp_enabled):
+        if not (self.deepspeed_enabled or fsdp_config is not None):
             # check if model is already on tpu
             if isinstance(device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
                 raise ValueError(
@@ -1012,8 +1014,9 @@ class Trainer:
             optimizers=optimizers,
             run_name=run_name,
             deepspeed_config=deepspeed_config,
-            fsdp_config=fsdp_config,
+            fsdp_config=set_fsdp_default(fsdp_config) if fsdp_config is not None else None,
             fsdp_auto_wrap=fsdp_auto_wrap,
+            load_fsdp_monolith_rank0_only=load_fsdp_monolith_rank0_only,
         )
 
         # Profiler
@@ -1225,7 +1228,7 @@ class Trainer:
         warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
         self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
 
-        if self.fsdp_config is not None:
+        if self.state.fsdp_config is not None:
             if version.parse(torch.__version__) < version.parse('1.13.0'):
                 raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
             from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
@@ -1250,9 +1253,8 @@ class Trainer:
         # before optimizer loading.
 
         # FSDP wrap if using sharded state dict
-        if self.fsdp_config is not None and fsdp_auto_wrap and self.state.fsdp_sharded_state_dict_enabled:
-            prepare_fsdp_module(model, optimizers, self.fsdp_config, precision, device, auto_microbatching)
-        monolith_fsdp_checkpoint = self.fsdp_config is not None and fsdp_auto_wrap and not self.state.fsdp_sharded_state_dict_enabled
+        if self.state.fsdp_config is not None and fsdp_auto_wrap and self.state.fsdp_sharded_state_dict_enabled:
+            prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
@@ -1354,7 +1356,7 @@ class Trainer:
                 ignore_keys=load_ignore_keys,
                 exclude_algorithms=load_exclude_algorithms,
                 algorithm_passes=self.engine.algorithm_passes,
-                monolith_fsdp_checkpoint=monolith_fsdp_checkpoint,
+                load_fsdp_monolith_rank0_only=load_fsdp_monolith_rank0_only,
             )
             self.state.run_name = run_name
 
@@ -1371,7 +1373,7 @@ class Trainer:
         reproducibility.seed_all(self.state.seed)
 
         # DDP wrap if required
-        if not (self.deepspeed_enabled or self.fsdp_enabled) and dist.get_world_size() > 1:
+        if not (self.deepspeed_enabled or self.state.fsdp_enabled) and dist.get_world_size() > 1:
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
 
         # The model would need to be torch.compile()'d after being wrapped in a distributed strategy

@@ -123,6 +123,28 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
                        'with distributed support.')
 
 
+def set_fsdp_default(fsdp_config: Dict[str, Any]):
+    """Modify fsdp_config to set default values for missing keys."""
+    fsdp_config.setdefault('use_orig_params', True)
+    fsdp_config.setdefault('sharding_strategy', 'FULL_SHARD')
+    fsdp_config.setdefault('cpu_offload', False)
+    fsdp_config.setdefault('mixed_precision', 'DEFAULT')
+    fsdp_config.setdefault('keep_low_precision_grads', False)
+    fsdp_config.setdefault('flatten_parameters', True)
+    fsdp_config.setdefault('backward_prefetch', 'BACKWARD_POST')
+    fsdp_config.setdefault('activation_checkpointing', False)
+    fsdp_config.setdefault('activation_cpu_offload', False)
+    fsdp_config.setdefault('sync_module_states', False)
+    fsdp_config.setdefault('forward_prefetch', False)
+    fsdp_config.setdefault('limit_all_gathers', False)
+    fsdp_config.setdefault('ignored_modules', None)
+    fsdp_config.setdefault('state_dict_type', 'full')
+    fsdp_config.setdefault('activation_checkpointing_reentrant', True)
+    fsdp_config.setdefault('sharded_ckpt_prefix_dir', 'ep{epoch}-ba{batch}')
+    fsdp_config.setdefault('verbose', False)
+    return fsdp_config
+
+
 def _recreate_fsdp_param_groups_from_unwrapped_opt_info(
         fsdp_wrapped_named_params: Iterator[Tuple[str,
                                                   torch.nn.Parameter]], non_wrapped_param_names_to_group_num: Dict[str,
@@ -198,6 +220,8 @@ def prepare_fsdp_module(
     from composer.trainer.mosaic_fsdp import (MosaicFullyShardedDataParallel, backward_prefetch_map, get_cpu_offload,
                                               get_mixed_precision, sharding_map)
 
+    set_fsdp_default(fsdp_config)
+
     # Check if other ranks OOMed after forward/backward pass when using auto microbatching. This
     # may happen when close to memory limit or with uneven memory usage across ranks. Since we
     # need to do this before the model weights are gathered for the next FSDP block, we wrap every
@@ -222,7 +246,7 @@ def prepare_fsdp_module(
         # setting it to `False` exposes FSDP's internal class `FlatParameter` via method
         # `nn.Module.named_parameters`.
         # Setting it to `True` is mandatory when using `torch.compile()`.
-        kwargs['use_orig_params'] = fsdp_config.get('use_orig_params', True)
+        kwargs['use_orig_params'] = fsdp_config['use_orig_params']
 
     # necessary variables for optimizers with multiple param groups in FSDP
     num_param_groups = None
@@ -262,13 +286,13 @@ def prepare_fsdp_module(
         optim.param_groups.clear()
         optim.state.clear()
 
-    sharding_map_key = fsdp_config.get('sharding_strategy', 'FULL_SHARD').upper()
+    sharding_map_key = fsdp_config['sharding_strategy'].upper()
     sharding_strategy = sharding_map[sharding_map_key]
 
-    cpu_offload = get_cpu_offload(cpu_offload=fsdp_config.get('cpu_offload', False))
+    cpu_offload = get_cpu_offload(cpu_offload=fsdp_config['cpu_offload'])
 
-    mixed_precision = fsdp_config.get('mixed_precision', 'DEFAULT')
-    keep_low_precision_grads = fsdp_config.get('keep_low_precision_grads', False)
+    mixed_precision = fsdp_config['mixed_precision']
+    keep_low_precision_grads = fsdp_config['keep_low_precision_grads']
     mixed_precision, param_dtype, _, _ = get_mixed_precision(precision,
                                                              mixed_precision=mixed_precision,
                                                              keep_low_precision_grads=keep_low_precision_grads)
@@ -296,17 +320,17 @@ def prepare_fsdp_module(
     if fsdp_config.get('min_params') is not None:
         warnings.warn(DeprecationWarning('`min_params` in FSDP config will be deprecated in composer version 0.16.0.'))
 
-    backward_prefetch = backward_prefetch_map[fsdp_config.get('backward_prefetch', 'BACKWARD_POST').upper()]
+    backward_prefetch = backward_prefetch_map[fsdp_config['backward_prefetch'].upper()]
     min_params = int(float(fsdp_config.get('min_params', 1e9)))
-    activation_checkpointing = fsdp_config.get('activation_checkpointing', False)
-    activation_cpu_offload = fsdp_config.get('activation_cpu_offload', False)
-    sync_module_states = fsdp_config.get('sync_module_states', True)  # TODO: make this only True when monolith
-    forward_prefetch = fsdp_config.get('forward_prefetch', False)
-    limit_all_gathers = fsdp_config.get('limit_all_gathers', False)
-    ignored_modules = fsdp_config.get('ignored_modules', None)
-    state_dict_type = fsdp_config.get('state_dict_type', 'full')
-    activation_checkpointing_reentrant = fsdp_config.get('activation_checkpointing_reentrant', True)
-    sharded_ckpt_prefix_dir = fsdp_config.get('sharded_ckpt_prefix_dir', 'ep{epoch}-ba{batch}')
+    activation_checkpointing = fsdp_config['activation_checkpointing']
+    activation_cpu_offload = fsdp_config['activation_cpu_offload']
+    sync_module_states = fsdp_config['sync_module_states']
+    forward_prefetch = fsdp_config['forward_prefetch']
+    limit_all_gathers = fsdp_config['limit_all_gathers']
+    ignored_modules = fsdp_config['ignored_modules']
+    state_dict_type = fsdp_config['state_dict_type']
+    activation_checkpointing_reentrant = fsdp_config['activation_checkpointing_reentrant']
+    sharded_ckpt_prefix_dir = fsdp_config['sharded_ckpt_prefix_dir']
 
     # We choose to not wrap the ComposerModel directly, but instead wrap any submodules like `ComposerModel.model`
     # This makes it safer to call ComposerModel-specific functions like 'eval_forward' that
@@ -482,7 +506,7 @@ def prepare_fsdp_module(
             setattr(model, obj_name, fsdp_obj)
 
     # Print FSDP wrapped model and FSDP config if `verbose=True`
-    if fsdp_config.get('verbose', False):
+    if fsdp_config['verbose']:
         print(f'FSDP: Wrapped Model:')
         print(model)
         print(f'FSDP: Using sharding_strategy={sharding_strategy}')

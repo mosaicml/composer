@@ -111,7 +111,7 @@ def load_checkpoint(
     ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
     exclude_algorithms: Optional[List[str]] = None,
     algorithm_passes: Optional[List[AlgorithmPass]] = None,
-    monolith_fsdp_checkpoint: bool = False,
+    load_fsdp_monolith_rank0_only: bool = False,
 ):
     """Load a checkpoint from a local file, URI, or cloud object store into ``state``.
 
@@ -196,7 +196,7 @@ def load_checkpoint(
             (default: ``None``)
         algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
             to sort them into the correct order. (default: ``None``)
-        monolith_fsdp_checkpoint (bool, optional): Whether or not loading a monolith FSDP checkpoint. If ``True``,
+        load_fsdp_monolith_rank0_only (bool, optional): Whether or not loading a monolith FSDP checkpoint. If ``True``,
             Composer will only load checkpoint on rank 0 and broadcast state to lower memory usage. (default: ``False``)
 
     Returns:
@@ -236,7 +236,7 @@ def load_checkpoint(
                 ignore_keys=ignore_keys,
                 exclude_algorithms=exclude_algorithms,
                 algorithm_passes=algorithm_passes,
-                monolith_fsdp_checkpoint=monolith_fsdp_checkpoint,
+                load_fsdp_monolith_rank0_only=load_fsdp_monolith_rank0_only,
             )
         finally:
             # Wait for all ranks to finish restoring the checkpoint before releasing the tempdir, since tempdir can
@@ -426,17 +426,17 @@ def glob_filter(exclude_globs: List[str]) -> Callable[[Dict], None]:
 def safe_torch_load(
     composer_states_filepath: Union[Path, str],
     map_location: str = 'cpu',
-    monolith_fsdp_checkpoint: bool = False,
+    load_fsdp_monolith_rank0_only: bool = False,
 ) -> Dict[str, Any]:
     """Load a torch checkpoint, catching errors due to backwards compatibility issues.
 
     Args:
         composer_states_filepath: The path to the checkpoint file.
         map_location: The location to load the checkpoint to.
-        monolith_fsdp_checkpoint: Whether the checkpoint is a monolith FSDP checkpoint.
+        load_fsdp_monolith_rank0_only: Whether the checkpoint is a monolith FSDP checkpoint.
     """
     try:
-        if monolith_fsdp_checkpoint:
+        if load_fsdp_monolith_rank0_only:
             log.info(
                 'Loading monolith FSDP checkpoint. Only rank 0 will load and broadcast non-weight/optimizer state.')
             state_dict_list = [None]
@@ -482,13 +482,13 @@ def _restore_checkpoint(
     ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]],
     exclude_algorithms: Optional[List[str]],
     algorithm_passes: Optional[List[AlgorithmPass]],
-    monolith_fsdp_checkpoint: bool,
+    load_fsdp_monolith_rank0_only: bool,
 ) -> Optional[List[Dict[str, Any]]]:
     """Restore a checkpoint into ``state`` and returns the rng state dicts (if ``load_weights_only`` is False)."""
     # Now, all ranks load the checkpoint that local rank zero downloaded
     state_dict = safe_torch_load(
         composer_states_filepath=composer_states_filepath,
-        monolith_fsdp_checkpoint=monolith_fsdp_checkpoint,
+        load_fsdp_monolith_rank0_only=load_fsdp_monolith_rank0_only,
     )
     if ignore_keys:
         # Filter provided list of key paths
