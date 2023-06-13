@@ -1054,6 +1054,10 @@ class State(Serializable):
                                                                         state_dict_type=self.fsdp_state_dict_type)
                 else:
                     with fsdp_state_dict_type_context(module=self.model, state_dict_type=self.fsdp_state_dict_type):
+
+                        state_dict_settings = FSDP.get_state_dict_type(self.model)
+                        log.debug(f'FSDP state_dict_settings={state_dict_settings}')
+
                         optim_state_dict = FSDP.optim_state_dict_to_load(  #  type: ignore
                             optim_state_dict=optim_state_dict, model=self.model, optim=optimizer)
                 optimizer.load_state_dict(optim_state_dict)
