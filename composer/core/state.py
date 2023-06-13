@@ -68,31 +68,38 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
     from torch.distributed.fsdp import FullStateDictConfig
     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
     from torch.distributed.fsdp import LocalStateDictConfig, StateDictType
-    # torch forgot to put ShardedStateDictConfig in torch/distributed/fsdp/__init__.py, so we
+    # torch forgot to put the following in torch/distributed/fsdp/__init__.py, so we
     # have to import it this way.
-    from torch.distributed.fsdp.fully_sharded_data_parallel import ShardedStateDictConfig
+    from torch.distributed.fsdp.fully_sharded_data_parallel import (FullOptimStateDictConfig, LocalOptimStateDictConfig,
+                                                                    ShardedOptimStateDictConfig, ShardedStateDictConfig)
 
     # Full is the full monolithic state dict materialized in memory on just rank 0
     # with offloading to cpu if necessary
     if state_dict_type == 'full':
-        state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
         fsdp_state_dict_type = StateDictType.FULL_STATE_DICT
+        state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
+        optim_state_dict_config = FullOptimStateDictConfig(offload_to_cpu=True, rank0_only=True)
 
     # Sharded is sharded state dict, but unflattened parameters (not useful for FSDP, but
     # useful if you plan to use the state dict outside of FSDP).
     elif state_dict_type == 'sharded':
-        state_dict_config = ShardedStateDictConfig()
         fsdp_state_dict_type = StateDictType.SHARDED_STATE_DICT
+        state_dict_config = ShardedStateDictConfig()
+        optim_state_dict_config = ShardedOptimStateDictConfig()
 
     # Local is the FSDP standard sharded, flattened parameters. This is what the parameters
     # are formatted to for a single rank's FSDP module.
     elif state_dict_type == 'local':
-        state_dict_config = LocalStateDictConfig()
         fsdp_state_dict_type = StateDictType.LOCAL_STATE_DICT
+        state_dict_config = LocalStateDictConfig()
+        optim_state_dict_config = LocalOptimStateDictConfig()
     else:
         raise NotImplementedError(f'No valid FSDP state_dict_type for {state_dict_type}')
 
-    with FSDP.state_dict_type(module, state_dict_type=fsdp_state_dict_type, state_dict_config=state_dict_config):
+    with FSDP.state_dict_type(module,
+                              state_dict_type=fsdp_state_dict_type,
+                              state_dict_config=state_dict_config,
+                              optim_state_dict_config=optim_state_dict_config):
         yield
 
 
