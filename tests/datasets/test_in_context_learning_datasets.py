@@ -1019,7 +1019,9 @@ def test_code_eval_opt_tokenizer(device, world_size, num_fewshot, dataset_uri, t
     )
 
     trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
+    torch.use_deterministic_algorithms(False)
     trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
+    torch.use_deterministic_algorithms(True)
     assert 'metrics/humaneval/InContextLearningCodeEvalAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/humaneval/InContextLearningCodeEvalAccuracy'][0][1].item() == 0
 
@@ -1063,7 +1065,9 @@ def test_code_eval_task_evaluation(device, world_size, num_fewshot, dataset_uri,
     )
 
     trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
+    torch.use_deterministic_algorithms(False)
     trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
+    torch.use_deterministic_algorithms(True)
     assert 'metrics/humaneval/InContextLearningCodeEvalAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/humaneval/InContextLearningCodeEvalAccuracy'][0][1].item() == 0
 
