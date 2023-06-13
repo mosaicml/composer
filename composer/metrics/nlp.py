@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """A collection of common torchmetrics for NLP tasks."""
+import multiprocessing
 import re
 import string
+import types
 from typing import Any, Dict, List, Mapping, Union
 
 import torch
@@ -21,7 +23,10 @@ __all__ = [
     'LanguagePerplexity',
     'InContextLearningLMExpectedCalibrationError',
     'InContextLearningMCExpectedCalibrationError',
+    'InContextLearningCodeEvalAccuracy',
 ]
+
+TIMEOUT = 5
 
 
 class MaskedAccuracy(Metric):
@@ -479,3 +484,90 @@ class InContextLearningLMExpectedCalibrationError(InContextLearningExpectedCalib
                 self.bucket_correct[bucket_idx] += 1  # pyright: ignore [reportGeneralTypeIssues]
 
             self.bucket_totals[bucket_idx] += 1  # pyright: ignore [reportGeneralTypeIssues]
+
+
+class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
+    r"""Computes accuracy for In-context learning (ICL) code evaluation tasks.
+
+    ICL code eval tasks consist of some number of example code eval tasks (referred to as the 'context'), followed by a test task where the model must
+    match one of the possible answer aliases (referred to as the 'continuation').
+
+    In each case, the model constructs a given number of continuations, and each continuation is run against a set of test cases. The model is considered
+    correct if at least one of the proposed continuations passes all the test cases.
+
+    Adds metric state variables:
+        correct (float): The number of instances where the predictions passed all the test cases.
+        total (float): The number of total instances that were predicted.
+
+    Args:
+        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
+            each forward() before returning the value at the step. Default: ``False``.
+    """
+
+    # Make torchmetrics call update only once
+    full_state_update = False
+
+    def __init__(self, dist_sync_on_step: bool = False):
+        # state from multiple processes
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
+
+    def update(self, batch: Dict[str, Any], outputs: List[List[str]], labels: List[str], remote: bool = False):
+        del labels  # never used
+        for sample_outputs, sample_prompt, test_inputs, test_outputs, entry_point in zip(
+                outputs, batch['prompts'], batch['test_inputs'], batch['test_outputs'], batch['entry_points']):
+            self.total += torch.tensor(1.0)
+            for code_gen in sample_outputs:
+                final_code = sample_prompt + code_gen
+                passes_all = True
+                for test_input, test_output in zip(test_inputs, test_outputs):
+                    if remote:
+                        self.update_online_helper(final_code, test_input, test_output, entry_point)
+                    else:
+                        ret = multiprocessing.Value('b', 0)
+                        p = multiprocessing.Process(target=self.update_offline_helper,
+                                                    args=(final_code, test_input, test_output, entry_point, ret))
+                        p.start()
+                        p.join(TIMEOUT)
+                        p.terminate()
+                        if not bool(ret.value):
+                            passes_all = False
+                            break
+
+                if passes_all:
+                    self.correct += torch.tensor(1.0)
+                    break
+
+    def update_offline_helper(self, code_gen: str, test_input: str, test_output: str, entry_point: str,
+                              val: multiprocessing.Value):  # type: ignore
+        mod = types.ModuleType('test_module')
+        val.value = 0
+        result = None
+        expected_result = None
+        try:
+            exec(code_gen, mod.__dict__)
+
+            result = mod.__dict__[entry_point](*eval(test_input))
+            syntax_compiled = True
+            try:
+                expected_result = eval(test_output)
+            except:
+                expected_result = test_output
+
+        except Exception as e:
+            print(str(e))
+            syntax_compiled = False
+
+        if syntax_compiled:
+            val.value = int(result == expected_result)
+        else:
+            val.value = 0
+
+    def update_online_helper(self, code_gen: str, test_input: str, test_output: str, entry_point: str):
+        pass
+
+    def compute(self):
+        assert isinstance(self.correct, Tensor)
+        assert isinstance(self.total, Tensor)
+        return self.correct / self.total
