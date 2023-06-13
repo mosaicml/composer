@@ -174,4 +174,4 @@ Composer is part of the broader Machine Learning community, and we welcome any c
 
 .. _Twitter: https://twitter.com/mosaicml
 .. _Email: mailto:community@mosaicml.com
-.. _Slack: https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg
+.. _Slack: https://mosaicml.me/slack
