@@ -1003,7 +1003,7 @@ class InContextLearningCodeEvalDataset(Dataset):
             'entry_points': entry_points,  # list of entry points
             'test_inputs': test_inputs,  # list of test inputs
             'test_outputs': test_outputs,  # list of test outputs
-            'generation_length': self.max_seq_len - self.max_prompt_length - 10,
+            'generation_length': self.max_seq_len - self.max_prompt_length,
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
                 'num_beams': self.num_evals,  # change strategy to beam search

@@ -624,8 +624,6 @@ def test_code_eval_split_batch(dataset_uri, tmp_path):
     assert isinstance(split2['generation_kwargs'], dict)
 
 
-
-
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 1, 2, 3])
 @pytest.mark.parametrize('prompt_string', ['Please code:\n', ''])
@@ -664,7 +662,7 @@ def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_st
     assert tuple(batch['attention_mask'].shape) == (batch_size, max_prompt_length)
     assert batch['mode'] == 'generate'
     # the maximum generation length from the small test data
-    assert batch['generation_length'] == max_prompt_length
+    assert batch['generation_length'] == seqlen - max_prompt_length
     assert any(item[0] != tokenizer.eos_token_id for item in batch['input_ids'])  # longest should be pushed left
 
     decoded_batch = tokenizer.batch_decode(batch['input_ids'])
