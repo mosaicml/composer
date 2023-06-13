@@ -96,7 +96,9 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
     else:
         raise NotImplementedError(f'No valid FSDP state_dict_type for {state_dict_type}')
 
-    log.debug(f'Creating FSDP state_dict_type context manager with state_dict_type={state_dict_type}, state_dict_config={state_dict_config}, optim_state_dict_config={optim_state_dict_config}')
+    log.debug(
+        f'Creating FSDP state_dict_type context manager with state_dict_type={state_dict_type}, state_dict_config={state_dict_config}, optim_state_dict_config={optim_state_dict_config}'
+    )
     with FSDP.state_dict_type(module,
                               state_dict_type=fsdp_state_dict_type,
                               state_dict_config=state_dict_config,
@@ -1061,7 +1063,22 @@ class State(Serializable):
                                                                         optim=optimizer,
                                                                         state_dict_type=self.fsdp_state_dict_type)
                 else:
-                    with fsdp_state_dict_type_context(module=self.model, state_dict_type=self.fsdp_state_dict_type):
+                    # with fsdp_state_dict_type_context(module=self.model, state_dict_type=self.fsdp_state_dict_type):
+                    from torch.distributed.fsdp import FullStateDictConfig
+                    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+                    from torch.distributed.fsdp import LocalStateDictConfig, StateDictType
+                    # torch forgot to put the following in torch/distributed/fsdp/__init__.py, so we
+                    # have to import it this way.
+                    from torch.distributed.fsdp.fully_sharded_data_parallel import (FullOptimStateDictConfig,
+                                                                                    LocalOptimStateDictConfig,
+                                                                                    ShardedOptimStateDictConfig,
+                                                                                    ShardedStateDictConfig)
+                    with FSDP.state_dict_type(self.model,
+                                              state_dict_type=StateDictType.FULL_STATE_DICT,
+                                              state_dict_config=FullStateDictConfig(offload_to_cpu=True,
+                                                                                    rank0_only=True),
+                                              optim_state_dict_config=FullOptimStateDictConfig(offload_to_cpu=True,
+                                                                                               rank0_only=True)):
 
                         state_dict_settings = FSDP.get_state_dict_type(self.model)
                         log.debug(f'FSDP state_dict_settings={state_dict_settings}')
