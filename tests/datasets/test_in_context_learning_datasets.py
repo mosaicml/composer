@@ -1056,7 +1056,6 @@ def test_code_eval_task_evaluation(device, world_size, num_fewshot, dataset_uri,
     )
 
     evaluator = Evaluator(label='humaneval', dataloader=dl, metric_names=['InContextLearningCodeEvalAccuracy'])
-
     model = HuggingFaceModel(
         model=tiny_gpt2_model,
         tokenizer=tiny_gpt2_tokenizer,
@@ -1065,7 +1064,7 @@ def test_code_eval_task_evaluation(device, world_size, num_fewshot, dataset_uri,
     )
 
     trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
-
+    assert False
     trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
     assert 'metrics/humaneval/InContextLearningCodeEvalAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/humaneval/InContextLearningCodeEvalAccuracy'][0][1].item() == 0
