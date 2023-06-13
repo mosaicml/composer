@@ -96,6 +96,7 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
     else:
         raise NotImplementedError(f'No valid FSDP state_dict_type for {state_dict_type}')
 
+    log.debug(f'Creating FSDP state_dict_type context manager with state_dict_type={state_dict_type}, state_dict_config={state_dict_config}, optim_state_dict_config={optim_state_dict_config}')
     with FSDP.state_dict_type(module,
                               state_dict_type=fsdp_state_dict_type,
                               state_dict_config=state_dict_config,
