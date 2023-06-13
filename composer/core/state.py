@@ -1052,6 +1052,7 @@ class State(Serializable):
             log.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
 
         # If loading FSDP monolith checkpoint on rank 0 only, the model must be wrapped after loading
+        log.debug(f'load_fsdp_monolith_rank0_only={self.load_fsdp_monolith_rank0_only}')
         if self.load_fsdp_monolith_rank0_only:
             assert self.fsdp_config is not None
             log.debug('Wrapping model with FSDP after loading model_state.')
