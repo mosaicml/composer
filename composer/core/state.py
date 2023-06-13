@@ -752,6 +752,7 @@ class State(Serializable):
 
     @property
     def load_fsdp_monolith_rank0_only(self):
+        log.debug(f'load_fsdp_monolith_rank0_only. fsdp_config: {self.fsdp_config}, fsdp_auto_wrap: {self.fsdp_auto_wrap}, fsdp_sharded_state_dict_enabled: {self.fsdp_sharded_state_dict_enabled}, _load_fsdp_monolith_rank0_only: {self._load_fsdp_monolith_rank0_only}')
         return self.fsdp_config is None is not None and self.fsdp_auto_wrap and not self.fsdp_sharded_state_dict_enabled and self._load_fsdp_monolith_rank0_only
 
     def _get_integrations_state_dict(self) -> Dict[str, Any]:
