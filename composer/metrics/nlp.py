@@ -17,6 +17,7 @@ __all__ = [
     'InContextLearningLMAccuracy',
     'InContextLearningMultipleChoiceAccuracy',
     'InContextLearningQAAccuracy',
+    'InContextLearningCodeEvalAccuracy',
     'BinaryF1Score',
     'LanguageCrossEntropy',
     'MaskedAccuracy',
@@ -274,6 +275,44 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
         assert isinstance(self.total, Tensor)
         return self.correct / self.total
 
+class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
+    r"""Computes accuracy for In-context learning (ICL) question answering (QA) tasks.
+
+    ICL QA tasks consist of some number of example question answering tasks (referred to as the 'context'), followed by a test task where the model must
+    match one of the possible answer aliases (referred to as the 'continuation').
+
+    For example, the model may be provided the context below and evaluated on its ability to correctly predict the continuation.
+
+    Context: `Question: Who was president of the United States in 2012?\nAnswer: Barack Obama\nQuestion: Is water wet?\nAnswer: `
+    Continuation: [`yes`, `no`]
+
+    Both predictions and answers will be normalized before comparison.
+
+    Adds metric state variables:
+        correct (float): The number of instances where the prediction was a prefix for any of the answer aliases.
+        total (float): The number of total instances that were predicted.
+
+    Args:
+        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
+            each forward() before returning the value at the step. Default: ``False``.
+    """
+
+    # Make torchmetrics call update only once
+    full_state_update = False
+
+    def __init__(self, dist_sync_on_step: bool = False):
+        # state from multiple processes
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
+
+
+    def update(self, outputs, labels):
+        pass
+
+    def compute(self):
+        return 0.5
+
 
 class InContextLearningLMAccuracy(InContextLearningMetric):
     r"""Computes accuracy for In-context learning (ICL) language modeling (LM) tasks.
@@ -513,12 +552,16 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
-    def update(self, batch: Dict[str, Any], outputs: List[List[str]], labels: List[str], remote: bool = False):
+    def update(self, batch: Dict[str, Any], outputs: List[str], labels: List[str], remote: bool = False):
         del labels  # never used
+        num_beams = batch['generation_kwargs']['num_beams']
+        processed_outputs = [outputs[i*num_beams: (i + 1)* num_beams] for i in range(batch['input_ids'].shape[0])]
         for sample_outputs, sample_prompt, test_inputs, test_outputs, entry_point in zip(
-                outputs, batch['prompts'], batch['test_inputs'], batch['test_outputs'], batch['entry_points']):
+                processed_outputs, batch['prompts'], batch['test_inputs'], batch['test_outputs'], batch['entry_points']):
             self.total += torch.tensor(1.0)
             for code_gen in sample_outputs:
+                print(code_gen)
+                code_gen = re.split(r'\ndef|\nclass|\n#|\nif|\nprint', code_gen)[0]
                 final_code = sample_prompt + code_gen
                 passes_all = True
                 for test_input, test_output in zip(test_inputs, test_outputs):
@@ -556,7 +599,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
                 expected_result = test_output
 
         except Exception as e:
-            print(str(e))
+            #print(str(e))
             syntax_compiled = False
 
         if syntax_compiled:

@@ -964,6 +964,7 @@ class InContextLearningCodeEvalDataset(Dataset):
                 len(encoded_example['preamble']['input_ids'] + encoded_example['prompt']['input_ids']))
 
         self.max_prompt_length = max_prompt_length
+        print(self.max_prompt_length)
         return examples
 
     def __getitem__(self, index):
@@ -1002,12 +1003,15 @@ class InContextLearningCodeEvalDataset(Dataset):
             'entry_points': entry_points,  # list of entry points
             'test_inputs': test_inputs,  # list of test inputs
             'test_outputs': test_outputs,  # list of test outputs
-            'generation_length': self.max_prompt_length,
+            'generation_length': self.max_seq_len - self.max_prompt_length - 10,
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
                 'num_beams': self.num_evals,  # change strategy to beam search
                 'num_return_sequences': self.num_evals,  # how many gens per prompt
-                'stopping_criteria': InContextLearningCodeEvalStoppingCriteria(self.tokenizer),  # stopping criteria
+                #'stopping_criteria': transformers.StoppingCriteriaList([InContextLearningCodeEvalStoppingCriteria(self.tokenizer)]),  # stopping criteria
+                'do_sample': True,
+                'top_p': 0.95,
+                'use_cache': True,
             }
         }
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)

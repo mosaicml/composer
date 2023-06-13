@@ -1154,7 +1154,9 @@ class Trainer:
             evaluators: List[Evaluator] = []
         else:
             eval_metrics = deepcopy(self.state.model.get_metrics(is_train=False))
+            print(eval_metrics)
             model_metric_names = [str(k) for k in eval_metrics.keys()]
+            print(model_metric_names)
 
             evaluators = [
                 ensure_evaluator(evaluator, default_metric_names=model_metric_names)

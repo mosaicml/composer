@@ -624,6 +624,8 @@ def test_code_eval_split_batch(dataset_uri, tmp_path):
     assert isinstance(split2['generation_kwargs'], dict)
 
 
+
+
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 1, 2, 3])
 @pytest.mark.parametrize('prompt_string', ['Please code:\n', ''])
@@ -633,7 +635,7 @@ def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_st
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
-    tokenizer = AutoTokenizer.from_pretrained('EleutherAI/gpt-neox-20b')
+    tokenizer = AutoTokenizer.from_pretrained('mosaicml/mpt-7b')
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 9
     seqlen = 2048
