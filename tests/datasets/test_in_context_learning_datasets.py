@@ -1033,6 +1033,7 @@ def test_code_eval_task_evaluation_opt_tokenizer(device, world_size, num_fewshot
 def test_code_eval_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tiny_gpt2_model,
                                    tmp_path, num_evals):
     pytest.importorskip('datasets')
+    torch.cuda.empty_cache()
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
@@ -1044,7 +1045,7 @@ def test_code_eval_task_evaluation(device, world_size, num_fewshot, dataset_uri,
         dataset_uri,
         tokenizer,
         2,
-        max_seq_len=1536,
+        max_seq_len=4096,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
         prompt_string='',
