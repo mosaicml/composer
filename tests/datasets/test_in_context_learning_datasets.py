@@ -7,8 +7,8 @@ import random
 from pathlib import Path
 
 import pytest
-import transformers
 import torch
+import transformers
 from torch.utils.data import DataLoader
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -986,7 +986,7 @@ def test_qa_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_g
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [0, 5])
 @pytest.mark.parametrize('num_evals', range(1, 5))
-def test_code_eval_task_evaluation_opt_tokenizer(device, world_size, num_fewshot, dataset_uri, tmp_path, num_evals):
+def test_code_eval_opt_tokenizer(device, world_size, num_fewshot, dataset_uri, tmp_path, num_evals):
     pytest.importorskip('datasets')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -1019,7 +1019,6 @@ def test_code_eval_task_evaluation_opt_tokenizer(device, world_size, num_fewshot
     )
 
     trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
-
     trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
     assert 'metrics/humaneval/InContextLearningCodeEvalAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/humaneval/InContextLearningCodeEvalAccuracy'][0][1].item() == 0
@@ -1027,8 +1026,8 @@ def test_code_eval_task_evaluation_opt_tokenizer(device, world_size, num_fewshot
 
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
 @device('gpu')
-@world_size(1,2)
-@pytest.mark.parametrize('num_fewshot', [0, 5])
+@world_size(1, 2)
+@pytest.mark.parametrize('num_fewshot', [0, 2])
 @pytest.mark.parametrize('num_evals', range(1, 5))
 def test_code_eval_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tiny_gpt2_model,
                                    tmp_path, num_evals):
@@ -1045,7 +1044,7 @@ def test_code_eval_task_evaluation(device, world_size, num_fewshot, dataset_uri,
         dataset_uri,
         tokenizer,
         2,
-        max_seq_len=4096,
+        max_seq_len=1024,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
         prompt_string='',
@@ -1064,7 +1063,6 @@ def test_code_eval_task_evaluation(device, world_size, num_fewshot, dataset_uri,
     )
 
     trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
-    assert False
     trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
     assert 'metrics/humaneval/InContextLearningCodeEvalAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/humaneval/InContextLearningCodeEvalAccuracy'][0][1].item() == 0

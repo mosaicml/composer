@@ -6,8 +6,8 @@ import os
 import pathlib
 
 import pytest
-import tqdm.std
 import torch
+import tqdm.std
 
 import composer
 from composer.devices import DeviceCPU, DeviceGPU
@@ -24,6 +24,7 @@ def disable_tokenizer_parallelism():
                 - Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
     """
     os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+
 
 @pytest.fixture(autouse=True)
 def clear_cuda_cache():
