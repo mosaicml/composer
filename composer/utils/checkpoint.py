@@ -460,13 +460,6 @@ def safe_torch_load(
                 state_dict['state']['optimizers'] = None  # Add dummy key to trigger `load_optim_state`
 
             return state_dict
-
-            # outputs = torch.load(composer_states_filepath, map_location=map_location)
-            # if dist.get_global_rank() != 0:
-            #     del outputs['state']['model']
-            #     # del outputs['state']['optimizers']
-            #     outputs['state']['optimizers'] = None
-            # return outputs
         else:
             return torch.load(composer_states_filepath, map_location=map_location)
     except TypeError as e:
