@@ -479,12 +479,13 @@ class Trainer:
             Setting this to ``True`` will force schedulers to be stepped every batch,
             while ``False`` means schedulers stepped every epoch. ``None`` indicates the default behavior.
             (default: ``None``)
-        eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): The :class:`.DataLoader`,
-            :class:`.DataSpec`, :class:`.Evaluator`, or sequence of evaluators for the evaluation data.
+        eval_dataloader (Iterable | DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): The :class:`.Iterable`,
+            :class:`.DataLoader`, :class:`.DataSpec`, :class:`.Evaluator`, or sequence of evaluators for the evaluation data.
 
             To evaluate one or more specific metrics across one or more datasets, pass in an
-            :class:`.Evaluator`. If a :class:`.DataSpec` or :class:`.DataLoader` is passed in, then all
-            metrics returned by ``model.get_metrics()`` will be used during evaluation.
+            :class:`.Evaluator`. If a :class:`.DataLoader`, :class:`.DataSpec`, or :class:`.Iterable` is passed in, then all
+            metrics returned by ``model.get_metrics()`` will be used during evaluation. If a :class:`.Evaluator`
+            is specified in a list, all eval dataloaders must be :class:`.Evaluator` instances.
             ``None`` results in no evaluation. (default: ``None``)
         eval_interval (int | str | Time | (State, Event) -> bool, optional): Specifies how frequently to run evaluation.
             An integer, which will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time`
@@ -1154,13 +1155,17 @@ class Trainer:
             evaluators: List[Evaluator] = []
         else:
             eval_metrics = deepcopy(self.state.model.get_metrics(is_train=False))
-            print(eval_metrics)
             model_metric_names = [str(k) for k in eval_metrics.keys()]
-            print(model_metric_names)
+            eval_dataloader = ensure_tuple(eval_dataloader)
+
+            evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in eval_dataloader]
+            if any(evaluator_types) and not all(evaluator_types):
+                raise ValueError('Mixing Evaluator with other classes is not allowed, please wrap'
+                                 'all other classes with the Evaluator class. These are the classes'
+                                 'that were detected:' + str([type(evaluator) for evaluator in eval_dataloader]))
 
             evaluators = [
-                ensure_evaluator(evaluator, default_metric_names=model_metric_names)
-                for evaluator in ensure_tuple(eval_dataloader)
+                ensure_evaluator(evaluator, default_metric_names=model_metric_names) for evaluator in eval_dataloader
             ]
             # match metric names to model metrics
             self.state.eval_metrics = {
@@ -1491,6 +1496,7 @@ class Trainer:
             signal_file_path = os.path.join(os.path.dirname(latest_checkpoint_path),
                                             '.local_rank0_completed_autoresume')
             if dist.get_local_rank() == 0:
+                os.makedirs(os.path.dirname(signal_file_path), exist_ok=True)
                 with open(signal_file_path, 'wb') as f:
                     f.write(b'local_rank0_completed_autoresume')
 
@@ -1728,10 +1734,16 @@ class Trainer:
             # could be DDP / DeepSpeed wrapped.
             eval_metrics = self._original_model.get_metrics(is_train=False)
             metric_names = [str(k) for k in eval_metrics.keys()]
+            eval_dataloader = ensure_tuple(eval_dataloader)
+
+            evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in eval_dataloader]
+            if any(evaluator_types) and not all(evaluator_types):
+                raise ValueError('Mixing Evaluator with other classes is not allowed, please wrap'
+                                 'all other classes with the Evaluator class. These are the classes'
+                                 'that were detected:' + str([type(evaluator) for evaluator in eval_dataloader]))
 
             evaluators = [
-                ensure_evaluator(evaluator, default_metric_names=metric_names)
-                for evaluator in ensure_tuple(eval_dataloader)
+                ensure_evaluator(evaluator, default_metric_names=metric_names) for evaluator in eval_dataloader
             ]
 
             # match metric names to model metrics
@@ -2607,7 +2619,7 @@ class Trainer:
             drop duplicate samples.
 
         Args:
-            eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): Dataloaders
+            eval_dataloader (Iterable | DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): Dataloaders
                 for evaluation.  If not provided, defaults to using the
                 ``eval_dataloader`` provided to the trainer init().
             subset_num_batches (int, optional): Evaluate on this many batches. Default to ``-1`` (the entire
@@ -2619,9 +2631,16 @@ class Trainer:
             eval_metrics = deepcopy(self._original_model.get_metrics(is_train=False))
             metric_names = [str(k) for k in eval_metrics.keys()]
 
+            eval_dataloader = ensure_tuple(eval_dataloader)
+
+            evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in eval_dataloader]
+            if any(evaluator_types) and not all(evaluator_types):
+                raise ValueError('Mixing Evaluator with other classes is not allowed, please wrap'
+                                 'all other classes with the Evaluator class. These are the classes'
+                                 'that were detected:' + str([type(evaluator) for evaluator in eval_dataloader]))
+
             evaluators = [
-                ensure_evaluator(evaluator, default_metric_names=metric_names)
-                for evaluator in ensure_tuple(eval_dataloader)
+                ensure_evaluator(evaluator, default_metric_names=metric_names) for evaluator in eval_dataloader
             ]
 
             if self.state.eval_metrics:
@@ -2957,6 +2976,21 @@ class Trainer:
             filename=name,
             weights_only=weights_only,
         )
+
+    def save_checkpoint_to_save_folder(self):
+        """Checkpoints the training :class:`~.State` using a CheckpointSaver if it exists.
+
+        Raises:
+            ValueError: If ``_checkpoint_saver`` does not exist.
+
+        Returns:
+            None
+        """
+        if self._checkpoint_saver is None:
+            raise ValueError(
+                'In order to use save_checkpoint_to_save_folder you must pass a save_folder to the Trainer.')
+        else:
+            self._checkpoint_saver._save_checkpoint(self.state, self.logger)
 
     def export_for_inference(
         self,

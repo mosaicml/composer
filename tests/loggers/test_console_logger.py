@@ -9,10 +9,11 @@ import pytest
 from torch.utils.data import DataLoader
 from torchmetrics import MetricCollection
 
-from composer.callbacks import SpeedMonitor
+from composer.callbacks import OptimizerMonitor, SpeedMonitor
 from composer.core import Evaluator
 from composer.loggers import ConsoleLogger
 from composer.loggers.console_logger import NUM_EVAL_LOGGING_EVENTS
+from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
 from tests.common import RandomClassificationDataset, SimpleModel
 
@@ -67,15 +68,22 @@ def test_console_logger_interval(console_logger_test_stream, console_logger_test
     num_losses = 1
     num_metrics_and_losses_per_logging_event = num_metrics + num_losses
 
+    logs_at_end = None
     if log_interval_unit == max_duration_unit:
         expected_num_logging_events = max_duration // log_interval
+        logs_at_end = max_duration % log_interval
     elif log_interval_unit == 'ba' and max_duration_unit == 'ep':
         expected_num_logging_events = (batches_per_epoch * max_duration) // log_interval
+        logs_at_end = (batches_per_epoch * max_duration) % log_interval
     else:  # for the case where log_interval_unit == 'ep' and max_duration == 'ba'.
         total_epochs = max_duration // batches_per_epoch
         expected_num_logging_events = total_epochs // log_interval
+        logs_at_end = max_duration % (batches_per_epoch * log_interval)
     if log_interval != 1:
         expected_num_logging_events += 1  # Because we automatically log the first batch or epoch.
+
+    if logs_at_end != 0:
+        expected_num_logging_events += 1  # Log for fit
 
     expected_num_lines = expected_num_logging_events * num_metrics_and_losses_per_logging_event
 
@@ -266,15 +274,22 @@ def test_console_logger_with_a_callback(console_logger_test_stream, console_logg
     console_logger_test_stream.flush()
     console_logger_test_stream.close()
 
+    logs_at_end = None
     if log_interval_unit == max_duration_unit:
         expected_num_logging_events = max_duration // log_interval
+        logs_at_end = max_duration % log_interval
     elif log_interval_unit == 'ba' and max_duration_unit == 'ep':
         expected_num_logging_events = (batches_per_epoch * max_duration) // log_interval
+        logs_at_end = (batches_per_epoch * max_duration) % log_interval
     else:  # for the case where log_interval_unit == 'ep' and max_duration == 'ba'.
-        total_epochs = math.ceil(max_duration / batches_per_epoch)
+        total_epochs = max_duration // batches_per_epoch
         expected_num_logging_events = total_epochs // log_interval
+        logs_at_end = max_duration % (batches_per_epoch * log_interval)
     if log_interval != 1:
         expected_num_logging_events += 1  # Because we automatically log the first batch or epoch.
+
+    if logs_at_end != 0:
+        expected_num_logging_events += 1  # Log for fit
 
     with open(console_logger_test_file_path, 'r') as f:
         lines = f.readlines()
@@ -287,3 +302,58 @@ def test_console_logger_with_a_callback(console_logger_test_stream, console_logg
     expected_speed_monitor_lines = num_speed_monitor_lines_per_log_event * expected_num_logging_events
 
     assert actual_num_speed_monitor_lines == expected_speed_monitor_lines
+
+
+@pytest.mark.filterwarnings('ignore:Cannot split tensor of length .* into batches of size .*:UserWarning')
+def test_console_logger_overlapping(console_logger_test_stream, console_logger_test_file_path):
+    """
+    Test that the console logger does not throw away metrics at the end of an epoch, instead logging these
+    metrics at the typical log period.
+
+    Uses OptimizerMonitor as a logger that only logs every 5 batches, on a model training for two epochs of
+    6 batches, with log period of 8 batches. With prior implementations, this would discard metrics from the
+    logger at the end of the first epoch and not log them. Now, these metrics will be printed at the log
+    flush, which this test checks.
+    """
+    batch_size = 1
+    dataset_size = 6
+
+    grad_monitor = OptimizerMonitor(log_optimizer_metrics=True, batch_log_interval=5)
+
+    model = SimpleModel()
+    trainer = Trainer(
+        model=model,
+        callbacks=grad_monitor,
+        console_stream=console_logger_test_stream,
+        console_log_interval='8ba',
+        log_to_console=True,
+        progress_bar=False,
+        train_dataloader=DataLoader(RandomClassificationDataset(size=dataset_size), batch_size=batch_size),
+        optimizers=DecoupledAdamW(model.parameters()),
+        max_duration='2ep',
+    )
+    trainer.fit()
+    console_logger_test_stream.flush()
+    console_logger_test_stream.close()
+
+    with open(console_logger_test_file_path, 'r') as f:
+        lines = f.readlines()
+
+    # Make a regular expression for matches for any line that contains "Train" followed by
+    # a colon.
+    reg_exp = re.compile('Train *:*')
+    actual_num_log_lines = sum(
+        [1 if bool(reg_exp.search(line)) and ('trainer/' not in line and 'time/' not in line) else 0 for line in lines])
+
+    assert model.train_metrics is not None
+    num_metrics = len(list(model.train_metrics.keys())) if isinstance(model.train_metrics, MetricCollection) else 1
+    num_metrics += len(list(model.parameters())) * 7 + 1  # number from Adam, 7 metrics per layer
+
+    num_losses = 1
+    num_metrics_and_losses_per_logging_event = num_metrics + num_losses  # prints loss and all metrics at each log
+
+    expected_num_lines = 2 + 2 * num_metrics_and_losses_per_logging_event
+    # metrics for optimizer are only calculated at second log and at FIT_END
+    # prints only loss/accuracy at the first batch
+
+    assert actual_num_log_lines == expected_num_lines

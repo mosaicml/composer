@@ -115,7 +115,7 @@ extra_deps['dev'] = [
     'docutils==0.17.1',
     'sphinx_markdown_tables==0.0.17',
     'sphinx-argparse==0.4.0',
-    'sphinxcontrib.katex==0.9.4',
+    'sphinxcontrib.katex==0.9.5',
     'sphinxext.opengraph==0.8.2',
     'sphinxemoji==0.2.0',
     'furo==2022.9.29',
@@ -162,7 +162,7 @@ extra_deps['tensorboard'] = [
 ]
 
 extra_deps['unet'] = [
-    'monai>=0.9.1,<1.2',
+    'monai>=0.9.1,<1.3',
     'scikit-learn>=1.0.1,<2',
 ]
 
@@ -179,7 +179,7 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<4.30',
+    'transformers>=4.11,<4.31',
     'datasets>=2.4,<3',
 ]
 

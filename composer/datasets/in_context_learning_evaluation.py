@@ -246,7 +246,8 @@ class InContextLearningQATaskDataset(Dataset):
             'labels': answers,
             'generation_length': self.max_answer_length,
             'generation_kwargs': {
-                'pad_token_id': self.pad_tok_id
+                'pad_token_id': self.pad_tok_id,
+                'use_cache': True
             }
         }
 
@@ -964,7 +965,6 @@ class InContextLearningCodeEvalDataset(Dataset):
                 len(encoded_example['preamble']['input_ids'] + encoded_example['prompt']['input_ids']))
 
         self.max_prompt_length = max_prompt_length
-        print(self.max_prompt_length)
         return examples
 
     def __getitem__(self, index):

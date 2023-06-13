@@ -390,7 +390,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         if not saved_path:  # not all ranks save
             return
 
-        if self.latest_filename is not None:
+        if self.latest_filename is not None and self.num_checkpoints_to_keep != 0:
             symlink = self.latest_filename.format(state, is_deepspeed)
             os.makedirs(os.path.dirname(symlink), exist_ok=True)
             try:

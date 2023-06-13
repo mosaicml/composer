@@ -560,7 +560,6 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
                 processed_outputs, batch['prompts'], batch['test_inputs'], batch['test_outputs'], batch['entry_points']):
             self.total += torch.tensor(1.0)
             for code_gen in sample_outputs:
-                print(code_gen)
                 code_gen = re.split(r'\ndef|\nclass|\n#|\nif|\nprint', code_gen)[0]
                 final_code = sample_prompt + code_gen
                 passes_all = True
