@@ -149,7 +149,7 @@ def test_extract_hparams_trainer():
         'load_progress_bar': True,
         'load_ignore_keys': None,
         'load_exclude_algorithms': None,
-        'load_fsdp_monolith_rank0_only': True,
+        'load_fsdp_monolith_rank0_only': False,
 
         # Save Checkpoint
         'save_folder': None,
