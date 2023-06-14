@@ -1258,7 +1258,7 @@ class Trainer:
         # If using FSDP, the model must be wrapped and then loaded unless loading a monolith
         # checkpoint on rank 0 only, in which case the model be loaded before it is wrapped.
 
-        # FSDP wrap if using sharded state dict
+        # FSDP wrap if not using monolith checkpoint on rank 0 only
         if self.state.fsdp_config is not None and fsdp_auto_wrap and not self.state.load_fsdp_monolith_rank0_only:
             prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 
