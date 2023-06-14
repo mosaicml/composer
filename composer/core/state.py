@@ -72,6 +72,9 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
     # have to import it this way.
     from torch.distributed.fsdp.fully_sharded_data_parallel import ShardedStateDictConfig
 
+    fsdp_state_dict_type = None
+    state_dict_config = None
+    optim_state_dict_config = None
     # Full is the full monolithic state dict materialized in memory on just rank 0
     # with offloading to cpu if necessary
     if state_dict_type == 'full':
@@ -103,14 +106,12 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
 
     if using_torch_2():
         with FSDP.state_dict_type(module,
-                                state_dict_type=fsdp_state_dict_type,
-                                state_dict_config=state_dict_config,
-                                optim_state_dict_config=optim_state_dict_config):
+                                  state_dict_type=fsdp_state_dict_type,
+                                  state_dict_config=state_dict_config,
+                                  optim_state_dict_config=optim_state_dict_config):
             yield
     else:
-        with FSDP.state_dict_type(module,
-                                state_dict_type=fsdp_state_dict_type,
-                                state_dict_config=state_dict_config):
+        with FSDP.state_dict_type(module, state_dict_type=fsdp_state_dict_type, state_dict_config=state_dict_config):
             yield
 
 
