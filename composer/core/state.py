@@ -96,9 +96,6 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
     else:
         raise NotImplementedError(f'No valid FSDP state_dict_type for {state_dict_type}')
 
-    log.debug(
-        f'Creating FSDP state_dict_type context manager with state_dict_type={state_dict_type}, state_dict_config={state_dict_config}, optim_state_dict_config={optim_state_dict_config}'
-    )
     with FSDP.state_dict_type(module,
                               state_dict_type=fsdp_state_dict_type,
                               state_dict_config=state_dict_config,
@@ -1057,7 +1054,7 @@ class State(Serializable):
         # If loading FSDP monolith checkpoint on rank 0 only, the model must be wrapped after loading
         if self.load_fsdp_monolith_rank0_only:
             assert self.fsdp_config is not None
-            log.debug('Wrapping model with FSDP after loading model_state.')
+            log.info('Wrapping model with FSDP after loading model_state.')
             from composer.trainer.dist_strategy import prepare_fsdp_module
             prepare_fsdp_module(self.model, self.optimizers, self.fsdp_config, self.precision, self.device,
                                 self.auto_microbatching)
