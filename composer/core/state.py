@@ -1078,6 +1078,8 @@ class State(Serializable):
                     raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
                 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
                 log.debug(f'Loading FSDP optimizer with fsdp_state_dict_type={self.fsdp_state_dict_type}')
+                # Loading FSDP monolith on rank 0 only requires FSDP.scatter_full_optim_state_dict
+                # as the context manager does not seem to pass rank0_only=True for the optimizer config
                 if not using_torch_2() or self.load_fsdp_monolith_rank0_only:
                     optim_state_dict = _legacy_optim_state_dict_to_load(
                         optim_state_dict=optim_state_dict,
