@@ -6,6 +6,7 @@ import os
 import pathlib
 
 import pytest
+import torch
 import tqdm.std
 
 import composer
@@ -23,6 +24,14 @@ def disable_tokenizer_parallelism():
                 - Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
     """
     os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+
+
+@pytest.fixture(autouse=True)
+def clear_cuda_cache():
+    """This fixture ensures that we don't have memory leakages during pytest by clearing
+       the CUDA cache before every test.
+    """
+    torch.cuda.empty_cache()
 
 
 @pytest.fixture(autouse=True)
