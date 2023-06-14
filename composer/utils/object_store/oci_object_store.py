@@ -126,6 +126,10 @@ class OCIObjectStore(ObjectStore):
         del callback
         if os.path.exists(filename) and not overwrite:
             raise FileExistsError(f'The file at {filename} already exists and overwrite is set to False')
+
+        dirname = os.path.dirname(filename)
+        if dirname:
+            os.makedirs(dirname, exist_ok=True)
         tmp_path = str(filename) + f'.{uuid.uuid4()}.tmp'
 
         try:
