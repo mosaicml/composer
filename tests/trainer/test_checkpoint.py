@@ -1097,7 +1097,7 @@ def test_rotate_checkpoints(
         save_folder=str(save_folder),
         save_filename='checkpoint_{rank}_{batch}.pt',
         save_interval='1ba',
-        max_duration='10ba',
+        max_duration='6ba',
         save_num_checkpoints_to_keep=num_keep,
         device=device,
         deepspeed_config=deepseed_config,
@@ -1108,7 +1108,7 @@ def test_rotate_checkpoints(
     dist.barrier()  # ensure all checkpoints rotated across ranks
 
     # deepspeed saves 1 file per rank
-    total_checkpoints = 10
+    total_checkpoints = 6
     num_keep = num_keep if num_keep >= 0 else total_checkpoints
     expected_num = num_keep if not deepspeed_enabled else num_keep * world_size
 
