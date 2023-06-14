@@ -1362,7 +1362,7 @@ class Trainer:
                 ignore_keys=load_ignore_keys,
                 exclude_algorithms=load_exclude_algorithms,
                 algorithm_passes=self.engine.algorithm_passes,
-                load_fsdp_monolith_rank0_only=load_fsdp_monolith_rank0_only,
+                load_fsdp_monolith_rank0_only=self.state.load_fsdp_monolith_rank0_only,
             )
             self.state.run_name = run_name
 
