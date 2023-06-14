@@ -658,7 +658,7 @@ class Trainer:
             (default: ``None``)
         load_fsdp_monolith_rank0_only (bool, optional): If ``True``, when loading a monolith (non-sharded) checkpoint
             with FSDP, only rank 0 will load the checkpoint and broadcast weights/optimizers to other ranks.
-            This will dramatically reduce the memory usage on system. (default: ``True``)
+            This will dramatically reduce the memory usage on system. (default: ``False``)
 
         save_folder (str, optional): Format string for the folder where checkpoints are saved.
             If ``None``, checkpoints will not be saved. Can also be a URI for S3 paths only.
@@ -849,7 +849,7 @@ class Trainer:
         load_progress_bar: bool = True,
         load_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
         load_exclude_algorithms: Optional[List[str]] = None,
-        load_fsdp_monolith_rank0_only: bool = True,
+        load_fsdp_monolith_rank0_only: bool = False,
 
         # Save Checkpoint
         save_folder: Optional[str] = None,

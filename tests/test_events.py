@@ -61,7 +61,6 @@ class TestEventCalls:
             max_duration='2ep',
             optimizers=optimizer,
             callbacks=[EventCounterCallback()],
-            load_fsdp_monolith_rank0_only=False,
             **kwargs,
         )
 
