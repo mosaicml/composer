@@ -752,10 +752,8 @@ class State(Serializable):
 
     @property
     def load_fsdp_monolith_rank0_only(self):
-        log.debug(
-            f'{self.fsdp_state_dict_type=} {self.fsdp_auto_wrap=}, {self.fsdp_config=} {self._load_fsdp_monolith_rank0_only=}'
-        )
-        return self.fsdp_config is not None and self.fsdp_auto_wrap and self.fsdp_state_dict_type == 'full' and self._load_fsdp_monolith_rank0_only
+        return self.fsdp_config is not None and self.fsdp_auto_wrap and self.fsdp_config[
+            'state_dict_type'] == 'full' and self._load_fsdp_monolith_rank0_only
 
     def _get_integrations_state_dict(self) -> Dict[str, Any]:
         """Gets a dictionary of information about integrations to store in the state dict.
