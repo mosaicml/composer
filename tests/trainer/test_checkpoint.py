@@ -925,13 +925,14 @@ class TestCheckpointResumption:
         pytest.param('gpu', marks=pytest.mark.gpu),
     ])
     @pytest.mark.parametrize(
-        'use_orig_params,sync_module_states,model_1_init_device,model_2_init_device', [
-        pytest.param(False, True, 'cpu', 'cpu'),  # success
-        pytest.param(False, True, 'cpu', 'meta'),  # success
-        pytest.param(True, True, 'cpu', 'cpu'),  # fail
-        pytest.param(False, False, 'cpu', 'cpu'),  # fail
-        pytest.param(False, True, 'meta', 'cpu'),  # fail
-    ])
+        'use_orig_params,sync_module_states,model_1_init_device,model_2_init_device',
+        [
+            pytest.param(False, True, 'cpu', 'cpu'),  # success
+            pytest.param(False, True, 'cpu', 'meta'),  # success
+            pytest.param(True, True, 'cpu', 'cpu'),  # fail
+            pytest.param(False, False, 'cpu', 'cpu'),  # fail
+            pytest.param(False, True, 'meta', 'cpu'),  # fail
+        ])
     def test_fsdp_monolith_resumption(
         self,
         device: str,
@@ -1000,7 +1001,6 @@ class TestCheckpointResumption:
                 save_folder / 'first' / final_checkpoint,
                 save_folder / 'second' / final_checkpoint,
             )
-
 
     @pytest.mark.parametrize('spin_dataloaders', [False, True])
     def test_spin_dataloaders(
