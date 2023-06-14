@@ -253,6 +253,7 @@ def prepare_fsdp_module(
     param_name_to_group_num = None
     group_num_to_param_group_info = None
 
+    optimizer_specific_info = None
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
         if len(optimizers_tuple) != 1:
@@ -282,6 +283,9 @@ def prepare_fsdp_module(
                 # this will be used as the kwargs for the optim param groups later
                 optimizer_specific_group_info = {k: v for k, v in group.items() if k != 'params'}
                 group_num_to_param_group_info[group_num] = optimizer_specific_group_info
+        else:
+            group = optim.param_groups[0]
+            optimizer_specific_info = {k: v for k, v in group.items() if k != 'params'}
 
         optim.param_groups.clear()
         optim.state.clear()
@@ -539,4 +543,6 @@ def prepare_fsdp_module(
             for param_group in param_groups:
                 optim.add_param_group(param_group)
         else:
-            optim.add_param_group({'params': list(model.parameters())})
+            
+            optimizer_specific_info.update({'params': list(model.parameters())})
+            optim.add_param_group(optimizer_specific_info)
