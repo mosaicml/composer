@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 from composer.loggers import MLFlowLogger
 from composer.trainer import Trainer
 from tests.common.datasets import RandomImageDataset
+from tests.common.markers import device
 from tests.common.models import SimpleConvModel
 
 
@@ -64,7 +65,8 @@ def test_mlflow_experiment_set_up_correctly(tmp_path):
     test_mlflow_logger.post_close()
 
 
-def test_mlflow_logging_works(tmp_path):
+@device('cpu')
+def test_mlflow_logging_works(tmp_path, device):
     mlflow = pytest.importorskip('mlflow')
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
     test_mlflow_logger = MLFlowLogger(tracking_uri=mlflow_uri)
@@ -79,7 +81,8 @@ def test_mlflow_logging_works(tmp_path):
                       train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
                       eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
                       max_duration=f'{num_batches}ba',
-                      eval_interval=eval_interval)
+                      eval_interval=eval_interval,
+                      device=device)
     trainer.fit()
 
     run_info = mlflow.active_run().info
