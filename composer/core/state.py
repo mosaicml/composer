@@ -1017,10 +1017,13 @@ class State(Serializable):
             # with the `module.` prefix
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
 
+        # For FSDP monolith checkpoints, the model does not exist on ranks > 0
+        model_on_rank = state_dict['model'] is not None
+
         missing_keys, unexpected_keys = [], []
         try:
             # Load model if it exists. For FSDP monolith checkpoints, the model does not exist on ranks > 0
-            if 'model' in state_dict:
+            if model_on_rank:
                 if self.fsdp_enabled and self.fsdp_state_dict_type is not None and not self.load_fsdp_monolith_rank0_only:
                     log.debug(
                         f'Loading model state dict with strict={strict} and FSDP state_dict_type={self.fsdp_state_dict_type}'
@@ -1039,9 +1042,9 @@ class State(Serializable):
             else:
                 raise e
 
-        if 'model' in state_dict and len(missing_keys) > 0:
+        if model_on_rank and len(missing_keys) > 0:
             log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
-        if 'model' in state_dict and len(unexpected_keys) > 0:
+        if model_on_rank and len(unexpected_keys) > 0:
             if self.fsdp_config is not None and self.fsdp_config[
                     'use_orig_params'] and self.fsdp_state_dict_type == 'local':
                 log.warning(
@@ -1148,14 +1151,14 @@ class State(Serializable):
         state = _ensure_backwards_compatible_checkpointing(state)
 
         # Call load_model_state first since it applies required algorithms
-        # Has to happen there bc of case of load weights only
-        self.load_model_state(
-            state,
-            logger,
-            strict=strict,
-            exclude_algorithms=exclude_algorithms,
-            algorithm_passes=algorithm_passes,
-        )
+        if 'model' in state:
+            self.load_model_state(
+                state,
+                logger,
+                strict=strict,
+                exclude_algorithms=exclude_algorithms,
+                algorithm_passes=algorithm_passes,
+            )
 
         for attribute_name in sorted(list(state.keys())):  # Sort so all ranks load in the same order
             serialized_value = state[attribute_name]

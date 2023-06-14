@@ -457,6 +457,7 @@ def safe_torch_load(
                 state_dict['state']['model'] = model
                 state_dict['state']['optimizers'] = optimizer
             else:
+                state_dict['state']['model'] = None  # Add dummy key to trigger `load_model_state`
                 state_dict['state']['optimizers'] = None  # Add dummy key to trigger `load_optim_state`
 
             return state_dict
