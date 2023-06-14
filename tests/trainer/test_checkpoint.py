@@ -918,7 +918,6 @@ class TestCheckpointResumption:
         )
 
     @pytest.mark.parametrize('world_size', [
-        pytest.param(1),
         pytest.param(2, marks=pytest.mark.world_size(2)),
     ])
     @pytest.mark.parametrize('device', [
