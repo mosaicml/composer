@@ -1255,12 +1255,11 @@ class Trainer:
 
         # If using PyTorch DDP, the model must be loaded before it is wrapped with DDP.
         # If using DeepSpeed, the engine must be initialized before the model is loaded.
-        # If using FSDP, the model must be loaded before it is wrapped with FSDP unless sharded
-        # checkpointing is enabled, in which case the model must be wrapped after loading but
-        # before optimizer loading.
+        # If using FSDP, the model must be wrapped and then loaded unless loading a monolith
+        # checkpoint on rank 0 only, in which case the model be loaded before it is wrapped.
 
         # FSDP wrap if using sharded state dict
-        if self.state.fsdp_config is not None and fsdp_auto_wrap and self.state.fsdp_sharded_state_dict_enabled:
+        if self.state.fsdp_config is not None and fsdp_auto_wrap and not self.state.load_fsdp_monolith_rank0_only:
             prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 
         # Configure Deepspeed
