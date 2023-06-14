@@ -678,6 +678,41 @@ class TestTrainerInitOrFit:
         assert all(p.device.type == 'cuda' for p in trainer_2.state.model.parameters())
         map_collection(trainer_2.state.optimizers, _assert_optimizer_is_on_device)
 
+    def assert_models_equal(self, model_1, model_2, atol=1e-7, rtol=1e-7):
+        assert model_1 is not model_2, 'Same model should not be compared.'
+        for param1, param2 in zip(model_1.parameters(), model_2.parameters()):
+            torch.testing.assert_close(param1, param2, atol=atol, rtol=rtol)
+
+    @pytest.mark.parametrize('checkpoint_path', ['tmp_folder', None])
+    def test_save_checkpoint_to_folder(
+        self,
+        model: ComposerModel,
+        checkpoint_path: Optional[str],
+        max_duration: Time[int],
+        train_dataloader: DataLoader,
+    ):
+        copied_model = copy.deepcopy(model)
+        #Define Trainer
+        trainer1 = Trainer(model=model,
+                           device='cpu',
+                           max_duration=max_duration,
+                           train_dataloader=train_dataloader,
+                           save_folder=checkpoint_path)
+        name = 'ep0-ba0-rank0.pt'
+        if checkpoint_path is not None:
+            trainer1.save_checkpoint_to_save_folder()
+            trainer2 = Trainer(model=copied_model,
+                               device='cpu',
+                               max_duration=max_duration,
+                               train_dataloader=train_dataloader,
+                               load_path=os.path.join(checkpoint_path, name))
+            self.assert_models_equal(trainer1.state.model, trainer2.state.model)
+        else:
+            with pytest.raises(
+                    ValueError,
+                    match='In order to use save_checkpoint_to_save_folder you must pass a save_folder to the Trainer.'):
+                trainer1.save_checkpoint_to_save_folder()
+
     @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])
     @pytest.mark.parametrize('device', ['cpu', pytest.param('gpu', marks=pytest.mark.gpu)])
     def test_precision(
