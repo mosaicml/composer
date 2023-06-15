@@ -785,7 +785,12 @@ class TestCheckpointLoading:
 
 class TestCheckpointResumption:
 
-    def get_trainer(self, model_init_device='cpu', precision='fp32', **kwargs):
+    def get_trainer(self,
+                    model_init_device='cpu',
+                    precision='fp32',
+                    max_duration='2ep',
+                    train_subset_num_batches=5,
+                    **kwargs):
         model = SimpleModel()
         model.fc1.to(model_init_device)
         model.fc2.to(model_init_device)
@@ -809,8 +814,8 @@ class TestCheckpointResumption:
             ),
             device_train_microbatch_size=train_batch_size // 2,
             precision=precision,
-            train_subset_num_batches=5,
-            max_duration='2ep',
+            train_subset_num_batches=train_subset_num_batches,
+            max_duration=max_duration,
             optimizers=optimizer,
             schedulers=ExponentialScheduler(gamma=0.9),
             callbacks=[DummyStatefulCallback()],
@@ -943,9 +948,9 @@ class TestCheckpointResumption:
         model_2_init_device: str,
         tmp_path: pathlib.Path,
     ):
-        save_interval = '1ep'
-        save_filename = 'ep{epoch}-rank{rank}.pt'
-        resume_file = 'ep1-rank{rank}.pt'
+        save_interval = '1ba'
+        save_filename = 'ba{batch}-rank{rank}.pt'
+        resume_file = 'ba1-rank{rank}.pt'
         final_checkpoint = 'latest-rank{rank}.pt'
         fsdp_config = {
             'use_orig_params': use_orig_params,
@@ -964,6 +969,8 @@ class TestCheckpointResumption:
             fsdp_config=fsdp_config,
             device=device,
             precision='amp_fp16',
+            max_duration='1ep',
+            train_subset_num_batches=1,
         )
 
         trainer_1.fit()
@@ -972,8 +979,8 @@ class TestCheckpointResumption:
         self._assert_expected_num_checkpoints(
             save_folder=os.path.join(save_folder, 'first'),
             save_interval=save_interval,
-            num_epochs=2,  # set in get_trainer()
-            num_batches_per_epoch=5,  # set in get_trainer()
+            num_epochs=1,  # set in get_trainer()
+            num_batches_per_epoch=2,  # set in get_trainer()
             is_deepspeed=False,
         )
 
@@ -991,6 +998,8 @@ class TestCheckpointResumption:
                 fsdp_config=fsdp_config,
                 device=device,
                 precision='amp_fp16',
+                max_duration='1ep',
+                train_subset_num_batches=2,
                 load_path=resume_file,  # <-- resume training from file
                 load_fsdp_monolith_rank0_only=True,
             )
