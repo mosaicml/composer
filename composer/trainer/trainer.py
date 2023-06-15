@@ -46,7 +46,8 @@ from composer.profiler import Profiler
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
-from composer.trainer.dist_strategy import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module
+from composer.trainer.dist_strategy import (DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module,
+                                            set_fsdp_default)
 from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectStore, Transform, checkpoint, dist,
                             ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist, get_device,
                             get_file, is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
@@ -656,6 +657,9 @@ class Trainer:
             Example 2: ``load_exclude_algorithms = ["FusedLayerNorm", "Alibi"]`` would exclude FusedLayerNorm and Alibi from loading.
 
             (default: ``None``)
+        load_fsdp_monolith_rank0_only (bool, optional): If ``True``, when loading a monolith (non-sharded) checkpoint
+            with FSDP, only rank 0 will load the checkpoint and broadcast weights/optimizers to other ranks.
+            This will dramatically reduce the memory usage on system. (default: ``False``)
 
         save_folder (str, optional): Format string for the folder where checkpoints are saved.
             If ``None``, checkpoints will not be saved. Can also be a URI for S3 paths only.
@@ -862,7 +866,7 @@ class Trainer:
         # DeepSpeed
         deepspeed_config: Optional[Dict[str, Any]] = None,
         fsdp_config: Optional[Dict[str, Any]] = None,
-        fsdp_auto_wrap: Optional[bool] = True,
+        fsdp_auto_wrap: bool = True,
 
         # System/Numerics
         device: Optional[Union[str, Device]] = None,
@@ -951,20 +955,13 @@ class Trainer:
         assert not isinstance(device_train_microbatch_size, str)
 
         # Determine whether DeepSpeed and FSDP are enabled
-        self.deepspeed_config = deepspeed_config
-        self.fsdp_config = fsdp_config
-        self.deepspeed_enabled = self.deepspeed_config is not None
-        self.fsdp_enabled = self.fsdp_config is not None
+        self.deepspeed_enabled = deepspeed_config is not None  # TODO: move to state
 
         # Distributed
-        if self.deepspeed_enabled or self.fsdp_enabled or dist.get_world_size() > 1:
+        if self.deepspeed_enabled or fsdp_config is not None or dist.get_world_size() > 1:
             # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
             # And torch.distributed is always required for multi-rank training
             dist.initialize_dist(device, dist_timeout)
-
-        # Handle FSDP wrapping
-        if self.fsdp_config is not None and fsdp_auto_wrap:
-            prepare_fsdp_module(model, optimizers, self.fsdp_config, precision, device, auto_microbatching)
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, device)
@@ -986,7 +983,7 @@ class Trainer:
             raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
 
         # Move the model and optimizers to the device
-        if not (self.deepspeed_enabled or self.fsdp_enabled):
+        if not self.deepspeed_enabled and fsdp_config is None:
             # check if model is already on tpu
             if isinstance(device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
                 raise ValueError(
@@ -1018,7 +1015,8 @@ class Trainer:
             optimizers=optimizers,
             run_name=run_name,
             deepspeed_config=deepspeed_config,
-            fsdp_config=fsdp_config,
+            fsdp_config=set_fsdp_default(fsdp_config) if fsdp_config is not None else None,
+            fsdp_auto_wrap=fsdp_auto_wrap,
         )
 
         # Profiler
@@ -1231,9 +1229,37 @@ class Trainer:
         self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, self.state.algorithms))
         self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
 
-        # If using DDP or DeepSpeed, we need to wrap the ComposerModel
-        # But store a reference to the original model for functions like `eval_forward`, `get_metrics`, etc.
+        # Suppressing GradScaler warnings as they are always created
+        # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
+        warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
+        self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
+
+        if self.state.fsdp_config is not None:
+            if version.parse(torch.__version__) < version.parse('1.13.0'):
+                raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
+            from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
+
+            # This state should never be reached, but we raise a ValueError just in case
+            if self._use_closures() and self.state.precision == Precision.AMP_FP16:
+                raise ValueError(f'Using closures and precision {self.state.precision} is not supported'
+                                 f' with FSDP. Please use another optimizer or precision type.')
+            self.state.scaler = ShardedGradScaler()
+
+        # suppressing FSDP warning when auto grad accum exits the forward pass before completing
+        warnings.filterwarnings(action='ignore', message='Forward order differs from that of the first iteration')
+
+        # If using DDP or DeepSpeed, we need to wrap the ComposerModel but store a reference to the
+        # original model for functions like `eval_forward`, `get_metrics`, etc.
         self._original_model = self.state.model
+
+        # If using PyTorch DDP, the model must be loaded before it is wrapped with DDP.
+        # If using DeepSpeed, the engine must be initialized before the model is loaded.
+        # If using FSDP, the model must be wrapped and then loaded unless loading a monolith
+        # checkpoint on rank 0 only, in which case the model be loaded before it is wrapped.
+
+        # FSDP wrap if not using monolith checkpoint on rank 0 only
+        if self.state.fsdp_config is not None and fsdp_auto_wrap and not self.state.load_fsdp_monolith_rank0_only:
+            prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
@@ -1269,29 +1295,6 @@ class Trainer:
 
             if 'optimizers' in self.state.serialized_attributes:
                 self.state.serialized_attributes.remove('optimizers')
-
-        # If using DeepSpeed, the model must be loaded from checkpoint after the engine has been
-        # initialized, but if using PyTorch DDP, the model must be loaded before it is wrapped with
-        # DDP.
-
-        # suppressing GradScaler warnings as they are always created
-        # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
-        warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
-        self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
-
-        if self.fsdp_config is not None:
-            if version.parse(torch.__version__) < version.parse('1.13.0'):
-                raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-            from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
-
-            # This state should never be reached, but we raise a ValueError just in case
-            if self._use_closures() and self.state.precision == Precision.AMP_FP16:
-                raise ValueError(f'Using closures and precision {self.state.precision} is not supported'
-                                 f' with FSDP. Please use another optimizer or precision type.')
-            self.state.scaler = ShardedGradScaler()
-
-        # suppressing FSDP warning when auto grad accum exits the forward pass before completing
-        warnings.filterwarnings(action='ignore', message='Forward order differs from that of the first iteration')
 
         # Load Checkpoint
         self._rng_state = None
@@ -1375,8 +1378,8 @@ class Trainer:
         log.info(f'Setting seed to {self.state.seed}')
         reproducibility.seed_all(self.state.seed)
 
-        if not (self.deepspeed_enabled or self.fsdp_enabled) and dist.get_world_size() > 1:
-            # Only wrap the module if required
+        # DDP wrap if required
+        if not self.deepspeed_enabled and not self.state.fsdp_enabled and dist.get_world_size() > 1:
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
 
         # The model would need to be torch.compile()'d after being wrapped in a distributed strategy
@@ -2155,8 +2158,8 @@ class Trainer:
                                                    closure=lambda loss_dict=total_loss_dict, **kwargs: self.
                                                    _train_microbatches(microbatches, loss_dict, **kwargs))
                         else:
-                            optimizer.step(closure=lambda **kwargs: self._train_microbatches(
-                                microbatches, total_loss_dict, **kwargs).item())
+                            optimizer.step(closure=lambda loss_dict=total_loss_dict, **kwargs: self._train_microbatches(
+                                microbatches, loss_dict, **kwargs).item())
                 else:
                     self._train_microbatches(microbatches, total_loss_dict)
                     if not self.deepspeed_enabled:
