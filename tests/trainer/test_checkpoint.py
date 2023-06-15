@@ -958,6 +958,7 @@ class TestCheckpointResumption:
             'use_orig_params': use_orig_params,
             'sync_module_states': sync_module_states,
             'state_dict_type': 'full',
+            'load_monolith_rank0_only': True,
         }
 
         # All ranks use rank 0 folder
@@ -1004,7 +1005,6 @@ class TestCheckpointResumption:
                 max_duration='1ep',
                 train_subset_num_batches=2,
                 load_path=resume_file,  # <-- resume training from file
-                load_fsdp_monolith_rank0_only=True,
             )
             trainer_2.fit()
             trainer_2.close()

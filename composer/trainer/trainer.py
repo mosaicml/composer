@@ -849,7 +849,6 @@ class Trainer:
         load_progress_bar: bool = True,
         load_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
         load_exclude_algorithms: Optional[List[str]] = None,
-        load_fsdp_monolith_rank0_only: bool = False,
 
         # Save Checkpoint
         save_folder: Optional[str] = None,
@@ -1017,7 +1016,6 @@ class Trainer:
             deepspeed_config=deepspeed_config,
             fsdp_config=set_fsdp_default(fsdp_config) if fsdp_config is not None else None,
             fsdp_auto_wrap=fsdp_auto_wrap,
-            load_fsdp_monolith_rank0_only=load_fsdp_monolith_rank0_only,
         )
 
         # Profiler
