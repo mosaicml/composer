@@ -13,6 +13,7 @@ import logging
 import os
 import random
 import re
+import tempfile
 import time
 import warnings
 from collections import defaultdict
@@ -52,7 +53,6 @@ from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectS
                             maybe_create_remote_uploader_downloader_from_uri, model_eval_mode, parse_uri,
                             reproducibility, using_torch_2)
 from composer.utils.misc import is_model_deepspeed
-import tempfile
 
 if is_tpu_installed():
     import torch_xla.core.xla_model as xm
@@ -1326,16 +1326,17 @@ class Trainer:
                 # Symlink is on object store.
                 if ar_object_store is not None:
                     with tempfile.TemporaryDirectory() as temp_dir:
-                            local_symlink_file = str(Path(temp_dir) / Path('autoresume.symlink'))
-                            formatted_latest_remote_file_name = format_name_with_dist(latest_remote_file_name, self.state.run_name) + ".symlink"
-                            try:
-                                ar_object_store.download_object(formatted_latest_remote_file_name, local_symlink_file)
-                                with open(local_symlink_file, 'r') as f:
-                                    real_path = f.read()
-                                    log.debug(f'Read path {real_path} from symlink file')
-                                autoresume_checkpoint_path = ar_object_store.get_uri(real_path)
-                            except FileNotFoundError:
-                                autoresume_checkpoint_path = None
+                        local_symlink_file = str(Path(temp_dir) / Path('autoresume.symlink'))
+                        formatted_latest_remote_file_name = format_name_with_dist(latest_remote_file_name,
+                                                                                  self.state.run_name) + '.symlink'
+                        try:
+                            ar_object_store.download_object(formatted_latest_remote_file_name, local_symlink_file)
+                            with open(local_symlink_file, 'r') as f:
+                                real_path = f.read()
+                                log.debug(f'Read path {real_path} from symlink file')
+                            autoresume_checkpoint_path = ar_object_store.get_uri(real_path)
+                        except FileNotFoundError:
+                            autoresume_checkpoint_path = None
                 # Symlink is local.
                 else:
                     save_latest_filename = format_name_with_dist(save_latest_filename, self.state.run_name)
@@ -1343,7 +1344,8 @@ class Trainer:
                     latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
                     if os.path.exists(latest_checkpoint_path):
                         if os.path.islink(latest_checkpoint_path):
-                            latest_checkpoint_path = source_path = os.path.join(os.path.dirname(latest_checkpoint_path), os.readlink(latest_checkpoint_path))
+                            latest_checkpoint_path = os.path.join(os.path.dirname(latest_checkpoint_path),
+                                                                  os.readlink(latest_checkpoint_path))
                         autoresume_checkpoint_path = latest_checkpoint_path
                     else:
                         autoresume_checkpoint_path = None
@@ -1356,8 +1358,7 @@ class Trainer:
                     save_latest_remote_file_name=latest_remote_file_name,
                     loggers=loggers,
                     load_progress_bar=load_progress_bar)
-            
-   
+
             # Found latest checkpoint path, load that instead
             if autoresume_checkpoint_path:
                 load_path = autoresume_checkpoint_path
