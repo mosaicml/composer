@@ -957,6 +957,7 @@ class TestCheckpointResumption:
         fsdp_config = {
             'use_orig_params': use_orig_params,
             'sync_module_states': sync_module_states,
+            'state_dict_type': 'full',
         }
 
         # All ranks use rank 0 folder
