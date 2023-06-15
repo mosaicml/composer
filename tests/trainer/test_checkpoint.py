@@ -705,6 +705,25 @@ class TestCheckpointLoading:
 
         assert trainer_1.state.run_name == trainer_2.state.run_name
 
+    @pytest.mark.parametrize(
+        'run_name,save_folder,save_overwrite,latest_filename',
+        [
+            [None, 'first', False, 'latest-rank{rank}.pt'],
+            ['big-chungus', None, False, 'latest-rank{rank}.pt'],
+            ['big-chungus', 'first', True, 'latest-rank{rank}.pt'],
+            ['big-chungus', 'first', False, None],
+        ],
+    )
+    def test_autoresume_fail(self, run_name, save_folder, save_overwrite, latest_filename):
+        with pytest.raises(ValueError):
+            self.get_trainer(
+                latest_filename=latest_filename,
+                save_overwrite=save_overwrite,
+                save_folder=save_folder,
+                run_name=run_name,
+                autoresume=True,
+            )
+
     def test_different_run_names(self):
 
         trainer_1 = self.get_trainer(
