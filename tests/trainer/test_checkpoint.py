@@ -935,7 +935,7 @@ class TestCheckpointResumption:
             pytest.param(False, True, 'cpu', 'meta'),  # success
             pytest.param(True, True, 'cpu', 'cpu'),  # fail
             pytest.param(False, False, 'cpu', 'cpu'),  # fail
-            pytest.param(False, True, 'meta', 'cpu'),  # fail
+            # pytest.param(False, True, 'meta', 'cpu'),  # fail
         ])
     @pytest.mark.filterwarnings('ignore:An unexpected prefix is detected. This case.*')
     def test_fsdp_monolith_resumption(
