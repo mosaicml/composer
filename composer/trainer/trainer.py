@@ -982,7 +982,7 @@ class Trainer:
             raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
 
         # Move the model and optimizers to the device
-        if not (self.deepspeed_enabled or fsdp_config is not None):
+        if not self.deepspeed_enabled and fsdp_config is None:
             # check if model is already on tpu
             if isinstance(device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
                 raise ValueError(
@@ -1360,7 +1360,6 @@ class Trainer:
                 ignore_keys=load_ignore_keys,
                 exclude_algorithms=load_exclude_algorithms,
                 algorithm_passes=self.engine.algorithm_passes,
-                load_fsdp_monolith_rank0_only=self.state.load_fsdp_monolith_rank0_only,
             )
             self.state.run_name = run_name
 
@@ -1377,7 +1376,7 @@ class Trainer:
         reproducibility.seed_all(self.state.seed)
 
         # DDP wrap if required
-        if not (self.deepspeed_enabled or self.state.fsdp_enabled) and dist.get_world_size() > 1:
+        if not self.deepspeed_enabled and not self.state.fsdp_enabled and dist.get_world_size() > 1:
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
 
         # The model would need to be torch.compile()'d after being wrapped in a distributed strategy

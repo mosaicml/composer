@@ -111,7 +111,6 @@ def load_checkpoint(
     ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
     exclude_algorithms: Optional[List[str]] = None,
     algorithm_passes: Optional[List[AlgorithmPass]] = None,
-    load_fsdp_monolith_rank0_only: bool = False,
 ):
     """Load a checkpoint from a local file, URI, or cloud object store into ``state``.
 
@@ -196,8 +195,6 @@ def load_checkpoint(
             (default: ``None``)
         algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
             to sort them into the correct order. (default: ``None``)
-        load_fsdp_monolith_rank0_only (bool, optional): Whether or not loading a monolith FSDP checkpoint. If ``True``,
-            Composer will only load checkpoint on rank 0 and broadcast state to lower memory usage. (default: ``False``)
 
     Returns:
         Optional[List[Dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
@@ -236,7 +233,6 @@ def load_checkpoint(
                 ignore_keys=ignore_keys,
                 exclude_algorithms=exclude_algorithms,
                 algorithm_passes=algorithm_passes,
-                load_fsdp_monolith_rank0_only=load_fsdp_monolith_rank0_only,
             )
         finally:
             # Wait for all ranks to finish restoring the checkpoint before releasing the tempdir, since tempdir can
@@ -485,13 +481,12 @@ def _restore_checkpoint(
     ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]],
     exclude_algorithms: Optional[List[str]],
     algorithm_passes: Optional[List[AlgorithmPass]],
-    load_fsdp_monolith_rank0_only: bool,
 ) -> Optional[List[Dict[str, Any]]]:
     """Restore a checkpoint into ``state`` and returns the rng state dicts (if ``load_weights_only`` is False)."""
     # Now, all ranks load the checkpoint that local rank zero downloaded
     state_dict = safe_torch_load(
         composer_states_filepath=composer_states_filepath,
-        load_fsdp_monolith_rank0_only=load_fsdp_monolith_rank0_only,
+        load_fsdp_monolith_rank0_only=state.load_fsdp_monolith_rank0_only,
     )
     if ignore_keys:
         # Filter provided list of key paths
