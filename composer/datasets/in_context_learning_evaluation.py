@@ -24,6 +24,10 @@ if TYPE_CHECKING:
 __all__ = ['InContextLearningLMTaskDataset', 'InContextLearningMultipleChoiceTaskDataset', 'get_icl_task_dataloader']
 
 
+def strip_data(samples):
+    return [{k: v.strip() if isinstance(v, str) else v for k, v in entry.items()} for entry in samples]
+
+
 def _tokenizer_needs_prefix_space(tokenizer) -> bool:
     # Test for whether a prefix space is needed before the continuation.
     # sentencepiece tokenization should not have a prefix space, but gpt2 style BPE should
@@ -145,6 +149,7 @@ class InContextLearningQATaskDataset(Dataset):
                 'answer': examples['answer'],
                 'aliases': examples['aliases']
             }))
+        self.samples = strip_data(self.samples)
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
@@ -323,6 +328,8 @@ class InContextLearningLMTaskDataset(Dataset):
                 'continuation': examples['continuation'],
                 'context': examples['context'],
             }))
+        self.samples = strip_data(self.samples)
+
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
@@ -487,6 +494,8 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
                 'choices': examples['choices'],
                 'gold': examples['gold']
             }))
+        self.samples = strip_data(self.samples)
+
         self.num_choices = len(self.samples[0]['choices'])
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
@@ -531,7 +540,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
                         'choices'], self.samples[fewshot_idx]['gold']
                     if len(preamble) > 0:
                         query = f'{example_delimiter}{query}'
-                    preamble += f'{query}{continuation_delimiter}{choices[gold_idx]}'
+                    preamble += f'{query}{continuation_delimiter}{choices[gold_idx]}'  # pyright: ignore [reportGeneralTypeIssues]
             encoded_example = {}
             query, choices, gold_idx = self.samples[sample_idx]['query'], self.samples[sample_idx][
                 'choices'], self.samples[sample_idx]['gold'],
@@ -710,6 +719,8 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
                     'continuation': examples['continuation'],
                     'gold': examples['gold']
                 }))
+        self.samples = strip_data(self.samples)
+
         self.num_choices = len(self.samples[0]['context_options'])
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
@@ -749,7 +760,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
                 for fewshot_idx in fewshot_idxs:
                     context_options, continuation, gold_idx = self.samples[fewshot_idx][
                         'context_options'], self.samples[fewshot_idx]['continuation'], self.samples[fewshot_idx]['gold']
-                    context = context_options[gold_idx]
+                    context = context_options[gold_idx]  # pyright: ignore [reportGeneralTypeIssues]
                     if len(preamble) > 0:
                         context = f'{example_delimiter}{context}'
                     preamble += f'{context}{continuation_delimiter}{continuation}'
