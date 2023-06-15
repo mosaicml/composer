@@ -953,11 +953,8 @@ class Trainer:
 
         assert not isinstance(device_train_microbatch_size, str)
 
-        # Determine whether DeepSpeed and FSDP are enabled
-        self.deepspeed_enabled = deepspeed_config is not None  # TODO: move to state
-
         # Distributed
-        if self.deepspeed_enabled or fsdp_config is not None or dist.get_world_size() > 1:
+        if deepspeed_config is not None or fsdp_config is not None or dist.get_world_size() > 1:
             # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
             # And torch.distributed is always required for multi-rank training
             dist.initialize_dist(device, dist_timeout)
@@ -982,7 +979,7 @@ class Trainer:
             raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
 
         # Move the model and optimizers to the device
-        if not self.deepspeed_enabled and fsdp_config is None:
+        if deepspeed_config is not None and fsdp_config is None:
             # check if model is already on tpu
             if isinstance(device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
                 raise ValueError(
@@ -1376,7 +1373,7 @@ class Trainer:
         reproducibility.seed_all(self.state.seed)
 
         # DDP wrap if required
-        if not self.deepspeed_enabled and not self.state.fsdp_enabled and dist.get_world_size() > 1:
+        if not self.state.deepspeed_enabled and not self.state.fsdp_enabled and dist.get_world_size() > 1:
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
 
         # The model would need to be torch.compile()'d after being wrapped in a distributed strategy
@@ -1457,7 +1454,7 @@ class Trainer:
             f'Looking for autoresume checkpoint: {save_latest_remote_file_name} (remote), {latest_checkpoint_path} (local)'
         )
 
-        if self.deepspeed_enabled or self.state.fsdp_sharded_state_dict_enabled:
+        if self.state.deepspeed_enabled or self.state.fsdp_sharded_state_dict_enabled:
             # If latest checkpoint is not saved locally, try to fetch from loggers
             if not os.path.exists(latest_checkpoint_path):
                 log.debug(f'Attempting to download the checkpoint on to rank {dist.get_global_rank()}')
@@ -1474,7 +1471,7 @@ class Trainer:
             # deepspeed or fsdp + sharding
             elif any(latest_checkpoint_exists):  # Some but not all exist, which is very bad.
                 missing_ranks = [n for (n, exist) in enumerate(latest_checkpoint_exists) if not exist]
-                mode = 'Deepspeed' if self.deepspeed_enabled else 'FSDP sharding'
+                mode = 'Deepspeed' if self.state.deepspeed_enabled else 'FSDP sharding'
                 raise RuntimeError(f'{mode} was enabled, but checkpoints missing on ranks: {missing_ranks}')
             else:  # None of the paths exists, so no autoresume necessary.
                 return None
@@ -1786,7 +1783,7 @@ class Trainer:
         # Precision
         if precision is not None:
             if Precision(precision) != self.state.precision:
-                if self.deepspeed_enabled:
+                if self.state.deepspeed_enabled:
                     raise ValueError('Changing the precision when using DeepSpeed is not supported')
                 precision = Precision(precision)
                 _validate_precision(precision, self.state.device)
@@ -1953,7 +1950,7 @@ class Trainer:
                     rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
                     rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
 
-                    if self.deepspeed_enabled:
+                    if self.state.deepspeed_enabled:
                         self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
@@ -2087,7 +2084,7 @@ class Trainer:
 
         with torch.no_grad(),\
                 model_eval_mode(self.state.model),\
-                _get_precision_context(self.state.precision, self.deepspeed_enabled):
+                _get_precision_context(self.state.precision, self.state.deepspeed_enabled):
             eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
             for _, metric in self.state.train_metrics.items():
                 self._original_model.update_metric(
@@ -2159,7 +2156,7 @@ class Trainer:
                                 microbatches, loss_dict, **kwargs).item())
                 else:
                     self._train_microbatches(microbatches, total_loss_dict)
-                    if not self.deepspeed_enabled:
+                    if not self.state.deepspeed_enabled:
                         for optimizer in self.state.optimizers:
                             if use_grad_scaling:
                                 self.state.scaler.step(optimizer)
@@ -2239,7 +2236,7 @@ class Trainer:
 
             use_grad_scaling = self._use_grad_scaling(self.state.precision, self.state.scaler)
 
-            if not self.deepspeed_enabled:
+            if not self.state.deepspeed_enabled:
                 for optimizer in self.state.optimizers:
                     try:
                         optimizer.zero_grad(set_to_none=True)
@@ -2291,7 +2288,7 @@ class Trainer:
         device_batch = deepcopy(self.state.batch)
 
         microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
-        if self.deepspeed_enabled or not isinstance(self.state.model, DistributedDataParallel):
+        if self.state.deepspeed_enabled or not isinstance(self.state.model, DistributedDataParallel):
             sync_context = contextlib.nullcontext()
         elif self.state.auto_microbatching and not self.first_batch_complete:
             # PyTorch DDP rebuilds gradient reduction buckets after 1) a forward pass where the
@@ -2315,7 +2312,7 @@ class Trainer:
             # Forward pass
             self.engine.run_event(Event.BEFORE_FORWARD)
 
-            with _get_precision_context(self.state.precision, self.deepspeed_enabled):
+            with _get_precision_context(self.state.precision, self.state.deepspeed_enabled):
                 self.state.outputs = self.state.model(self.state.batch)
 
             self.engine.run_event(Event.AFTER_FORWARD)
@@ -2337,7 +2334,7 @@ class Trainer:
             # Loss
             self.engine.run_event(Event.BEFORE_LOSS)
 
-            with _get_precision_context(self.state.precision, self.deepspeed_enabled):
+            with _get_precision_context(self.state.precision, self.state.deepspeed_enabled):
                 self.state.loss = self._original_model.loss(self.state.outputs, self.state.batch)
 
             assert self.state.loss is not None
@@ -2374,7 +2371,7 @@ class Trainer:
             if use_grad_scaling:
                 microbatch_loss = cast(torch.Tensor, self.state.scaler.scale(microbatch_loss))
 
-            if self.deepspeed_enabled:
+            if self.state.deepspeed_enabled:
                 self.state.deepspeed_model.backward(microbatch_loss)
 
             else:
@@ -2389,7 +2386,7 @@ class Trainer:
                 self.state.train_metrics = self._ensure_metrics_device_and_dtype(self.state.train_metrics)
                 self._eval_train_metrics(device_batch)
 
-        if self.deepspeed_enabled:
+        if self.state.deepspeed_enabled:
             self.state.deepspeed_model.step()
 
         return microbatch_loss_dict
@@ -2502,13 +2499,13 @@ class Trainer:
                 rank_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
 
                 # Fix the batch if using DeepSpeed
-                if self.deepspeed_enabled:
+                if self.state.deepspeed_enabled:
                     self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                 self.engine.run_event(Event.PREDICT_BATCH_START)
 
                 self.engine.run_event(Event.PREDICT_BEFORE_FORWARD)
-                with _get_precision_context(self.state.precision, self.deepspeed_enabled):
+                with _get_precision_context(self.state.precision, self.state.deepspeed_enabled):
                     self.state.outputs = self.state.model(self.state.batch)
                 self.engine.run_event(Event.PREDICT_AFTER_FORWARD)
 
@@ -2767,7 +2764,7 @@ class Trainer:
                     batch_num_samples = batch_num_samples_tensor.item()
                     last_batch = self.state.eval_timestamp.sample + batch_num_samples >= dataset_len
 
-                if self.deepspeed_enabled:
+                if self.state.deepspeed_enabled:
                     self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                 self.engine.run_event(Event.EVAL_BATCH_START)
@@ -2800,7 +2797,7 @@ class Trainer:
 
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
 
-                            with _get_precision_context(self.state.precision, self.deepspeed_enabled):
+                            with _get_precision_context(self.state.precision, self.state.deepspeed_enabled):
                                 self.state.outputs = self._original_model.eval_forward(self.state.batch)
 
                             self.engine.run_event(Event.EVAL_AFTER_FORWARD)
@@ -2811,7 +2808,7 @@ class Trainer:
                                 continue
 
                             # Run in same precision context to avoid NaNs
-                            with _get_precision_context(self.state.precision, self.deepspeed_enabled):
+                            with _get_precision_context(self.state.precision, self.state.deepspeed_enabled):
                                 if isinstance(self.state.device, DeviceMPS):
                                     # torchmetrics math has numerical errors on M1 devices
                                     # running the compute on CPU instead
@@ -2892,7 +2889,7 @@ class Trainer:
                 Occurs when attempting to use grad scaling without the scaler
                 enabled. Likely due to hardware not supporting the provided precision.
         """
-        if self.deepspeed_enabled:
+        if self.state.deepspeed_enabled:
             return False
 
         precision = Precision(precision)
@@ -2943,7 +2940,7 @@ class Trainer:
         We default to using closures unless AMP is enabled, in which case we only allow closures when using optimizers
         with the _step_supports_amp_closure flag.
         """
-        if self.deepspeed_enabled:
+        if self.state.deepspeed_enabled:
             return False
 
         if isinstance(self.state.device, DeviceTPU):
