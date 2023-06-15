@@ -255,10 +255,10 @@ def load_checkpoint(
                 dist.barrier()
         log.info('%s loaded from %s', 'Model weights' if load_weights_only else 'Trainer checkpoint', path)
     step_to_resume_from = state.timestamp.batch.value
-    max_step_to_resume_from = state.device.tensor_to_device(
-        torch.tensor(state.timestamp.batch.value, dtype=torch.int64))
-    min_step_to_resume_from = state.device.tensor_to_device(
-        torch.tensor(state.timestamp.batch.value, dtype=torch.int64))
+    max_step_to_resume_from = state.device.tensor_to_device(torch.tensor(state.timestamp.batch.value,
+                                                                         dtype=torch.int64))
+    min_step_to_resume_from = state.device.tensor_to_device(torch.tensor(state.timestamp.batch.value,
+                                                                         dtype=torch.int64))
     dist.all_reduce(max_step_to_resume_from, reduce_operation='MAX')
     dist.all_reduce(min_step_to_resume_from, reduce_operation='MIN')
     if max_step_to_resume_from.data != min_step_to_resume_from.data:
@@ -285,10 +285,11 @@ def load_sharded_checkpoint(
     ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
     exclude_algorithms: Optional[List[str]] = None,
     algorithm_passes: Optional[List[AlgorithmPass]] = None,
-) -> Dict:
+) -> List[Dict]:
 
     if not using_torch_2():
-        raise ValueError(f'Sharded checkpoint loading requires torch version >= 2.0.0. You have torch version {torch.__version__}')
+        raise ValueError(
+            f'Sharded checkpoint loading requires torch version >= 2.0.0. You have torch version {torch.__version__}')
 
     from torch.distributed import checkpoint as dist_cp
     from torch.distributed.checkpoint.metadata import Metadata
@@ -320,8 +321,8 @@ def load_sharded_checkpoint(
                 object_store.download_object(object_name=str(Path(source_path) / Path('.metadata')),
                                              filename=metadata_destination)
             dist.barrier()
-                
-            # FileSystemReader takes in a root directory in its constructor, which is the dir where 
+
+            # FileSystemReader takes in a root directory in its constructor, which is the dir where
             # the metadata is expected to be stored. Also, this is parent directory for any shard file relative paths
             # specified in the metadata file.
             super().__init__(destination_path)
@@ -345,17 +346,16 @@ def load_sharded_checkpoint(
 
             # 3. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
             return super().read_data(plan, planner)
-        
+
     # Check to make sure source_path is a directory.
     if object_store is None:
         if os.path.islink(source_path):
-            source_path = os.path.join(os.path.dirname(source_path), os.readlink(source_path)) 
+            source_path = os.path.join(os.path.dirname(source_path), os.readlink(source_path))
         if os.path.exists(source_path):
             if not os.path.isdir(source_path):
                 raise ValueError(f'load_path must be a directory when using sharded state dict. Got {source_path}')
         else:
             raise FileNotFoundError(f'{source_path} not found!')
-        
 
     download_dir_context = tempfile.TemporaryDirectory if object_store is not None else contextlib.nullcontext
 
@@ -363,9 +363,10 @@ def load_sharded_checkpoint(
         if object_store is not None:
             # Get the tempfile made on local rank 0.
             local_rank0_index = dist.get_global_rank() - dist.get_local_rank()
-            rank0_download_tempdir = dist.all_gather_object(temp_download_dir)[local_rank0_index]
+            rank0_download_tempdir = str(dist.all_gather_object(temp_download_dir)[local_rank0_index])
             storage_reader = DistCPObjectStoreReader(source_path=source_path,
-                                                     destination_path= str(Path(rank0_download_tempdir) / Path('checkpoints')),
+                                                     destination_path=str(
+                                                         Path(rank0_download_tempdir) / Path('checkpoints')),
                                                      object_store=object_store)
         else:
             storage_reader = dist_cp.FileSystemReader(source_path)
@@ -719,7 +720,7 @@ def save_checkpoint(
         # e.g. path/to/my/checkpoints/ep1-ba2/__1_0.distcp if torch >2 else its path/to/my/checkpoints/ep1-ba2/b2-rank1.pt
         ckpt_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME if using_torch_2() else format_name_with_dist_and_time(
             Path(filename).name, state.run_name, state.timestamp)
-        save_filename = Path(save_dirpath) / Path(ckpt_filename)
+        save_filename = str(Path(save_dirpath) / Path(ckpt_filename))
     else:
         save_filename = PartialFilePath(filename).format(state, is_deepspeed)
 

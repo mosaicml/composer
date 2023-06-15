@@ -406,7 +406,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 src_path = str(pathlib.Path(saved_path).parent)
             else:
                 src_path = saved_path
-            
+
             os.symlink(os.path.relpath(src_path, os.path.dirname(symlink)), symlink)
 
         # if remote file name provided, upload the checkpoint
@@ -419,9 +419,9 @@ class CheckpointSaver(Callback):  # noqa: D101
                 ).lstrip('/')
                 assert state.sharded_ckpt_prefix_dir is not None
                 remote_prefix = state.sharded_ckpt_prefix_dir
-                ckpt_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME if using_torch_2() else pathlib.Path(remote_file_name).name
-                remote_file_name = os.path.join(
-                    pathlib.Path(remote_file_name).parent, remote_prefix, ckpt_filename)
+                ckpt_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME if using_torch_2() else pathlib.Path(
+                    remote_file_name).name
+                remote_file_name = os.path.join(pathlib.Path(remote_file_name).parent, remote_prefix, ckpt_filename)
                 remote_file_name = format_name_with_dist_and_time(remote_file_name, state.run_name, state.timestamp)
                 # Upload metadata file.
                 # The metadata file contains info related to which shards are saved where.
@@ -458,13 +458,13 @@ class CheckpointSaver(Callback):  # noqa: D101
                         src_path = str(pathlib.Path(remote_file_name).parent)
                     else:
                         src_path = remote_file_name
-                    log.debug(f"Creating symlink file {symlink_filename} -> {src_path}")
+                    log.debug(f'Creating symlink file {symlink_filename} -> {src_path}')
                     create_symlink_file(src_path, symlink_filename)
                     logger.upload_file(
                         remote_file_name=symlink_name,
                         file_path=symlink_filename,
                         overwrite=True,
-                )
+                    )
 
         self.saved_checkpoints.append(saved_path)
 
