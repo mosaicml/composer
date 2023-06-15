@@ -201,7 +201,7 @@ def load_checkpoint(
         Optional[List[Dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
             :attr:`load_weights_only` is not None. Otherwise, None.
     """
-    if state.fsdp_sharded_state_dict_enabled and using_torch_2():
+    if state.fsdp_elastic_sharded_enabled:
         rng_state_dicts = load_sharded_checkpoint(
             source_path=path,
             state=state,
@@ -739,7 +739,7 @@ def save_checkpoint(
         _save_deepspeed_model(state.deepspeed_model, save_filename)
 
     # Sharded checkpointing for torch >=2.0 uses the torch.distributed.checkpoint module.
-    elif state.fsdp_sharded_state_dict_enabled and using_torch_2():
+    elif state.fsdp_elastic_sharded_enabled:
         import torch.distributed.checkpoint as dist_cp
         log.debug('Saving sharded checkpoints to %s...', save_filename)
         dist_cp.save_state_dict(state_dict=state_dict, storage_writer=dist_cp.FileSystemWriter(dirname))

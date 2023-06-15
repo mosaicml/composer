@@ -720,6 +720,10 @@ class State(Serializable):
             return False
         return (self.fsdp_enabled and self.fsdp_state_dict_type in ['sharded', 'local'])
 
+    @property
+    def fsdp_elastic_sharded_enabled(self):
+        return (self.fsdp_sharded_state_dict_enabled and using_torch_2())
+
     def _get_integrations_state_dict(self) -> Dict[str, Any]:
         """Gets a dictionary of information about integrations to store in the state dict.
 

@@ -25,6 +25,7 @@ from tests.common.markers import world_size
 from composer.utils.misc import using_torch_2
 from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_context
 import copy
+import uuid
 
 # This model is to be used explicitly for this unit test because some old reference checkpoints
 # were saved using it exactly as it is. Changing this model will break test_fsdp_load_old_checkpoint.
@@ -341,12 +342,12 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.parametrize('weights_only', [True, False]) #, True])
+@pytest.mark.parametrize('weights_only', [False, True])
 @pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
-@pytest.mark.parametrize('state_dict_type', ['sharded','local'])
+@pytest.mark.parametrize('state_dict_type', ['sharded', 'local'])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
-@pytest.mark.parametrize('use_remote', [False]) #pytest.param(True, marks=pytest.mark.remote), False])
-@pytest.mark.parametrize('autoresume', [True, False])  # True commented out for now
+@pytest.mark.parametrize('use_remote', [pytest.param(True, marks=pytest.mark.remote), False])
+@pytest.mark.parametrize('autoresume', [True, False])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
@@ -363,7 +364,9 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
             'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info'
         )
     if autoresume:
-        run_name = f"my-cool-autoresume-run-{request.node.name}"
+        local_run_name = f"my-cool-autoresume-run-{uuid.uuid1()}"
+        dist.initialize_dist('gpu')
+        run_name = dist.all_gather_object(local_run_name)[0]
     else:
         run_name = None
 

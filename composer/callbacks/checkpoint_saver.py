@@ -402,13 +402,12 @@ class CheckpointSaver(Callback):  # noqa: D101
             except FileNotFoundError:
                 pass
             # Sharded checkpoints for torch >2.0 use directories not files for load_paths
-            if state.fsdp_sharded_state_dict_enabled and using_torch_2():
+            if state.fsdp_elastic_sharded_enabled:
                 src_path = str(pathlib.Path(saved_path).parent)
             else:
                 src_path = saved_path
             
             os.symlink(os.path.relpath(src_path, os.path.dirname(symlink)), symlink)
-            # assert False, f"os.symlink(os.path.relpath({src_path}, {os.path.dirname(symlink)}, {symlink}"
 
         # if remote file name provided, upload the checkpoint
         if self.remote_file_name is not None:
@@ -454,12 +453,18 @@ class CheckpointSaver(Callback):  # noqa: D101
                 # create and upload a symlink file
                 with tempfile.TemporaryDirectory() as tmpdir:
                     symlink_filename = os.path.join(tmpdir, 'latest.symlink')
-                    create_symlink_file(remote_file_name, symlink_filename)
+                    # Sharded checkpoints for torch >2.0 use directories not files for load_paths
+                    if state.fsdp_elastic_sharded_enabled:
+                        src_path = str(pathlib.Path(remote_file_name).parent)
+                    else:
+                        src_path = remote_file_name
+                    log.debug(f"Creating symlink file {symlink_filename} -> {src_path}")
+                    create_symlink_file(src_path, symlink_filename)
                     logger.upload_file(
                         remote_file_name=symlink_name,
                         file_path=symlink_filename,
                         overwrite=True,
-                    )
+                )
 
         self.saved_checkpoints.append(saved_path)
 
