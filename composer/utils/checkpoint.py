@@ -444,21 +444,23 @@ def safe_torch_load(
             optimizer = None
             if dist.get_global_rank() == 0:
                 state_dict_list[0] = torch.load(composer_states_filepath, map_location=map_location)
-                model = state_dict_list[0]['state']['model']
-                optimizer = state_dict_list[0]['state']['optimizers']
-                del state_dict_list[0]['state']['model']
-                del state_dict_list[0]['state']['optimizers']
+                # Don't broadcast model/optimizer state if they exist
+                if 'model' in state_dict_list[0]['state']:
+                    model = state_dict_list[0]['state']['model']
+                    state_dict_list[0]['state']['model'] = None
+                if 'optimizers' in state_dict_list[0]['state']:
+                    state_dict_list[0]['state']['optimizers'] = None
+                    optimizer = state_dict_list[0]['state']['optimizers']
 
             log.debug('Broadcasting state_dict to all ranks.')
             dist.broadcast_object_list(state_dict_list, src=0)
             state_dict: Dict[str, Any] = state_dict_list[0]  # type: ignore
 
             if dist.get_global_rank() == 0:
-                state_dict['state']['model'] = model
-                state_dict['state']['optimizers'] = optimizer
-            else:
-                state_dict['state']['model'] = None  # Add dummy key to trigger `load_model_state`
-                state_dict['state']['optimizers'] = None  # Add dummy key to trigger `load_optim_state`
+                if model is not None:
+                    state_dict['state']['model'] = model
+                if optimizer is not None:
+                    state_dict['state']['optimizers'] = optimizer
 
             return state_dict
         else:
