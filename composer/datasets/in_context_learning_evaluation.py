@@ -243,7 +243,8 @@ class InContextLearningQATaskDataset(Dataset):
             'labels': answers,
             'generation_length': self.max_answer_length,
             'generation_kwargs': {
-                'pad_token_id': self.pad_tok_id
+                'pad_token_id': self.pad_tok_id,
+                'use_cache': True
             }
         }
 

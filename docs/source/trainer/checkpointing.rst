@@ -583,7 +583,7 @@ to the environment variables ``GCS_KEY`` and ``GCS_SECRET`` respectively or the 
 Saving and Loading Sharded Checkpoints
 --------------------------------------
 Using `FSDP <https://pytorch.org/docs/stable/fsdp.html>`__, you can save and load sharded checkpoints with Composer.
-See `these docs </notes/distributed_training.html#saving-and-loading-sharded-checkpoints-with-fsdp>`_ for more info and some examples.
+See `these docs <../notes/distributed_training.html#saving-and-loading-sharded-checkpoints-with-fsdp>`_ for more info and some examples.
 
 
 API Reference

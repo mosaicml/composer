@@ -115,6 +115,18 @@ def s3_bucket(request: pytest.FixtureRequest):
         return _get_option(request.config, 's3_bucket')
 
 
+@pytest.fixture
+def s3_ephemeral_prefix():
+    '''Objects under this prefix purged according to the bucket's lifecycle policy.'''
+    return 'ephemeral'
+
+
+@pytest.fixture
+def s3_read_only_prefix():
+    '''Tests can only read from this prefix, but it won't ever be purged.'''
+    return 'read_only'
+
+
 # Note: These session scoped fixtures should not be used directly in tests, but the non session scoped fixtures
 # below should be used instead. This is because the session scoped fixtures return the same object to every
 # test that requests it, so tests would have side effects on each other. Instead, the non session
@@ -155,6 +167,45 @@ def tiny_bert_config_helper():
 @pytest.fixture(scope='session')
 def _session_tiny_bert_config():  # type: ignore
     return tiny_bert_config_helper()
+
+
+def tiny_deberta_model_helper(config):
+    transformers = pytest.importorskip('transformers')
+
+    return transformers.AutoModelForMaskedLM.from_config(config)  # type: ignore (thirdparty)
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_deberta_model(_session_tiny_deberta_config):  # type: ignore
+    return tiny_deberta_model_helper(_session_tiny_deberta_config)
+
+
+def tiny_deberta_tokenizer_helper():
+    transformers = pytest.importorskip('transformers')
+
+    return transformers.AutoTokenizer.from_pretrained('microsoft/deberta-base')
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_deberta_tokenizer():  # type: ignore
+    return tiny_deberta_tokenizer_helper()
+
+
+def tiny_deberta_config_helper():
+    transformers = pytest.importorskip('transformers')
+    tiny_overrides = {
+        'hidden_size': 128,
+        'pooler_hidden_size': 128,
+        'num_attention_heads': 2,
+        'num_hidden_layers': 2,
+        'intermediate_size': 512,
+    }
+    return transformers.AutoConfig.from_pretrained('microsoft/deberta-base', **tiny_overrides)
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_deberta_config():  # type: ignore
+    return tiny_deberta_config_helper()
 
 
 def tiny_gpt2_model_helper(config):
@@ -246,6 +297,21 @@ def tiny_bert_tokenizer(_session_tiny_bert_tokenizer):
 @pytest.fixture
 def tiny_bert_config(_session_tiny_bert_config):
     return copy.deepcopy(_session_tiny_bert_config)
+
+
+@pytest.fixture
+def tiny_deberta_model(_session_tiny_deberta_model):
+    return copy.deepcopy(_session_tiny_deberta_model)
+
+
+@pytest.fixture
+def tiny_deberta_tokenizer(_session_tiny_deberta_tokenizer):
+    return copy.deepcopy(_session_tiny_deberta_tokenizer)
+
+
+@pytest.fixture
+def tiny_deberta_config(_session_tiny_deberta_config):
+    return copy.deepcopy(_session_tiny_deberta_config)
 
 
 @pytest.fixture

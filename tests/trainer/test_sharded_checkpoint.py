@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 
 from composer.algorithms import EMA
 from composer.models import ComposerClassifier
+from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
 from composer.utils import dist
 from composer.utils.file_helpers import get_file
@@ -33,27 +34,31 @@ class SimpleMLP(ComposerClassifier):
         super().__init__(module=net, num_classes=num_classes)
 
 
-def get_trainer(
-    save_folder=None,
-    save_filename='ba{batch}-rank{rank}.pt',
-    save_overwrite=False,
-    num_features=2,
-    num_classes=2,
-    fsdp_state_dict_type='full',
-    fsdp_sharded_ckpt_prefix_dir='ba{batch}',
-    load_path=None,
-    autoresume=False,
-    run_name=None,
-    max_duration='2ba',
-    precision='amp_fp16',
-    sharding_strategy='FULL_SHARD',
-    save_interval='2ba',
-    algorithms=None,
-):
+def get_trainer(save_folder=None,
+                save_filename='ba{batch}-rank{rank}.pt',
+                save_overwrite=False,
+                num_features=2,
+                num_classes=2,
+                fsdp_state_dict_type='full',
+                fsdp_sharded_ckpt_prefix_dir='ba{batch}',
+                load_path=None,
+                autoresume=False,
+                run_name=None,
+                max_duration='2ba',
+                precision='amp_fp16',
+                sharding_strategy='FULL_SHARD',
+                save_interval='2ba',
+                algorithms=None,
+                optimizer='adam'):
     model = SimpleMLP(num_features=num_features, num_classes=num_classes)
     dataset = RandomClassificationDataset(shape=(num_features,), size=128)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=8)
-    optim = torch.optim.Adam(params=model.parameters())
+    if optimizer == 'adam':
+        optim = torch.optim.Adam(params=model.parameters())
+    elif optimizer == 'adamw':
+        optim = DecoupledAdamW(model.parameters())
+    else:
+        raise ValueError(f'Unsupported optimizer name {optimizer}')
     trainer = Trainer(
         algorithms=algorithms,
         model=model,
@@ -83,8 +88,13 @@ def get_trainer(
 
 def _compare_optims_between_state_dicts(state_dict1, state_dict2):
     # Check that optim params are equal between checkpoint and in memory optimizer
-    state_dict1_optim_params = state_dict1['optimizers']['Adam']['state']
-    state_dict2_optim_params = state_dict2['optimizers']['Adam']['state']
+    assert len(list(state_dict1['optimizers'].keys())) == 1
+    assert len(list(state_dict2['optimizers'].keys())) == 1
+    optim_key1 = list(state_dict1['optimizers'].keys()).pop()
+    optim_key2 = list(state_dict2['optimizers'].keys()).pop()
+    assert optim_key1 == optim_key2
+    state_dict1_optim_params = state_dict1['optimizers'][optim_key1]['state']
+    state_dict2_optim_params = state_dict2['optimizers'][optim_key2]['state']
     state_dict1_keys = set(state_dict1_optim_params.keys())
     state_dict2_keys = set(state_dict2_optim_params.keys())
     assert len(state_dict1_keys.symmetric_difference(state_dict2_keys)) == 0, textwrap.dedent(
@@ -96,8 +106,8 @@ def _compare_optims_between_state_dicts(state_dict1, state_dict2):
         state_dict1_param_moment_dict = state_dict1_optim_params[param_name]
         state_dict2_param_moment_dict = state_dict2_optim_params[param_name]
         for moment_name in state_dict2_param_moment_dict.keys():
-            state_dict1_moment = state_dict1_param_moment_dict[moment_name]
-            state_dict2_moment = state_dict2_param_moment_dict[moment_name]
+            state_dict1_moment = state_dict1_param_moment_dict[moment_name].cpu()
+            state_dict2_moment = state_dict2_param_moment_dict[moment_name].cpu()
             assert torch.equal(
                 state_dict1_moment,
                 state_dict2_moment), f'Moment {moment_name} for parameter {param_name} not the same between state dicts'
@@ -136,11 +146,13 @@ def _compare_metrics_between_state_dicts(state_dict1, state_dict2):
 
 @pytest.mark.gpu
 @world_size(2)
+@pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
 @pytest.mark.parametrize('autoresume', [True, False])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
-def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresume: bool, precision: str):
+def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresume: bool, precision: str,
+                                   optimizer: str):
     if autoresume:
         run_name = 'my-cool-autoresume-run'
     else:
@@ -154,6 +166,7 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
         run_name=run_name,
         precision=precision,
         autoresume=autoresume,
+        optimizer=optimizer,
     )
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
@@ -168,6 +181,7 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
         precision=precision,
         autoresume=autoresume,
         max_duration='4ba',
+        optimizer=optimizer,
     )
     state_dict_from_trainer2 = trainer2.state.state_dict()
 
@@ -178,6 +192,7 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
 
     # Continue to fit to make sure we can continue training.
     trainer2.fit()
+    trainer2.close()
 
 
 @pytest.mark.gpu
@@ -186,16 +201,24 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.parametrize('sharding_strategy', ['FULL_SHARD', 'SHARD_GRAD_OP'])
 @pytest.mark.parametrize('state_dict_type', ['full', 'sharded', 'local'])
+@pytest.mark.parametrize('composer_version', [
+    pytest.param(
+        '0.13.5',
+        marks=pytest.mark.filterwarnings(
+            r'ignore:ShardedGradScaler is not in the state_dict. Its state will not be restored.:UserWarning')),
+    '0.14.0', '0.14.1'
+])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision: str, sharding_strategy: str,
-                                  state_dict_type: str, s3_bucket: str):
+                                  state_dict_type: str, s3_bucket: str, s3_read_only_prefix: str,
+                                  composer_version: str):
     if version.parse(torch.__version__) >= version.parse('2.0.0') and state_dict_type == 'local':
         pytest.xfail(
             'Loading a torch 1.13 checkpoint with torch 2.0 for state_dict_type local is not backwards compatible')
 
     rank = 0 if state_dict_type == 'full' else '{rank}'
-    load_path = f's3://{s3_bucket}/backwards_compatibility/{sharding_strategy.lower()}_{state_dict_type}_{precision}/rank{rank}.pt'
+    load_path = f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_{precision}/ba2_rank{rank}.pt'
 
     trainer2 = get_trainer(
         fsdp_state_dict_type=state_dict_type,
@@ -220,14 +243,16 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
 
     # Continue to fit to make sure we can continue training.
     trainer2.fit()
+    trainer2.close()
 
 
 @pytest.mark.gpu
 @world_size(2)
+@pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
-def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, precision: str):
+def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, precision: str, optimizer: str):
     save_folder = tmp_path
     save_filename = 'ba{batch}-rank{rank}.pt'
     trainer1 = get_trainer(
@@ -238,6 +263,7 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
         algorithms=EMA(smoothing=0.9999, half_life=None, update_interval='1ba'),
         save_interval='1ba',
         max_duration='5ba',
+        optimizer=optimizer,
     )
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
@@ -253,6 +279,7 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
         algorithms=EMA(smoothing=0.9999, half_life=None, update_interval='1ba'),
         save_interval='1ba',
         save_overwrite=True,
+        optimizer=optimizer,
     )
     trainer2.fit(duration='1ba')
     state_dict_from_trainer2 = trainer2.state.state_dict()
@@ -261,16 +288,19 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
         _compare_model_params_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
         _compare_optims_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
 
+    trainer2.close()
+
 
 @pytest.mark.gpu
 @world_size(2)
+@pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
 @pytest.mark.parametrize('state_dict_type', ['local', 'sharded'])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.parametrize('autoresume', [True, False])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool,
-                                          precision: str):
+                                          precision: str, optimizer: str):
     if autoresume:
         run_name = 'my-autoresume-run'
     else:
@@ -284,6 +314,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
         run_name=run_name,
         precision=precision,
         autoresume=autoresume,
+        optimizer=optimizer,
     )
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
@@ -298,6 +329,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
         autoresume=autoresume,
         run_name=run_name,
         max_duration='4ba',
+        optimizer=optimizer,
     )
     state_dict_from_trainer2 = trainer2.state.state_dict()
 
@@ -307,6 +339,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
     _compare_metrics_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
 
     trainer2.fit()
+    trainer2.close()
 
 
 @pytest.mark.gpu
@@ -388,3 +421,4 @@ def test_sharded_folder(world_size, use_remote, tmp_path: pathlib.Path, state_di
         max_duration='2ba',
     )
     trainer2.fit()
+    trainer2.close()

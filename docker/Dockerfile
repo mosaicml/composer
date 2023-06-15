@@ -231,6 +231,7 @@ ARG AWS_OFI_NCCL_VERSION
 
 ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:$LD_LIBRARY_PATH
 ENV PATH=/opt/amazon/openmpi/bin/:/opt/amazon/efa/bin:$PATH
+ENV FI_EFA_USE_DEVICE_RDMA=1
 
 RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
         cd /tmp && \
@@ -394,7 +395,7 @@ RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_
         "mmcv-full${MMCV_VERSION}" \
         -f https://download.openmmlab.com/mmcv/dist/${CUDA_VERSION_TAG}/${MMCV_TORCH_VERSION}/index.html && \
     if [ -n "$CUDA_VERSION" ] ; then \
-        sudo pip${PYTHON_VERSION} install --no-cache-dir cupy-`echo ${CUDA_VERSION_TAG} | sed "s/cu/cuda/g"`${CUPY_VERSION}; \
+        sudo pip${PYTHON_VERSION} install --no-cache-dir cupy-cuda11x${CUPY_VERSION}; \
     fi
 
 

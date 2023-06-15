@@ -395,7 +395,7 @@ class TestCheckpointLoading:
         except AssertionError:
             return False
 
-    def get_trainer(self, model=None, max_duration='2ep', **kwargs):
+    def get_trainer(self, model=None, max_duration='2ep', latest_filename='latest-rank{rank}.pt', **kwargs):
         if model is None:
             model = SimpleConvModel()
         optimizer = torch.optim.Adam(model.parameters())
@@ -422,6 +422,7 @@ class TestCheckpointLoading:
             eval_subset_num_batches=1,
             save_interval='1ep',
             eval_interval='1ep',
+            save_latest_filename=latest_filename,
             save_filename='ep{epoch}.pt',
             max_duration=max_duration,
             optimizers=optimizer,
@@ -555,7 +556,8 @@ class TestCheckpointLoading:
     @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                         reason='requires PyTorch 1.13 or higher')
     def test_load_remote_checkpoint(self, device, tmp_path: pathlib.Path, load_weights_only, remote_checkpoint_uri,
-                                    remote_checkpoint_name, continue_training_dur, final_checkpoint_name, s3_bucket):
+                                    remote_checkpoint_name, continue_training_dur, final_checkpoint_name, s3_bucket,
+                                    s3_read_only_prefix):
         """
         This test checks if our checkpointing is backwards compatible.
         We should be able to load in a saved checkpoint and continue training.
@@ -570,7 +572,7 @@ class TestCheckpointLoading:
         trainer_2 = self.get_trainer(
             max_duration=continue_training_dur,
             save_folder='second',
-            load_path=f's3://{s3_bucket}/{remote_checkpoint_uri}',
+            load_path=f's3://{s3_bucket}/{s3_read_only_prefix}/{remote_checkpoint_uri}',
             load_weights_only=load_weights_only,
             load_strict_model_weights=load_weights_only,
             device=device,
@@ -653,18 +655,24 @@ class TestCheckpointLoading:
     @device('cpu', 'gpu')
     @pytest.mark.parametrize('use_object_store', [True, False])
     @pytest.mark.parametrize('delete_local', [True, False])
+    @pytest.mark.parametrize('test_slashed', [True, False])
     def test_autoresume(self, device: str, tmp_path: pathlib.Path, use_object_store: bool, delete_local: bool,
-                        world_size: int):
+                        test_slashed: bool, world_size: int):
         if delete_local and not use_object_store:
             pytest.skip('Invalid test setting.')
 
         if use_object_store:
             pytest.importorskip('libcloud')
 
+        latest_filename = 'latest-rank{rank}.pt'
+        if test_slashed:
+            latest_filename = 'testdir/' + latest_filename
         trainer_1 = self.get_trainer(
+            latest_filename=latest_filename,
             save_folder='first',
             device=device,
             run_name='big-chungus',
+            autoresume=True,
             loggers=[self.get_logger(tmp_path)] if use_object_store else [],
         )
 
@@ -677,6 +685,7 @@ class TestCheckpointLoading:
             shutil.rmtree('first')
 
         trainer_2 = self.get_trainer(
+            latest_filename=latest_filename,
             save_folder='first',
             device=device,
             run_name='big-chungus',
@@ -906,6 +915,39 @@ class TestCheckpointResumption:
             save_folder / 'second' / final_checkpoint,
         )
 
+    @pytest.mark.parametrize('spin_dataloaders', [False, True])
+    def test_spin_dataloaders(
+        self,
+        spin_dataloaders: bool,
+        tmp_path: pathlib.Path,
+    ):
+        save_folder = tmp_path
+        trainer_1 = self.get_trainer(
+            save_folder=os.path.join(save_folder, 'first'),
+            save_filename='ep{epoch}-rank{rank}.pt',
+            save_interval='1ep',
+        )
+
+        trainer_1.fit()
+        trainer_1.close()
+
+        resume_file = os.path.join(save_folder, 'first', 'ep1-rank0.pt')
+        trainer_2 = self.get_trainer(
+            save_folder=os.path.join(save_folder, 'second'),
+            save_filename='ep{epoch}-rank{rank}.pt',
+            save_interval='1ep',
+            load_path=resume_file,  # <-- resume training from file
+            spin_dataloaders=spin_dataloaders,
+        )
+        trainer_2.fit()
+        trainer_2.close()
+
+        with contextlib.nullcontext() if spin_dataloaders else pytest.raises(AssertionError):
+            _assert_checkpoints_equivalent(
+                save_folder / 'first' / 'latest-rank{rank}.pt',
+                save_folder / 'second' / 'latest-rank{rank}.pt',
+            )
+
     def _assert_expected_num_checkpoints(
         self,
         save_folder: str,
@@ -933,6 +975,7 @@ class TestCheckpointResumption:
     pytest.param(1),
     pytest.param(2, marks=pytest.mark.world_size(2)),
 ])
+@pytest.mark.parametrize('num_keep', list(range(-1, 5)))
 @pytest.mark.parametrize('device,deepspeed_enabled,zero_stage', [
     pytest.param('cpu', False, None, id='cpu-ddp'),
     pytest.param('gpu', False, None, id='gpu-ddp', marks=pytest.mark.gpu),
@@ -945,10 +988,9 @@ def test_rotate_checkpoints(
     device,
     deepspeed_enabled,
     zero_stage,
+    num_keep,
     tmp_path: pathlib.Path,
 ):
-    num_keep = 5
-
     # all ranks use rank 0 folder
     tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
     save_folder = tmp_paths[0]
@@ -979,9 +1021,13 @@ def test_rotate_checkpoints(
     dist.barrier()  # ensure all checkpoints rotated across ranks
 
     # deepspeed saves 1 file per rank
+    total_checkpoints = 10
+    num_keep = num_keep if num_keep >= 0 else total_checkpoints
     expected_num = num_keep if not deepspeed_enabled else num_keep * world_size
 
     files = glob(os.path.join(save_folder, 'checkpoint_*'))
+    symlink_files = glob(os.path.join(save_folder, 'latest-rank*'))
     assert len(files) == expected_num
+    assert len(symlink_files) == ((1 if not deepspeed_enabled else world_size) if num_keep != 0 else 0)
 
     dist.barrier()  # all ranks finish before cleaning up tmpdir

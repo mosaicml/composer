@@ -140,12 +140,129 @@ class HuggingFaceModel(ComposerModel):
         self.dummy_forward_called = False
 
     @staticmethod
+    def load_huggingface_tokenizer_from_saved_state(
+            hf_state: Dict[str, Any]) -> Optional[transformers.PreTrainedTokenizer]:
+        """A helper function that loads a HuggingFace tokenizer from a loaded in hf state.
+
+        Args:
+            hf_state (Dict[str, Any]): HF state loaded from a Composer checkpoint.
+
+        Returns:
+            Optional[transformers.PreTrainedTokenizer]: The loaded HuggingFace tokenizer
+        """
+        try:
+            import transformers
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='nlp',
+                                                conda_package='transformers',
+                                                conda_channel='conda-forge') from e
+        hf_tokenizer = None
+        hf_tokenizer_state = hf_state['tokenizer']
+        if hf_tokenizer_state != {}:
+            with tempfile.TemporaryDirectory() as _tmp_dir:
+                for filename, saved_content in hf_tokenizer_state.items():
+                    tokenizer_file_path = Path(_tmp_dir) / f'{filename}{saved_content["file_extension"]}'
+                    if saved_content['file_extension'] == '.json':
+                        with open(tokenizer_file_path, 'w') as _tmp_file:
+                            json.dump(saved_content['content'], _tmp_file)
+                    elif saved_content['file_extension'] == '.txt':
+                        with open(tokenizer_file_path, 'w') as _tmp_file:
+                            for line in saved_content['content']:
+                                _tmp_file.write(line)
+                                _tmp_file.write('\n')
+                    elif saved_content['file_extension'] == '.model':
+                        try:
+                            import sentencepiece as spm
+                        except ImportError as e:
+                            raise MissingConditionalImportError(extra_deps_group='sentencepiece',
+                                                                conda_package='sentencepiece') from e
+                        s = spm.SentencePieceProcessor()
+                        s.load_from_serialized_proto(saved_content['content'])
+                        with open(tokenizer_file_path, 'wb') as _tmp_file:
+                            _tmp_file.write(s.serialized_model_proto())
+                hf_tokenizer = transformers.AutoTokenizer.from_pretrained(_tmp_dir, trust_remote_code=True)
+
+                # we need to set the name_or_path back because otherwise it is the tmp dir we are loading from here
+                hf_tokenizer.name_or_path = hf_tokenizer_state['tokenizer_config']['content'].get('name_or_path', '')
+                hf_tokenizer.init_kwargs['name_or_path'] = hf_tokenizer.name_or_path
+
+                # for an unknown reason this key is missing when loading the saved tokenizer, but present with a value of None
+                # for the original tokenizer, so we default it to None
+                hf_tokenizer.init_kwargs['tokenizer_file'] = hf_tokenizer.init_kwargs.get('tokenizer_file', None)
+        return hf_tokenizer
+
+    @staticmethod
+    def load_huggingface_model_from_saved_state(
+            hf_state: Dict[str, Any], loaded_state_dict: Dict[str, Dict[str, Dict[str, Dict[str, Any]]]],
+            model_instantiation_class: type | str | None,
+            model_config_kwargs: Dict[str, Any] | None) -> transformers.PreTrainedModel:
+        """A helper function that loads a HuggingFace model class from a loaded in hf state.
+
+        Args:
+            hf_state (Dict[str, Any]): HF state loaded from a Composer checkpoint.
+            model_instantiation_class (Union[Type[:class:`transformers.PreTrainedModel`], Type[:class:`transformers.AutoModel`], str]), optional):
+                Class to use to create the HuggingFace model. Defaults to the model class used in the original checkpoint. If this argument is
+                a HuggingFace auto class (e.g. :class:`transformers.AutoModel` or :class:`transformers.AutoModelForSequenceClassification`), the ``from_config`` method will be used,
+                while if it is of type :class:`transformers.PreTrainedModel`, the constructor will be called. This argument can also be a string,
+                which will attempt to be imported as the class to use.
+            model_config_kwargs: Dict[str, Any]: Extra arguments to pass in for the model config creation (e.g. ``num_labels`` for creating a sequence classification model)
+        Returns:
+            transformers.PreTrainedModel: The loaded HuggingFace model
+        """
+        try:
+            import transformers
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='nlp',
+                                                conda_package='transformers',
+                                                conda_channel='conda-forge') from e
+        loaded_config = get_hf_config_from_composer_state_dict(loaded_state_dict, config_overrides=model_config_kwargs)
+
+        hf_model_state = hf_state['model']
+        if model_instantiation_class is not None:
+            # If the instantiation class is explicitly provided, use it
+            # If a string is provided, attempt to import the class it refers to
+            if isinstance(model_instantiation_class, str):
+                try:
+                    model_instantiation_class = import_object(':'.join(model_instantiation_class.rsplit('.',
+                                                                                                        maxsplit=1)))
+                except (ModuleNotFoundError, AttributeError):
+                    raise ValueError(
+                        textwrap.dedent(
+                            f'The provided model_instantiation_class string {model_instantiation_class} could not be imported. '
+                            f'Please make sure {model_instantiation_class} is discoverable on the python path, or pass the class '
+                            'in directly.'))
+
+            assert model_instantiation_class is not None  # pyright
+            # The AutoModel* classes have `from_config`, while the PreTrainedModel classes do not
+            # pyright can't tell this isn't a string at this point
+            if issubclass(
+                    model_instantiation_class,  # type: ignore
+                    transformers.models.auto.auto_factory._BaseAutoModelClass):
+                hf_model = model_instantiation_class.from_config(loaded_config)  # type: ignore
+            else:
+                hf_model = model_instantiation_class(loaded_config)  # type: ignore
+        else:
+            # If the instantiation class is not explicitly provided, attempt to import the saved class and use it
+            try:
+                saved_class = import_object(':'.join(hf_model_state['config']['class'].rsplit('.', maxsplit=1)))
+            except (ModuleNotFoundError, AttributeError):
+                raise ValueError(
+                    textwrap.dedent(
+                        f'The saved class {hf_model_state["config"]["class"]} could not be imported. '
+                        'Please either pass in the class to use explicitly via the model_instantiation_class '
+                        f'parameter, or make sure that {hf_model_state["config"]["class"]} is discoverable '
+                        'on the python path.'))
+            hf_model = saved_class(loaded_config)
+        return hf_model
+
+    @staticmethod
     def hf_from_composer_checkpoint(
         checkpoint_path: str,
         model_instantiation_class: Optional[Union[Type[transformers.PreTrainedModel], Type['_BaseAutoModelClass'],
                                                   str]] = None,
         model_config_kwargs: Optional[dict] = None,
-        local_checkpoint_save_location: Optional[Union[Path, str]] = None
+        local_checkpoint_save_location: Optional[Union[Path, str]] = None,
+        trust_remote_code: bool = False,
     ) -> Tuple[transformers.PreTrainedModel, Optional[transformers.PreTrainedTokenizer]]:
         """Loads a HuggingFace model (and tokenizer if present) from a composer checkpoint.
 
@@ -202,6 +319,7 @@ class HuggingFaceModel(ComposerModel):
             local_checkpoint_save_location (Optional[Union[Path, str]], optional): If specified, where to save the checkpoint file to locally.
                                                                                    If the input ``checkpoint_path`` is already a local path, this will be a symlink.
                                                                                    Defaults to None, which will use a temporary file.
+            trust_remote_code (bool, optional): Whether to trust the remote code when loading the tokenizer. Defaults to False.
 
         Raises:
             ValueError: If the ``model_instantiation_class``, or the model class saved in the checkpoint, is not able to be imported
@@ -209,12 +327,6 @@ class HuggingFaceModel(ComposerModel):
         Returns:
             Tuple[transformers.PreTrainedModel, Optional[transformers.PreTrainedTokenizer]]: The loaded HuggingFace model and (if present) tokenizer
         """
-        try:
-            import transformers
-        except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='nlp',
-                                                conda_package='transformers',
-                                                conda_channel='conda-forge') from e
 
         # default local path to a tempfile if path is not provided
         if local_checkpoint_save_location is None:
@@ -231,79 +343,10 @@ class HuggingFaceModel(ComposerModel):
         loaded_state_dict = safe_torch_load(local_checkpoint_save_location)
 
         hf_state = loaded_state_dict['state']['integrations']['huggingface']
-        hf_model_state = hf_state['model']
-        hf_tokenizer_state = hf_state['tokenizer']
-
-        loaded_config = get_hf_config_from_composer_state_dict(loaded_state_dict, config_overrides=model_config_kwargs)
-
-        if model_instantiation_class is not None:
-            # If the instantiation class is explicitly provided, use it
-            # If a string is provided, attempt to import the class it refers to
-            if isinstance(model_instantiation_class, str):
-                try:
-                    model_instantiation_class = import_object(':'.join(model_instantiation_class.rsplit('.',
-                                                                                                        maxsplit=1)))
-                except (ModuleNotFoundError, AttributeError):
-                    raise ValueError(
-                        textwrap.dedent(
-                            f'The provided model_instantiation_class string {model_instantiation_class} could not be imported. '
-                            f'Please make sure {model_instantiation_class} is discoverable on the python path, or pass the class '
-                            'in directly.'))
-
-            assert model_instantiation_class is not None  # pyright
-            # The AutoModel* classes have `from_config`, while the PreTrainedModel classes do not
-            # pyright can't tell this isn't a string at this point
-            if issubclass(
-                    model_instantiation_class,  # type: ignore
-                    transformers.models.auto.auto_factory._BaseAutoModelClass):
-                hf_model = model_instantiation_class.from_config(loaded_config)  # type: ignore
-            else:
-                hf_model = model_instantiation_class(loaded_config)  # type: ignore
-        else:
-            # If the instantiation class is not explicitly provided, attempt to import the saved class and use it
-            try:
-                saved_class = import_object(':'.join(hf_model_state['config']['class'].rsplit('.', maxsplit=1)))
-            except (ModuleNotFoundError, AttributeError):
-                raise ValueError(
-                    textwrap.dedent(
-                        f'The saved class {hf_model_state["config"]["class"]} could not be imported. '
-                        'Please either pass in the class to use explicitly via the model_instantiation_class '
-                        f'parameter, or make sure that {hf_model_state["config"]["class"]} is discoverable '
-                        'on the python path.'))
-            hf_model = saved_class(loaded_config)
-
-        hf_tokenizer = None
-        if hf_tokenizer_state != {}:
-            with tempfile.TemporaryDirectory() as _tmp_dir:
-                for filename, saved_content in hf_tokenizer_state.items():
-                    tokenizer_file_path = Path(_tmp_dir) / f'{filename}{saved_content["file_extension"]}'
-                    if saved_content['file_extension'] == '.json':
-                        with open(tokenizer_file_path, 'w') as _tmp_file:
-                            json.dump(saved_content['content'], _tmp_file)
-                    elif saved_content['file_extension'] == '.txt':
-                        with open(tokenizer_file_path, 'w') as _tmp_file:
-                            for line in saved_content['content']:
-                                _tmp_file.write(line)
-                                _tmp_file.write('\n')
-                    elif saved_content['file_extension'] == '.model':
-                        try:
-                            import sentencepiece as spm
-                        except ImportError as e:
-                            raise MissingConditionalImportError(extra_deps_group='sentencepiece',
-                                                                conda_package='sentencepiece') from e
-                        s = spm.SentencePieceProcessor()
-                        s.load_from_serialized_proto(saved_content['content'])
-                        with open(tokenizer_file_path, 'wb') as _tmp_file:
-                            _tmp_file.write(s.serialized_model_proto())
-                hf_tokenizer = transformers.AutoTokenizer.from_pretrained(_tmp_dir)
-
-                # we need to set the name_or_path back because otherwise it is the tmp dir we are loading from here
-                hf_tokenizer.name_or_path = hf_tokenizer_state['tokenizer_config']['content'].get('name_or_path', '')
-                hf_tokenizer.init_kwargs['name_or_path'] = hf_tokenizer.name_or_path
-
-                # for an unknown reason this key is missing when loading the saved tokenizer, but present with a value of None
-                # for the original tokenizer, so we default it to None
-                hf_tokenizer.init_kwargs['tokenizer_file'] = hf_tokenizer.init_kwargs.get('tokenizer_file', None)
+        hf_tokenizer = HuggingFaceModel.load_huggingface_tokenizer_from_saved_state(hf_state)
+        hf_model = HuggingFaceModel.load_huggingface_model_from_saved_state(hf_state, loaded_state_dict,
+                                                                            model_instantiation_class,
+                                                                            model_config_kwargs)
 
         return hf_model, hf_tokenizer
 
@@ -372,7 +415,7 @@ class HuggingFaceModel(ComposerModel):
                 output = output[1] if len(output[0].shape) == 0 else output[0]
 
             # if we are in the single class case, then remove the classes dimension
-            if output.shape[1] == 1:
+            if output.ndim == 2 and output.shape[1] == 1:
                 output = output.squeeze(dim=1)
         else:
             output = outputs if outputs else self.forward(batch)
@@ -424,6 +467,9 @@ class HuggingFaceModel(ComposerModel):
                     elif tokenizer_file_extension == '.json':
                         with open(tokenizer_file_path) as _tokenizer_file:
                             tokenizer_file_content = json.load(_tokenizer_file)
+                    elif tokenizer_file_extension == '.py':
+                        with open(tokenizer_file_path) as _tokenizer_file:
+                            tokenizer_file_content = _tokenizer_file.read()
                     elif tokenizer_file_extension == '.model':
                         try:
                             import sentencepiece as spm
@@ -604,6 +650,12 @@ def write_huggingface_pretrained_from_composer_checkpoint(
     get_file(str(checkpoint_path), str(local_checkpoint_save_location))
 
     composer_state_dict = safe_torch_load(local_checkpoint_save_location)
+
+    # load tokenizer
+    hf_state = composer_state_dict['state']['integrations']['huggingface']
+    hf_tokenizer = HuggingFaceModel.load_huggingface_tokenizer_from_saved_state(hf_state)
+    assert hf_tokenizer is not None
+    hf_tokenizer.save_pretrained(output_folder)
 
     config = get_hf_config_from_composer_state_dict(composer_state_dict)
     config.save_pretrained(output_folder)
