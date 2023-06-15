@@ -540,7 +540,8 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
                         'choices'], self.samples[fewshot_idx]['gold']
                     if len(preamble) > 0:
                         query = f'{example_delimiter}{query}'
-                    preamble += f'{query}{continuation_delimiter}{choices[gold_idx]}'  # pyright: ignore [reportGeneralTypeIssues]
+                    assert isinstance(gold_idx, int)
+                    preamble += f'{query}{continuation_delimiter}{choices[gold_idx]}'
             encoded_example = {}
             query, choices, gold_idx = self.samples[sample_idx]['query'], self.samples[sample_idx][
                 'choices'], self.samples[sample_idx]['gold'],
@@ -760,7 +761,8 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
                 for fewshot_idx in fewshot_idxs:
                     context_options, continuation, gold_idx = self.samples[fewshot_idx][
                         'context_options'], self.samples[fewshot_idx]['continuation'], self.samples[fewshot_idx]['gold']
-                    context = context_options[gold_idx]  # pyright: ignore [reportGeneralTypeIssues]
+                    assert isinstance(gold_idx, int)
+                    context = context_options[gold_idx]
                     if len(preamble) > 0:
                         context = f'{example_delimiter}{context}'
                     preamble += f'{context}{continuation_delimiter}{continuation}'
