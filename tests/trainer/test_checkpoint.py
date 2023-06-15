@@ -970,7 +970,7 @@ class TestCheckpointResumption:
             device=device,
             precision='amp_fp16',
             max_duration='1ep',
-            train_subset_num_batches=1,
+            train_subset_num_batches=2,
         )
 
         trainer_1.fit()
