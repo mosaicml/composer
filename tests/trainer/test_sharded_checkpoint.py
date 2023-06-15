@@ -365,7 +365,6 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
         )
     if autoresume:
         local_run_name = f"my-cool-autoresume-run-{uuid.uuid1()}"
-        dist.initialize_dist('gpu')
         run_name = dist.all_gather_object(local_run_name)[0]
     else:
         run_name = None
@@ -435,7 +434,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
 @world_size(2)
 @pytest.mark.parametrize('state_dict_type', ['sharded'])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
-@pytest.mark.parametrize('autoresume', [False])  # True commented out for now
+@pytest.mark.parametrize('autoresume', [False, True])  # True commented out for now
 @pytest.mark.parametrize('num_shards', [2, 4, 7])
 @pytest.mark.parametrize('sharding_strategy', ['FULL_SHARD'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.1'),
@@ -453,18 +452,24 @@ def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type:
         run_name = None
 
         
-    mono_load_path = f"s3://{s3_bucket}/{s3_read_only_prefix}/elastic_test/{sharding_strategy.lower()}_{state_dict_type}_{precision}_{num_shards}/mono.pt"
+    mono_load_path = f"s3://{s3_bucket}/{s3_read_only_prefix}/elastic_test/new_ckpts/{sharding_strategy.lower()}_{state_dict_type}_{precision}_{num_shards}/mono.pt"
     mono_trainer = get_trainer(fsdp_state_dict_type='full',
                            load_path=mono_load_path,
                            num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
                            num_classes=8,  # This parameter setting is very important. Don't change or the test will fail.
                            precision=precision,
-                           autoresume=autoresume,
+                           autoresume=False, # Hardcoded to false b/c mono checkpoints don't have symlinks to them.
                            run_name=run_name,
                            max_duration='4ba',)
-
-    sharded_load_path = f"s3://{s3_bucket}/{s3_read_only_prefix}/elastic_test/{sharding_strategy.lower()}_{state_dict_type}_{precision}_{num_shards}/ba2/"
+    if autoresume:
+        sharded_load_path = None
+        save_folder = f"s3://{s3_bucket}/{s3_read_only_prefix}/elastic_test/new_ckpts/{sharding_strategy.lower()}_{state_dict_type}_{precision}_{num_shards}/"
+    else:
+        save_folder = None
+        sharded_load_path = f"s3://{s3_bucket}/{s3_read_only_prefix}/elastic_test/new_ckpts/{sharding_strategy.lower()}_{state_dict_type}_{precision}_{num_shards}/ba2/"
+    
     sharded_trainer = get_trainer(fsdp_state_dict_type=state_dict_type,
+                           save_folder=save_folder,
                            load_path=sharded_load_path,
                            num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
                            num_classes=8,  # This parameter setting is very important. Don't change or the test will fail.
