@@ -34,22 +34,25 @@ class SimpleMLP(ComposerClassifier):
         super().__init__(module=net, num_classes=num_classes)
 
 
-def get_trainer(save_folder=None,
-                save_filename='ba{batch}-rank{rank}.pt',
-                save_overwrite=False,
-                num_features=2,
-                num_classes=2,
-                fsdp_state_dict_type='full',
-                fsdp_sharded_ckpt_prefix_dir='ba{batch}',
-                load_path=None,
-                autoresume=False,
-                run_name=None,
-                max_duration='2ba',
-                precision='amp_fp16',
-                sharding_strategy='FULL_SHARD',
-                save_interval='2ba',
-                algorithms=None,
-                optimizer='adam'):
+def get_trainer(
+    save_folder=None,
+    save_filename='ba{batch}-rank{rank}.pt',
+    save_overwrite=False,
+    num_features=2,
+    num_classes=2,
+    fsdp_state_dict_type='full',
+    fsdp_sharded_ckpt_prefix_dir='ba{batch}',
+    load_path=None,
+    autoresume=False,
+    run_name=None,
+    max_duration='2ba',
+    precision='amp_fp16',
+    sharding_strategy='FULL_SHARD',
+    save_interval='2ba',
+    algorithms=None,
+    optimizer='adam',
+    load_fsdp_monolith_rank0_only=False,
+):
     model = SimpleMLP(num_features=num_features, num_classes=num_classes)
     dataset = RandomClassificationDataset(shape=(num_features,), size=128)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=8)
@@ -69,6 +72,9 @@ def get_trainer(save_folder=None,
             'state_dict_type': fsdp_state_dict_type,
             'sharding_strategy': sharding_strategy,
             'sharded_ckpt_prefix_dir': fsdp_sharded_ckpt_prefix_dir,
+            'sync_module_states': True,
+            'use_orig_params': False,
+            'load_fsdp_monolith_rank0_only': load_fsdp_monolith_rank0_only,
         },
         save_folder=save_folder,
         max_duration=max_duration,
@@ -149,10 +155,11 @@ def _compare_metrics_between_state_dicts(state_dict1, state_dict2):
 @pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
 @pytest.mark.parametrize('autoresume', [True, False])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
+@pytest.mark.parametrize('load_fsdp_monolith_rank0_only', [True, False])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
-def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresume: bool, precision: str,
-                                   optimizer: str):
+def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresume: bool, precision: str, optimizer: str,
+                                   load_fsdp_monolith_rank0_only: bool):
     if autoresume:
         run_name = 'my-cool-autoresume-run'
     else:
@@ -182,6 +189,7 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
         autoresume=autoresume,
         max_duration='4ba',
         optimizer=optimizer,
+        load_fsdp_monolith_rank0_only=load_fsdp_monolith_rank0_only,
     )
     state_dict_from_trainer2 = trainer2.state.state_dict()
 
