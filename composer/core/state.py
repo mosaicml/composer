@@ -68,7 +68,7 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
     from torch.distributed.fsdp import FullStateDictConfig
     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
     from torch.distributed.fsdp import LocalStateDictConfig, StateDictType
-    # torch forgot to put the following in torch/distributed/fsdp/__init__.py, so we
+    # torch forgot to put ShardedStateDictConfig in torch/distributed/fsdp/__init__.py, so we
     # have to import it this way.
     from torch.distributed.fsdp.fully_sharded_data_parallel import ShardedStateDictConfig
 
