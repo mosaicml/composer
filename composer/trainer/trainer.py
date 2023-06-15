@@ -13,6 +13,7 @@ import logging
 import os
 import random
 import re
+import textwrap
 import time
 import warnings
 from collections import defaultdict
@@ -2169,6 +2170,11 @@ class Trainer:
                 if self.state.auto_microbatching and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     found_cuda_oom = 1
+                elif self.state.auto_microbatching and 'cuda' in str(e).lower() or 'c10' in str(e).lower():
+                    raise ValueError(
+                        textwrap.dedent(
+                            'Encountered non-addressable cuda error while using auto microbatching. '
+                            'If this repeatedly occurs, set `device_train_microbatch_size` manually.')) from e
                 else:
                     raise
 
@@ -2827,6 +2833,11 @@ class Trainer:
                         if evaluator.auto_microbatching and _is_cuda_oom(e):
                             log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                             found_cuda_oom = 1
+                        elif self.state.auto_microbatching and 'cuda' in str(e).lower() or 'c10' in str(e).lower():
+                            raise ValueError(
+                                textwrap.dedent(
+                                    'Encountered non-addressable cuda error while using auto microbatching. '
+                                    'If this repeatedly occurs, set `device_eval_microbatch_size` manually.')) from e
                         else:
                             raise
                     if evaluator.auto_microbatching:
