@@ -500,7 +500,8 @@ class State(Serializable):
             if fsdp_config['sync_module_states'] == False:
                 error_message += textwrap.dedent(
                     "load_fsdp_monolith_rank0_only requires fsdp_config['sync_module_states'] to be True. "
-                    "Either set fsdp_config['sync_module_states'] = True or set load_fsdp_monolith_rank0_only = False. ")
+                    "Either set fsdp_config['sync_module_states'] = True or set load_fsdp_monolith_rank0_only = False. "
+                )
             # Broadcast rank 0 meta check to all ranks so error can be raised on all ranks
             rank0_on_meta = 0
             if dist.get_global_rank() == 0 and next(model.parameters()).device.type == 'meta':
