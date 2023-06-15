@@ -449,8 +449,8 @@ def safe_torch_load(
                     model = state_dict_list[0]['state']['model']
                     state_dict_list[0]['state']['model'] = None
                 if 'optimizers' in state_dict_list[0]['state']:
-                    state_dict_list[0]['state']['optimizers'] = None
                     optimizer = state_dict_list[0]['state']['optimizers']
+                    state_dict_list[0]['state']['optimizers'] = None
 
             log.debug('Broadcasting state_dict to all ranks.')
             dist.broadcast_object_list(state_dict_list, src=0)
