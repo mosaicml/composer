@@ -2155,8 +2155,8 @@ class Trainer:
                                                    closure=lambda loss_dict=total_loss_dict, **kwargs: self.
                                                    _train_microbatches(microbatches, loss_dict, **kwargs))
                         else:
-                            optimizer.step(closure=lambda **kwargs: self._train_microbatches(
-                                microbatches, total_loss_dict, **kwargs).item())
+                            optimizer.step(closure=lambda loss_dict=total_loss_dict, **kwargs: self._train_microbatches(
+                                microbatches, loss_dict, **kwargs).item())
                 else:
                     self._train_microbatches(microbatches, total_loss_dict)
                     if not self.deepspeed_enabled:
