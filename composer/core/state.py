@@ -492,14 +492,15 @@ class State(Serializable):
 
         if self.load_fsdp_monolith_rank0_only:
             assert fsdp_config is not None
+            error_message = ''
             if fsdp_config['use_orig_params'] == True:
-                raise ValueError(
+                error_message += textwrap.dedent(
                     "load_fsdp_monolith_rank0_only requires fsdp_config['use_orig_params'] to be False. "
-                    "Either set fsdp_config['use_orig_params'] = False or set load_fsdp_monolith_rank0_only = False.")
+                    "Either set fsdp_config['use_orig_params'] = False or set load_fsdp_monolith_rank0_only = False. ")
             if fsdp_config['sync_module_states'] == False:
-                raise ValueError(
+                error_message += textwrap.dedent(
                     "load_fsdp_monolith_rank0_only requires fsdp_config['sync_module_states'] to be True. "
-                    "Either set fsdp_config['sync_module_states'] = True or set load_fsdp_monolith_rank0_only = False.")
+                    "Either set fsdp_config['sync_module_states'] = True or set load_fsdp_monolith_rank0_only = False. ")
             # Broadcast rank 0 meta check to all ranks so error can be raised on all ranks
             rank0_on_meta = 0
             if dist.get_global_rank() == 0 and next(model.parameters()).device.type == 'meta':
@@ -507,9 +508,12 @@ class State(Serializable):
             rank0_on_meta_tensor = self.device.tensor_to_device(torch.tensor([rank0_on_meta], dtype=torch.uint8))
             dist.all_reduce(rank0_on_meta_tensor, reduce_operation='MAX')
             if rank0_on_meta_tensor.item() == 1:
-                raise ValueError('load_fsdp_monolith_rank0_only requires the rank 0 model to be on cpu or gpu, '
-                                 'but detected model device as meta. Either move the model to cpu or gpu, or set '
-                                 'load_fsdp_monolith_rank0_only = False.')
+                error_message += textwrap.dedent(
+                    'load_fsdp_monolith_rank0_only requires the rank 0 model to be on cpu or gpu, '
+                    'but detected model device as meta. Either move the model to cpu or gpu, or set '
+                    'load_fsdp_monolith_rank0_only = False. ')
+            if error_message != '':
+                raise ValueError(error_message)
 
         self.sharded_ckpt_prefix_dir: Optional[str] = None
         if self.fsdp_config is not None:
