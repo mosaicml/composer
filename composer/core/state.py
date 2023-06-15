@@ -284,7 +284,6 @@ class State(Serializable):
         deepspeed_config (Dict[str, Any], optional): The configuration dictionary for deepspeed.
         fsdp_config (Dict[str, Any], optional): The configuration dictionary for FSDP.
         fsdp_auto_wrap (bool, optional): Whether to automatically wrap the model with FSDP.
-        load_fsdp_monolith_rank0_only (bool, optional): Whether to load the FSDP state dict on rank 0 only.
 
     Attributes:
         batch (types.Batch): The batch. This will be the entire batch during the :attr:`.Event.AFTER_DATALOADER`, or a
@@ -449,7 +448,6 @@ class State(Serializable):
         deepspeed_config: Optional[Dict[str, Any]] = None,
         fsdp_config: Optional[Dict[str, Any]] = None,
         fsdp_auto_wrap: bool = True,
-        load_fsdp_monolith_rank0_only: bool = False,
     ):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
