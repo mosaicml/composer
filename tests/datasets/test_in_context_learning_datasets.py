@@ -131,7 +131,50 @@ def test_mc_task_dataloader_subcategories(dataset_uri, tiny_gpt2_tokenizer, tmp_
     assert tokenizer.decode(batch['input_ids'][0][min_idx:max_idx + 1]) == ' A'
 
 
-@pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
+@pytest.mark.parametrize('dataset_uri', [
+    'pubmed_sm.jsonl',
+])
+def test_lm_task_dataloader_extra_space(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
+    pytest.importorskip('datasets')
+
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+
+    tokenizer = tiny_gpt2_tokenizer
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    batch_size = 2
+    seqlen = 2048
+    dl = get_icl_task_dataloader('language_modeling',
+                                 dataset_uri,
+                                 tokenizer,
+                                 batch_size,
+                                 max_seq_len=seqlen,
+                                 pad_tok_id=tokenizer.eos_token_id,
+                                 num_fewshot=10,
+                                 prompt_string='',
+                                 example_delimiter='\n',
+                                 continuation_delimiter=' ',
+                                 destination_path=str(tmp_path / 'icl.jsonl'))
+    assert isinstance(dl, DataSpec)
+    assert isinstance(dl.dataloader, DataLoader)  # pyright
+    batch = next(dl.dataloader._get_iterator())
+
+    assert 'input_ids' in batch
+    assert tuple(batch['input_ids'].shape) == (batch_size, seqlen)
+    assert 'attention_mask' in batch
+    assert tuple(batch['attention_mask'].shape) == (batch_size, seqlen)
+    assert 'continuation_indices' in batch
+    assert isinstance(batch['continuation_indices'], list) and len(batch['continuation_indices']) == batch_size
+    assert 'mode' in batch
+    assert batch['mode'] == 'icl_task'
+    min_idx = min(batch['continuation_indices'][0]).item()
+    max_idx = max(batch['continuation_indices'][0]).item()
+    assert '  ' not in tokenizer.decode(batch['input_ids'][0][0:max_idx + 1])
+    assert tokenizer.decode(batch['input_ids'][0][min_idx:max_idx + 1]) == ' yes'
+
+
+@pytest.mark.parametrize('dataset_uri', [
+    'lambada_small.jsonl',
+])
 def test_lm_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     pytest.importorskip('datasets')
 
