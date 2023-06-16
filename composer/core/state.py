@@ -520,9 +520,9 @@ class State(Serializable):
             # Broadcast rank 0 meta check to all ranks so error can be raised on all ranks
             rank_on_meta = 1 if next(model.parameters()).device.type == 'meta' else 0
             all_ranks_meta = self.device.tensor_to_device(torch.tensor([rank_on_meta], dtype=torch.uint8))
-            dist.all_reduce(all_ranks_meta, reduce_operation='MAX')
+            dist.all_reduce(all_ranks_meta, reduce_operation='MIN')
             any_ranks_meta = self.device.tensor_to_device(torch.tensor([rank_on_meta], dtype=torch.uint8))
-            dist.all_reduce(any_ranks_meta, reduce_operation='MIN')
+            dist.all_reduce(any_ranks_meta, reduce_operation='MAX')
             if all_ranks_meta.item() == any_ranks_meta.item() == 1:
                 raise ValueError('Detected mixed initialization where some ranks have model on cpu or gpu and '
                                  'some ranks are on meta. Either keep all ranks on the same device or set '
