@@ -13,6 +13,7 @@ import logging
 import os
 import random
 import re
+import textwrap
 import time
 import warnings
 from collections import defaultdict
@@ -1297,19 +1298,21 @@ class Trainer:
         # If autoresume is enabled, first check for existing checkpoints to load
         if autoresume:
             log.info('Searching for a previous checkpoint to autoresume')
+            error_message = ''
             if save_folder is None:
-                raise ValueError('The `save_folder` must be specified when autoresume is enabled.')
+                error_message += 'The `save_folder` must be specified when autoresume is enabled. '
             if save_overwrite:
-                raise ValueError(
+                error_message += textwrap.dedent(
                     'The flag `save_overwrite` must be False when autoresume is enabled as autoresume always loads the '
-                    'latest existing checkpoint in `save_folder`.')
+                    'latest existing checkpoint in `save_folder`. ')
             if save_latest_filename is None:
-                raise ValueError(
-                    'The `save_latest_filename` must be specified so autoresume knows where to load checkpoints from.')
+                error_message += 'The `save_latest_filename` must be specified so autoresume knows where to load checkpoints from. '
             if run_name is None:
-                raise ValueError(
-                    'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name.'
-                )
+                error_message += 'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name. '
+            if error_message != '':
+                raise ValueError(error_message)
+            assert save_folder is not None
+            assert save_latest_filename is not None
 
             remote_ud_has_multiple_concurrent_uploads = [
                 isinstance(logger_destination, RemoteUploaderDownloader) and
@@ -2169,6 +2172,11 @@ class Trainer:
                 if self.state.auto_microbatching and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     found_cuda_oom = 1
+                elif self.state.auto_microbatching and 'cuda' in str(e).lower() or 'c10' in str(e).lower():
+                    raise RuntimeError(
+                        textwrap.dedent(
+                            'Encountered non-addressable cuda error while using auto microbatching. '
+                            'If this repeatedly occurs, set `device_train_microbatch_size` manually.')) from e
                 else:
                     raise
 
@@ -2827,6 +2835,11 @@ class Trainer:
                         if evaluator.auto_microbatching and _is_cuda_oom(e):
                             log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                             found_cuda_oom = 1
+                        elif self.state.auto_microbatching and 'cuda' in str(e).lower() or 'c10' in str(e).lower():
+                            raise ValueError(
+                                textwrap.dedent(
+                                    'Encountered non-addressable cuda error while using auto microbatching. '
+                                    'If this repeatedly occurs, set `device_eval_microbatch_size` manually.')) from e
                         else:
                             raise
                     if evaluator.auto_microbatching:
