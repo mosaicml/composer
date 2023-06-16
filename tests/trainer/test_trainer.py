@@ -521,6 +521,28 @@ class TestTrainerInitOrFit:
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
     @pytest.mark.gpu
+    @pytest.mark.filterwarnings("ignore:`device_train_microbatch_size='auto'` may potentially fail with unexpected.*")
+    def test_auto_microbatch_cuda_error(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time[int],
+    ):
+
+        def dummy_fwd(self, *args, **kwargs):
+            raise RuntimeError('c10')
+
+        model.forward = dummy_fwd  # type: ignore
+        trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            device_train_microbatch_size='auto',
+        )
+        with pytest.raises(RuntimeError, match='Encountered non-addressable cuda error while using auto.*'):
+            trainer.fit()
+
+    @pytest.mark.gpu
     @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])
     @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_deepspeed(
