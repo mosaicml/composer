@@ -238,7 +238,7 @@ def load_checkpoint(
             log.info('Entered finally')
             # Wait for all ranks to finish restoring the checkpoint before releasing the tempdir, since tempdir can
             # be a shared resource between nodes.
-            dist.barrier()
+            # dist.barrier()
 
     log.info('%s loaded from %s', 'Model weights' if load_weights_only else 'Trainer checkpoint', path)
     return rng_state_dicts
