@@ -32,7 +32,6 @@ def clear_cuda_cache():
     """This fixture ensures that we don't have memory leakages during pytest by clearing
        the CUDA cache before every test.
     """
-    print('clearing cuda cache')
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
     gc.collect()
