@@ -11,6 +11,7 @@ import warnings
 from collections import OrderedDict
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
+
 import numpy as np
 import torch
 import torch.nn.modules.utils
@@ -1161,9 +1162,10 @@ class State(Serializable):
                         metric_computed_field = serialized_value[metric_name]._computed
                         # The metric tensor is saved as a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
                         # So we have to cast it back to a torch tensor.
-                        metric_computed_device = getattr(serialized_value[metric_name], "_computed_device", None)
+                        metric_computed_device = getattr(serialized_value[metric_name], '_computed_device', None)
                         if metric_computed_field is not None:
-                            metric_computed_field = torch.from_numpy(metric_computed_field) if isinstance(metric_computed_field, np.ndarray) else metric_computed_field
+                            metric_computed_field = torch.from_numpy(metric_computed_field) if isinstance(
+                                metric_computed_field, np.ndarray) else metric_computed_field
                             if metric_computed_device is not None:
                                 metric_computed_field = metric_computed_field.to(metric_computed_device)
                     elif isinstance(serialized_value[metric_name], dict):
@@ -1174,7 +1176,8 @@ class State(Serializable):
                         metric_computed_field = serialized_value[metric_name]['_computed']
                         metric_computed_device = serialized_value[metric_name].get('_computed_device', None)
                         if metric_computed_field is not None:
-                            metric_computed_field = torch.from_numpy(metric_computed_field)  if isinstance(metric_computed_field, np.ndarray) else metric_computed_field
+                            metric_computed_field = torch.from_numpy(metric_computed_field) if isinstance(
+                                metric_computed_field, np.ndarray) else metric_computed_field
                             if metric_computed_device is not None:
                                 metric_computed_field = metric_computed_field.to(metric_computed_device)
                     else:
@@ -1215,9 +1218,11 @@ class State(Serializable):
                             eval_metric_computed_field = serialized_value[eval_key][metric_name]._computed
                             # The metric tensor is saved as a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
                             # So we have to cast it back to a torch tensor.
-                            eval_metric_computed_device = getattr(serialized_value[eval_key][metric_name], "_computed_device", None)
+                            eval_metric_computed_device = getattr(serialized_value[eval_key][metric_name],
+                                                                  '_computed_device', None)
                             if eval_metric_computed_field is not None:
-                                eval_metric_computed_field = torch.from_numpy(eval_metric_computed_field) if isinstance(eval_metric_computed_field, np.ndarray) else eval_metric_computed_field
+                                eval_metric_computed_field = torch.from_numpy(eval_metric_computed_field) if isinstance(
+                                    eval_metric_computed_field, np.ndarray) else eval_metric_computed_field
                             if eval_metric_computed_device is not None:
                                 eval_metric_computed_field = eval_metric_computed_field.to(eval_metric_computed_device)
                         elif isinstance(serialized_value[eval_key][metric_name], dict):
@@ -1228,7 +1233,8 @@ class State(Serializable):
                             # So we have to cast it back to a torch tensor.
                             eval_metric_computed_device = serialized_value[eval_key][metric_name]['_computed_device']
                             if eval_metric_computed_field is not None:
-                                eval_metric_computed_field = torch.from_numpy(eval_metric_computed_field) if isinstance(eval_metric_computed_field, np.ndarray) else eval_metric_computed_field
+                                eval_metric_computed_field = torch.from_numpy(eval_metric_computed_field) if isinstance(
+                                    eval_metric_computed_field, np.ndarray) else eval_metric_computed_field
                                 if eval_metric_computed_device is not None:
                                     eval_metric_computed_field = eval_metric_computed_field.to(
                                         eval_metric_computed_device)
