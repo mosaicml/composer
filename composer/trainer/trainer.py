@@ -979,7 +979,7 @@ class Trainer:
             raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
 
         # Move the model and optimizers to the device
-        if deepspeed_config is not None and fsdp_config is None:
+        if deepspeed_config is None and fsdp_config is None:
             # check if model is already on tpu
             if isinstance(device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
                 raise ValueError(
