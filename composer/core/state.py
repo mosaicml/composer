@@ -1078,6 +1078,7 @@ class State(Serializable):
             from composer.trainer.dist_strategy import prepare_fsdp_module
             prepare_fsdp_module(self.model, self.optimizers, self.fsdp_config, self.precision, self.device,
                                 self.auto_microbatching)
+            log.info('Finished wrapping model with FSDP.')
 
     def load_optim_state(self, state_dict: Dict[str, Any]):
         """Load the optimizer state.
@@ -1182,6 +1183,8 @@ class State(Serializable):
             # Skip removed attributes as well as algorithms and model, which was already loaded
             if attribute_name not in self.serialized_attributes or attribute_name == 'model':
                 continue
+
+            log.info(f'Loading {attribute_name} into state.')
 
             # Integrations are extra information about other libraries (e.g. huggingface) and not attributes to be loaded here
             if attribute_name == 'integrations':
@@ -1296,6 +1299,8 @@ class State(Serializable):
                 except AttributeError:
                     # ignore AttributeError for properties that have getters but not setters.
                     pass
+
+        log.info('Finished loading checkpoint!')
 
     @property
     def dataloader(self):

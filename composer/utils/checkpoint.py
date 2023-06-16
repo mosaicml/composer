@@ -235,6 +235,7 @@ def load_checkpoint(
                 algorithm_passes=algorithm_passes,
             )
         finally:
+            log.info('Entered finally')
             # Wait for all ranks to finish restoring the checkpoint before releasing the tempdir, since tempdir can
             # be a shared resource between nodes.
             dist.barrier()
@@ -527,6 +528,7 @@ def _restore_checkpoint(
             exclude_algorithms=exclude_algorithms,
             algorithm_passes=algorithm_passes,
         )
+        log.info('checking torch step')
         step_to_resume_from = state.timestamp.batch.value
         max_step_to_resume_from = state.device.tensor_to_device(
             torch.tensor(state.timestamp.batch.value, dtype=torch.int64))
@@ -534,6 +536,9 @@ def _restore_checkpoint(
             torch.tensor(state.timestamp.batch.value, dtype=torch.int64))
         dist.all_reduce(max_step_to_resume_from, reduce_operation='MAX')
         dist.all_reduce(min_step_to_resume_from, reduce_operation='MIN')
+        log.info(
+            f'max_step_to_resume_from: {max_step_to_resume_from.data}, min_step_to_resume_from: {min_step_to_resume_from.data}'
+        )
         if max_step_to_resume_from.data != min_step_to_resume_from.data:
             raise RuntimeError(
                 textwrap.dedent(
@@ -544,6 +549,7 @@ def _restore_checkpoint(
                     'to the most recent checkpoints that all ranks have saved. '
                     'E.g. for the 10th batch: trainer = Trainer(autoresume=False, load_path="/path/to/checkpoint/ba10-rank{rank}.pt", ...). '
                     'Remember to keep the {rank} placeholder!'))
+        log.info(f'restore is done')
         return state_dict['rng']
 
 
