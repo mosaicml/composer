@@ -178,6 +178,7 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
         precision=precision,
         autoresume=autoresume,
         optimizer=optimizer,
+        load_fsdp_monolith_rank0_only=load_fsdp_monolith_rank0_only,
     )
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
