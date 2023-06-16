@@ -523,7 +523,7 @@ class State(Serializable):
             dist.all_reduce(all_ranks_meta, reduce_operation='MIN')
             any_ranks_meta = self.device.tensor_to_device(torch.tensor([rank_on_meta], dtype=torch.uint8))
             dist.all_reduce(any_ranks_meta, reduce_operation='MAX')
-            if all_ranks_meta.item() == any_ranks_meta.item() == 1:
+            if all_ranks_meta.item() != any_ranks_meta.item():
                 raise ValueError('Detected mixed initialization where some ranks have model on cpu or gpu and '
                                  'some ranks are on meta. Either keep all ranks on the same device or set '
                                  "fsdp_config['sync_module_states'] = True. Otherwise, some weights may be randomly "
