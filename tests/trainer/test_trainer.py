@@ -519,6 +519,7 @@ class TestTrainerInitOrFit:
 
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
+        assert False
 
     @pytest.mark.gpu
     @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])
