@@ -1076,6 +1076,7 @@ class State(Serializable):
             assert self.fsdp_config is not None
             log.info('Wrapping model with FSDP after loading model_state.')
             from composer.trainer.dist_strategy import prepare_fsdp_module
+            log.info('Imported file')
             prepare_fsdp_module(self.model, self.optimizers, self.fsdp_config, self.precision, self.device,
                                 self.auto_microbatching)
             log.info('Finished wrapping model with FSDP.')

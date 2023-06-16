@@ -208,6 +208,7 @@ def prepare_fsdp_module(
         device (Device): The device being used by the Trainer.
         auto_microbatching (bool, optional): Whether or not auto microbatching is enabled.
     """
+    log.info('start prepare_fsdp_module')
     if version.parse(torch.__version__) < version.parse('1.13.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
     is_torch_2_0 = using_torch_2()
@@ -221,6 +222,7 @@ def prepare_fsdp_module(
     from composer.trainer.mosaic_fsdp import (MosaicFullyShardedDataParallel, backward_prefetch_map, get_cpu_offload,
                                               get_mixed_precision, sharding_map)
 
+    log.info('set default fsdp config')
     set_fsdp_default(fsdp_config)
 
     # Check if other ranks OOMed after forward/backward pass when using auto microbatching. This
@@ -240,6 +242,7 @@ def prepare_fsdp_module(
             raise RuntimeError('CUDA out of memory encountered on a different rank')
 
     kwargs = {}
+    log.info('set fsdp kwargs')
     if is_torch_2_0:
         # Support of new parameter `use_orig_params` in PyTorch 2.0 or higher.
         # Setting this to `True` has FSDP use `module`'s original parameters via method
@@ -255,6 +258,7 @@ def prepare_fsdp_module(
     group_num_to_param_group_info = None
 
     optimizer_specific_info = None
+    log.info('set optimizer specific info')
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
         if len(optimizers_tuple) != 1:
@@ -308,6 +312,7 @@ def prepare_fsdp_module(
     # The PR fixing this bug is merged into PyTorch, but it hasn't made its way into a release yet.
     # Instead a user needs to pass in `None` as param_dtype to have the parameters as torch.float32.
     # TODO: remove these checks when PyTorch has a release that includes the fix.
+    log.info('check sharding map key')
     if sharding_map_key != 'NO_SHARD':
         if (precision == Precision.AMP_FP16 and param_dtype not in [torch.float16, None] or
                 precision == Precision.AMP_BF16 and param_dtype not in [torch.bfloat16, None]):
@@ -341,6 +346,7 @@ def prepare_fsdp_module(
     # This makes it safer to call ComposerModel-specific functions like 'eval_forward' that
     # may make calls to sharded submodules. If we only wrap the submodules, then any call that ComposerModel makes
     # to a FSDP-wrapped submodule's `forward()` function will be safe and all-gather the necessary weights before `forward()`.
+    log.info('wrap model')
     for obj_name, obj in model.named_children():
         if not isinstance(obj, (Metric, MetricCollection)):
 
@@ -511,6 +517,7 @@ def prepare_fsdp_module(
             setattr(model, obj_name, fsdp_obj)
 
     # Print FSDP wrapped model and FSDP config if `verbose=True`
+    log.info('FSDP: Wrapped Model:')
     if fsdp_config['verbose']:
         print(f'FSDP: Wrapped Model:')
         print(model)
@@ -528,6 +535,7 @@ def prepare_fsdp_module(
         print(f'FSDP: Using sharded_ckpt_prefix_dir={sharded_ckpt_prefix_dir}')
 
     # Rebuild optimizer now that parameters are sharded
+    log.info('FSDP: Rebuilding optimizer')
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
         optim = optimizers_tuple[0]
