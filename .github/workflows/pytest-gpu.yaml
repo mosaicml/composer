@@ -53,6 +53,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
             ${{ runner.os }}-
+      - name: echo ref
+        run: echo ${{ github.ref }}
       - name: Setup MCLI
         run: |
           set -ex
