@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import contextlib
 import os
 import pathlib
 import textwrap
@@ -35,6 +36,7 @@ class SimpleMLP(ComposerClassifier):
 
 
 def get_trainer(
+    model_init_device='cpu',
     save_folder=None,
     save_filename='ba{batch}-rank{rank}.pt',
     save_overwrite=False,
@@ -52,8 +54,10 @@ def get_trainer(
     algorithms=None,
     optimizer='adam',
     load_fsdp_monolith_rank0_only=False,
+    sync_module_states=True,
 ):
     model = SimpleMLP(num_features=num_features, num_classes=num_classes)
+    model.to(model_init_device)
     dataset = RandomClassificationDataset(shape=(num_features,), size=128)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=8)
     if optimizer == 'adam':
@@ -72,7 +76,7 @@ def get_trainer(
             'state_dict_type': fsdp_state_dict_type,
             'sharding_strategy': sharding_strategy,
             'sharded_ckpt_prefix_dir': fsdp_sharded_ckpt_prefix_dir,
-            'sync_module_states': True,
+            'sync_module_states': sync_module_states,
             'use_orig_params': False,
             'load_fsdp_monolith_rank0_only': load_fsdp_monolith_rank0_only,
         },
@@ -201,6 +205,23 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
     # Continue to fit to make sure we can continue training.
     trainer2.fit()
     trainer2.close()
+
+
+@pytest.mark.gpu
+@world_size(2)
+@pytest.mark.parametrize('sync_module_states', [True, False])
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                    reason='requires PyTorch 1.13 or higher')
+def test_fsdp_mixed_with_sync(world_size, tmp_path: pathlib.Path, sync_module_states: bool):
+    context = contextlib.nullcontext() if sync_module_states else pytest.raises(ValueError,
+                                                                                match='Detected mixed initialization.*')
+    with context:
+        get_trainer(
+            model_init_device=['cpu', 'meta'][dist.get_global_rank()],
+            save_folder=str(tmp_path),
+            fsdp_state_dict_type='full',
+            sync_module_states=sync_module_states,
+        )
 
 
 @pytest.mark.gpu
