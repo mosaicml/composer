@@ -23,9 +23,9 @@ from composer.utils.file_helpers import get_file
 from composer.utils.misc import using_torch_2
 from composer.utils.object_store import S3ObjectStore
 from composer.utils.reproducibility import get_rng_state
-from tests.common import RandomClassificationDataset
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
+from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, deep_compare)
 
 
 # This model is to be used explicitly for this unit test because some old reference checkpoints
@@ -373,7 +373,8 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
     if use_remote:
         save_folder = f's3://{s3_bucket}/{s3_ephemeral_prefix}/checkpoints/{{run_name}}'
     else:
-        save_folder = '/mnt/workdisk/evan/evan-composer/test_checkpoints/{run_name}'
+        tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
+        save_folder = os.path.join(tmp_paths[0], 'checkpoints', '{run_name}')
 
     save_filename = 'ba{batch}-rank{rank}.pt'
 
@@ -548,8 +549,8 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
         latest_checkpoint_path = pathlib.Path(save_folder) / pathlib.Path('ba2') / pathlib.Path(
             save_filename.format(batch=2, rank=1))
         assert os.readlink(latest_symlink) == str(
-            pathlib.Path('ba2') / pathlib.Path(save_filename.format(batch=2, rank=1)))
-        oldest_checkpoint_relative_path = str(pathlib.Path('ba1') / pathlib.Path(save_filename.format(batch=1, rank=1)))
+            pathlib.Path('ba2') / pathlib.Path(save_filename.format(batch=2, rank=0)))
+        oldest_checkpoint_relative_path = str(pathlib.Path('ba1') / (pathlib.Path(save_filename.format(batch=1, rank=0))) if not using_torch_2() else pathlib.Path(''))
         os.remove(latest_symlink)
         os.symlink(src=oldest_checkpoint_relative_path, dst=latest_symlink)
         os.remove(latest_checkpoint_path)
