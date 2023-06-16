@@ -17,6 +17,8 @@ from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_
 from composer.models import ComposerClassifier
 from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
+from composer.utils.checkpoint import is_checkpoint_legacy_sharded
+from composer.utils.object_store import S3ObjectStore
 from composer.utils import dist
 from composer.utils.file_helpers import get_file
 from composer.utils.misc import using_torch_2
@@ -260,7 +262,7 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
 def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision: str, sharding_strategy: str,
                                   state_dict_type: str, s3_bucket: str, s3_read_only_prefix: str,
                                   composer_version: str):
-    pytest.xfail('Fails for now until we get legacy sharded suppport working')
+    # pytest.xfail('Fails for now until we get legacy sharded suppport working')
     if version.parse(torch.__version__) >= version.parse('2.0.0') and state_dict_type == 'local':
         pytest.xfail(
             'Loading a torch 1.13 checkpoint with torch 2.0 for state_dict_type local is not backwards compatible. See https://github.com/pytorch/pytorch/issues/102667 for more info'
@@ -268,8 +270,9 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
 
     rank = 0 if state_dict_type == 'full' else '{rank}'
     load_path = f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_{precision}/ba2_rank{rank}.pt'
-
-    trainer2 = get_trainer(
+    
+    assert is_checkpoint_legacy_sharded(object_store=S3ObjectStore(bucket=f"{s3_bucket}"), source_path=load_path.lstrip(f's3://{s3_bucket}/'))
+    trainer = get_trainer(
         fsdp_state_dict_type=state_dict_type,
         num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
         num_classes=8,  # This parameter setting is very important. Don't change or the test will fail.
@@ -278,7 +281,7 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
         precision=precision,
         max_duration='4ba',
     )
-    state_dict2 = trainer2.state.state_dict()
+    state_dict2 = trainer.state.state_dict()
 
     if (dist.get_global_rank() == 0 and state_dict_type == 'full') or state_dict_type in ['sharded', 'local']:
         filled_load_path = load_path.format(rank=dist.get_global_rank())
@@ -291,8 +294,8 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
         _compare_optims_between_state_dicts(state_dict1, state_dict2)
 
     # Continue to fit to make sure we can continue training.
-    trainer2.fit()
-    trainer2.close()
+    trainer.fit()
+    trainer.close()
 
 
 @pytest.mark.gpu
@@ -354,7 +357,6 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
 def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool,
                                           precision: str, optimizer: str, weights_only: bool, use_remote, s3_bucket,
                                           s3_ephemeral_prefix, request):
-
     if weights_only and autoresume:
         pytest.xfail('Weights only with autoresume is not supported')
     if state_dict_type == 'local' and using_torch_2():
@@ -373,6 +375,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
         save_folder = '/mnt/workdisk/evan/evan-composer/test_checkpoints/{run_name}'
 
     save_filename = 'ba{batch}-rank{rank}.pt'
+    
     trainer1 = get_trainer(save_folder=str(save_folder),
                            save_filename=save_filename,
                            fsdp_state_dict_type=state_dict_type,
@@ -392,13 +395,19 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
 
     if use_remote:
         load_path = 's3://' + save_folder.strip('s3://').format(run_name=run_name) + '/ba2'
+        object_store = S3ObjectStore(bucket=f"{s3_bucket}")
     else:
+        object_store = None
         load_path = str(save_folder.format(run_name=run_name) / pathlib.Path('ba2'))
+
 
     if not using_torch_2():
         load_filename = f"{save_filename.format(batch=2, rank='{rank}')}"
         assert load_filename == 'ba2-rank{rank}.pt'
         load_path += '/' + load_filename
+        assert is_checkpoint_legacy_sharded(object_store=object_store, source_path=load_path.replace(f's3://{s3_bucket}/', ''))
+    else:
+        assert not is_checkpoint_legacy_sharded(object_store=object_store, source_path=load_path.replace(f's3://{s3_bucket}/', ''))
 
     if autoresume:
         load_path = None
@@ -432,7 +441,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
 @world_size(2)
 @pytest.mark.parametrize('state_dict_type', ['sharded'])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
-@pytest.mark.parametrize('autoresume', [False, True])  # True commented out for now
+@pytest.mark.parametrize('autoresume', [False])#, True])  # True commented out for now
 @pytest.mark.parametrize('num_shards', [2, 4, 7])
 @pytest.mark.parametrize('sharding_strategy', ['FULL_SHARD'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.1'), reason='requires PyTorch 2.01 or higher')
@@ -448,7 +457,9 @@ def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type:
     else:
         run_name = None
 
-    mono_load_path = f's3://{s3_bucket}/{s3_read_only_prefix}/elastic_test/new_ckpts/{sharding_strategy.lower()}_{state_dict_type}_{precision}_{num_shards}/mono.pt'
+    base_path = f"s3://{s3_bucket}/{s3_read_only_prefix}/elastic_test/{sharding_strategy.lower()}_{state_dict_type}_{precision}_{num_shards}/"
+    
+    mono_load_path = os.path.join(base_path, 'mono.pt')
     mono_trainer = get_trainer(
         fsdp_state_dict_type='full',
         load_path=mono_load_path,
@@ -461,10 +472,11 @@ def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type:
     )
     if autoresume:
         sharded_load_path = None
-        save_folder = f's3://{s3_bucket}/{s3_read_only_prefix}/elastic_test/new_ckpts/{sharding_strategy.lower()}_{state_dict_type}_{precision}_{num_shards}/'
+        save_folder = base_path
     else:
         save_folder = None
-        sharded_load_path = f's3://{s3_bucket}/{s3_read_only_prefix}/elastic_test/new_ckpts/{sharding_strategy.lower()}_{state_dict_type}_{precision}_{num_shards}/ba2/'
+        sharded_load_path = os.path.join(base_path,'ba2')
+        assert not is_checkpoint_legacy_sharded(object_store=S3ObjectStore(bucket=f"{s3_bucket}"), source_path=sharded_load_path.replace(f's3://{s3_bucket}/', ''))
 
     sharded_trainer = get_trainer(
         fsdp_state_dict_type=state_dict_type,

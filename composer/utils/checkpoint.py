@@ -101,6 +101,21 @@ class PartialFilePath:
                 ) + extra_suffix
 
 
+def is_checkpoint_legacy_sharded(object_store, source_path):
+    metadata_path = str(Path(source_path) / Path('.metadata'))
+    if object_store is None:
+        return not os.path.exists(metadata_path)
+    else:
+        try:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                metadata_destination = os.path.join(str(temp_dir), '.metadata')
+                object_store.download_object(object_name=metadata_path,
+                                            filename=metadata_destination)
+            return False
+        except FileNotFoundError:
+            return True
+        
+
 def load_checkpoint(
     path: str,
     state: State,
@@ -201,7 +216,7 @@ def load_checkpoint(
         Optional[List[Dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
             :attr:`load_weights_only` is not None. Otherwise, None.
     """
-    if state.fsdp_elastic_sharded_enabled:
+    if state.fsdp_elastic_sharded_enabled and not is_checkpoint_legacy_sharded(object_store, path):
         rng_state_dicts = load_sharded_checkpoint(
             source_path=path,
             state=state,
