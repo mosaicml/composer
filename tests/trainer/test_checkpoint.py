@@ -450,6 +450,60 @@ class TestCheckpointLoading:
             upload_staging_folder=str(tmp_path / 'staging_folder'),
         )
 
+    @world_size(1, 2)
+    @device('cpu', 'gpu')
+    @pytest.mark.parametrize('use_object_store', [True, False])
+    @pytest.mark.parametrize('delete_local', [True, False])
+    @pytest.mark.parametrize('test_slashed', [True, False])
+    def test_autoresume(self, device: str, tmp_path: pathlib.Path, use_object_store: bool, delete_local: bool,
+                        test_slashed: bool, world_size: int):
+        if delete_local and not use_object_store:
+            pytest.skip('Invalid test setting.')
+
+        if use_object_store:
+            pytest.importorskip('libcloud')
+
+        latest_filename = 'latest-rank{rank}.pt'
+        if test_slashed:
+            latest_filename = 'testdir/' + latest_filename
+        trainer_1 = self.get_trainer(
+            latest_filename=latest_filename,
+            save_folder='first',
+            device=device,
+            run_name='big-chungus',
+            autoresume=True,
+            loggers=[self.get_logger(tmp_path)] if use_object_store else [],
+        )
+
+        # trains the model, saving the checkpoint files
+        trainer_1.fit()
+        trainer_1.close()
+
+        if delete_local:
+            # delete files locally, forcing trainer to look in object store
+            shutil.rmtree('first')
+
+        trainer_2 = self.get_trainer(
+            latest_filename=latest_filename,
+            save_folder='first',
+            device=device,
+            run_name='big-chungus',
+            autoresume=True,
+            load_path='ignore_me.pt',  # this should be ignored
+            loggers=[self.get_logger(tmp_path)] if use_object_store else [],
+        )
+
+        self._assert_weights_equivalent(
+            trainer_1.state.model,
+            trainer_2.state.model,
+        )
+
+        assert self._metrics_equal(
+            trainer_1.state.train_metrics, trainer_2.state.train_metrics, trainer_1.state.eval_metrics,
+            trainer_2.state.eval_metrics), 'Original metrics do not equal metrics from loaded checkpoint.'
+
+        assert trainer_1.state.run_name == trainer_2.state.run_name
+
     @pytest.mark.parametrize('load_path,load_object_store',
                              [('s3://my-bucket/my-run-name/my-checkpoints', None),
                               ('s3://my-bucket/my-run-name/my-checkpoints', S3ObjectStore(bucket='my-bucket')),
@@ -650,60 +704,6 @@ class TestCheckpointLoading:
         assert self._metrics_equal(
             trainer_1.state.train_metrics, trainer_2.state.train_metrics, trainer_1.state.eval_metrics,
             trainer_2.state.eval_metrics), 'Original metrics do not equal metrics from loaded checkpoint.'
-
-    @world_size(1, 2)
-    @device('cpu', 'gpu')
-    @pytest.mark.parametrize('use_object_store', [True, False])
-    @pytest.mark.parametrize('delete_local', [True, False])
-    @pytest.mark.parametrize('test_slashed', [True, False])
-    def test_autoresume(self, device: str, tmp_path: pathlib.Path, use_object_store: bool, delete_local: bool,
-                        test_slashed: bool, world_size: int):
-        if delete_local and not use_object_store:
-            pytest.skip('Invalid test setting.')
-
-        if use_object_store:
-            pytest.importorskip('libcloud')
-
-        latest_filename = 'latest-rank{rank}.pt'
-        if test_slashed:
-            latest_filename = 'testdir/' + latest_filename
-        trainer_1 = self.get_trainer(
-            latest_filename=latest_filename,
-            save_folder='first',
-            device=device,
-            run_name='big-chungus',
-            autoresume=True,
-            loggers=[self.get_logger(tmp_path)] if use_object_store else [],
-        )
-
-        # trains the model, saving the checkpoint files
-        trainer_1.fit()
-        trainer_1.close()
-
-        if delete_local:
-            # delete files locally, forcing trainer to look in object store
-            shutil.rmtree('first')
-
-        trainer_2 = self.get_trainer(
-            latest_filename=latest_filename,
-            save_folder='first',
-            device=device,
-            run_name='big-chungus',
-            autoresume=True,
-            load_path='ignore_me.pt',  # this should be ignored
-            loggers=[self.get_logger(tmp_path)] if use_object_store else [],
-        )
-
-        self._assert_weights_equivalent(
-            trainer_1.state.model,
-            trainer_2.state.model,
-        )
-
-        assert self._metrics_equal(
-            trainer_1.state.train_metrics, trainer_2.state.train_metrics, trainer_1.state.eval_metrics,
-            trainer_2.state.eval_metrics), 'Original metrics do not equal metrics from loaded checkpoint.'
-
-        assert trainer_1.state.run_name == trainer_2.state.run_name
 
     @pytest.mark.parametrize(
         'run_name,save_folder,save_overwrite,latest_filename',

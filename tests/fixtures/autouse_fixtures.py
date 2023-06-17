@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import gc
 import logging
 import os
 import pathlib
@@ -31,7 +32,9 @@ def clear_cuda_cache():
     """This fixture ensures that we don't have memory leakages during pytest by clearing
        the CUDA cache before every test.
     """
-    torch.cuda.empty_cache()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    gc.collect()
 
 
 @pytest.fixture(autouse=True)
