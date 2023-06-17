@@ -1256,7 +1256,7 @@ class Trainer:
 
         # FSDP wrap if not using monolith checkpoint on rank 0 only
         log.info(f'FSDP: {self.state.fsdp_config=}, {fsdp_auto_wrap=}, {self.state.load_fsdp_monolith_rank0_only=}')
-        if self.state.fsdp_config is not None and fsdp_auto_wrap and not self.state.load_fsdp_monolith_rank0_only:
+        if self.state.fsdp_config is not None and fsdp_auto_wrap:  # and not self.state.load_fsdp_monolith_rank0_only:
             log.info('fSDP wrapping model')
             prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 
