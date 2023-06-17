@@ -231,10 +231,10 @@ def prepare_fsdp_module(
         any_ranks_meta = device.tensor_to_device(torch.tensor([rank_on_meta], dtype=torch.uint8))
         dist.all_reduce(any_ranks_meta, reduce_operation='MAX')
         if all_ranks_meta.item() == 0 and any_ranks_meta.item() == 1:
-            raise ValueError('Detected mixed initialization where some ranks have model on cpu or gpu and '
-                                'some ranks are on meta. Either keep all ranks on the same device or set '
-                                "fsdp_config['sync_module_states'] = True. Otherwise, some weights may be randomly "
-                                'initialized when loading a checkpoint.')
+            raise ValueError('Detected mixed initialization where some ranks have model on cpu or '
+                             'gpu and some ranks are on meta. Either keep all ranks on the same '
+                             "device or set fsdp_config['sync_module_states'] = True. Otherwise, "
+                             'some weights may be randomly initialized when loading a checkpoint.')
 
     # Check if other ranks OOMed after forward/backward pass when using auto microbatching. This
     # may happen when close to memory limit or with uneven memory usage across ranks. Since we

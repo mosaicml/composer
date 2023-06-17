@@ -6,10 +6,10 @@ import os
 import pathlib
 import textwrap
 from functools import partial
-from packaging import version
 
 import pytest
 import torch
+from packaging import version
 from torch.utils.data import DataLoader
 
 from composer.algorithms import EMA
