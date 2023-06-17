@@ -554,4 +554,3 @@ def prepare_fsdp_module(
             assert optimizer_specific_info is not None
             optimizer_specific_info.update({'params': list(model.parameters())})
             optim.add_param_group(optimizer_specific_info)
-            # optim.add_param_group({'params': list(model.parameters())})
