@@ -516,19 +516,6 @@ class State(Serializable):
             if error_message != '':
                 raise ValueError(error_message)
 
-        if self.fsdp_enabled and self.fsdp_config is not None and self.fsdp_config['sync_module_states'] == False:
-            # Broadcast rank 0 meta check to all ranks so error can be raised on all ranks
-            rank_on_meta = 1 if next(model.parameters()).device.type == 'meta' else 0
-            all_ranks_meta = self.device.tensor_to_device(torch.tensor([rank_on_meta], dtype=torch.uint8))
-            dist.all_reduce(all_ranks_meta, reduce_operation='MIN')
-            any_ranks_meta = self.device.tensor_to_device(torch.tensor([rank_on_meta], dtype=torch.uint8))
-            dist.all_reduce(any_ranks_meta, reduce_operation='MAX')
-            if all_ranks_meta.item() == 0 and any_ranks_meta.item() == 1:
-                raise ValueError('Detected mixed initialization where some ranks have model on cpu or gpu and '
-                                 'some ranks are on meta. Either keep all ranks on the same device or set '
-                                 "fsdp_config['sync_module_states'] = True. Otherwise, some weights may be randomly "
-                                 'initialized when loading a checkpoint.')
-
         self.sharded_ckpt_prefix_dir: Optional[str] = None
         if self.fsdp_config is not None:
             self.sharded_ckpt_prefix_dir = self.fsdp_config['sharded_ckpt_prefix_dir']

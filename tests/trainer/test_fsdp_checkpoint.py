@@ -5,10 +5,11 @@ import contextlib
 import os
 import pathlib
 import textwrap
+from functools import partial
+from packaging import version
 
 import pytest
 import torch
-from packaging import version
 from torch.utils.data import DataLoader
 
 from composer.algorithms import EMA
@@ -32,7 +33,16 @@ class SimpleMLP(ComposerClassifier):
             torch.nn.ReLU(),
             torch.nn.Linear(num_features, num_classes, bias=False),
         )
+        net.param_init_fn = self.param_init_fn
         super().__init__(module=net, num_classes=num_classes)
+
+    def param_init_fn(self, module):
+        init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
+
+        if isinstance(module, torch.nn.Linear):
+            init_fn(module.weight)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
 
 
 def get_trainer(
