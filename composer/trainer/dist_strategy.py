@@ -291,6 +291,7 @@ def prepare_fsdp_module(
         else:
             group = optim.param_groups[0]
             optimizer_specific_info = {k: v for k, v in group.items() if k != 'params'}
+            log.info(f'optimizer_specific_info: {optimizer_specific_info}')
 
         optim.param_groups.clear()
         optim.state.clear()
