@@ -277,6 +277,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         cd /tmp/apex && \
         git clone https://github.com/NVIDIA/apex && \
         cd apex && \
+        pip${PYTHON_VERSION} install --no-cache-dir flit-core && \
         pip${PYTHON_VERSION} install --no-cache-dir --no-build-isolation -r requirements.txt && \
         pip${PYTHON_VERSION} install --no-cache-dir --no-build-isolation \
             --global-option="--cpp_ext" \
