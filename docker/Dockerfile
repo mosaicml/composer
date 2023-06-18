@@ -190,7 +190,7 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
     rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} - && \
-    pip${PYTHON_VERSION} install --no-cache-dir --upgrade 'pip<23' setuptools packaging
+    pip${PYTHON_VERSION} install --no-cache-dir --upgrade 'pip<23' setuptools
 
 #####################
 # Install pillow-simd
@@ -277,7 +277,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         cd /tmp/apex && \
         git clone https://github.com/NVIDIA/apex && \
         cd apex && \
-        pip${PYTHON_VERSION} install --no-cache-dir flit-core && \
+        pip${PYTHON_VERSION} install --no-cache-dir packaging flit-core && \
         pip${PYTHON_VERSION} install --no-cache-dir --no-build-isolation -r requirements.txt && \
         pip${PYTHON_VERSION} install --no-cache-dir --no-build-isolation \
             --global-option="--cpp_ext" \
