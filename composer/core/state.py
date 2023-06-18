@@ -1078,6 +1078,7 @@ class State(Serializable):
             from composer.trainer.dist_strategy import prepare_fsdp_module
             prepare_fsdp_module(self.model, self.optimizers, self.fsdp_config, self.precision, self.device,
                                 self.auto_microbatching)
+            log.debug('Finished wrapping model with FSDP.')
 
     def load_optim_state(self, state_dict: Dict[str, Any]):
         """Load the optimizer state.
@@ -1087,11 +1088,18 @@ class State(Serializable):
         """
         serialized_value = state_dict['optimizers']
         for optimizer in ensure_tuple(self.optimizers):
-            if serialized_value is not None and type(optimizer).__qualname__ not in serialized_value:
+            # Broadcast compatibility check as monolith rank 0 only loads won't have optimizer on all ranks
+            skip_optimizer_load = 1 if serialized_value is not None and type(
+                optimizer).__qualname__ not in serialized_value else 0
+            skip_optimizer_load_tensor = self.device.tensor_to_device(
+                torch.tensor([skip_optimizer_load], dtype=torch.uint8))
+            dist.all_reduce(skip_optimizer_load_tensor, reduce_operation='MAX')
+            if skip_optimizer_load_tensor.item() == 1:
                 warnings.warn(
                     f'{type(optimizer).__qualname__} is not in the state_dict. Its state will not be restored.',
                     category=UserWarning)
                 continue
+
             optim_state_dict = serialized_value[type(optimizer).__qualname__] if serialized_value is not None else None
             if self.fsdp_enabled:
                 assert self.fsdp_state_dict_type is not None  # pyright

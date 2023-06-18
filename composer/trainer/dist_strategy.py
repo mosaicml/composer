@@ -223,6 +223,19 @@ def prepare_fsdp_module(
 
     set_fsdp_default(fsdp_config)
 
+    # Check sync_module_states is True for mixed initialization
+    if fsdp_config['sync_module_states'] == False:
+        rank_on_meta = 1 if next(model.parameters()).device.type == 'meta' else 0
+        all_ranks_meta = device.tensor_to_device(torch.tensor([rank_on_meta], dtype=torch.uint8))
+        dist.all_reduce(all_ranks_meta, reduce_operation='MIN')
+        any_ranks_meta = device.tensor_to_device(torch.tensor([rank_on_meta], dtype=torch.uint8))
+        dist.all_reduce(any_ranks_meta, reduce_operation='MAX')
+        if all_ranks_meta.item() == 0 and any_ranks_meta.item() == 1:
+            raise ValueError('Detected mixed initialization where some ranks have model on cpu or '
+                             'gpu and some ranks are on meta. Either keep all ranks on the same '
+                             "device or set fsdp_config['sync_module_states'] = True. Otherwise, "
+                             'some weights may be randomly initialized when loading a checkpoint.')
+
     # Check if other ranks OOMed after forward/backward pass when using auto microbatching. This
     # may happen when close to memory limit or with uneven memory usage across ranks. Since we
     # need to do this before the model weights are gathered for the next FSDP block, we wrap every
@@ -285,8 +298,7 @@ def prepare_fsdp_module(
                 optimizer_specific_group_info = {k: v for k, v in group.items() if k != 'params'}
                 group_num_to_param_group_info[group_num] = optimizer_specific_group_info
         else:
-            group = optim.param_groups[0]
-            optimizer_specific_info = {k: v for k, v in group.items() if k != 'params'}
+            optimizer_specific_info = {k: v for k, v in optim.param_groups[0].items() if k != 'params'}
 
         optim.param_groups.clear()
         optim.state.clear()
