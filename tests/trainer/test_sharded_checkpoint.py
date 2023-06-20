@@ -23,9 +23,9 @@ from composer.utils.file_helpers import get_file
 from composer.utils.misc import using_torch_2
 from composer.utils.object_store import S3ObjectStore
 from composer.utils.reproducibility import get_rng_state
+from tests.common import RandomClassificationDataset, deep_compare
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
-from tests.common import (RandomClassificationDataset, RandomImageDataset, SimpleConvModel, deep_compare)
 
 
 # This model is to be used explicitly for this unit test because some old reference checkpoints
@@ -58,7 +58,8 @@ def get_trainer(save_folder=None,
                 save_weights_only=False,
                 load_weights_only=False,
                 algorithms=None,
-                optimizer='adam'):
+                optimizer='adam',
+                save_num_checkpoints_to_keep=-1):
     model = SimpleMLP(num_features=num_features, num_classes=num_classes)
     dataset = RandomClassificationDataset(shape=(num_features,), size=128)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=8)
@@ -88,6 +89,7 @@ def get_trainer(save_folder=None,
                       progress_bar=False,
                       log_to_console=False,
                       autoresume=autoresume,
+                      save_num_checkpoints_to_keep=save_num_checkpoints_to_keep,
                       run_name=run_name,
                       save_latest_filename='latest-rank{rank}.pt',
                       save_weights_only=save_weights_only,
@@ -550,7 +552,9 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
             save_filename.format(batch=2, rank=1))
         assert os.readlink(latest_symlink) == str(
             pathlib.Path('ba2') / pathlib.Path(save_filename.format(batch=2, rank=0)))
-        oldest_checkpoint_relative_path = str(pathlib.Path('ba1') / (pathlib.Path(save_filename.format(batch=1, rank=0))) if not using_torch_2() else pathlib.Path(''))
+        oldest_checkpoint_relative_path = str(
+            pathlib.Path('ba1') /
+            (pathlib.Path(save_filename.format(batch=1, rank=0))) if not using_torch_2() else pathlib.Path(''))
         os.remove(latest_symlink)
         os.symlink(src=oldest_checkpoint_relative_path, dst=latest_symlink)
         os.remove(latest_checkpoint_path)
@@ -566,3 +570,52 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
             autoresume=autoresume,
             run_name=run_name,
         )
+
+
+@pytest.mark.gpu
+@world_size(2)
+@pytest.mark.parametrize('state_dict_type', ['sharded', 'local'])
+@pytest.mark.parametrize('num_ckpts_to_keep', [-1, 1, 3, 4])
+@pytest.mark.parametrize('batches_to_train', [5])
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                    reason='requires PyTorch 1.13 or higher')
+@pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
+def test_cleanup_sharded_checkpoints(world_size, tmp_path: pathlib.Path, state_dict_type: str, num_ckpts_to_keep: int,
+                                     batches_to_train: int, s3_bucket, s3_ephemeral_prefix, request):
+    if state_dict_type == 'local' and using_torch_2():
+        pytest.xfail(
+            'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info'
+        )
+
+    run_name = None
+
+    tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
+    save_folder = os.path.join(tmp_paths[0], 'checkpoints', '{run_name}')
+    save_filename = 'ba{batch}-rank{rank}.pt'
+    fsdp_sharded_ckpt_prefix_dir = 'ba{batch}'
+
+    trainer1 = get_trainer(save_folder=str(save_folder),
+                           save_filename=save_filename,
+                           fsdp_state_dict_type=state_dict_type,
+                           run_name=run_name,
+                           max_duration=f'{batches_to_train}ba',
+                           save_interval='1ba',
+                           save_num_checkpoints_to_keep=num_ckpts_to_keep,
+                           fsdp_sharded_ckpt_prefix_dir=fsdp_sharded_ckpt_prefix_dir)
+    run_name = trainer1.state.run_name
+    trainer1.fit()
+    trainer1.close()
+
+    shards_dir = os.path.join(save_folder.format(run_name=run_name))
+    dir_contents = [file_or_dir for file_or_dir in os.listdir(shards_dir) if 'latest' not in file_or_dir]
+    num_checkpoint_dirs = len(dir_contents)
+    if num_ckpts_to_keep == -1:
+        assert num_checkpoint_dirs == batches_to_train
+    else:
+        assert num_checkpoint_dirs == num_ckpts_to_keep
+
+    for ckpt_dir in dir_contents:
+        full_path_ckpt_dir = os.path.join(shards_dir, ckpt_dir)
+        assert set(os.listdir(full_path_ckpt_dir)) == {
+            '.metadata', *[f'__{i}_0.distcp' for i in range(dist.get_world_size())]
+        }

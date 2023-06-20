@@ -320,7 +320,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.latest_remote_file_name = PartialFilePath(latest_remote_file_name) if latest_remote_file_name else None
 
         self.overwrite = overwrite
-        self.saved_checkpoints: List[str] = []
+        self.saved_checkpoints: List[Union[str, tuple]] = []
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
         self.weights_only = weights_only
 
@@ -390,9 +390,15 @@ class CheckpointSaver(Callback):  # noqa: D101
             filename=filename_with_placeholders,
             weights_only=self.weights_only,
         )
+        log.debug(saved_path)
 
         if not saved_path:  # not all ranks save
             return
+        metadata_local_file_path = None
+        if dist.get_global_rank() == 0 and state.fsdp_elastic_sharded_enabled:
+            metadata_local_file_path = format_name_with_dist_and_time(
+                os.path.join(Path(saved_path).parent, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME), state.run_name,
+                state.timestamp)
 
         if self.latest_filename is not None and self.num_checkpoints_to_keep != 0:
             symlink = self.latest_filename.format(state, is_deepspeed)
@@ -425,14 +431,13 @@ class CheckpointSaver(Callback):  # noqa: D101
                 remote_file_name = format_name_with_dist_and_time(remote_file_name, state.run_name, state.timestamp)
                 # Upload metadata file.
                 # The metadata file contains info related to which shards are saved where.
-                if dist.get_global_rank() == 0 and using_torch_2():
-                    metadata_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME
-                    metadata_local_file_name = format_name_with_dist_and_time(
-                        os.path.join(Path(saved_path).parent, metadata_filename), state.run_name, state.timestamp)
+                if dist.get_global_rank() == 0 and state.fsdp_elastic_sharded_enabled:
                     metadata_remote_file_name = format_name_with_dist_and_time(
-                        os.path.join(Path(remote_file_name).parent, metadata_filename), state.run_name, state.timestamp)
+                        os.path.join(Path(remote_file_name).parent, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME),
+                        state.run_name, state.timestamp)
+                    assert metadata_local_file_path is not None
                     logger.upload_file(remote_file_name=metadata_remote_file_name,
-                                       file_path=metadata_local_file_name,
+                                       file_path=metadata_local_file_path,
                                        overwrite=self.overwrite)
             else:
                 remote_file_name = self.remote_file_name.format(
@@ -466,12 +471,28 @@ class CheckpointSaver(Callback):  # noqa: D101
                         overwrite=True,
                     )
 
-        self.saved_checkpoints.append(saved_path)
+        if dist.get_global_rank() == 0 and state.fsdp_elastic_sharded_enabled:
+            assert metadata_local_file_path is not None
+            self.saved_checkpoints.append((saved_path, metadata_local_file_path))
+        else:
+            self.saved_checkpoints.append(saved_path)
 
         if self.num_checkpoints_to_keep >= 0:
             self._rotate_checkpoints()
 
     def _rotate_checkpoints(self):
+
         while len(self.saved_checkpoints) > self.num_checkpoints_to_keep:
+            prefix_dir = None
             checkpoint = self.saved_checkpoints.pop(0)
-            os.remove(checkpoint)
+            # Rank 0 will have the rank 0 shard and the metadata file to delete
+            if isinstance(checkpoint, tuple):
+                checkpoint_file, metadata_file = checkpoint
+                os.remove(checkpoint_file)
+                os.remove(metadata_file)
+                prefix_dir = str(Path(checkpoint_file).parent)
+            else:
+                os.remove(checkpoint)
+            dist.barrier()
+            if prefix_dir is not None:
+                os.removedirs(prefix_dir)
