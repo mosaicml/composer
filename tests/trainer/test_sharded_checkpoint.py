@@ -26,6 +26,7 @@ from composer.utils.reproducibility import get_rng_state
 from tests.common import RandomClassificationDataset, deep_compare
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
+import shutil
 
 
 # This model is to be used explicitly for this unit test because some old reference checkpoints
@@ -531,9 +532,13 @@ def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type:
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool):
-    pytest.xfail('Fails for now until we get symlink suppport working')
+    if state_dict_type == 'local' and using_torch_2():
+        pytest.xfail(
+            'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info'
+        )
     run_name = 'my-run-ar' if autoresume else 'my-run'
-    save_folder = str(tmp_path / pathlib.Path(run_name))
+    tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
+    save_folder = str(tmp_paths[0] / pathlib.Path(run_name))
     save_filename = 'ba{batch}-rank{rank}.pt'
     trainer1 = get_trainer(save_folder=save_folder,
                            save_filename=save_filename,
@@ -544,23 +549,22 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
                            save_interval='1ba')
     trainer1.fit()
     trainer1.close()
+    latest_symlink = str(pathlib.Path(save_folder) / pathlib.Path(f'latest-rank{dist.get_global_rank()}.pt'))
+    latest_checkpoint_path = pathlib.Path(save_folder) / pathlib.Path('ba2') / (pathlib.Path(save_filename.format(batch=2, rank=dist.get_global_rank())) if not using_torch_2() else pathlib.Path(''))
+    assert os.readlink(latest_symlink) == str(pathlib.Path('ba2'))
+    oldest_checkpoint_relative_path = str(
+        pathlib.Path('ba1') /
+        (pathlib.Path(save_filename.format(batch=1, rank=dist.get_global_rank())) if not using_torch_2() else pathlib.Path('')))
+        
     # Corrupt latest checkpoint symlink for rank1 by changing it from batch 2 checkpoint to the batch 1 one
     # and removing batch 2 checkpoint.
-    if dist.get_global_rank() == 1:
-        latest_symlink = str(pathlib.Path(save_folder) / pathlib.Path('latest-rank1.pt'))
-        latest_checkpoint_path = pathlib.Path(save_folder) / pathlib.Path('ba2') / pathlib.Path(
-            save_filename.format(batch=2, rank=1))
-        assert os.readlink(latest_symlink) == str(
-            pathlib.Path('ba2') / pathlib.Path(save_filename.format(batch=2, rank=0)))
-        oldest_checkpoint_relative_path = str(
-            pathlib.Path('ba1') /
-            (pathlib.Path(save_filename.format(batch=1, rank=0))) if not using_torch_2() else pathlib.Path(''))
+    if dist.get_global_rank() == 0:
         os.remove(latest_symlink)
         os.symlink(src=oldest_checkpoint_relative_path, dst=latest_symlink)
-        os.remove(latest_checkpoint_path)
         assert os.readlink(latest_symlink) == oldest_checkpoint_relative_path
 
-    expected_error = pytest.raises(RuntimeError, match='Timestamp mismatch error:*')
+    dist.barrier()
+    expected_error = pytest.raises(AssertionError, match='Different ranks have different values for step.') if using_torch_2() else pytest.raises(RuntimeError, match='Timestamp mismatch error:*')
 
     with expected_error:
         get_trainer(
