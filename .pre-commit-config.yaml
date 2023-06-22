@@ -108,7 +108,6 @@ repos:
     hooks:
       - id: trufflehog
         name: secret scan
-        language: system
         entry: trufflehog filesystem ./
         args:
           - --only-verified
