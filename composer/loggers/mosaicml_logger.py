@@ -11,6 +11,7 @@ import logging
 import operator
 import os
 import time
+import warnings
 from functools import reduce
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -134,18 +135,23 @@ def format_data_to_json_serializable(data: Any):
     Returns:
         str: ``data`` as a string.
     """
-    if data is None:
-        return 'None'
-    if type(data) in (str, int, float, bool):
-        return data
-    if isinstance(data, torch.Tensor):
-        if data.shape == () or reduce(operator.mul, data.shape, 1) == 1:
-            return format_data_to_json_serializable(data.cpu().item())
-        return 'Tensor of shape ' + str(data.shape)
-    if isinstance(data, collections.abc.Mapping):
-        return {format_data_to_json_serializable(k): format_data_to_json_serializable(v) for k, v in data.items()}
-    if isinstance(data, collections.abc.Iterable):
-        return [format_data_to_json_serializable(v) for v in data]
+    try:
+        if data is None:
+            return 'None'
+        if type(data) in (str, int, float, bool):
+            return data
+        if isinstance(data, torch.Tensor):
+            if data.shape == () or reduce(operator.mul, data.shape, 1) == 1:
+                return format_data_to_json_serializable(data.cpu().item())
+            return 'Tensor of shape ' + str(data.shape)
+        if isinstance(data, collections.abc.Mapping):
+            return {format_data_to_json_serializable(k): format_data_to_json_serializable(v) for k, v in data.items()}
+        if isinstance(data, collections.abc.Iterable):
+            return [format_data_to_json_serializable(v) for v in data]
 
-    # Unknown format catch-all
-    return str(data)
+        # Unknown format catch-all
+        return str(data)
+    except RuntimeError as e:
+        warnings.warn('Encountered unexpected error while formatting data to be JSON serializable. '
+                      f'Returning empty string instead. Error: {str(e)}')
+        return ''

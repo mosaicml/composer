@@ -1061,8 +1061,9 @@ class Trainer:
                 loggers.append(remote_ud)
 
         # MosaicML Logger
-        if os.environ.get('MOSAICML_PLATFORM', False) and os.environ.get('MOSAICML_API_KEY') is not None and not any(
-                isinstance(x, MosaicMLLogger) for x in loggers):
+        if os.environ.get('MOSAICML_PLATFORM',
+                          False) and os.environ.get('MOSAICML_ACCESS_TOKEN_FILE') is not None and not any(
+                              isinstance(x, MosaicMLLogger) for x in loggers):
             mosaicml_logger = MosaicMLLogger()
             loggers.append(mosaicml_logger)
 
