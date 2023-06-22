@@ -128,8 +128,8 @@ class RuntimeEstimator(Callback):
             elapsed_time -= self.total_eval_wct  # Subtract time spent evaluating
             rate = elapsed_time / (elapsed_dur - self.start_dur)
             remaining_time = rate * (1 - elapsed_dur)
-            log.info(
-                f'{elapsed_dur=}, Elapsed Time: {time.time() - self.start_time}, {elapsed_time=}, {rate=}, {remaining_time=}'
+            print(
+                f'\n{elapsed_dur=}, Elapsed Time: {time.time() - self.start_time}, {elapsed_time=}, {rate=}, {remaining_time=}'
             )
 
             # Add remaining time from each evaluator using known frequencies. We explicitly compute
@@ -146,7 +146,7 @@ class RuntimeEstimator(Callback):
                 num_total_evals = 1 / eval_rate * (1 - self.start_dur)
                 remaining_calls = num_total_evals - num_evals_finished
                 remaining_time += eval_wct_avg * remaining_calls
-                log.info(
+                print(
                     f'{dataloader_label=}, {eval_wct_avg=}, {eval_rate=}, {self.start_dur=}, {num_total_evals=}, {remaining_calls=}, {remaining_time=}'
                 )
 
