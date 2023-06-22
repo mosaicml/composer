@@ -38,8 +38,8 @@ from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException,
                            ensure_data_spec, ensure_evaluator, ensure_time, get_precision_context,
                            validate_eval_automicrobatching)
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
-from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, ProgressBarLogger, RemoteUploaderDownloader,
-                              WandBLogger)
+from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, MosaicMLLogger, ProgressBarLogger,
+                              RemoteUploaderDownloader, WandBLogger)
 from composer.models import ComposerModel
 from composer.optim import ComposerScheduler, DecoupledSGDW, compile_composer_scheduler
 from composer.profiler import Profiler
@@ -1059,6 +1059,12 @@ class Trainer:
             remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
             if remote_ud is not None:
                 loggers.append(remote_ud)
+
+        # MosaicML Logger
+        if os.environ.get('MOSAICML_PLATFORM', False) and os.environ.get('MOSAICML_API_KEY') is not None and not any(
+                isinstance(x, MosaicMLLogger) for x in loggers):
+            mosaicml_logger = MosaicMLLogger()
+            loggers.append(mosaicml_logger)
 
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
