@@ -245,7 +245,7 @@ def load_checkpoint(
 
 def _get_local_rank_zero_path(path: Optional[str]) -> str:
     """Broadcasts the ``path`` from the LOCAL rank zero to all LOCAL ranks."""
-    local_rank_zero = dist.get_local_world_size() * dist.get_node_rank()
+    local_rank_zero = dist.get_global_rank() - dist.get_local_rank()
     paths = dist.all_gather_object(path)
     local_rank_zero_path = paths[local_rank_zero]
     assert local_rank_zero_path is not None, 'local rank zero provides the path'
