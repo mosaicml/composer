@@ -4,12 +4,15 @@
 """Estimate total time of training."""
 from __future__ import annotations
 
+import logging
 import time
 import warnings
 from typing import Dict, List, Optional
 
 from composer.core import Callback, State, TimeUnit
 from composer.loggers import Logger
+
+log = logging.getLogger(__name__)
 
 __all__ = ['RuntimeEstimator']
 
@@ -125,6 +128,9 @@ class RuntimeEstimator(Callback):
             elapsed_time -= self.total_eval_wct  # Subtract time spent evaluating
             rate = elapsed_time / (elapsed_dur - self.start_dur)
             remaining_time = rate * (1 - elapsed_dur)
+            log.info(
+                f'{elapsed_dur=}, Elapsed Time: {time.time() - self.start_time}, {elapsed_time=}, {rate=}, {remaining_time=}'
+            )
 
             # Add remaining time from each evaluator using known frequencies. We explicitly compute
             # frequency instead of using time interpolation to avoid saw tooth pattern in estimates
@@ -140,6 +146,9 @@ class RuntimeEstimator(Callback):
                 num_total_evals = 1 / eval_rate * (1 - self.start_dur)
                 remaining_calls = num_total_evals - num_evals_finished
                 remaining_time += eval_wct_avg * remaining_calls
+                log.info(
+                    f'{dataloader_label=}, {eval_wct_avg=}, {eval_rate=}, {self.start_dur=}, {num_total_evals=}, {remaining_calls=}, {remaining_time=}'
+                )
 
             logger.log_metrics({'time/remaining_estimate': remaining_time / self.divider})
 
