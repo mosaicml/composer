@@ -7,22 +7,34 @@ import json
 import os
 import pathlib
 import pickle
+import shutil
 import uuid
 from pathlib import Path
 from typing import Sequence, Type
 
 import pytest
 import torch
+from _pytest.monkeypatch import MonkeyPatch
 from torch.utils.data import DataLoader
 
 from composer.core import Callback, Engine, Event, State
 from composer.loggers import InMemoryLogger, Logger, WandBLogger
 from composer.trainer import Trainer
-from composer.utils import dist, retry
+from composer.utils import dist
 from tests.callbacks.callback_settings import get_cb_kwargs, get_cbs_and_marks
 from tests.common import RandomClassificationDataset, SimpleModel
 from tests.common.datasets import RandomImageDataset
 from tests.common.models import SimpleConvModel
+
+
+class MockArtifact:
+
+    def __init__(self, file_path: pathlib.Path):
+        self.file_path = file_path
+
+    def download(self, root: pathlib.Path):
+        os.makedirs(root)
+        shutil.copy2(self.file_path, root)
 
 
 @pytest.fixture
@@ -259,22 +271,24 @@ def test_wandb_is_pickleable_when_disabled(dummy_state: State):
 
 @pytest.mark.world_size(2)
 @pytest.mark.parametrize('rank_zero_only', [True, False])
-@pytest.mark.skip('This test needs to be refactored to use a Mock API interface.')
-def test_wandb_artifacts(rank_zero_only: bool, tmp_path: pathlib.Path, dummy_state: State):
+def test_wandb_artifacts(monkeypatch: MonkeyPatch, rank_zero_only: bool, tmp_path: pathlib.Path, dummy_state: State):
     """Test that wandb artifacts logged on rank zero are accessible by all ranks."""
-    pytest.importorskip('wandb', reason='wandb is optional')
+    import wandb
+    original_wandb_mode = os.environ.get('WANDB_MODE', None)
+    os.environ['WANDB_MODE'] = 'offline'
     # Create the logger
     ctx = pytest.warns(
         UserWarning, match='`rank_zero_only` should be set to False.') if rank_zero_only else contextlib.nullcontext()
     with ctx:
-        wandb_logger = WandBLogger(
-            rank_zero_only=rank_zero_only,
-            log_artifacts=True,
-        )
+        wandb_logger = WandBLogger(rank_zero_only=rank_zero_only,
+                                   log_artifacts=True,
+                                   entity='entity',
+                                   project='project')
     dummy_state.callbacks.append(wandb_logger)
     logger = Logger(dummy_state, [wandb_logger])
     engine = Engine(dummy_state, logger)
     engine.run_event(Event.INIT)
+    wandb_logger.init(dummy_state, logger)
 
     # Distribute the artifact name from rank 0 to all ranks
     wandb_artifact_name = 'test-wandb-artifact-' + str(uuid.uuid4())
@@ -282,9 +296,13 @@ def test_wandb_artifacts(rank_zero_only: bool, tmp_path: pathlib.Path, dummy_sta
     dist.broadcast_object_list(wandb_artifact_name_list)
     wandb_artifact_name = wandb_artifact_name_list[0]
 
+    # Have all ranks use the rank 0 save folder
+    tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
+    save_folder = pathlib.Path(tmp_paths[0])
+
+    # Create a dummy artifact
+    dummy_wandb_artifact_path = save_folder / 'wandb_artifact.txt'
     if dist.get_global_rank() == 0:
-        # Create a dummy artifact
-        dummy_wandb_artifact_path = tmp_path / 'wandb_artifact.txt'
         with open(dummy_wandb_artifact_path, 'w+') as f:
             f.write('hello!')
 
@@ -296,14 +314,23 @@ def test_wandb_artifacts(rank_zero_only: bool, tmp_path: pathlib.Path, dummy_sta
 
     # Wait for rank 0 queue the file upload
     dist.barrier()
-
     # Attempt to retrieve the artifact on all ranks
-    downloaded_wandb_artifact_path = tmp_path / 'downloaded_wandb_artifact'
+    downloaded_wandb_artifact_path = save_folder / 'downloaded_wandb_artifact'
 
-    @retry(FileNotFoundError, num_attempts=6)  # 6 attempts is ~2^(6-1) seconds max wait
+    def mock_artifact(*arg, **kwargs):
+        return MockArtifact(dummy_wandb_artifact_path)
+
+    monkeypatch.setattr(wandb.Api, 'artifact', mock_artifact)
+
     def _validate_wandb_artifact():
         wandb_logger.download_file(wandb_artifact_name, str(downloaded_wandb_artifact_path))
         with open(downloaded_wandb_artifact_path, 'r') as f:
             assert f.read() == 'hello!'
 
     _validate_wandb_artifact()
+
+    # reset wandb mode
+    if original_wandb_mode is None:
+        del os.environ['WANDB_MODE']
+    else:
+        os.environ['WANDB_MODE'] = original_wandb_mode
