@@ -146,7 +146,7 @@ extra_deps['slack'] = {
 }
 
 extra_deps['deepspeed'] = [
-    'deepspeed==0.8.3',
+    'deepspeed==0.9.5',
 ]
 
 extra_deps['wandb'] = [
