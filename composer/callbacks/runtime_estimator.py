@@ -168,4 +168,7 @@ class RuntimeEstimator(Callback):
         assert self.start_dur is not None, 'start_dur is set on batch_start if enabled'
         elapsed_fraction = elapsed_dur - self.start_dur
         num_evals_finished = len(self.eval_wct_per_label[state.dataloader_label])
+        print(
+            f'{self.total_eval_wct=}, eval_timestamp={state.eval_timestamp.total_wct.total_seconds()}, {elapsed_dur=}, {elapsed_fraction=}, {num_evals_finished=}'
+        )
         self.eval_frequency_per_label[state.dataloader_label] = elapsed_fraction / num_evals_finished
