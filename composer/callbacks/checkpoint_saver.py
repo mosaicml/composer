@@ -478,9 +478,9 @@ class CheckpointSaver(Callback):  # noqa: D101
             self.saved_checkpoints.append(saved_path)
 
         if self.num_checkpoints_to_keep >= 0:
-            self._rotate_checkpoints()
+            self._rotate_checkpoints(sharding_enabled=state.fsdp_sharded_state_dict_enabled)
 
-    def _rotate_checkpoints(self):
+    def _rotate_checkpoints(self, sharding_enabled: bool = False):
 
         while len(self.saved_checkpoints) > self.num_checkpoints_to_keep:
             prefix_dir = None
@@ -492,7 +492,8 @@ class CheckpointSaver(Callback):  # noqa: D101
                 os.remove(metadata_file)
                 prefix_dir = str(Path(checkpoint_file).parent)
             else:
+                prefix_dir = str(Path(checkpoint).parent)
                 os.remove(checkpoint)
             dist.barrier()
-            if prefix_dir is not None:
+            if sharding_enabled and dist.get_global_rank() == 0:
                 os.removedirs(prefix_dir)

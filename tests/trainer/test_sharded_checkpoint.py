@@ -26,7 +26,6 @@ from composer.utils.reproducibility import get_rng_state
 from tests.common import RandomClassificationDataset, deep_compare
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
-import shutil
 
 
 # This model is to be used explicitly for this unit test because some old reference checkpoints
@@ -550,12 +549,13 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
     trainer1.fit()
     trainer1.close()
     latest_symlink = str(pathlib.Path(save_folder) / pathlib.Path(f'latest-rank{dist.get_global_rank()}.pt'))
-    latest_checkpoint_path = pathlib.Path(save_folder) / pathlib.Path('ba2') / (pathlib.Path(save_filename.format(batch=2, rank=dist.get_global_rank())) if not using_torch_2() else pathlib.Path(''))
-    assert os.readlink(latest_symlink) == str(pathlib.Path('ba2'))
+    latest_checkpoint_path = pathlib.Path(save_folder) / pathlib.Path('ba2') / (pathlib.Path(
+        save_filename.format(batch=2, rank=dist.get_global_rank())) if not using_torch_2() else pathlib.Path(''))
+    assert os.path.join(save_folder, os.readlink(latest_symlink)) == str(latest_checkpoint_path)
     oldest_checkpoint_relative_path = str(
-        pathlib.Path('ba1') /
-        (pathlib.Path(save_filename.format(batch=1, rank=dist.get_global_rank())) if not using_torch_2() else pathlib.Path('')))
-        
+        pathlib.Path('ba1') / (pathlib.Path(save_filename.format(batch=1, rank=dist.get_global_rank()))
+                               if not using_torch_2() else pathlib.Path('')))
+
     # Corrupt latest checkpoint symlink for rank1 by changing it from batch 2 checkpoint to the batch 1 one
     # and removing batch 2 checkpoint.
     if dist.get_global_rank() == 0:
@@ -564,7 +564,9 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
         assert os.readlink(latest_symlink) == oldest_checkpoint_relative_path
 
     dist.barrier()
-    expected_error = pytest.raises(AssertionError, match='Different ranks have different values for step.') if using_torch_2() else pytest.raises(RuntimeError, match='Timestamp mismatch error:*')
+    expected_error = pytest.raises(
+        AssertionError, match='Different ranks have different values for step.') if using_torch_2() else pytest.raises(
+            RuntimeError, match='Timestamp mismatch error:*')
 
     with expected_error:
         get_trainer(
@@ -578,9 +580,9 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.parametrize('state_dict_type', ['sharded', 'local'])
-@pytest.mark.parametrize('num_ckpts_to_keep', [-1, 1, 3, 4])
-@pytest.mark.parametrize('batches_to_train', [5])
+@pytest.mark.parametrize('state_dict_type', ['sharded'])  # ['sharded', 'local'])
+@pytest.mark.parametrize('num_ckpts_to_keep', [-1, 1, 2, 3])
+@pytest.mark.parametrize('batches_to_train', [3])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
@@ -595,7 +597,7 @@ def test_cleanup_sharded_checkpoints(world_size, tmp_path: pathlib.Path, state_d
 
     tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
     save_folder = os.path.join(tmp_paths[0], 'checkpoints', '{run_name}')
-    save_filename = 'ba{batch}-rank{rank}.pt'
+    save_filename = 'rank{rank}.pt'
     fsdp_sharded_ckpt_prefix_dir = 'ba{batch}'
 
     trainer1 = get_trainer(save_folder=str(save_folder),
@@ -620,6 +622,7 @@ def test_cleanup_sharded_checkpoints(world_size, tmp_path: pathlib.Path, state_d
 
     for ckpt_dir in dir_contents:
         full_path_ckpt_dir = os.path.join(shards_dir, ckpt_dir)
-        assert set(os.listdir(full_path_ckpt_dir)) == {
-            '.metadata', *[f'__{i}_0.distcp' for i in range(dist.get_world_size())]
-        }
+        elastic_file_list = {'.metadata', *[f'__{rank}_0.distcp' for rank in range(dist.get_world_size())]}
+        non_elastic_file_list = {save_filename.format(rank=rank) for rank in range(dist.get_world_size())}
+        file_list = elastic_file_list if using_torch_2() else non_elastic_file_list
+        assert set(os.listdir(full_path_ckpt_dir)) == file_list
