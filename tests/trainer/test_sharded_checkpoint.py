@@ -264,7 +264,6 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
 def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision: str, sharding_strategy: str,
                                   state_dict_type: str, s3_bucket: str, s3_read_only_prefix: str,
                                   composer_version: str):
-    # pytest.xfail('Fails for now until we get legacy sharded suppport working')
     if version.parse(torch.__version__) >= version.parse('2.0.0') and state_dict_type == 'local':
         pytest.xfail(
             'Loading a torch 1.13 checkpoint with torch 2.0 for state_dict_type local is not backwards compatible. See https://github.com/pytorch/pytorch/issues/102667 for more info'
@@ -446,7 +445,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
 @world_size(2)
 @pytest.mark.parametrize('state_dict_type', ['sharded'])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
-@pytest.mark.parametrize('autoresume', [False])  #, True])  # True commented out for now
+@pytest.mark.parametrize('autoresume', [False])  #,\\ True])  # True commented out for now
 @pytest.mark.parametrize('num_shards', [2, 4, 7])
 @pytest.mark.parametrize('sharding_strategy', ['FULL_SHARD'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.1'), reason='requires PyTorch 2.01 or higher')
