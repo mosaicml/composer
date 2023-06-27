@@ -40,6 +40,7 @@ from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException,
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, MosaicMLLogger, ProgressBarLogger,
                               RemoteUploaderDownloader, WandBLogger)
+from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR
 from composer.models import ComposerModel
 from composer.optim import ComposerScheduler, DecoupledSGDW, compile_composer_scheduler
 from composer.profiler import Profiler
@@ -1061,8 +1062,8 @@ class Trainer:
                 loggers.append(remote_ud)
 
         # MosaicML Logger
-        if os.environ.get('MOSAICML_PLATFORM',
-                          False) and os.environ.get('MOSAICML_ACCESS_TOKEN_FILE') is not None and not any(
+        if os.environ.get(MOSAICML_PLATFORM_ENV_VAR,
+                          False) and os.environ.get(MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and not any(
                               isinstance(x, MosaicMLLogger) for x in loggers):
             mosaicml_logger = MosaicMLLogger()
             loggers.append(mosaicml_logger)

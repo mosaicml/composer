@@ -29,9 +29,11 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-__all__ = ['MosaicMLLogger']
+__all__ = ['MosaicMLLogger', 'MOSAICML_PLATFORM_ENV_VAR', 'MOSAICML_ACCESS_TOKEN_ENV_VAR']
 
 RUN_NAME_ENV_VAR = 'RUN_NAME'
+MOSAICML_PLATFORM_ENV_VAR = 'MOSAICML_PLATFORM'
+MOSAICML_ACCESS_TOKEN_ENV_VAR = 'MOSAICML_ACCESS_TOKEN_FILE'
 
 
 class MosaicMLLogger(LoggerDestination):
