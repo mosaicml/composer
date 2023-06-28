@@ -6,7 +6,7 @@
 import contextlib
 import os
 import textwrap
-from typing import Generator, Union
+from typing import Generator, Union, Dict, Any
 
 import torch
 
@@ -38,7 +38,7 @@ class Precision(StringEnum):
 
 
 @contextlib.contextmanager
-def get_precision_context(precision: Union[str, Precision]) -> Generator[None, None, None]:
+def get_precision_context(precision: Union[str, Precision], precision_config: Dict[str, Any]) -> Generator[None, None, None]:
     """Returns a context manager to automatically cast to a specific precision.
 
     Args:
@@ -67,11 +67,9 @@ def get_precision_context(precision: Union[str, Precision]) -> Generator[None, N
         if te_installed and torch.cuda.get_device_capability()[0] > 8:
             from transformer_engine.common.recipe import DelayedScaling, Format
 
-            # These default values for fp8_recipe are taken from NVidia's docs. We may want to change
-            # these once we get a chance to do more convergence experiments.
-            # https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/examples/fp8_primer.html#id1
-            fp8_format = Format.HYBRID  # E4M3 during forward pass, E5M2 during backward pass
-            fp8_recipe = DelayedScaling(fp8_format=fp8_format, amax_history_len=16, amax_compute_algo='max')
+            if isinstance(precision_config['fp8_format'], str):
+                precision_config['fp8_format'] = Format[precision_config['fp8_format']]
+            fp8_recipe = DelayedScaling(**precision_config)
             with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
                 yield
         else:

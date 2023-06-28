@@ -433,6 +433,7 @@ class State(Serializable):
 
         # precision
         precision: Union[str, Precision] = Precision.FP32,
+        precision_config: Dict[str, Any] = {},
 
         # optimizers
         optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
@@ -472,6 +473,7 @@ class State(Serializable):
         self.eval_timestamp = Timestamp()
         self.predict_timestamp = Timestamp()
         self._precision = Precision(precision)
+        self._precision_config = precision_config
 
         if optimizers is None:
             self._optimizers = []
@@ -1408,6 +1410,10 @@ class State(Serializable):
     @precision.setter
     def precision(self, precision: Union[str, Precision]):
         self._precision = Precision(precision)
+
+    @property
+    def precision_config(self):
+        return self._precision_config
 
     @property
     def is_model_ddp(self):
