@@ -11,7 +11,8 @@ from torch.utils.data import DataLoader
 
 from composer.core import Callback
 from composer.loggers import WandBLogger
-from composer.loggers.mosaicml_logger import MosaicMLLogger, format_data_to_json_serializable
+from composer.loggers.mosaicml_logger import (MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR, MosaicMLLogger,
+                                              format_data_to_json_serializable)
 from composer.trainer import Trainer
 from composer.utils import dist
 from tests.callbacks.callback_settings import get_cb_kwargs, get_cbs_and_marks
@@ -160,3 +161,38 @@ def test_wandb_run_url(monkeypatch):
     ])
 
     assert mock_mapi.run_metadata[run_name]['mosaicml/wandb/run_url'] == run_url
+
+
+@pytest.mark.parametrize('platform_env_var', ['True', 'None'])
+@pytest.mark.parametrize('access_token_env_var', ['my-token', 'None'])
+@pytest.mark.parametrize('logger_set', [True, False])
+def test_auto_add_logger(monkeypatch, platform_env_var, access_token_env_var, logger_set):
+    mock_mapi = MockMAPI()
+    monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
+    run_name = 'small_chungus'
+    monkeypatch.setenv('RUN_NAME', run_name)
+
+    monkeypatch.setenv(MOSAICML_PLATFORM_ENV_VAR, platform_env_var)
+    monkeypatch.setenv(MOSAICML_ACCESS_TOKEN_ENV_VAR, access_token_env_var)
+
+    trainer = Trainer(
+        model=SimpleModel(),
+        train_dataloader=DataLoader(RandomClassificationDataset()),
+        train_subset_num_batches=2,
+        max_duration='1ep',
+        loggers=MosaicMLLogger() if logger_set else None,
+    )
+
+    logger_count = 0
+    for callback in trainer.state.callbacks:
+        if isinstance(callback, MosaicMLLogger):
+            logger_count += 1
+    # If logger is specified manually, ensure only 1
+    if logger_set:
+        assert logger_count == 1
+    # Otherwise, auto-add only if platform and access token are set
+    elif platform_env_var and access_token_env_var is not None:
+        assert logger_count == 1
+    # Otherwise, no logger
+    else:
+        assert logger_count == 0
