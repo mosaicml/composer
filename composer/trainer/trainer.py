@@ -741,6 +741,8 @@ class Trainer:
         precision (Precision | str, optional): Numerical precision to use for training. One of ``fp32``, ``amp_bf16``
             or ``amp_fp16`` (recommended). (default: ``Precision.FP32`` if training on CPU; ``Precision.AMP_FP16`` if
             training on GPU)
+        precision_config (Dict[str, Any]): The config for FP8 scaling strategy. See parameters for
+        `DelayedScaling <https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/common.html?highlight=delayedscaling#transformer_engine.common.recipe.DelayedScaling>`_.
         device_train_microbatch_size (Union[int, str), optional): The number of samples to process on each device per
             microbatch during training. Gradients are summed over the microbatches per device. If set to ``auto``,
             dynamically decreases device_train_microbatch_size if microbatch is too large for GPU. (default: ``None``)
