@@ -9,7 +9,6 @@ import torch
 from composer.core import Callback, State, Time, TimeUnit
 from composer.loggers import Logger
 from composer.loss.utils import infer_target_type
-from composer.utils import MissingConditionalImportError
 
 __all__ = ['ImageVisualizer']
 
