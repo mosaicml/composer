@@ -187,7 +187,7 @@ The full spec and defaults for Composer's `fsdp_config` is here:
       'min_params': float # Default: 1e8
       'cpu_offload': bool = True | False, # Default: False, cpu_offload not supported yet
       'mixed_precision': str = 'FULL' | 'DEFAULT' | 'PURE', # Default: 'DEFAULT'
-      # Note: you can explictly provide a dictionary too
+      # Note: you can explicitly provide a dictionary too
       # 'mixed_precision': dict = {
       #   'param_dtype': 'fp32' | 'fp16' | 'bf16',
       #   'reduce_dtype': 'fp32' | 'fp16' | 'bf16',
