@@ -6,7 +6,7 @@
 import contextlib
 import os
 import textwrap
-from typing import Any, Dict, Generator, Union
+from typing import Any, Dict, Generator, Optional, Union
 
 import torch
 
