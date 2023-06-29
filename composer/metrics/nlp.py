@@ -7,7 +7,7 @@ import re
 import string
 import types
 from typing import Any, Dict, List, Mapping, Union
-
+from composer.utils.import_helpers import MissingConditionalImportError
 try:
     import boto3
 except ImportError as e:
@@ -524,8 +524,8 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
 
     def update(self, batch: Dict[str, Any], outputs: List[str], labels: List[str]):
         del labels  # never used
-        remote = 'LAMBDA_FUNCTION_ARN' in os.environ
-        client = boto3.Session().client('lambda')
+        remote = 'LAMBDA_FUNCTION_ARN' in os.environ and 'AWS_DEFAULT_REGION' in os.environ
+        client = boto3.Session().client('lambda') if remote else None
         if not remote:
             warnings.warn("Running code eval locally may be unsecure.")
         num_beams = batch['generation_kwargs']['num_beams']
