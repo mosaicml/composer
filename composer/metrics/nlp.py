@@ -557,7 +557,8 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
                 if passes_all:
                     self.correct += torch.tensor(1.0)
                     break
-        client.close()
+        if remote:
+            client.close()
 
     def update_offline_helper(self, code_gen: str, test_input: str, test_output: str, entry_point: str,
                               val: multiprocessing.Value):  # type: ignore
