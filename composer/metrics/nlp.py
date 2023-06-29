@@ -7,7 +7,12 @@ import re
 import string
 import types
 from typing import Any, Dict, List, Mapping, Union
-import boto3
+
+try:
+    import boto3
+except ImportError as e:
+    raise MissingConditionalImportError('streaming', 'boto3') from e
+
 import os
 import warnings
 
