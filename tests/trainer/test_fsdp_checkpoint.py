@@ -1,9 +1,11 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import contextlib
 import os
 import pathlib
 import textwrap
+from functools import partial
 
 import pytest
 import torch
@@ -31,26 +33,41 @@ class SimpleMLP(ComposerClassifier):
             torch.nn.ReLU(),
             torch.nn.Linear(num_features, num_classes, bias=False),
         )
+        net.param_init_fn = self.param_init_fn
         super().__init__(module=net, num_classes=num_classes)
 
+    def param_init_fn(self, module):
+        init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
 
-def get_trainer(save_folder=None,
-                save_filename='ba{batch}-rank{rank}.pt',
-                save_overwrite=False,
-                num_features=2,
-                num_classes=2,
-                fsdp_state_dict_type='full',
-                fsdp_sharded_ckpt_prefix_dir='ba{batch}',
-                load_path=None,
-                autoresume=False,
-                run_name=None,
-                max_duration='2ba',
-                precision='amp_fp16',
-                sharding_strategy='FULL_SHARD',
-                save_interval='2ba',
-                algorithms=None,
-                optimizer='adam'):
+        if isinstance(module, torch.nn.Linear):
+            init_fn(module.weight)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+
+
+def get_trainer(
+    model_init_device='cpu',
+    save_folder=None,
+    save_filename='ba{batch}-rank{rank}.pt',
+    save_overwrite=False,
+    num_features=2,
+    num_classes=2,
+    fsdp_state_dict_type='full',
+    fsdp_sharded_ckpt_prefix_dir='ba{batch}',
+    load_path=None,
+    autoresume=False,
+    run_name=None,
+    max_duration='2ba',
+    precision='amp_fp16',
+    sharding_strategy='FULL_SHARD',
+    save_interval='2ba',
+    algorithms=None,
+    optimizer='adam',
+    load_fsdp_monolith_rank0_only=False,
+    sync_module_states=True,
+):
     model = SimpleMLP(num_features=num_features, num_classes=num_classes)
+    model.to(model_init_device)
     dataset = RandomClassificationDataset(shape=(num_features,), size=128)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=8)
     if optimizer == 'adam':
@@ -69,6 +86,9 @@ def get_trainer(save_folder=None,
             'state_dict_type': fsdp_state_dict_type,
             'sharding_strategy': sharding_strategy,
             'sharded_ckpt_prefix_dir': fsdp_sharded_ckpt_prefix_dir,
+            'sync_module_states': sync_module_states,
+            'use_orig_params': False,
+            'load_fsdp_monolith_rank0_only': load_fsdp_monolith_rank0_only,
         },
         save_folder=save_folder,
         max_duration=max_duration,
@@ -149,10 +169,11 @@ def _compare_metrics_between_state_dicts(state_dict1, state_dict2):
 @pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
 @pytest.mark.parametrize('autoresume', [True, False])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
+@pytest.mark.parametrize('load_fsdp_monolith_rank0_only', [True, False])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
-def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresume: bool, precision: str,
-                                   optimizer: str):
+def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresume: bool, precision: str, optimizer: str,
+                                   load_fsdp_monolith_rank0_only: bool):
     if autoresume:
         run_name = 'my-cool-autoresume-run'
     else:
@@ -167,6 +188,7 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
         precision=precision,
         autoresume=autoresume,
         optimizer=optimizer,
+        load_fsdp_monolith_rank0_only=load_fsdp_monolith_rank0_only,
     )
     trainer1.fit()
     state_dict_from_trainer1 = trainer1.state.state_dict()
@@ -182,6 +204,7 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
         autoresume=autoresume,
         max_duration='4ba',
         optimizer=optimizer,
+        load_fsdp_monolith_rank0_only=load_fsdp_monolith_rank0_only,
     )
     state_dict_from_trainer2 = trainer2.state.state_dict()
 
@@ -193,6 +216,23 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
     # Continue to fit to make sure we can continue training.
     trainer2.fit()
     trainer2.close()
+
+
+@pytest.mark.gpu
+@world_size(2)
+@pytest.mark.parametrize('sync_module_states', [True, False])
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                    reason='requires PyTorch 1.13 or higher')
+def test_fsdp_mixed_with_sync(world_size, tmp_path: pathlib.Path, sync_module_states: bool):
+    context = contextlib.nullcontext() if sync_module_states else pytest.raises(ValueError,
+                                                                                match='Detected mixed initialization.*')
+    with context:
+        get_trainer(
+            model_init_device=['cpu', 'meta'][dist.get_global_rank()],
+            save_folder=str(tmp_path),
+            fsdp_state_dict_type='full',
+            sync_module_states=sync_module_states,
+        )
 
 
 @pytest.mark.gpu
