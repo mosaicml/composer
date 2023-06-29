@@ -38,7 +38,8 @@ class Precision(StringEnum):
 
 
 @contextlib.contextmanager
-def get_precision_context(precision: Union[str, Precision], precision_config: Optional[Dict[str, Any]] = None) -> Generator[None, None, None]:
+def get_precision_context(precision: Union[str, Precision],
+                          precision_config: Optional[Dict[str, Any]] = None) -> Generator[None, None, None]:
     """Returns a context manager to automatically cast to a specific precision.
 
     Args:
