@@ -475,9 +475,6 @@ class State(Serializable):
         self.eval_timestamp = Timestamp()
         self.predict_timestamp = Timestamp()
         self._precision = Precision(precision)
-
-        if precision_config is None:
-            precision_config = {}
         self._precision_config = precision_config
 
         if optimizers is None:

@@ -918,8 +918,6 @@ class Trainer:
         elif isinstance(precision, str):
             precision = Precision(precision)
         _validate_precision(precision, device)
-        if precision_config is None:
-            precision_config = {}
 
         # check if provided model is compiled or not
         is_torch_2_0 = using_torch_2()
