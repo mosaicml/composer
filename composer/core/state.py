@@ -1420,7 +1420,8 @@ class State(Serializable):
     def precision_config(self):
         """The config for FP8 scaling strategy.
 
-        See parameters for `DelayedScaling <https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/common.html?highlight=delayedscaling#transformer_engine.common.recipe.DelayedScaling>`_."""
+        See parameters for `DelayedScaling <https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/common.html?highlight=delayedscaling#transformer_engine.common.recipe.DelayedScaling>`_.
+        """
         return self._precision_config
 
     @property
