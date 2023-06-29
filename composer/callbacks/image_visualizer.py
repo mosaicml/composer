@@ -9,7 +9,6 @@ import torch
 from composer.core import Callback, State, Time, TimeUnit
 from composer.loggers import Logger
 from composer.loss.utils import infer_target_type
-from composer.utils import MissingConditionalImportError
 
 __all__ = ['ImageVisualizer']
 
@@ -81,15 +80,6 @@ class ImageVisualizer(Callback):
         self.channels_last = channels_last
         self.input_key = input_key
         self.target_key = target_key
-
-        # TODO(Evan): Generalize as part of the logger refactor
-        try:
-            import wandb
-        except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='wandb',
-                                                conda_package='wandb',
-                                                conda_channel='conda-forge') from e
-        del wandb  # unused
 
         # Check that the output mode is valid
         if self.mode.lower() not in ['input', 'segmentation']:
