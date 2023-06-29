@@ -38,7 +38,7 @@ class Precision(StringEnum):
 
 
 @contextlib.contextmanager
-def get_precision_context(precision: Union[str, Precision], precision_config: Dict[str, Any]) -> Generator[None, None, None]:
+def get_precision_context(precision: Union[str, Precision], precision_config: Optional[Dict[str, Any]] = None) -> Generator[None, None, None]:
     """Returns a context manager to automatically cast to a specific precision.
 
     Args:
@@ -68,6 +68,8 @@ def get_precision_context(precision: Union[str, Precision], precision_config: Di
         if te_installed and torch.cuda.get_device_capability()[0] > 8:
             from transformer_engine.common.recipe import DelayedScaling, Format
 
+            if precision_config is None:
+                precision_config = {}
             if isinstance(precision_config['fp8_format'], str):
                 precision_config['fp8_format'] = Format[precision_config['fp8_format']]
             fp8_recipe = DelayedScaling(**precision_config)
