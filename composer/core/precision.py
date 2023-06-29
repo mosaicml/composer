@@ -68,12 +68,10 @@ def get_precision_context(precision: Union[str, Precision],
             yield
     elif precision == Precision.AMP_FP8:
         if te_installed and torch.cuda.get_device_capability()[0] > 8:
-            from transformer_engine.common.recipe import DelayedScaling, Format
+            from transformer_engine.common.recipe import DelayedScaling
 
             if precision_config is None:
                 precision_config = {}
-            if 'fp8_format' in precision_config and isinstance(precision_config['fp8_format'], str):
-                precision_config['fp8_format'] = Format[precision_config['fp8_format']]
             fp8_recipe = DelayedScaling(**precision_config)
             with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
                 yield
