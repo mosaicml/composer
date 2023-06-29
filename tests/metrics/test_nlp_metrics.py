@@ -11,7 +11,7 @@ import torch
 from torch.nn.functional import cross_entropy
 
 from composer.metrics.nlp import (BinaryF1Score, InContextLearningExpectedCalibrationError, InContextLearningLMAccuracy,
-                                  InContextLearningLMExpectedCalibrationError,
+                                  InContextLearningLMExpectedCalibrationError, InContextLearningCodeEvalAccuracy,
                                   InContextLearningMCExpectedCalibrationError, InContextLearningMultipleChoiceAccuracy,
                                   InContextLearningQAAccuracy, LanguageCrossEntropy, LanguagePerplexity, MaskedAccuracy)
 
@@ -236,6 +236,24 @@ def test_in_context_learning_qa_accuracy():
 
     assert metric.compute() == (2 / 3)
 
+def test_in_context_learning_code_eval_accuracy():
+    outputs = ['    return 1 if n <= 1 else fib(n - 1) + fib(n - 1)', # incorrect
+               '   if n <= 1:\n        return 1\n    return fib(n-1) + fib(n-2)', # incorrect spacing
+               '    return n * 2',  # correct
+               '    return 2*n',    # correct
+               '    return n + 2',  # incorrect
+               '    return n + 1']  # correct
+    labels = []
+    prompts = ['def fib(n):\n', 'def multiply_by_two(n):\n', 'def add_one(n):\n']
+    entry_points = ['fib', 'multiply_by_two', 'add_one']
+    test_inputs = [['(1,)', '(2,)', '(4,)'], ['(1,)', '(2,)', '(4,)'], ['(1,)', '(2,)', '(4,)']]
+    test_outputs = [['1', '2', '5'], ['2', '4', '8'], ['2', '3', '5']]
+
+    batch = {'generation_kwargs': {'num_beams': 2}, 'prompts': prompts, 'entry_points': entry_points, 'test_inputs': test_inputs, 'test_outputs': test_outputs} 
+    metric = InContextLearningCodeEvalAccuracy()
+    metric.update(batch, outputs, labels)
+
+    assert metric.compute() == (2 / 3)
 
 def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):
     contexts = [

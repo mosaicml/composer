@@ -7,11 +7,15 @@ import re
 import string
 import types
 from typing import Any, Dict, List, Mapping, Union
+import boto3
+import os
+import warnings
 
 import torch
 from torch import Tensor
 from torch.nn import functional as F
 from torchmetrics import Metric
+import json
 
 __all__ = [
     'InContextLearningLMAccuracy',
@@ -513,10 +517,14 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
-    def update(self, batch: Dict[str, Any], outputs: List[str], labels: List[str], remote: bool = False):
+    def update(self, batch: Dict[str, Any], outputs: List[str], labels: List[str]):
         del labels  # never used
+        remote = 'LAMBDA_FUNCTION_ARN' in os.environ
+        client = boto3.Session().client('lambda')
+        if not remote:
+            warnings.warn("Running code eval locally may be unsecure.")
         num_beams = batch['generation_kwargs']['num_beams']
-        processed_outputs = [outputs[i * num_beams:(i + 1) * num_beams] for i in range(batch['input_ids'].shape[0])]
+        processed_outputs = [outputs[i * num_beams:(i + 1) * num_beams] for i in range(len(batch['prompts']))]
         for sample_outputs, sample_prompt, test_inputs, test_outputs, entry_point in zip(
                 processed_outputs, batch['prompts'], batch['test_inputs'], batch['test_outputs'],
                 batch['entry_points']):
@@ -527,7 +535,9 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
                 passes_all = True
                 for test_input, test_output in zip(test_inputs, test_outputs):
                     if remote:
-                        self.update_online_helper(final_code, test_input, test_output, entry_point)
+                        if not self.update_online_helper(final_code, test_input, test_output, entry_point, client):
+                            passes_all = False
+                            break
                     else:
                         ret = multiprocessing.Value('b', 0)
                         p = multiprocessing.Process(target=self.update_offline_helper,
@@ -542,9 +552,11 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
                 if passes_all:
                     self.correct += torch.tensor(1.0)
                     break
+        client.close()
 
     def update_offline_helper(self, code_gen: str, test_input: str, test_output: str, entry_point: str,
                               val: multiprocessing.Value):  # type: ignore
+        '''Helper function that checks a test case for accuracy'''
         mod = types.ModuleType('test_module')
         val.value = 0
         result = None
@@ -568,8 +580,15 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         else:
             val.value = 0
 
-    def update_online_helper(self, code_gen: str, test_input: str, test_output: str, entry_point: str):
-        pass
+    def update_online_helper(self, code_gen: str, test_input: str, test_output: str, entry_point: str, client: boto3.client):
+        response = client.invoke(
+            FunctionName = os.environ['LAMBDA_FUNCTION_ARN'],
+            InvocationType = 'RequestResponse',
+            LogType = 'None',
+            Payload = bytes(json.dumps({'code': code_gen, 'input': test_input, 'output': test_output, 'entry_point': entry_point}), 'utf-8'),
+        )
+        response = json.load(response['Payload'])
+        return 'statusCode' in response and response['statusCode'] == 200
 
     def compute(self):
         assert isinstance(self.correct, Tensor)
