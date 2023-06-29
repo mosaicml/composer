@@ -125,4 +125,3 @@ def test_amp_fp8_config():
             fp8_recipe = te.get_fp8_recipe()
             for k, v in precision_config.items():
                 assert getattr(fp8_recipe, k) == v
-
