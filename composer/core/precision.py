@@ -70,7 +70,7 @@ def get_precision_context(precision: Union[str, Precision], precision_config: Op
 
             if precision_config is None:
                 precision_config = {}
-            if isinstance(precision_config['fp8_format'], str):
+            if 'fp8_format' in precision_config and isinstance(precision_config['fp8_format'], str):
                 precision_config['fp8_format'] = Format[precision_config['fp8_format']]
             fp8_recipe = DelayedScaling(**precision_config)
             with te.fp8_autocast(enabled=True, fp8_recipe=fp8_recipe):
