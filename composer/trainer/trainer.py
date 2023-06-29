@@ -873,7 +873,7 @@ class Trainer:
         # System/Numerics
         device: Optional[Union[str, Device]] = None,
         precision: Optional[Union[str, Precision]] = None,
-        precision_config: Dict[str, Any] = {},
+        precision_config: Optional[Dict[str, Any]] = None,
         device_train_microbatch_size: Optional[Union[int, str]] = None,
 
         # Reproducibility
@@ -918,6 +918,8 @@ class Trainer:
         elif isinstance(precision, str):
             precision = Precision(precision)
         _validate_precision(precision, device)
+        if precision_config is None:
+            precision_config = {}
 
         # check if provided model is compiled or not
         is_torch_2_0 = using_torch_2()
@@ -2329,7 +2331,8 @@ class Trainer:
             # Forward pass
             self.engine.run_event(Event.BEFORE_FORWARD)
 
-            with _get_precision_context(self.state.precision, self.state.precision_config, self.state.deepspeed_enabled):
+            with _get_precision_context(self.state.precision, self.state.precision_config,
+                                        self.state.deepspeed_enabled):
                 self.state.outputs = self.state.model(self.state.batch)
 
             self.engine.run_event(Event.AFTER_FORWARD)
@@ -2351,7 +2354,8 @@ class Trainer:
             # Loss
             self.engine.run_event(Event.BEFORE_LOSS)
 
-            with _get_precision_context(self.state.precision, self.state.precision_config, self.state.deepspeed_enabled):
+            with _get_precision_context(self.state.precision, self.state.precision_config,
+                                        self.state.deepspeed_enabled):
                 self.state.loss = self._original_model.loss(self.state.outputs, self.state.batch)
 
             assert self.state.loss is not None
@@ -2522,7 +2526,8 @@ class Trainer:
                 self.engine.run_event(Event.PREDICT_BATCH_START)
 
                 self.engine.run_event(Event.PREDICT_BEFORE_FORWARD)
-                with _get_precision_context(self.state.precision, self.state.precision_config, self.state.deepspeed_enabled):
+                with _get_precision_context(self.state.precision, self.state.precision_config,
+                                            self.state.deepspeed_enabled):
                     self.state.outputs = self.state.model(self.state.batch)
                 self.engine.run_event(Event.PREDICT_AFTER_FORWARD)
 
@@ -2814,7 +2819,8 @@ class Trainer:
 
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
 
-                            with _get_precision_context(self.state.precision, self.state.precision_config, self.state.deepspeed_enabled):
+                            with _get_precision_context(self.state.precision, self.state.precision_config,
+                                                        self.state.deepspeed_enabled):
                                 self.state.outputs = self._original_model.eval_forward(self.state.batch)
 
                             self.engine.run_event(Event.EVAL_AFTER_FORWARD)
@@ -2825,7 +2831,8 @@ class Trainer:
                                 continue
 
                             # Run in same precision context to avoid NaNs
-                            with _get_precision_context(self.state.precision, self.state.precision_config, self.state.deepspeed_enabled):
+                            with _get_precision_context(self.state.precision, self.state.precision_config,
+                                                        self.state.deepspeed_enabled):
                                 if isinstance(self.state.device, DeviceMPS):
                                     # torchmetrics math has numerical errors on M1 devices
                                     # running the compute on CPU instead

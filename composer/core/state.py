@@ -435,7 +435,7 @@ class State(Serializable):
 
         # precision
         precision: Union[str, Precision] = Precision.FP32,
-        precision_config: Dict[str, Any] = {},
+        precision_config: Optional[Dict[str, Any]] = None,
 
         # optimizers
         optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
@@ -475,6 +475,9 @@ class State(Serializable):
         self.eval_timestamp = Timestamp()
         self.predict_timestamp = Timestamp()
         self._precision = Precision(precision)
+
+        if precision_config is None:
+            precision_config = {}
         self._precision_config = precision_config
 
         if optimizers is None:
