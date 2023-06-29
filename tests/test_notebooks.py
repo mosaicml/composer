@@ -31,6 +31,7 @@ def _to_pytest_param(filepath: str):
 
 
 def patch_notebooks():
+    ''' This function is injected into the notebook and is called before each cell is executed. '''
     import itertools
     import multiprocessing
 

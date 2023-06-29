@@ -22,6 +22,7 @@ def random_tensor(size=(4, 10)):
 
 
 def get_dummy_state(request: pytest.FixtureRequest):
+    ''' Returns a dummy state with a model, optimizer, and dataloader '''
     model = SimpleModel()
     dataset = RandomClassificationDataset()
     dataloader = DataLoader(dataset, batch_size=4)
@@ -48,6 +49,7 @@ def get_dummy_state(request: pytest.FixtureRequest):
 
 
 def train_one_step(state: State, batch: Batch) -> None:
+    ''' Train one step of the model '''
     _, y = batch
     state.batch = batch
 
@@ -67,6 +69,7 @@ def train_one_step(state: State, batch: Batch) -> None:
 
 
 def test_state_serialize(tmp_path: pathlib.Path, empty_logger: Logger, request: pytest.FixtureRequest):
+    ''' Tests that a state can be serialized and deserialized '''
     state1 = get_dummy_state(request)
     state2 = get_dummy_state(request)
 
@@ -136,6 +139,7 @@ def test_state_batch_set_item(batch, key, val, request: pytest.FixtureRequest):
 
 
 def test_composer_metadata_in_state_dict(tmp_path, request: pytest.FixtureRequest):
+    ''' Tests that the composer metadata is saved in the state dict '''
     state = get_dummy_state(request)
     save_path = pathlib.Path(tmp_path) / 'state_dict.pt'
     with open(save_path, 'wb') as _tmp_file:
