@@ -50,14 +50,14 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
     """Context manager for materializing or loading an fsdp module's state dict.
 
     Args:
-        module (torch.nn.Module): The torch module that you want to call `state_dict()`
-            or `load_state_dict()` on.
+        module (torch.nn.Module): The torch module that you want to call ``state_dict()``
+            or ``load_state_dict()`` on.
         state_dict_type (str, optional): which of the three state dict types you want to use.
-            choices are ['full', 'sharded', 'local']. Defaults to 'full'.
-            * 'full': the full, unsharded state dict materialized only on rank 0 with cpu_offload if necessary
-            * 'local': the sharded, flattened state_dict, where each rank only gets a single shard.
-            * 'sharded': the sharded, unflattened state_dict, where each rank only gets a single shard.
-            See torch.distributed.fsdp.StateDictType for more info.
+            choices are ``['full', 'sharded', 'local']``. Defaults to ``'full'``.
+            * ``'full'``: the full, unsharded state dict materialized only on rank 0 with cpu_offload if necessary
+            * ``'local'``: the sharded, flattened state_dict, where each rank only gets a single shard.
+            * ``'sharded'``: the sharded, unflattened state_dict, where each rank only gets a single shard.
+            See ``torch.distributed.fsdp.StateDictType`` for more info.
 
     Raises:
         RuntimeError: if your torch version is earlier than 1.13.0 because FSDP is not available for those versions.
@@ -275,7 +275,7 @@ class State(Serializable):
         precision (str | Precision): The numerical precision to use for training. See :class:`~.Precision` for
             the supported precisions.
         precision_config (Dict[str, Any]): The config for FP8 scaling strategy. See parameters for
-        `DelayedScaling <https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/common.html?highlight=delayedscaling#transformer_engine.common.recipe.DelayedScaling>`_.
+            `DelayedScaling <https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/common.html?highlight=delayedscaling#transformer_engine.common.recipe.DelayedScaling>`_.
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer being used to
             train the model. Multiple optimizers are not currently supported.
         schedulers (types.PyTorchScheduler | Sequence[types.PyTorchScheduler], optional):
