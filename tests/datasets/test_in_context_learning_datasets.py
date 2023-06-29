@@ -668,6 +668,7 @@ def test_code_eval_split_batch(dataset_uri, tmp_path):
     assert isinstance(split1['generation_kwargs'], dict)
     assert isinstance(split2['generation_kwargs'], dict)
 
+
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 1, 2, 3])
 @pytest.mark.parametrize('prompt_string', ['Please code:\n', ''])
@@ -755,6 +756,7 @@ def test_code_eval_sentpiece_dataloader(dataset_uri, tmp_path, num_fewshot, prom
         "from typing import List, Tuple\n\n\ndef sum_product(numbers: List[int]) -> Tuple[int, int]:\n    \"\"\" For a given list of integers, return a tuple consisting of a sum and a product of all the integers in a list.\n    Empty sum should be equal to 0 and empty product should be equal to 1.\n    >>> sum_product([])\n    (0, 1)\n    >>> sum_product([1, 2, 3, 4])\n    (10, 24)\n    \"\"\"\n"
     )
 
+
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
 def test_code_eval_test_cases(dataset_uri, tmp_path):
     pytest.importorskip('datasets')
@@ -794,11 +796,14 @@ def test_code_eval_test_cases(dataset_uri, tmp_path):
     assert any(item[0] != tokenizer.eos_token_id for item in batch['input_ids'])  # longest should be pushed left
 
     mod = types.ModuleType('test_module')
-    for prompt, solution, inputs, outputs, entry_point in zip(batch['prompts'], batch['canonical_solutions'], batch['test_inputs'], batch['test_outputs'], batch['entry_points']):
+    for prompt, solution, inputs, outputs, entry_point in zip(batch['prompts'], batch['canonical_solutions'],
+                                                              batch['test_inputs'], batch['test_outputs'],
+                                                              batch['entry_points']):
         exec(prompt + solution, mod.__dict__)
         for test_input, test_output in zip(inputs, outputs):
             result = mod.__dict__[entry_point](*eval(test_input))
             assert result == eval(test_output)
+
 
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 1, 2, 3])
@@ -1200,13 +1205,14 @@ def test_code_eval_opt_tokenizer(device, world_size, num_fewshot, dataset_uri, t
     assert 'metrics/humaneval/InContextLearningCodeEvalAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/humaneval/InContextLearningCodeEvalAccuracy'][0][1].item() == 0
 
+
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
 @device('gpu')
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [0, 2])
 @pytest.mark.parametrize('num_evals', range(1, 3))
 def test_code_eval_sentpiece_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_t5_tokenizer, tiny_t5_model,
-                                   tmp_path, num_evals):
+                                        tmp_path, num_evals):
     pytest.importorskip('datasets')
     torch.cuda.empty_cache()
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
@@ -1275,10 +1281,6 @@ def test_code_eval_task_evaluation(device, world_size, num_fewshot, dataset_uri,
         destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
         num_evals=num_evals,
     )
-
-    batch = next(dl.dataloader._get_iterator())
-    print(batch['generation_kwargs'])
-    assert False
 
     evaluator = Evaluator(label='humaneval', dataloader=dl, metric_names=['InContextLearningCodeEvalAccuracy'])
     model = HuggingFaceModel(

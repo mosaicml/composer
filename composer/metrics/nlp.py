@@ -580,12 +580,19 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         else:
             val.value = 0
 
-    def update_online_helper(self, code_gen: str, test_input: str, test_output: str, entry_point: str, client: boto3.client):
+    def update_online_helper(self, code_gen: str, test_input: str, test_output: str, entry_point: str,
+                             client: boto3.client):
         response = client.invoke(
-            FunctionName = os.environ['LAMBDA_FUNCTION_ARN'],
-            InvocationType = 'RequestResponse',
-            LogType = 'None',
-            Payload = bytes(json.dumps({'code': code_gen, 'input': test_input, 'output': test_output, 'entry_point': entry_point}), 'utf-8'),
+            FunctionName=os.environ['LAMBDA_FUNCTION_ARN'],
+            InvocationType='RequestResponse',
+            LogType='None',
+            Payload=bytes(
+                json.dumps({
+                    'code': code_gen,
+                    'input': test_input,
+                    'output': test_output,
+                    'entry_point': entry_point
+                }), 'utf-8'),
         )
         response = json.load(response['Payload'])
         return 'statusCode' in response and response['statusCode'] == 200
