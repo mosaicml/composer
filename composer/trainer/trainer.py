@@ -307,7 +307,7 @@ def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrateg
     return ddp_sync_strategy
 
 
-def _get_precision_context(precision: Precision, precision_config: Dict[str, Any], deepspeed_enabled: bool):
+def _get_precision_context(precision: Precision, precision_config: Optional[Dict[str, Any]], deepspeed_enabled: bool):
     if deepspeed_enabled:
         return contextlib.nullcontext()
     return get_precision_context(precision, precision_config)
