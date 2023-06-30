@@ -50,14 +50,14 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
     """Context manager for materializing or loading an fsdp module's state dict.
 
     Args:
-        module (torch.nn.Module): The torch module that you want to call ``state_dict()``
-            or ``load_state_dict()`` on.
+        module (torch.nn.Module): The torch module that you want to call `state_dict()`
+            or `load_state_dict()` on.
         state_dict_type (str, optional): which of the three state dict types you want to use.
-            choices are ``['full', 'sharded', 'local']``. Defaults to ``'full'``.
-            * ``'full'``: the full, unsharded state dict materialized only on rank 0 with cpu_offload if necessary
-            * ``'local'``: the sharded, flattened state_dict, where each rank only gets a single shard.
-            * ``'sharded'``: the sharded, unflattened state_dict, where each rank only gets a single shard.
-            See ``torch.distributed.fsdp.StateDictType`` for more info.
+            choices are ['full', 'sharded', 'local']. Defaults to 'full'.
+            * 'full': the full, unsharded state dict materialized only on rank 0 with cpu_offload if necessary
+            * 'local': the sharded, flattened state_dict, where each rank only gets a single shard.
+            * 'sharded': the sharded, unflattened state_dict, where each rank only gets a single shard.
+            See torch.distributed.fsdp.StateDictType for more info.
 
     Raises:
         RuntimeError: if your torch version is earlier than 1.13.0 because FSDP is not available for those versions.
