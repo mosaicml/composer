@@ -90,6 +90,7 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
         fsdp_state_dict_type = StateDictType.SHARDED_STATE_DICT
         state_dict_config = ShardedStateDictConfig()
         if using_torch_2():
+            state_dict_config = ShardedStateDictConfig(offload_to_cpu=True)
             from torch.distributed.fsdp.fully_sharded_data_parallel import ShardedOptimStateDictConfig
             optim_state_dict_config = ShardedOptimStateDictConfig()
 
@@ -99,6 +100,7 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
         fsdp_state_dict_type = StateDictType.LOCAL_STATE_DICT
         state_dict_config = LocalStateDictConfig()
         if using_torch_2():
+            state_dict_config = LocalStateDictConfig(offload_to_cpu=True)
             from torch.distributed.fsdp.fully_sharded_data_parallel import LocalOptimStateDictConfig
             optim_state_dict_config = LocalOptimStateDictConfig()
     else:
