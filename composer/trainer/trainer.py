@@ -308,10 +308,10 @@ def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrateg
     return ddp_sync_strategy
 
 
-def _get_precision_context(precision: Precision, deepspeed_enabled: bool):
+def _get_precision_context(precision: Precision, precision_config: Optional[Dict[str, Any]], deepspeed_enabled: bool):
     if deepspeed_enabled:
         return contextlib.nullcontext()
-    return get_precision_context(precision)
+    return get_precision_context(precision, precision_config)
 
 
 def _generate_run_name() -> str:
@@ -742,6 +742,8 @@ class Trainer:
         precision (Precision | str, optional): Numerical precision to use for training. One of ``fp32``, ``amp_bf16``
             or ``amp_fp16`` (recommended). (default: ``Precision.FP32`` if training on CPU; ``Precision.AMP_FP16`` if
             training on GPU)
+        precision_config (Optional[Dict[str, Any]]): The config for FP8 scaling strategy. See parameters for
+            `DelayedScaling <https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/common.html?highlight=delayedscaling#transformer_engine.common.recipe.DelayedScaling>`_.
         device_train_microbatch_size (Union[int, str), optional): The number of samples to process on each device per
             microbatch during training. Gradients are summed over the microbatches per device. If set to ``auto``,
             dynamically decreases device_train_microbatch_size if microbatch is too large for GPU. (default: ``None``)
@@ -872,6 +874,7 @@ class Trainer:
         # System/Numerics
         device: Optional[Union[str, Device]] = None,
         precision: Optional[Union[str, Precision]] = None,
+        precision_config: Optional[Dict[str, Any]] = None,
         device_train_microbatch_size: Optional[Union[int, str]] = None,
 
         # Reproducibility
@@ -1010,6 +1013,7 @@ class Trainer:
             device_train_microbatch_size=device_train_microbatch_size,
             auto_microbatching=auto_microbatching,
             precision=precision,
+            precision_config=precision_config,
             optimizers=optimizers,
             run_name=run_name,
             deepspeed_config=deepspeed_config,
@@ -2101,7 +2105,7 @@ class Trainer:
 
         with torch.no_grad(),\
                 model_eval_mode(self.state.model),\
-                _get_precision_context(self.state.precision, self.state.deepspeed_enabled):
+                _get_precision_context(self.state.precision, self.state.precision_config, self.state.deepspeed_enabled):
             eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
             for _, metric in self.state.train_metrics.items():
                 self._original_model.update_metric(
@@ -2334,7 +2338,8 @@ class Trainer:
             # Forward pass
             self.engine.run_event(Event.BEFORE_FORWARD)
 
-            with _get_precision_context(self.state.precision, self.state.deepspeed_enabled):
+            with _get_precision_context(self.state.precision, self.state.precision_config,
+                                        self.state.deepspeed_enabled):
                 self.state.outputs = self.state.model(self.state.batch)
 
             self.engine.run_event(Event.AFTER_FORWARD)
@@ -2356,7 +2361,8 @@ class Trainer:
             # Loss
             self.engine.run_event(Event.BEFORE_LOSS)
 
-            with _get_precision_context(self.state.precision, self.state.deepspeed_enabled):
+            with _get_precision_context(self.state.precision, self.state.precision_config,
+                                        self.state.deepspeed_enabled):
                 self.state.loss = self._original_model.loss(self.state.outputs, self.state.batch)
 
             assert self.state.loss is not None
@@ -2527,7 +2533,8 @@ class Trainer:
                 self.engine.run_event(Event.PREDICT_BATCH_START)
 
                 self.engine.run_event(Event.PREDICT_BEFORE_FORWARD)
-                with _get_precision_context(self.state.precision, self.state.deepspeed_enabled):
+                with _get_precision_context(self.state.precision, self.state.precision_config,
+                                            self.state.deepspeed_enabled):
                     self.state.outputs = self.state.model(self.state.batch)
                 self.engine.run_event(Event.PREDICT_AFTER_FORWARD)
 
@@ -2819,7 +2826,8 @@ class Trainer:
 
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
 
-                            with _get_precision_context(self.state.precision, self.state.deepspeed_enabled):
+                            with _get_precision_context(self.state.precision, self.state.precision_config,
+                                                        self.state.deepspeed_enabled):
                                 self.state.outputs = self._original_model.eval_forward(self.state.batch)
 
                             self.engine.run_event(Event.EVAL_AFTER_FORWARD)
@@ -2830,7 +2838,8 @@ class Trainer:
                                 continue
 
                             # Run in same precision context to avoid NaNs
-                            with _get_precision_context(self.state.precision, self.state.deepspeed_enabled):
+                            with _get_precision_context(self.state.precision, self.state.precision_config,
+                                                        self.state.deepspeed_enabled):
                                 if isinstance(self.state.device, DeviceMPS):
                                     # torchmetrics math has numerical errors on M1 devices
                                     # running the compute on CPU instead
