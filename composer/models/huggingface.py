@@ -387,8 +387,10 @@ class HuggingFaceModel(ComposerModel):
                 return self.tokenizer.batch_decode(generation[:, batch['input_ids'].shape[1]:],
                                                    skip_special_tokens=True)
             else:
-                return [" " + output for output in self.tokenizer.batch_decode(generation[:, batch['input_ids'].shape[1]:],
-                                                         skip_special_tokens=True)]
+                return [
+                    ' ' + output for output in self.tokenizer.batch_decode(generation[:, batch['input_ids'].shape[1]:],
+                                                                           skip_special_tokens=True)
+                ]
 
         if self.use_logits or batch.get('mode', None) == 'icl_task':
             # pop labels first to avoid computing loss

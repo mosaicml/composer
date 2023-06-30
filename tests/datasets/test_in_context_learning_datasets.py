@@ -4,8 +4,8 @@
 import contextlib
 import os
 import random
-from pathlib import Path
 import types
+from pathlib import Path
 
 import pytest
 import torch
@@ -1191,6 +1191,54 @@ def test_code_eval_opt_tokenizer(device, world_size, num_fewshot, dataset_uri, t
     )
 
     evaluator = Evaluator(label='humaneval', dataloader=dl, metric_names=['InContextLearningCodeEvalAccuracy'])
+    model = HuggingFaceModel(
+        model=AutoModelForCausalLM.from_pretrained('facebook/opt-125m'),
+        tokenizer=tokenizer,
+        eval_metrics=[InContextLearningCodeEvalAccuracy()],
+        use_logits=True,
+    )
+
+    trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
+    torch.use_deterministic_algorithms(False)
+    trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
+    torch.use_deterministic_algorithms(True)
+    assert 'metrics/humaneval/InContextLearningCodeEvalAccuracy' in in_memory_logger.data.keys()
+    assert in_memory_logger.data['metrics/humaneval/InContextLearningCodeEvalAccuracy'][0][1].item() == 0
+
+
+@pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
+@device('gpu')
+@world_size(1, 2)
+@pytest.mark.parametrize('num_fewshot', [0, 2])
+@pytest.mark.parametrize('num_evals', range(1, 3))
+def test_code_eval_microbatching(device, world_size, num_fewshot, dataset_uri, tmp_path, num_evals):
+    pytest.importorskip('datasets')
+    in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m')
+
+    tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
+    gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
+    dl = get_icl_task_dataloader(
+        'code_evaluation',
+        dataset_uri,
+        tokenizer,
+        2,
+        max_seq_len=1024,
+        pad_tok_id=tokenizer.eos_token_id,
+        num_fewshot=num_fewshot,
+        prompt_string='',
+        example_delimiter='\n',
+        continuation_delimiter=': ',
+        destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
+        num_evals=num_evals,
+    )
+
+    evaluator = Evaluator(label='humaneval',
+                          dataloader=dl,
+                          metric_names=['InContextLearningCodeEvalAccuracy'],
+                          device_eval_microbatch_size=1)
     model = HuggingFaceModel(
         model=AutoModelForCausalLM.from_pretrained('facebook/opt-125m'),
         tokenizer=tokenizer,

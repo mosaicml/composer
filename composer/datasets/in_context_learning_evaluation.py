@@ -22,8 +22,10 @@ if TYPE_CHECKING:
     import transformers
 
 __all__ = [
-    'InContextLearningLMTaskDataset', 'InContextLearningMultipleChoiceTaskDataset', 'InContextLearningCodeEvalDataset',
-    'get_icl_task_dataloader'
+    'InContextLearningLMTaskDataset',
+    'InContextLearningMultipleChoiceTaskDataset',
+    'InContextLearningCodeEvalDataset',
+    'get_icl_task_dataloader',
 ]
 
 
@@ -263,6 +265,9 @@ class InContextLearningQATaskDataset(Dataset):
         return batch['input_ids'].shape[0]
 
     def split_batch(self, batch: Any, microbatch_size: int):
+        # Don't split kwargs that don't change
+        # Normally split torch tensors
+        # List split lists of strings
         no_split = ['mode', 'generation_length', 'generation_kwargs']
         normal_split = ['input_ids', 'attention_mask']
         list_split = ['labels']
@@ -635,6 +640,9 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         microbatch_size are tracked in logical samples, we split logical attributes by
         microbatch_size and real attributes by microbatch_size * num_choices.
         """
+        # Don't split kwargs that don't change
+        # Normally split torch tensors
+        # List split lists of strings
         no_split = ['mode']
         # Real
         real = ['input_ids', 'labels', 'attention_mask']
@@ -1046,7 +1054,7 @@ class InContextLearningCodeEvalDataset(Dataset):
         return batch['input_ids'].shape[0]
 
     def split_batch(self, batch: Any, microbatch_size: int):
-        # Don't split generation kwargs that don't change
+        # Don't split kwargs that don't change
         # Normally split torch tensors
         # List split lists of strings
         no_split = ['mode', 'generation_length', 'generation_kwargs']

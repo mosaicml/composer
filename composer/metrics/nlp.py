@@ -2,25 +2,25 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """A collection of common torchmetrics for NLP tasks."""
+
+import json
+import logging
 import multiprocessing
+import os
 import re
 import string
 import types
-from typing import Any, Dict, List, Mapping, Union
-from composer.utils.import_helpers import MissingConditionalImportError
-try:
-    import boto3
-except ImportError as e:
-    raise MissingConditionalImportError('streaming', 'boto3') from e
-
-import os
 import warnings
+from typing import Any, Dict, List, Mapping, Union
 
 import torch
 from torch import Tensor
 from torch.nn import functional as F
 from torchmetrics import Metric
-import json
+
+from composer.utils.import_helpers import MissingConditionalImportError
+
+log = logging.getLogger(__name__)
 
 __all__ = [
     'InContextLearningLMAccuracy',
@@ -35,7 +35,7 @@ __all__ = [
     'InContextLearningMCExpectedCalibrationError',
 ]
 
-TIMEOUT = 5
+TIMEOUT = 5  # in seconds
 
 
 class MaskedAccuracy(Metric):
@@ -521,13 +521,36 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.remote = 'CODE_EVAL_DEVICE' in os.environ and os.environ['CODE_EVAL_DEVICE'] != 'LOCAL'
+
+    def get_client(self):
+        client = None
+        if not self.remote:
+            warnings.warn(
+                'Running code eval locally may be unsecure. Please set environment variable CODE_EVAL_DEVICE'
+                'to LAMBDA to run on remote. To use Lambdas, spin up your instance that checks code, set the ARN as'
+                'CODE_EVAL_ARN and the region as CODE_EVAL_REGION.')
+            log.debug('Running code eval locally.')
+        elif os.environ['CODE_EVAL_DEVICE'] == 'LAMBDA':
+            if 'CODE_EVAL_ARN' not in os.environ or 'CODE_EVAL_REGION' not in os.environ:
+                raise Exception('Please set environment variable CODE_EVAL_ARN to the ARN of the lambda function'
+                                'and CODE_EVAL_REGION to the region of the lambda function.')
+            try:
+                import boto3
+            except ImportError as e:
+                raise MissingConditionalImportError('streaming', 'boto3') from e
+            log.debug('Running code eval on lambda.')
+            client = boto3.Session().client('lambda', region_name=os.environ['CODE_EVAL_REGION'])
+
+        else:
+            raise Exception('Remote platforms apart from Lambdas are not yet supported. Please set'
+                            'CODE_EVAL_DEVICE to LOCAL or LAMBDA.')
+        return client
 
     def update(self, batch: Dict[str, Any], outputs: List[str], labels: List[str]):
         del labels  # never used
-        remote = 'LAMBDA_FUNCTION_ARN' in os.environ and 'AWS_DEFAULT_REGION' in os.environ
-        client = boto3.Session().client('lambda') if remote else None
-        if not remote:
-            warnings.warn("Running code eval locally may be unsecure.")
+        client = self.get_client()
+
         num_beams = batch['generation_kwargs']['num_beams']
         processed_outputs = [outputs[i * num_beams:(i + 1) * num_beams] for i in range(len(batch['prompts']))]
         for sample_outputs, sample_prompt, test_inputs, test_outputs, entry_point in zip(
@@ -535,20 +558,24 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
                 batch['entry_points']):
             self.total += torch.tensor(1.0)
             for code_gen in sample_outputs:
-                code_gen = re.split(r'\ndef|\nclass|\n#|\nif|\nprint', code_gen)[0]
-                final_code = sample_prompt + code_gen
+                code_gen = re.split(r'\ndef|\nclass|\n#|\nif|\nprint|\n[A-Za-z0-9]',
+                                    code_gen)[0]  # remove everything after function ends
+                final_code = sample_prompt + code_gen  # combine prompt with the code generation
                 passes_all = True
                 for test_input, test_output in zip(test_inputs, test_outputs):
-                    if remote:
-                        if not self.update_online_helper(final_code, test_input, test_output, entry_point, client):
+                    if client is not None:
+                        if not self.update_online_lambda(
+                                final_code, test_input, test_output, entry_point,
+                                client):  # direct evaluation of test case to the Lambda (returns whether it passes)
                             passes_all = False
                             break
                     else:
-                        ret = multiprocessing.Value('b', 0)
+                        ret = multiprocessing.Value('b', 0)  # Store result of test case in shared memory
                         p = multiprocessing.Process(target=self.update_offline_helper,
-                                                    args=(final_code, test_input, test_output, entry_point, ret))
+                                                    args=(final_code, test_input, test_output, entry_point,
+                                                          ret))  # Evaluate test case in an independent subprocess
                         p.start()
-                        p.join(TIMEOUT)
+                        p.join(TIMEOUT)  # wait for timeout to terminate
                         p.terminate()
                         if not bool(ret.value):
                             passes_all = False
@@ -557,12 +584,12 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
                 if passes_all:
                     self.correct += torch.tensor(1.0)
                     break
-        if remote:
+        if self.remote:
             client.close()
 
     def update_offline_helper(self, code_gen: str, test_input: str, test_output: str, entry_point: str,
                               val: multiprocessing.Value):  # type: ignore
-        '''Helper function that checks a test case for accuracy'''
+        # Helper function that checks a test case for accuracy
         mod = types.ModuleType('test_module')
         val.value = 0
         result = None
@@ -578,18 +605,16 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
                 expected_result = test_output
 
         except Exception as _:
-            #print(str(e))
-            syntax_compiled = False
+            syntax_compiled = False  # don't print out warning b/c this can happen frequently
 
         if syntax_compiled:
             val.value = int(result == expected_result)
         else:
             val.value = 0
 
-    def update_online_helper(self, code_gen: str, test_input: str, test_output: str, entry_point: str,
-                             client: boto3.client):
+    def update_online_lambda(self, code_gen: str, test_input: str, test_output: str, entry_point: str, client: Any):
         response = client.invoke(
-            FunctionName=os.environ['LAMBDA_FUNCTION_ARN'],
+            FunctionName=os.environ['CODE_EVAL_ARN'],
             InvocationType='RequestResponse',
             LogType='None',
             Payload=bytes(

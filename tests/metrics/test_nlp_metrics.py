@@ -10,8 +10,9 @@ import pytest
 import torch
 from torch.nn.functional import cross_entropy
 
-from composer.metrics.nlp import (BinaryF1Score, InContextLearningExpectedCalibrationError, InContextLearningLMAccuracy,
-                                  InContextLearningLMExpectedCalibrationError, InContextLearningCodeEvalAccuracy,
+from composer.metrics.nlp import (BinaryF1Score, InContextLearningCodeEvalAccuracy,
+                                  InContextLearningExpectedCalibrationError, InContextLearningLMAccuracy,
+                                  InContextLearningLMExpectedCalibrationError,
                                   InContextLearningMCExpectedCalibrationError, InContextLearningMultipleChoiceAccuracy,
                                   InContextLearningQAAccuracy, LanguageCrossEntropy, LanguagePerplexity, MaskedAccuracy)
 
