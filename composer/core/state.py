@@ -275,6 +275,8 @@ class State(Serializable):
         max_duration (str | Time, optional): The maximum duration to train for. (default: ``None``)
         precision (str | Precision): The numerical precision to use for training. See :class:`~.Precision` for
             the supported precisions.
+        precision_config (Optional[Dict[str, Any]]): The config for FP8 scaling strategy. See parameters for
+            `DelayedScaling <https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/common.html?highlight=delayedscaling#transformer_engine.common.recipe.DelayedScaling>`_.
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer being used to
             train the model. Multiple optimizers are not currently supported.
         schedulers (types.PyTorchScheduler | Sequence[types.PyTorchScheduler], optional):
@@ -434,6 +436,7 @@ class State(Serializable):
 
         # precision
         precision: Union[str, Precision] = Precision.FP32,
+        precision_config: Optional[Dict[str, Any]] = None,
 
         # optimizers
         optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
@@ -473,6 +476,7 @@ class State(Serializable):
         self.eval_timestamp = Timestamp()
         self.predict_timestamp = Timestamp()
         self._precision = Precision(precision)
+        self._precision_config = precision_config
 
         if optimizers is None:
             self._optimizers = []
@@ -1413,6 +1417,14 @@ class State(Serializable):
     @precision.setter
     def precision(self, precision: Union[str, Precision]):
         self._precision = Precision(precision)
+
+    @property
+    def precision_config(self):
+        """The config for FP8 scaling strategy.
+
+        See parameters for `DelayedScaling <https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/common.html?highlight=delayedscaling#transformer_engine.common.recipe.DelayedScaling>`_.
+        """
+        return self._precision_config
 
     @property
     def is_model_ddp(self):
