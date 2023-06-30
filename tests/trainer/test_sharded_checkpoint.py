@@ -487,8 +487,8 @@ def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type:
         fsdp_state_dict_type=state_dict_type,
         save_folder=save_folder,
         load_path=sharded_load_path,
-        num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
-        num_classes=8,  # This parameter setting is very important. Don't change or the test will fail.
+        num_features=32,  # This parameter setting is very important. It is hardcoded to match the num_features in the checkpoint it is downloading.
+        num_classes=8,  # This parameter setting is very important. It is hardcoded to match the num_classes in the checkpoint it is downloading.
         precision=precision,
         autoresume=autoresume,
         run_name=run_name,
