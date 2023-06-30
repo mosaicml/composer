@@ -445,7 +445,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
 @world_size(2)
 @pytest.mark.parametrize('state_dict_type', ['sharded'])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
-@pytest.mark.parametrize('autoresume', [False])  #,\\ True])  # True commented out for now
+@pytest.mark.parametrize('autoresume', [False, True])  # True commented out for now
 @pytest.mark.parametrize('num_shards', [2, 4, 7])
 @pytest.mark.parametrize('sharding_strategy', ['FULL_SHARD'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.1'), reason='requires PyTorch 2.01 or higher')
