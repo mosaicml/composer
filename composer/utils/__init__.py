@@ -21,7 +21,7 @@ from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, map_co
 from composer.utils.misc import (get_free_tcp_port, is_model_deepspeed, is_model_fsdp, is_notebook, model_eval_mode,
                                  using_torch_2)
 from composer.utils.object_store import (LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, OCIObjectStore,
-                                         S3ObjectStore, SFTPObjectStore)
+                                         S3ObjectStore, SFTPObjectStore, GsObjectStore)
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
 
@@ -41,6 +41,7 @@ __all__ = [
     'S3ObjectStore',
     'SFTPObjectStore',
     'OCIObjectStore',
+    'GsObjectStore',
     'MissingConditionalImportError',
     'import_object',
     'is_model_deepspeed',
