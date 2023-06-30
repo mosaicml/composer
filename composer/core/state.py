@@ -526,8 +526,9 @@ class State(Serializable):
             self.sharded_ckpt_prefix_dir = self.fsdp_config['sharded_ckpt_prefix_dir']
 
         if using_torch_2() and self.fsdp_state_dict_type == 'local':
-            raise DeprecationWarning(textwrap.dedent("FSDP state_dict_type='local' is deprecated in torch>=2.0.0"
-                                                     "Please set fsdp_config['state_dict_type']='sharded' instead."))
+            raise DeprecationWarning(
+                textwrap.dedent("FSDP state_dict_type='local' is deprecated in torch>=2.0.0"
+                                "Please set fsdp_config['state_dict_type']='sharded' instead."))
 
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None
