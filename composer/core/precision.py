@@ -44,7 +44,7 @@ def get_precision_context(precision: Union[str, Precision],
 
     Args:
         precision (str | Precision): Precision for the context
-        precision_config (Dict[str, Any]): Config for FP8 scaling strategy. See parameters for
+        precision_config (Optional[Dict[str, Any]]): Config for FP8 scaling strategy. See parameters for
             `DelayedScaling <https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/common.html?highlight=delayedscaling#transformer_engine.common.recipe.DelayedScaling>`_.
     """
     precision = Precision(precision)
