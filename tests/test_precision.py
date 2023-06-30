@@ -113,7 +113,7 @@ def test_amp_fp8_path():
 
 @pytest.mark.gpu
 def test_amp_fp8_config():
-    if te_installed and torch.cuda.get_device_capability()[0] > 9:
+    if te_installed and torch.cuda.get_device_capability()[0] >= 9:
         from transformer_engine.common.recipe import Format
         precision_config = {
             'fp8_format': Format.HYBRID,
