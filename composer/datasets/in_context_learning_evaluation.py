@@ -1026,20 +1026,13 @@ class InContextLearningCodeEvalDataset(Dataset):
             'test_outputs': test_outputs,  # list of test outputs
             'generation_length': self.max_seq_len - self.max_prompt_length,
             'generation_kwargs': {
-                'pad_token_id':
-                    self.pad_tok_id,
-                'num_beams':
-                    self.num_evals,  # change strategy to beam search
-                'num_return_sequences':
-                    self.num_evals,  # how many gens per prompt
-                'do_sample':
-                    True,
-                'top_p':
-                    0.95,
-                'top_k':
-                    40,
-                'use_cache':
-                    True,
+                'pad_token_id': self.pad_tok_id,
+                'num_beams': self.num_evals,  # change strategy to beam search
+                'num_return_sequences': self.num_evals,  # how many gens per prompt
+                'do_sample': True,
+                'top_p': 0.95,
+                'top_k': 40,
+                'use_cache': True,
             }
         }
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)

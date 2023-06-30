@@ -1161,7 +1161,6 @@ def test_qa_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_g
     assert in_memory_logger.data['metrics/triviaqa/InContextLearningQAAccuracy'][0][1].item() == 0
 
 
-
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
 @device('gpu')
 @world_size(1, 2)

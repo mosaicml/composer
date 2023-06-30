@@ -543,8 +543,9 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
             client = boto3.Session().client('lambda', region_name=os.environ['CODE_EVAL_REGION'])
 
         else:
-            raise Exception('Remote platforms apart from Lambdas are not yet supported. Please set environment variable '
-                            'CODE_EVAL_DEVICE to LOCAL or LAMBDA.')
+            raise Exception(
+                'Remote platforms apart from Lambdas are not yet supported. Please set environment variable '
+                'CODE_EVAL_DEVICE to LOCAL or LAMBDA.')
         return client
 
     def update(self, batch: Dict[str, Any], outputs: List[str], labels: List[str]):
