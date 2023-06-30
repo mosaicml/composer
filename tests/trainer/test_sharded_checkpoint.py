@@ -470,7 +470,7 @@ def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type:
         num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
         num_classes=8,  # This parameter setting is very important. Don't change or the test will fail.
         precision=precision,
-        autoresume=False,  # Hardcoded to false b/c mono checkpoints don't have symlinks to them.
+        autoresume=False,  # Hardcoded to false b/c checkpoints saved with the mono checkpoint saver callback don't have symlinks to them.
         run_name=run_name,
         max_duration='4ba',
     )
