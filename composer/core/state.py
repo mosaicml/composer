@@ -90,6 +90,7 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
         fsdp_state_dict_type = StateDictType.SHARDED_STATE_DICT
         state_dict_config = ShardedStateDictConfig()
         if using_torch_2():
+            state_dict_config = ShardedStateDictConfig(offload_to_cpu=True)
             from torch.distributed.fsdp.fully_sharded_data_parallel import ShardedOptimStateDictConfig
             optim_state_dict_config = ShardedOptimStateDictConfig()
 
@@ -519,6 +520,12 @@ class State(Serializable):
         self.sharded_ckpt_prefix_dir: Optional[str] = None
         if self.fsdp_config is not None:
             self.sharded_ckpt_prefix_dir = self.fsdp_config['sharded_ckpt_prefix_dir']
+
+        if using_torch_2() and self.fsdp_state_dict_type == 'local':
+            raise DeprecationWarning(
+                textwrap.dedent(
+                    "FSDP state_dict_type='local' is deprecated in torch>=2.0.0. "
+                    "Please set fsdp_config['state_dict_type']='sharded' instead and will be removed in v0.17"))
 
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None
