@@ -122,6 +122,6 @@ def test_amp_fp8_config():
         }
         trainer = get_trainer(Precision.AMP_FP8, precision_config=precision_config)
         with get_precision_context(trainer.state.precision, trainer.state.precision_config):
-            fp8_recipe = te.get_fp8_recipe()
+            fp8_recipe = te.fp8.get_fp8_recipe()
             for k, v in precision_config.items():
                 assert getattr(fp8_recipe, k) == v
