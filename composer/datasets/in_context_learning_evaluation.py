@@ -1032,10 +1032,6 @@ class InContextLearningCodeEvalDataset(Dataset):
                     self.num_evals,  # change strategy to beam search
                 'num_return_sequences':
                     self.num_evals,  # how many gens per prompt
-                'stopping_criteria':
-                    transformers.StoppingCriteriaList(
-                        [InContextLearningCodeEvalStoppingCriteria(self.tokenizer,
-                                                                   self.max_prompt_length)]),  # stopping criteria
                 'do_sample':
                     True,
                 'top_p':
@@ -1079,27 +1075,6 @@ class InContextLearningCodeEvalDataset(Dataset):
                 chunked[k] = [v] * num_chunks
 
         return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
-
-
-class InContextLearningCodeEvalStoppingCriteria(transformers.StoppingCriteria):
-
-    def __init__(self, tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
-                 prompt_length: int):
-        super().__init__()
-        stop_tokens = ['\nclass', '\ndef', '\n#', '\nif', '\nprint']
-        self.stop_tokens = [tokenizer.encode(token) for token in stop_tokens]
-        self.prompt_length = prompt_length
-        self.index = 0
-
-    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor) -> bool:
-        del scores
-        return all(self.stop(input_sample) for input_sample in input_ids)  # type: ignore
-
-    def stop(self, input_sample: torch.LongTensor) -> bool:
-        return any(
-            any(stop_token == input_sample[i:i + len(stop_token)].tolist()
-                for i in range(self.prompt_length, input_sample.shape[0] - len(stop_token)))
-            for stop_token in self.stop_tokens)
 
 
 def build_icl_dataloader(

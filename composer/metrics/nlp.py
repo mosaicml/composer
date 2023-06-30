@@ -527,13 +527,13 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         client = None
         if not self.remote:
             warnings.warn(
-                'Running code eval locally may be unsecure. Please set environment variable CODE_EVAL_DEVICE'
-                'to LAMBDA to run on remote. To use Lambdas, spin up your instance that checks code, set the ARN as'
+                'Running code eval locally may be unsecure. Please set environment variable CODE_EVAL_DEVICE '
+                'to LAMBDA to run on remote. To use Lambdas, spin up your instance that checks code, set the ARN as '
                 'CODE_EVAL_ARN and the region as CODE_EVAL_REGION.')
             log.debug('Running code eval locally.')
         elif os.environ['CODE_EVAL_DEVICE'] == 'LAMBDA':
             if 'CODE_EVAL_ARN' not in os.environ or 'CODE_EVAL_REGION' not in os.environ:
-                raise Exception('Please set environment variable CODE_EVAL_ARN to the ARN of the lambda function'
+                raise Exception('Please set environment variable CODE_EVAL_ARN to the ARN of the lambda function '
                                 'and CODE_EVAL_REGION to the region of the lambda function.')
             try:
                 import boto3
@@ -543,7 +543,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
             client = boto3.Session().client('lambda', region_name=os.environ['CODE_EVAL_REGION'])
 
         else:
-            raise Exception('Remote platforms apart from Lambdas are not yet supported. Please set'
+            raise Exception('Remote platforms apart from Lambdas are not yet supported. Please set environment variable '
                             'CODE_EVAL_DEVICE to LOCAL or LAMBDA.')
         return client
 
