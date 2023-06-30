@@ -6,6 +6,7 @@ import logging
 import os
 import pathlib
 
+import mcli
 import pytest
 import torch
 import tqdm.std
@@ -103,3 +104,9 @@ def seed_all(rank_zero_seed: int, monkeypatch: pytest.MonkeyPatch):
     each test to the rank local seed."""
     monkeypatch.setattr(reproducibility, 'get_random_seed', lambda: rank_zero_seed)
     reproducibility.seed_all(rank_zero_seed + dist.get_global_rank())
+
+
+@pytest.fixture(autouse=True)
+def mapi_fixture(monkeypatch):
+    mock_update = lambda x: None
+    monkeypatch.setattr(mcli, 'update_run_metadata', mock_update)
