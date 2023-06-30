@@ -527,8 +527,9 @@ class State(Serializable):
 
         if using_torch_2() and self.fsdp_state_dict_type == 'local':
             raise DeprecationWarning(
-                textwrap.dedent("FSDP state_dict_type='local' is deprecated in torch>=2.0.0. "
-                                "Please set fsdp_config['state_dict_type']='sharded' instead and will be removed in v0.17"))
+                textwrap.dedent(
+                    "FSDP state_dict_type='local' is deprecated in torch>=2.0.0. "
+                    "Please set fsdp_config['state_dict_type']='sharded' instead and will be removed in v0.17"))
 
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None
