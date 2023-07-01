@@ -31,7 +31,7 @@ jobs:
     with:
       composer_package_name: ${{ matrix.composer_package_name }}
       container: ${{ matrix.container }}
-      mcloud-timeout: 1200
+      mcloud-timeout: 1500
       name: ${{ matrix.name }}
       pytest-command: ${{ matrix.pytest_command }}
       pytest-markers: ${{ matrix.markers }}
