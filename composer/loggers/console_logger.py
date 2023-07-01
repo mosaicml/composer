@@ -48,6 +48,8 @@ class ConsoleLogger(LoggerDestination):
         if isinstance(log_interval, str):
             log_interval = Time.from_timestring(log_interval)
 
+        self.last_logged_batch = 0
+
         if log_interval.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH):
             raise ValueError('The `console_log_interval` argument must have units of EPOCH or BATCH.')
 
@@ -96,21 +98,24 @@ class ConsoleLogger(LoggerDestination):
 
         if unit == TimeUnit.EPOCH and (cur_epoch % int(self.log_interval) == 0 or cur_epoch == 1):
             self.log_to_console(self.logged_metrics, prefix='Train ', state=state)
-        # Always clear logged metrics so they don't get logged in a subsequent eval call. The
-        # metrics will be recomputed and overridden in future batches so they can be safely
-        # discarded.
-        self.logged_metrics = {}
+            self.last_logged_batch = int(state.timestamp.batch)
+            self.logged_metrics = {}  # Clear logged metrics.
 
     def batch_end(self, state: State, logger: Logger) -> None:
         cur_batch = int(state.timestamp.batch)
         unit = self.log_interval.unit
         if unit == TimeUnit.BATCH and (cur_batch % int(self.log_interval) == 0 or cur_batch == 1):
             self.log_to_console(self.logged_metrics, prefix='Train ', state=state)
-            # Clear logged metrics.
-            self.logged_metrics = {}
+            self.last_logged_batch = cur_batch
+            self.logged_metrics = {}  # Clear logged metrics.
 
     def fit_end(self, state: State, logger: Logger) -> None:
         # Always clear logged metrics so they don't get logged in a subsequent eval call.
+        cur_batch = int(state.timestamp.batch)
+        if self.last_logged_batch != cur_batch:
+            self.log_to_console(self.logged_metrics, prefix='Train ',
+                                state=state)  # log at the end of training if you didn't just log
+
         self.logged_metrics = {}
 
     def eval_batch_end(self, state: State, logger: Logger) -> None:
@@ -134,6 +139,7 @@ class ConsoleLogger(LoggerDestination):
             self._log_hparams_to_console()
 
     def eval_start(self, state: State, logger: Logger) -> None:
+        self.logged_metrics = {}  # Clear logged metrics before eval so they don't get logged subsequently.
         total_eval_batches = self._get_total_eval_batches(state)
         deciles = np.linspace(0, 1, NUM_EVAL_LOGGING_EVENTS)
         batch_idxs = np.arange(1, total_eval_batches + 1)

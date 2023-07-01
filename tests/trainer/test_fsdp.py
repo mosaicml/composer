@@ -66,7 +66,7 @@ def test_fsdp_device_initialization(model: ComposerClassifier, mixed_precision: 
                     reason='FSDP requires PyTorch 1.13 or higher')
 def test_fsdp_meta_initialization_none(model: ComposerClassifier, mixed_precision: 'str', device: str = 'meta'):
     """
-    This test is intedned to test FSDP for meta initialization when there are attributes
+    This test is intended to test FSDP for meta initialization when there are attributes
     that are `None` and ensure we don't raise nasty UserWarnings.
     """
     num_classes = 2

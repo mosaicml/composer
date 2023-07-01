@@ -1,5 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
+from typing import Any, Dict, Optional
 
 import pytest
 import torch
@@ -7,19 +8,18 @@ import torch.distributed
 from torch.utils.data import DataLoader
 
 from composer import Trainer
-from composer.core import Precision
+from composer.core import Precision, get_precision_context
 from composer.models import composer_resnet_cifar
 from tests.common import RandomImageDataset
 
 try:
     import transformer_engine.pytorch as te
-    del te
     te_installed = True
 except ImportError:
     te_installed = False
 
 
-def get_trainer(precision: Precision) -> Trainer:
+def get_trainer(precision: Precision, precision_config: Optional[Dict[str, Any]] = None) -> Trainer:
 
     return Trainer(
         model=composer_resnet_cifar('resnet_9'),
@@ -36,6 +36,7 @@ def get_trainer(precision: Precision) -> Trainer:
             num_workers=0,
         ),
         precision=precision,
+        precision_config=precision_config,
         max_duration='1ep',
         eval_interval='1ep',
         train_subset_num_batches=1,
@@ -108,3 +109,19 @@ def test_amp_fp8_path():
     else:
         with pytest.raises(ImportError, match='AMP_FP8 precision is used but TransformerEngine is not installed'):
             trainer.fit()
+
+
+@pytest.mark.gpu
+def test_amp_fp8_config():
+    if te_installed and torch.cuda.get_device_capability()[0] >= 9:
+        from transformer_engine.common.recipe import Format
+        precision_config = {
+            'fp8_format': Format.HYBRID,
+            'amax_history_len': 16,
+            'amax_compute_algo': 'max',
+        }
+        trainer = get_trainer(Precision.AMP_FP8, precision_config=precision_config)
+        with get_precision_context(trainer.state.precision, trainer.state.precision_config):
+            fp8_recipe = te.fp8.get_fp8_recipe()
+            for k, v in precision_config.items():
+                assert getattr(fp8_recipe, k) == v

@@ -13,6 +13,7 @@ import logging
 import os
 import random
 import re
+import textwrap
 import time
 import warnings
 from collections import defaultdict
@@ -37,15 +38,17 @@ from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException,
                            ensure_data_spec, ensure_evaluator, ensure_time, get_precision_context,
                            validate_eval_automicrobatching)
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
-from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, ProgressBarLogger, RemoteUploaderDownloader,
-                              WandBLogger)
+from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, MosaicMLLogger, ProgressBarLogger,
+                              RemoteUploaderDownloader, WandBLogger)
+from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR
 from composer.models import ComposerModel
 from composer.optim import ComposerScheduler, DecoupledSGDW, compile_composer_scheduler
 from composer.profiler import Profiler
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
-from composer.trainer.dist_strategy import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module
+from composer.trainer.dist_strategy import (DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module,
+                                            set_fsdp_default)
 from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectStore, Transform, checkpoint, dist,
                             ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist, get_device,
                             get_file, is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
@@ -305,10 +308,10 @@ def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrateg
     return ddp_sync_strategy
 
 
-def _get_precision_context(precision: Precision, deepspeed_enabled: bool):
+def _get_precision_context(precision: Precision, precision_config: Optional[Dict[str, Any]], deepspeed_enabled: bool):
     if deepspeed_enabled:
         return contextlib.nullcontext()
-    return get_precision_context(precision)
+    return get_precision_context(precision, precision_config)
 
 
 def _generate_run_name() -> str:
@@ -479,12 +482,13 @@ class Trainer:
             Setting this to ``True`` will force schedulers to be stepped every batch,
             while ``False`` means schedulers stepped every epoch. ``None`` indicates the default behavior.
             (default: ``None``)
-        eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): The :class:`.DataLoader`,
-            :class:`.DataSpec`, :class:`.Evaluator`, or sequence of evaluators for the evaluation data.
+        eval_dataloader (Iterable | DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): The :class:`.Iterable`,
+            :class:`.DataLoader`, :class:`.DataSpec`, :class:`.Evaluator`, or sequence of evaluators for the evaluation data.
 
             To evaluate one or more specific metrics across one or more datasets, pass in an
-            :class:`.Evaluator`. If a :class:`.DataSpec` or :class:`.DataLoader` is passed in, then all
-            metrics returned by ``model.get_metrics()`` will be used during evaluation.
+            :class:`.Evaluator`. If a :class:`.DataLoader`, :class:`.DataSpec`, or :class:`.Iterable` is passed in, then all
+            metrics returned by ``model.get_metrics()`` will be used during evaluation. If a :class:`.Evaluator`
+            is specified in a list, all eval dataloaders must be :class:`.Evaluator` instances.
             ``None`` results in no evaluation. (default: ``None``)
         eval_interval (int | str | Time | (State, Event) -> bool, optional): Specifies how frequently to run evaluation.
             An integer, which will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time`
@@ -654,6 +658,9 @@ class Trainer:
             Example 2: ``load_exclude_algorithms = ["FusedLayerNorm", "Alibi"]`` would exclude FusedLayerNorm and Alibi from loading.
 
             (default: ``None``)
+        load_fsdp_monolith_rank0_only (bool, optional): If ``True``, when loading a monolith (non-sharded) checkpoint
+            with FSDP, only rank 0 will load the checkpoint and broadcast weights/optimizers to other ranks.
+            This will dramatically reduce the memory usage on system. (default: ``False``)
 
         save_folder (str, optional): Format string for the folder where checkpoints are saved.
             If ``None``, checkpoints will not be saved. Can also be a URI for S3 paths only.
@@ -735,6 +742,8 @@ class Trainer:
         precision (Precision | str, optional): Numerical precision to use for training. One of ``fp32``, ``amp_bf16``
             or ``amp_fp16`` (recommended). (default: ``Precision.FP32`` if training on CPU; ``Precision.AMP_FP16`` if
             training on GPU)
+        precision_config (Optional[Dict[str, Any]]): The config for FP8 scaling strategy. See parameters for
+            `DelayedScaling <https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/common.html?highlight=delayedscaling#transformer_engine.common.recipe.DelayedScaling>`_.
         device_train_microbatch_size (Union[int, str), optional): The number of samples to process on each device per
             microbatch during training. Gradients are summed over the microbatches per device. If set to ``auto``,
             dynamically decreases device_train_microbatch_size if microbatch is too large for GPU. (default: ``None``)
@@ -860,11 +869,12 @@ class Trainer:
         # DeepSpeed
         deepspeed_config: Optional[Dict[str, Any]] = None,
         fsdp_config: Optional[Dict[str, Any]] = None,
-        fsdp_auto_wrap: Optional[bool] = True,
+        fsdp_auto_wrap: bool = True,
 
         # System/Numerics
         device: Optional[Union[str, Device]] = None,
         precision: Optional[Union[str, Precision]] = None,
+        precision_config: Optional[Dict[str, Any]] = None,
         device_train_microbatch_size: Optional[Union[int, str]] = None,
 
         # Reproducibility
@@ -948,21 +958,11 @@ class Trainer:
 
         assert not isinstance(device_train_microbatch_size, str)
 
-        # Determine whether DeepSpeed and FSDP are enabled
-        self.deepspeed_config = deepspeed_config
-        self.fsdp_config = fsdp_config
-        self.deepspeed_enabled = self.deepspeed_config is not None
-        self.fsdp_enabled = self.fsdp_config is not None
-
         # Distributed
-        if self.deepspeed_enabled or self.fsdp_enabled or dist.get_world_size() > 1:
+        if deepspeed_config is not None or fsdp_config is not None or dist.get_world_size() > 1:
             # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
             # And torch.distributed is always required for multi-rank training
             dist.initialize_dist(device, dist_timeout)
-
-        # Handle FSDP wrapping
-        if self.fsdp_config is not None and fsdp_auto_wrap:
-            prepare_fsdp_module(model, optimizers, self.fsdp_config, precision, device, auto_microbatching)
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, device)
@@ -984,7 +984,7 @@ class Trainer:
             raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
 
         # Move the model and optimizers to the device
-        if not (self.deepspeed_enabled or self.fsdp_enabled):
+        if deepspeed_config is None and fsdp_config is None:
             # check if model is already on tpu
             if isinstance(device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
                 raise ValueError(
@@ -1013,10 +1013,12 @@ class Trainer:
             device_train_microbatch_size=device_train_microbatch_size,
             auto_microbatching=auto_microbatching,
             precision=precision,
+            precision_config=precision_config,
             optimizers=optimizers,
             run_name=run_name,
             deepspeed_config=deepspeed_config,
-            fsdp_config=fsdp_config,
+            fsdp_config=set_fsdp_default(fsdp_config) if fsdp_config is not None else None,
+            fsdp_auto_wrap=fsdp_auto_wrap,
         )
 
         # Profiler
@@ -1062,6 +1064,14 @@ class Trainer:
             remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
             if remote_ud is not None:
                 loggers.append(remote_ud)
+
+        # MosaicML Logger
+        if os.environ.get(MOSAICML_PLATFORM_ENV_VAR,
+                          False) and os.environ.get(MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and not any(
+                              isinstance(x, MosaicMLLogger) for x in loggers):
+            log.info('Detected run on MosaicML platform. Adding MosaicMLLogger to loggers.')
+            mosaicml_logger = MosaicMLLogger()
+            loggers.append(mosaicml_logger)
 
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
@@ -1155,10 +1165,16 @@ class Trainer:
         else:
             eval_metrics = deepcopy(self.state.model.get_metrics(is_train=False))
             model_metric_names = [str(k) for k in eval_metrics.keys()]
+            eval_dataloader = ensure_tuple(eval_dataloader)
+
+            evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in eval_dataloader]
+            if any(evaluator_types) and not all(evaluator_types):
+                raise ValueError('Mixing Evaluator with other classes is not allowed, please wrap'
+                                 'all other classes with the Evaluator class. These are the classes'
+                                 'that were detected:' + str([type(evaluator) for evaluator in eval_dataloader]))
 
             evaluators = [
-                ensure_evaluator(evaluator, default_metric_names=model_metric_names)
-                for evaluator in ensure_tuple(eval_dataloader)
+                ensure_evaluator(evaluator, default_metric_names=model_metric_names) for evaluator in eval_dataloader
             ]
             # match metric names to model metrics
             self.state.eval_metrics = {
@@ -1223,9 +1239,37 @@ class Trainer:
         self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, self.state.algorithms))
         self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
 
-        # If using DDP or DeepSpeed, we need to wrap the ComposerModel
-        # But store a reference to the original model for functions like `eval_forward`, `get_metrics`, etc.
+        # Suppressing GradScaler warnings as they are always created
+        # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
+        warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
+        self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
+
+        if self.state.fsdp_config is not None:
+            if version.parse(torch.__version__) < version.parse('1.13.0'):
+                raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
+            from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
+
+            # This state should never be reached, but we raise a ValueError just in case
+            if self._use_closures() and self.state.precision == Precision.AMP_FP16:
+                raise ValueError(f'Using closures and precision {self.state.precision} is not supported'
+                                 f' with FSDP. Please use another optimizer or precision type.')
+            self.state.scaler = ShardedGradScaler()
+
+        # suppressing FSDP warning when auto grad accum exits the forward pass before completing
+        warnings.filterwarnings(action='ignore', message='Forward order differs from that of the first iteration')
+
+        # If using DDP or DeepSpeed, we need to wrap the ComposerModel but store a reference to the
+        # original model for functions like `eval_forward`, `get_metrics`, etc.
         self._original_model = self.state.model
+
+        # If using PyTorch DDP, the model must be loaded before it is wrapped with DDP.
+        # If using DeepSpeed, the engine must be initialized before the model is loaded.
+        # If using FSDP, the model must be wrapped and then loaded unless loading a monolith
+        # checkpoint on rank 0 only, in which case the model be loaded before it is wrapped.
+
+        # FSDP wrap if not using monolith checkpoint on rank 0 only
+        if self.state.fsdp_config is not None and fsdp_auto_wrap and not self.state.load_fsdp_monolith_rank0_only:
+            prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
@@ -1262,47 +1306,26 @@ class Trainer:
             if 'optimizers' in self.state.serialized_attributes:
                 self.state.serialized_attributes.remove('optimizers')
 
-        # If using DeepSpeed, the model must be loaded from checkpoint after the engine has been
-        # initialized, but if using PyTorch DDP, the model must be loaded before it is wrapped with
-        # DDP.
-
-        # suppressing GradScaler warnings as they are always created
-        # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
-        warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
-        self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
-
-        if self.fsdp_config is not None:
-            if version.parse(torch.__version__) < version.parse('1.13.0'):
-                raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-            from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
-
-            # This state should never be reached, but we raise a ValueError just in case
-            if self._use_closures() and self.state.precision == Precision.AMP_FP16:
-                raise ValueError(f'Using closures and precision {self.state.precision} is not supported'
-                                 f' with FSDP. Please use another optimizer or precision type.')
-            self.state.scaler = ShardedGradScaler()
-
-        # suppressing FSDP warning when auto grad accum exits the forward pass before completing
-        warnings.filterwarnings(action='ignore', message='Forward order differs from that of the first iteration')
-
         # Load Checkpoint
         self._rng_state = None
         # If autoresume is enabled, first check for existing checkpoints to load
         if autoresume:
             log.info('Searching for a previous checkpoint to autoresume')
+            error_message = ''
             if save_folder is None:
-                raise ValueError('The `save_folder` must be specified when autoresume is enabled.')
+                error_message += 'The `save_folder` must be specified when autoresume is enabled. '
             if save_overwrite:
-                raise ValueError(
+                error_message += textwrap.dedent(
                     'The flag `save_overwrite` must be False when autoresume is enabled as autoresume always loads the '
-                    'latest existing checkpoint in `save_folder`.')
+                    'latest existing checkpoint in `save_folder`. ')
             if save_latest_filename is None:
-                raise ValueError(
-                    'The `save_latest_filename` must be specified so autoresume knows where to load checkpoints from.')
+                error_message += 'The `save_latest_filename` must be specified so autoresume knows where to load checkpoints from. '
             if run_name is None:
-                raise ValueError(
-                    'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name.'
-                )
+                error_message += 'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name. '
+            if error_message != '':
+                raise ValueError(error_message)
+            assert save_folder is not None
+            assert save_latest_filename is not None
 
             remote_ud_has_multiple_concurrent_uploads = [
                 isinstance(logger_destination, RemoteUploaderDownloader) and
@@ -1353,6 +1376,11 @@ class Trainer:
             )
             self.state.run_name = run_name
 
+        # FSDP wrap if model is not yet wrapped and FSDP is enabled. This can happen if
+        # load_fsdp_monolith_rank0_only=True but no checkpoint was loaded.
+        if not self.state.fsdp_enabled and self.state.fsdp_config is not None and self.state.fsdp_auto_wrap and self.state.load_fsdp_monolith_rank0_only:
+            prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
+
         self.engine.run_event(Event.AFTER_LOAD)
 
         # reseed here. This helps with a couple of issues:
@@ -1365,8 +1393,8 @@ class Trainer:
         log.info(f'Setting seed to {self.state.seed}')
         reproducibility.seed_all(self.state.seed)
 
-        if not (self.deepspeed_enabled or self.fsdp_enabled) and dist.get_world_size() > 1:
-            # Only wrap the module if required
+        # DDP wrap if required
+        if not self.state.deepspeed_enabled and not self.state.fsdp_enabled and dist.get_world_size() > 1:
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
 
         # The model would need to be torch.compile()'d after being wrapped in a distributed strategy
@@ -1447,7 +1475,7 @@ class Trainer:
             f'Looking for autoresume checkpoint: {save_latest_remote_file_name} (remote), {latest_checkpoint_path} (local)'
         )
 
-        if self.deepspeed_enabled or self.state.fsdp_sharded_state_dict_enabled:
+        if self.state.deepspeed_enabled or self.state.fsdp_sharded_state_dict_enabled:
             # If latest checkpoint is not saved locally, try to fetch from loggers
             if not os.path.exists(latest_checkpoint_path):
                 log.debug(f'Attempting to download the checkpoint on to rank {dist.get_global_rank()}')
@@ -1464,7 +1492,7 @@ class Trainer:
             # deepspeed or fsdp + sharding
             elif any(latest_checkpoint_exists):  # Some but not all exist, which is very bad.
                 missing_ranks = [n for (n, exist) in enumerate(latest_checkpoint_exists) if not exist]
-                mode = 'Deepspeed' if self.deepspeed_enabled else 'FSDP sharding'
+                mode = 'Deepspeed' if self.state.deepspeed_enabled else 'FSDP sharding'
                 raise RuntimeError(f'{mode} was enabled, but checkpoints missing on ranks: {missing_ranks}')
             else:  # None of the paths exists, so no autoresume necessary.
                 return None
@@ -1489,6 +1517,7 @@ class Trainer:
             signal_file_path = os.path.join(os.path.dirname(latest_checkpoint_path),
                                             '.local_rank0_completed_autoresume')
             if dist.get_local_rank() == 0:
+                os.makedirs(os.path.dirname(signal_file_path), exist_ok=True)
                 with open(signal_file_path, 'wb') as f:
                     f.write(b'local_rank0_completed_autoresume')
 
@@ -1726,10 +1755,16 @@ class Trainer:
             # could be DDP / DeepSpeed wrapped.
             eval_metrics = self._original_model.get_metrics(is_train=False)
             metric_names = [str(k) for k in eval_metrics.keys()]
+            eval_dataloader = ensure_tuple(eval_dataloader)
+
+            evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in eval_dataloader]
+            if any(evaluator_types) and not all(evaluator_types):
+                raise ValueError('Mixing Evaluator with other classes is not allowed, please wrap'
+                                 'all other classes with the Evaluator class. These are the classes'
+                                 'that were detected:' + str([type(evaluator) for evaluator in eval_dataloader]))
 
             evaluators = [
-                ensure_evaluator(evaluator, default_metric_names=metric_names)
-                for evaluator in ensure_tuple(eval_dataloader)
+                ensure_evaluator(evaluator, default_metric_names=metric_names) for evaluator in eval_dataloader
             ]
 
             # match metric names to model metrics
@@ -1769,7 +1804,7 @@ class Trainer:
         # Precision
         if precision is not None:
             if Precision(precision) != self.state.precision:
-                if self.deepspeed_enabled:
+                if self.state.deepspeed_enabled:
                     raise ValueError('Changing the precision when using DeepSpeed is not supported')
                 precision = Precision(precision)
                 _validate_precision(precision, self.state.device)
@@ -1936,7 +1971,7 @@ class Trainer:
                     rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
                     rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
 
-                    if self.deepspeed_enabled:
+                    if self.state.deepspeed_enabled:
                         self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
@@ -2070,7 +2105,7 @@ class Trainer:
 
         with torch.no_grad(),\
                 model_eval_mode(self.state.model),\
-                _get_precision_context(self.state.precision, self.deepspeed_enabled):
+                _get_precision_context(self.state.precision, self.state.precision_config, self.state.deepspeed_enabled):
             eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
             for _, metric in self.state.train_metrics.items():
                 self._original_model.update_metric(
@@ -2138,11 +2173,11 @@ class Trainer:
                                                    closure=lambda loss_dict=total_loss_dict, **kwargs: self.
                                                    _train_microbatches(microbatches, loss_dict, **kwargs))
                         else:
-                            optimizer.step(closure=lambda **kwargs: self._train_microbatches(
-                                microbatches, total_loss_dict, **kwargs).item())
+                            optimizer.step(closure=lambda loss_dict=total_loss_dict, **kwargs: self._train_microbatches(
+                                microbatches, loss_dict, **kwargs).item())
                 else:
                     self._train_microbatches(microbatches, total_loss_dict)
-                    if not self.deepspeed_enabled:
+                    if not self.state.deepspeed_enabled:
                         for optimizer in self.state.optimizers:
                             if use_grad_scaling:
                                 self.state.scaler.step(optimizer)
@@ -2155,6 +2190,11 @@ class Trainer:
                 if self.state.auto_microbatching and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     found_cuda_oom = 1
+                elif self.state.auto_microbatching and 'cuda' in str(e).lower() or 'c10' in str(e).lower():
+                    raise RuntimeError(
+                        textwrap.dedent(
+                            'Encountered non-addressable cuda error while using auto microbatching. '
+                            'If this repeatedly occurs, set `device_train_microbatch_size` manually.')) from e
                 else:
                     raise
 
@@ -2222,7 +2262,7 @@ class Trainer:
 
             use_grad_scaling = self._use_grad_scaling(self.state.precision, self.state.scaler)
 
-            if not self.deepspeed_enabled:
+            if not self.state.deepspeed_enabled:
                 for optimizer in self.state.optimizers:
                     try:
                         optimizer.zero_grad(set_to_none=True)
@@ -2274,7 +2314,7 @@ class Trainer:
         device_batch = deepcopy(self.state.batch)
 
         microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
-        if self.deepspeed_enabled or not isinstance(self.state.model, DistributedDataParallel):
+        if self.state.deepspeed_enabled or not isinstance(self.state.model, DistributedDataParallel):
             sync_context = contextlib.nullcontext()
         elif self.state.auto_microbatching and not self.first_batch_complete:
             # PyTorch DDP rebuilds gradient reduction buckets after 1) a forward pass where the
@@ -2298,7 +2338,8 @@ class Trainer:
             # Forward pass
             self.engine.run_event(Event.BEFORE_FORWARD)
 
-            with _get_precision_context(self.state.precision, self.deepspeed_enabled):
+            with _get_precision_context(self.state.precision, self.state.precision_config,
+                                        self.state.deepspeed_enabled):
                 self.state.outputs = self.state.model(self.state.batch)
 
             self.engine.run_event(Event.AFTER_FORWARD)
@@ -2320,7 +2361,8 @@ class Trainer:
             # Loss
             self.engine.run_event(Event.BEFORE_LOSS)
 
-            with _get_precision_context(self.state.precision, self.deepspeed_enabled):
+            with _get_precision_context(self.state.precision, self.state.precision_config,
+                                        self.state.deepspeed_enabled):
                 self.state.loss = self._original_model.loss(self.state.outputs, self.state.batch)
 
             assert self.state.loss is not None
@@ -2357,7 +2399,7 @@ class Trainer:
             if use_grad_scaling:
                 microbatch_loss = cast(torch.Tensor, self.state.scaler.scale(microbatch_loss))
 
-            if self.deepspeed_enabled:
+            if self.state.deepspeed_enabled:
                 self.state.deepspeed_model.backward(microbatch_loss)
 
             else:
@@ -2372,7 +2414,7 @@ class Trainer:
                 self.state.train_metrics = self._ensure_metrics_device_and_dtype(self.state.train_metrics)
                 self._eval_train_metrics(device_batch)
 
-        if self.deepspeed_enabled:
+        if self.state.deepspeed_enabled:
             self.state.deepspeed_model.step()
 
         return microbatch_loss_dict
@@ -2485,13 +2527,14 @@ class Trainer:
                 rank_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
 
                 # Fix the batch if using DeepSpeed
-                if self.deepspeed_enabled:
+                if self.state.deepspeed_enabled:
                     self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                 self.engine.run_event(Event.PREDICT_BATCH_START)
 
                 self.engine.run_event(Event.PREDICT_BEFORE_FORWARD)
-                with _get_precision_context(self.state.precision, self.deepspeed_enabled):
+                with _get_precision_context(self.state.precision, self.state.precision_config,
+                                            self.state.deepspeed_enabled):
                     self.state.outputs = self.state.model(self.state.batch)
                 self.engine.run_event(Event.PREDICT_AFTER_FORWARD)
 
@@ -2605,7 +2648,7 @@ class Trainer:
             drop duplicate samples.
 
         Args:
-            eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): Dataloaders
+            eval_dataloader (Iterable | DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): Dataloaders
                 for evaluation.  If not provided, defaults to using the
                 ``eval_dataloader`` provided to the trainer init().
             subset_num_batches (int, optional): Evaluate on this many batches. Default to ``-1`` (the entire
@@ -2617,9 +2660,16 @@ class Trainer:
             eval_metrics = deepcopy(self._original_model.get_metrics(is_train=False))
             metric_names = [str(k) for k in eval_metrics.keys()]
 
+            eval_dataloader = ensure_tuple(eval_dataloader)
+
+            evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in eval_dataloader]
+            if any(evaluator_types) and not all(evaluator_types):
+                raise ValueError('Mixing Evaluator with other classes is not allowed, please wrap'
+                                 'all other classes with the Evaluator class. These are the classes'
+                                 'that were detected:' + str([type(evaluator) for evaluator in eval_dataloader]))
+
             evaluators = [
-                ensure_evaluator(evaluator, default_metric_names=metric_names)
-                for evaluator in ensure_tuple(eval_dataloader)
+                ensure_evaluator(evaluator, default_metric_names=metric_names) for evaluator in eval_dataloader
             ]
 
             if self.state.eval_metrics:
@@ -2743,7 +2793,7 @@ class Trainer:
                     batch_num_samples = batch_num_samples_tensor.item()
                     last_batch = self.state.eval_timestamp.sample + batch_num_samples >= dataset_len
 
-                if self.deepspeed_enabled:
+                if self.state.deepspeed_enabled:
                     self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                 self.engine.run_event(Event.EVAL_BATCH_START)
@@ -2776,7 +2826,8 @@ class Trainer:
 
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
 
-                            with _get_precision_context(self.state.precision, self.deepspeed_enabled):
+                            with _get_precision_context(self.state.precision, self.state.precision_config,
+                                                        self.state.deepspeed_enabled):
                                 self.state.outputs = self._original_model.eval_forward(self.state.batch)
 
                             self.engine.run_event(Event.EVAL_AFTER_FORWARD)
@@ -2787,7 +2838,8 @@ class Trainer:
                                 continue
 
                             # Run in same precision context to avoid NaNs
-                            with _get_precision_context(self.state.precision, self.deepspeed_enabled):
+                            with _get_precision_context(self.state.precision, self.state.precision_config,
+                                                        self.state.deepspeed_enabled):
                                 if isinstance(self.state.device, DeviceMPS):
                                     # torchmetrics math has numerical errors on M1 devices
                                     # running the compute on CPU instead
@@ -2806,6 +2858,11 @@ class Trainer:
                         if evaluator.auto_microbatching and _is_cuda_oom(e):
                             log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                             found_cuda_oom = 1
+                        elif self.state.auto_microbatching and 'cuda' in str(e).lower() or 'c10' in str(e).lower():
+                            raise ValueError(
+                                textwrap.dedent(
+                                    'Encountered non-addressable cuda error while using auto microbatching. '
+                                    'If this repeatedly occurs, set `device_eval_microbatch_size` manually.')) from e
                         else:
                             raise
                     if evaluator.auto_microbatching:
@@ -2868,7 +2925,7 @@ class Trainer:
                 Occurs when attempting to use grad scaling without the scaler
                 enabled. Likely due to hardware not supporting the provided precision.
         """
-        if self.deepspeed_enabled:
+        if self.state.deepspeed_enabled:
             return False
 
         precision = Precision(precision)
@@ -2919,7 +2976,7 @@ class Trainer:
         We default to using closures unless AMP is enabled, in which case we only allow closures when using optimizers
         with the _step_supports_amp_closure flag.
         """
-        if self.deepspeed_enabled:
+        if self.state.deepspeed_enabled:
             return False
 
         if isinstance(self.state.device, DeviceTPU):
@@ -2955,6 +3012,21 @@ class Trainer:
             filename=name,
             weights_only=weights_only,
         )
+
+    def save_checkpoint_to_save_folder(self):
+        """Checkpoints the training :class:`~.State` using a CheckpointSaver if it exists.
+
+        Raises:
+            ValueError: If ``_checkpoint_saver`` does not exist.
+
+        Returns:
+            None
+        """
+        if self._checkpoint_saver is None:
+            raise ValueError(
+                'In order to use save_checkpoint_to_save_folder you must pass a save_folder to the Trainer.')
+        else:
+            self._checkpoint_saver._save_checkpoint(self.state, self.logger)
 
     def export_for_inference(
         self,
