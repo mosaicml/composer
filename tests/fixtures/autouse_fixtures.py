@@ -108,5 +108,5 @@ def seed_all(rank_zero_seed: int, monkeypatch: pytest.MonkeyPatch):
 
 @pytest.fixture(autouse=True)
 def mapi_fixture(monkeypatch):
-    mock_update = lambda x: None
+    mock_update = lambda *args, **kwargs: None
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_update)
