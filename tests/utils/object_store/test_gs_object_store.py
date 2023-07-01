@@ -2,32 +2,32 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-
-from pathlib import Path
-from unittest.mock import MagicMock, Mock
 from unittest import mock
-import pytest
-import uuid
 
-from composer.utils import GsObjectStore
+import pytest
 from botocore.exceptions import ClientError
 from google.cloud import storage
+
+from composer.utils import GsObjectStore
 
 
 @pytest.fixture
 def gs_object_store(monkeypatch):
-    with mock.patch.object(storage, 'Client', return_value=mock.MagicMock()) as mock_client:
+    with mock.patch.object(storage, 'Client', return_value=mock.MagicMock()):
         yield GsObjectStore(bucket='test-bucket', prefix='test-prefix')
+
 
 def test_get_uri(gs_object_store):
     object_name = 'test-object'
     expected_uri = 'gs://test-bucket/test-prefix/test-object'
-    assert(gs_object_store.get_uri(object_name) == expected_uri)
+    assert (gs_object_store.get_uri(object_name) == expected_uri)
+
 
 def test_get_key(gs_object_store):
     object_name = 'test-object'
     expected_key = 'test-prefix/test-object'
-    assert(gs_object_store.get_key(object_name) == expected_key)
+    assert (gs_object_store.get_key(object_name) == expected_key)
+
 
 def test_get_object_size(gs_object_store, monkeypatch):
     mock_bucket = mock.MagicMock()
@@ -39,7 +39,8 @@ def test_get_object_size(gs_object_store, monkeypatch):
     mock_bucket.get_blob.return_value = mock_blob
 
     object_name = 'test-object'
-    assert(gs_object_store.get_object_size(object_name) == 100)
+    assert (gs_object_store.get_object_size(object_name) == 100)
+
 
 def test_upload_object(gs_object_store, monkeypatch):
     mock_bucket = mock.MagicMock()
@@ -65,7 +66,6 @@ def test_download_object(gs_object_store, monkeypatch, tmp_path, result: str):
 
     object_name = 'test-object'
     filename = 'test-file.txt'
-    tmp_file = str(filename) + f'.{uuid.uuid4()}.tmp'
 
     def generate_dummy_file(x):
         with open(x, 'wb') as fp:
@@ -85,8 +85,7 @@ def test_download_object(gs_object_store, monkeypatch, tmp_path, result: str):
             gs_object_store.download_blob(object_name, filename)
         assert not mock_os.rename.called
 
-    else: # error
+    else:  # error
         mock_blob.download_to_filename.side_effect = ClientError({}, 'operation')
         with pytest.raises(ClientError):
             gs_object_store.download_blob(object_name, filename, overwrite=True)
-

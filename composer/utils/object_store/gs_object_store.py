@@ -8,11 +8,12 @@ from __future__ import annotations
 import os
 import pathlib
 import uuid
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Callable, Optional, Union
+
+from google.cloud import storage
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
-from google.cloud import storage
 
 __all__ = ['GsObjectStore']
 
@@ -21,7 +22,7 @@ _NOT_FOUND_CODES = ('403', '404', 'NoSuchKey')
 
 def _reraise_gs_errors(uri: str, e: Exception):
     try:
-        import google.cloud
+        import google
     except ImportError as e:
         raise MissingConditionalImportError(conda_package='google-cloud-storage',
                                             extra_deps_group='google-cloud-storage',
@@ -78,13 +79,9 @@ class GsObjectStore(ObjectStore):
         aws_access_key_id: Optional[str] = None,
         aws_secret_access_key: Optional[str] = None,
         aws_session_token: Optional[str] = None,
-        client_config: Optional[Dict[Any, Any]] = None,
-        transfer_config: Optional[Dict[Any, Any]] = None,
     ) -> None:
         try:
             import boto3
-            from boto3.s3.transfer import TransferConfig
-            from botocore.config import Config
         except ImportError as e:
             raise MissingConditionalImportError('streaming', 'boto3') from e
 
@@ -93,10 +90,6 @@ class GsObjectStore(ObjectStore):
         self.prefix = prefix.strip('/')
         if self.prefix:
             self.prefix += '/'
-
-        if client_config is None:
-            client_config = {}
-        config = Config(**client_config)
 
         if aws_secret_access_key is not None and aws_access_key_id is not None:
             # Create a session and use it to make our client. Unlike Resources and Sessions,
@@ -131,8 +124,8 @@ class GsObjectStore(ObjectStore):
     def upload_blob(self,
                     bucket_name: str,
                     source_file_name: Union[str, pathlib.Path],
-                    destination_blob_name: str = None,
-                    callback: Option[Callable[[int, int], None]] = None):
+                    destination_blob_name: str = '',
+                    callback: Optional[Callable[[int, int], None]] = None):
 
         del callback
         """Uploads a file to the bucket."""
