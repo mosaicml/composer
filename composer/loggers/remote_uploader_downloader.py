@@ -22,8 +22,8 @@ from urllib.parse import urlparse
 
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import (LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, OCIObjectStore, S3ObjectStore, GsObjectStore,
-                            SFTPObjectStore, dist, format_name_with_dist, get_file, retry)
+from composer.utils import (GsObjectStore, LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, OCIObjectStore,
+                            S3ObjectStore, SFTPObjectStore, dist, format_name_with_dist, get_file, retry)
 
 if TYPE_CHECKING:
     from composer.core import State

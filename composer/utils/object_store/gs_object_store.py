@@ -12,16 +12,19 @@ from typing import Any, Callable, Dict, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
+from google.cloud import storage
 
 __all__ = ['GsObjectStore']
 
 _NOT_FOUND_CODES = ('403', '404', 'NoSuchKey')
 
+
 def _reraise_gs_errors(uri: str, e: Exception):
     try:
         import google.cloud
     except ImportError as e:
-        raise MissingConditionalImportError(conda_package='google-cloud-storage', extra_deps_group='google-cloud-storage',
+        raise MissingConditionalImportError(conda_package='google-cloud-storage',
+                                            extra_deps_group='google-cloud-storage',
                                             conda_channel='conda-forge') from e
 
     # If it's an google service NotFound error
@@ -29,14 +32,13 @@ def _reraise_gs_errors(uri: str, e: Exception):
         raise ValueError(f'Bucket or object in {uri} not found. {e.message}') from e
 
     # All clienterror (HTTP 4xx) responses
-    if isinstance(e,  google.api_core.exceptions.ClientError):
+    if isinstance(e, google.api_core.exceptions.ClientError):
         raise ValueError(f'Error with using google cloud storage for uri {uri}') from e
     if isinstance(e, google.api_core.exceptions.GatewayTimeout):
         raise ValueError(f'Time out when uploading/downloading {uri} using google cloud storage') from e
 
     # Otherwise just raise the original error.
     raise e
-
 
 
 class GsObjectStore(ObjectStore):
@@ -110,12 +112,10 @@ class GsObjectStore(ObjectStore):
 
             return
 
-        from google.cloud import storage
         self.client = storage.Client()
 
-
     def get_uri(self, object_name: str) -> str:
-        return f's3://{self.bucket}/{self.get_key(object_name)}'
+        return f'gs://{self.bucket}/{self.get_key(object_name)}'
 
     def get_key(self, object_name: str) -> str:
         return f'{self.prefix}{object_name}'
@@ -126,14 +126,13 @@ class GsObjectStore(ObjectStore):
             blob = bucket.get_blob(object_name)
         except Exception as e:
             _reraise_gs_errors(self.get_uri(object_name), e)
-        return blob.size # size in byte
+        return blob.size  # size in byte
 
-    def upload_blob(
-            self,
-            bucket_name: str,
-            source_file_name: Union[str, pathlib.Path],
-            destination_blob_name: str = None,
-            callback: Option[Callable[[int, int], None]] = None):
+    def upload_blob(self,
+                    bucket_name: str,
+                    source_file_name: Union[str, pathlib.Path],
+                    destination_blob_name: str = None,
+                    callback: Option[Callable[[int, int], None]] = None):
 
         del callback
         """Uploads a file to the bucket."""
@@ -146,17 +145,15 @@ class GsObjectStore(ObjectStore):
 
         blob.upload_from_filename(source_file_name, if_generation_match=generation_match_precondition)
 
-        print(
-            f"File {source_file_name} uploaded to {destination_blob_name}."
-        )
+        print(f'File {source_file_name} uploaded to {destination_blob_name}.')
 
     def download_blob(
-            self,
-            object_name: str,
-            filename: Union[str, pathlib.Path],
-            overwrite: bool = False,
-            callback: Optional[Callable[[int, int], None]] = None,
-            ):
+        self,
+        object_name: str,
+        filename: Union[str, pathlib.Path],
+        overwrite: bool = False,
+        callback: Optional[Callable[[int, int], None]] = None,
+    ):
 
         if os.path.exists(filename) and not overwrite:
             raise FileExistsError(f'The file at {filename} already exists and overwrite is set to False.')
@@ -168,11 +165,11 @@ class GsObjectStore(ObjectStore):
 
         try:
             try:
-                bucket = self.client.bucket(self.bucket_name)
-                blob = bucket.blob(source_blob_name)
+                bucket = self.client.bucket(self.bucket)
+                blob = bucket.blob(object_name)
                 blob.download_to_filename(tmp_path)
             except Exception as e:
-                _reraise_gcs_errors(get_uri(object_name), e)
+                _reraise_gs_errors(self.get_uri(object_name), e)
         except:
             # Make a best effort attempt to clean up the temporary file
             try:
@@ -185,5 +182,3 @@ class GsObjectStore(ObjectStore):
                 os.replace(tmp_path, filename)
             else:
                 os.rename(tmp_path, filename)
-
-
