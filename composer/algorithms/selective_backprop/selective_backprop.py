@@ -279,7 +279,7 @@ class SelectiveBackprop(Algorithm):
             assert self._loss_fn is not None, 'loss_fn should be set on Event.INIT'
             return self._loss_fn(p, (torch.Tensor(), y), reduction=reduction)
 
-        with get_precision_context(state.precision):
+        with get_precision_context(state.precision, state.precision_config):
             new_input, new_target = select_using_loss(input, target, model, loss, self.keep, self.scale_factor)
         state.batch_set_item(self.input_key, new_input)
         state.batch_set_item(self.target_key, new_target)

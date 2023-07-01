@@ -244,9 +244,18 @@ def test_fsdp_mixed_with_sync(world_size, tmp_path: pathlib.Path, sync_module_st
 @pytest.mark.parametrize('composer_version', [
     pytest.param(
         '0.13.5',
-        marks=pytest.mark.filterwarnings(
-            r'ignore:ShardedGradScaler is not in the state_dict. Its state will not be restored.:UserWarning')),
-    '0.14.0', '0.14.1'
+        marks=[
+            pytest.mark.filterwarnings(
+                r'ignore:ShardedGradScaler is not in the state_dict. Its state will not be restored.:UserWarning'),
+            pytest.mark.filterwarnings(
+                r'ignore:MosaicMLLogger is not in the state_dict. Its state will not be restored.:UserWarning'),
+        ]),
+    pytest.param('0.14.0',
+                 marks=pytest.mark.filterwarnings(
+                     r'ignore:MosaicMLLogger is not in the state_dict. Its state will not be restored.:UserWarning')),
+    pytest.param('0.14.1',
+                 marks=pytest.mark.filterwarnings(
+                     r'ignore:MosaicMLLogger is not in the state_dict. Its state will not be restored.:UserWarning')),
 ])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')

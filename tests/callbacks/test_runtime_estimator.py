@@ -8,8 +8,8 @@ import pytest
 from torch.utils.data import DataLoader
 
 from composer.callbacks import RuntimeEstimator
-from composer.core import Time
-from composer.loggers import InMemoryLogger
+from composer.core import Callback, State, Time
+from composer.loggers import InMemoryLogger, Logger
 from composer.trainer import Trainer
 from tests.common import RandomClassificationDataset, SimpleModel
 
@@ -75,3 +75,45 @@ def test_runtime_estimator(time_unit: str):
     elif time_unit == 'days':
         assert ba_2_estimate < 1 / 60 / 60 / 24
         assert ba_2_estimate > 0.1 / 60 / 60 / 24
+
+
+class CheckEvalFrequency(Callback):
+
+    def __init__(self, runtime_estimator) -> None:
+        self.runtime_estimator = runtime_estimator
+
+    def batch_end(self, state: State, logger: Logger) -> None:
+        eval_frequency = self.runtime_estimator.eval_frequency_per_label
+        if eval_frequency is not None:
+            for rate in eval_frequency.values():
+                assert rate >= 0
+                assert rate <= 1
+
+
+def test_eval_rates():
+    # Construct the callbacks
+    runtime_estimator = RuntimeEstimator()
+    in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
+
+    simple_model = SimpleModel()
+    original_fwd = simple_model.forward
+
+    def new_fwd(x):
+        time.sleep(0.02)
+        return original_fwd(x)
+
+    simple_model.forward = new_fwd  # type: ignore
+
+    # Construct the trainer and train
+    trainer = Trainer(
+        model=simple_model,
+        callbacks=[runtime_estimator, CheckEvalFrequency(runtime_estimator)],
+        loggers=in_memory_logger,
+        train_dataloader=DataLoader(RandomClassificationDataset()),
+        eval_dataloader=DataLoader(RandomClassificationDataset()),
+        max_duration='1ep',
+        eval_interval='5ba',
+        train_subset_num_batches=7,
+        eval_subset_num_batches=2,
+    )
+    trainer.fit()
