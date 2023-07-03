@@ -287,7 +287,7 @@ class SeqLengthWarmup(Algorithm):
             try:
                 # Start by running a forward and backward pass
                 # of the maximum sequence length to allocate cache.
-                with get_precision_context(state.precision):
+                with get_precision_context(state.precision, state.precision_config):
                     outputs = state.model.forward(model_inputs)
                     loss = self._original_model.loss(outputs, model_inputs)
 
@@ -319,6 +319,11 @@ class SeqLengthWarmup(Algorithm):
                 if state.auto_microbatching and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     found_cuda_oom = 1
+                elif state.auto_microbatching and 'cuda' in str(e).lower() or 'c10' in str(e).lower():
+                    raise ValueError(
+                        textwrap.dedent(
+                            'Encountered non-addressable cuda error while using auto microbatching. '
+                            'If this repeatedly occurs, set `device_train_microbatch_size` manually.')) from e
                 else:
                     raise
 

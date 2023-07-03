@@ -1,11 +1,14 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import gc
 import logging
 import os
 import pathlib
 
+import mcli
 import pytest
+import torch
 import tqdm.std
 
 import composer
@@ -23,6 +26,15 @@ def disable_tokenizer_parallelism():
                 - Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
     """
     os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+
+
+@pytest.fixture(autouse=True)
+def clear_cuda_cache(request):
+    """Clear memory between GPU tests."""
+    marker = request.node.get_closest_marker('gpu')
+    if marker is not None and torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        gc.collect()  # Only gc on GPU tests as it 2x slows down CPU tests
 
 
 @pytest.fixture(autouse=True)
@@ -92,3 +104,10 @@ def seed_all(rank_zero_seed: int, monkeypatch: pytest.MonkeyPatch):
     each test to the rank local seed."""
     monkeypatch.setattr(reproducibility, 'get_random_seed', lambda: rank_zero_seed)
     reproducibility.seed_all(rank_zero_seed + dist.get_global_rank())
+
+
+@pytest.fixture(autouse=True)
+def mapi_fixture(monkeypatch):
+    # Composer auto-adds mosaicml logger when running on platform. Disable logging for tests.
+    mock_update = lambda *args, **kwargs: None
+    monkeypatch.setattr(mcli, 'update_run_metadata', mock_update)

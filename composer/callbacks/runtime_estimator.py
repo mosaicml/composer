@@ -4,12 +4,15 @@
 """Estimate total time of training."""
 from __future__ import annotations
 
+import logging
 import time
 import warnings
 from typing import Dict, List, Optional
 
 from composer.core import Callback, State, TimeUnit
 from composer.loggers import Logger
+
+log = logging.getLogger(__name__)
 
 __all__ = ['RuntimeEstimator']
 
@@ -59,6 +62,7 @@ class RuntimeEstimator(Callback):
         self.batches_left_to_skip = skip_batches
         self.start_time = None
         self.start_dur = None
+        self.train_dataloader_len = None
 
         self.divider = 1
         if time_unit == 'seconds':
@@ -93,8 +97,8 @@ class RuntimeEstimator(Callback):
                 batches_per_epoch = (state.timestamp.batch -
                                      state.timestamp.batch_in_epoch).value / state.timestamp.epoch.value
                 return state.timestamp.get('ba').value / (state.max_duration.value * batches_per_epoch)
-            elif state.dataloader_len is not None:
-                return state.timestamp.get('ba').value / (state.max_duration.value * state.dataloader_len.value)
+            elif self.train_dataloader_len is not None:
+                return state.timestamp.get('ba').value / (state.max_duration.value * self.train_dataloader_len)
         elapsed_dur = state.get_elapsed_duration()
         if elapsed_dur is not None:
             return elapsed_dur.value
@@ -107,6 +111,9 @@ class RuntimeEstimator(Callback):
             if self.start_dur is None:
                 warnings.warn('`max_duration` is not set. Cannot estimate remaining time.')
                 self._enabled = False
+            # Cache train dataloader len if specified for `_get_elapsed_duration`
+            if state.dataloader_len is not None:
+                self.train_dataloader_len = state.dataloader_len.value
 
     def batch_end(self, state: State, logger: Logger) -> None:
         if not self._enabled:

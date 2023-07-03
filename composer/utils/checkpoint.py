@@ -449,7 +449,7 @@ def load_sharded_checkpoint(
 
 def _get_local_rank_zero_path(path: Optional[str]) -> str:
     """Broadcasts the ``path`` from the LOCAL rank zero to all LOCAL ranks."""
-    local_rank_zero = dist.get_local_world_size() * dist.get_node_rank()
+    local_rank_zero = dist.get_global_rank() - dist.get_local_rank()
     paths = dist.all_gather_object(path)
     local_rank_zero_path = paths[local_rank_zero]
     assert local_rank_zero_path is not None, 'local rank zero provides the path'
@@ -623,16 +623,48 @@ def glob_filter(exclude_globs: List[str]) -> Callable[[Dict], None]:
     return filter_func
 
 
-def safe_torch_load(composer_states_filepath: Union[Path, str], map_location: str = 'cpu'):
+def safe_torch_load(
+    composer_states_filepath: Union[Path, str],
+    map_location: str = 'cpu',
+    load_fsdp_monolith_rank0_only: bool = False,
+) -> Dict[str, Any]:
     """Load a torch checkpoint, catching errors due to backwards compatibility issues.
 
     Args:
         composer_states_filepath: The path to the checkpoint file.
         map_location: The location to load the checkpoint to.
+        load_fsdp_monolith_rank0_only: Whether the checkpoint is a monolith FSDP checkpoint.
     """
     try:
-        state_dict = torch.load(composer_states_filepath, map_location=map_location)
-        return state_dict
+        if load_fsdp_monolith_rank0_only:
+            log.info(
+                'Loading monolith FSDP checkpoint. Only rank 0 will load and broadcast non-weight/optimizer state.')
+            state_dict_list = [None]
+            model = None
+            optimizer = None
+            if dist.get_global_rank() == 0:
+                state_dict_list[0] = torch.load(composer_states_filepath, map_location=map_location)
+                # Don't broadcast model/optimizer state if they exist
+                if 'model' in state_dict_list[0]['state']:
+                    model = state_dict_list[0]['state']['model']
+                    state_dict_list[0]['state']['model'] = None
+                if 'optimizers' in state_dict_list[0]['state']:
+                    optimizer = state_dict_list[0]['state']['optimizers']
+                    state_dict_list[0]['state']['optimizers'] = None
+
+            log.debug('Broadcasting state_dict to all ranks.')
+            dist.broadcast_object_list(state_dict_list, src=0)
+            state_dict: Dict[str, Any] = state_dict_list[0]  # type: ignore
+
+            if dist.get_global_rank() == 0:
+                if model is not None:
+                    state_dict['state']['model'] = model
+                if optimizer is not None:
+                    state_dict['state']['optimizers'] = optimizer
+
+            return state_dict
+        else:
+            return torch.load(composer_states_filepath, map_location=map_location)
     except TypeError as e:
         if 'Accuracy.__new__() missing 1 required positional argument' in str(e):
             raise Exception('As of v0.10.0, torchmetrics introduces a new required argument to Accuracy which '
@@ -656,7 +688,10 @@ def _restore_checkpoint(
 ) -> Optional[List[Dict[str, Any]]]:
     """Restore a checkpoint into ``state`` and returns the rng state dicts (if ``load_weights_only`` is False)."""
     # Now, all ranks load the checkpoint that local rank zero downloaded
-    state_dict = safe_torch_load(composer_states_filepath)
+    state_dict = safe_torch_load(
+        composer_states_filepath=composer_states_filepath,
+        load_fsdp_monolith_rank0_only=state.load_fsdp_monolith_rank0_only,
+    )
     if ignore_keys:
         # Filter provided list of key paths
         if not callable(ignore_keys):

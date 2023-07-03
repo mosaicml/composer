@@ -292,7 +292,7 @@ class WandBLogger(LoggerDestination):
                 raise FileNotFoundError(f'WandB Artifact {new_remote_file_name} not found') from e
             raise e
         with tempfile.TemporaryDirectory() as tmpdir:
-            wandb_artifact_folder = os.path.join(tmpdir, 'wandb_artifact_folder')
+            wandb_artifact_folder = os.path.join(tmpdir, 'wandb_artifact_folder/')
             wandb_artifact.download(root=wandb_artifact_folder)
             wandb_artifact_names = os.listdir(wandb_artifact_folder)
             # We only log one file per artifact
