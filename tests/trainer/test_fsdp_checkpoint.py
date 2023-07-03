@@ -146,8 +146,8 @@ def _compare_model_params_between_state_dicts(state_dict1, state_dict2):
         {state_dict1_keys.symmetric_difference(state_dict2_keys)}""")
 
     for param_name in state_dict2_model_params.keys():
-        state_dict1_model_tensor = state_dict1_model_params[param_name]
-        state_dict2_model_tensor = state_dict2_model_params[param_name]
+        state_dict1_model_tensor = state_dict1_model_params[param_name].cpu()
+        state_dict2_model_tensor = state_dict2_model_params[param_name].cpu()
         assert torch.equal(state_dict1_model_tensor,
                            state_dict2_model_tensor), f'Weight named {param_name} not the same between state_dicts'
 
