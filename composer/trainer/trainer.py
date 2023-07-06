@@ -2660,8 +2660,8 @@ class Trainer:
                 for evaluator in evaluators:
                     if evaluator.label in self.state.eval_metrics:
                         warnings.warn(
-                            f'eval_dataloader label \'{evaluator.label}\' was already provided in'
-                            'trainer initialization. Existing data for that label will be overwritten.'
+                            f'eval_dataloader label \'{evaluator.label}\' was already provided in '
+                            'trainer initialization. Existing data for that label will be overwritten. '
                             'To prevent this in the future, assign unique label names.',
                             category=UserWarning)
 
