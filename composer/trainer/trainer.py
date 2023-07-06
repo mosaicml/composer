@@ -277,7 +277,7 @@ def _adjust_device_eval_microbatch_size(evaluator: Evaluator):
 
 
 def _distribute_and_get_random_seed(seed: Optional[int], device: Device):
-    if not seed:
+    if seed is None:
         seed = reproducibility.get_random_seed()
 
     # Ensure that each process has a seed = rank_zero_seed + global_rank
