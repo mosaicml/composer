@@ -235,7 +235,7 @@ Packaging this all together into a class gives the object that Composer can run:
         def __init__(self, hparam1=1):
             self.hparam1 = hparam1
 
-            def match(self, event, state):
+        def match(self, event, state):
             return event in [Event.AFTER_DATALOADER, Event.AFTER_FORWARD]
 
         def apply(self, event, state, logger):
