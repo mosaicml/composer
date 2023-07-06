@@ -515,8 +515,8 @@ points during training and (2) load them back to resume training later.
         max_duration='160ep',
         device='gpu',
         # Checkpointing params
-        save_folder: 'checkpoints',
-        save_interval: '1ep'
+        save_folder='checkpoints',
+        save_interval='1ep',
     )
 
     # will save checkpoints to the 'checkpoints' folder every epoch
