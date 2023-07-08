@@ -250,7 +250,8 @@ class SWA(Algorithm):
                 assert self.swa_scheduler is not None
                 self.swa_scheduler.step()
 
-        self.step_counter += 1
+        if event == event.BEFORE_TRAIN_BATCH:
+            self.step_counter += 1
 
         # Determine whether it's time to end SWA
         if self._get_time(state) >= self.swa_end:
