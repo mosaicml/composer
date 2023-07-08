@@ -277,7 +277,7 @@ def _adjust_device_eval_microbatch_size(evaluator: Evaluator):
 
 
 def _distribute_and_get_random_seed(seed: Optional[int], device: Device):
-    if not seed:
+    if seed is None:
         seed = reproducibility.get_random_seed()
 
     # Ensure that each process has a seed = rank_zero_seed + global_rank
@@ -2676,8 +2676,8 @@ class Trainer:
                 for evaluator in evaluators:
                     if evaluator.label in self.state.eval_metrics:
                         warnings.warn(
-                            f'eval_dataloader label \'{evaluator.label}\' was already provided in'
-                            'trainer initialization. Existing data for that label will be overwritten.'
+                            f'eval_dataloader label \'{evaluator.label}\' was already provided in '
+                            'trainer initialization. Existing data for that label will be overwritten. '
                             'To prevent this in the future, assign unique label names.',
                             category=UserWarning)
 
