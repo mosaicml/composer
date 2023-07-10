@@ -20,7 +20,7 @@ import tqdm
 
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_callback
-from composer.utils.object_store import GsObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore
+from composer.utils.object_store import GsObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore, LibcloudObjectStore
 
 if TYPE_CHECKING:
     from composer.core import Timestamp

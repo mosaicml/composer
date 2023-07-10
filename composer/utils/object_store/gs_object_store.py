@@ -43,13 +43,11 @@ def _reraise_gs_errors(uri: str, e: Exception):
 
 
 class GsObjectStore(ObjectStore):
-    """Utility for uploading to and downloading from an Google Cloud bucket using :mod:`google cloud sdk`.
+    """Utility for uploading to and downloading from an Google Cloud bucket using :mod:`google cloud storage sdk` with either HMAC and service account authentications. If both authentiations are available, use service account authentication.
 
     .. warning::
 
-        For best security practices, it is recommended to set credentials via environment variables or config
-        files. **Never hard-code credentials** via the ``aws_access_key_id``, ``aws_secret_access_key``, or
-        ``aws_session_token`` arguments.
+        For best security practices, it is recommended to set credentials via environment variables or config files.
 
         See :ref:`guide to credentials <boto3:guide_credentials>` for more information.
 
@@ -60,14 +58,6 @@ class GsObjectStore(ObjectStore):
             a config file or environment variables. Defaults to None.
         endpoint_url (str, optional): The URL to an S3-Compatible object store. Must be specified if using something
             other than Amazon S3, like Google Cloud Storage. Defaults to None.
-        aws_access_key_id (str, optional): The access key id. Must be specified if not available in
-            a config file or environment variables. Defaults to None.
-        aws_secret_access_key (str, optional): The secret access key. Must be specified if not available in
-            a config file or environment variables. Defaults to None.
-        aws_session_token (str, optional): The session token. Must be specified if not available in
-            a config file or environment variables. Defaults to None.
-        client_config (dict, optional): Kwargs dictionary for :class:`botocore.config.Config`. Defaults to None.
-        transfer_config (dict, optional): Kwargs dictionary for :class:`boto3.s3.transfer.TransferConfig`. Defaults to None.
     """
 
     def __init__(
@@ -76,9 +66,6 @@ class GsObjectStore(ObjectStore):
         prefix: str = '',
         region_name: Optional[str] = 'auto',
         endpoint_url: Optional[str] = 'https://storage.googleapis.com',
-        aws_access_key_id: Optional[str] = None,
-        aws_secret_access_key: Optional[str] = None,
-        aws_session_token: Optional[str] = None,
     ) -> None:
         try:
             import boto3
@@ -91,7 +78,11 @@ class GsObjectStore(ObjectStore):
         if self.prefix:
             self.prefix += '/'
 
-        if aws_secret_access_key is not None and aws_access_key_id is not None:
+        if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ:
+            service_account_path = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
+            self.client = storage.Client.from_service_account_json(service_account_path)
+
+        elif 'GCS_KEY' in os.environ and 'GCS_SECRET' in os.environ:
             # Create a session and use it to make our client. Unlike Resources and Sessions,
             # clients are generally thread-safe.
 
@@ -100,12 +91,12 @@ class GsObjectStore(ObjectStore):
             self.client = session.client('s3',
                                          region_name=region_name,
                                          endpoint_url=endpoint_url,
-                                         aws_access_key_id=aws_access_key_id,
-                                         aws_secret_access_key=aws_secret_access_key)
-
-            return
-
-        self.client = storage.Client()
+                                         aws_access_key_id=os.environ['GCS_KEY'],
+                                         aws_secret_access_key=os.environ['GCS_SECRET'])
+        else:
+            raise ValueError(f'Either GOOGLE_APPLICATION_CREDENTIALS needs to be set for ' +
+                             f'service level accounts or GCS_KEY and GCS_SECRET needs to ' +
+                             f'be set for HMAC authentication')
 
     def get_uri(self, object_name: str) -> str:
         return f'gs://{self.bucket}/{self.get_key(object_name)}'
