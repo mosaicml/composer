@@ -64,7 +64,7 @@ will emit a series of traces:
 """
 
 from __future__ import annotations
-
+from composer.utils import dist
 import atexit
 import contextlib
 import logging
@@ -454,6 +454,7 @@ class Engine():
         callbacks = self.state.callbacks if callbacks is None else callbacks
 
         for cb in callbacks:
+            log.debug(f'running cb {cb} {dist.get_global_rank()}')
             marker = None
             if self.state.profiler is not None:
                 marker = self.state.profiler.marker(f'callback/{cb.__class__.__name__}/event/{event.value}',
@@ -479,6 +480,7 @@ class Engine():
         if _did_atexit_run or self._is_closed:
             # Do not attempt to shutdown again, since close() already ran via __atexit__ or was already invoked
             return
+        log.debug('closing engine via engine del')
         self.close()
         atexit.unregister(_set_atexit_ran)
         atexit.unregister(self._close)
@@ -545,6 +547,10 @@ class Engine():
 
         # Try to shut down any persistent workers
         try:
+            log.debug('shutting workers')
             state.train_dataloader._iterator._shutdown_workers()  # type: ignore [reportGeneralTypeIssues]
+            log.debug('workers shut')
         except:
             pass
+
+        log.debug('Engine closed.')

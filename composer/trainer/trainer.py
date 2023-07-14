@@ -1821,8 +1821,12 @@ class Trainer:
 
         .. seealso:: :meth:`.Engine.close` for additional information.
         """
+        log.debug('trainer closing')
         self.engine.close()
+        log.debug('trainer closing engine closed')
+        log.debug('trainer closer barrier')
         dist.barrier()
+        log.debug('after berrier')
 
     def _ensure_metrics_device_and_dtype(self, metrics: Dict[str, Metric]):
         for name, metric in metrics.items():
@@ -2096,8 +2100,10 @@ class Trainer:
             self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
             self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
 
+        log.debug(f"Running fit_end. {dist.get_global_rank()}")
         self.engine.run_event(Event.FIT_END)
-        self._run_evaluators(Event.FIT_END)
+        log.debug("Done running fit_end. {dist.get_global_rank()}")
+        # self._run_evaluators(Event.FIT_END)
 
     def _eval_train_metrics(self, device_batch):
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
@@ -2123,8 +2129,10 @@ class Trainer:
             evaluators_executing.append(evaluator.eval_interval(self.state, event))
         if not any(evaluators_executing):
             return
-
+        
+        log.debug('re 1')
         self.engine.run_event(Event.EVAL_BEFORE_ALL)
+        log.debug('re 2')
         for index, evaluator in enumerate(self.state.evaluators):
             if evaluators_executing[index]:
                 self._eval_loop(
@@ -2745,7 +2753,9 @@ class Trainer:
             self.state.set_dataloader(data_spec.dataloader, evaluator.label, subset_num_batches)
             assert self.state.dataloader is not None, 'dataloader is set'
 
+            log.debug('el es')
             self.engine.run_event(Event.EVAL_START)
+            log.debug('el es done')
 
             metrics = self._ensure_metrics_device_and_dtype(metrics)
 
@@ -2757,6 +2767,7 @@ class Trainer:
             drop_last = None
             dataset_len = None
             last_batch = False
+            log.debug('el if dl')
             if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
                 # The distributed sampler uses `set_epoch` to set the random seed
                 # Because evaluation can run on each batch, we use the batch to seed the sampler
@@ -2777,7 +2788,9 @@ class Trainer:
                                       'fix this, provide a dataset with a length attribute to the '
                                       'DistributedSampler to correctly drop duplicate samples.')
 
+            log.debug('el for batch')
             for self.state.batch in self._iter_dataloader(TrainerMode.EVAL):
+                log.debug('el in b')
                 self.state.batch = self.state.device.batch_to_device(self.state.batch)
                 if data_spec.device_transforms is not None:
                     self.state.batch = data_spec.device_transforms(self.state.batch)
@@ -2789,6 +2802,7 @@ class Trainer:
                 # If using a distributed sampler, keep track of last_batch for metrics update
                 if dist_sampler is not None and drop_last == False and dataset_len is not None:
                     batch_num_samples_tensor = self.state.device.tensor_to_device(torch.tensor(rank_num_samples))
+                    log.debug('el ar')
                     dist.all_reduce(batch_num_samples_tensor, reduce_operation='SUM')
                     batch_num_samples = batch_num_samples_tensor.item()
                     last_batch = self.state.eval_timestamp.sample + batch_num_samples >= dataset_len
@@ -2796,6 +2810,7 @@ class Trainer:
                 if self.state.deepspeed_enabled:
                     self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
+                log.debug('el ebs')
                 self.engine.run_event(Event.EVAL_BATCH_START)
 
                 # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
@@ -2806,7 +2821,9 @@ class Trainer:
                     found_cuda_oom = 0
                     try:
                         microbatches = data_spec.split_batch(device_batch, evaluator.device_eval_microbatch_size)
+                        log.debug('el split')
                         for i, self.state.batch in enumerate(microbatches):
+                            log.debug('el micro')
                             last_microbatch = i == len(microbatches) - 1
                             skip_metric_update = False
                             # Distributed samplers pad batches to be the same size. If using a
@@ -2824,11 +2841,14 @@ class Trainer:
                                         self.state.batch = data_spec.split_batch(self.state.batch,
                                                                                  num_samples_in_microbatch - 1)[0]
 
+                            log.debug('el ebf')
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
 
                             with _get_precision_context(self.state.precision, self.state.precision_config,
                                                         self.state.deepspeed_enabled):
+                                log.debug('el forward')
                                 self.state.outputs = self._original_model.eval_forward(self.state.batch)
+                                log.debug('el forward done')
 
                             self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
