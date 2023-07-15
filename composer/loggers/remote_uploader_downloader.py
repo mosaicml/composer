@@ -14,12 +14,13 @@ import shutil
 import tempfile
 import threading
 import time
-import torch
 import uuid
 import warnings
 from multiprocessing.context import SpawnProcess
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 from urllib.parse import urlparse
+
+import torch
 
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
@@ -467,11 +468,15 @@ class RemoteUploaderDownloader(LoggerDestination):
             time.sleep(0.2)  # Yield lock for enqueue thread
 
         # Verify all tasks have been completed unless a worker threw an exception
-        all_ranks_upload_done_tensor = device.tensor_to_device(torch.tensor([int(not self._file_upload_queue.empty() and self._exception_queue.empty())], dtype=torch.uint8))
+        all_ranks_upload_done_tensor = device.tensor_to_device(
+            torch.tensor([int(not self._file_upload_queue.empty() and self._exception_queue.empty())],
+                         dtype=torch.uint8))
         dist.all_reduce(all_ranks_upload_done_tensor, reduce_operation='MAX')
         while all_ranks_upload_done_tensor.item() == 1:
             time.sleep(0.2)
-            all_ranks_upload_done_tensor = device.tensor_to_device(torch.tensor([int(not self._file_upload_queue.empty() and self._exception_queue.empty())], dtype=torch.uint8))
+            all_ranks_upload_done_tensor = device.tensor_to_device(
+                torch.tensor([int(not self._file_upload_queue.empty() and self._exception_queue.empty())],
+                             dtype=torch.uint8))
             dist.all_reduce(all_ranks_upload_done_tensor, reduce_operation='MAX')
 
         if not self._exception_queue.empty():

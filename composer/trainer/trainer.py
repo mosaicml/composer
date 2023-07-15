@@ -2123,7 +2123,7 @@ class Trainer:
             evaluators_executing.append(evaluator.eval_interval(self.state, event))
         if not any(evaluators_executing):
             return
-        
+
         self.engine.run_event(Event.EVAL_BEFORE_ALL)
         for index, evaluator in enumerate(self.state.evaluators):
             if evaluators_executing[index]:

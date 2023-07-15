@@ -64,7 +64,7 @@ will emit a series of traces:
 """
 
 from __future__ import annotations
-from composer.utils import dist
+
 import atexit
 import contextlib
 import logging
