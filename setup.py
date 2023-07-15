@@ -87,7 +87,7 @@ install_requires = [
     'py-cpuinfo>=8.0.0,<10',
     'packaging>=21.3.0,<23',
     'importlib-metadata>=5.0.0,<7',
-    'mosaicml-cli>=0.4.0,<0.5',
+    'mosaicml-cli>=0.4.12,<0.5',
 ]
 extra_deps = {}
 
@@ -104,7 +104,7 @@ extra_deps['dev'] = [
     'pytest==7.4.0',
     'toml==0.10.2',
     'ipython==8.11.0',
-    'ipykernel==6.23.3',
+    'ipykernel==6.24.0',
     'jupyter==1.0.0',
     'yamllint==1.32.0',
     'recommonmark==0.7.1',

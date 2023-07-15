@@ -332,7 +332,8 @@ def download_checkpoint(path: str,
     finally:
         # Use busy wait to avoid timeouts on large downloads for non-sharded checkpoints
         if not checkpoint_is_sharded:
-            signal_file_path = os.path.join(node_checkpoint_folder, '.local_rank0_completed')
+            signal_file_path = os.path.join(node_checkpoint_folder,
+                                            f'.node_{dist.get_node_rank()}_local_rank0_completed')
             if dist.get_local_rank() == 0:
                 with open(signal_file_path, 'wb') as f:
                     f.write(b'local_rank0_completed')
