@@ -14,6 +14,7 @@ import shutil
 import tempfile
 import threading
 import time
+import torch
 import uuid
 import warnings
 from multiprocessing.context import SpawnProcess
@@ -27,6 +28,7 @@ from composer.utils import (LibcloudObjectStore, ObjectStore, ObjectStoreTransie
 
 if TYPE_CHECKING:
     from composer.core import State
+    from composer.devices import Device
 
 log = logging.getLogger(__name__)
 
@@ -441,15 +443,15 @@ class RemoteUploaderDownloader(LoggerDestination):
                  progress_bar=progress_bar)
 
     def fit_end(self, state: State, logger: Logger):
-        self.wait_for_workers()
+        self.wait_for_workers(state.device)
 
     def eval_end(self, state: State, logger: Logger):
-        self.wait_for_workers()
+        self.wait_for_workers(state.device)
 
     def predict_end(self, state: State, logger: Logger):
-        self.wait_for_workers()
+        self.wait_for_workers(state.device)
 
-    def wait_for_workers(self):
+    def wait_for_workers(self, device: Device):
         """Wait for all tasks to be completed.
 
         This is called after fit/eval/predict. If we don't wait, then a worker might not schedule
@@ -463,9 +465,15 @@ class RemoteUploaderDownloader(LoggerDestination):
                 if len(self._logged_objects) == 0:
                     break
             time.sleep(0.2)  # Yield lock for enqueue thread
+
         # Verify all tasks have been completed unless a worker threw an exception
-        while not self._file_upload_queue.empty() and self._exception_queue.empty():
+        all_ranks_upload_done_tensor = device.tensor_to_device(torch.tensor([int(not self._file_upload_queue.empty() and self._exception_queue.empty())], dtype=torch.uint8))
+        dist.all_reduce(all_ranks_upload_done_tensor, reduce_operation='MAX')
+        while all_ranks_upload_done_tensor.item() == 1:
             time.sleep(0.2)
+            all_ranks_upload_done_tensor = device.tensor_to_device(torch.tensor([int(not self._file_upload_queue.empty() and self._exception_queue.empty())], dtype=torch.uint8))
+            dist.all_reduce(all_ranks_upload_done_tensor, reduce_operation='MAX')
+
         if not self._exception_queue.empty():
             e = self._exception_queue.get_nowait()
             raise e
