@@ -518,6 +518,7 @@ class Engine():
     @staticmethod
     def _close(state: State, logger: Logger):
         """The actual shutdown logic, as a static method, so the underlying engine can still be garbage collected."""
+        log.debug('Closing the engine.')
         callback_to_has_exception: Dict[Callback, bool] = {}
         for callback in state.callbacks:
             try:
