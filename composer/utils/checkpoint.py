@@ -587,10 +587,10 @@ def save_checkpoint(
     # only rank 0 saves the state_dict unless state.fsdp_sharded_state_dict_enabled=True.
     if dist.get_global_rank() == 0 or state.fsdp_sharded_state_dict_enabled:
         with open(save_filename, 'wb') as f:
-            log.debug("Calling torch.save.")
+            log.debug(f"Writing checkpoint to disk at {save_filename}.")
             torch.save(state_dict, f)
 
-        log.debug("Global rank 0 done saving checkpoint to disk.")
+        log.debug(f"Global rank 0 done saving checkpoint to disk at {save_filename}.")
 
         if is_tar(save_filename):
             _compress_file(save_filename, basename=_COMPOSER_STATES_FILENAME)
@@ -599,9 +599,7 @@ def save_checkpoint(
     if is_deepspeed:
         _save_deepspeed_model(state.deepspeed_model, save_filename)
 
-    log.debug(f"Rank {dist.get_global_rank()} waiting at barrier following checkpoint save to disk.")
     dist.barrier()  # ensure all ranks saved their files
-    log.debug(f"Rank {dist.get_global_rank()} past barrier.")
 
     if dist.get_global_rank() == 0 or is_deepspeed or state.fsdp_sharded_state_dict_enabled:
         assert os.path.exists(save_filename), 'Expected file to have been saved.'
