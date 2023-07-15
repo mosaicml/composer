@@ -293,4 +293,5 @@ def test_logging(
         ('composer.core.engine', 10, 'Closing the engine'),
         ('composer.core.engine', 10, 'Closing callback EventCounterCallback'),
         ('composer.core.engine', 10, 'Post-closing callback EventCounterCallback'),
+        ('composer.core.engine', 10, 'Engine closed.'),
     ]
