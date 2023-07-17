@@ -25,6 +25,7 @@ __all__ = [
     'InContextLearningLMTaskDataset',
     'InContextLearningMultipleChoiceTaskDataset',
     'InContextLearningCodeEvalDataset',
+    'InContextLearningQATaskDataset',
     'get_icl_task_dataloader',
 ]
 
@@ -856,7 +857,7 @@ class InContextLearningCodeEvalDataset(Dataset):
 	- prompt: the code snippet that must be completed
     - entry_point: the entry to the function/code snippet to generate
 	- canonical_solution: working solution
-	- test: checker
+	- test: the checker code that will run to completion if the code generation is valid and otherwise throw assertion
 	- test_inputs: list of test inputs
     - test_outputs: list of test outputs
 
@@ -874,7 +875,7 @@ class InContextLearningCodeEvalDataset(Dataset):
         destination_path (str): Temporary path to store downloaded datasets
         code_prelimiter (str): String to put before each code prompt (e.g. 'Q: ')
         fewshot_random_seed (int): Random seed to use for fewshot sampling
-        num_evals: how many outputs to generate per prompt
+        generations_per_sample: how many outputs to generate per prompt
 
 	"""
 
@@ -890,7 +891,7 @@ class InContextLearningCodeEvalDataset(Dataset):
         destination_path: str,
         code_prelimiter: str,
         fewshot_random_seed: int,
-        num_evals: int,
+        generations_per_sample: int,
     ):
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
@@ -913,7 +914,7 @@ class InContextLearningCodeEvalDataset(Dataset):
                     'test_inputs': examples['test_inputs'],
                     'test_outputs': examples['test_outputs'],
                 }))
-        self.num_evals = num_evals
+        self.generations_per_sample = generations_per_sample
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
@@ -925,9 +926,9 @@ class InContextLearningCodeEvalDataset(Dataset):
 
     def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, code_prelimiter: str,
                       fewshot_rng: random.Random):
-        """Prepares a set of language modeling tasks into tokenized format with prompt and fewshot examples.
+        """Prepares a set of code evaluation tasks into tokenized format with prompt and fewshot examples.
 
-        Each task consists of a context and a continuation as well as an optional prompt and optional list of
+        Each task consists of a context as well as an optional prompt and optional list of
         example context/continuation pairs which precede the test context/continuation pair.
 
         Args:
@@ -960,8 +961,6 @@ class InContextLearningCodeEvalDataset(Dataset):
             ctxt = f'{code_prelimiter}{ctxt}'
             if len(preamble) > 0:
                 ctxt = f'{example_delimiter}{ctxt}'
-
-            # rstrip the continuation delimiter, because the prompt ending in a space results in degenerate output
 
             # If the preamble is empty then this will be a 0-length list, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
             encoded_example['preamble'] = self.tokenizer(preamble)
@@ -1027,8 +1026,8 @@ class InContextLearningCodeEvalDataset(Dataset):
             'generation_length': self.max_seq_len - self.max_prompt_length,
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
-                'num_beams': self.num_evals,  # change strategy to beam search
-                'num_return_sequences': self.num_evals,  # how many gens per prompt
+                'num_beams': self.generations_per_sample,  # change strategy to beam search
+                'num_return_sequences': self.generations_per_sample,  # how many gens per prompt
                 'do_sample': True,
                 'top_p': 0.95,
                 'top_k': 40,
@@ -1084,7 +1083,7 @@ def build_icl_dataloader(
     destination_path: str,
     question_prelimiter: str = '',  # e.g. 'Question: '
     fewshot_random_seed: int = 1234,
-    num_evals: int = 1,
+    generations_per_sample: int = 1,
 ) -> DataSpec:
     if icl_task_type == 'multiple_choice':
         dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri,
@@ -1148,7 +1147,7 @@ def build_icl_dataloader(
                                                    destination_path=destination_path,
                                                    code_prelimiter=question_prelimiter,
                                                    fewshot_random_seed=fewshot_random_seed,
-                                                   num_evals=num_evals)
+                                                   generations_per_sample=generations_per_sample)
         effective_batchsize = batch_size
     else:
         raise Exception(f'Unrecognized ICL task type: {icl_task_type}')
@@ -1231,7 +1230,7 @@ def get_icl_task_dataloader(
         destination_path: str = '',
         question_prelimiter: str = '',  # e.g. 'Question: '
         fewshot_random_seed: int = 1234,
-        num_evals: int = 1,
+        generations_per_sample: int = 1,
         has_categories: bool = False) -> Union[DataSpec, Dict[str, DataSpec]]:
     """This constructs a dataloader (or dataloaders if has_categories is True) capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
 
@@ -1299,7 +1298,7 @@ def get_icl_task_dataloader(
                 partition_uri + '_tmp',
                 question_prelimiter,
                 fewshot_random_seed,
-                num_evals,
+                generations_per_sample,
             )
         return result_dls
     else:
@@ -1317,5 +1316,5 @@ def get_icl_task_dataloader(
             destination_path,
             question_prelimiter,
             fewshot_random_seed,
-            num_evals,
+            generations_per_sample,
         )

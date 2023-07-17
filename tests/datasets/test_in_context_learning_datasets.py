@@ -627,7 +627,7 @@ def test_code_eval_split_batch(dataset_uri, tmp_path):
         example_delimiter='\n',
         continuation_delimiter='',
         destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
-        num_evals=4,
+        generations_per_sample=4,
     )
 
     assert isinstance(dl, DataSpec)  # pyright
@@ -672,8 +672,8 @@ def test_code_eval_split_batch(dataset_uri, tmp_path):
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 1, 2, 3])
 @pytest.mark.parametrize('prompt_string', ['Please code:\n', ''])
-@pytest.mark.parametrize('num_evals', range(1, 5))
-def test_code_eval_sentpiece_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_string, num_evals):
+@pytest.mark.parametrize('generations_per_sample', range(1, 5))
+def test_code_eval_sentpiece_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_string, generations_per_sample):
     pytest.importorskip('datasets')
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -694,7 +694,7 @@ def test_code_eval_sentpiece_dataloader(dataset_uri, tmp_path, num_fewshot, prom
                                  example_delimiter='\n',
                                  question_prelimiter='Code start: \n',
                                  destination_path=str(tmp_path / f'icl_{num_fewshot}.jsonl'),
-                                 num_evals=num_evals)
+                                 generations_per_sample=generations_per_sample)
     assert isinstance(dl, DataSpec)
 
     assert isinstance(dl.dataloader, DataLoader)  # pyright
@@ -779,7 +779,7 @@ def test_code_eval_test_cases(dataset_uri, tmp_path):
                                  example_delimiter='\n',
                                  question_prelimiter='Code start: \n',
                                  destination_path=str(tmp_path / f'icl_.jsonl'),
-                                 num_evals=1)
+                                 generations_per_sample=1)
     assert isinstance(dl, DataSpec)
 
     assert isinstance(dl.dataloader, DataLoader)  # pyright
@@ -808,8 +808,8 @@ def test_code_eval_test_cases(dataset_uri, tmp_path):
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 1, 2, 3])
 @pytest.mark.parametrize('prompt_string', ['Please code:\n', ''])
-@pytest.mark.parametrize('num_evals', range(1, 5))
-def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_string, num_evals):
+@pytest.mark.parametrize('generations_per_sample', range(1, 5))
+def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_string, generations_per_sample):
     pytest.importorskip('datasets')
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -830,7 +830,7 @@ def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_st
                                  example_delimiter='\n',
                                  question_prelimiter='Code start: \n',
                                  destination_path=str(tmp_path / f'icl_{num_fewshot}.jsonl'),
-                                 num_evals=num_evals)
+                                 generations_per_sample=generations_per_sample)
     assert isinstance(dl, DataSpec)
 
     assert isinstance(dl.dataloader, DataLoader)  # pyright
@@ -1165,8 +1165,8 @@ def test_qa_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_g
 @device('gpu')
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [0])
-@pytest.mark.parametrize('num_evals', range(1, 3))
-def test_code_eval_microbatching(device, world_size, num_fewshot, dataset_uri, tmp_path, num_evals):
+@pytest.mark.parametrize('generations_per_sample', range(1, 3))
+def test_code_eval_microbatching(device, world_size, num_fewshot, dataset_uri, tmp_path, generations_per_sample):
     pytest.importorskip('datasets')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -1187,7 +1187,7 @@ def test_code_eval_microbatching(device, world_size, num_fewshot, dataset_uri, t
         example_delimiter='\n',
         continuation_delimiter=': ',
         destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
-        num_evals=num_evals,
+        generations_per_sample=generations_per_sample,
     )
 
     evaluator = Evaluator(label='humaneval',
@@ -1213,9 +1213,9 @@ def test_code_eval_microbatching(device, world_size, num_fewshot, dataset_uri, t
 @device('gpu')
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [0])
-@pytest.mark.parametrize('num_evals', range(1, 3))
+@pytest.mark.parametrize('generations_per_sample', range(1, 3))
 def test_code_eval_sentpiece_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_t5_tokenizer, tiny_t5_model,
-                                        tmp_path, num_evals):
+                                        tmp_path, generations_per_sample):
     pytest.importorskip('datasets')
     torch.cuda.empty_cache()
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
@@ -1236,7 +1236,7 @@ def test_code_eval_sentpiece_evaluation(device, world_size, num_fewshot, dataset
         example_delimiter='\n',
         continuation_delimiter=': ',
         destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
-        num_evals=num_evals,
+        generations_per_sample=generations_per_sample,
     )
 
     evaluator = Evaluator(label='humaneval', dataloader=dl, metric_names=['InContextLearningCodeEvalAccuracy'])
@@ -1259,9 +1259,9 @@ def test_code_eval_sentpiece_evaluation(device, world_size, num_fewshot, dataset
 @device('gpu')
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [0, 2])
-@pytest.mark.parametrize('num_evals', [1])
+@pytest.mark.parametrize('generations_per_sample', [1])
 def test_code_eval_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tiny_gpt2_model,
-                                   tmp_path, num_evals):
+                                   tmp_path, generations_per_sample):
     pytest.importorskip('datasets')
     torch.cuda.empty_cache()
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
@@ -1282,7 +1282,7 @@ def test_code_eval_task_evaluation(device, world_size, num_fewshot, dataset_uri,
         example_delimiter='\n',
         continuation_delimiter=': ',
         destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
-        num_evals=num_evals,
+        generations_per_sample=generations_per_sample,
     )
 
     evaluator = Evaluator(label='humaneval', dataloader=dl, metric_names=['InContextLearningCodeEvalAccuracy'])

@@ -499,9 +499,9 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
     r"""Computes accuracy for In-context learning (ICL) code evaluation tasks.
 
     ICL code eval tasks consist of some number of example code eval tasks (referred to as the 'context'), followed by a test task where the model must
-    match one of the possible answer aliases (referred to as the 'continuation').
+    complete the code, where we term the code completion a 'continuation'.
 
-    In each case, the model constructs a given number of continuations, and each continuation is run against a set of test cases. The model is considered
+    In each case, the model constructs a given number of continuations (termed pass@K for K continuations), and each continuation is run against a set of test cases. The model is considered
     correct if at least one of the proposed continuations passes all the test cases.
 
     Adds metric state variables:
@@ -524,10 +524,12 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         self.remote = 'CODE_EVAL_DEVICE' in os.environ and os.environ['CODE_EVAL_DEVICE'] != 'LOCAL'
 
     def get_client(self):
+        """Returns a client for the appropriate remote platform (currently only supports Lambdas).
+        """
         client = None
         if not self.remote:
             warnings.warn(
-                'Running code eval locally may be unsecure. Please set environment variable CODE_EVAL_DEVICE '
+                'Running code eval locally may be insecure. Please set environment variable CODE_EVAL_DEVICE '
                 'to LAMBDA to run on remote. To use Lambdas, spin up your instance that checks code, set the ARN as '
                 'CODE_EVAL_ARN and the region as CODE_EVAL_REGION.')
             log.debug('Running code eval locally.')
@@ -549,6 +551,26 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         return client
 
     def update(self, batch: Dict[str, Any], outputs: List[str], labels: List[str]):
+        """ Given a batch of prompts, test cases, and code generations, evaluates the code generations
+        against the test cases and augments the pass@k accuracy of the batch to the values so far.
+
+        Args:
+            batch (Dict[str, Any]): A batch of data produced by the InContextLearningCodeEvalDataset, with
+            the prompt, test cases, and entry points. This will be a dictionary that must have the following
+            arguments:
+            {
+                'prompts': List[str],
+                'test_inputs': List[List[str]],
+                'test_outputs': List[List[str]],
+                'entry_points': List[str],
+                'generation_kwargs': Dict[str, Any]
+            }
+            outputs (List[str]): A list of code generations in the format of HF generate with beam search,
+            which is the a list of strings in groups of beam_size e.g. for beam size 2 and batch size 2, the list
+            will be of the format [prompt 1 gen 1, prompt 1 gen 2, prompt 2 gen 1, prompt 2 gen 2]
+            labels (List[str]): A list of the correct code generations, for compatibility with existing HF generate
+            functionalities. This is not used.
+        """
         del labels  # never used
         client = self.get_client()
 
@@ -590,7 +612,17 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
 
     def update_offline_helper(self, code_gen: str, test_input: str, test_output: str, entry_point: str,
                               val: multiprocessing.Value):  # type: ignore
-        # Helper function that checks a test case for accuracy
+        """ Helper function to evaluate test case in a subprocess. This function compiles the code generation,
+        and runs the function from the entry point, before running the test input through the function and
+        checking it against the test output.
+
+        Args:
+            code_gen (str): The code generation to be evaluated.
+            test_input (str): The input of the test case
+            test_output (str): The output of the test case
+            entry_point (str): The name of the function to call
+            val (multiprocessing.Value): The value in which to save the final value of the test case
+        """
         mod = types.ModuleType('test_module')
         val.value = 0
         result = None
@@ -614,6 +646,16 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
             val.value = 0
 
     def update_online_lambda(self, code_gen: str, test_input: str, test_output: str, entry_point: str, client: Any):
+        """ Helper function to evaluate test case in a subprocess. This function creates a Lambda invocation and
+        parses the returned payload.
+
+        Args:
+            code_gen (str): The code generation to be evaluated.
+            test_input (str): The input of the test case
+            test_output (str): The output of the test case
+            entry_point (str): The name of the function to call
+            client (Any): The client to invoke the Lambda function
+        """
         response = client.invoke(
             FunctionName=os.environ['CODE_EVAL_ARN'],
             InvocationType='RequestResponse',
