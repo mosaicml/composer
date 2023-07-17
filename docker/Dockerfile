@@ -281,10 +281,23 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         pip${PYTHON_VERSION} install --no-cache-dir \
             --global-option="--cpp_ext" \
             --global-option="--cuda_ext" \
-            --target  /usr/local/lib/python${PYTHON_VERSION}/dist-packages \
-            ./ && \
+            --target /usr/local/lib/python${PYTHON_VERSION}/dist-packages . && \
         rm -rf /tmp/apex ; \
     fi
+
+# RUN if [ -n "$CUDA_VERSION" ] ; then \
+#         mkdir -p /tmp/apex && \
+#         cd /tmp/apex && \
+#         git clone https://github.com/NVIDIA/apex && \
+#         cd apex && \
+#         pip${PYTHON_VERSION} install --no-cache-dir -r requirements.txt && \
+#         pip${PYTHON_VERSION} install --no-cache-dir \
+#             --global-option="--cpp_ext" \
+#             --global-option="--cuda_ext" \
+#             --target  /usr/local/lib/python${PYTHON_VERSION}/dist-packages \
+#             ./ && \
+#         rm -rf /tmp/apex ; \
+#     fi
 
 ##########################
 # Install Flash Attention
