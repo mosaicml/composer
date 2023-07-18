@@ -852,13 +852,13 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
 class InContextLearningCodeEvalDataset(Dataset):
     """ A dataset that constructs batches for in-context learning code evaluation
 
-	The input format is expected to be a jsonl file with the following fields:
-	- task_id: label of given task
-	- prompt: the code snippet that must be completed
+    The input format is expected to be a jsonl file with the following fields:
+    - task_id: label of given task
+    - prompt: the code snippet that must be completed
     - entry_point: the entry to the function/code snippet to generate
-	- canonical_solution: working solution
-	- test: the checker code that will run to completion if the code generation is valid and otherwise throw assertion
-	- test_inputs: list of test inputs
+    - canonical_solution: working solution
+    - test: the checker code that will run to completion if the code generation is valid and otherwise throw assertion
+    - test_inputs: list of test inputs
     - test_outputs: list of test outputs
 
 	Args:
