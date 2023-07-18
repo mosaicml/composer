@@ -271,17 +271,21 @@ class SpeedMonitor(Callback):
             samples_per_sec = elapsed_samples / elapsed_wct
             dev_batches_per_sec = batches_per_sec / world_size
             dev_samples_per_sec = samples_per_sec / world_size
-            logger.log_metrics({'throughput/batches_per_sec': batches_per_sec})
-            logger.log_metrics({'throughput/samples_per_sec': samples_per_sec})
-            logger.log_metrics({'throughput/device/batches_per_sec': dev_batches_per_sec})
-            logger.log_metrics({'throughput/device/samples_per_sec': dev_samples_per_sec})
+            logger.log_metrics({
+                'throughput/batches_per_sec': batches_per_sec,
+                'throughput/samples_per_sec': samples_per_sec,
+                'throughput/device/batches_per_sec': dev_batches_per_sec,
+                'throughput/device/samples_per_sec': dev_samples_per_sec,
+            })
 
             # Compute token stats if dataloader.dataset has max_seq_len. Assumes no padding.
             try:
                 max_seq_len = state.dataloader.dataset.max_seq_len  # type: ignore
                 # Only applicable to seq data / models
-                logger.log_metrics({'throughput/tokens_per_sec': samples_per_sec * max_seq_len})
-                logger.log_metrics({'throughput/device/tokens_per_sec': dev_samples_per_sec * max_seq_len})
+                logger.log_metrics({
+                    'throughput/tokens_per_sec': samples_per_sec * max_seq_len,
+                    'throughput/device/tokens_per_sec': dev_samples_per_sec * max_seq_len,
+                })
             except AttributeError:
                 pass
 
@@ -311,8 +315,10 @@ class SpeedMonitor(Callback):
             elapsed_wct = self.history_wct[-1] - self.history_wct[0]
             flops_per_sec = elapsed_flops / elapsed_wct
             device_flops_per_sec = flops_per_sec / world_size
-            logger.log_metrics({'throughput/flops_per_sec': flops_per_sec})
-            logger.log_metrics({'throughput/device/flops_per_sec': device_flops_per_sec})
+            logger.log_metrics({
+                'throughput/flops_per_sec': flops_per_sec,
+                'throughput/device/flops_per_sec': device_flops_per_sec,
+            })
             if self.gpu_flops_available:
                 mfu = device_flops_per_sec / self.gpu_flops_available
                 logger.log_metrics({'throughput/device/mfu': mfu})
