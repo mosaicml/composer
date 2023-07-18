@@ -218,6 +218,9 @@ extra_deps['mlflow'] = [
     'mlflow>=2.0.1,<3.0',
 ]
 
+# TODO: Figure out the right max version to pin this to
+extra_deps['databricks'] = ['databricks-sdk==0.2.1']
+
 extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
 
 composer_data_files = ['py.typed']

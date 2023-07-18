@@ -409,7 +409,15 @@ def maybe_create_remote_uploader_downloader_from_uri(
     elif backend == 'wandb':
         raise NotImplementedError(f'There is no implementation for WandB via URI. Please use '
                                   'WandBLogger with log_artifacts set to True')
-
+    elif backend == 'ucvol':
+        if 'DATABRICKS_HOST' not in os.environ or 'DATABRICKS_TOKEN' not in os.environ:
+            raise ValueError(
+                'You must set the DATABRICKS_HOST and DATABRICKS_TOKEN env variable with your databricks host and token respectively'
+            )
+        return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}',
+                                        backend_kwargs={
+                                            'full_name': bucket_name,
+                                        })
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
                                   's3 or one of the supported RemoteUploaderDownloader object stores')
