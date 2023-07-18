@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import os
 import random
-from typing import TYPE_CHECKING, Any, Dict, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 import torch
 import transformers
@@ -876,7 +876,8 @@ class InContextLearningCodeEvalDataset(Dataset):
         code_prelimiter (str): String to put before each code prompt (e.g. 'Q: ')
         fewshot_random_seed (int): Random seed to use for fewshot sampling
         generations_per_sample: how many outputs to generate per prompt
-
+        top_p: top_p sampling parameter for nucleus sampling
+        top_k: top_k sampling parameter for number of samples to consider
 	"""
 
     def __init__(
@@ -892,6 +893,8 @@ class InContextLearningCodeEvalDataset(Dataset):
         code_prelimiter: str,
         fewshot_random_seed: int,
         generations_per_sample: int,
+        top_p: Optional[float] = 0.95,
+        top_k: Optional[int] = 40,
     ):
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
@@ -920,6 +923,8 @@ class InContextLearningCodeEvalDataset(Dataset):
         self.pad_tok_id = pad_tok_id
         self.padding_side = 'left'
         self.max_prompt_length = 0
+        self.top_p = top_p
+        self.top_k = top_k
         fewshot_rng = random.Random(fewshot_random_seed)
         self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, code_prelimiter,
                                                   fewshot_rng)
@@ -1029,8 +1034,8 @@ class InContextLearningCodeEvalDataset(Dataset):
                 'num_beams': self.generations_per_sample,  # change strategy to beam search
                 'num_return_sequences': self.generations_per_sample,  # how many gens per prompt
                 'do_sample': True,
-                'top_p': 0.95,
-                'top_k': 40,
+                'top_p': self.top_p,
+                'top_k': self.top_k,
                 'use_cache': True,
             }
         }
