@@ -9,6 +9,7 @@ from typing import Callable, Optional
 from urllib.parse import urlparse
 
 import requests
+import time
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
@@ -29,6 +30,18 @@ class S3Credentials:
     aws_access_key_id: str
     aws_session_token: str
     aws_secret_access_key: str
+
+
+def timed(func):
+
+    def inner(*args, **kwargs):
+        start = time.time()
+        func(*args, **kwargs)
+        end = time.time()
+        total_time_sec = int(end - start)
+        log.info(f"Function `{func.__module__}.{func.__name__}(..)` took {total_time_sec} seconds to execute.")
+
+    return inner
 
 
 class UCVolumeObjectStore(ObjectStore):
@@ -99,7 +112,8 @@ class UCVolumeObjectStore(ObjectStore):
             aws_session_token=aws_credentials['session_token'],
             aws_secret_access_key=aws_credentials['secret_access_key'],
         )
-
+    
+    @timed
     def upload_object(self,
                       object_name: str,
                       filename: str | pathlib.Path,
