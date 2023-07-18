@@ -7,10 +7,9 @@ from __future__ import annotations
 
 import os
 import pathlib
-import urllib
 import uuid
-from google.cloud.storage import Blob, Bucket, Client
 from typing import Callable, Optional, Union
+from urllib import parse as urlparser
 
 from google.cloud import storage
 
@@ -19,29 +18,27 @@ from composer.utils.object_store.object_store import ObjectStore
 
 __all__ = ['GsObjectStore']
 
-_NOT_FOUND_CODES = ('403', '404', 'NoSuchKey')
+BOTOCORE_CLIENT_ERROR_CODES = ('403', '404', 'NoSuchKey')
 
 
 def _reraise_gs_errors(uri: str, e: Exception):
     try:
-        import google
+        from google import api_core
+
+        print('Reraising exception: {e.message}')
+
+        # If it's a google service NotFound error
+        if isinstance(e, api_core.exceptions.NotFound):
+            raise FileNotFoundError(f'Object {uri} not found.') from e
+
+        # All clienterror (HTTP 4xx) responses
+        elif isinstance(e, api_core.exceptions.GatewayTimeout):
+            raise ValueError(f'Time out when uploading/downloading {uri} using google cloud storage') from e
+
     except ImportError as e:
         raise MissingConditionalImportError(conda_package='google-cloud-storage',
                                             extra_deps_group='google-cloud-storage',
                                             conda_channel='conda-forge') from e
-
-    print("Reraising exception: {e.message}")
-
-    # If it's a google service NotFound error
-    if isinstance(e, google.api_core.exceptions.NotFound):
-        raise FileNotFoundError(f'Object {uri} not found. {e.message}') from e
-
-    # All clienterror (HTTP 4xx) responses
-    if isinstance(e, google.api_core.exceptions.ClientError):
-        raise ValueError(f'Error with using google cloud storage for uri {uri}') from e
-    if isinstance(e, google.api_core.exceptions.GatewayTimeout):
-        raise ValueError(f'Time out when uploading/downloading {uri} using google cloud storage') from e
-
     # Otherwise just raise the original error.
     raise e
 
@@ -60,8 +57,8 @@ class GsObjectStore(ObjectStore):
     """
 
     def __init__(
-        self,
-        gs_root_dir: str #  = 'gs://mosaicml-composer-tests/streaming/',
+            self,
+            gs_root_dir: str  #  = 'gs://mosaicml-composer-tests/streaming/',
     ) -> None:
         try:
             import boto3
@@ -71,11 +68,21 @@ class GsObjectStore(ObjectStore):
         if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ:
             service_account_path = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
             self.client = storage.Client.from_service_account_json(service_account_path)
-        else:
-            raise ValueError(f'GOOGLE_APPLICATION_CREDENTIALS needs to be set for ' +
-                             f'service level accounts ')
+        elif 'GCS_KEY' in os.environ and 'GCS_SECRET' in os.environ:
+            # Create a session and use it to make our client. Unlike Resources and Sessions,
+            # clients are generally thread-safe.
 
-        obj = urllib.parse.urlparse(gs_root_dir)
+            import boto3
+            session = boto3.session.Session()
+            self.client = session.client('s3',
+                                         region_name='auto',
+                                         endpoint_url='https://storage.googleapis.com',
+                                         aws_access_key_id=os.environ['GCS_KEY'],
+                                         aws_secret_access_key=os.environ['GCS_SECRET'])
+        else:
+            raise ValueError(f'GOOGLE_APPLICATION_CREDENTIALS needs to be set for ' + f'service level accounts ')
+
+        obj = urlparser.urlparse(gs_root_dir)
         if obj.netloc == '':
             raise ValueError("remote_dir doesn't have a valid format")
 
@@ -83,7 +90,7 @@ class GsObjectStore(ObjectStore):
         self.prefix = obj.path.lstrip('/')
 
         try:
-            self.bucket = self.client.get_bucket(self.bucket_name, timeout=10.0) # Bucket(self.client, obj.netloc)
+            self.bucket = self.client.get_bucket(self.bucket_name, timeout=10.0)  # Bucket(self.client, obj.netloc)
         except Exception as e:
             _reraise_gs_errors(obj.netloc, e)
 
@@ -108,18 +115,18 @@ class GsObjectStore(ObjectStore):
 
     def upload_blob(self,
                     src: Union[str, pathlib.Path],
-                    dest: Union[str, pathlib.Path] = None,
+                    dest: str = '',
                     callback: Optional[Callable[[int, int], None]] = None,
-                    generation_match_precondition = 0):
+                    generation_match_precondition=0):
 
         del callback
         """Uploads a file to the bucket.
            By default, if_generation_not_match = 0 makes the operation succeed only if there is a live version of the blob.
         """
 
-        dest = str(src) if dest is None  else dest
+        dest = str(src) if dest == '' else dest
         blob = self.bucket.blob(self.get_key(dest))
-        blob.upload_from_filename(src) # , if_generation_match=generation_match_precondition)
+        blob.upload_from_filename(src)  # , if_generation_match=generation_match_precondition)
 
         print(f'File {src} uploaded to {dest}.')
 

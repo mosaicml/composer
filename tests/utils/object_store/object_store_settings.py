@@ -14,7 +14,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 import composer.utils.object_store
 import composer.utils.object_store.sftp_object_store
-from composer.utils.object_store import LibcloudObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore, SFTPObjectStore, GsObjectStore
+from composer.utils.object_store import (GsObjectStore, LibcloudObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore,
+                                         SFTPObjectStore)
 from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 from tests.common import get_module_subclasses
 

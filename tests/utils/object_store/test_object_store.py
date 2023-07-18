@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 import pytest
 
-from composer.utils.object_store import LibcloudObjectStore, ObjectStore, S3ObjectStore, SFTPObjectStore, GsObjectStore
+from composer.utils.object_store import GsObjectStore, LibcloudObjectStore, ObjectStore, S3ObjectStore, SFTPObjectStore
 from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 from tests.utils.object_store.object_store_settings import get_object_store_ctx, object_stores
 

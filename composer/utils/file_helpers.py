@@ -20,7 +20,7 @@ import tqdm
 
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_callback
-from composer.utils.object_store import GsObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore, LibcloudObjectStore
+from composer.utils.object_store import GsObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore
 
 if TYPE_CHECKING:
     from composer.core import Timestamp
@@ -346,7 +346,7 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
         raise NotImplementedError(f'There is no implementation for WandB load_object_store via URI. Please use '
                                   'WandBLogger')
     elif backend == 'gs':
-        return GsObjectStore(bucket=bucket_name)
+        return GsObjectStore(uri)
     elif backend == 'oci':
         return OCIObjectStore(bucket=bucket_name)
     else:

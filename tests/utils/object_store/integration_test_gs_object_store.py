@@ -1,18 +1,16 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-import os
 import time
-import urllib
 from pathlib import Path
 
 import pytest
-from google.cloud.storage import Bucket, Client
 
 from composer.utils import GsObjectStore
 
 __DUMMY_OBJ__ = '/tmp/dummy.ckpt'
 __NUM_BYTES__ = 1000
+bucket_name = 'mosaicml-composer-tests'
 
 
 @pytest.fixture
@@ -26,7 +24,9 @@ def test_train_resuming():
     pass
 
 
-bucket_name = 'mosaicml-composer-tests'
+def test_bucket_not_found():
+    with pytest.raises(FileNotFoundError):
+        _ = GsObjectStore('gs://not_a_bucket/streaming')
 
 
 def test_get_uri(gs_object_store):
@@ -50,9 +50,10 @@ def test_get_object_size(gs_object_store, result: str):
 
     if result == 'success':
         assert (gs_object_store.get_object_size(__DUMMY_OBJ__) == __NUM_BYTES__)
-    else: # not found
+    else:  # not found
         with pytest.raises(FileNotFoundError):
-            gs_object_store.get_object_size(__DUMMY_OBJ__+f"time.ctime()")
+            gs_object_store.get_object_size(__DUMMY_OBJ__ + f'time.ctime()')
+
 
 def test_upload_object(gs_object_store):
     destination_blob_name = '/tmp/dummy.ckpt2'
@@ -78,17 +79,3 @@ def test_download_object(gs_object_store, tmp_path, result: str):
     else:  # obj_not_found
         with pytest.raises(FileNotFoundError):
             gs_object_store.download_blob(object_name + f'{time.ctime()}', filename, overwrite=True)
-
-
-if __name__ == '__main__':
-
-    gs_object_store = get_object_store()
-
-    test_get_uri(gs_object_store)
-
-    test_get_key(gs_object_store)
-
-    test_get_object_size(gs_object_store)
-
-    for result in ['success', 'file_exists', 'error']:
-        test_download_object(gs_object_store, tmp_path, result)

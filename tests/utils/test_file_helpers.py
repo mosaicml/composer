@@ -294,7 +294,7 @@ def test_maybe_create_object_store_from_uri(monkeypatch):
         maybe_create_object_store_from_uri('wandb://my-cool/checkpoint/for/my/model.pt')
 
     maybe_create_object_store_from_uri('gs://my-bucket/path')
-    mock_gs_obj.assert_called_once_with(bucket='my-bucket')
+    mock_gs_obj.assert_called_once_with('gs://my-bucket/path')
 
     maybe_create_object_store_from_uri('oci://my-bucket/path')
     mock_oci_obj.assert_called_once_with(bucket='my-bucket')

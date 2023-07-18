@@ -288,9 +288,7 @@ class WandBLogger(LoggerDestination):
         try:
             wandb_artifact = api.artifact('/'.join([self.entity, self.project, new_remote_file_name]))
         except wandb.errors.CommError as e:
-            if 'does not contain artifact' in str(e):
-                raise FileNotFoundError(f'WandB Artifact {new_remote_file_name} not found') from e
-            raise e
+            raise FileNotFoundError(f'WandB Artifact {new_remote_file_name} not found') from e
         with tempfile.TemporaryDirectory() as tmpdir:
             wandb_artifact_folder = os.path.join(tmpdir, 'wandb_artifact_folder/')
             wandb_artifact.download(root=wandb_artifact_folder)
