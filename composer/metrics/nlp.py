@@ -570,8 +570,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
                 batch['entry_points']):
             self.total += torch.tensor(1.0)
             for code_gen in sample_outputs:
-                code_gen = re.split(r'\ndef|\nclass|\n#|\nif|\nprint|\n[A-Za-z0-9]',
-                                    code_gen)[0]  # remove everything after function ends
+                code_gen = re.split(r'\n[A-Za-z0-9#`]', code_gen)[0]  # remove everything after function ends
                 final_code = sample_prompt + code_gen  # combine prompt with the code generation
                 passes_all = True
                 for test_input, test_output in zip(test_inputs, test_outputs):
