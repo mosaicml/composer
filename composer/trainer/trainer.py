@@ -997,6 +997,7 @@ class Trainer:
             optimizers = map_collection(optimizers, device.optimizer_to_device)
 
         # Run Name
+        run_name = os.getenv('COMPOSER_RUN_NAME', None) if run_name is None else run_name
         if run_name is None:
             if autoresume:
                 raise ValueError('When autoresume=True, the `run_name` must be specified.')
