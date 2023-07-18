@@ -526,8 +526,8 @@ class Trainer:
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
         run_name (str, optional): A name for this training run. If not specified, the env var
-            `COMPOSER_RUN_NAME` will be used if set. Otherwise, the timestamp will be combined with
-            a :doc:`coolname <coolname:index>`, e.g. ``1654298855-electric-zebra``.
+            `COMPOSER_RUN_NAME` or `RUN_NAME` will be used if set. Otherwise, the timestamp will be
+            combined with a :doc:`coolname <coolname:index>`, e.g. ``1654298855-electric-zebra``.
         progress_bar (bool): Whether to show a progress bar. (default: ``True``)
         log_to_console (bool): Whether to print logging statements to the console. (default: ``False``)
         console_stream (TextIO | str, optional): The stream to write to. If a string, it can either be
@@ -999,6 +999,7 @@ class Trainer:
 
         # Run Name
         run_name = os.getenv('COMPOSER_RUN_NAME', None) if run_name is None else run_name
+        run_name = os.getenv('RUN_NAME', None) if run_name is None else run_name
         if run_name is None:
             if autoresume:
                 raise ValueError('When autoresume=True, the `run_name` must be specified.')
