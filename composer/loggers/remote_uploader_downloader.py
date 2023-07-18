@@ -472,12 +472,14 @@ class RemoteUploaderDownloader(LoggerDestination):
             torch.tensor([int(not self._file_upload_queue.empty() and self._exception_queue.empty())],
                          dtype=torch.uint8))
         dist.all_reduce(all_ranks_upload_done_tensor, reduce_operation='MAX')
-        while all_ranks_upload_done_tensor.item() == 1:
+        upload_not_done = all_ranks_upload_done_tensor.item() == 1
+        while upload_not_done:
             time.sleep(2)
             all_ranks_upload_done_tensor = device.tensor_to_device(
                 torch.tensor([int(not self._file_upload_queue.empty() and self._exception_queue.empty())],
                              dtype=torch.uint8))
             dist.all_reduce(all_ranks_upload_done_tensor, reduce_operation='MAX')
+            upload_not_done = all_ranks_upload_done_tensor.item() == 1
 
         if not self._exception_queue.empty():
             e = self._exception_queue.get_nowait()
