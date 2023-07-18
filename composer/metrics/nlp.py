@@ -3,13 +3,10 @@
 
 """A collection of common torchmetrics for NLP tasks."""
 
-import json
 import logging
-import multiprocessing
 import os
 import re
 import string
-import types
 import warnings
 from typing import Any, Dict, List, Mapping, Union
 
@@ -18,7 +15,7 @@ from torch import Tensor
 from torch.nn import functional as F
 from torchmetrics import Metric
 
-from composer.utils.import_helpers import MissingConditionalImportError
+from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient
 
 log = logging.getLogger(__name__)
 
@@ -34,8 +31,6 @@ __all__ = [
     'InContextLearningLMExpectedCalibrationError',
     'InContextLearningMCExpectedCalibrationError',
 ]
-
-TIMEOUT = 5  # in seconds
 
 
 class MaskedAccuracy(Metric):
@@ -523,9 +518,8 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.remote = 'CODE_EVAL_DEVICE' in os.environ and os.environ['CODE_EVAL_DEVICE'] != 'LOCAL'
 
-    def get_client(self):
-        """Returns a client for the appropriate remote platform (currently only supports Lambdas).
-        """
+    def get_client(self) -> EvalClient:
+        """Returns a client for the appropriate remote platform (currently only supports Lambdas)."""
         client = None
         if not self.remote:
             warnings.warn(
@@ -533,16 +527,9 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
                 'to LAMBDA to run on remote. To use Lambdas, spin up your instance that checks code, set the ARN as '
                 'CODE_EVAL_ARN and the region as CODE_EVAL_REGION.')
             log.debug('Running code eval locally.')
+            client = LocalEvalClient()
         elif os.environ['CODE_EVAL_DEVICE'] == 'LAMBDA':
-            if 'CODE_EVAL_ARN' not in os.environ or 'CODE_EVAL_REGION' not in os.environ:
-                raise Exception('Please set environment variable CODE_EVAL_ARN to the ARN of the lambda function '
-                                'and CODE_EVAL_REGION to the region of the lambda function.')
-            try:
-                import boto3
-            except ImportError as e:
-                raise MissingConditionalImportError('streaming', 'boto3') from e
-            log.debug('Running code eval on lambda.')
-            client = boto3.Session().client('lambda', region_name=os.environ['CODE_EVAL_REGION'])
+            client = LambdaEvalClient()
 
         else:
             raise Exception(
@@ -551,7 +538,9 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         return client
 
     def update(self, batch: Dict[str, Any], outputs: List[str], labels: List[str]):
-        """ Given a batch of prompts, test cases, and code generations, evaluates the code generations
+        """Updates the pass@k accuracy of code generation.
+
+        Given a batch of prompts, test cases, and code generations, evaluates the code generations
         against the test cases and augments the pass@k accuracy of the batch to the values so far.
 
         Args:
@@ -586,90 +575,20 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
                 final_code = sample_prompt + code_gen  # combine prompt with the code generation
                 passes_all = True
                 for test_input, test_output in zip(test_inputs, test_outputs):
-                    if client is not None:
-                        if not self.update_online_lambda(
-                                final_code, test_input, test_output, entry_point,
-                                client):  # direct evaluation of test case to the Lambda (returns whether it passes)
-                            passes_all = False
-                            break
-                    else:
-                        ret = multiprocessing.Value('b', 0)  # Store result of test case in shared memory
-                        p = multiprocessing.Process(target=self.update_offline_helper,
-                                                    args=(final_code, test_input, test_output, entry_point,
-                                                          ret))  # Evaluate test case in an independent subprocess
-                        p.start()
-                        p.join(TIMEOUT)  # wait for timeout to terminate
-                        p.terminate()
-                        if not bool(ret.value):
-                            passes_all = False
-                            break
+                    payload = {
+                        'code': final_code,
+                        'input': test_input,
+                        'output': test_output,
+                        'entry_point': entry_point
+                    }
+                    if not client.invoke(payload):
+                        passes_all = False
+                        break
 
                 if passes_all:
                     self.correct += torch.tensor(1.0)
                     break
-        if self.remote:
-            client.close()  # pyright: ignore [reportOptionalMemberAccess]
-
-    def update_offline_helper(self, code_gen: str, test_input: str, test_output: str, entry_point: str,
-                              val: multiprocessing.Value):  # type: ignore
-        """ Helper function to evaluate test case in a subprocess. This function compiles the code generation,
-        and runs the function from the entry point, before running the test input through the function and
-        checking it against the test output.
-
-        Args:
-            code_gen (str): The code generation to be evaluated.
-            test_input (str): The input of the test case
-            test_output (str): The output of the test case
-            entry_point (str): The name of the function to call
-            val (multiprocessing.Value): The value in which to save the final value of the test case
-        """
-        mod = types.ModuleType('test_module')
-        val.value = 0
-        result = None
-        expected_result = None
-        try:
-            exec(code_gen, mod.__dict__)
-
-            result = mod.__dict__[entry_point](*eval(test_input))
-            syntax_compiled = True
-            try:
-                expected_result = eval(test_output)
-            except:
-                expected_result = test_output
-
-        except Exception as _:
-            syntax_compiled = False  # don't print out warning b/c this can happen frequently
-
-        if syntax_compiled:
-            val.value = int(result == expected_result)
-        else:
-            val.value = 0
-
-    def update_online_lambda(self, code_gen: str, test_input: str, test_output: str, entry_point: str, client: Any):
-        """ Helper function to evaluate test case in a subprocess. This function creates a Lambda invocation and
-        parses the returned payload.
-
-        Args:
-            code_gen (str): The code generation to be evaluated.
-            test_input (str): The input of the test case
-            test_output (str): The output of the test case
-            entry_point (str): The name of the function to call
-            client (Any): The client to invoke the Lambda function
-        """
-        response = client.invoke(
-            FunctionName=os.environ['CODE_EVAL_ARN'],
-            InvocationType='RequestResponse',
-            LogType='None',
-            Payload=bytes(
-                json.dumps({
-                    'code': code_gen,
-                    'input': test_input,
-                    'output': test_output,
-                    'entry_point': entry_point
-                }), 'utf-8'),
-        )
-        response = json.load(response['Payload'])
-        return 'statusCode' in response and response['statusCode'] == 200
+        client.close()  # pyright: ignore [reportOptionalMemberAccess]
 
     def compute(self):
         assert isinstance(self.correct, Tensor)
