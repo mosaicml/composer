@@ -11,8 +11,6 @@ import uuid
 from typing import Callable, Optional, Union
 from urllib import parse as urlparser
 
-from google.cloud import storage
-
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
 
@@ -62,6 +60,7 @@ class GsObjectStore(ObjectStore):
     ) -> None:
         try:
             import boto3
+            from google.cloud import storage
         except ImportError as e:
             raise MissingConditionalImportError('streaming', 'boto3') from e
 
@@ -72,7 +71,6 @@ class GsObjectStore(ObjectStore):
             # Create a session and use it to make our client. Unlike Resources and Sessions,
             # clients are generally thread-safe.
 
-            import boto3
             session = boto3.session.Session()
             self.client = session.client('s3',
                                          region_name='auto',
@@ -101,6 +99,8 @@ class GsObjectStore(ObjectStore):
         return f'gs://{self.bucket_name}/{self.get_key(object_name)}'
 
     def get_object_size(self, object_name: str) -> int:
+        from google.cloud import storage
+
         key = self.get_key(object_name)
         stats = storage.Blob(bucket=self.bucket, name=key).exists(self.client)
         if not stats:
