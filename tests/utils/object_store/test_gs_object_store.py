@@ -12,10 +12,10 @@ from composer.utils import GsObjectStore
 
 @pytest.fixture
 def gs_object_store(monkeypatch):
-    import google
+    from google.cloud.storage import Client
     with mock.patch.dict(os.environ, {'GOOGLE_APPLICATION_CREDENTIALS': 'FAKE_CREDENTIAL'}):
         mock_client = mock.MagicMock()
-        with mock.patch.object(google.cloud.storage.Client, 'from_service_account_json', return_value=mock_client):
+        with mock.patch.object(Client, 'from_service_account_json', return_value=mock_client):
             yield GsObjectStore('gs://test-bucket/test-prefix/')
 
 

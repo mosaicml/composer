@@ -21,16 +21,16 @@ BOTOCORE_CLIENT_ERROR_CODES = ('403', '404', 'NoSuchKey')
 
 def _reraise_gs_errors(uri: str, e: Exception):
     try:
-        import google
+        from google.api_core.exceptions import GatewayTimeout, NotFound
 
         print('Reraising exception: {e.message}')
 
         # If it's a google service NotFound error
-        if isinstance(e, google.api_core.exceptions.NotFound):
+        if isinstance(e, NotFound):
             raise FileNotFoundError(f'Object {uri} not found.') from e
 
         # All clienterror (HTTP 4xx) responses
-        elif isinstance(e, google.api_core.exceptions.GatewayTimeout):
+        elif isinstance(e, GatewayTimeout):
             raise ValueError(f'Time out when uploading/downloading {uri} using google cloud storage') from e
 
     except ImportError as e:
@@ -60,13 +60,13 @@ class GsObjectStore(ObjectStore):
     ) -> None:
         try:
             import boto3
-            import google
+            from google.cloud.storage import Client
         except ImportError as e:
             raise MissingConditionalImportError('streaming', 'boto3') from e
 
         if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ:
             service_account_path = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
-            self.client = google.cloud.storage.Client.from_service_account_json(service_account_path)
+            self.client = Client.from_service_account_json(service_account_path)
         elif 'GCS_KEY' in os.environ and 'GCS_SECRET' in os.environ:
             # Create a session and use it to make our client. Unlike Resources and Sessions,
             # clients are generally thread-safe.
@@ -99,10 +99,10 @@ class GsObjectStore(ObjectStore):
         return f'gs://{self.bucket_name}/{self.get_key(object_name)}'
 
     def get_object_size(self, object_name: str) -> int:
-        import google
+        from google.cloud.storage import Blob
 
         key = self.get_key(object_name)
-        stats = google.cloud.storage.Blob(bucket=self.bucket, name=key).exists(self.client)
+        stats = Blob(bucket=self.bucket, name=key).exists(self.client)
         if not stats:
             raise FileNotFoundError(f'{object_name} not found in {self.bucket_name}')
         try:
