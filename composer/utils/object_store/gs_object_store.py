@@ -90,7 +90,7 @@ class GsObjectStore(ObjectStore):
         try:
             self.bucket = self.client.get_bucket(self.bucket_name, timeout=10.0)  # Bucket(self.client, obj.netloc)
         except Exception as e:
-            _reraise_gs_errors(obj.netloc, e)
+            _reraise_gs_errors(gs_root_dir, e)
 
     def get_key(self, object_name: str) -> str:
         return f'{self.prefix}{object_name}'
