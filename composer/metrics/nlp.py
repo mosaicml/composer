@@ -519,7 +519,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         self.remote = 'CODE_EVAL_DEVICE' in os.environ and os.environ['CODE_EVAL_DEVICE'] != 'LOCAL'
 
     def get_client(self) -> EvalClient:
-        """Returns a client for the appropriate remote platform (currently only supports Lambdas)."""
+        """Returns a client for the appropriate remote platform."""
         client = None
         if not self.remote:
             warnings.warn(
