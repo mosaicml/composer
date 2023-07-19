@@ -860,11 +860,10 @@ class InContextLearningCodeEvalDataset(Dataset):
     - test: the checker code that will run to completion if the code generation is valid and otherwise throw assertion
     - test_inputs: list of test inputs
     - test_outputs: list of test outputs
-
-	Args:
-		dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
-            supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "task_id",
-            "prompt", "entry_point", "canonical_solution", "test", "test_inputs", and "test_outputs". See tests/datasets/local_data/human_eval_small.jsonl.
+    Args:
+	dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
+        supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "task_id",
+        "prompt", "entry_point", "canonical_solution", "test", "test_inputs", and "test_outputs". See tests/datasets/local_data/human_eval_small.jsonl.
         tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to map between strings and token ids
         batch_size (int): Size of a batch used for eval
         max_seq_len (int): The maximum sequence length supported by the model
@@ -878,7 +877,7 @@ class InContextLearningCodeEvalDataset(Dataset):
         generations_per_sample: how many outputs to generate per prompt
         top_p: top_p sampling parameter for nucleus sampling
         top_k: top_k sampling parameter for number of samples to consider
-	"""
+    """
 
     def __init__(
         self,
