@@ -381,7 +381,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
     """
     from composer.loggers import RemoteUploaderDownloader
     existing_remote_uds = [logger_dest for logger_dest in loggers if isinstance(logger_dest, RemoteUploaderDownloader)]
-    backend, bucket_name, _ = parse_uri(uri)
+    backend, bucket_name, path = parse_uri(uri)
     if backend == '':
         return None
     for existing_remote_ud in existing_remote_uds:
@@ -416,7 +416,8 @@ def maybe_create_remote_uploader_downloader_from_uri(
             )
         return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}',
                                         backend_kwargs={
-                                            'full_name': bucket_name,
+                                            'volume_name': bucket_name,
+                                            'prefix': path,
                                         })
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
