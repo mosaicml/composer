@@ -541,7 +541,8 @@ def download_checkpoint(path: str,
     finally:
         # Use busy wait to avoid timeouts on large downloads for non-sharded checkpoints
         if not checkpoint_is_sharded:
-            signal_file_path = os.path.join(node_checkpoint_folder, '.local_rank0_completed')
+            signal_file_path = os.path.join(node_checkpoint_folder,
+                                            f'.node_{dist.get_node_rank()}_local_rank0_completed')
             if dist.get_local_rank() == 0:
                 with open(signal_file_path, 'wb') as f:
                     f.write(b'local_rank0_completed')
@@ -755,6 +756,8 @@ def save_checkpoint(
     if weights_only and not is_deepspeed:
         state_dict['state'] = {'model': state_dict['state']['model']}
 
+    log.debug('State dict created.')
+
     # Sharded checkpoints get their own little folder.
     if state.fsdp_sharded_state_dict_enabled:
         # To load optimizer states with torch 2.0, the optimizer state must be at the top
@@ -806,6 +809,8 @@ def save_checkpoint(
         with open(save_filename, 'wb') as f:
             log.debug(log_msg)
             torch.save(state_dict, f)
+
+        log.debug(f'Global rank 0 done saving checkpoint to disk at {save_filename}.')
 
         if is_tar(save_filename):
             _compress_file(save_filename, basename=_COMPOSER_STATES_FILENAME)

@@ -445,7 +445,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                     is_deepspeed,
                 ).lstrip('/')
 
-            # Upload remote file.
+            log.debug(f'Uploading checkpoint to {remote_file_name}')
             logger.upload_file(remote_file_name=remote_file_name, file_path=saved_path, overwrite=self.overwrite)
 
             # symlinks stay the same with sharded checkpointing
