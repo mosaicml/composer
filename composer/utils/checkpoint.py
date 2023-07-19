@@ -22,7 +22,7 @@ import torch
 from composer.utils import dist, reproducibility
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist,
                                          format_name_with_dist_and_time, get_file, is_tar)
-from composer.utils.misc import is_model_deepspeed, using_torch_2
+from composer.utils.misc import is_model_deepspeed, using_torch_2, using_torch_2_0_1
 from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
@@ -304,6 +304,11 @@ def load_sharded_checkpoint(
     if not using_torch_2():
         raise ValueError(
             f'Sharded checkpoint loading requires torch version >= 2.0.0. You have torch version {torch.__version__}')
+
+    using_multinode = dist.get_world_size != dist.get_local_world_size
+    if not using_torch_2_0_1() and using_multinode:
+        raise ValueError(
+            f'Sharded checkpoint loading on >1 node requires torch version >= 2.0.1. You have torch version {torch.__version__}')
 
     assert using_torch_2()
     from torch.distributed import checkpoint as dist_cp
