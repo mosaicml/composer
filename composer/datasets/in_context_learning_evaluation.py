@@ -1231,7 +1231,7 @@ def get_icl_task_dataloader(
         num_fewshot: int,
         prompt_string: str,  # e.g. 'translate english to french:'
         example_delimiter: str,  # e.g. '\n'
-        continuation_delimiter: str = '',  # e.g. ''
+        continuation_delimiter: str = '',
         destination_path: str = '',
         question_prelimiter: str = '',  # e.g. 'Question: '
         fewshot_random_seed: int = 1234,
