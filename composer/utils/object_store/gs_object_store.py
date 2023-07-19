@@ -78,7 +78,7 @@ class GsObjectStore(ObjectStore):
                                          aws_access_key_id=os.environ['GCS_KEY'],
                                          aws_secret_access_key=os.environ['GCS_SECRET'])
         else:
-            raise ValueError(f'GOOGLE_APPLICATION_CREDENTIALS needs to be set for ' + f'service level accounts ')
+            raise ValueError(f'GOOGLE_APPLICATION_CREDENTIALS needs to be set for ' + f'service level accounts or GCS_KEY and GCS_SECRET env variables must be set.')
 
         obj = urlparser.urlparse(gs_root_dir)
         if obj.netloc == '':
