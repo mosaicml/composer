@@ -56,8 +56,12 @@ def test_get_object_size(gs_object_store, result: str):
 
 
 def test_upload_object(gs_object_store):
+    from google.cloud.storage import Blob
     destination_blob_name = '/tmp/dummy.ckpt2'
-    gs_object_store.upload_blob(__DUMMY_OBJ__, destination_blob_name)
+    key = gs_object_store.get_key(destination_blob_name)
+    stats = Blob(bucket=gs_object_store.bucket, name=key).exists(gs_object_store.client)
+    if not stats:
+        gs_object_store.upload_blob(__DUMMY_OBJ__, destination_blob_name)
 
 
 @pytest.mark.parametrize('result', ['success', 'file_exists', 'obj_not_found'])

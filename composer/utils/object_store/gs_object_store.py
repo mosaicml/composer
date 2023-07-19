@@ -9,7 +9,6 @@ import os
 import pathlib
 import uuid
 from typing import Callable, Optional, Union
-from urllib import parse as urlparser
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
@@ -78,14 +77,14 @@ class GsObjectStore(ObjectStore):
                                          aws_access_key_id=os.environ['GCS_KEY'],
                                          aws_secret_access_key=os.environ['GCS_SECRET'])
         else:
-            raise ValueError(f'GOOGLE_APPLICATION_CREDENTIALS needs to be set for ' + f'service level accounts or GCS_KEY and GCS_SECRET env variables must be set.')
+            raise ValueError(f'GOOGLE_APPLICATION_CREDENTIALS needs to be set for ' +
+                             f'service level accounts or GCS_KEY and GCS_SECRET env variables must be set.')
 
-        obj = urlparser.urlparse(gs_root_dir)
-        if obj.netloc == '':
+        from composer.utils import parse_uri
+        backend, self.bucket_name, self.prefix = parse_uri(gs_root_dir)
+        if backend == '':
             raise ValueError("remote_dir doesn't have a valid format")
-
-        self.bucket_name = obj.netloc
-        self.prefix = obj.path.lstrip('/')
+        self.prefix = self.prefix.lstrip('/')
 
         try:
             self.bucket = self.client.get_bucket(self.bucket_name, timeout=10.0)  # Bucket(self.client, obj.netloc)
