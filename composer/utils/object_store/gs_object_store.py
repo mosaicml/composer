@@ -21,7 +21,7 @@ BOTOCORE_CLIENT_ERROR_CODES = ('403', '404', 'NoSuchKey')
 
 def _reraise_gs_errors(uri: str, e: Exception):
     try:
-        from google import api_core
+        from google import api_core as api_core
 
         print('Reraising exception: {e.message}')
 
@@ -60,7 +60,7 @@ class GsObjectStore(ObjectStore):
     ) -> None:
         try:
             import boto3
-            from google.cloud import storage
+            from google.cloud import storage as storage
         except ImportError as e:
             raise MissingConditionalImportError('streaming', 'boto3') from e
 
@@ -99,7 +99,7 @@ class GsObjectStore(ObjectStore):
         return f'gs://{self.bucket_name}/{self.get_key(object_name)}'
 
     def get_object_size(self, object_name: str) -> int:
-        from google.cloud import storage
+        from google.cloud import storage as storage
 
         key = self.get_key(object_name)
         stats = storage.Blob(bucket=self.bucket, name=key).exists(self.client)

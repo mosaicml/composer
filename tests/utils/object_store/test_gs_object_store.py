@@ -6,13 +6,13 @@ from unittest import mock
 
 import pytest
 from botocore.exceptions import ClientError
-from google.cloud import storage as storage
 
 from composer.utils import GsObjectStore
 
 
 @pytest.fixture
 def gs_object_store(monkeypatch):
+    from google.cloud import storage as storage
     with mock.patch.dict(os.environ, {'GOOGLE_APPLICATION_CREDENTIALS': 'FAKE_CREDENTIAL'}):
         mock_client = mock.MagicMock()
         with mock.patch.object(storage.Client, 'from_service_account_json', return_value=mock_client):
