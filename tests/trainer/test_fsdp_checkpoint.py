@@ -73,7 +73,7 @@ def get_trainer(
     algorithms=None,
     optimizer='adam',
     load_fsdp_monolith_rank0_only=False,
-    save_num_checkpoints_to_keep=-1
+    save_num_checkpoints_to_keep=-1,
     sync_module_states=True,
 ):
     model = SimpleMLP(num_features=num_features, num_classes=num_classes)
