@@ -54,27 +54,54 @@ class MLFlowLogger(LoggerDestination):
         self._rank_zero_only = rank_zero_only
         self.tracking_uri = tracking_uri
 
-    def init(self, state: State, logger: Logger) -> None:
+    def _mlflow_set_experiment(self) -> None:
         import mlflow
-        del logger  # unused
 
-        # Use the logger run name if the name is not set.
+        # Set experiment name defaults
+        if self.experiment_name is not None:
+            # Respect MLFlow environment variables before setting defaults
+            env_exp_id = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None)
+            if env_exp_id:
+                # Experiment Id and name are mutually exclusive in MLFlow
+                mlflow.set_experiment(experiment_id=env_exp_id)
+                return
+
+            # If the experiment name env var is not set, use the default
+            self.experiment_name = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,
+                                             DEFAULT_MLFLOW_EXPERIMENT_NAME)
+
+        mlflow.set_experiment(experiment_name=self.experiment_name)
+
+    def _mlflow_start_run(self, state: State) -> None:
+        import mlflow
+
+        # Set run name defaults
         if self.run_name is None:
-            self.run_name = state.run_name
+            # Respect MLFlow environment variables before setting defaults
+            env_run_id = os.getenv(mlflow.environment_variables.MLFLOW_RUN_ID.name, None)
+            if env_run_id:
+                # Run Id and name are mutually exclusive in MLFlow
+                mlflow.start_run(run_id=env_run_id)
+                return
+
+            # If the run name env var is not set, use the logger run name.
+            self.run_name = os.getenv(mlflow.environment_variables.MLFLOW_RUN_NAME.name, state.run_name)
 
         # Adjust name and group based on `rank_zero_only`.
         if not self._rank_zero_only:
             self.run_name += f'-rank{dist.get_global_rank()}'
 
-        if self.experiment_name is None:
-            env_var = mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name
-            self.experiment_name = os.getenv(env_var, DEFAULT_MLFLOW_EXPERIMENT_NAME)
+        mlflow.start_run(run_name=self.run_name)
+
+    def init(self, state: State, logger: Logger) -> None:
+        import mlflow
+        del logger  # unused
 
         if self._enabled:
             if self.tracking_uri is not None:
                 mlflow.set_tracking_uri(self.tracking_uri)
-            mlflow.set_experiment(self.experiment_name)
-            mlflow.start_run(run_name=self.run_name)
+            self._mlflow_set_experiment()
+            self._mlflow_start_run(state)
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         import mlflow
