@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple, Typ
 import torch
 from torchmetrics import Metric
 
-from composer.metrics import InContextLearningMetric
+from composer.metrics import InContextLearningCodeEvalAccuracy, InContextLearningMetric
 from composer.models.base import ComposerModel
 from composer.utils import MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp, safe_torch_load
 
@@ -383,7 +383,17 @@ class HuggingFaceModel(ComposerModel):
                                        max_new_tokens=batch['generation_length'],
                                        synced_gpus=dist.get_world_size() > 1,
                                        **batch.get('generation_kwargs', {}))
-            return self.tokenizer.batch_decode(generation[:, batch['input_ids'].shape[1]:], skip_special_tokens=True)
+
+            # don't remove prefix space to sentencepiece models
+            if len(self.tokenizer(' a', add_special_tokens=False)['input_ids']) == 1:
+                return self.tokenizer.batch_decode(generation[:, batch['input_ids'].shape[1]:],
+                                                   skip_special_tokens=True)
+            else:
+                return [
+                    ' ' + generation
+                    for generation in self.tokenizer.batch_decode(generation[:, batch['input_ids'].shape[1]:],
+                                                                  skip_special_tokens=True)
+                ]
 
         if self.use_logits or batch.get('mode', None) == 'icl_task':
             # pop labels first to avoid computing loss
@@ -431,9 +441,10 @@ class HuggingFaceModel(ComposerModel):
         return metrics if metrics else {}
 
     def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
-        if isinstance(metric, InContextLearningMetric) and batch.get('mode', None) == 'icl_task':
+        if (isinstance(metric, InContextLearningMetric) and batch.get('mode', None) == 'icl_task') or isinstance(
+                metric, InContextLearningCodeEvalAccuracy):
             assert self.labels is not None
-            metric.update(batch, outputs, self.labels)
+            metric.update(batch, outputs, self.labels)  # pyright: ignore [reportGeneralTypeIssues]
         else:
             metric.update(outputs, self.labels)  # pyright: ignore [reportGeneralTypeIssues]
 
