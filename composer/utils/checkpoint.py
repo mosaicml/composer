@@ -22,7 +22,7 @@ import torch
 from composer.utils import dist, reproducibility
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist,
                                          format_name_with_dist_and_time, get_file, is_tar)
-from composer.utils.misc import is_model_deepspeed, using_torch_2
+from composer.utils.misc import is_model_deepspeed, using_torch_2, using_torch_2_0_1
 from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
@@ -305,6 +305,11 @@ def load_sharded_checkpoint(
         raise ValueError(
             f'Sharded checkpoint loading requires torch version >= 2.0.0. You have torch version {torch.__version__}')
 
+    using_multinode = dist.get_world_size != dist.get_local_world_size
+    if not using_torch_2_0_1() and using_multinode:
+        raise ValueError(
+            f'Sharded checkpoint loading on >1 node requires torch version >= 2.0.1. You have torch version {torch.__version__}')
+
     assert using_torch_2()
     from torch.distributed import checkpoint as dist_cp
     from torch.distributed.checkpoint.metadata import Metadata
@@ -536,7 +541,8 @@ def download_checkpoint(path: str,
     finally:
         # Use busy wait to avoid timeouts on large downloads for non-sharded checkpoints
         if not checkpoint_is_sharded:
-            signal_file_path = os.path.join(node_checkpoint_folder, '.local_rank0_completed')
+            signal_file_path = os.path.join(node_checkpoint_folder,
+                                            f'.node_{dist.get_node_rank()}_local_rank0_completed')
             if dist.get_local_rank() == 0:
                 with open(signal_file_path, 'wb') as f:
                     f.write(b'local_rank0_completed')
@@ -750,6 +756,8 @@ def save_checkpoint(
     if weights_only and not is_deepspeed:
         state_dict['state'] = {'model': state_dict['state']['model']}
 
+    log.debug('State dict created.')
+
     # Sharded checkpoints get their own little folder.
     if state.fsdp_sharded_state_dict_enabled:
         # To load optimizer states with torch 2.0, the optimizer state must be at the top
@@ -801,6 +809,8 @@ def save_checkpoint(
         with open(save_filename, 'wb') as f:
             log.debug(log_msg)
             torch.save(state_dict, f)
+
+        log.debug(f'Global rank 0 done saving checkpoint to disk at {save_filename}.')
 
         if is_tar(save_filename):
             _compress_file(save_filename, basename=_COMPOSER_STATES_FILENAME)
