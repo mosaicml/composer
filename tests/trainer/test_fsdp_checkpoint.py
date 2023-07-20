@@ -248,11 +248,10 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
 def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresume: bool, precision: str, optimizer: str,
                                    load_fsdp_monolith_rank0_only: bool):
     
-    if autoresume:
-        run_name = 'my-cool-autoresume-run'
-    else:
-        run_name = None
-    save_folder = tmp_path
+
+    run_name = 'my-cool-run'
+ 
+    save_folder = dist.all_gather_object(str(tmp_path))[0]
     save_filename = 'rank{rank}.pt'
     trainer1 = get_trainer(
         save_folder=str(save_folder),
@@ -437,11 +436,9 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
         pytest.xfail(
             'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info'
         )
-    if autoresume:
-        local_run_name = f'my-cool-autoresume-run-{uuid.uuid1()}'
-        run_name = dist.all_gather_object(local_run_name)[0]
-    else:
-        run_name = None
+
+    local_run_name = f"my-cool-{('autoresume-' if autoresume else '')}run-{uuid.uuid1()}"
+    run_name = dist.all_gather_object(local_run_name)[0]
 
     if use_remote:
         save_folder = f's3://{s3_bucket}/{s3_ephemeral_prefix}/checkpoints/{{run_name}}'
@@ -458,8 +455,8 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
                            precision=precision,
                            autoresume=autoresume,
                            optimizer=optimizer,
-                           max_duration='3ba',
-                           save_interval='3ba',
+                           max_duration='2ba',
+                           save_interval='2ba',
                            save_weights_only=weights_only,
                            fsdp_sharded_ckpt_prefix_dir='ba{batch}')
     run_name = trainer1.state.run_name
@@ -470,15 +467,15 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
     trainer1.close()
 
     if use_remote:
-        load_path = 's3://' + save_folder.strip('s3://').format(run_name=run_name) + '/ba3'
+        load_path = 's3://' + save_folder.strip('s3://').format(run_name=run_name) + '/ba2'
         object_store = S3ObjectStore(bucket=f'{s3_bucket}')
     else:
         object_store = None
-        load_path = str(save_folder.format(run_name=run_name) / pathlib.Path('ba3'))
+        load_path = str(save_folder.format(run_name=run_name) / pathlib.Path('ba2'))
 
     if not using_torch_2():
-        load_filename = f"{save_filename.format(batch=3, rank='{rank}')}"
-        assert load_filename == 'ba3-rank{rank}.pt'
+        load_filename = f"{save_filename.format(batch=2, rank='{rank}')}"
+        assert load_filename == 'ba2-rank{rank}.pt'
         load_path += '/' + load_filename
         assert is_checkpoint_legacy_sharded(object_store=object_store,
                                             source_path=load_path.replace(f's3://{s3_bucket}/', ''))
