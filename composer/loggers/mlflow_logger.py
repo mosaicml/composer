@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 import pathlib
 from typing import Any, Dict, Optional, Union
 
@@ -15,15 +16,19 @@ from composer.utils import MissingConditionalImportError, dist
 
 __all__ = ['MLFlowLogger']
 
+DEFAULT_MLFLOW_EXPERIMENT_NAME = 'my-mlflow-experiment'
+
 
 class MLFlowLogger(LoggerDestination):
     """Log to `MLFlow <https://www.mlflow.org/docs/latest/index.html>`_.
 
     Args:
-        experiment_name: (str, optional): MLFLow experiment name,
-        run_name: (str, optional): MLFlow run name.
+        experiment_name: (str, optional): MLFLow experiment name. If not set it will be
+            use the MLFLOW environment variable or a default value
+        run_name: (str, optional): MLFlow run name. If not set it will be the same as the
+            logger run name
         tracking_uri (str | pathlib.Path, optional): MLFlow tracking uri, the URI to the
-            remote or local endpoint where logs are stored (If none it is set to `./mlruns`)
+            remote or local endpoint where logs are stored (If none it is set to MLFlow default)
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process
             (default: ``True``).
     """
@@ -62,7 +67,8 @@ class MLFlowLogger(LoggerDestination):
             self.run_name += f'-rank{dist.get_global_rank()}'
 
         if self.experiment_name is None:
-            self.experiment_name = 'my-mlflow-experiment'
+            env_var = mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name
+            self.experiment_name = os.getenv(env_var, DEFAULT_MLFLOW_EXPERIMENT_NAME)
 
         if self._enabled:
             if self.tracking_uri is not None:
