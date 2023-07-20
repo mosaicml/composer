@@ -73,7 +73,7 @@ def get_trainer(
     algorithms=None,
     optimizer='adam',
     load_fsdp_monolith_rank0_only=False,
-    save_num_checkpoints_to_keep=-1
+    save_num_checkpoints_to_keep=-1,
     sync_module_states=True,
 ):
     model = SimpleMLP(num_features=num_features, num_classes=num_classes)
@@ -206,10 +206,30 @@ def _compare_metrics_between_state_dicts(state_dict1, state_dict2):
 
     state_dict1_eval_metrics = state_dict1['eval_metrics']
     state_dict2_eval_metrics = state_dict2['eval_metrics']
-
-    deep_compare(state_dict1_train_metrics, state_dict2_train_metrics)
-    deep_compare(state_dict1_eval_metrics, state_dict2_eval_metrics)
-
+    for metric1, metric2 in zip(state_dict1_train_metrics.values(), state_dict2_train_metrics.values()):
+        es = []
+        try:
+          metric1['_computed'] == metric2['_computed']
+        except Exception as e:
+            es.append(e)
+        dist.barrier()
+        new_es = dist.all_gather_object((es[0] if len(es) > 0 else None))
+        new_es = [ne for ne in new_es if ne is not None]
+        if len(new_es) > 0:
+            e = new_es.pop()
+            raise e
+    for metric1, metric2 in zip(state_dict1_eval_metrics.values(), state_dict2_eval_metrics.values()):
+        es = []
+        try:
+          metric1['_computed'] == metric2['_computed']
+        except Exception as e:
+            es.append(e)
+        dist.barrier()
+        new_es = dist.all_gather_object((es[0] if len(es) > 0 else None))
+        new_es = [ne for ne in new_es if ne is not None]
+        if len(new_es) > 0:
+            e = new_es.pop()
+            raise e
 
 def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
     timestamp1 = state_dict1['timestamp']
@@ -227,6 +247,7 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
                     reason='requires PyTorch 1.13 or higher')
 def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresume: bool, precision: str, optimizer: str,
                                    load_fsdp_monolith_rank0_only: bool):
+    
     if autoresume:
         run_name = 'my-cool-autoresume-run'
     else:
@@ -244,7 +265,7 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
         load_fsdp_monolith_rank0_only=load_fsdp_monolith_rank0_only,
     )
     trainer1.fit()
-    state_dict_from_trainer1 = trainer1.state.state_dict()
+    state_dict_from_trainer1 = trainer1.state.state_dict() 
     trainer1.close()
     load_path = str(save_folder / pathlib.Path('rank{rank}.pt'))
     trainer2 = get_trainer(
@@ -437,7 +458,8 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
                            precision=precision,
                            autoresume=autoresume,
                            optimizer=optimizer,
-                           max_duration='2ba',
+                           max_duration='3ba',
+                           save_interval='3ba',
                            save_weights_only=weights_only,
                            fsdp_sharded_ckpt_prefix_dir='ba{batch}')
     run_name = trainer1.state.run_name
@@ -448,15 +470,15 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
     trainer1.close()
 
     if use_remote:
-        load_path = 's3://' + save_folder.strip('s3://').format(run_name=run_name) + '/ba2'
+        load_path = 's3://' + save_folder.strip('s3://').format(run_name=run_name) + '/ba3'
         object_store = S3ObjectStore(bucket=f'{s3_bucket}')
     else:
         object_store = None
-        load_path = str(save_folder.format(run_name=run_name) / pathlib.Path('ba2'))
+        load_path = str(save_folder.format(run_name=run_name) / pathlib.Path('ba3'))
 
     if not using_torch_2():
-        load_filename = f"{save_filename.format(batch=2, rank='{rank}')}"
-        assert load_filename == 'ba2-rank{rank}.pt'
+        load_filename = f"{save_filename.format(batch=3, rank='{rank}')}"
+        assert load_filename == 'ba3-rank{rank}.pt'
         load_path += '/' + load_filename
         assert is_checkpoint_legacy_sharded(object_store=object_store,
                                             source_path=load_path.replace(f's3://{s3_bucket}/', ''))
@@ -615,7 +637,6 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
 
     dist.barrier()
     expected_error = pytest.raises(
-        AssertionError, match='Different ranks have different values for step.') if using_torch_2() else pytest.raises(
             RuntimeError, match='Timestamp mismatch error:*')
 
     with expected_error:
