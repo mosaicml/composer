@@ -45,11 +45,11 @@ class TimeUnit(StringEnum):
 
 
 # regex for parsing integers / decimals / scientific notation
-_NUM_REGEX = r'-?[\d.]+(?:e-?\d+)?'
+_NUM_REGEX = r'.+'
 
 # regex for parsing a time string.
-_TIME_STR_REGEX = re.compile(r'^(?:' + r'|'.join(fr'(?:({_NUM_REGEX})({time_unit.value}))' for time_unit in TimeUnit) +
-                             r')$',
+_TIME_STR_REGEX = re.compile(r'^(' + fr'{_NUM_REGEX}' + ')(' +
+                             r'|'.join([fr'{time_unit.value}' for time_unit in TimeUnit]) + r')$',
                              flags=re.IGNORECASE)
 
 TValue = TypeVar('TValue', int, float)
