@@ -566,6 +566,8 @@ def save_checkpoint(
     if weights_only and not is_deepspeed:
         state_dict['state'] = {'model': state_dict['state']['model']}
 
+    log.debug('State dict created.')
+
     # Sharded checkpoints get their own little folder.
     if state.fsdp_sharded_state_dict_enabled:
         assert state.sharded_ckpt_prefix_dir is not None
@@ -586,7 +588,10 @@ def save_checkpoint(
     # only rank 0 saves the state_dict unless state.fsdp_sharded_state_dict_enabled=True.
     if dist.get_global_rank() == 0 or state.fsdp_sharded_state_dict_enabled:
         with open(save_filename, 'wb') as f:
+            log.debug(f'Writing checkpoint to disk at {save_filename}.')
             torch.save(state_dict, f)
+
+        log.debug(f'Global rank 0 done saving checkpoint to disk at {save_filename}.')
 
         if is_tar(save_filename):
             _compress_file(save_filename, basename=_COMPOSER_STATES_FILENAME)
