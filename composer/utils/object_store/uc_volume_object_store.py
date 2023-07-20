@@ -30,7 +30,7 @@ def timed(func):
         func(*args, **kwargs)
         end = time.time()
         total_time_sec = int(end - start)
-        log.info(f"Function `{func.__module__}.{func.__name__}(..)` took {total_time_sec} seconds to execute.")
+        log.warn(f"Function `{func.__module__}.{func.__name__}(..)` took {total_time_sec} seconds to execute.")
 
     return inner
 
@@ -109,7 +109,7 @@ class UCVolumeObjectStore(ObjectStore):
 
         return S3ObjectStore(
             bucket=bucket,
-            prefix=f'{storage_prefix}{self.prefix}',
+            prefix=f'{storage_prefix}',
             aws_access_key_id=aws_credentials['access_key_id'],
             aws_session_token=aws_credentials['session_token'],
             aws_secret_access_key=aws_credentials['secret_access_key'],
