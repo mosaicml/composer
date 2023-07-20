@@ -112,7 +112,7 @@ def test_mlflow_experiment_init_experiment_name(monkeypatch):
 
     This mocks the mlflow library to check that the correct calls are made to set up the experiment
     """
-    import mlflow.
+    import mlflow
 
     monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
     monkeypatch.setattr(mlflow, 'set_experiment', MagicMock())
