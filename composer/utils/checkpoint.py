@@ -101,7 +101,7 @@ class PartialFilePath:
                 ) + extra_suffix
 
 
-def is_checkpoint_legacy_sharded(object_store: ObjectStore, source_path: str):
+def is_checkpoint_legacy_sharded(object_store: Optional[ObjectStore], source_path: str):
     metadata_path = str(Path(source_path) / Path('.metadata'))
     if object_store is None:
         return not os.path.exists(metadata_path)
@@ -215,7 +215,14 @@ def load_checkpoint(
         Optional[List[Dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
             :attr:`load_weights_only` is not None. Otherwise, None.
     """
-    if state.fsdp_elastic_sharded_enabled and not is_checkpoint_legacy_sharded(object_store, path):
+    using_legacy_sharded = False
+    if state.fsdp_elastic_sharded_enabled:
+        assert object_store is None or isinstance(
+            object_store,
+            ObjectStore), 'For loading sharded checkpoints load_object_store must be set with the class ObjectStore'
+        using_legacy_sharded = is_checkpoint_legacy_sharded(object_store, path)
+
+    if state.fsdp_elastic_sharded_enabled and not using_legacy_sharded:
         rng_state_dicts = load_sharded_checkpoint(
             source_path=path,
             state=state,
@@ -308,7 +315,8 @@ def load_sharded_checkpoint(
     using_multinode = dist.get_world_size != dist.get_local_world_size
     if not using_torch_2_0_1() and using_multinode:
         raise ValueError(
-            f'Sharded checkpoint loading on >1 node requires torch version >= 2.0.1. You have torch version {torch.__version__}')
+            f'Sharded checkpoint loading on >1 node requires torch version >= 2.0.1. You have torch version {torch.__version__}'
+        )
 
     assert using_torch_2()
     from torch.distributed import checkpoint as dist_cp

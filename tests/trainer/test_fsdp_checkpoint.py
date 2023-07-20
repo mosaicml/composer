@@ -209,7 +209,7 @@ def _compare_metrics_between_state_dicts(state_dict1, state_dict2):
     for metric1, metric2 in zip(state_dict1_train_metrics.values(), state_dict2_train_metrics.values()):
         es = []
         try:
-          metric1['_computed'] == metric2['_computed']
+            metric1['_computed'] == metric2['_computed']
         except Exception as e:
             es.append(e)
         dist.barrier()
@@ -221,7 +221,7 @@ def _compare_metrics_between_state_dicts(state_dict1, state_dict2):
     for metric1, metric2 in zip(state_dict1_eval_metrics.values(), state_dict2_eval_metrics.values()):
         es = []
         try:
-          metric1['_computed'] == metric2['_computed']
+            metric1['_computed'] == metric2['_computed']
         except Exception as e:
             es.append(e)
         dist.barrier()
@@ -230,6 +230,7 @@ def _compare_metrics_between_state_dicts(state_dict1, state_dict2):
         if len(new_es) > 0:
             e = new_es.pop()
             raise e
+
 
 def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
     timestamp1 = state_dict1['timestamp']
@@ -247,10 +248,9 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
                     reason='requires PyTorch 1.13 or higher')
 def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresume: bool, precision: str, optimizer: str,
                                    load_fsdp_monolith_rank0_only: bool):
-    
 
     run_name = 'my-cool-run'
- 
+
     save_folder = dist.all_gather_object(str(tmp_path))[0]
     save_filename = 'rank{rank}.pt'
     trainer1 = get_trainer(
@@ -264,7 +264,7 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
         load_fsdp_monolith_rank0_only=load_fsdp_monolith_rank0_only,
     )
     trainer1.fit()
-    state_dict_from_trainer1 = trainer1.state.state_dict() 
+    state_dict_from_trainer1 = trainer1.state.state_dict()
     trainer1.close()
     load_path = str(save_folder / pathlib.Path('rank{rank}.pt'))
     trainer2 = get_trainer(
@@ -437,8 +437,11 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
             'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info'
         )
 
-    local_run_name = f"my-cool-{('autoresume-' if autoresume else '')}run-{uuid.uuid1()}"
-    run_name = dist.all_gather_object(local_run_name)[0]
+    if autoresume:
+        local_run_name = f'my-cool-autoresume-run-{uuid.uuid1()}'
+        run_name = dist.all_gather_object(local_run_name)[0]
+    else:
+        run_name = None
 
     if use_remote:
         save_folder = f's3://{s3_bucket}/{s3_ephemeral_prefix}/checkpoints/{{run_name}}'
@@ -540,7 +543,8 @@ def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type:
         num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
         num_classes=8,  # This parameter setting is very important. Don't change or the test will fail.
         precision=precision,
-        autoresume=False,  # Hardcoded to false b/c checkpoints saved with the mono checkpoint saver callback don't have symlinks to them.
+        autoresume=
+        False,  # Hardcoded to false b/c checkpoints saved with the mono checkpoint saver callback don't have symlinks to them.
         run_name=run_name,
         max_duration='4ba',
     )
@@ -557,8 +561,10 @@ def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type:
         fsdp_state_dict_type=state_dict_type,
         save_folder=save_folder,
         load_path=sharded_load_path,
-        num_features=32,  # This parameter setting is very important. It is hardcoded to match the num_features in the checkpoint it is downloading.
-        num_classes=8,  # This parameter setting is very important. It is hardcoded to match the num_classes in the checkpoint it is downloading.
+        num_features=
+        32,  # This parameter setting is very important. It is hardcoded to match the num_features in the checkpoint it is downloading.
+        num_classes=
+        8,  # This parameter setting is very important. It is hardcoded to match the num_classes in the checkpoint it is downloading.
         precision=precision,
         autoresume=autoresume,
         run_name=run_name,
@@ -633,8 +639,7 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
         assert os.readlink(latest_symlink) == oldest_checkpoint_relative_path
 
     dist.barrier()
-    expected_error = pytest.raises(
-            RuntimeError, match='Timestamp mismatch error:*')
+    expected_error = pytest.raises(RuntimeError, match='Timestamp mismatch error:*')
 
     with expected_error:
         get_trainer(

@@ -1363,7 +1363,7 @@ class Trainer:
                     latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
                     if os.path.exists(latest_checkpoint_path):
                         latest_checkpoint_path = os.path.join(os.path.dirname(latest_checkpoint_path),
-                                                                os.readlink(latest_checkpoint_path))
+                                                              os.readlink(latest_checkpoint_path))
                         autoresume_checkpoint_path = latest_checkpoint_path
                     else:
                         autoresume_checkpoint_path = None
