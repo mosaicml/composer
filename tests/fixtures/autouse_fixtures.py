@@ -111,3 +111,22 @@ def mapi_fixture(monkeypatch):
     # Composer auto-adds mosaicml logger when running on platform. Disable logging for tests.
     mock_update = lambda *args, **kwargs: None
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_update)
+
+
+@pytest.fixture(autouse=True)
+def remove_run_name_env_var():
+    # Remove environment variables for run names in unit tests
+    composer_run_name = os.environ.get('COMPOSER_RUN_NAME')
+    run_name = os.environ.get('RUN_NAME')
+
+    if 'COMPOSER_RUN_NAME' in os.environ:
+        del os.environ['COMPOSER_RUN_NAME']
+    if 'RUN_NAME' in os.environ:
+        del os.environ['RUN_NAME']
+
+    yield
+
+    if composer_run_name is not None:
+        os.environ['COMPOSER_RUN_NAME'] = composer_run_name
+    if run_name is not None:
+        os.environ['RUN_NAME'] = run_name
