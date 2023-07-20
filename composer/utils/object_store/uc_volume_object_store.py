@@ -138,3 +138,6 @@ class UCVolumeObjectStore(ObjectStore):
     def get_object_size(self, object_name: str) -> int:
         s3_client = self.get_temporary_s3_client(Operation.READ_VOLUME)
         return s3_client.get_object_size(object_name=object_name)
+
+    def get_uri(self, object_name: str) -> str:
+        return f'ucvol://{self.volume_name}/{self.prefix}{object_name}'
