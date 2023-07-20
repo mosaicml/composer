@@ -137,7 +137,7 @@ class ObjectStore(abc.ABC):
         del object_name, filename, overwrite, callback  # unused
         raise NotImplementedError(f'{type(self).__name__}.download_object is not implemented')
 
-    def list_objects(self, prefix: str) -> List[str]:
+    def list_objects(self, prefix: Optional[str]) -> List[str]:
         """List all objects in the object store with the given prefix.
 
         Args:
