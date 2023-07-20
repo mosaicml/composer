@@ -188,4 +188,6 @@ class S3ObjectStore(ObjectStore):
 
         paginator = self.client.get_paginator('list_objects_v2')
         pages = paginator.paginate(Bucket=self.bucket, Prefix=prefix)
+        if 'Contents' not in pages:
+            return []
         return [obj['Key'] for page in pages for obj in page['Contents']]
