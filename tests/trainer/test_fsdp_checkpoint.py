@@ -211,7 +211,6 @@ def _compare_metrics_between_state_dicts(state_dict1, state_dict2):
 
     for metric1, metric2 in zip(state_dict1_eval_metrics.values(), state_dict2_eval_metrics.values()):
         metric1['_computed'] == metric2['_computed']
-    
 
 
 def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
