@@ -20,6 +20,8 @@ from multiprocessing.context import SpawnProcess
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 from urllib.parse import urlparse
 
+import torch
+
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import (LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, OCIObjectStore, S3ObjectStore,
@@ -27,6 +29,7 @@ from composer.utils import (LibcloudObjectStore, ObjectStore, ObjectStoreTransie
 
 if TYPE_CHECKING:
     from composer.core import State
+    from composer.devices import Device
 
 log = logging.getLogger(__name__)
 
@@ -441,15 +444,15 @@ class RemoteUploaderDownloader(LoggerDestination):
                  progress_bar=progress_bar)
 
     def fit_end(self, state: State, logger: Logger):
-        self.wait_for_workers()
+        self.wait_for_workers(state.device)
 
     def eval_end(self, state: State, logger: Logger):
-        self.wait_for_workers()
+        self.wait_for_workers(state.device)
 
     def predict_end(self, state: State, logger: Logger):
-        self.wait_for_workers()
+        self.wait_for_workers(state.device)
 
-    def wait_for_workers(self):
+    def wait_for_workers(self, device: Device):
         """Wait for all tasks to be completed.
 
         This is called after fit/eval/predict. If we don't wait, then a worker might not schedule
@@ -463,9 +466,21 @@ class RemoteUploaderDownloader(LoggerDestination):
                 if len(self._logged_objects) == 0:
                     break
             time.sleep(0.2)  # Yield lock for enqueue thread
+
         # Verify all tasks have been completed unless a worker threw an exception
-        while not self._file_upload_queue.empty() and self._exception_queue.empty():
-            time.sleep(0.2)
+        all_ranks_upload_done_tensor = device.tensor_to_device(
+            torch.tensor([int(not self._file_upload_queue.empty() and self._exception_queue.empty())],
+                         dtype=torch.uint8))
+        dist.all_reduce(all_ranks_upload_done_tensor, reduce_operation='MAX')
+        upload_not_done = all_ranks_upload_done_tensor.item() == 1
+        while upload_not_done:
+            time.sleep(2)
+            all_ranks_upload_done_tensor = device.tensor_to_device(
+                torch.tensor([int(not self._file_upload_queue.empty() and self._exception_queue.empty())],
+                             dtype=torch.uint8))
+            dist.all_reduce(all_ranks_upload_done_tensor, reduce_operation='MAX')
+            upload_not_done = all_ranks_upload_done_tensor.item() == 1
+
         if not self._exception_queue.empty():
             e = self._exception_queue.get_nowait()
             raise e
