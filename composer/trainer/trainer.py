@@ -656,7 +656,7 @@ class Trainer:
 
             Example 1: ``load_exclude_algorithms = ["BlurPool"]`` would exclude BlurPool from loading.
 
-            Example 2: ``load_exclude_algorithms = ["FusedLayerNorm", "Alibi"]`` would exclude FusedLayerNorm and Alibi from loading.
+            Example 2: ``load_exclude_algorithms = ["LowPrecisionLayerNorm", "Alibi"]`` would exclude LowPrecisionLayerNorm and Alibi from loading.
 
             (default: ``None``)
         load_fsdp_monolith_rank0_only (bool, optional): If ``True``, when loading a monolith (non-sharded) checkpoint

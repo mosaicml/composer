@@ -87,15 +87,6 @@
    Factorize GEMMs into smaller GEMMs
 
    ---
-   .. link-button:: fused_layernorm.html
-      :text: FusedLayerNorm
-      :classes: card-title
-
-   :badge:`NLP,badge-success`
-   ++++++++++++++
-   Fuses underlying LayerNorm kernels into single kernel
-
-   ---
    .. link-button:: gated_linear_units.html
       :text: GatedLinearUnits
       :classes: card-title
@@ -163,7 +154,7 @@
       :text: LowPrecisionLayerNorm
       :classes: card-title
 
-   :badge:`NLP,badge-primary` :badge:`CV,badge-success`
+   :badge:`NLP,badge-success`
    ++++++++++++++
    Forces LayerNorm to run in lower precision.
 

@@ -190,7 +190,7 @@ def load_checkpoint(
 
             Example 1: ``exclude_algorithms = ["BlurPool"]`` would exclude BlurPool from loading.
 
-            Example 2: ``exclude_algorithms = ["FusedLayerNorm", "Alibi"]`` would exclude FusedLayerNorm and Alibi from loading.
+            Example 2: ``exclude_algorithms = ["LowPrecisionLayerNorm", "Alibi"]`` would exclude LowPrecisionLayerNorm and Alibi from loading.
 
             (default: ``None``)
         algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
