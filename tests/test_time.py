@@ -12,7 +12,10 @@ from composer.core.time import Time, Timestamp, TimeUnit
     ['1ep', 1, TimeUnit.EPOCH],
     ['2ba', 2, TimeUnit.BATCH],
     ['3e10sp', 3 * 10**10, TimeUnit.SAMPLE],
+    ['3_0e10sp', 30 * 10**10, TimeUnit.SAMPLE],
     ['4tok', 4, TimeUnit.TOKEN],
+    ['4_000tok', 4000, TimeUnit.TOKEN],
+    ['4_00_0tok', 4000, TimeUnit.TOKEN],
     ['0.5dur', 0.5, TimeUnit.DURATION],
 ])
 def test_time_parse(time_string: str, expected_value: int, expected_unit: TimeUnit):
