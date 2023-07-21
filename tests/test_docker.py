@@ -14,4 +14,3 @@ class TestDocker:
 
     def test_pillow_simd(self):
         assert 'post' in PIL.__version__, 'pillow-simd is not installed'
-

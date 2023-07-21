@@ -17,11 +17,10 @@ import composer
 import composer.algorithms
 from composer import Algorithm
 from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
-                                 Factorize, GatedLinearUnits, GhostBatchNorm, GradientClipping,
-                                 GyroDropout, LabelSmoothing, LayerFreezing, LowPrecisionGroupNorm,
-                                 LowPrecisionLayerNorm, MixUp, NoOpModel, ProgressiveResizing, RandAugment,
-                                 SelectiveBackprop, SeqLengthWarmup, SqueezeExcite, StochasticDepth,
-                                 WeightStandardization)
+                                 Factorize, GatedLinearUnits, GhostBatchNorm, GradientClipping, GyroDropout,
+                                 LabelSmoothing, LayerFreezing, LowPrecisionGroupNorm, LowPrecisionLayerNorm, MixUp,
+                                 NoOpModel, ProgressiveResizing, RandAugment, SelectiveBackprop, SeqLengthWarmup,
+                                 SqueezeExcite, StochasticDepth, WeightStandardization)
 from composer.models import composer_resnet
 from composer.models.base import ComposerModel
 from composer.utils import dist
