@@ -44,12 +44,8 @@ class TimeUnit(StringEnum):
     DURATION = 'dur'
 
 
-# regex for parsing integers / decimals / scientific notation
-_NUM_REGEX = r'.+'
-
-# regex for parsing a time string.
-_TIME_STR_REGEX = re.compile(r'^(' + fr'{_NUM_REGEX}' + ')(' +
-                             r'|'.join([fr'{time_unit.value}' for time_unit in TimeUnit]) + r')$',
+# regex for parsing time string, matches timeunit and chars prior to unit is value
+_TIME_STR_REGEX = re.compile(r'^(.+)(' + r'|'.join([fr'{time_unit.value}' for time_unit in TimeUnit]) + r')$',
                              flags=re.IGNORECASE)
 
 TValue = TypeVar('TValue', int, float)
