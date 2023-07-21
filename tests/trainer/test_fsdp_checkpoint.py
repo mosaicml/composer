@@ -207,10 +207,10 @@ def _compare_metrics_between_state_dicts(state_dict1, state_dict2):
     state_dict1_eval_metrics = state_dict1['eval_metrics']
     state_dict2_eval_metrics = state_dict2['eval_metrics']
     for metric1, metric2 in zip(state_dict1_train_metrics.values(), state_dict2_train_metrics.values()):
-        metric1['_computed'] == metric2['_computed']
+        assert metric1['_computed'] == metric2['_computed']
 
     for metric1, metric2 in zip(state_dict1_eval_metrics.values(), state_dict2_eval_metrics.values()):
-        metric1['_computed'] == metric2['_computed']
+        assert metric1['_computed'] == metric2['_computed']
 
 
 def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
