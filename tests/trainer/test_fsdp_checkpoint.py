@@ -207,29 +207,11 @@ def _compare_metrics_between_state_dicts(state_dict1, state_dict2):
     state_dict1_eval_metrics = state_dict1['eval_metrics']
     state_dict2_eval_metrics = state_dict2['eval_metrics']
     for metric1, metric2 in zip(state_dict1_train_metrics.values(), state_dict2_train_metrics.values()):
-        es = []
-        try:
-            metric1['_computed'] == metric2['_computed']
-        except Exception as e:
-            es.append(e)
-        dist.barrier()
-        new_es = dist.all_gather_object((es[0] if len(es) > 0 else None))
-        new_es = [ne for ne in new_es if ne is not None]
-        if len(new_es) > 0:
-            e = new_es.pop()
-            raise e
+        metric1['_computed'] == metric2['_computed']
+
     for metric1, metric2 in zip(state_dict1_eval_metrics.values(), state_dict2_eval_metrics.values()):
-        es = []
-        try:
-            metric1['_computed'] == metric2['_computed']
-        except Exception as e:
-            es.append(e)
-        dist.barrier()
-        new_es = dist.all_gather_object((es[0] if len(es) > 0 else None))
-        new_es = [ne for ne in new_es if ne is not None]
-        if len(new_es) > 0:
-            e = new_es.pop()
-            raise e
+        metric1['_computed'] == metric2['_computed']
+    
 
 
 def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
@@ -249,9 +231,11 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
 def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresume: bool, precision: str, optimizer: str,
                                    load_fsdp_monolith_rank0_only: bool):
 
-    run_name = 'my-cool-run'
-
-    save_folder = dist.all_gather_object(str(tmp_path))[0]
+    if autoresume:
+        run_name = 'my-cool-autoresume-run'
+    else:
+        run_name = None
+    save_folder = tmp_path
     save_filename = 'rank{rank}.pt'
     trainer1 = get_trainer(
         save_folder=str(save_folder),
@@ -285,7 +269,6 @@ def test_fsdp_full_state_dict_load(world_size, tmp_path: pathlib.Path, autoresum
         _compare_model_params_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
         _compare_optims_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
         _compare_metrics_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
-
     # Continue to fit to make sure we can continue training.
     trainer2.fit()
     trainer2.close()
@@ -523,6 +506,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
 @pytest.mark.parametrize('sharding_strategy', ['FULL_SHARD'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.1'), reason='requires PyTorch 2.01 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:MosaicMLLogger is not in the state_dict.:UserWarning')
 def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool, precision: str,
                             sharding_strategy, s3_bucket, s3_read_only_prefix, num_shards: int):
     if state_dict_type == 'local' and using_torch_2():
