@@ -2750,10 +2750,10 @@ class Trainer:
 
             self.engine.run_event(Event.EVAL_START)
 
-            metrics = self._ensure_metrics_device_and_dtype(metrics)
-
             for _, metric in metrics.items():
                 metric.reset()
+
+            metrics = self._ensure_metrics_device_and_dtype(metrics)
 
             dataloader = self.state.dataloader
             dist_sampler = None
