@@ -44,7 +44,7 @@ class TimeUnit(StringEnum):
     DURATION = 'dur'
 
 
-# regex for parsing time string, matches timeunit and chars prior to unit is value
+# regex for parsing time string, matches timeunit and chars prior to unit as value
 _TIME_STR_REGEX = re.compile(r'^(.+)(' + r'|'.join([fr'{time_unit.value}' for time_unit in TimeUnit]) + r')$',
                              flags=re.IGNORECASE)
 
