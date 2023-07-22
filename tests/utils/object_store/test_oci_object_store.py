@@ -35,26 +35,6 @@ def test_oci_obj_store(mock_bucket_name, monkeypatch):
     return oci_os
 
 
-@pytest.fixture
-def test_oci_obj_store_with_prefix(mock_bucket_name, monkeypatch):
-    oci = pytest.importorskip('oci')
-
-    # Mock all the oci functions.
-    mock_config = MagicMock()
-    mock_from_file = MagicMock(return_value=mock_config)
-    monkeypatch.setattr(oci.config, 'from_file', mock_from_file)
-    mock_object_storage_client = MagicMock()
-    monkeypatch.setattr(oci.object_storage, 'ObjectStorageClient', mock_object_storage_client)
-    mock_upload_manager = MagicMock()
-    monkeypatch.setattr(oci.object_storage, 'UploadManager', mock_upload_manager)
-
-    # Create OCIObjectStore object.
-    oci_os = OCIObjectStore(mock_bucket_name, prefix='my_prefix')
-    mock_namespace = 'my_namespace'
-    oci_os.namespace = mock_namespace
-    return oci_os
-
-
 @pytest.mark.parametrize('result', ['success', 'bucket_not_found'])
 def test_upload_object(test_oci_obj_store, monkeypatch, tmp_path, mock_bucket_name, result: str):
     oci = pytest.importorskip('oci')
