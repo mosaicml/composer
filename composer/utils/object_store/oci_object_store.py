@@ -158,8 +158,9 @@ class OCIObjectStore(ObjectStore):
 
         object_names = []
         next_start_with = None
+        response_complete = False
         try:
-            while True:
+            while not response_complete:
                 response = self.client.list_objects(namespace_name=self.namespace,
                                                     bucket_name=self.bucket,
                                                     prefix=prefix,
@@ -167,7 +168,7 @@ class OCIObjectStore(ObjectStore):
                 object_names.extend([obj.name for obj in response.objects])
                 next_start_with = response.next_start_with
                 if not next_start_with:
-                    break
+                    response_complete = True
         except Exception as e:
             _reraise_oci_errors(self.get_uri(prefix), e)
 
