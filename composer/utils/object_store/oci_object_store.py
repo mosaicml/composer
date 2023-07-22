@@ -158,14 +158,17 @@ class OCIObjectStore(ObjectStore):
 
         object_names = []
         next_start_with = None
-        while True:
-            response = self.client.list_objects(namespace_name=self.namespace,
-                                                bucket_name=self.bucket,
-                                                prefix=self.prefix + prefix,
-                                                start=next_start_with).data
-            object_names.extend([obj.name for obj in response.objects])
-            next_start_with = response.next_start_with
-            if not next_start_with:
-                break
+        try:
+            while True:
+                response = self.client.list_objects(namespace_name=self.namespace,
+                                                    bucket_name=self.bucket,
+                                                    prefix=prefix,
+                                                    start=next_start_with).data
+                object_names.extend([obj.name for obj in response.objects])
+                next_start_with = response.next_start_with
+                if not next_start_with:
+                    break
+        except Exception as e:
+            _reraise_oci_errors(self.get_uri(prefix), e)
 
         return object_names
