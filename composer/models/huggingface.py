@@ -170,6 +170,9 @@ class HuggingFaceModel(ComposerModel):
                             for line in saved_content['content']:
                                 _tmp_file.write(line)
                                 _tmp_file.write('\n')
+                    elif saved_content['file_extension'] == '.py':
+                        with open(tokenizer_file_path, 'w') as _tmp_file:
+                            _tmp_file.write(saved_content['content'])
                     elif saved_content['file_extension'] == '.model':
                         try:
                             import sentencepiece as spm
@@ -180,6 +183,7 @@ class HuggingFaceModel(ComposerModel):
                         s.load_from_serialized_proto(saved_content['content'])
                         with open(tokenizer_file_path, 'wb') as _tmp_file:
                             _tmp_file.write(s.serialized_model_proto())
+
                 hf_tokenizer = transformers.AutoTokenizer.from_pretrained(_tmp_dir, trust_remote_code=True)
 
                 # we need to set the name_or_path back because otherwise it is the tmp dir we are loading from here
