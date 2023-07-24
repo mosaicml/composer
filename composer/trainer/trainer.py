@@ -974,15 +974,24 @@ class Trainer:
             reproducibility.configure_deterministic_mode()
 
         # Optimizers and Schedulers
-        if not optimizers:
-            optimizers = DecoupledSGDW(model.parameters(), lr=0.1)
-            # hard-coding the optimizer in the warning, as repr(optimizers) would print an annoying, multi-line warning
-            warnings.warn(('No optimizer was specified. Defaulting to '
-                           f"{type(optimizers).__name__}(lr={optimizers.defaults['lr']})"))
+        if optimizers is None:
+            try:
+                optimizers = DecoupledSGDW(model.parameters(), lr=0.1)
+                # hard-coding the optimizer in the warning, as repr(optimizers) would print an annoying, multi-line warning
+                warnings.warn(('No optimizer was specified. Defaulting to '
+                               f"{type(optimizers).__name__}(lr={optimizers.defaults['lr']})"))
+            except ValueError as e:
+                if 'optimizer got an empty parameter list' in str(e):
+                    warnings.warn(
+                        'No optimizer was specified, and the model does not have parameters. Skipping auto-creating optimizer.'
+                    )
+                else:
+                    raise
 
-        num_optimizers = len(ensure_tuple(optimizers))
-        if num_optimizers != 1:
-            raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
+        if optimizers is not None:
+            num_optimizers = len(ensure_tuple(optimizers))
+            if num_optimizers != 1:
+                raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
 
         # Move the model and optimizers to the device
         if deepspeed_config is None and fsdp_config is None:
@@ -1687,6 +1696,13 @@ class Trainer:
             device_train_microbatch_size (int | str, optional): See :class:`.Trainer`.
             precision (Precision | str, optional): See :class:`.Trainer`.
         """
+        # Check Optimizer
+        if len(self.state.optimizers) == 0:
+            raise ValueError(f'No optimizer was specified when constructing the Trainer. As the '
+                             'model had no parameters, SGD was not created by default. This trainer '
+                             'object can only be used to evaluate or predict. Please specify a model '
+                             'with parameters and an optimizer for training.')
+
         # Train Dataloader
         if train_dataloader is not None:
             self._train_data_spec = ensure_data_spec(train_dataloader)

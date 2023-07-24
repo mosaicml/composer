@@ -38,6 +38,14 @@ jobs:
   configure-build-push:
     runs-on: ubuntu-latest
     steps:
+      - name: Maximize Build Space on Worker
+        uses: easimon/maximize-build-space@v4
+        with:
+          overprovision-lvm: true
+          remove-dotnet: true
+          remove-android: true
+          remove-haskell: true
+
       - name: Checkout
         uses: actions/checkout@v3
 
