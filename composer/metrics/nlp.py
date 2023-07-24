@@ -2,8 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """A collection of common torchmetrics for NLP tasks."""
+
+import logging
+import os
 import re
 import string
+import warnings
 from typing import Any, Dict, List, Mapping, Union
 
 import torch
@@ -11,10 +15,15 @@ from torch import Tensor
 from torch.nn import functional as F
 from torchmetrics import Metric
 
+from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient
+
+log = logging.getLogger(__name__)
+
 __all__ = [
     'InContextLearningLMAccuracy',
     'InContextLearningMultipleChoiceAccuracy',
     'InContextLearningQAAccuracy',
+    'InContextLearningCodeEvalAccuracy',
     'BinaryF1Score',
     'LanguageCrossEntropy',
     'MaskedAccuracy',
@@ -479,3 +488,108 @@ class InContextLearningLMExpectedCalibrationError(InContextLearningExpectedCalib
                 self.bucket_correct[bucket_idx] += 1  # pyright: ignore [reportGeneralTypeIssues]
 
             self.bucket_totals[bucket_idx] += 1  # pyright: ignore [reportGeneralTypeIssues]
+
+
+class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
+    r"""Computes accuracy for In-context learning (ICL) code evaluation tasks.
+
+    ICL code eval tasks consist of some number of example code eval tasks (referred to as the 'context'), followed by a test task where the model must
+    complete the code, where we term the code completion a 'continuation'.
+
+    In each case, the model constructs a given number of continuations (termed pass@K for K continuations), and each continuation is run against a set of test cases. The model is considered
+    correct if at least one of the proposed continuations passes all the test cases.
+
+    Adds metric state variables:
+        correct (float): The number of instances where the predictions passed all the test cases.
+        total (float): The number of total instances that were predicted.
+
+    Args:
+        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
+            each forward() before returning the value at the step. Default: ``False``.
+    """
+
+    # Make torchmetrics call update only once
+    full_state_update = False
+
+    def __init__(self, dist_sync_on_step: bool = False):
+        # state from multiple processes
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.remote = 'CODE_EVAL_DEVICE' in os.environ and os.environ['CODE_EVAL_DEVICE'] != 'LOCAL'
+
+    def get_client(self) -> EvalClient:
+        """Returns a client for the appropriate remote platform."""
+        client = None
+        if not self.remote:
+            warnings.warn(
+                'Running code eval locally may be insecure. Please set environment variable CODE_EVAL_DEVICE '
+                'to LAMBDA to run on remote. To use Lambdas, spin up your instance that checks code, set the ARN as '
+                'CODE_EVAL_ARN and the region as CODE_EVAL_REGION.')
+            log.debug('Running code eval locally.')
+            client = LocalEvalClient()
+        elif os.environ['CODE_EVAL_DEVICE'] == 'LAMBDA':
+            client = LambdaEvalClient()
+
+        else:
+            raise Exception(
+                'Remote platforms apart from Lambdas are not yet supported. Please set environment variable '
+                'CODE_EVAL_DEVICE to LOCAL or LAMBDA.')
+        return client
+
+    def update(self, batch: Dict[str, Any], outputs: List[str], labels: List[str]):
+        """Updates the pass@k accuracy of code generation.
+
+        Given a batch of prompts, test cases, and code generations, evaluates the code generations
+        against the test cases and augments the pass@k accuracy of the batch to the values so far.
+
+        Args:
+            batch (Dict[str, Any]): A batch of data produced by the InContextLearningCodeEvalDataset, with
+            the prompt, test cases, and entry points. This will be a dictionary that must have the following
+            arguments:
+            {
+                'prompts': List[str],
+                'test_inputs': List[List[str]],
+                'test_outputs': List[List[str]],
+                'entry_points': List[str],
+                'generation_kwargs': Dict[str, Any]
+            }
+            outputs (List[str]): A list of code generations in the format of HF generate with beam search,
+            which is the a list of strings in groups of beam_size e.g. for beam size 2 and batch size 2, the list
+            will be of the format [prompt 1 gen 1, prompt 1 gen 2, prompt 2 gen 1, prompt 2 gen 2]
+            labels (List[str]): A list of the correct code generations, for compatibility with existing HF generate
+            functionalities. This is not used.
+        """
+        del labels  # never used
+        client = self.get_client()
+
+        num_beams = batch['generation_kwargs']['num_beams']
+        processed_outputs = [outputs[i * num_beams:(i + 1) * num_beams] for i in range(len(batch['prompts']))]
+        for sample_outputs, sample_prompt, test_inputs, test_outputs, entry_point in zip(
+                processed_outputs, batch['prompts'], batch['test_inputs'], batch['test_outputs'],
+                batch['entry_points']):
+            self.total += torch.tensor(1.0)
+            for code_gen in sample_outputs:
+                code_gen = re.split(r'\n[A-Za-z0-9#`]', code_gen)[0]  # remove everything after function ends
+                final_code = sample_prompt + code_gen  # combine prompt with the code generation
+                passes_all = True
+                for test_input, test_output in zip(test_inputs, test_outputs):
+                    payload = {
+                        'code': final_code,
+                        'input': test_input,
+                        'output': test_output,
+                        'entry_point': entry_point
+                    }
+                    if not client.invoke(payload):
+                        passes_all = False
+                        break
+
+                if passes_all:
+                    self.correct += torch.tensor(1.0)
+                    break
+        client.close()  # pyright: ignore [reportOptionalMemberAccess]
+
+    def compute(self):
+        assert isinstance(self.correct, Tensor)
+        assert isinstance(self.total, Tensor)
+        return self.correct / self.total

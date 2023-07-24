@@ -525,8 +525,9 @@ class Trainer:
         loggers (LoggerDestination | Sequence[LoggerDestination], optional): The destinations to log training information to.
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
-        run_name (str, optional): A name for this training run. If not specified, the timestamp will be combined with a
-            :doc:`coolname <coolname:index>`, e.g. ``1654298855-electric-zebra``.
+        run_name (str, optional): A name for this training run. If not specified, the env var
+            `COMPOSER_RUN_NAME` or `RUN_NAME` will be used if set. Otherwise, the timestamp will be
+            combined with a :doc:`coolname <coolname:index>`, e.g. ``1654298855-electric-zebra``.
         progress_bar (bool): Whether to show a progress bar. (default: ``True``)
         log_to_console (bool): Whether to print logging statements to the console. (default: ``False``)
         console_stream (TextIO | str, optional): The stream to write to. If a string, it can either be
@@ -997,6 +998,8 @@ class Trainer:
             optimizers = map_collection(optimizers, device.optimizer_to_device)
 
         # Run Name
+        run_name = os.getenv('COMPOSER_RUN_NAME', None) if run_name is None else run_name
+        run_name = os.getenv('RUN_NAME', None) if run_name is None else run_name
         if run_name is None:
             if autoresume:
                 raise ValueError('When autoresume=True, the `run_name` must be specified.')
@@ -1515,7 +1518,7 @@ class Trainer:
                                               load_progress_bar)
 
             signal_file_path = os.path.join(os.path.dirname(latest_checkpoint_path),
-                                            '.local_rank0_completed_autoresume')
+                                            f'.node_{dist.get_node_rank()}_local_rank0_completed_autoresume')
             if dist.get_local_rank() == 0:
                 os.makedirs(os.path.dirname(signal_file_path), exist_ok=True)
                 with open(signal_file_path, 'wb') as f:
