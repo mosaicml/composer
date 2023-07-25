@@ -249,6 +249,15 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
     tokenizer1.__dict__.pop('special_tokens_map_file', None)
     tokenizer2.__dict__.pop('special_tokens_map_file', None)
 
+    # The tokenizer name is changed in transformers 4.31 when changing the tokenizer mapping, so we remove it and compare
+    # if necessary. Checks whether the names are subsets of each other.
+    tokenizer1_name = tokenizer1.__dict__['init_kwargs'].get('auto_map', {}).get('AutoTokenizer', [None])[0]
+    tokenizer2_name = tokenizer2.__dict__['init_kwargs'].get('auto_map', {}).get('AutoTokenizer', [None])[0]
+    if tokenizer1_name is not None and tokenizer2_name is not None:
+        assert tokenizer1_name in tokenizer2_name or tokenizer2_name in tokenizer1_name
+    tokenizer1.__dict__['init_kwargs'].pop('auto_map', None)
+    tokenizer2.__dict__['init_kwargs'].pop('auto_map', None)
+
     assert tokenizer1.__dict__ == tokenizer2.__dict__
 
 
@@ -559,7 +568,6 @@ def test_hf_loading_sentencepiece_tokenizer(modify_tokenizer: bool, tmp_path: Pa
 @pytest.mark.parametrize('modify_tokenizer', [False, True])
 def test_hf_loading_tokenizer_with_python_file(modify_tokenizer: bool, tmp_path: Path, tiny_gpt2_model):
     transformers = pytest.importorskip('transformers')
-
     replit_tokenizer = transformers.AutoTokenizer.from_pretrained('replit/replit-code-v1-3b', trust_remote_code=True)
 
     if modify_tokenizer:
