@@ -471,11 +471,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                         overwrite=True,
                     )
 
-        if dist.get_global_rank() == 0 and state.fsdp_elastic_sharded_enabled:
-            assert metadata_local_file_path is not None
-            self.saved_checkpoints.append((saved_path, metadata_local_file_path))
-        else:
-            self.saved_checkpoints.append(saved_path)
+        self.saved_checkpoints.append(saved_path)
 
         if self.num_checkpoints_to_keep >= 0:
             self._rotate_checkpoints(sharding_enabled=state.fsdp_sharded_state_dict_enabled)
@@ -485,15 +481,9 @@ class CheckpointSaver(Callback):  # noqa: D101
         while len(self.saved_checkpoints) > self.num_checkpoints_to_keep:
             prefix_dir = None
             checkpoint = self.saved_checkpoints.pop(0)
-            # Rank 0 will have the rank 0 shard and the metadata file to delete
-            if isinstance(checkpoint, tuple):
-                checkpoint_file, metadata_file = checkpoint
-                os.remove(checkpoint_file)
-                os.remove(metadata_file)
-                prefix_dir = str(Path(checkpoint_file).parent)
-            else:
-                prefix_dir = str(Path(checkpoint).parent)
-                os.remove(checkpoint)
-            dist.barrier()
+            prefix_dir = str(Path(checkpoint).parent)
+            os.remove(checkpoint)
             if sharding_enabled and dist.get_global_rank() == 0:
+                metadata_file = os.path.join(prefix_dir, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME)
+                os.remove(metadata_file)
                 os.removedirs(prefix_dir)
