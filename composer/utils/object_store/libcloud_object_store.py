@@ -6,7 +6,7 @@ import io
 import os
 import pathlib
 import uuid
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from requests.exceptions import ConnectionError
 from urllib3.exceptions import ProtocolError
@@ -194,6 +194,12 @@ class LibcloudObjectStore(ObjectStore):
             os.replace(tmp_filepath, filename)
         else:
             os.rename(tmp_filepath, filename)
+
+    def list_objects(self, prefix: Optional[str] = None) -> List[str]:
+        if prefix is None:
+            prefix = ''
+
+        return [obj.name for obj in self._provider.list_container_objects(self._container, prefix=prefix)]
 
 
 def _file_to_iterator(f: io.IOBase, chunk_size: int):
