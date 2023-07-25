@@ -140,9 +140,9 @@ class HuggingFaceModel(ComposerModel):
         self.dummy_forward_called = False
 
     @staticmethod
-    def load_huggingface_tokenizer_from_saved_state(
-            hf_state: Dict[str, Any],
-            trust_remote_code: bool = False) -> Optional[transformers.PreTrainedTokenizer]:
+    def load_huggingface_tokenizer_from_saved_state(hf_state: Dict[str, Any],
+                                                    trust_remote_code: bool = False
+                                                   ) -> Optional[transformers.PreTrainedTokenizer]:
         """A helper function that loads a HuggingFace tokenizer from a loaded in hf state.
 
         Args:
