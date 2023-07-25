@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
+from typing import Optional
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -122,6 +123,50 @@ def test_download_object(test_oci_obj_store, monkeypatch, tmp_path, mock_bucket_
                     f'Bucket specified in oci://{mock_bucket_name}/{mock_object_name} not found. {bucket_not_found_msg}'
             ):
                 oci_os.download_object(mock_object_name, filename=file_to_download_to)
+
+
+@pytest.mark.parametrize('result', ['success', 'bucket_not_found'])
+@pytest.mark.parametrize('prefix', [None, 'my_prefix', 'my_prefix/'])
+def test_list_objects(test_oci_obj_store, mock_bucket_name, monkeypatch, result: str, prefix: Optional[str]):
+    oci = pytest.importorskip('oci')
+    oci_os = test_oci_obj_store
+    mock_object_names = ['my_object', 'my_prefix/my_object', 'my_prefix/another_object']
+    mock_object_size = 11
+    mock_response = MagicMock()
+
+    class DummyObject:
+
+        def __init__(self, name: str, size: int):
+            self.name = name
+            self.size = size
+
+    mock_response.data.objects = [
+        DummyObject(name=mock_object_name, size=mock_object_size)
+        for mock_object_name in mock_object_names
+        if mock_object_name.startswith(prefix if prefix is not None else '')
+    ]
+    mock_response.data.next_start_with = None
+    mock_list_objects_fn = MagicMock(return_value=mock_response)
+
+    if result == 'success':
+        with monkeypatch.context() as m:
+            m.setattr(oci_os.client, 'list_objects', mock_list_objects_fn)
+            assert oci_os.list_objects(prefix=prefix) == [
+                mock_object_name for mock_object_name in mock_object_names
+                if mock_object_name.startswith(prefix if prefix is not None else '')
+            ]
+    elif result == 'bucket_not_found':
+        bucket_not_found_msg = f'Either the bucket named {mock_bucket_name} does not exist in the namespace*'
+        mock_list_objects_fn_with_exception = Mock(side_effect=oci.exceptions.ServiceError(
+            status=404, code='BucketNotFound', headers={'opc-request-id': 'foo'}, message=bucket_not_found_msg))
+        with monkeypatch.context() as m:
+            m.setattr(oci_os.client, 'list_objects', mock_list_objects_fn_with_exception)
+            with pytest.raises(
+                    ValueError,
+                    match=
+                    f'Bucket specified in oci://{mock_bucket_name}/{prefix if prefix is not None else ""} not found. {bucket_not_found_msg}'
+            ):
+                oci_os.list_objects(prefix=prefix)
 
 
 @pytest.mark.parametrize('result', ['success', 'obj_not_found', 'bucket_not_found'])
