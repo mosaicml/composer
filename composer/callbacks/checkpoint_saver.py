@@ -484,6 +484,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             prefix_dir = str(Path(checkpoint).parent)
             os.remove(checkpoint)
             if sharding_enabled and dist.get_global_rank() == 0:
-                metadata_file = os.path.join(prefix_dir, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME)
-                os.remove(metadata_file)
+                if using_torch_2():
+                    metadata_file = os.path.join(prefix_dir, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME)
+                    os.remove(metadata_file)
                 os.removedirs(prefix_dir)
