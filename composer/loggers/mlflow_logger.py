@@ -26,7 +26,7 @@ class MLFlowLogger(LoggerDestination):
         experiment_name: (str, optional): MLFLow experiment name. If not set it will be
             use the MLFLOW environment variable or a default value
         run_name: (str, optional): MLFlow run name. If not set it will be the same as the
-            logger run name
+            Trainer run name
         tracking_uri (str | pathlib.Path, optional): MLFlow tracking uri, the URI to the
             remote or local endpoint where logs are stored (If none it is set to MLFlow default)
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process
