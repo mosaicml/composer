@@ -414,7 +414,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
                                           s3_ephemeral_prefix, request):
     if weights_only and autoresume:
         pytest.xfail('Weights only with autoresume is not supported')
-    if state_dict_type == 'local':
+    if state_dict_type == 'local' and using_torch_2():
         pytest.xfail(
             'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info'
         )
@@ -508,7 +508,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
 @pytest.mark.filterwarnings(r'ignore:MosaicMLLogger is not in the state_dict.:UserWarning')
 def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool, precision: str,
                             sharding_strategy, s3_bucket, s3_read_only_prefix, num_shards: int):
-    if state_dict_type == 'local':
+    if state_dict_type == 'local' and using_torch_2():
         pytest.xfail(
             'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info'
         )
@@ -589,7 +589,7 @@ def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type:
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool):
-    if state_dict_type == 'local':
+    if state_dict_type == 'local' and using_torch_2():
         pytest.xfail(
             'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info'
         )
@@ -644,7 +644,7 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 def test_cleanup_sharded_checkpoints(world_size, tmp_path: pathlib.Path, state_dict_type: str, num_ckpts_to_keep: int,
                                      batches_to_train: int, s3_bucket, s3_ephemeral_prefix, request):
-    if state_dict_type == 'local':
+    if state_dict_type == 'local' and using_torch_2():
         pytest.xfail(
             'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info'
         )
