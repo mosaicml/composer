@@ -250,7 +250,7 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
     tokenizer2.__dict__.pop('special_tokens_map_file', None)
 
     # The tokenizer name is changed in transformers 4.31 when changing the tokenizer mapping, so we remove it and compare
-    # if necessary.
+    # if necessary. Checks whether the names are subsets of each other.
     tokenizer1_name = tokenizer1.__dict__['init_kwargs'].get('auto_map', {}).get('AutoTokenizer', [None])[0]
     tokenizer2_name = tokenizer2.__dict__['init_kwargs'].get('auto_map', {}).get('AutoTokenizer', [None])[0]
     if tokenizer1_name is not None and tokenizer2_name is not None:
