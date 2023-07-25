@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import pathlib
 import uuid
-from typing import Callable, Optional, Union
+from typing import Callable, List, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
@@ -148,3 +148,28 @@ class OCIObjectStore(ObjectStore):
             os.replace(tmp_path, filename)
         else:
             os.rename(tmp_path, filename)
+
+    def list_objects(self, prefix: Optional[str] = None) -> List[str]:
+        if prefix is None:
+            prefix = ''
+
+        if self.prefix:
+            prefix = f'{self.prefix}{prefix}'
+
+        object_names = []
+        next_start_with = None
+        response_complete = False
+        try:
+            while not response_complete:
+                response = self.client.list_objects(namespace_name=self.namespace,
+                                                    bucket_name=self.bucket,
+                                                    prefix=prefix,
+                                                    start=next_start_with).data
+                object_names.extend([obj.name for obj in response.objects])
+                next_start_with = response.next_start_with
+                if not next_start_with:
+                    response_complete = True
+        except Exception as e:
+            _reraise_oci_errors(self.get_uri(prefix), e)
+
+        return object_names

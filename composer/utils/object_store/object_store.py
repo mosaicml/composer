@@ -6,7 +6,7 @@
 import abc
 import pathlib
 from types import TracebackType
-from typing import Callable, Optional, Type, Union
+from typing import Callable, List, Optional, Type, Union
 
 __all__ = ['ObjectStore', 'ObjectStoreTransientError']
 
@@ -136,6 +136,18 @@ class ObjectStore(abc.ABC):
         """
         del object_name, filename, overwrite, callback  # unused
         raise NotImplementedError(f'{type(self).__name__}.download_object is not implemented')
+
+    def list_objects(self, prefix: Optional[str]) -> List[str]:
+        """List all objects in the object store with the given prefix.
+
+        Args:
+            prefix (str): The prefix to search for.
+
+        Returns:
+            list[str]: A list of object names that match the prefix.
+        """
+        del prefix  # unused
+        raise NotImplementedError(f'{type(self).__name__}.list_objects is not implemented')
 
     def close(self):
         """Close the object store."""
