@@ -1459,7 +1459,7 @@ class Trainer:
                              f'`compile_config` to `None`.')
 
     @property
-    def saved_checkpoints(self) -> List[Union[str, tuple]]:
+    def saved_checkpoints(self) -> List[str]:
         """Returns list of saved checkpoints.
 
         .. note::
