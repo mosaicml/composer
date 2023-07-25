@@ -272,9 +272,9 @@ class CheckpointSaver(Callback):  # noqa: D101
             remote file systems.
 
     Attributes:
-        saved_checkpoints (List[Tuple[Timestamp, List[pathlib.Path]]]): The checkpoint timestamps and filepaths.
+        saved_checkpoints (List[str]): The checkpoint filepaths.
 
-            This list contains tuples of the save timestamp and the checkpoint filepaths.
+            This list contains the checkpoint filepaths.
             This list will have at most ``num_checkpoints_to_keep`` entries. The latest checkpoint
             will be at the end.
 
@@ -320,7 +320,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.latest_remote_file_name = PartialFilePath(latest_remote_file_name) if latest_remote_file_name else None
 
         self.overwrite = overwrite
-        self.saved_checkpoints: List[Union[str, tuple]] = []
+        self.saved_checkpoints: List[str] = []
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
         self.weights_only = weights_only
 
