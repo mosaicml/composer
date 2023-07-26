@@ -533,7 +533,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
                 'CODE_EVAL_URL and the API key as CODE_EVAL_APIKEY.')
             log.debug('Running code eval locally.')
             client = LocalEvalClient()
-        elif os.environ['CODE_EVAL_DEVICE'] == 'LAMBDA':
+        elif os.environ['CODE_EVAL_DEVICE'].upper() == 'LAMBDA':
             client = LambdaEvalClient()
 
         else:
