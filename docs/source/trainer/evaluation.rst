@@ -93,4 +93,23 @@ To set up secure, sandboxed code evaluation, Composer uses AWS Lambda functions.
         'entry_point': # insert entry point here
     }
 
-Note that ``entry_point`` denotes the name of the function to execute. The Lambda function should return a JSON object with ``statusCode`` 200 
+Note that ``entry_point`` denotes the name of the function to execute. The Lambda function should return a JSON object with ``statusCode`` 200 if and only if the code runs properly and produces the desired output on the provided input. A skeleton for the basic Lambda code format is provided below:
+
+.. code:: python
+
+    def lambda_handler(event,context):
+        code:str = event['code']
+        test_input:str = event['input']
+        test_output:str = event['output']
+        entry_point:str = event['entry_point']
+        try:
+            exec(...) # compile the code
+            result = ... # evaluate the code
+            expected_result = ... # evaluate the output
+        ... # error management code
+            
+        response = ... if expected_result == result else ... # parse the output to create the response
+        
+        return response
+
+After creating this Lambda function, an API gateway must be created that takes the 
