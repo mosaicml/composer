@@ -1109,8 +1109,10 @@ class Trainer:
         latest_remote_file_name = None
         if save_folder is not None:
             if save_weights_only and not save_weights_and_metadata_only:
-                warnings.warn("save_weights_only=True only saves weights for now, but will changed to also save metadata and integrations in the future.")
-            
+                warnings.warn(
+                    'save_weights_only=True only saves weights for now, but will changed to also save metadata and integrations in the future.'
+                )
+
             _, _, parsed_save_folder = parse_uri(save_folder)
 
             # If user passes a URI with s3:// and a bucket_name, but no other
