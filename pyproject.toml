@@ -29,10 +29,6 @@ exclude = [
     "node_modules/**",
 ]
 
-[tool.ruff.per-file-ignores]
-"__init__.py" = ["E402"]
-"__main__.py" = ["E402"]
-
 # Pyright
 [tool.pyright]
 include = [
