@@ -5,7 +5,6 @@ import pytest
 from composer.utils import LambdaEvalClient
 
 
-@pytest.mark.daily
 @pytest.mark.remote
 def test_lambda_invoke():
     """Test invocation function for LambdaEvalClient with code that succeeds, fails compilation, times out, and is incorrect.
