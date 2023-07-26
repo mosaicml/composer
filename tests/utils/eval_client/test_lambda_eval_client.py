@@ -1,8 +1,10 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 from composer.utils import LambdaEvalClient
+import pytest
 
-
+@pytest.mark.daily
+@pytest.mark.remote
 def test_lambda_invoke():
     """Test invocation function for LambdaEvalClient with code that succeeds, fails compilation, times out, and is incorrect.
     """
