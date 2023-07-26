@@ -15,20 +15,20 @@ ARG BASE_IMAGE=${CUDA_VERSION:+"nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu2
 ARG BASE_IMAGE=${BASE_IMAGE:-"ubuntu:20.04"}
 
 # The Python version to install
-ARG PYTHON_VERSION=3.9
+ARG PYTHON_VERSION=3.10
 
 # The Pytorch Version to install
-ARG PYTORCH_VERSION=1.11.0
+ARG PYTORCH_VERSION=1.13.1
 
 # The Torchvision version to install.
 # Reference https://github.com/pytorch/vision#installation to determine the Torchvision
 # version that corresponds to the PyTorch version
-ARG TORCHVISION_VERSION=0.12.0
+ARG TORCHVISION_VERSION=0.14.1
 
 # The Torchtext version to install.
 # Reference https://github.com/pytorch/text#installation to determine the Torchtext
 # version that corresponds to the PyTorch version
-ARG TORCHTEXT_VERSION=0.12.0
+ARG TORCHTEXT_VERSION=0.14.1
 
 # In the Dockerimage, Pillow-SIMD is installed instead of Pillow. To trick pip into thinking that
 # Pillow is also installed (so it won't override it with a future pip install), a Pillow stub is included
@@ -231,6 +231,7 @@ ARG AWS_OFI_NCCL_VERSION
 
 ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:$LD_LIBRARY_PATH
 ENV PATH=/opt/amazon/openmpi/bin/:/opt/amazon/efa/bin:$PATH
+ENV FI_EFA_USE_DEVICE_RDMA=1
 
 RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
         cd /tmp && \
@@ -276,6 +277,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         cd /tmp/apex && \
         git clone https://github.com/NVIDIA/apex && \
         cd apex && \
+        git checkout 82ee367f3da74b4cd62a1fb47aa9806f0f47b58b && \
         pip${PYTHON_VERSION} install --no-cache-dir -r requirements.txt && \
         pip${PYTHON_VERSION} install --no-cache-dir \
             --global-option="--cpp_ext" \
@@ -289,8 +291,13 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
 # Install Flash Attention
 ##########################
 RUN if [ -n "$CUDA_VERSION" ] ; then \
-        pip${PYTHON_VERSION} install --no-cache-dir flash-attn==0.2.8; \
+        pip${PYTHON_VERSION} install --no-cache-dir flash-attn==1.0.3.post0; \
     fi
+
+###############
+# Install cmake
+###############
+RUN pip${PYTHON_VERSION} install --no-cache-dir cmake==3.26.3
 
 ###########################
 # Install Pandoc Dependency
@@ -381,7 +388,7 @@ ARG CUDA_VERSION
 RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
     MMCV_TORCH_VERSION=$(python -c "print('torch' + ''.join('${PYTORCH_VERSION}'.split('.')[:2]) + '.0')") && \
     sudo pip${PYTHON_VERSION} install --no-cache-dir \
-        "https://github.com/libffcv/ffcv/archive/f9726ce2be6c36d57ed596b94e1e855131f0d732.zip" \
+        "ffcv<1.0.3" \
         "opencv-python${OPENCV_VERSION}" \
         "numba${NUMBA_VERSION}" \
         "mmsegmentation${MMSEGMENTATION_VERSION}" && \
@@ -389,7 +396,7 @@ RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_
         "mmcv-full${MMCV_VERSION}" \
         -f https://download.openmmlab.com/mmcv/dist/${CUDA_VERSION_TAG}/${MMCV_TORCH_VERSION}/index.html && \
     if [ -n "$CUDA_VERSION" ] ; then \
-        sudo pip${PYTHON_VERSION} install --no-cache-dir cupy-`echo ${CUDA_VERSION_TAG} | sed "s/cu/cuda/g"`${CUPY_VERSION}; \
+        sudo pip${PYTHON_VERSION} install --no-cache-dir cupy-cuda11x${CUPY_VERSION}; \
     fi
 
 

@@ -2,6 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """A collection of common torchmetrics for NLP tasks."""
+
+import logging
+import os
 import re
 import string
 import warnings
@@ -12,13 +15,25 @@ from torch import Tensor
 from torch.nn import functional as F
 from torchmetrics import Metric
 
-from composer.loss import soft_cross_entropy
+from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient
+
+log = logging.getLogger(__name__)
 
 __all__ = [
     'Perplexity', 'InContextLearningLMAccuracy', 'InContextLearningMultipleChoiceAccuracy',
     'InContextLearningQAAccuracy', 'BinaryF1Score', 'HFCrossEntropy', 'LanguageCrossEntropy', 'MaskedAccuracy',
     'LanguagePerplexity', 'InContextLearningLMExpectedCalibrationError', 'InContextLearningMCExpectedCalibrationError',
     'InContextLearningCodeTracingFullPassRate', 'InContextLearningCodeTracingAveragePassRate'
+    'InContextLearningLMAccuracy',
+    'InContextLearningMultipleChoiceAccuracy',
+    'InContextLearningQAAccuracy',
+    'InContextLearningCodeEvalAccuracy',
+    'BinaryF1Score',
+    'LanguageCrossEntropy',
+    'MaskedAccuracy',
+    'LanguagePerplexity',
+    'InContextLearningLMExpectedCalibrationError',
+    'InContextLearningMCExpectedCalibrationError',
 ]
 
 
@@ -73,7 +88,6 @@ class LanguageCrossEntropy(Metric):
         total_items (float): The number of batches to average across.
 
     Args:
-        vocab_size (int): The size of the tokenizer vocabulary.
         dist_sync_on_step (bool, optional): Synchronize metric state across processes at
             each forward() before returning the value at the step. Default: ``False``.
         ignore_index (int, optional): The class index to ignore. Default: ``-100``.
@@ -82,14 +96,8 @@ class LanguageCrossEntropy(Metric):
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def __init__(self, vocab_size: Optional[int] = None, dist_sync_on_step: bool = False, ignore_index: int = -100):
+    def __init__(self, dist_sync_on_step: bool = False, ignore_index: int = -100):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
-
-        if vocab_size is not None:
-            warnings.warn(
-                DeprecationWarning(
-                    'The vocab_size argument is deprecated and will be removed in 0.15. It is no longer needed, because the correct shape of output and target is inferred based on the number of target elements.'
-                ))
 
         self.ignore_index = ignore_index
         self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=ignore_index, reduction='sum')
@@ -178,91 +186,6 @@ class BinaryF1Score(Metric):
         assert isinstance(self.false_negative, Tensor)
         f1 = (self.true_positive) / (self.true_positive + (0.5 * (self.false_negative + self.false_positive)))
         return f1
-
-
-class HFCrossEntropy(Metric):
-    """Hugging Face compatible cross entropy loss.
-
-    Adds metric state variables:
-        sum_loss (float): The sum of the per-example loss in the batch.
-        total_batches (float): The number of batches to average across.
-
-    Args:
-        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
-            each forward() before returning the value at the step. Default: ``False``
-    """
-
-    # Make torchmetrics call update only once
-    full_state_update = False
-
-    def __init__(self, dist_sync_on_step=False):
-        warnings.warn(
-            DeprecationWarning(
-                "'HFCrossEntropy' is deprecated and will be removed in 0.15. Please use `LanguageCrossEntropy' instead."
-            ))
-
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
-
-        self.add_state('sum_loss', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.add_state('total_batches', default=torch.tensor(0), dist_reduce_fx='sum')
-
-    def update(self, output: Union[Mapping, Tensor], target: Tensor) -> None:
-        """Updates the internal state with results from a new batch.
-
-        Args:
-            output (Mapping): The output from the model, which must contain
-                either the Tensor or a Mapping type that contains the loss or model logits.
-            target (~torch.Tensor): A Tensor of ground-truth values to compare against.
-        """
-        # if logit modification algorithms aren't on, we take the loss directly from the model output
-        if isinstance(output, Mapping) and 'loss' in output:
-            loss = output['loss']
-        else:
-            if isinstance(output, Mapping):
-                logits = output['logits']
-            # recompute the loss on our own
-            elif isinstance(output, Tensor):
-                logits = output
-            else:
-                raise Exception(f'Type {type(output)} for the output is unsupported.')
-
-            loss = soft_cross_entropy(logits, target)
-
-        # accumulate loss over all batches
-        self.sum_loss += loss
-
-        # Note: This is a slightly different reduction than LanguageCrossEntropy, because LanguageCrossEntropy
-        # uses 'sum' reduction in its update call
-        self.total_batches += 1  #type: ignore (third-party)
-
-    def compute(self) -> Tensor:
-        """Aggregate the state over all processes to compute the metric.
-
-        Returns:
-            loss: The loss averaged across all batches as a :class:`~torch.Tensor`.
-        """
-        # Return average loss over entire dataset
-        return self.sum_loss / self.total_batches  #type: ignore (third-party)
-
-
-class Perplexity(HFCrossEntropy):
-    """Subclasses :class:`~composer.metrics.nlp.HFCrossEntropy` to implement perplexity.
-
-    If an algorithm modifies the loss function and it is no longer directly provided in the output, then this could be
-    expensive because it'll compute the loss twice.
-    """
-
-    def __init__(self, dist_sync_on_step=False):
-        warnings.warn(
-            DeprecationWarning(
-                "'Perplexity' is deprecated and will be removed in 0.15. Please use `LanguagePerplexity' instead."))
-
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
-
-    def compute(self) -> Tensor:
-        """Returns torch.exp() of the HFCrossEntropy."""
-        avg_loss = super().compute()
-        return torch.exp(avg_loss)
 
 
 class LanguagePerplexity(LanguageCrossEntropy):
@@ -621,3 +544,108 @@ class InContextLearningLMExpectedCalibrationError(InContextLearningExpectedCalib
                 self.bucket_correct[bucket_idx] += 1  # pyright: ignore [reportGeneralTypeIssues]
 
             self.bucket_totals[bucket_idx] += 1  # pyright: ignore [reportGeneralTypeIssues]
+
+
+class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
+    r"""Computes accuracy for In-context learning (ICL) code evaluation tasks.
+
+    ICL code eval tasks consist of some number of example code eval tasks (referred to as the 'context'), followed by a test task where the model must
+    complete the code, where we term the code completion a 'continuation'.
+
+    In each case, the model constructs a given number of continuations (termed pass@K for K continuations), and each continuation is run against a set of test cases. The model is considered
+    correct if at least one of the proposed continuations passes all the test cases.
+
+    Adds metric state variables:
+        correct (float): The number of instances where the predictions passed all the test cases.
+        total (float): The number of total instances that were predicted.
+
+    Args:
+        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
+            each forward() before returning the value at the step. Default: ``False``.
+    """
+
+    # Make torchmetrics call update only once
+    full_state_update = False
+
+    def __init__(self, dist_sync_on_step: bool = False):
+        # state from multiple processes
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.remote = 'CODE_EVAL_DEVICE' in os.environ and os.environ['CODE_EVAL_DEVICE'] != 'LOCAL'
+
+    def get_client(self) -> EvalClient:
+        """Returns a client for the appropriate remote platform."""
+        client = None
+        if not self.remote:
+            warnings.warn(
+                'Running code eval locally may be insecure. Please set environment variable CODE_EVAL_DEVICE '
+                'to LAMBDA to run on remote. To use Lambdas, spin up your instance that checks code, set the ARN as '
+                'CODE_EVAL_ARN and the region as CODE_EVAL_REGION.')
+            log.debug('Running code eval locally.')
+            client = LocalEvalClient()
+        elif os.environ['CODE_EVAL_DEVICE'] == 'LAMBDA':
+            client = LambdaEvalClient()
+
+        else:
+            raise Exception(
+                'Remote platforms apart from Lambdas are not yet supported. Please set environment variable '
+                'CODE_EVAL_DEVICE to LOCAL or LAMBDA.')
+        return client
+
+    def update(self, batch: Dict[str, Any], outputs: List[str], labels: List[str]):
+        """Updates the pass@k accuracy of code generation.
+
+        Given a batch of prompts, test cases, and code generations, evaluates the code generations
+        against the test cases and augments the pass@k accuracy of the batch to the values so far.
+
+        Args:
+            batch (Dict[str, Any]): A batch of data produced by the InContextLearningCodeEvalDataset, with
+            the prompt, test cases, and entry points. This will be a dictionary that must have the following
+            arguments:
+            {
+                'prompts': List[str],
+                'test_inputs': List[List[str]],
+                'test_outputs': List[List[str]],
+                'entry_points': List[str],
+                'generation_kwargs': Dict[str, Any]
+            }
+            outputs (List[str]): A list of code generations in the format of HF generate with beam search,
+            which is the a list of strings in groups of beam_size e.g. for beam size 2 and batch size 2, the list
+            will be of the format [prompt 1 gen 1, prompt 1 gen 2, prompt 2 gen 1, prompt 2 gen 2]
+            labels (List[str]): A list of the correct code generations, for compatibility with existing HF generate
+            functionalities. This is not used.
+        """
+        del labels  # never used
+        client = self.get_client()
+
+        num_beams = batch['generation_kwargs']['num_beams']
+        processed_outputs = [outputs[i * num_beams:(i + 1) * num_beams] for i in range(len(batch['prompts']))]
+        for sample_outputs, sample_prompt, test_inputs, test_outputs, entry_point in zip(
+                processed_outputs, batch['prompts'], batch['test_inputs'], batch['test_outputs'],
+                batch['entry_points']):
+            self.total += torch.tensor(1.0)
+            for code_gen in sample_outputs:
+                code_gen = re.split(r'\n[A-Za-z0-9#`]', code_gen)[0]  # remove everything after function ends
+                final_code = sample_prompt + code_gen  # combine prompt with the code generation
+                passes_all = True
+                for test_input, test_output in zip(test_inputs, test_outputs):
+                    payload = {
+                        'code': final_code,
+                        'input': test_input,
+                        'output': test_output,
+                        'entry_point': entry_point
+                    }
+                    if not client.invoke(payload):
+                        passes_all = False
+                        break
+
+                if passes_all:
+                    self.correct += torch.tensor(1.0)
+                    break
+        client.close()  # pyright: ignore [reportOptionalMemberAccess]
+
+    def compute(self):
+        assert isinstance(self.correct, Tensor)
+        assert isinstance(self.total, Tensor)
+        return self.correct / self.total

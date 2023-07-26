@@ -34,7 +34,7 @@
     <a href="https://docs.mosaicml.com/projects/composer/en/stable/">
         <img alt="Documentation" src="https://readthedocs.org/projects/composer/badge/?version=stable">
     </a>
-    <a href="https://join.slack.com/t/mosaicml-community/shared_invite/zt-w0tiddn9-WGTlRpfjcO9J5jyrMub1dg">
+    <a href="https://mosaicml.me/slack">
         <img alt="Chat @ Slack" src="https://img.shields.io/badge/slack-chat-2eb67d.svg?logo=slack">
     </a>
     <a href="https://github.com/mosaicml/composer/blob/dev/LICENSE">
@@ -193,9 +193,6 @@ They may optimize the [same part of the training process](https://en.wikipedia.o
 Determining which methods to compose together isn't as simple as assembling a set of methods that perform best individually.
 
 **We have come up with compositions of methods that work especially well together** through rigorous exploration of the design space of recipes and research on the science behind composition.
-The [MosaicML Explorer](https://app.mosaicml.com/) contains all of the data we have collected so far on composition, and it highlights the compositions of methods that are _pareto-optimal_ - that provide the **best possible tradeoffs between training time or cost and the quality of the trained model**.
-Whether you want to reach the same quality faster or get better quality within your current budget, Explorer can help you decide which speedup methods to use.
-We update this data regularly as we add new methods and develop better recipes.
 
 <p align="center">
 <img src="https://storage.googleapis.com/docs.mosaicml.com/images/methods/explorer.png"/>

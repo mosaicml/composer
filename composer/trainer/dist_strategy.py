@@ -7,7 +7,7 @@ import collections
 import logging
 import warnings
 from contextlib import contextmanager, nullcontext
-from typing import Any, Callable, ContextManager, Dict, Optional, Sequence, Union, cast
+from typing import Any, Callable, ContextManager, Dict, Iterator, List, Optional, Sequence, Tuple, Union, cast
 
 import torch
 from packaging import version
@@ -17,7 +17,7 @@ from torchmetrics import Metric, MetricCollection
 from composer.core import Precision, State
 from composer.devices import Device
 from composer.trainer.meta_safe_apply import meta_safe_apply
-from composer.utils import StringEnum, dist, ensure_tuple, using_torch_2_0
+from composer.utils import StringEnum, dist, ensure_tuple, using_torch_2
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module']
 
@@ -123,6 +123,73 @@ def prepare_ddp_module(module: torch.nn.Module, find_unused_parameters: bool) ->
                        'with distributed support.')
 
 
+def set_fsdp_default(fsdp_config: Dict[str, Any]):
+    """Modify fsdp_config to set default values for missing keys."""
+    fsdp_config.setdefault('activation_checkpointing', False)
+    fsdp_config.setdefault('activation_checkpointing_reentrant', True)
+    fsdp_config.setdefault('activation_cpu_offload', False)
+    fsdp_config.setdefault('backward_prefetch', 'BACKWARD_POST')
+    fsdp_config.setdefault('cpu_offload', False)
+    fsdp_config.setdefault('flatten_parameters', True)
+    fsdp_config.setdefault('forward_prefetch', False)
+    fsdp_config.setdefault('ignored_modules', None)
+    fsdp_config.setdefault('keep_low_precision_grads', False)
+    fsdp_config.setdefault('limit_all_gathers', False)
+    fsdp_config.setdefault('load_monolith_rank0_only', False)
+    fsdp_config.setdefault('mixed_precision', 'DEFAULT')
+    fsdp_config.setdefault('sharded_ckpt_prefix_dir', 'ep{epoch}-ba{batch}')
+    fsdp_config.setdefault('sharding_strategy', 'FULL_SHARD')
+    fsdp_config.setdefault('state_dict_type', 'full')
+    fsdp_config.setdefault('sync_module_states', False)
+    fsdp_config.setdefault('use_orig_params', True)
+    fsdp_config.setdefault('verbose', False)
+    return fsdp_config
+
+
+def _recreate_fsdp_param_groups_from_unwrapped_opt_info(
+        fsdp_wrapped_named_params: Iterator[Tuple[str,
+                                                  torch.nn.Parameter]], non_wrapped_param_names_to_group_num: Dict[str,
+                                                                                                                   int],
+        group_num_to_optimizer_info: Dict[int, Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Helper function to recreate optimizer groups for FSDP wrapped modules.
+
+    Optimizer param groups are formatted as:
+    [
+        {'params': [p1, p2], 'lr' : lr1}, # group 0
+        {'params': [p3], 'lr' : lr2} # group 1
+    ]
+    ie. there are multiple parameters per group. Here, we track the group number in order to map
+    multiple parameters to the same group
+
+    Args:
+        fsdp_wrapped_named_params: output of model.named_parameters() of an FSDP wrapped model
+        non_wrapped_param_names_to_group_num: a Dict mapping from the original model param names
+                                            to the param group number
+        group_num_to_optimizer_info: stores info like lr, eps for each group
+
+    Returns a list of param groups, referencing the fsdp parameters
+    """
+    is_torch_2_0 = using_torch_2()
+    if not is_torch_2_0:
+        raise RuntimeError('Helper function is only supported in torch 2.0')
+
+    from torch.distributed.fsdp._common_utils import clean_tensor_name
+
+    # initialize an empty list of parameters for each optimizer group
+    for group_num in group_num_to_optimizer_info.keys():
+        group_num_to_optimizer_info[group_num]['params'] = []
+
+    for fsdp_name, param in fsdp_wrapped_named_params:
+
+        unwrapped_name = clean_tensor_name(fsdp_name)
+        # need to have a 1:1 mapping between a fsdp param name and the non-wrapped vanilla param name
+        retrieved_group_num = non_wrapped_param_names_to_group_num[unwrapped_name]
+        group_num_to_optimizer_info[retrieved_group_num]['params'].append(param)
+
+    # return sorted optimizer info groups
+    return [group_num_to_optimizer_info[num] for num in sorted(group_num_to_optimizer_info.keys())]
+
+
 def prepare_fsdp_module(
     model: torch.nn.Module,
     optimizers: Optional[Union[torch.optim.Optimizer, Sequence[torch.optim.Optimizer]]],
@@ -143,7 +210,7 @@ def prepare_fsdp_module(
     """
     if version.parse(torch.__version__) < version.parse('1.13.0'):
         raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-    is_torch_2_0 = using_torch_2_0()
+    is_torch_2_0 = using_torch_2()
     from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (CheckpointImpl,
                                                                              apply_activation_checkpointing,
                                                                              checkpoint_wrapper)
@@ -153,6 +220,21 @@ def prepare_fsdp_module(
 
     from composer.trainer.mosaic_fsdp import (MosaicFullyShardedDataParallel, backward_prefetch_map, get_cpu_offload,
                                               get_mixed_precision, sharding_map)
+
+    set_fsdp_default(fsdp_config)
+
+    # Check sync_module_states is True for mixed initialization
+    if fsdp_config['sync_module_states'] == False:
+        rank_on_meta = 1 if next(model.parameters()).device.type == 'meta' else 0
+        all_ranks_meta = device.tensor_to_device(torch.tensor([rank_on_meta], dtype=torch.uint8))
+        dist.all_reduce(all_ranks_meta, reduce_operation='MIN')
+        any_ranks_meta = device.tensor_to_device(torch.tensor([rank_on_meta], dtype=torch.uint8))
+        dist.all_reduce(any_ranks_meta, reduce_operation='MAX')
+        if all_ranks_meta.item() == 0 and any_ranks_meta.item() == 1:
+            raise ValueError('Detected mixed initialization where some ranks have model on cpu or '
+                             'gpu and some ranks are on meta. Either keep all ranks on the same '
+                             "device or set fsdp_config['sync_module_states'] = True. Otherwise, "
+                             'some weights may be randomly initialized when loading a checkpoint.')
 
     # Check if other ranks OOMed after forward/backward pass when using auto microbatching. This
     # may happen when close to memory limit or with uneven memory usage across ranks. Since we
@@ -170,6 +252,22 @@ def prepare_fsdp_module(
         if found_cuda_oom == 1:
             raise RuntimeError('CUDA out of memory encountered on a different rank')
 
+    kwargs = {}
+    if is_torch_2_0:
+        # Support of new parameter `use_orig_params` in PyTorch 2.0 or higher.
+        # Setting this to `True` has FSDP use `module`'s original parameters via method
+        # `nn.Module.named_parameters` instead of FSDP's internal class `FlatParameter`. However,
+        # setting it to `False` exposes FSDP's internal class `FlatParameter` via method
+        # `nn.Module.named_parameters`.
+        # Setting it to `True` is mandatory when using `torch.compile()`.
+        kwargs['use_orig_params'] = fsdp_config['use_orig_params']
+
+    # necessary variables for optimizers with multiple param groups in FSDP
+    num_param_groups = None
+    param_name_to_group_num = None
+    group_num_to_param_group_info = None
+
+    optimizer_specific_info = None
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
         if len(optimizers_tuple) != 1:
@@ -178,16 +276,47 @@ def prepare_fsdp_module(
         # clearing optimizer param groups and state
         # that will be recreated at the end of prepare_fsdp_module
         optim = optimizers_tuple[0]
+
+        num_param_groups = len(optim.param_groups)
+        if num_param_groups > 1:
+            if not (is_torch_2_0 and kwargs['use_orig_params']):
+                raise RuntimeError('Multiple optimizer groups with FSDP are only supported on torch 2.0 \
+                                   with use_orig_params=True.')
+            # optimizer.param_groups do not contain parameter names which are needed
+            # to keep track of the different parameters in each group
+            # so we use the pointers between model.parameters() and model.named_parameters()
+            # to get the names of the parameters within optimizer.param_groups
+            param_pointer_to_param_name = {id(p): n for n, p in model.named_parameters()}
+            param_name_to_group_num = {}
+            group_num_to_param_group_info = {}
+            for group_num in range(len(optim.param_groups)):
+                # Need to in-line to avoid a reference which causes FSDP to allocate extra GPU memory
+                # group = optim.param_groups[group_num]
+                for param_num in range(len(optim.param_groups[group_num]['params'])):
+                    # Need to in-line to avoid a reference which causes FSDP to allocate extra GPU memory
+                    # param = optim.param_groups[group_num]['params'][param_num]
+                    param_name_to_group_num[param_pointer_to_param_name[id(
+                        optim.param_groups[group_num]['params'][param_num])]] = group_num
+
+                # this includes optimizer-specific values like lr, eps
+                # this will be used as the kwargs for the optim param groups later
+                optimizer_specific_group_info = {
+                    k: v for k, v in optim.param_groups[group_num].items() if k != 'params'
+                }
+                group_num_to_param_group_info[group_num] = optimizer_specific_group_info
+        else:
+            optimizer_specific_info = {k: v for k, v in optim.param_groups[0].items() if k != 'params'}
+
         optim.param_groups.clear()
         optim.state.clear()
 
-    sharding_map_key = fsdp_config.get('sharding_strategy', 'FULL_SHARD').upper()
+    sharding_map_key = fsdp_config['sharding_strategy'].upper()
     sharding_strategy = sharding_map[sharding_map_key]
 
-    cpu_offload = get_cpu_offload(cpu_offload=fsdp_config.get('cpu_offload', False))
+    cpu_offload = get_cpu_offload(cpu_offload=fsdp_config['cpu_offload'])
 
-    mixed_precision = fsdp_config.get('mixed_precision', 'DEFAULT')
-    keep_low_precision_grads = fsdp_config.get('keep_low_precision_grads', False)
+    mixed_precision = fsdp_config['mixed_precision']
+    keep_low_precision_grads = fsdp_config['keep_low_precision_grads']
     mixed_precision, param_dtype, _, _ = get_mixed_precision(precision,
                                                              mixed_precision=mixed_precision,
                                                              keep_low_precision_grads=keep_low_precision_grads)
@@ -212,26 +341,20 @@ def prepare_fsdp_module(
                 f'Consider using `amp` or `bf16` for precision or setting param_dtype in mixed_precision to `None` '
                 f'with sharding strategy `{sharding_map_key}.`')
 
-    backward_prefetch = backward_prefetch_map[fsdp_config.get('backward_prefetch', 'BACKWARD_POST').upper()]
-    min_params = int(float(fsdp_config.get('min_params', 1e9)))
-    activation_checkpointing = fsdp_config.get('activation_checkpointing', False)
-    activation_cpu_offload = fsdp_config.get('activation_cpu_offload', False)
-    sync_module_states = fsdp_config.get('sync_module_states', False)
-    forward_prefetch = fsdp_config.get('forward_prefetch', False)
-    limit_all_gathers = fsdp_config.get('limit_all_gathers', False)
-    ignored_modules = fsdp_config.get('ignored_modules', None)
-    state_dict_type = fsdp_config.get('state_dict_type', 'full')
-    activation_checkpointing_reentrant = fsdp_config.get('activation_checkpointing_reentrant', True)
+    if fsdp_config.get('min_params') is not None:
+        warnings.warn(DeprecationWarning('`min_params` in FSDP config will be deprecated in composer version 0.16.0.'))
 
-    kwargs = {}
-    if is_torch_2_0:
-        # Support of new parameter `use_orig_params` in PyTorch 2.0 or higher.
-        # Setting this to `True` has FSDP use `module`'s original parameters via method
-        # `nn.Module.named_parameters` instead of FSDP's internal class `FlatParameter`. However,
-        # setting it to `False` exposes FSDP's internal class `FlatParameter` via method
-        # `nn.Module.named_parameters`.
-        # Setting it to `True` is mandatory when using `torch.compile()`.
-        kwargs['use_orig_params'] = fsdp_config.get('use_orig_params', True)
+    backward_prefetch = backward_prefetch_map[fsdp_config['backward_prefetch'].upper()]
+    min_params = int(float(fsdp_config.get('min_params', 1e9)))
+    activation_checkpointing = fsdp_config['activation_checkpointing']
+    activation_cpu_offload = fsdp_config['activation_cpu_offload']
+    sync_module_states = fsdp_config['sync_module_states']
+    forward_prefetch = fsdp_config['forward_prefetch']
+    limit_all_gathers = fsdp_config['limit_all_gathers']
+    ignored_modules = fsdp_config['ignored_modules']
+    state_dict_type = fsdp_config['state_dict_type']
+    activation_checkpointing_reentrant = fsdp_config['activation_checkpointing_reentrant']
+    sharded_ckpt_prefix_dir = fsdp_config['sharded_ckpt_prefix_dir']
 
     # We choose to not wrap the ComposerModel directly, but instead wrap any submodules like `ComposerModel.model`
     # This makes it safer to call ComposerModel-specific functions like 'eval_forward' that
@@ -332,7 +455,7 @@ def prepare_fsdp_module(
 
                 if should_be_wrapped and auto_microbatching:
                     module.register_forward_hook(sync_hook)
-                    module.register_backward_hook(sync_hook)
+                    module.register_full_backward_hook(sync_hook)
                 return should_be_wrapped
 
             if is_torch_2_0:
@@ -407,7 +530,7 @@ def prepare_fsdp_module(
             setattr(model, obj_name, fsdp_obj)
 
     # Print FSDP wrapped model and FSDP config if `verbose=True`
-    if fsdp_config.get('verbose', False):
+    if fsdp_config['verbose']:
         print(f'FSDP: Wrapped Model:')
         print(model)
         print(f'FSDP: Using sharding_strategy={sharding_strategy}')
@@ -421,10 +544,25 @@ def prepare_fsdp_module(
         print(f'FSDP: Using forward_prefetch={forward_prefetch}')
         print(f'FSDP: Using limit_all_gathers={limit_all_gathers}')
         print(f'FSDP: Using state_dict_type={state_dict_type}')
+        print(f'FSDP: Using sharded_ckpt_prefix_dir={sharded_ckpt_prefix_dir}')
 
     # Rebuild optimizer now that parameters are sharded
     if optimizers:
         optimizers_tuple = ensure_tuple(optimizers)
         optim = optimizers_tuple[0]
         optim.param_groups.clear()
-        optim.add_param_group({'params': list(model.parameters())})
+
+        assert num_param_groups is not None
+        if num_param_groups > 1:
+            assert param_name_to_group_num is not None
+            assert group_num_to_param_group_info is not None
+
+            param_groups = _recreate_fsdp_param_groups_from_unwrapped_opt_info(model.named_parameters(),
+                                                                               param_name_to_group_num,
+                                                                               group_num_to_param_group_info)
+            for param_group in param_groups:
+                optim.add_param_group(param_group)
+        else:
+            assert optimizer_specific_info is not None
+            optimizer_specific_info.update({'params': list(model.parameters())})
+            optim.add_param_group(optimizer_specific_info)

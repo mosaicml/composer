@@ -104,6 +104,15 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
         pytest.skip('The CI does not support tpus')
     if notebook_name == 'ffcv_dataloaders' and device == 'cpu':
         pytest.skip('The FFCV notebook requires CUDA')
+    if notebook_name == 'ffcv_dataloaders' and device == 'gpu':
+        pytest.skip('CIFAR10 download is flaky')
+    if notebook_name == 'finetune_huggingface':
+        pytest.skip(
+            "Error that is unreproducible locally: ModuleNotFoundError: No module named 'transformers.models.ernie_m.configuration_ernie_m'"
+        )
+    if notebook_name == 'pretrain_finetune_huggingface':
+        pytest.skip(
+            "Error that is unreproducible locally: No module named 'transformers.models.mega.configuration_mega'")
     with testbook.testbook(notebook) as tb:
         tb.inject(trainer_monkeypatch_code)
         tb.inject('patch_notebooks()')

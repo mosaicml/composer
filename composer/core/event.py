@@ -47,15 +47,16 @@ class Event(StringEnum):
                     loss.backward()
                     # <AFTER_BACKWARD>
 
-                # Un-scale and clip gradients
+                # Un-scale gradients
 
                 # <AFTER_TRAIN_BATCH>
                 optimizer.step()
 
                 # <BATCH_END>
 
-                if should_eval(batch=True):
-                    for eval_dataloader in eval_dataloaders:
+                # <BEFORE_EVAL_ALL>
+                for eval_dataloader in eval_dataloaders:
+                    if should_eval(batch=True):
                         # <EVAL_START>
                         for batch in eval_dataloader:
                             # <EVAL_BATCH_START>
@@ -66,11 +67,14 @@ class Event(StringEnum):
                             # <EVAL_BATCH_END>
                         # <EVAL_END>
 
+                # <AFTER_EVAL_ALL>
+
                 # <BATCH_CHECKPOINT>
             # <EPOCH_END>
 
-            if should_eval(batch=False):
-                for eval_dataloader in eval_dataloaders:
+            # <BEFORE_EVAL_ALL>
+            for eval_dataloader in eval_dataloaders:
+                if should_eval(batch=True):
                     # <EVAL_START>
                     for batch in eval_dataloader:
                         # <EVAL_BATCH_START>
@@ -80,6 +84,8 @@ class Event(StringEnum):
                         metrics.update(outputs, targets)
                         # <EVAL_BATCH_END>
                     # <EVAL_END>
+
+            # <AFTER_EVAL_ALL>
 
             # <EPOCH_CHECKPOINT>
         # <FIT_END>
@@ -122,12 +128,14 @@ class Event(StringEnum):
             and flushing callbacks. Algorithms should not transform the training state on this event, as any changes will not
             be preserved in checkpoints.
 
+        EVAL_BEFORE_ALL: Before any evaluators process validation dataset.
         EVAL_START: Start of evaluation through the validation dataset.
         EVAL_BATCH_START: Before the call to ``model.eval_forward(batch)``
         EVAL_BEFORE_FORWARD: Before the call to ``model.eval_forward(batch)``
         EVAL_AFTER_FORWARD: After the call to ``model.eval_forward(batch)``
         EVAL_BATCH_END: After the call to ``model.eval_forward(batch)``
         EVAL_END: End of evaluation through the validation dataset.
+        EVAL_AFTER_ALL: After all evaluators process validation dataset.
     """
 
     INIT = 'init'
@@ -162,12 +170,14 @@ class Event(StringEnum):
 
     FIT_END = 'fit_end'
 
+    EVAL_BEFORE_ALL = 'eval_before_all'
     EVAL_START = 'eval_start'
     EVAL_BATCH_START = 'eval_batch_start'
     EVAL_BEFORE_FORWARD = 'eval_before_forward'
     EVAL_AFTER_FORWARD = 'eval_after_forward'
     EVAL_BATCH_END = 'eval_batch_end'
     EVAL_END = 'eval_end'
+    EVAL_AFTER_ALL = 'eval_after_all'
 
     PREDICT_START = 'predict_start'
     PREDICT_BATCH_START = 'predict_batch_start'
@@ -229,8 +239,9 @@ class Event(StringEnum):
 
 _BEFORE_EVENTS = (Event.FIT_START, Event.EPOCH_START, Event.BEFORE_DATALOADER, Event.BATCH_START,
                   Event.BEFORE_TRAIN_BATCH, Event.BEFORE_FORWARD, Event.BEFORE_LOSS, Event.BEFORE_BACKWARD,
-                  Event.EVAL_START, Event.EVAL_BATCH_START, Event.EVAL_BEFORE_FORWARD, Event.PREDICT_START,
-                  Event.PREDICT_BATCH_START, Event.PREDICT_BEFORE_FORWARD)
+                  Event.EVAL_BEFORE_ALL, Event.EVAL_START, Event.EVAL_BATCH_START, Event.EVAL_BEFORE_FORWARD,
+                  Event.PREDICT_START, Event.PREDICT_BATCH_START, Event.PREDICT_BEFORE_FORWARD)
 _AFTER_EVENTS = (Event.EPOCH_END, Event.BATCH_END, Event.AFTER_DATALOADER, Event.AFTER_TRAIN_BATCH, Event.AFTER_FORWARD,
-                 Event.AFTER_LOSS, Event.AFTER_BACKWARD, Event.EVAL_END, Event.EVAL_BATCH_END, Event.EVAL_AFTER_FORWARD,
-                 Event.FIT_END, Event.PREDICT_END, Event.PREDICT_BATCH_END, Event.PREDICT_AFTER_FORWARD)
+                 Event.AFTER_LOSS, Event.AFTER_BACKWARD, Event.EVAL_AFTER_ALL, Event.EVAL_END, Event.EVAL_BATCH_END,
+                 Event.EVAL_AFTER_FORWARD, Event.FIT_END, Event.PREDICT_END, Event.PREDICT_BATCH_END,
+                 Event.PREDICT_AFTER_FORWARD)

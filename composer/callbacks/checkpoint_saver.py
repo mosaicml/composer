@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
 import pathlib
 import tempfile
@@ -16,7 +17,7 @@ from composer.core import Callback, Event, State, Time, TimeUnit
 from composer.loggers import Logger
 from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, PartialFilePath,
                             checkpoint, create_symlink_file, dist, ensure_folder_has_no_conflicting_files,
-                            format_name_with_dist, is_model_deepspeed, reproducibility)
+                            format_name_with_dist, format_name_with_dist_and_time, is_model_deepspeed, reproducibility)
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +30,8 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
     Args:
         interval (Union[str, int, :class:`.Time`]): The interval describing how often checkpoints should be
             saved. If an integer, it will be assumed to be in :attr:`.TimeUnit.EPOCH`\s.
-            Otherwise, the unit must be either :attr:`.TimeUnit.EPOCH` or :attr:`.TimeUnit.BATCH`.
+            Otherwise, the unit must be either :attr:`.TimeUnit.EPOCH`, :attr:`.TimeUnit.BATCH`,
+            :attr:`.TimeUnit.TOKEN`, or :attr:`.TimeUnit.SAMPLE`.
 
             Checkpoints will be saved every ``n`` batches or epochs (depending on the unit),
             and at the end of training.
@@ -45,11 +47,12 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
 
     if interval.unit == TimeUnit.EPOCH:
         save_event = Event.EPOCH_CHECKPOINT
-    elif interval.unit == TimeUnit.BATCH:
+    elif interval.unit in {TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE}:
         save_event = Event.BATCH_CHECKPOINT
     else:
         raise NotImplementedError(
-            f'Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH or TimeUnit.BATCH.')
+            f'Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.'
+        )
 
     def save_interval(state: State, event: Event):
         elapsed_duration = state.get_elapsed_duration()
@@ -59,17 +62,21 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
         if elapsed_duration >= 1.0:
             return True
 
-        if save_event == Event.EPOCH_CHECKPOINT:
-            count = state.timestamp.epoch
-        elif save_event == Event.BATCH_CHECKPOINT:
-            count = state.timestamp.batch
+        # previous timestamp will only be None if training has not started, but we are returning False
+        # in this case, just to be safe
+        if state.previous_timestamp is None:
+            return False
+
+        if interval.unit in {TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE}:
+            previous_count = state.previous_timestamp.get(interval.unit)
+            count = state.timestamp.get(interval.unit)
         else:
-            raise RuntimeError(f'Invalid save_event: {save_event}')
+            raise NotImplementedError(
+                f'Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.'
+            )
 
-        if event == save_event and int(count) % int(interval) == 0:
-            return True
-
-        return False
+        threshold_passed = math.floor(previous_count / interval.value) != math.floor(count / interval.value)
+        return event == save_event and threshold_passed
 
     return save_interval
 
@@ -334,6 +341,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.start_batch = state.timestamp.batch
 
     def batch_checkpoint(self, state: State, logger: Logger):
+        assert callable(self.save_interval)
         if self.save_interval(state, Event.BATCH_CHECKPOINT) and self.last_checkpoint_batch != state.timestamp.batch:
             self._save_checkpoint(
                 state,
@@ -341,6 +349,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             )
 
     def epoch_checkpoint(self, state: State, logger: Logger):
+        assert callable(self.save_interval)
         if self.save_interval(state, Event.EPOCH_CHECKPOINT) and self.last_checkpoint_batch != state.timestamp.batch:
             self._save_checkpoint(
                 state,
@@ -370,35 +379,50 @@ class CheckpointSaver(Callback):  # noqa: D101
             raise ValueError(f'Save filename {self.filename.filename} must have {{rank}} for deepspeed.')
 
         # save the checkpoint to the filename
-        filename = self.filename.format(state, is_deepspeed)
+        filename_with_placeholders = self.filename.format(state, is_deepspeed, keep_placeholders=True)
 
         saved_path = checkpoint.save_checkpoint(
             state=state,
-            filename=filename,
+            filename=filename_with_placeholders,
             weights_only=self.weights_only,
         )
 
         if not saved_path:  # not all ranks save
             return
 
-        if self.latest_filename is not None:
+        if self.latest_filename is not None and self.num_checkpoints_to_keep != 0:
             symlink = self.latest_filename.format(state, is_deepspeed)
             os.makedirs(os.path.dirname(symlink), exist_ok=True)
             try:
                 os.remove(symlink)
             except FileNotFoundError:
                 pass
-            os.symlink(os.path.relpath(filename, os.path.dirname(symlink)), symlink)
+            os.symlink(os.path.relpath(saved_path, os.path.dirname(symlink)), symlink)
 
         # if remote file name provided, upload the checkpoint
         if self.remote_file_name is not None:
-            remote_file_name = self.remote_file_name.format(
-                state,
-                is_deepspeed,
-            ).lstrip('/')
+            if state.fsdp_sharded_state_dict_enabled:
+                remote_file_name = self.remote_file_name.format(
+                    state,
+                    is_deepspeed,
+                    keep_placeholders=True,
+                ).lstrip('/')
+                assert state.sharded_ckpt_prefix_dir is not None
+                remote_prefix = state.sharded_ckpt_prefix_dir
+                remote_file_name = os.path.join(
+                    pathlib.Path(remote_file_name).parent, remote_prefix,
+                    pathlib.Path(remote_file_name).name)
+                remote_file_name = format_name_with_dist_and_time(remote_file_name, state.run_name, state.timestamp)
+            else:
+                remote_file_name = self.remote_file_name.format(
+                    state,
+                    is_deepspeed,
+                ).lstrip('/')
 
-            logger.upload_file(remote_file_name=remote_file_name, file_path=filename, overwrite=self.overwrite)
+            log.debug(f'Uploading checkpoint to {remote_file_name}')
+            logger.upload_file(remote_file_name=remote_file_name, file_path=saved_path, overwrite=self.overwrite)
 
+            # symlinks stay the same with sharded checkpointing
             if self.latest_remote_file_name is not None:
                 symlink_name = self.latest_remote_file_name.format(
                     state,
@@ -415,7 +439,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                         overwrite=True,
                     )
 
-        self.saved_checkpoints.append(filename)
+        self.saved_checkpoints.append(saved_path)
 
         if self.num_checkpoints_to_keep >= 0:
             self._rotate_checkpoints()

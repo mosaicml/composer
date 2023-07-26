@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import collections.abc
-import math
 import textwrap
 import warnings
 from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
@@ -28,10 +27,7 @@ def _split_list(l, microbatch_size: int):
                       'As it is smaller, no splitting will be done. This may happen on the last batch '
                       'of a dataset if it is a smaller size than the microbatch size.')
         microbatch_size = len(l)
-    num_microbatches = math.ceil(len(l) / microbatch_size)
-    # Note: this is to match the behavior of tensor.chunk, which is used in _split_tensor
-    chunked_microbatch_size = math.ceil(len(l) / num_microbatches)
-    return [l[start:start + chunked_microbatch_size] for start in range(0, len(l), chunked_microbatch_size)]
+    return [l[start:start + microbatch_size] for start in range(0, len(l), microbatch_size)]
 
 
 def _split_tensor(t, microbatch_size: int):
@@ -40,8 +36,7 @@ def _split_tensor(t, microbatch_size: int):
                       'As it is smaller, no splitting will be done. This may happen on the last batch '
                       'of a dataset if it is a smaller size than the microbatch size.')
         microbatch_size = len(t)
-    num_microbatches = math.ceil(len(t) / microbatch_size)
-    return t.chunk(num_microbatches)
+    return t.split(microbatch_size)
 
 
 def _split_mapping(m, microbatch_size: int):

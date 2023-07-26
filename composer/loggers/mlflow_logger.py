@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 import pathlib
 from typing import Any, Dict, Optional, Union
 
@@ -15,15 +16,19 @@ from composer.utils import MissingConditionalImportError, dist
 
 __all__ = ['MLFlowLogger']
 
+DEFAULT_MLFLOW_EXPERIMENT_NAME = 'my-mlflow-experiment'
+
 
 class MLFlowLogger(LoggerDestination):
     """Log to `MLFlow <https://www.mlflow.org/docs/latest/index.html>`_.
 
     Args:
-        experiment_name: (str, optional): MLFLow experiment name,
-        run_name: (str, optional): MLFlow run name.
+        experiment_name: (str, optional): MLFLow experiment name. If not set it will be
+            use the MLFLOW environment variable or a default value
+        run_name: (str, optional): MLFlow run name. If not set it will be the same as the
+            Trainer run name
         tracking_uri (str | pathlib.Path, optional): MLFlow tracking uri, the URI to the
-            remote or local endpoint where logs are stored (If none it is set to `./mlruns`)
+            remote or local endpoint where logs are stored (If none it is set to MLFlow default)
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process
             (default: ``True``).
     """
@@ -53,7 +58,10 @@ class MLFlowLogger(LoggerDestination):
         import mlflow
         del logger  # unused
 
-        # Use the logger run name if the name is not set.
+        if self.experiment_name is None:
+            self.experiment_name = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,
+                                             DEFAULT_MLFLOW_EXPERIMENT_NAME)
+
         if self.run_name is None:
             self.run_name = state.run_name
 
@@ -61,14 +69,23 @@ class MLFlowLogger(LoggerDestination):
         if not self._rank_zero_only:
             self.run_name += f'-rank{dist.get_global_rank()}'
 
-        if self.experiment_name is None:
-            self.experiment_name = 'my-mlflow-experiment'
-
         if self._enabled:
             if self.tracking_uri is not None:
                 mlflow.set_tracking_uri(self.tracking_uri)
-            mlflow.set_experiment(self.experiment_name)
-            mlflow.start_run(run_name=self.run_name)
+
+            # set experiment
+            env_exp_id = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None)
+            if env_exp_id is not None:
+                mlflow.set_experiment(experiment_id=env_exp_id)
+            else:
+                mlflow.set_experiment(experiment_name=self.experiment_name)
+
+            # start run
+            env_run_id = os.getenv(mlflow.environment_variables.MLFLOW_RUN_ID.name, None)
+            if env_run_id is not None:
+                mlflow.start_run(run_id=env_run_id)
+            else:
+                mlflow.start_run(run_name=self.run_name)
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         import mlflow

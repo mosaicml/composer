@@ -95,9 +95,9 @@ def get_gpu_flops_available(state: State):
 
     # torch.cuda.get_device_name() ex output: 'NVIDIA A100-SXM4-40GB'
     device_name = torch.cuda.get_device_name().lower()
-    if 'h100-sxm' in device_name:
+    if 'h100' in device_name and 'hbm3' in device_name:
         device_name = 'h100-sxm'
-    elif 'h100-pcie' in device_name:
+    elif 'h100' in device_name and ('pcie' in device_name or 'hbm2e' in device_name):
         device_name = 'h100-pcie'
     elif 'a100' in device_name:
         device_name = 'a100'
@@ -198,11 +198,11 @@ class SpeedMonitor(Callback):
     |                                     | and `gpu_flops_available`, which can be passed as an      |
     |                                     | argument if not automatically determined by SpeedMonitor  |
     +-------------------------------------+-----------------------------------------------------------+
-    | `wall_clock/train`                  | Total elapsed training time                               |
+    | `time/train`                        | Total elapsed training time                               |
     +-------------------------------------+-----------------------------------------------------------+
-    | `wall_clock/val`                    | Total elapsed validation time                             |
+    | `time/val`                          | Total elapsed validation time                             |
     +-------------------------------------+-----------------------------------------------------------+
-    | `wall_clock/total`                  | Total elapsed time (wall_clock/train + wall_clock/val)    |
+    | `time/total`                        | Total elapsed time (time/train + time/val)                |
     +-------------------------------------+-----------------------------------------------------------+
 
     Args:
@@ -210,7 +210,7 @@ class SpeedMonitor(Callback):
             Defaults to 100.
         gpu_flops_available (float, optional): Number of flops available on the GPU. If not set,
             SpeedMonitor will attempt to determine this automatically. Defaults to None.
-        time_unit (str, optional): Time unit to use for `wall_clock` logging. Can be one of
+        time_unit (str, optional): Time unit to use for `time` logging. Can be one of
             'seconds', 'minutes', 'hours', or 'days'. Defaults to 'hours'.
     """
 
@@ -271,17 +271,21 @@ class SpeedMonitor(Callback):
             samples_per_sec = elapsed_samples / elapsed_wct
             dev_batches_per_sec = batches_per_sec / world_size
             dev_samples_per_sec = samples_per_sec / world_size
-            logger.log_metrics({'throughput/batches_per_sec': batches_per_sec})
-            logger.log_metrics({'throughput/samples_per_sec': samples_per_sec})
-            logger.log_metrics({'throughput/device/batches_per_sec': dev_batches_per_sec})
-            logger.log_metrics({'throughput/device/samples_per_sec': dev_samples_per_sec})
+            logger.log_metrics({
+                'throughput/batches_per_sec': batches_per_sec,
+                'throughput/samples_per_sec': samples_per_sec,
+                'throughput/device/batches_per_sec': dev_batches_per_sec,
+                'throughput/device/samples_per_sec': dev_samples_per_sec,
+            })
 
             # Compute token stats if dataloader.dataset has max_seq_len. Assumes no padding.
             try:
                 max_seq_len = state.dataloader.dataset.max_seq_len  # type: ignore
                 # Only applicable to seq data / models
-                logger.log_metrics({'throughput/tokens_per_sec': samples_per_sec * max_seq_len})
-                logger.log_metrics({'throughput/device/tokens_per_sec': dev_samples_per_sec * max_seq_len})
+                logger.log_metrics({
+                    'throughput/tokens_per_sec': samples_per_sec * max_seq_len,
+                    'throughput/device/tokens_per_sec': dev_samples_per_sec * max_seq_len,
+                })
             except AttributeError:
                 pass
 
@@ -311,8 +315,10 @@ class SpeedMonitor(Callback):
             elapsed_wct = self.history_wct[-1] - self.history_wct[0]
             flops_per_sec = elapsed_flops / elapsed_wct
             device_flops_per_sec = flops_per_sec / world_size
-            logger.log_metrics({'throughput/flops_per_sec': flops_per_sec})
-            logger.log_metrics({'throughput/device/flops_per_sec': device_flops_per_sec})
+            logger.log_metrics({
+                'throughput/flops_per_sec': flops_per_sec,
+                'throughput/device/flops_per_sec': device_flops_per_sec,
+            })
             if self.gpu_flops_available:
                 mfu = device_flops_per_sec / self.gpu_flops_available
                 logger.log_metrics({'throughput/device/mfu': mfu})
@@ -321,9 +327,9 @@ class SpeedMonitor(Callback):
         # `state.timestamp` excludes any time spent in evaluation
         train_wct = state.timestamp.total_wct.total_seconds()
         logger.log_metrics({
-            'wall_clock/train': train_wct / self.divider,
-            'wall_clock/val': self.total_eval_wct / self.divider,
-            'wall_clock/total': (train_wct + self.total_eval_wct) / self.divider,
+            'time/train': train_wct / self.divider,
+            'time/val': self.total_eval_wct / self.divider,
+            'time/total': (train_wct + self.total_eval_wct) / self.divider,
         })
 
     def eval_end(self, state: State, logger: Logger):

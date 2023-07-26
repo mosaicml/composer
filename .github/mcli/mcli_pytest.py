@@ -1,17 +1,17 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Run pytest using MCP."""
+"""Run pytest using MCLI."""
 
 import argparse
 import time
 
-from mcli.sdk import RunConfig, RunStatus, create_run, follow_run_logs, stop_run, wait_for_run_status
+from mcli import RunConfig, RunStatus, create_run, follow_run_logs, stop_run, wait_for_run_status
 
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--name', type=str, default='mcp-pytest', help='Base name of run')
+    parser.add_argument('--name', type=str, default='mcli-pytest', help='Base name of run')
     parser.add_argument('--cluster', type=str, default='r1z4', help='Cluster to use')
     parser.add_argument('--gpu_type', type=str, default='a100_40gb', help='Type of GPU to use')
     parser.add_argument('--gpu_num', type=int, default=2, help='Number of the GPU to use')
@@ -57,13 +57,14 @@ if __name__ == '__main__':
     if len(name) > 56:
         name = name[:56]
 
+    s3_bucket_flag = '--s3_bucket mosaicml-internal-integration-testing'
     command += f'''
 
     export COMPOSER_PACKAGE_NAME='{args.pip_package_name}'
 
     pip install --upgrade --user .[all]
 
-    export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}'"
+    export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}' {s3_bucket_flag}"
 
     make test PYTEST='{args.pytest_command}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
 
@@ -73,7 +74,6 @@ if __name__ == '__main__':
 
     python -m coverage report
     '''
-
     config = RunConfig(
         name=name,
         cluster=args.cluster,

@@ -225,7 +225,7 @@ class DecoupledAdamW(AdamW):
 
     @staticmethod
     def adamw(params: List[torch.Tensor], grads: List[torch.Tensor], exp_avgs: List[torch.Tensor],
-              exp_avg_sqs: List[torch.Tensor], max_exp_avg_sqs: List[torch.Tensor], state_steps: List[int], *,
+              exp_avg_sqs: List[torch.Tensor], max_exp_avg_sqs: List[torch.Tensor], state_steps: List[torch.Tensor], *,
               amsgrad: bool, beta1: float, beta2: float, lr: float, initial_lr: float, weight_decay: float,
               eps: float) -> None:
         r"""Functional API that performs AdamW algorithm computation with decoupled weight decay.
@@ -249,7 +249,7 @@ class DecoupledAdamW(AdamW):
             grad = grads[i]
             exp_avg = exp_avgs[i]
             exp_avg_sq = exp_avg_sqs[i]
-            step = state_steps[i]
+            step = state_steps[i].item()
 
             # Perform stepweight decay
             if weight_decay != 0:
@@ -315,7 +315,7 @@ class DecoupledAdamW(AdamW):
 
                 # State initialization
                 if 'step' not in state:
-                    state['step'] = 0
+                    state['step'] = torch.zeros((), dtype=torch.float, device=p.device)
                     # Exponential moving average of gradient values
                     state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
                     # Exponential moving average of squared gradient values
@@ -351,15 +351,22 @@ class DecoupledAdamW(AdamW):
         return loss
 
     def dist_reduce_metrics(self, optimizer_metrics):
-        for metric in optimizer_metrics:
+        local_keys = list(optimizer_metrics.keys())
+        all_gathered_keys = dist.all_gather_object(local_keys)
+        all_keys = set()
+        for keys in all_gathered_keys:
+            all_keys.update(keys)
+
+        all_keys = sorted(all_keys, key=lambda metric: 0 if 'l2_norm' in metric else 1)
+        for metric in all_keys:
             if metric.startswith('l2_norm'):
-                reduced = optimizer_metrics[metric]
+                reduced = optimizer_metrics.get(metric, torch.tensor(0.0, device=torch.cuda.current_device()))
                 if dist.get_world_size() > 1:
                     dist.all_reduce(reduced, reduce_operation='SUM')
 
                 optimizer_metrics[metric] = math.sqrt(reduced)
             elif metric.startswith('cosine'):
-                reduced = optimizer_metrics[metric]
+                reduced = optimizer_metrics.get(metric, torch.tensor(0.0, device=torch.cuda.current_device()))
                 if dist.get_world_size() > 1:
                     dist.all_reduce(reduced, reduce_operation='SUM')
 
@@ -371,7 +378,7 @@ class DecoupledAdamW(AdamW):
                 B_reduced_norm = optimizer_metrics[f'l2_norm/{B}/{layer}']
                 optimizer_metrics[metric] = reduced / (A_reduced_norm * B_reduced_norm)
             else:
-                reduced = optimizer_metrics[metric]
+                reduced = optimizer_metrics.get(metric, torch.tensor(0.0, device=torch.cuda.current_device()))
                 if dist.get_world_size() > 1:
                     dist.all_reduce(reduced, reduce_operation='SUM')
                 optimizer_metrics[metric] = reduced / dist.get_world_size()
@@ -409,7 +416,7 @@ class DecoupledAdamW(AdamW):
         beta1, beta2 = self.param_groups[0]['betas']
         if param in self.state:
             param_optim_state = self.state[param]
-            step = param_optim_state['step']
+            step = param_optim_state['step'].item()
             bias_correction1 = 1 - beta1**step
             bias_correction2 = 1 - beta2**step
             denom = (param_optim_state['exp_avg_sq'].sqrt() / math.sqrt(bias_correction2)).add_(eps)

@@ -10,11 +10,11 @@ import pytest
 import torch
 from torch.nn.functional import cross_entropy
 
-from composer.metrics.nlp import (BinaryF1Score, HFCrossEntropy, InContextLearningExpectedCalibrationError,
-                                  InContextLearningLMAccuracy, InContextLearningLMExpectedCalibrationError,
+from composer.metrics.nlp import (BinaryF1Score, InContextLearningCodeEvalAccuracy,
+                                  InContextLearningExpectedCalibrationError, InContextLearningLMAccuracy,
+                                  InContextLearningLMExpectedCalibrationError,
                                   InContextLearningMCExpectedCalibrationError, InContextLearningMultipleChoiceAccuracy,
-                                  InContextLearningQAAccuracy, LanguageCrossEntropy, LanguagePerplexity, MaskedAccuracy,
-                                  Perplexity)
+                                  InContextLearningQAAccuracy, LanguageCrossEntropy, LanguagePerplexity, MaskedAccuracy)
 
 
 @pytest.mark.parametrize('ignore_index', [-100])
@@ -139,83 +139,6 @@ def test_binary_f1(batch_size, minibatch_size):
     assert correct_f1 == torchmetrics_f1
 
 
-def test_hf_cross_entropy_equivalence():
-    batch_size = 1024
-    sequence_length = 64
-    num_classes = 10
-    ignore_index = -100
-    minibatch_size = 128
-
-    generated_preds = torch.randn((batch_size, sequence_length, num_classes))
-    generated_true = torch.randint(low=0, high=num_classes, size=(batch_size, sequence_length))
-
-    ce_with_keys_metric = HFCrossEntropy(dist_sync_on_step=False)
-    ce_direct_loss_metric = HFCrossEntropy(dist_sync_on_step=False)
-    ce_tensors_metric = HFCrossEntropy(dist_sync_on_step=False)
-
-    labels_mask = torch.rand((batch_size, sequence_length))
-    labels_mask[labels_mask > 0.8] = 1
-    labels_mask[labels_mask <= 0.8] = 0
-    labels_mask = labels_mask.bool()
-    generated_true[labels_mask] = ignore_index
-
-    num_batches = math.ceil(batch_size / minibatch_size)
-    for batch_idx in range(num_batches):
-        begin_idx = (batch_idx * minibatch_size)
-        end_idx = ((batch_idx + 1) * minibatch_size)
-        preds_subset = generated_preds[begin_idx:end_idx]
-        true_subset = generated_true[begin_idx:end_idx]
-
-        ce_tensors_metric.update(preds_subset.view(-1, num_classes), true_subset.view(-1))
-        ce_with_keys_metric.update({'logits': preds_subset.view(-1, num_classes)}, true_subset.view(-1))
-        ce_direct_loss_metric.update({'loss': cross_entropy(preds_subset.view(-1, num_classes), true_subset.view(-1))},
-                                     true_subset)
-
-    ce_tensors = ce_tensors_metric.compute()
-    ce_with_keys = ce_with_keys_metric.compute()
-    ce_direct_loss = ce_direct_loss_metric.compute()
-    correct_loss = cross_entropy(generated_preds.view(-1, num_classes), generated_true.view(-1))
-
-    assert ce_tensors == ce_with_keys
-    assert ce_tensors == ce_direct_loss
-    assert all(torch.isclose(metric, correct_loss) for metric in [ce_tensors, ce_with_keys, ce_direct_loss])
-
-
-def test_hf_perplexity():
-    batch_size = 1024
-    sequence_length = 64
-    num_classes = 10
-    ignore_index = -100
-    minibatch_size = 128
-
-    generated_preds = torch.randn((batch_size, sequence_length, num_classes))
-    generated_true = torch.randint(low=0, high=num_classes, size=(batch_size, sequence_length))
-
-    ce_metric = HFCrossEntropy(dist_sync_on_step=False)
-    perplexity_metric = Perplexity(dist_sync_on_step=False)
-
-    labels_mask = torch.rand((batch_size, sequence_length))
-    labels_mask[labels_mask > 0.8] = 1
-    labels_mask[labels_mask <= 0.8] = 0
-    labels_mask = labels_mask.bool()
-    generated_true[labels_mask] = ignore_index
-
-    num_batches = math.ceil(batch_size / minibatch_size)
-    for batch_idx in range(num_batches):
-        begin_idx = (batch_idx * minibatch_size)
-        end_idx = ((batch_idx + 1) * minibatch_size)
-        preds_subset = generated_preds[begin_idx:end_idx]
-        true_subset = generated_true[begin_idx:end_idx]
-
-        ce_metric.update(preds_subset.view(-1, num_classes), true_subset.view(-1))
-        perplexity_metric.update(preds_subset.view(-1, num_classes), true_subset.view(-1))
-
-    ce = ce_metric.compute()
-    perplexity = perplexity_metric.compute()
-
-    assert torch.equal(torch.exp(ce), perplexity)
-
-
 def test_language_perplexity():
     batch_size = 1024
     sequence_length = 64
@@ -311,6 +234,36 @@ def test_in_context_learning_qa_accuracy():
 
     metric = InContextLearningQAAccuracy()
     metric.update(outputs, labels)
+
+    assert metric.compute() == (2 / 3)
+
+
+def test_in_context_learning_code_eval_accuracy():
+    outputs = [
+        '    return 1 if n <= 1 else fib(n - 1) + fib(n - 1)',  # incorrect
+        '   if n <= 1:\n        return 1\n    return fib(n-1) + fib(n-2)',  # incorrect spacing
+        '    return n * 2',  # correct
+        '    return 2*n',  # correct
+        '    return n + 2',  # incorrect
+        '    return n + 1'
+    ]  # correct
+    labels = []
+    prompts = ['def fib(n):\n', 'def multiply_by_two(n):\n', 'def add_one(n):\n']
+    entry_points = ['fib', 'multiply_by_two', 'add_one']
+    test_inputs = [['(1,)', '(2,)', '(4,)'], ['(1,)', '(2,)', '(4,)'], ['(1,)', '(2,)', '(4,)']]
+    test_outputs = [['1', '2', '5'], ['2', '4', '8'], ['2', '3', '5']]
+
+    batch = {
+        'generation_kwargs': {
+            'num_beams': 2
+        },
+        'prompts': prompts,
+        'entry_points': entry_points,
+        'test_inputs': test_inputs,
+        'test_outputs': test_outputs
+    }
+    metric = InContextLearningCodeEvalAccuracy()
+    metric.update(batch, outputs, labels)
 
     assert metric.compute() == (2 / 3)
 

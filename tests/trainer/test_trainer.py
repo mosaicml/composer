@@ -30,7 +30,7 @@ from composer.models import ComposerModel
 from composer.optim import ExponentialScheduler
 from composer.trainer.trainer import _generate_run_name
 from composer.utils import dist, is_model_deepspeed, is_model_fsdp, map_collection, reproducibility
-from tests.common import (InfiniteClassificationDataset, RandomClassificationDataset, RandomImageDataset,
+from tests.common import (EmptyModel, InfiniteClassificationDataset, RandomClassificationDataset, RandomImageDataset,
                           RandomTextLMDataset, SimpleConvModel, SimpleModel, SimpleTransformerMaskedLM, device,
                           world_size)
 from tests.common.events import EventCounterCallback
@@ -56,6 +56,12 @@ class TestTrainerInit():
 
     def test_minimal_init(self, model: ComposerModel):
         Trainer(model=model)
+
+    @pytest.mark.parametrize('env_var', ['COMPOSER_RUN_NAME', 'RUN_NAME'])
+    def test_env_run_name(self, monkeypatch, model: ComposerModel, env_var: str):
+        monkeypatch.setenv(env_var, 'env_run_name')
+        trainer = Trainer(model=model)
+        assert trainer.state.run_name == 'env_run_name'
 
     @world_size(1, 2)
     def test_model_ddp_wrapped(self, model: ComposerModel, world_size: int):
@@ -98,6 +104,25 @@ class TestTrainerInit():
         parameters = trainer.state.optimizers[0].param_groups[0]['params']
         target_device = 'cuda' if device == 'gpu' else 'cpu'
         assert all(param.device.type == target_device for param in parameters)
+
+    @pytest.mark.parametrize('call_fit,call_eval', [[True, False], [False, True]])
+    def test_no_param_model(self, call_fit: bool, call_eval: bool):
+        model = EmptyModel()
+        train_dataset = RandomClassificationDataset()
+        trainer = None
+        with pytest.warns(match='No optimizer was specified, and the model does not have parameters.*'):
+            trainer = Trainer(
+                model=model,
+                max_duration='1ep',
+                train_dataloader=DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset)),
+                eval_dataloader=DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset)),
+            )
+
+        if call_fit:
+            with pytest.raises(ValueError, match='No optimizer was specified when constructing the Trainer.*'):
+                trainer.fit()
+        if call_eval:
+            trainer.eval(subset_num_batches=1)
 
     @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
                         reason='requires PyTorch 2.0 or higher')
@@ -481,9 +506,7 @@ class TestTrainerInitOrFit:
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
 
     @pytest.mark.gpu
-    @pytest.mark.filterwarnings(
-        "ignore:Setting `device_train_microbatch_size='auto'` is an experimental feature which may cause uncaught Cuda Out of Memory errors. In this case, please manually set device_train_microbatch_size explicitly to an integer instead."
-    )
+    @pytest.mark.filterwarnings("ignore:`device_train_microbatch_size='auto'` may potentially fail with unexpected.*")
     @pytest.mark.parametrize('dataloader_in_init', [True, False])
     def test_auto_microbatch(
         self,
@@ -521,6 +544,28 @@ class TestTrainerInitOrFit:
 
         # Assert that the states are equivalent
         assert_state_equivalent(init_trainer.state, fit_trainer.state)
+
+    @pytest.mark.gpu
+    @pytest.mark.filterwarnings("ignore:`device_train_microbatch_size='auto'` may potentially fail with unexpected.*")
+    def test_auto_microbatch_cuda_error(
+        self,
+        train_dataloader: DataLoader,
+        model: ComposerModel,
+        max_duration: Time[int],
+    ):
+
+        def dummy_fwd(self, *args, **kwargs):
+            raise RuntimeError('c10')
+
+        model.forward = dummy_fwd  # type: ignore
+        trainer = Trainer(
+            model=model,
+            max_duration=max_duration,
+            train_dataloader=train_dataloader,
+            device_train_microbatch_size='auto',
+        )
+        with pytest.raises(RuntimeError, match='Encountered non-addressable cuda error while using auto.*'):
+            trainer.fit()
 
     @pytest.mark.gpu
     @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])
@@ -679,6 +724,41 @@ class TestTrainerInitOrFit:
         # And ensure the device on the new trainer is correct
         assert all(p.device.type == 'cuda' for p in trainer_2.state.model.parameters())
         map_collection(trainer_2.state.optimizers, _assert_optimizer_is_on_device)
+
+    def assert_models_equal(self, model_1, model_2, atol=1e-7, rtol=1e-7):
+        assert model_1 is not model_2, 'Same model should not be compared.'
+        for param1, param2 in zip(model_1.parameters(), model_2.parameters()):
+            torch.testing.assert_close(param1, param2, atol=atol, rtol=rtol)
+
+    @pytest.mark.parametrize('checkpoint_path', ['tmp_folder', None])
+    def test_save_checkpoint_to_folder(
+        self,
+        model: ComposerModel,
+        checkpoint_path: Optional[str],
+        max_duration: Time[int],
+        train_dataloader: DataLoader,
+    ):
+        copied_model = copy.deepcopy(model)
+        #Define Trainer
+        trainer1 = Trainer(model=model,
+                           device='cpu',
+                           max_duration=max_duration,
+                           train_dataloader=train_dataloader,
+                           save_folder=checkpoint_path)
+        name = 'ep0-ba0-rank0.pt'
+        if checkpoint_path is not None:
+            trainer1.save_checkpoint_to_save_folder()
+            trainer2 = Trainer(model=copied_model,
+                               device='cpu',
+                               max_duration=max_duration,
+                               train_dataloader=train_dataloader,
+                               load_path=os.path.join(checkpoint_path, name))
+            self.assert_models_equal(trainer1.state.model, trainer2.state.model)
+        else:
+            with pytest.raises(
+                    ValueError,
+                    match='In order to use save_checkpoint_to_save_folder you must pass a save_folder to the Trainer.'):
+                trainer1.save_checkpoint_to_save_folder()
 
     @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])
     @pytest.mark.parametrize('device', ['cpu', pytest.param('gpu', marks=pytest.mark.gpu)])

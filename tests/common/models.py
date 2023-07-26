@@ -15,6 +15,34 @@ from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.models import ComposerClassifier, HuggingFaceModel
 
 
+class EmptyModel(ComposerClassifier):
+    """Always predict 0 with no parameters."""
+
+    def __init__(self, num_classes: int = 2):
+        super().__init__(module=torch.nn.Sequential(), num_classes=num_classes)
+
+    def forward(self, x):
+        out = torch.rand([x[1].shape[0], 2], dtype=x[0].dtype)
+        out[:, 0] = 0.99
+        out[:, 1] = 0.01
+        return out
+
+
+class ZeroModel(ComposerClassifier):
+    """Always predict 0."""
+
+    def __init__(self, num_classes: int = 2):
+        # Create dummy model as ComposerClassifier needs params for optimizer
+        net = torch.nn.Sequential(torch.nn.Linear(1, num_classes))
+        super().__init__(module=net, num_classes=num_classes)
+
+    def forward(self, x):
+        out = torch.rand([x[1].shape[0], 2], dtype=x[0].dtype)
+        out[:, 0] = 0.99
+        out[:, 1] = 0.01
+        return out
+
+
 class SimpleModel(ComposerClassifier):
     """Small classification model.
 
@@ -23,13 +51,20 @@ class SimpleModel(ComposerClassifier):
         num_classes (int): number of classes (default: 2)
     """
 
-    def __init__(self, num_features: int = 1, num_classes: int = 2, device: str = 'cpu', bias: bool = True) -> None:
+    def __init__(
+        self,
+        num_features: int = 1,
+        num_classes: int = 2,
+        num_hidden: int = 8,
+        device: str = 'cpu',
+        bias: bool = True,
+    ) -> None:
 
         self.num_features = num_features
         self.num_classes = num_classes
 
-        fc1 = torch.nn.Linear(num_features, 5, device=device, bias=bias)
-        fc2 = torch.nn.Linear(5, num_classes, device=device, bias=bias)
+        fc1 = torch.nn.Linear(num_features, num_hidden, device=device, bias=bias)
+        fc2 = torch.nn.Linear(num_hidden, num_classes, device=device, bias=bias)
 
         net = torch.nn.Sequential(
             torch.nn.AdaptiveAvgPool2d(1),
@@ -428,6 +463,31 @@ def configure_tiny_bert_config():
 
 def configure_tiny_bert_hf_model(use_logits=True):
     return HuggingFaceModel(configure_tiny_bert_model(), configure_tiny_bert_tokenizer(), use_logits)
+
+
+def configure_tiny_deberta_model():
+    try:
+        return copy.deepcopy(pytest.tiny_deberta_model)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_deberta_tokenizer():
+    try:
+        return copy.deepcopy(pytest.tiny_deberta_tokenizer)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_deberta_config():
+    try:
+        return copy.deepcopy(pytest.tiny_deberta_config)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_deberta_hf_model(use_logits=True):
+    return HuggingFaceModel(configure_tiny_deberta_model(), configure_tiny_deberta_tokenizer(), use_logits)
 
 
 def configure_tiny_gpt2_model():

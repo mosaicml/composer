@@ -107,6 +107,7 @@ class WandBLogger(LoggerDestination):
         self.project = project
 
         self.run_dir: Optional[str] = None
+        self.run_url: Optional[str] = None
 
     def _set_is_in_atexit(self):
         self._is_in_atexit = True
@@ -204,6 +205,7 @@ class WandBLogger(LoggerDestination):
             assert wandb.run is not None, 'The wandb run is set after init'
             entity_and_project = [str(wandb.run.entity), str(wandb.run.project)]
             self.run_dir = wandb.run.dir
+            self.run_url = wandb.run.get_url()
             atexit.register(self._set_is_in_atexit)
         else:
             entity_and_project = [None, None]
@@ -286,11 +288,9 @@ class WandBLogger(LoggerDestination):
         try:
             wandb_artifact = api.artifact('/'.join([self.entity, self.project, new_remote_file_name]))
         except wandb.errors.CommError as e:
-            if 'does not contain artifact' in str(e):
-                raise FileNotFoundError(f'WandB Artifact {new_remote_file_name} not found') from e
-            raise e
+            raise FileNotFoundError(f'WandB Artifact {new_remote_file_name} not found') from e
         with tempfile.TemporaryDirectory() as tmpdir:
-            wandb_artifact_folder = os.path.join(tmpdir, 'wandb_artifact_folder')
+            wandb_artifact_folder = os.path.join(tmpdir, 'wandb_artifact_folder/')
             wandb_artifact.download(root=wandb_artifact_folder)
             wandb_artifact_names = os.listdir(wandb_artifact_folder)
             # We only log one file per artifact
