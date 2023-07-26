@@ -90,7 +90,7 @@ class GCSObjectStore(ObjectStore):
         self.prefix = self.prefix.lstrip('/')
 
         try:
-            self.bucket = self.client.get_bucket(self.bucket_name, timeout=10.0)
+            self.bucket = self.client.get_bucket(self.bucket_name, timeout=60.0)
         except Exception as e:
             _reraise_gs_errors(gs_root_dir, e)
 
