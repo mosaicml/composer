@@ -278,7 +278,8 @@ class TestCheckpointSaving:
             'overwrite': False,
             'weights_only': False,
             'save_interval': '1ep',
-            'num_checkpoints_to_keep': -1
+            'num_checkpoints_to_keep': -1,
+            'weights_and_metadata_only': False,
         }
         expected_folder = expected_path.rstrip('/') if expected_path != '' else '.'
         mock_checkpoint_saver.assert_called_once_with(folder=expected_folder, **rest_of_checkpoint_saver_kwargs)
