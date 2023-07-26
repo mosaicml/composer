@@ -41,7 +41,7 @@ def _reraise_gs_errors(uri: str, e: Exception):
 
 
 class GsObjectStore(ObjectStore):
-    """Utility for uploading to and downloading from an Google Cloud bucket using :mod:`google cloud storage sdk` with either HMAC and service account authentications. If both authentiations are available, use service account authentication.
+    """Utility for uploading to and downloading from a Google Cloud bucket using :mod:`google cloud storage sdk` with either HMAC or service account authentications. If both authentiations are available, this class will use service account authentication.
 
     .. warning::
 
