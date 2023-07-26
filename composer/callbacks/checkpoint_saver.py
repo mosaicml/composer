@@ -266,6 +266,10 @@ class CheckpointSaver(Callback):  # noqa: D101
             This parameter only controls how many checkpoints are kept locally; checkpoints are not deleted from
             remote file systems.
 
+        weights_and_metadata_only (bool, optional): If ``True``, save the metadata along with the model weights instead of the entire training state.
+            This parameter must be ``False`` when using DeepSpeed. Default: ``False``.
+        
+
     Attributes:
         saved_checkpoints (List[Tuple[Timestamp, List[pathlib.Path]]]): The checkpoint timestamps and filepaths.
 
@@ -295,6 +299,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         overwrite: bool = False,
         num_checkpoints_to_keep: int = -1,
         weights_only: bool = False,
+        weights_and_metadata_only: bool = False,
     ):
         folder = str(folder)
         filename = str(filename)
@@ -319,6 +324,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.saved_checkpoints: List[str] = []
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
         self.weights_only = weights_only
+        self.weights_and_metadata_only = weights_and_metadata_only
 
         self.start_batch = None
 
@@ -385,6 +391,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             state=state,
             filename=filename_with_placeholders,
             weights_only=self.weights_only,
+            weights_and_metadata_only=self.weights_and_metadata_only,
         )
 
         if not saved_path:  # not all ranks save

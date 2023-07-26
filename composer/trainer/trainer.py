@@ -699,6 +699,7 @@ class Trainer:
             state. This parameter has no effect if ``save_folder`` is ``None``. (default: ``False``)
 
             .. seealso:: :class:`~.CheckpointSaver`
+        save_weights_and_metadata_only (bool, optional): Whether to save only the metadata of the training along with the weights.
         save_num_checkpoints_to_keep (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
             are removed first. Set to ``-1`` to keep all checkpoints locally. (default: ``-1``)
 
@@ -862,6 +863,7 @@ class Trainer:
         save_overwrite: bool = False,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
         save_weights_only: bool = False,
+        save_weights_and_metadata_only: bool = False, 
         save_num_checkpoints_to_keep: int = -1,
 
         # Graceful Resumption
