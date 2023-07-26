@@ -519,6 +519,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
         if not 'CODE_EVAL_DEVICE' in os.environ:
+            log.info(f"'CODE_EVAL_DEVICE' env var was not set, so defaulting to 'LAMBDA' as eval device")
             os.environ['CODE_EVAL_DEVICE'] = 'LAMBDA'
         self.local = os.environ['CODE_EVAL_DEVICE'].upper() == 'LOCAL'
 
