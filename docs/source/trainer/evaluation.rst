@@ -77,10 +77,3 @@ can be specified as in the following example:
     )
 
 Note that `metric_names` must be a subset of the metrics provided by the model in :meth:`.ComposerModel.get_metrics`.
-
-Setting Up Code Evaluation
---------------------------------------------
-
-Composer also supports code evaluation functionality, which executes and evaluates model-generated code on a series of test cases during the evaluation loop. Due to concerns about the safety of model-generated code,
-
-To enable secure code evaluation, the Composer codebase relies on serverless instances, with AWS Lambdas as the only supported option at the moment. To set up the serverless instances, create an AWS Lambda where the code follows the below structure:
