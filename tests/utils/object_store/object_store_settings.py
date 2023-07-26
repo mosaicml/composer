@@ -14,8 +14,8 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 import composer.utils.object_store
 import composer.utils.object_store.sftp_object_store
-from composer.utils.object_store import (GsObjectStore, LibcloudObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore,
-                                         SFTPObjectStore)
+from composer.utils.object_store import (GCSObjectStore, LibcloudObjectStore, ObjectStore, OCIObjectStore,
+                                         S3ObjectStore, SFTPObjectStore)
 from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 from tests.common import get_module_subclasses
 
@@ -57,7 +57,7 @@ object_stores = [
     pytest.param(x, marks=_object_store_marks[x], id=x.__name__)
     for x in get_module_subclasses(composer.utils.object_store, ObjectStore)
     # Note: OCI and Gs have their own test suite, so they are exempt from being included in this one.``
-    if not issubclass(x, OCIObjectStore) and not issubclass(x, GsObjectStore)
+    if not issubclass(x, OCIObjectStore) and not issubclass(x, GCSObjectStore)
 ]
 
 

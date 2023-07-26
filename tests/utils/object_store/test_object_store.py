@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 import pytest
 
-from composer.utils.object_store import GsObjectStore, LibcloudObjectStore, ObjectStore, S3ObjectStore, SFTPObjectStore
+from composer.utils.object_store import GCSObjectStore, LibcloudObjectStore, ObjectStore, S3ObjectStore, SFTPObjectStore
 from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 from tests.utils.object_store.object_store_settings import get_object_store_ctx, object_stores
 
@@ -124,7 +124,7 @@ class TestObjectStore:
             assert uri == 'local://./tmpfile_object_name'
         elif isinstance(object_store, SFTPObjectStore):
             assert uri == 'sftp://test_user@localhost:23/tmpfile_object_name'
-        elif isinstance(object_store, GsObjectStore):
+        elif isinstance(object_store, GCSObjectStore):
             assert uri == 'gs://mosaicml-composer-tests/streaming/'
         else:
             raise NotImplementedError(f'Object store {type(object_store)} not implemented.')

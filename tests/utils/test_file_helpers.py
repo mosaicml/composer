@@ -283,7 +283,7 @@ def test_maybe_create_object_store_from_uri(monkeypatch):
     mock_oci_obj = MagicMock()
     monkeypatch.setattr(file_helpers, 'OCIObjectStore', mock_oci_obj)
     mock_gs_obj = MagicMock()
-    monkeypatch.setattr(file_helpers, 'GsObjectStore', mock_gs_obj)
+    monkeypatch.setattr(file_helpers, 'GCSObjectStore', mock_gs_obj)
 
     assert maybe_create_object_store_from_uri('checkpoint/for/my/model.pt') is None
 

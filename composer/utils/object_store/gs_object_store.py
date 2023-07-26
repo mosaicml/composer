@@ -13,7 +13,7 @@ from typing import Callable, Optional, Union
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
 
-__all__ = ['GsObjectStore']
+__all__ = ['GCSObjectStore']
 
 BOTOCORE_CLIENT_ERROR_CODES = ('403', '404', 'NoSuchKey')
 
@@ -22,25 +22,24 @@ def _reraise_gs_errors(uri: str, e: Exception):
     try:
         from google.api_core.exceptions import GatewayTimeout, NotFound
 
-        print('Reraising exception: {e.message}')
-
-        # If it's a google service NotFound error
-        if isinstance(e, NotFound):
-            raise FileNotFoundError(f'Object {uri} not found.') from e
-
-        # All clienterror (HTTP 4xx) responses
-        elif isinstance(e, GatewayTimeout):
-            raise ValueError(f'Time out when uploading/downloading {uri} using google cloud storage') from e
-
-    except ImportError as e:
+    except ImportError as import_exception:
         raise MissingConditionalImportError(conda_package='google-cloud-storage',
                                             extra_deps_group='google-cloud-storage',
-                                            conda_channel='conda-forge') from e
+                                            conda_channel='conda-forge') from import_exception
+
+    # If it's a google service NotFound error
+    if isinstance(e, NotFound):
+        raise FileNotFoundError(f'Object {uri} not found.') from e
+
+    # All clienterror (HTTP 4xx) responses
+    elif isinstance(e, GatewayTimeout):
+        raise ValueError(f'Time out when uploading/downloading {uri} using google cloud storage') from e
+
     # Otherwise just raise the original error.
     raise e
 
 
-class GsObjectStore(ObjectStore):
+class GCSObjectStore(ObjectStore):
     """Utility for uploading to and downloading from a Google Cloud bucket using :mod:`google cloud storage sdk` with either HMAC or service account authentications. If both authentiations are available, this class will use service account authentication.
 
     .. warning::
@@ -54,14 +53,13 @@ class GsObjectStore(ObjectStore):
     """
 
     def __init__(
-            self,
-            gs_root_dir: str  #  = 'gs://mosaicml-composer-tests/streaming/',
+        self,
+        gs_root_dir: str,
     ) -> None:
         try:
-            import boto3
             from google.cloud.storage import Client
         except ImportError as e:
-            raise MissingConditionalImportError('streaming', 'boto3') from e
+            raise MissingConditionalImportError('gcs', 'google.cloud.storage') from e
 
         if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ:
             service_account_path = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
@@ -69,6 +67,11 @@ class GsObjectStore(ObjectStore):
         elif 'GCS_KEY' in os.environ and 'GCS_SECRET' in os.environ:
             # Create a session and use it to make our client. Unlike Resources and Sessions,
             # clients are generally thread-safe.
+
+            try:
+                import boto3
+            except ImportError as e:
+                raise MissingConditionalImportError('gcs', 'boto3') from e
 
             session = boto3.session.Session()
             self.client = session.client('s3',
@@ -83,7 +86,7 @@ class GsObjectStore(ObjectStore):
         from composer.utils import parse_uri
         backend, self.bucket_name, self.prefix = parse_uri(gs_root_dir)
         if backend == '':
-            raise ValueError("remote_dir doesn't have a valid format")
+            raise ValueError(f"gs_root_dir ({gs_root_dir}) doesn't have a valid format")
         self.prefix = self.prefix.lstrip('/')
 
         try:
@@ -98,6 +101,18 @@ class GsObjectStore(ObjectStore):
         return f'gs://{self.bucket_name}/{self.get_key(object_name)}'
 
     def get_object_size(self, object_name: str) -> int:
+        """Retrieves the size of an object stored in the cloud storage bucket.
+
+        Args:
+            object_name (str): The name of the object in the cloud storage bucket whose size is to be retrieved.
+
+        Returns:
+            int: The size of the object in bytes.
+
+        Raises:
+            FileNotFoundError: If the specified object does not exist in the cloud storage bucket.
+            Exception: If an error occurs while trying to retrieve the object's size.
+        """
         from google.cloud.storage import Blob
 
         key = self.get_key(object_name)
@@ -110,24 +125,27 @@ class GsObjectStore(ObjectStore):
         except Exception as e:
             _reraise_gs_errors(self.get_uri(object_name), e)
 
-        return blob.size  # size in byte
+        return blob.size  # size in bytes
 
-    def upload_blob(self,
-                    src: Union[str, pathlib.Path],
-                    dest: str = '',
-                    callback: Optional[Callable[[int, int], None]] = None,
-                    generation_match_precondition=0):
+    def upload_object(self,
+                      src: Union[str, pathlib.Path],
+                      dest: str = '',
+                      callback: Optional[Callable[[int, int], None]] = None):
 
         del callback
-        """Uploads a file to the bucket.
-           By default, if_generation_not_match = 0 makes the operation succeed only if there is a live version of the blob.
+        """Uploads a file to the cloud storage bucket.
+
+        Args:
+            src (Union[str, pathlib.Path]): The path to the local file
+            dest (str, optional): The destination path in the cloud storage bucket where the file will be saved.
+                If not provided or an empty string is given, the file will be uploaded to the root of the bucket with the same
+                name as the source file. Default is an empty string.
+            callback: optional
         """
 
         dest = str(src) if dest == '' else dest
         blob = self.bucket.blob(self.get_key(dest))
-        blob.upload_from_filename(src)  # , if_generation_match=generation_match_precondition)
-
-        print(f'File {src} uploaded to {dest}.')
+        blob.upload_from_filename(src)
 
     def download_object(
         self,
@@ -136,7 +154,21 @@ class GsObjectStore(ObjectStore):
         overwrite: bool = False,
         callback: Optional[Callable[[int, int], None]] = None,
     ):
+        """Downloads an object from the specified source in the cloud storage bucket and saves it to the given destination.
 
+        Args:
+            src (str): The path to the object in the cloud storage bucket that needs to be downloaded.
+            dest (Union[str, pathlib.Path]): The destination path where the object will be saved locally. It can be a
+                string representing the file path or a pathlib.Path object.
+            overwrite (bool, optional): If set to True, the function will overwrite the destination file if it already
+                exists. If set to False, and the destination file exists, a FileExistsError will be raised. Default is False.
+            callback (Callable[[int, int], None], optional): A callback function that can be used to track the progress of
+                the download. It takes two integer arguments - the number of bytes downloaded and the total size of the
+                object. Default is None.
+
+        Raises:
+            FileExistsError: If the destination file already exists and the `overwrite` parameter is set to False.
+        """
         if os.path.exists(dest) and not overwrite:
             raise FileExistsError(f'The file at {dest} already exists and overwrite is set to False.')
 
