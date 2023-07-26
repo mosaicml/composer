@@ -129,7 +129,7 @@ class GsObjectStore(ObjectStore):
 
         print(f'File {src} uploaded to {dest}.')
 
-    def download_blob(
+    def download_object(
         self,
         src: str,
         dest: Union[str, pathlib.Path],
