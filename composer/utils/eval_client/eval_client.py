@@ -18,11 +18,13 @@ class EvalClient(abc.ABC):
     def invoke(self, payload: Dict[str, str]) -> bool:
         """Invoke a provided dictionary payload to the client.
 
-        For code generation, the payload is a JSON with the following attributes:
+        For code generation, the payload is a JSON with the following attributes,
+        {
             'code': <code to be evaluated>,
             'input': <test input>,
             'output': <test output>,
             'entry_point': <entry point>,
+        }
 
         Args:
             payload: the materials of the HTTPS request to the client.

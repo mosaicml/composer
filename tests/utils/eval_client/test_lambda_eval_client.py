@@ -7,8 +7,14 @@ from composer.utils import LambdaEvalClient
 
 @pytest.mark.remote
 @pytest.mark.parametrize(
-    'code, result', [['def add_1(x):\n    return x + 1', True], ['def add_1(x):\n    return y + 1', False],
-                     ['def add_1(x):\n    while True:\n        x += 1', False], ['def add_1(x): return x + 2', False],],)
+    'code, result',
+    [
+        ['def add_1(x):\n    return x + 1', True],
+        ['def add_1(x):\n    return y + 1', False],
+        ['def add_1(x):\n    while True:\n        x += 1', False],
+        ['def add_1(x): return x + 2', False],
+    ],
+)
 def test_lambda_invoke(code, result):
     """Test invocation function for LambdaEvalClient with code that succeeds, fails compilation, times out, and is incorrect.
     """
