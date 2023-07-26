@@ -107,9 +107,9 @@ Note that ``entry_point`` denotes the name of the function to execute. The Lambd
             result = ... # evaluate the code
             expected_result = ... # evaluate the output
         ... # error management code
-            
+
         response = ... if expected_result == result else ... # parse the output to create the response
-        
+
         return response
 
-After creating this Lambda function, an API gateway must be created that takes the 
+After creating this Lambda function, an API gateway must be created and deployed that sends POST requests to the Lambda function. The API url must then be saved in the ``CODE_EVAL_URL`` environment variable and the API key saved to ``CODE_EVAL_APIKEY``.
