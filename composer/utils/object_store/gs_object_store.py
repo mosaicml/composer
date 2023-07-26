@@ -87,7 +87,7 @@ class GsObjectStore(ObjectStore):
         self.prefix = self.prefix.lstrip('/')
 
         try:
-            self.bucket = self.client.get_bucket(self.bucket_name, timeout=10.0)  # Bucket(self.client, obj.netloc)
+            self.bucket = self.client.get_bucket(self.bucket_name, timeout=10.0)
         except Exception as e:
             _reraise_gs_errors(gs_root_dir, e)
 
