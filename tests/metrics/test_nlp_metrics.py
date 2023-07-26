@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import math
+import os
 
 import pytest
 import torch
@@ -252,7 +253,7 @@ def test_in_context_learning_code_eval_accuracy():
     entry_points = ['fib', 'multiply_by_two', 'add_one']
     test_inputs = [['(1,)', '(2,)', '(4,)'], ['(1,)', '(2,)', '(4,)'], ['(1,)', '(2,)', '(4,)']]
     test_outputs = [['1', '2', '5'], ['2', '4', '8'], ['2', '3', '5']]
-
+    os.environ['CODE_EVAL_DEVICE'] = 'LOCAL'
     batch = {
         'generation_kwargs': {
             'num_beams': 2

@@ -1168,6 +1168,7 @@ def test_qa_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_g
 @pytest.mark.parametrize('generations_per_sample', range(1, 3))
 def test_code_eval_microbatching(device, world_size, num_fewshot, dataset_uri, tmp_path, generations_per_sample):
     pytest.importorskip('datasets')
+    os.environ['CODE_EVAL_DEVICE'] = 'LOCAL'
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
@@ -1218,6 +1219,7 @@ def test_code_eval_sentpiece_evaluation(device, world_size, num_fewshot, dataset
                                         tmp_path, generations_per_sample):
     pytest.importorskip('datasets')
     torch.cuda.empty_cache()
+    os.environ['CODE_EVAL_DEVICE'] = 'LOCAL'
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
@@ -1264,6 +1266,7 @@ def test_code_eval_task_evaluation(device, world_size, num_fewshot, dataset_uri,
                                    tmp_path, generations_per_sample):
     pytest.importorskip('datasets')
     torch.cuda.empty_cache()
+    os.environ['CODE_EVAL_DEVICE'] = 'LOCAL'
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
