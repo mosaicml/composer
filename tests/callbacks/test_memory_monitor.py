@@ -41,3 +41,22 @@ def test_memory_monitor_gpu():
     num_memory_monitor_calls = len(in_memory_logger.data['memory/allocated_mem'])
 
     assert num_memory_monitor_calls == int(trainer.state.timestamp.batch)
+
+
+@pytest.mark.gpu
+def test_granular_cuda_memory_monitor_gpu():
+    # Construct the trainer
+    memory_monitor = MemoryMonitor(cuda_mem_snapshot_flag=True)
+    in_memory_logger = InMemoryLogger()
+    trainer = Trainer(
+        model=SimpleModel(),
+        callbacks=memory_monitor,
+        loggers=in_memory_logger,
+        train_dataloader=DataLoader(RandomClassificationDataset()),
+        max_duration='2ba',
+    )
+    trainer.fit()
+
+    num_memory_monitor_calls = len(in_memory_logger.data['memory/allocated_mem'])
+
+    assert num_memory_monitor_calls == int(trainer.state.timestamp.batch)

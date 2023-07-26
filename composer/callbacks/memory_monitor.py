@@ -5,6 +5,7 @@
 import logging
 import math
 import warnings
+from pickle import dump
 from typing import Dict, Optional, Union
 
 import torch.cuda
@@ -75,8 +76,9 @@ class MemoryMonitor(Callback):
             logged. Defaults to None.
     """
 
-    def __init__(self, memory_keys: Optional[Dict[str, str]] = None) -> None:
+    def __init__(self, memory_keys: Optional[Dict[str, str]] = None, cuda_mem_snapshot_flag: bool = False) -> None:
         self.memory_keys = memory_keys
+        self.cuda_mem_snapshot_flag = cuda_mem_snapshot_flag
 
     def init(self, state: State, logger: Logger) -> None:
         # Not relying on `torch.cuda.is_available()` since the model could be on CPU.
@@ -84,6 +86,15 @@ class MemoryMonitor(Callback):
 
         if model_device.type != 'cuda':
             warnings.warn(f'The memory monitor only works on CUDA devices, but the model is on {model_device.type}.')
+
+        if self.cuda_mem_snapshot_flag:
+            torch.cuda.memory._record_memory_history(
+                True,
+                # keep 100,000 alloc/free events from before the snapshot
+                trace_alloc_max_entries=100000,
+
+                # record stack information for the trace events
+                trace_alloc_record_context=True)
 
     def after_train_batch(self, state: State, logger: Logger):
         memory_report = {}
@@ -95,6 +106,15 @@ class MemoryMonitor(Callback):
         memory_report = _get_memory_report(self.memory_keys)
 
         logger.log_metrics({f'memory/{mem_stat}': val for (mem_stat, val) in memory_report.items()})
+
+        if self.cuda_mem_snapshot_flag:
+            snapshot = torch.cuda.memory._snapshot()
+            local_filename = 'cuda_mem_snapshot.pickle'
+            with open(local_filename, 'wb') as f:
+                dump(snapshot, f)
+
+            if logger.has_file_upload_destination():
+                logger.upload_file(local_filename, local_filename)
 
 
 _MEMORY_KEYS = {
