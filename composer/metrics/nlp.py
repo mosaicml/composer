@@ -524,8 +524,8 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         if not self.remote:
             warnings.warn(
                 'Running code eval locally may be insecure. Please set environment variable CODE_EVAL_DEVICE '
-                'to LAMBDA to run on remote. To use Lambdas, spin up your instance that checks code, set the ARN as '
-                'CODE_EVAL_ARN and the region as CODE_EVAL_REGION.')
+                'to LAMBDA to run on remote. To use Lambdas, spin up your instance that checks code, set the URL as '
+                'CODE_EVAL_URL and the API key as CODE_EVAL_APIKEY.')
             log.debug('Running code eval locally.')
             client = LocalEvalClient()
         elif os.environ['CODE_EVAL_DEVICE'] == 'LAMBDA':
