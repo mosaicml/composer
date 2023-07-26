@@ -41,7 +41,7 @@ __all__ = [
     'S3ObjectStore',
     'SFTPObjectStore',
     'OCIObjectStore',
-    'GsObjectStore',
+    'GCSObjectStore',
     'MissingConditionalImportError',
     'import_object',
     'is_model_deepspeed',
