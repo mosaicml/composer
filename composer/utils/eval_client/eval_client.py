@@ -19,12 +19,10 @@ class EvalClient(abc.ABC):
         """Invoke a provided dictionary payload to the client.
 
         For code generation, the payload has format:
-        {
             'code': <code to be evaluated>,
             'input': <test input>,
             'output': <test output>,
             'entry_point': <entry point>,
-        }
 
         Args:
             payload: the materials of the HTTPS request to the client.
