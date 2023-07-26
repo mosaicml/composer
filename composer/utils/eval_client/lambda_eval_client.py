@@ -24,6 +24,7 @@ class LambdaEvalClient(EvalClient):
         There must be CODE_EVAL_URL for the URL of the lambda API and CODE_EVAL_APIKEY
         for the API key of the lambda API.
         """
+        log.debug(os.environ)
         if 'CODE_EVAL_URL' not in os.environ or 'CODE_EVAL_APIKEY' not in os.environ:
             raise Exception('Please set environment variable CODE_EVAL_URL to the URL of the lambda API '
                             'and CODE_EVAL_APIKEY to the API key of the API gateway.')
