@@ -564,7 +564,7 @@ def save_checkpoint(
         save_metadata = True
     else:
         save_metadata = False
-        
+
     is_deepspeed = is_model_deepspeed(state.model)
 
     state_dict = {
@@ -574,7 +574,7 @@ def save_checkpoint(
     if weights_only and not is_deepspeed:
         state_to_save = {'model': state_dict['state']['model']}
         if save_metadata:
-            state_to_save['integrations'] =  state_dict['state']['integrations'], 
+            state_to_save['integrations'] = state_dict['state']['integrations'],
             state_to_save['metadata'] = state_dict['state']['metadata']
         state_dict['state'] = state_to_save
 
@@ -714,7 +714,7 @@ Args:
 
             When using DeepSpeed, this parameter must be ``False``. Weights and metdata-only checkpointing is not currently
             compatible with DeepSpeed,
-            
+
     Returns:
         List[pathlib.Path]: The list of checkpoint files saved, indexed by the rank of the process.
 

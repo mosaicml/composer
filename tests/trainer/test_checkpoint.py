@@ -382,15 +382,17 @@ class TestCheckpointSaving:
 
     @pytest.mark.parametrize('save_weights_only', [True, False])
     @pytest.mark.parametrize('save_weights_and_metadata_only', [True, False])
-    def test_save_weights_and_metadata_only(self, tmp_path: pathlib.Path, save_weights_only: bool, save_weights_and_metadata_only: bool):
+    def test_save_weights_and_metadata_only(self, tmp_path: pathlib.Path, save_weights_only: bool,
+                                            save_weights_and_metadata_only: bool):
         model = SimpleConvModel()
         train_dataset = RandomImageDataset()
-        train_dataloader = DataLoader(dataset=train_dataset,
-                                      batch_size=2,
-                                      sampler=dist.get_sampler(train_dataset),
-                                      )
-        save_filename='ba{batch}-test'
-        save_folder=str(tmp_path / 'checkpoints')
+        train_dataloader = DataLoader(
+            dataset=train_dataset,
+            batch_size=2,
+            sampler=dist.get_sampler(train_dataset),
+        )
+        save_filename = 'ba{batch}-test'
+        save_folder = str(tmp_path / 'checkpoints')
         trainer = Trainer(model=model,
                           train_dataloader=train_dataloader,
                           max_duration='1ba',

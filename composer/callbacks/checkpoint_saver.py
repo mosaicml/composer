@@ -268,7 +268,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         weights_and_metadata_only (bool, optional): If ``True``, save the metadata along with the model weights instead of the entire training state.
             This parameter must be ``False`` when using DeepSpeed. Default: ``False``.
-        
+
 
     Attributes:
         saved_checkpoints (List[Tuple[Timestamp, List[pathlib.Path]]]): The checkpoint timestamps and filepaths.
@@ -342,7 +342,8 @@ class CheckpointSaver(Callback):  # noqa: D101
         dist.barrier()  # holds all ranks until folder check is done
 
         if is_model_deepspeed(state.model) and (self.weights_only or self.weights_and_metadata_only):
-            raise NotImplementedError('weights_only=True nor weights_and_metadata_only=True are supported when using DeepSpeed.')
+            raise NotImplementedError(
+                'weights_only=True nor weights_and_metadata_only=True are supported when using DeepSpeed.')
 
         self.start_batch = state.timestamp.batch
 

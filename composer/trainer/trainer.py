@@ -863,7 +863,7 @@ class Trainer:
         save_overwrite: bool = False,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
         save_weights_only: bool = False,
-        save_weights_and_metadata_only: bool = False, 
+        save_weights_and_metadata_only: bool = False,
         save_num_checkpoints_to_keep: int = -1,
 
         # Graceful Resumption
