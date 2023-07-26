@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import pathlib
 import uuid
-from typing import Callable, Optional, Union
+from typing import Callable, List, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
@@ -195,3 +195,17 @@ class GCSObjectStore(ObjectStore):
                 os.replace(tmp_path, dest)
             else:
                 os.rename(tmp_path, dest)
+
+    def list_objects(self, prefix: Optional[str] = None) -> List[str]:
+
+        if prefix is None:
+            prefix = ''
+        prefix = self.get_key(prefix)
+
+        object_names = []
+        try:
+            object_names = self.bucket.list_blobs(prefix=prefix)
+        except Exception as e:
+            _reraise_gs_errors(prefix, e)
+
+        return [ob.name for ob in object_names]

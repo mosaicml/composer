@@ -64,6 +64,19 @@ def test_upload_object(gs_object_store):
         gs_object_store.upload_object(__DUMMY_OBJ__, destination_blob_name)
 
 
+def test_list_objects(gs_object_store):
+    from google.cloud.storage import Blob
+    destination_blob_name = '/tmp/dummy.ckpt2'
+    key = gs_object_store.get_key(destination_blob_name)
+    stats = Blob(bucket=gs_object_store.bucket, name=key).exists(gs_object_store.client)
+    if not stats:
+        gs_object_store.upload_object(__DUMMY_OBJ__, destination_blob_name)
+    objects = gs_object_store.list_objects()
+    print('objects = ', objects)
+    print('type(objects) = ', type(objects))
+    assert (key in objects)
+
+
 @pytest.mark.parametrize('result', ['success', 'file_exists', 'obj_not_found'])
 def test_download_object(gs_object_store, tmp_path, result: str):
     fn = Path(__DUMMY_OBJ__)

@@ -3,6 +3,7 @@
 
 import os
 from unittest import mock
+from unittest.mock import MagicMock
 
 import pytest
 from botocore.exceptions import ClientError
@@ -84,3 +85,33 @@ def test_download_object(gs_object_store, monkeypatch, tmp_path, result: str):
         mock_blob.download_to_filename.side_effect = ClientError({}, 'operation')
         with pytest.raises(ClientError):
             gs_object_store.download_object(object_name, filename, overwrite=True)
+
+
+@pytest.mark.parametrize('result', ['success', 'prefix_not_found'])
+def test_list_objects_success(gs_object_store, monkeypatch, result: str):
+    if result == 'success':
+        blob1_mock = MagicMock(spec=['name'])
+        blob1_mock.name = 'path/to/object1'
+        blob2_mock = MagicMock(spec=['name'])
+        blob2_mock.name = 'path/to/object2'
+
+        bucket_mock = MagicMock()
+        bucket_mock.list_blobs.return_value = [blob1_mock, blob2_mock]
+
+        gs_object_store.bucket = bucket_mock
+
+        actual = gs_object_store.list_objects(prefix='path/to')
+
+        bucket_mock.list_blobs.assert_called_once_with(prefix='test-prefix/path/to')
+        assert (actual == ['path/to/object1', 'path/to/object2'])
+
+    elif result == 'prefix_not_found':
+
+        bucket_mock = MagicMock()
+        bucket_mock.list_blobs.return_value = []
+
+        gs_object_store.bucket = bucket_mock
+        actual = gs_object_store.list_objects(prefix='non_existent_prefix')
+
+        assert (actual == [])
+        bucket_mock.list_blobs.assert_called_once_with(prefix='test-prefix/non_existent_prefix')
