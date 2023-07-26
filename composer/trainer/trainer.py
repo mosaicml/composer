@@ -1136,6 +1136,7 @@ class Trainer:
                 latest_remote_file_name=latest_remote_file_name,
                 overwrite=save_overwrite,
                 weights_only=save_weights_only,
+                weights_and_metadata_only=save_weights_and_metadata_only,
                 save_interval=save_interval,
                 num_checkpoints_to_keep=save_num_checkpoints_to_keep,
             )
@@ -3018,12 +3019,14 @@ class Trainer:
         name: str = 'ep{epoch}-ba{batch}-rank{rank}',
         *,
         weights_only: bool = False,
+        weights_and_metadata_only: bool = False,
     ):
         """Checkpoint the training :class:`~.State`.
 
         Args:
             name (str, optional): See :func:`.save_checkpoint`.
             weights_only (bool, optional): See :func:`.save_checkpoint`.
+            weights_and_metadata_only (bool, optional): See :func:`.save_checkpoint`.
 
         Returns:
             str or None: See :func:`.save_checkpoint`.
@@ -3032,6 +3035,7 @@ class Trainer:
             state=self.state,
             filename=name,
             weights_only=weights_only,
+            weights_and_metadata_only=weights_and_metadata_only,
         )
 
     def save_checkpoint_to_save_folder(self):

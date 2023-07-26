@@ -157,6 +157,7 @@ def test_extract_hparams_trainer():
         'save_overwrite': False,
         'save_interval': '1ep',
         'save_weights_only': False,
+        'save_weights_and_metadata_only': False,
         'save_num_checkpoints_to_keep': -1,
 
         # Graceful Resumption

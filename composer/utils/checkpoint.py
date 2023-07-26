@@ -707,6 +707,14 @@ Args:
             When using DeepSpeed, this parameter must be ``False``. Weights-only checkpointing is not currently
             compatible with DeepSpeed,
 
+    weights_and_metadata_only (bool, optional): If ``True``, save only the model weights and metadata instead of the
+        entire training state. (default: ``False``)
+
+        .. note::
+
+            When using DeepSpeed, this parameter must be ``False``. Weights and metdata-only checkpointing is not currently
+            compatible with DeepSpeed,
+            
     Returns:
         List[pathlib.Path]: The list of checkpoint files saved, indexed by the rank of the process.
 

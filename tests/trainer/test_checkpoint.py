@@ -380,6 +380,40 @@ class TestCheckpointSaving:
         assert trainer._checkpoint_saver is not None
         assert len(trainer._checkpoint_saver.saved_checkpoints) == expected_num_checkpoints
 
+    @pytest.mark.parametrize('save_weights_only', [True, False])
+    @pytest.mark.parametrize('save_weights_and_metadata_only', [True, False])
+    def test_save_weights_and_metadata_only(self, tmp_path: pathlib.Path, save_weights_only: bool, save_weights_and_metadata_only: bool):
+        model = SimpleConvModel()
+        train_dataset = RandomImageDataset()
+        train_dataloader = DataLoader(dataset=train_dataset,
+                                      batch_size=2,
+                                      sampler=dist.get_sampler(train_dataset),
+                                      )
+        save_filename='ba{batch}-test'
+        save_folder=str(tmp_path / 'checkpoints')
+        trainer = Trainer(model=model,
+                          train_dataloader=train_dataloader,
+                          max_duration='1ba',
+                          save_folder=save_folder,
+                          save_filename=save_filename,
+                          save_weights_and_metadata_only=save_weights_and_metadata_only,
+                          save_weights_only=save_weights_only,
+                          save_interval='1ba')
+        trainer.fit()
+        trainer.close()
+        checkpoint_filepath = os.path.join(save_folder, save_filename.format(batch=1))
+        composer_state_dict = torch.load(checkpoint_filepath, map_location='cpu')
+
+        if save_weights_only and not save_weights_and_metadata_only:
+            assert set(composer_state_dict['state'].keys()) == {'model'}
+
+        if not save_weights_and_metadata_only and not save_weights_only:
+            assert set(composer_state_dict['state'].keys()) != {'model'}
+            assert set(composer_state_dict['state'].keys()) != {'model', 'metadata', 'integrations'}
+
+        if save_weights_and_metadata_only:
+            assert set(composer_state_dict['state'].keys()) == {'model', 'metadata', 'integrations'}
+
 
 class TestCheckpointLoading:
 
