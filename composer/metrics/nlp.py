@@ -520,7 +520,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
         if not 'CODE_EVAL_DEVICE' in os.environ:
             os.environ['CODE_EVAL_DEVICE'] = 'LAMBDA'
-        self.local = os.environ['CODE_EVAL_DEVICE'] == 'LOCAL'
+        self.local = os.environ['CODE_EVAL_DEVICE'].upper() == 'LOCAL'
 
     def get_client(self) -> EvalClient:
         """Returns a client for the appropriate remote platform."""
