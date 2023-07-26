@@ -178,13 +178,13 @@ def _exc_report(exc_type) -> None:
     # Don't print exception report for KeyboardInterrupt
     if not issubclass(exc_type, KeyboardInterrupt):
         if issubclass(exc_type, AssertionError):
-            EXCEPTION_SEV_MSG = 'This is a Composer bug. Please submit a bug report.\n'
+            EXCEPTION_SEV_MSG = f'This is a Composer bug. Please submit a bug report.\n'
         elif issubclass(exc_type, RuntimeError):
-            EXCEPTION_SEV_MSG = 'This could be due to user error but is most likely a Composer bug.\n'
+            EXCEPTION_SEV_MSG = f'This could be due to user error but is most likely a Composer bug.\n'
         elif issubclass(exc_type, ValueError) or issubclass(exc_type, TypeError):
-            EXCEPTION_SEV_MSG = 'This was most likely due to user error but please submit a bug report if you suspect a Composer issue.\n'
+            EXCEPTION_SEV_MSG = f'This was most likely due to user error but please submit a bug report if you suspect a Composer issue.\n'
         else:
-            EXCEPTION_SEV_MSG = 'If you would like support debugging, submit a bug report or reach out to us on our community channels.\n'
+            EXCEPTION_SEV_MSG = f'If you would like support debugging, submit a bug report or reach out to us on our community channels.\n'
 
         print('\n-------------------\n' + EXCEPTION_SEV_MSG + EXCEPTION_MSG, file=sys.stderr)
 
@@ -403,10 +403,10 @@ def print_env(file: Optional[TextIO] = None) -> None:
 
     # Creation timestamp for report
     creation_time = time.strftime('%Y-%m-%d %H:%M:%S %Z', time.localtime(time.time()))
-    report_hdr = '---------------------------------\n' + \
-                 'System Environment Report        \n' + \
+    report_hdr = f'---------------------------------\n' + \
+                 f'System Environment Report        \n' + \
                  f'Created: {creation_time}\n'          + \
-                 '---------------------------------\n'
+                 f'---------------------------------\n'
 
     # Torch section
     print(report_hdr, file=file)

@@ -54,7 +54,7 @@ def test_export_for_inference_torchscript(model_cls, sample_input):
     orig_out = model(sample_input)
     save_format = 'torchscript'
     with tempfile.TemporaryDirectory() as tempdir:
-        save_path = os.path.join(tempdir, 'model.pt')
+        save_path = os.path.join(tempdir, f'model.pt')
         inference.export_for_inference(
             model=model,
             save_format=save_format,
@@ -273,7 +273,7 @@ def test_export_for_inference_torchscript_ddp(model_cls, sample_input, request: 
     # Only one rank needs to save/load model
     if dist.get_local_rank() == 0:
         with tempfile.TemporaryDirectory() as tempdir:
-            save_path = os.path.join(str(tempdir), 'model.pt')
+            save_path = os.path.join(str(tempdir), f'model.pt')
             assert isinstance(state.model.module, nn.Module)
             inference.export_for_inference(
                 model=state.model.module,
@@ -380,7 +380,7 @@ def test_export_with_file_uploading_logger(model_cls, dataloader):
         model = model_cls()
         mock_obj_logger = MockFileUploader()
         with tempfile.TemporaryDirectory() as tempdir:
-            save_path = os.path.join(tempdir, 'model.pt')
+            save_path = os.path.join(tempdir, f'model.pt')
 
             # Construct the trainer and train
             trainer = Trainer(
@@ -420,7 +420,7 @@ def test_export_with_other_logger(model_cls, dataloader):
         model = model_cls()
         non_file_uploading_logger = InMemoryLogger()
         with tempfile.TemporaryDirectory() as tempdir:
-            save_path = os.path.join(tempdir, 'model.pt')
+            save_path = os.path.join(tempdir, f'model.pt')
 
             # Construct the trainer and train
             trainer = Trainer(
@@ -477,13 +477,13 @@ def test_dynamic_quantize(model_cls):
 
     save_format = 'torchscript'
     with tempfile.TemporaryDirectory() as tempdir:
-        save_path_no_quantize = os.path.join(tempdir, 'model_no_quantize.pt')
+        save_path_no_quantize = os.path.join(tempdir, f'model_no_quantize.pt')
         inference.export_for_inference(
             model=model,
             save_format=save_format,
             save_path=save_path_no_quantize,
         )
-        save_path_quantize = os.path.join(tempdir, 'model_quantize.pt')
+        save_path_quantize = os.path.join(tempdir, f'model_quantize.pt')
         inference.export_for_inference(
             model=model,
             save_format=save_format,

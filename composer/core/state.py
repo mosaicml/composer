@@ -1136,7 +1136,7 @@ class State(Serializable):
                 optimizer.load_state_dict(optim_state_dict)
             else:
                 assert optim_state_dict is not None
-                log.debug('Loading optimizer state dict')
+                log.debug(f'Loading optimizer state dict')
                 optimizer.load_state_dict(optim_state_dict)
 
     def _load_dataset_state(self, obj: Dict[str, Any]) -> None:

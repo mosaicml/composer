@@ -12,7 +12,7 @@ import torch
 
 from composer import Trainer, algorithms
 from composer.callbacks import CheckpointSaver
-from composer.core import Algorithm  # type: ignore imports used in `eval(representation)`
+from composer.core import Algorithm, Time, TimeUnit  # type: ignore imports used in `eval(representation)`
 from composer.models import ComposerClassifier, ComposerModel, composer_resnet
 from tests.common import ConvModel
 

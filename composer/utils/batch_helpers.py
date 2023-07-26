@@ -140,7 +140,7 @@ def _batch_set(batch: Any, key: Any, value: Any) -> Any:
         setattr(batch, key, value)
 
     # If both (setattr or getattr) and __setitem__ raise exceptions then raise both of them.
-    except (AttributeError, TypeError):
+    except (AttributeError, TypeError) as e:
         raise RuntimeError(
             f'Unable to set key {key} to value {value} on batch {batch}. Please specify a custom set_fn, if necessary.')
     else:

@@ -99,7 +99,7 @@ def test_ema_algorithm(params, model_cls, minimal_state, empty_logger):
         state.timestamp._epoch = update_interval
         algorithm.apply(Event.EPOCH_END, state, empty_logger)
     else:
-        raise ValueError('Invalid time string for parameter half_life')
+        raise ValueError(f'Invalid time string for parameter half_life')
     # Check if EMA correctly computed the average.
     validate_ema(state.model, original_model, algorithm.ema_model, algorithm.smoothing)
     ema_updated_model = copy.deepcopy(algorithm.ema_model)

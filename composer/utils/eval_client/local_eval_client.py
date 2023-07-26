@@ -58,7 +58,7 @@ class LocalEvalClient(EvalClient):
             except:
                 expected_result = test_output
 
-        except Exception:
+        except Exception as _:
             syntax_compiled = False  # don't print out warning b/c this can happen frequently
 
         if syntax_compiled:

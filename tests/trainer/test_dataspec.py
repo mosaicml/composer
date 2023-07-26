@@ -78,10 +78,10 @@ def test_small_batch_at_end_warning():
     model = SimpleModel()
     trainer = Trainer(
         model=model,
-        eval_interval='2ba',
+        eval_interval=f'2ba',
         train_dataloader=DataLoader(RandomClassificationDataset(size=dataset_size), batch_size=batch_size),
         eval_dataloader=DataLoader(RandomClassificationDataset(size=eval_dataset_size), batch_size=eval_batch_size),
-        max_duration='8ba',
+        max_duration=f'8ba',
     )
 
     with pytest.warns(UserWarning, match='Cannot split tensor of length.*'):

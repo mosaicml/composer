@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 try:
     from apex.normalization.fused_layer_norm import FusedLayerNorm as APEXFusedLayerNorm
     APEX_INSTALLED = True
-except ImportError:
+except ImportError as e:
     APEX_INSTALLED = False
 
 

@@ -28,7 +28,7 @@ def test_inference_callback_torchscript(model_cls):
         model = model_cls()
 
         with tempfile.TemporaryDirectory() as tempdir:
-            save_path = os.path.join(tempdir, 'model.pt')
+            save_path = os.path.join(tempdir, f'model.pt')
             exp_for_inf_callback = ExportForInferenceCallback(save_format=save_format, save_path=str(save_path))
 
             # Construct the trainer and train
@@ -61,7 +61,7 @@ def test_inference_callback_onnx(model_cls):
         model = model_cls()
 
         with tempfile.TemporaryDirectory() as tempdir:
-            save_path = os.path.join(tempdir, 'model.onnx')
+            save_path = os.path.join(tempdir, f'model.onnx')
             exp_for_inf_callback = ExportForInferenceCallback(save_format=save_format, save_path=str(save_path))
 
             # Construct the trainer and train

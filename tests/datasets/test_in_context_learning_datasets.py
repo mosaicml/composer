@@ -778,7 +778,7 @@ def test_code_eval_test_cases(dataset_uri, tmp_path):
                                  prompt_string='',
                                  example_delimiter='\n',
                                  question_prelimiter='Code start: \n',
-                                 destination_path=str(tmp_path / 'icl_.jsonl'),
+                                 destination_path=str(tmp_path / f'icl_.jsonl'),
                                  generations_per_sample=1)
     assert isinstance(dl, DataSpec)
 
