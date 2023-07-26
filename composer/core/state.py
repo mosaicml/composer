@@ -1136,7 +1136,7 @@ class State(Serializable):
                 optimizer.load_state_dict(optim_state_dict)
             else:
                 assert optim_state_dict is not None
-                log.debug(f'Loading optimizer state dict')
+                log.debug('Loading optimizer state dict')
                 optimizer.load_state_dict(optim_state_dict)
 
     def _load_dataset_state(self, obj: Dict[str, Any]) -> None:
@@ -1196,7 +1196,7 @@ class State(Serializable):
                 algorithm_passes=algorithm_passes,
             )
 
-        for attribute_name in sorted(list(state.keys())):  # Sort so all ranks load in the same order
+        for attribute_name in sorted(state.keys()):  # Sort so all ranks load in the same order
             serialized_value = state[attribute_name]
             # Skip removed attributes as well as algorithms and model, which was already loaded
             if attribute_name not in self.serialized_attributes or attribute_name == 'model':
@@ -1214,7 +1214,7 @@ class State(Serializable):
 
             # Restructure algorithms serialized_value from list to dict
             if attribute_name == 'algorithms' and isinstance(serialized_value, list):
-                serialized_value = {algo_name: algo_serialized for algo_name, algo_serialized in serialized_value}
+                serialized_value = dict(serialized_value)
 
             if attribute_name == 'dataset_state':
                 self._load_dataset_state(serialized_value)

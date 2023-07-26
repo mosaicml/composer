@@ -577,8 +577,7 @@ class InfiniteDataloader(DataLoader):
 
     def __iter__(self):
         while True:
-            for batch in super().__iter__():
-                yield batch
+            yield from super().__iter__()
 
     def __len__(self) -> Optional[int]:
         return None

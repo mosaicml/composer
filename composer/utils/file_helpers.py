@@ -343,7 +343,7 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
     if backend == 's3':
         return S3ObjectStore(bucket=bucket_name)
     elif backend == 'wandb':
-        raise NotImplementedError(f'There is no implementation for WandB load_object_store via URI. Please use '
+        raise NotImplementedError('There is no implementation for WandB load_object_store via URI. Please use '
                                   'WandBLogger')
     elif backend == 'gs':
         if 'GCS_KEY' not in os.environ or 'GCS_SECRET' not in os.environ:
@@ -407,7 +407,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
             })
 
     elif backend == 'wandb':
-        raise NotImplementedError(f'There is no implementation for WandB via URI. Please use '
+        raise NotImplementedError('There is no implementation for WandB via URI. Please use '
                                   'WandBLogger with log_artifacts set to True')
 
     else:

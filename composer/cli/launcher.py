@@ -180,7 +180,7 @@ def _parse_args():
 
     if is_multinode:
         if args.base_rank is None and args.node_rank is None:
-            raise ValueError(f'In a multi-node environment, at least one of node_rank and base_rank must be provided.')
+            raise ValueError('In a multi-node environment, at least one of node_rank and base_rank must be provided.')
 
         if args.node_rank is None:
             if args.world_size % args.nproc != 0 or args.base_rank % args.nproc != 0:

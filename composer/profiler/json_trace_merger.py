@@ -139,7 +139,7 @@ def merge_traces(output_file: Union[str, pathlib.Path], *trace_files: Union[str,
                     if not is_first_line:
                         output_f.write(',')
                     is_first_line = False
-                    output_f.write(f'\n    ')
+                    output_f.write('\n    ')
                     json.dump(event, output_f)
         for pid, tid in rank_to_backwards_thread.items():
             output_f.write(',\n    ')

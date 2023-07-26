@@ -316,7 +316,7 @@ class Time(Generic[TValue], Serializable):
             return Time(type(self.value)(self.value * other), self.unit)
         other = self._parse(other)
         if other.unit != TimeUnit.DURATION and self.unit != TimeUnit.DURATION:
-            raise RuntimeError(f'Multiplication is supported only if one of the units is Duration')
+            raise RuntimeError('Multiplication is supported only if one of the units is Duration')
         real_unit = self.unit if other.unit == TimeUnit.DURATION else other.unit
         real_type = float if real_unit == TimeUnit.DURATION else int
         return Time(real_type(self.value * other.value), real_unit)

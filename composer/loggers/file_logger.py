@@ -196,7 +196,7 @@ class FileLogger(LoggerDestination):  # noqa: D101
         for hparam_name, hparam_value in hyperparameters.items():
             hparam_str = format_log_data_value(hparam_value)
             self.write(
-                f'[hyperparameter]: ',
+                '[hyperparameter]: ',
                 f'{hparam_name}: {hparam_str} \n',
             )
 

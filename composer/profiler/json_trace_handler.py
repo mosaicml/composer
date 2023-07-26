@@ -208,7 +208,7 @@ class JSONTraceHandler(TraceHandler):  # noqa: D101
                 wall_clock_ns=wall_clock_ns,
                 tid=os.getpid(),
                 pid=dist.get_global_rank(),
-                args={'name': f'Training Loop'})
+                args={'name': 'Training Loop'})
             self._record_event(
                 name='thread_sort_index',
                 ph='M',  # metadata

@@ -115,7 +115,7 @@ def get_cpu_offload(cpu_offload=False):
 
 def get_process_group(pg, process_group_cache=None):
     """Helper function for configuring and/or retrieving process groups."""
-    warnings.warn(f'Instantiating FSDP with custom process groups is an experimental feature.')
+    warnings.warn('Instantiating FSDP with custom process groups is an experimental feature.')
 
     # Return regular process_groups as is, no cacheing
     if pg is None or isinstance(pg, ProcessGroup):
@@ -263,7 +263,7 @@ def _custom_recursive_wrap(module: nn.Module,
             if 'mixed_precision' in module_kwargs and not isinstance(module_kwargs['mixed_precision'], MixedPrecision):
                 # `precision` needs to set `'mixed_precision'`, but `precision` is not part of fsdp kwargs
                 raise NotImplementedError(
-                    f"Automated setting of custom per module mixed_precision is not implemented, but it can be set if `isinstance(module_kwargs['mixed_precision'], MixedPrecision)`"
+                    "Automated setting of custom per module mixed_precision is not implemented, but it can be set if `isinstance(module_kwargs['mixed_precision'], MixedPrecision)`"
                 )
             if 'process_group' in module_kwargs:
                 module_kwargs['process_group'] = get_process_group(module_kwargs['process_group'], process_group_cache)

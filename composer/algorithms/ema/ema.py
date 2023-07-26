@@ -158,11 +158,11 @@ class EMA(Algorithm):
 
         # Verify that either half_life or smoothing has been specified
         if half_life is None and smoothing is None:
-            raise ValueError(f'Either half_life or smoothing must be specified')
+            raise ValueError('Either half_life or smoothing must be specified')
 
         # Verify that only one of half_life or smoothing has been specified
         if half_life is not None and smoothing is not None:
-            raise ValueError(f'Only one of  half_life or smoothing can be specified')
+            raise ValueError('Only one of  half_life or smoothing can be specified')
 
         # Check timestrings are parsable and convert into time object
         if half_life is not None:
@@ -180,11 +180,11 @@ class EMA(Algorithm):
         elif type(update_interval) is str:
             self.update_interval = Time.from_timestring(update_interval)
         else:
-            raise ValueError(f'update_interval must be None or a time string.')
+            raise ValueError('update_interval must be None or a time string.')
 
         # Verify that the units of half_life and update_interval are compatible if necessary
         if half_life is not None and self.half_life.unit != self.update_interval.unit:
-            raise ValueError(f'Units of half_life and update_interval must match.')
+            raise ValueError('Units of half_life and update_interval must match.')
 
         # Verify that the time strings have supported units.
         if self.update_interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
@@ -336,7 +336,7 @@ class EMA(Algorithm):
                 if key in state_dict:
                     named_buffers_dict[key] = state_dict[key]
         else:
-            ValueError(f'ema_model must be initialized before loading state dicts from versions earlier than 0.13.0')
+            ValueError('ema_model must be initialized before loading state dicts from versions earlier than 0.13.0')
 
         # Update the state dict with the new format
         del state['training_model']

@@ -72,7 +72,7 @@ def test_get_file_auto_object_store(tmp_path: pathlib.Path, monkeypatch: pytest.
         with open(str(tmp_path / 'test-file.txt'), 'w') as _txt_file:
             _txt_file.write('testing')
         object_store.upload_object('test-file.txt', str(tmp_path / 'test-file.txt'))
-        get_file(f's3://my-test-bucket/test-file.txt', str(tmp_path / 'loaded-test-file.txt'))
+        get_file('s3://my-test-bucket/test-file.txt', str(tmp_path / 'loaded-test-file.txt'))
 
     with open(str(tmp_path / 'loaded-test-file.txt')) as _txt_file:
         loaded_content = _txt_file.read()

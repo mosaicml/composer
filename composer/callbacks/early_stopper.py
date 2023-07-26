@@ -137,7 +137,7 @@ class EarlyStopper(Callback):
             if state.timestamp.batch - self.best_occurred.batch > self.patience:
                 state.stop_training()
         else:
-            raise ValueError(f'The units of `patience` should be EPOCH or BATCH.')
+            raise ValueError('The units of `patience` should be EPOCH or BATCH.')
 
     def eval_end(self, state: State, logger: Logger) -> None:
         if self.dataloader_label == state.dataloader_label:

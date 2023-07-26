@@ -14,7 +14,7 @@ import torch
 try:
     from apex.normalization.fused_layer_norm import FusedLayerNorm as APEXFusedLayerNorm
     APEX_INSTALLED = True
-except ImportError as e:
+except ImportError:
     APEX_INSTALLED = False
 
 from composer.algorithms.warnings import NoEffectWarning

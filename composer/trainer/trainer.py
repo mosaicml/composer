@@ -927,17 +927,17 @@ class Trainer:
         if is_torch_2_0:
             from torch._dynamo import OptimizedModule
             if isinstance(model, OptimizedModule):
-                log.warning(f'Provided `model` is already compiled with `torch.compile`. Ignoring ' +
-                            f'parameter `compile_config` if provided. If you would like `Trainer` ' +
-                            f'to takes care of model compilation, provide a not-compiled model and ' +
-                            f'`compile_config` parameter.')
+                log.warning('Provided `model` is already compiled with `torch.compile`. Ignoring ' +
+                            'parameter `compile_config` if provided. If you would like `Trainer` ' +
+                            'to takes care of model compilation, provide a not-compiled model and ' +
+                            '`compile_config` parameter.')
                 # The `torch.compile` function returns an object of type `torch._dynamo.OptimizedModule`
                 # which wraps the original `nn.Module` object and later patches its forward method to
                 # optimized `self.forward` method.
                 is_model_compiled = True
                 compiled_model = model._orig_mod
                 if not isinstance(compiled_model, ComposerModel):
-                    raise ValueError(f'Provided `model` must be a subclass of ComposerModel. ' +
+                    raise ValueError('Provided `model` must be a subclass of ComposerModel. ' +
                                      f'Instead found as type `{type(compiled_model)}`')
                 compiled_model.forward = model.dynamo_ctx(
                     compiled_model.forward)  # pyright: ignore [reportGeneralTypeIssues]
@@ -1247,8 +1247,8 @@ class Trainer:
             self._scheduler_step_frequency = TimeUnit.BATCH if step_schedulers_every_batch else TimeUnit.EPOCH
 
         # Some algorithms require specific settings
-        self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, self.state.algorithms))
-        self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, self.state.algorithms))
+        self._backwards_create_graph = any((x.backwards_create_graph for x in self.state.algorithms))
+        self._find_unused_parameters = any((x.find_unused_parameters for x in self.state.algorithms))
         self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
 
         # Suppressing GradScaler warnings as they are always created
@@ -1422,9 +1422,9 @@ class Trainer:
             if self.auto_log_hparams:
                 self.local_hparams['is_model_compiled'] = is_model_compiled
         elif not is_torch_2_0 and compile_config is not None:
-            raise ValueError(f'`torch.compile` is supported for PyTorch 2.0 or higher.' +
-                             f'Either update your PyTorch version or disable parameter by providing ' +
-                             f'`compile_config` to `None`.')
+            raise ValueError('`torch.compile` is supported for PyTorch 2.0 or higher.' +
+                             'Either update your PyTorch version or disable parameter by providing ' +
+                             '`compile_config` to `None`.')
 
     @property
     def saved_checkpoints(self) -> List[str]:
@@ -1698,7 +1698,7 @@ class Trainer:
         """
         # Check Optimizer
         if len(self.state.optimizers) == 0:
-            raise ValueError(f'No optimizer was specified when constructing the Trainer. As the '
+            raise ValueError('No optimizer was specified when constructing the Trainer. As the '
                              'model had no parameters, SGD was not created by default. This trainer '
                              'object can only be used to evaluate or predict. Please specify a model '
                              'with parameters and an optimizer for training.')
@@ -2126,7 +2126,7 @@ class Trainer:
                 model_eval_mode(self.state.model),\
                 _get_precision_context(self.state.precision, self.state.precision_config, self.state.deepspeed_enabled):
             eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
-            for _, metric in self.state.train_metrics.items():
+            for metric in self.state.train_metrics.values():
                 self._original_model.update_metric(
                     device_batch,
                     eval_outputs,
@@ -2176,7 +2176,7 @@ class Trainer:
             # Reset train_metrics on every batch
             # Placing reset here ensures that if auto grad accum catches an OOM, incomplete metric state is cleared
             if self.state.train_metrics is not None:
-                for _, metric in self.state.train_metrics.items():
+                for metric in self.state.train_metrics.values():
                     metric.reset()
 
             total_loss_dict = {'loss/train/total': self.state.device.tensor_to_device(torch.zeros(size=(1,)))}
@@ -2768,7 +2768,7 @@ class Trainer:
 
             metrics = self._ensure_metrics_device_and_dtype(metrics)
 
-            for _, metric in metrics.items():
+            for metric in metrics.values():
                 metric.reset()
 
             dataloader = self.state.dataloader
@@ -2866,7 +2866,7 @@ class Trainer:
                                 else:
                                     outputs = self.state.outputs
 
-                                for _, metric in metrics.items():
+                                for metric in metrics.values():
                                     self._original_model.update_metric(
                                         self.state.batch,
                                         outputs,

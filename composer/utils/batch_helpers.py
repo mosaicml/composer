@@ -140,7 +140,7 @@ def _batch_set(batch: Any, key: Any, value: Any) -> Any:
         setattr(batch, key, value)
 
     # If both (setattr or getattr) and __setitem__ raise exceptions then raise both of them.
-    except (AttributeError, TypeError) as e:
+    except (AttributeError, TypeError):
         raise RuntimeError(
             f'Unable to set key {key} to value {value} on batch {batch}. Please specify a custom set_fn, if necessary.')
     else:
@@ -190,7 +190,7 @@ def _batch_set_tuple(batch: Any, key: Union[int, str], value: Any) -> Any:
 
 
 def _is_key_get_and_set_fn_pair(key):
-    if all([callable(key_element) for key_element in key]):
+    if all(callable(key_element) for key_element in key):
         if len(key) == 2:
             return True
         else:

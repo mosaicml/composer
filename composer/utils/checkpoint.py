@@ -512,7 +512,7 @@ def _restore_checkpoint(
             load_module_strict=strict_model_weights,
         )
         if load_path is None:
-            raise RuntimeError(f'Failed to load DeepSpeed checkpoint')
+            raise RuntimeError('Failed to load DeepSpeed checkpoint')
     elif load_weights_only:
         state.load_model_state(
             state_dict['state'],

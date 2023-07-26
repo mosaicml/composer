@@ -218,7 +218,7 @@ class ColOut(Algorithm):
             raise ValueError(f'resize_target must be a boolean or ``auto``. Received: {resize_target}')
 
         if resize_target is True and batch is False:
-            raise NotImplementedError(f'Resizing targets is not currently support with batch=``False``')
+            raise NotImplementedError('Resizing targets is not currently support with batch=``False``')
 
         self.p_row = p_row
         self.p_col = p_col

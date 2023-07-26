@@ -268,7 +268,7 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
     def update(self, outputs: List[str], labels: List[List[str]]):
         for sample_output, sample_labels in zip(outputs, labels):
             cleaned_sample_output = self.normalize_answer(sample_output)
-            cleaned_sample_labels = set(self.normalize_answer(label) for label in sample_labels)
+            cleaned_sample_labels = {self.normalize_answer(label) for label in sample_labels}
             if any(cleaned_sample_output.startswith(label) for label in cleaned_sample_labels):
                 self.correct += torch.tensor(1.0)
             self.total += torch.tensor(1.0)

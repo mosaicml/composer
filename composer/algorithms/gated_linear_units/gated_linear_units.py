@@ -17,7 +17,7 @@ try:
     from transformers import BertPreTrainedModel
     from transformers.models.bert.modeling_bert import BertIntermediate, BertOutput
     IS_TRANSFORMERS_INSTALLED = True
-except ImportError as e:
+except ImportError:
     IS_TRANSFORMERS_INSTALLED = False
 
 from composer.algorithms.gated_linear_units.gated_linear_unit_layers import BERTGatedFFOutput

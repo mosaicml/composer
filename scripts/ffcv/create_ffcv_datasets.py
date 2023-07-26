@@ -8,16 +8,9 @@ import os
 import sys
 import textwrap
 from argparse import ArgumentParser
-from io import BytesIO
-from typing import Tuple
 
-import numpy as np
-import torch
-from PIL import Image
 from torch.utils.data import Subset
-from torchvision import transforms
 from torchvision.datasets import CIFAR10, ImageFolder
-from tqdm import tqdm
 
 from composer.datasets.ffcv_utils import write_ffcv_dataset
 

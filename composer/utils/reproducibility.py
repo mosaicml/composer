@@ -219,11 +219,11 @@ def load_rng_state(rng_state_dicts: List[Dict[str, Any]]):
 
         if is_cuda_available and not has_cuda_rng_state:
             warnings.warn(
-                textwrap.dedent(f"""\
+                textwrap.dedent("""\
                 The checkpoint did not include the CUDA RNG state. The CUDA RNG will have a
                 non-deterministic state."""))
         if not is_cuda_available and has_cuda_rng_state:
             warnings.warn(
-                textwrap.dedent(f"""\
+                textwrap.dedent("""\
                 The checkpoint included CUDA RNG state, but CUDA is not being used.
                 As such, the CUDA RNG state will be ignored."""))

@@ -276,7 +276,7 @@ class MLPerfCallback(Callback):
         except ImportError:
             pass
 
-        raise TypeError(f'torch dataloader or ffcv dataloader required (and ffcv installed)')
+        raise TypeError('torch dataloader or ffcv dataloader required (and ffcv installed)')
 
     def fit_start(self, state: State, logger: Logger) -> None:
         if _global_rank_zero():

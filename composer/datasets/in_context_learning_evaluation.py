@@ -46,7 +46,7 @@ def _make_padded_input(context_enc, continuation_enc, max_seq_len, pad_tok_id, p
         context_max_subseq_len = max_seq_len - len(continuation_enc)
 
         if context_max_subseq_len < 0:
-            raise Exception(f'Dataset included continuation longer than the max seq len')
+            raise Exception('Dataset included continuation longer than the max seq len')
             # can't support continuations which are longer than the max seq len
 
         context_enc = context_enc[-(context_max_subseq_len):]
@@ -223,7 +223,7 @@ class InContextLearningQATaskDataset(Dataset):
 
             max_answer_length = max(
                 max_answer_length,
-                max(map(lambda x: len(self.tokenizer(x)['input_ids']), self.samples[sample_idx]['aliases'])))
+                max((len(self.tokenizer(x)['input_ids']) for x in self.samples[sample_idx]['aliases'])))
 
         self.max_answer_length = max_answer_length
         return examples

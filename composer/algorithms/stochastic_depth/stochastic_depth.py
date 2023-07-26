@@ -231,7 +231,7 @@ def _validate_stochastic_hparams(target_layer_name: str,
                          f' not supported. Must be one of {list(_VALID_LAYER_DISTRIBUTIONS)}')
 
     if stochastic_method == 'sample' and Time.from_timestring(drop_warmup).value != 0:
-        raise ValueError(f'drop_warmup can not be used with "sample" stochastic_method')
+        raise ValueError('drop_warmup can not be used with "sample" stochastic_method')
 
 
 def _update_drop_rate(module: torch.nn.Module,

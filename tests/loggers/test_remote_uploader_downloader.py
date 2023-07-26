@@ -92,12 +92,12 @@ def object_store_test_helper(
 
             remote_uploader_downloader.run_event(Event.INIT, dummy_state, logger)
 
-            file_path = os.path.join(tmp_path, f'file')
+            file_path = os.path.join(tmp_path, 'file')
             with open(file_path, 'w+') as f:
                 f.write('1')
             logger.upload_file(remote_file_name, file_path, overwrite=overwrite)
 
-            file_path_2 = os.path.join(tmp_path, f'file_2')
+            file_path_2 = os.path.join(tmp_path, 'file_2')
             with open(file_path_2, 'w+') as f:
                 f.write('2')
 

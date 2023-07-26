@@ -32,10 +32,10 @@ def validate_model(model1, model2):
     model1_params, model1_buffers = dict(model1.named_parameters()), dict(model1.named_buffers())
     model2_params, model2_buffers = dict(model2.named_parameters()), dict(model2.named_buffers())
 
-    for name, _ in model1_params.items():
+    for name in model1_params.keys():
         torch.testing.assert_close(model1_params[name].data, model2_params[name].data)
 
-    for name, _ in model1_buffers.items():
+    for name in model1_buffers.keys():
         torch.testing.assert_close(model1_buffers[name].data, model2_buffers[name].data)
 
 
@@ -99,7 +99,7 @@ def test_ema_algorithm(params, model_cls, minimal_state, empty_logger):
         state.timestamp._epoch = update_interval
         algorithm.apply(Event.EPOCH_END, state, empty_logger)
     else:
-        raise ValueError(f'Invalid time string for parameter half_life')
+        raise ValueError('Invalid time string for parameter half_life')
     # Check if EMA correctly computed the average.
     validate_ema(state.model, original_model, algorithm.ema_model, algorithm.smoothing)
     ema_updated_model = copy.deepcopy(algorithm.ema_model)
