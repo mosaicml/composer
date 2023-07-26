@@ -1,7 +1,9 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-from composer.utils import LambdaEvalClient
 import pytest
+
+from composer.utils import LambdaEvalClient
+
 
 @pytest.mark.daily
 @pytest.mark.remote
