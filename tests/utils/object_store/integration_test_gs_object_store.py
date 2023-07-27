@@ -19,11 +19,6 @@ def gs_object_store():
     yield GCSObjectStore(remote_dir)
 
 
-# Todo: call trainer to generate a ckpt and resume the train from cloud
-def test_train_resuming():
-    pass
-
-
 def test_bucket_not_found():
     with pytest.raises(FileNotFoundError):
         _ = GCSObjectStore('gs://not_a_bucket/streaming')
@@ -72,8 +67,6 @@ def test_list_objects(gs_object_store):
     if not stats:
         gs_object_store.upload_object(__DUMMY_OBJ__, destination_blob_name)
     objects = gs_object_store.list_objects()
-    print('objects = ', objects)
-    print('type(objects) = ', type(objects))
     assert (key in objects)
 
 

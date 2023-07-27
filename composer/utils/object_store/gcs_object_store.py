@@ -18,7 +18,7 @@ __all__ = ['GCSObjectStore']
 BOTOCORE_CLIENT_ERROR_CODES = ('403', '404', 'NoSuchKey')
 
 
-def _reraise_gs_errors(uri: str, e: Exception):
+def _reraise_gcs_errors(uri: str, e: Exception):
     try:
         from google.api_core.exceptions import GatewayTimeout, NotFound
 
@@ -49,12 +49,12 @@ class GCSObjectStore(ObjectStore):
         See :ref:`guide to credentials <boto3:guide_credentials>` for more information.
 
     Args:
-        gs_root_dir (str, optional): Required. The URL to a Google Cloud Storage object, formatted as gs://bucket/path
+        gcs_root_dir (str, optional): Required. The URL to a Google Cloud Storage object, formatted as gs://bucket/path
     """
 
     def __init__(
         self,
-        gs_root_dir: str,
+        gcs_root_dir: str,
     ) -> None:
         try:
             from google.cloud.storage import Client
@@ -84,15 +84,15 @@ class GCSObjectStore(ObjectStore):
                              f'service level accounts or GCS_KEY and GCS_SECRET env variables must be set.')
 
         from composer.utils import parse_uri
-        backend, self.bucket_name, self.prefix = parse_uri(gs_root_dir)
+        backend, self.bucket_name, self.prefix = parse_uri(gcs_root_dir)
         if backend == '':
-            raise ValueError(f"gs_root_dir ({gs_root_dir}) doesn't have a valid format")
+            raise ValueError(f"gcs_root_dir ({gcs_root_dir}) doesn't have a valid format")
         self.prefix = self.prefix.lstrip('/')
 
         try:
             self.bucket = self.client.get_bucket(self.bucket_name, timeout=60.0)
         except Exception as e:
-            _reraise_gs_errors(gs_root_dir, e)
+            _reraise_gcs_errors(gcs_root_dir, e)
 
     def get_key(self, object_name: str) -> str:
         return f'{self.prefix}{object_name}'
@@ -123,7 +123,7 @@ class GCSObjectStore(ObjectStore):
             key = self.get_key(object_name)
             blob = self.bucket.get_blob(key)
         except Exception as e:
-            _reraise_gs_errors(self.get_uri(object_name), e)
+            _reraise_gcs_errors(self.get_uri(object_name), e)
 
         return blob.size  # size in bytes
 
@@ -182,7 +182,7 @@ class GCSObjectStore(ObjectStore):
                 blob = self.bucket.blob(self.get_key(src))
                 blob.download_to_filename(tmp_path)
             except Exception as e:
-                _reraise_gs_errors(self.get_uri(src), e)
+                _reraise_gcs_errors(self.get_uri(src), e)
         except:
             # Make a best effort attempt to clean up the temporary file
             try:
@@ -204,8 +204,8 @@ class GCSObjectStore(ObjectStore):
 
         object_names = []
         try:
-            object_names = self.bucket.list_blobs(prefix=prefix)
+            objects = self.bucket.list_blobs(prefix=prefix)
         except Exception as e:
-            _reraise_gs_errors(prefix, e)
+            _reraise_gcs_errors(prefix, e)
 
-        return [ob.name for ob in object_names]
+        return [ob.name for ob in objects]
