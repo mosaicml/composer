@@ -49,7 +49,7 @@ class GCSObjectStore(ObjectStore):
         See :ref:`guide to credentials <boto3:guide_credentials>` for more information.
 
     Args:
-        remote_dir (str, optional): Required. The URL to a Google Cloud Storage object, formatted as gs://bucket/path
+        gs_root_dir (str, optional): Required. The URL to a Google Cloud Storage object, formatted as gs://bucket/path
     """
 
     def __init__(
