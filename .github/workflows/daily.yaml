@@ -79,6 +79,9 @@ jobs:
       aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
       wandb-api-key: ${{ secrets.WANDB_API_KEY }}
       slack-notifications-bot-token: ${{ secrets.SLACK_NOTIFICATIONS_BOT_TOKEN }}
+      code-eval-device: ${{ secrets.CODE_EVAL_DEVICE }}
+      code-eval-url: ${{ secrets.CODE_EVAL_URL }}
+      code-eval-apikey: ${{ secrets.CODE_EVAL_APIKEY }}
   coverage:
     uses: ./.github/workflows/coverage.yaml
     name: Coverage Results

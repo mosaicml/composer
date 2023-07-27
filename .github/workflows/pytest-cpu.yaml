@@ -35,6 +35,12 @@ on:
         required: false
       slack-notifications-bot-token:
         required: false
+      code-eval-device:
+        required: false
+      code-eval-url:
+        required: false
+      code-eval-apikey:
+        required: false
 jobs:
   pytest-cpu:
     timeout-minutes: 30
