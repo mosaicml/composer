@@ -116,8 +116,8 @@ class GCSObjectStore(ObjectStore):
         from google.cloud.storage import Blob
 
         key = self.get_key(object_name)
-        stats = Blob(bucket=self.bucket, name=key).exists(self.client)
-        if not stats:
+        blob_exists = Blob(bucket=self.bucket, name=key).exists(self.client)
+        if not blob_exists:
             raise FileNotFoundError(f'{object_name} not found in {self.bucket_name}')
         try:
             key = self.get_key(object_name)
