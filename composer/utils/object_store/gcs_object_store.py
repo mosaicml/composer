@@ -202,7 +202,6 @@ class GCSObjectStore(ObjectStore):
             prefix = ''
         prefix = self.get_key(prefix)
 
-        object_names = []
         try:
             objects = self.bucket.list_blobs(prefix=prefix)
         except Exception as e:
