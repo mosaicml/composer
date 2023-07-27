@@ -94,7 +94,7 @@ def using_torch_2() -> bool:
 
 
 def using_torch_2_0_1() -> bool:
-    """Check the PyTorch version and compared it with version 2.0.1.
+    """Check the PyTorch version and compare it with version 2.0.1.
 
     Returns:
         bool: Return True if current version is greater than or equal to 2.0.1 else False
