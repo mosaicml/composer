@@ -30,6 +30,12 @@ on:
         required: true
       slack-notifications-bot-token:
         required: false
+      code-eval-device:
+        required: false
+      code-eval-url:
+        required: false
+      code-eval-apikey:
+        required: false
 jobs:
   pytest-gpu:
     timeout-minutes: 60 # ${{ inputs.gha-timeout }} for some reason not able to turn this into an input
