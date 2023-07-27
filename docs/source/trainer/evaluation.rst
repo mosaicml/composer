@@ -86,7 +86,7 @@ Composer also supports execution and evaluation of model-generated code during b
 To set up secure, sandboxed code evaluation, Composer uses AWS Lambda functions. To use this feature, you must have an AWS account to create a Lambda function that accepts input events of the form:
 
 .. code:: python
-    
+
     event = {
         'code': # insert code here
         'input': # insert input here
