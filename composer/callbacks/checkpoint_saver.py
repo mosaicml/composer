@@ -390,7 +390,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             filename=filename_with_placeholders,
             weights_only=self.weights_only,
         )
-        log.debug(saved_path)
+        log.debug(f'Checkpoint locally saved to {saved_path}')
 
         if not saved_path:  # not all ranks save
             return

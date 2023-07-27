@@ -312,7 +312,7 @@ def load_sharded_checkpoint(
         raise ValueError(
             f'Sharded checkpoint loading requires torch version >= 2.0.0. You have torch version {torch.__version__}')
 
-    using_multinode = dist.get_world_size != dist.get_local_world_size
+    using_multinode = dist.get_world_size() != dist.get_local_world_size()
     if not using_torch_2_0_1() and using_multinode:
         raise ValueError(
             f'Sharded checkpoint loading on >1 node requires torch version >= 2.0.1. You have torch version {torch.__version__}'
