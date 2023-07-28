@@ -238,7 +238,7 @@ def test_in_context_learning_qa_accuracy():
     assert metric.compute() == (2 / 3)
 
 
-def test_in_context_learning_code_eval_accuracy():
+def test_in_context_learning_code_eval_accuracy(monkeypatch):
     outputs = [
         '    return 1 if n <= 1 else fib(n - 1) + fib(n - 1)',  # incorrect
         '   if n <= 1:\n        return 1\n    return fib(n-1) + fib(n-2)',  # incorrect spacing
@@ -252,7 +252,7 @@ def test_in_context_learning_code_eval_accuracy():
     entry_points = ['fib', 'multiply_by_two', 'add_one']
     test_inputs = [['(1,)', '(2,)', '(4,)'], ['(1,)', '(2,)', '(4,)'], ['(1,)', '(2,)', '(4,)']]
     test_outputs = [['1', '2', '5'], ['2', '4', '8'], ['2', '3', '5']]
-
+    monkeypatch.setenv('CODE_EVAL_DEVICE', 'LOCAL')
     batch = {
         'generation_kwargs': {
             'num_beams': 2
