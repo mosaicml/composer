@@ -35,6 +35,12 @@ on:
         required: false
       slack-notifications-bot-token:
         required: false
+      code-eval-device:
+        required: false
+      code-eval-url:
+        required: false
+      code-eval-apikey:
+        required: false
 jobs:
   pytest-cpu:
     timeout-minutes: 30
@@ -80,6 +86,6 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.slack-notifications-bot-token }}
         uses: voxmedia/github-action-slack-notify-build@v1
         with:
-          channel: composer-helpdesk
+          channel: composer-issues
           status: FAILED
           color: danger
