@@ -174,8 +174,7 @@ Saving for Inference
 --------------------
 
 By default, the :class:`.Trainer` stores the entire training state in each checkpoint. If you would like to store
-only the model weights in a checkpoint, set ``save_weights_only=True``. Or if you would like to save metadata as well, set
-``save_weights_and_metadata=True``. The metadata includes the information about the enviornment used to train the model and any integrations, such as HuggingFace,
+only the model weights in a checkpoint (plus metadata and integrations), set ``save_weights_only=True``. The metadata includes the information about the enviornment used to train the model and any integrations, such as HuggingFace,
 and thsoe integrations' metadata.
 .
 .. testcode::
@@ -185,7 +184,7 @@ and thsoe integrations' metadata.
     trainer = Trainer(
         ...,
         save_folder="checkpoints",
-        save_weights_only=True, # or alternatively, save_weights_and_metadata=True.
+        save_weights_only=True,
         save_overwrite=True,
     )
 
@@ -217,7 +216,7 @@ or other checkpoint saving parameters directly on the trainer.
             ),
             CheckpointSaver(
                 folder='weights_only_checkpoints',
-                weights_only=True, # or alternatively weights_and_metadata=True.
+                weights_only=True,
                 overwrite=True,
             ),
         ],
