@@ -699,7 +699,6 @@ class Trainer:
             state. This parameter has no effect if ``save_folder`` is ``None``. (default: ``False``)
 
             .. seealso:: :class:`~.CheckpointSaver`
-        save_weights_and_metadata_only (bool, optional): Whether to save only the metadata of the training along with the weights.
         save_num_checkpoints_to_keep (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
             are removed first. Set to ``-1`` to keep all checkpoints locally. (default: ``-1``)
 
@@ -863,7 +862,6 @@ class Trainer:
         save_overwrite: bool = False,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
         save_weights_only: bool = False,
-        save_weights_and_metadata_only: bool = False,
         save_num_checkpoints_to_keep: int = -1,
 
         # Graceful Resumption
@@ -1108,9 +1106,9 @@ class Trainer:
         self._checkpoint_saver = None
         latest_remote_file_name = None
         if save_folder is not None:
-            if save_weights_only and not save_weights_and_metadata_only:
+            if save_weights_only:
                 warnings.warn(
-                    'save_weights_only=True only saves weights for now, but will changed to also save metadata and integrations in the future.'
+                    'save_weights_only=True now also saves metadata and integrations! Please adjust your workflow accordingly.'
                 )
 
             _, _, parsed_save_folder = parse_uri(save_folder)
@@ -1141,7 +1139,6 @@ class Trainer:
                 latest_remote_file_name=latest_remote_file_name,
                 overwrite=save_overwrite,
                 weights_only=save_weights_only,
-                weights_and_metadata_only=save_weights_and_metadata_only,
                 save_interval=save_interval,
                 num_checkpoints_to_keep=save_num_checkpoints_to_keep,
             )
@@ -3024,14 +3021,12 @@ class Trainer:
         name: str = 'ep{epoch}-ba{batch}-rank{rank}',
         *,
         weights_only: bool = False,
-        weights_and_metadata_only: bool = False,
     ):
         """Checkpoint the training :class:`~.State`.
 
         Args:
             name (str, optional): See :func:`.save_checkpoint`.
             weights_only (bool, optional): See :func:`.save_checkpoint`.
-            weights_and_metadata_only (bool, optional): See :func:`.save_checkpoint`.
 
         Returns:
             str or None: See :func:`.save_checkpoint`.
@@ -3040,7 +3035,6 @@ class Trainer:
             state=self.state,
             filename=name,
             weights_only=weights_only,
-            weights_and_metadata_only=weights_and_metadata_only,
         )
 
     def save_checkpoint_to_save_folder(self):

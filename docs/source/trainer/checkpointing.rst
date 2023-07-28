@@ -229,7 +229,7 @@ Fine-tuning
 -----------
 
 The :class:`.Trainer` will only load the model weights from the checkpoint if ``load_weights_only=True`` or if the
-checkpoint was saved with ``save_weights_only=True`` or ``save_weights_and_metadata_only``. This is especially useful for model fine-tuning, since the rest
+checkpoint was saved with ``save_weights_only=True``. This is especially useful for model fine-tuning, since the rest
 of the trainer's state no longer applies.
 
 If the fine-tuned model contains different parameter names than the model in the checkpoint, set ``load_strict=False`` to

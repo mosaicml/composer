@@ -553,17 +553,9 @@ def save_checkpoint(
     filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
     *,
     weights_only: bool = False,
-    weights_and_metadata_only: bool = False,
 ) -> Union[str, None]:  # noqa: D103
 
     log.debug('Saving checkpoint to %s', filename)
-
-    if weights_and_metadata_only:
-        if not weights_only:
-            weights_only = True
-        save_metadata = True
-    else:
-        save_metadata = False
 
     is_deepspeed = is_model_deepspeed(state.model)
 
@@ -572,11 +564,10 @@ def save_checkpoint(
         'rng': reproducibility.get_rng_state(),
     }
     if weights_only and not is_deepspeed:
-        state_to_save = {'model': state_dict['state']['model']}
-        if save_metadata:
-            state_to_save['integrations'] = state_dict['state']['integrations'],
-            state_to_save['metadata'] = state_dict['state']['metadata']
-        state_dict['state'] = state_to_save
+        state_dict['state'] = { 'model': state_dict['state']['model'],
+                                'integrations': state_dict['state']['integrations'],
+                                'metadata': state_dict['state']['metadata'],
+                               }
 
     log.debug('State dict created.')
 
@@ -705,14 +696,6 @@ Args:
         .. note::
 
             When using DeepSpeed, this parameter must be ``False``. Weights-only checkpointing is not currently
-            compatible with DeepSpeed,
-
-    weights_and_metadata_only (bool, optional): If ``True``, save only the model weights and metadata instead of the
-        entire training state. (default: ``False``)
-
-        .. note::
-
-            When using DeepSpeed, this parameter must be ``False``. Weights and metdata-only checkpointing is not currently
             compatible with DeepSpeed,
 
     Returns:
