@@ -140,8 +140,12 @@ def _parse_args():
     if args.nproc is None:
         if 'LOCAL_WORLD_SIZE' in os.environ:
             args.nproc = int(os.environ['LOCAL_WORLD_SIZE'])
+            raise ValueError(f"args.nproc is {args.nproc}, torch devices is {torch.cuda.device_count()}")
+            print(args.nproc)
+            print(torch.cuda.device_count())
         else:
             args.nproc = torch.cuda.device_count()
+            raise ValueError("unexpected code path" + args.nproc)
 
         if args.nproc == 0:
             # This could happen if doing cpu-only training,
@@ -149,6 +153,7 @@ def _parse_args():
             # and LOCAL_WORLD_SIZE (as set by MCLI) to be zero
             args.nproc = 1
 
+    raise ValueError("nproc is" + args.nproc)
     if args.nproc < 1:
         raise ValueError('The nproc must be 1 or greater')
 
