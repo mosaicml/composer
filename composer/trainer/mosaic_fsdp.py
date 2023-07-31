@@ -4,7 +4,7 @@
 # Released under BSD 3-Clause License,
 # Copyright (c) Facebook, Inc. and its affiliates.
 
-"""Updates FSDPs _auto_wrap to enable module_kwargs and custom process_group cache."""
+"""Monkey patch FSDPs _auto_wrap to enable module_kwargs and custom process_group cache."""
 
 import functools
 import warnings
@@ -28,7 +28,6 @@ __all__ = [
     'get_mixed_precision',
     'get_cpu_offload',
     'get_process_group',
-    'MosaicFullyShardedDataParallel',
 ]
 
 sharding_map = {
@@ -178,19 +177,21 @@ if version.parse(torch.__version__) <= version.parse('1.13.1'):
     raise NotImplementedError(f'Not supported for torch <= 1.13.1')
 
 elif version.parse(torch.__version__) <= version.parse('2.0.0'):
-    # MosaicFullyShardedDataParallel for torch <= 2.0 ie torch == 1.13.1
+    # FullyShardedDataParallel monkey path for torch <= 2.0 ie torch == 1.13.1
 
     from torch.distributed.fsdp._utils import _contains_batchnorm, _override_batchnorm_mixed_precision
     from torch.distributed.fsdp.wrap import _or_policy, _wrap, _wrap_batchnorm_individually
 
-    def _custom_recursive_wrap(module: nn.Module,
-                               auto_wrap_policy: Callable,
-                               wrapper_cls: Callable,
-                               ignored_modules: Set[nn.Module],
-                               ignored_params: Set[nn.Parameter],
-                               process_group_cache: Dict[Tuple[int], Any],
-                               only_wrap_children: bool = False,
-                               **kwargs: Any) -> Tuple[nn.Module, int]:
+    def _custom_recursive_wrap(
+        module: nn.Module,
+        auto_wrap_policy: Callable,
+        wrapper_cls: Callable,
+        ignored_modules: Set[nn.Module],
+        ignored_params: Set[nn.Parameter],
+        process_group_cache: Dict[Tuple[int], Any],
+        only_wrap_children: bool = False,
+        **kwargs: Any,
+    ) -> Tuple[nn.Module, int]:
         """Updates FSDPs _recursive_wrap to enable module_kwargs and custom process_group cache.
 
         modified version of
@@ -288,10 +289,7 @@ elif version.parse(torch.__version__) <= version.parse('2.0.0'):
                 return module, total_wrapped_params
         return module, 0
 
-    # class MosaicFullyShardedDataParallel(FullyShardedDataParallel):
-    #     """Updates FSDP's _auto_wrap to enable module_kwargs."""
-
-    def _auto_wrap(
+    def _custom_auto_wrap(
         self,
         auto_wrap_kwargs: Dict[str, Any],
         fsdp_kwargs: Dict[str, Any],
@@ -334,13 +332,14 @@ elif version.parse(torch.__version__) <= version.parse('2.0.0'):
         auto_wrap_kwargs['process_group_cache'] = {}
         _custom_recursive_wrap(**auto_wrap_kwargs, **fsdp_kwargs)
 
-    FullyShardedDataParallel._auto_wrap = _auto_wrap
+    # monkey patch _auto_wrap with _custom_auto_wrap fn
+    FullyShardedDataParallel._auto_wrap = _custom_auto_wrap
 
 elif version.parse(torch.__version__) <= version.parse('2.0.1'):
     raise NotImplementedError(f'Not supported for torch <= 2.0.0')
 
 elif version.parse(torch.__version__) <= version.parse('2.1.0'):
-    # MosaicFullyShardedDataParallel for torch <= 2.1 ie torch == 2.0.1
+    # # FullyShardedDataParallel monkey path for torch <= 2.1 ie torch == 2.0.1
 
     import collections
     import contextlib
@@ -481,6 +480,13 @@ elif version.parse(torch.__version__) <= version.parse('2.1.0'):
     ) -> None:
         """Updates _auto_wrap to enable module_kwargs.
 
+        modified version of
+        https://github.com/pytorch/pytorch/blob/96ca226a7332be0d8f3d6159d0c797e032ab0721/torch/distributed/fsdp/_wrap_utils.py#L31
+        FSDP's _auto_wrap recursively wraps modules as FSDP modules for parameter sharding.
+        This modification enables the user to pass custom FSDP arguements for every wrapped module.
+        The added process_group_cache enables different FSDP modules to, when appropriate, use the
+        same process group instead of instantiating a new process group.
+
         Recursively auto wraps the root module given by the key "module" in
         ``auto_wrap_kwargs`` with the arguments in ``auto_wrap_kwargs`` and
         ``fsdp_kwargs``.
@@ -532,6 +538,11 @@ elif version.parse(torch.__version__) <= version.parse('2.1.0'):
         use_orig_params: bool = False,
         ignored_parameters: Optional[Iterable[torch.nn.Parameter]] = None,
     ):
+        """Updates FSDP's __init__ fn to call _custom_auto_wrap.
+
+        modified version of
+        https://github.com/pytorch/pytorch/blob/96ca226a7332be0d8f3d6159d0c797e032ab0721/torch/distributed/fsdp/fully_sharded_data_parallel.py#L330
+        """
         torch._C._log_api_usage_once('torch.distributed.fsdp')
         super(FullyShardedDataParallel, self).__init__()
         _init_ignored_module_states(self, module, ignored_modules, ignored_parameters)
@@ -573,6 +584,7 @@ elif version.parse(torch.__version__) <= version.parse('2.1.0'):
                 # process groups.
                 fsdp_kwargs['process_group'] = (self.process_group, self._inter_node_pg)
 
+            # call the custom _auto_wrap fn
             _custom_auto_wrap(auto_wrap_kwargs, fsdp_kwargs, FullyShardedDataParallel)
 
         backward_prefetch_limit = 1
@@ -608,9 +620,10 @@ elif version.parse(torch.__version__) <= version.parse('2.1.0'):
         _init_state_dict_state(self)
         _register_all_state_dict_hooks(self)
 
+    # monkey patch __init__ where __init__ calls the custom _auto_wrap fn
     FullyShardedDataParallel.__init__ = __init__
 
 else:
     raise NotImplementedError(
-        f'FullyShardedDataParallel ui will be updated in torch2.1; MosaicFullyShardedDataParallel needs to be updated accordingly.'
+        f'FullyShardedDataParallel ui will be updated in torch2.1; _auto_wrap monkey patch needs to be updated accordingly.'
     )
