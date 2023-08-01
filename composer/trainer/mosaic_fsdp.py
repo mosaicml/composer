@@ -466,10 +466,11 @@ elif version.parse(torch.__version__) < version.parse('2.1.0'):
                 final_kwargs = {**kwargs, **module_kwargs}
 
                 if final_kwargs.get('process_group', None) is not None:
-                    pg_ranks = distributed.get_process_group_ranks(final_kwargs['process_group'])
-                    if len(pg_ranks) != dist.get_world_size() and final_kwargs.get('use_orig_params'):
+                    _pg_ranks = distributed.get_process_group_ranks(final_kwargs['process_group'])
+                    _meta_init = any(p.device.type == 'meta' for p in module.parameters())
+                    if _meta_init and len(_pg_ranks) != dist.get_world_size() and final_kwargs.get('use_orig_params'):
                         raise NotImplementedError(
-                            f'FSDP with custom process groups cannot use `use_orig_params: True`.'
+                            f'FSDP with custom process groups cannot use `use_orig_params: True` when using meta init.'
                         )
 
                 # Leaf node or final wrapping of the remainder both happen here.
