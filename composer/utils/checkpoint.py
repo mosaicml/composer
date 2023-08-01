@@ -761,10 +761,11 @@ def save_checkpoint(
         'rng': reproducibility.get_rng_state(),
     }
     if weights_only and not is_deepspeed:
-        state_dict['state'] = { 'model': state_dict['state']['model'],
-                                'integrations': state_dict['state']['integrations'],
-                                'metadata': state_dict['state']['metadata'],
-                               }
+        state_dict['state'] = {
+            'model': state_dict['state']['model'],
+            'integrations': state_dict['state']['integrations'],
+            'metadata': state_dict['state']['metadata'],
+        }
 
     log.debug('State dict created.')
 

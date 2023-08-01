@@ -413,9 +413,6 @@ class TestCheckpointSaving:
             assert set(composer_state_dict['state'].keys()) != {'model', 'metadata', 'integrations'}
 
 
-            
-
-
 class TestCheckpointLoading:
 
     def _assert_weights_equivalent(self, m1: torch.nn.Module, m2: torch.nn.Module):

@@ -340,8 +340,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         dist.barrier()  # holds all ranks until folder check is done
 
         if is_model_deepspeed(state.model) and self.weights_only:
-            raise NotImplementedError(
-                'weights_only=True is not supported when using DeepSpeed.')
+            raise NotImplementedError('weights_only=True is not supported when using DeepSpeed.')
 
         self.start_batch = state.timestamp.batch
 
