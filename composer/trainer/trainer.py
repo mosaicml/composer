@@ -1108,7 +1108,7 @@ class Trainer:
         latest_remote_file_name = None
         if save_folder is not None:
             if save_weights_only:
-                warnings.warn(
+                log.info(
                     'save_weights_only=True now also saves metadata and integrations! Please adjust your workflow accordingly.'
                 )
 
