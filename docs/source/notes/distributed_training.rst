@@ -199,6 +199,7 @@ The full spec and defaults for Composer's `fsdp_config` is here:
       'verbose': bool = True | False,
       'state_dict_type': str = 'full' | 'local' | 'sharded' # Default: full
       'sharded_ckpt_prefix_dir': str = 'ep{epoch}-ba{batch}' # Default: 'ep{epoch}-ba{batch}'
+      'load_monolith_rank0_only': bool = True | False # Default: False
     }
 
 All values come with defaults and can be optionally defined in the :code:`fsdp_config`. Most parameters map directly to parameters in the `FSDP documentation <https://pytorch.org/docs/stable/fsdp.html#torch.distributed.fsdp.FullyShardedDataParallel>`__.
@@ -384,8 +385,8 @@ Depending on the value you set for :code:`state_dict_type`, you can get differen
 1. :code:`state_dict_type='full'`
 The default. Saves one big checkpoint file for the whole model.
 It does this by gathering the model state to the global rank 0 device, unflattening it, and then saving it out.
-Similarly when loading checkpoints, the global rank 0 device will load in the checkpoint file and scatter the
-model state to the other ranks.
+If `load_monolith_rank0_only=True`, then when loading checkpoints the global rank 0 device will load in the checkpoint file and scatter the
+model and optimizer state to the other ranks, which will will dramatically reduce the memory usage on system. Otherwise, all ranks will separately load in the checkpoint file.
 
 2. :code:`state_dict_type='local'`
 The least communication-heavy option because the state dict for saving and loading is exactly what is used in FSDP.
