@@ -182,7 +182,7 @@ elif version.parse(torch.__version__) < version.parse('2.0.0'):
     from torch.distributed.fsdp._utils import _contains_batchnorm, _override_batchnorm_mixed_precision
     from torch.distributed.fsdp.wrap import _or_policy, _wrap, _wrap_batchnorm_individually
 
-    def _custom_recursive_wrap(
+    def _custom_recursive_wrap_t1p13p1(
         module: nn.Module,
         auto_wrap_policy: Callable,
         wrapper_cls: Callable,
@@ -243,7 +243,7 @@ elif version.parse(torch.__version__) < version.parse('2.0.0'):
             for name, child in module.named_children():
                 if child in ignored_modules:
                     continue
-                wrapped_child, num_wrapped_params = _custom_recursive_wrap(
+                wrapped_child, num_wrapped_params = _custom_recursive_wrap_t1p13p1(
                     module=child,
                     auto_wrap_policy=auto_wrap_policy,
                     wrapper_cls=wrapper_cls,
@@ -288,7 +288,7 @@ elif version.parse(torch.__version__) < version.parse('2.0.0'):
                 return module, total_wrapped_params
         return module, 0
 
-    def _custom_auto_wrap(
+    def _custom_auto_wrap_t1p13p1(
         self,
         auto_wrap_kwargs: Dict[str, Any],
         fsdp_kwargs: Dict[str, Any],
@@ -329,10 +329,10 @@ elif version.parse(torch.__version__) < version.parse('2.0.0'):
                           'kernels do not support low precision.')
             auto_wrap_kwargs['auto_wrap_policy'] = auto_wrap_policy
         auto_wrap_kwargs['process_group_cache'] = {}
-        _custom_recursive_wrap(**auto_wrap_kwargs, **fsdp_kwargs)
+        _custom_recursive_wrap_t1p13p1(**auto_wrap_kwargs, **fsdp_kwargs)
 
     # monkey patch _auto_wrap with _custom_auto_wrap fn
-    FullyShardedDataParallel._auto_wrap = _custom_auto_wrap
+    FullyShardedDataParallel._auto_wrap = _custom_auto_wrap_t1p13p1
 
 elif version.parse(torch.__version__) < version.parse('2.0.1'):
     raise NotImplementedError(f'Not supported for torch == 2.0.0')
@@ -351,7 +351,7 @@ elif version.parse(torch.__version__) < version.parse('2.1.0'):
     from torch.distributed.fsdp._utils import _contains_batchnorm, _override_batchnorm_mixed_precision
     from torch.distributed.fsdp.wrap import _FSDPPolicy, _or_policy, _wrap, _wrap_batchnorm_individually
 
-    def _custom_recursive_wrap(
+    def _custom_recursive_wrap_t2p0p1(
         module: nn.Module,
         auto_wrap_policy: Callable,
         wrapper_cls: Callable,
@@ -412,7 +412,7 @@ elif version.parse(torch.__version__) < version.parse('2.1.0'):
             for name, child in module.named_children():
                 if child in ignored_modules:
                     continue
-                wrapped_child, num_wrapped_params = _custom_recursive_wrap(
+                wrapped_child, num_wrapped_params = _custom_recursive_wrap_t2p0p1(
                     module=child,
                     auto_wrap_policy=auto_wrap_policy,
                     wrapper_cls=wrapper_cls,
@@ -464,7 +464,7 @@ elif version.parse(torch.__version__) < version.parse('2.1.0'):
                 return module, total_wrapped_numel
         return module, 0
 
-    def _custom_auto_wrap(
+    def _custom_auto_wrap_t2p0p1(
             auto_wrap_kwargs: Dict[str, Any],
             fsdp_kwargs: Dict[str, Any],
             module_wrapper_cls: Any,  # e.g. `FullyShardedDataParallel`
@@ -509,9 +509,9 @@ elif version.parse(torch.__version__) < version.parse('2.1.0'):
                           'kernels do not support low precision.')
         auto_wrap_kwargs['auto_wrap_policy'] = auto_wrap_policy
         auto_wrap_kwargs['process_group_cache'] = {}
-        _custom_recursive_wrap(**auto_wrap_kwargs, **fsdp_kwargs)
+        _custom_recursive_wrap_t2p0p1(**auto_wrap_kwargs, **fsdp_kwargs)
 
-    def __init__(
+    def init_fn(
         self,
         module: nn.Module,
         process_group: ProcessGroupType = None,
@@ -576,7 +576,7 @@ elif version.parse(torch.__version__) < version.parse('2.1.0'):
                 fsdp_kwargs['process_group'] = (self.process_group, self._inter_node_pg)
 
             # call the custom _auto_wrap fn
-            _custom_auto_wrap(auto_wrap_kwargs, fsdp_kwargs, FullyShardedDataParallel)
+            _custom_auto_wrap_t2p0p1(auto_wrap_kwargs, fsdp_kwargs, FullyShardedDataParallel)
 
         backward_prefetch_limit = 1
         forward_prefetch_limit = 1
@@ -612,7 +612,7 @@ elif version.parse(torch.__version__) < version.parse('2.1.0'):
         _register_all_state_dict_hooks(self)
 
     # monkey patch __init__ where __init__ calls the custom _auto_wrap fn
-    FullyShardedDataParallel.__init__ = __init__
+    FullyShardedDataParallel.__init__ = init_fn
 
 elif version.parse(torch.__version__) >= version.parse('2.1.0'):
     raise NotImplementedError(
