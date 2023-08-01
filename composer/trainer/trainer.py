@@ -13,6 +13,7 @@ import logging
 import os
 import random
 import re
+import tempfile
 import textwrap
 import time
 import warnings
@@ -974,15 +975,24 @@ class Trainer:
             reproducibility.configure_deterministic_mode()
 
         # Optimizers and Schedulers
-        if not optimizers:
-            optimizers = DecoupledSGDW(model.parameters(), lr=0.1)
-            # hard-coding the optimizer in the warning, as repr(optimizers) would print an annoying, multi-line warning
-            warnings.warn(('No optimizer was specified. Defaulting to '
-                           f"{type(optimizers).__name__}(lr={optimizers.defaults['lr']})"))
+        if optimizers is None:
+            try:
+                optimizers = DecoupledSGDW(model.parameters(), lr=0.1)
+                # hard-coding the optimizer in the warning, as repr(optimizers) would print an annoying, multi-line warning
+                warnings.warn(('No optimizer was specified. Defaulting to '
+                               f"{type(optimizers).__name__}(lr={optimizers.defaults['lr']})"))
+            except ValueError as e:
+                if 'optimizer got an empty parameter list' in str(e):
+                    warnings.warn(
+                        'No optimizer was specified, and the model does not have parameters. Skipping auto-creating optimizer.'
+                    )
+                else:
+                    raise
 
-        num_optimizers = len(ensure_tuple(optimizers))
-        if num_optimizers != 1:
-            raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
+        if optimizers is not None:
+            num_optimizers = len(ensure_tuple(optimizers))
+            if num_optimizers != 1:
+                raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
 
         # Move the model and optimizers to the device
         if deepspeed_config is None and fsdp_config is None:
@@ -1339,12 +1349,43 @@ class Trainer:
                     'Multiple concurrent uploads is not currently supported when using autoresume. Please set `num_concurrent_uploads` to 1 '
                     'for all `RemoteUploaderDownloader` instances.')
             assert latest_remote_file_name is not None
-            autoresume_checkpoint_path = self._get_autoresume_checkpoint(
-                save_folder=save_folder,
-                save_latest_filename=save_latest_filename,
-                save_latest_remote_file_name=latest_remote_file_name,
-                loggers=loggers,
-                load_progress_bar=load_progress_bar)
+            if self.state.fsdp_elastic_sharded_enabled:
+                ar_object_store = maybe_create_object_store_from_uri(save_folder)
+                # Symlink is on object store.
+                if ar_object_store is not None:
+                    with tempfile.TemporaryDirectory() as temp_dir:
+                        local_symlink_file = str(Path(temp_dir) / Path('autoresume.symlink'))
+                        formatted_latest_remote_file_name = format_name_with_dist(latest_remote_file_name,
+                                                                                  self.state.run_name) + '.symlink'
+                        try:
+                            ar_object_store.download_object(formatted_latest_remote_file_name, local_symlink_file)
+                            with open(local_symlink_file, 'r') as f:
+                                real_path = f.read()
+                                log.debug(f'Read path {real_path} from symlink file')
+                            autoresume_checkpoint_path = ar_object_store.get_uri(real_path)
+                        except FileNotFoundError:
+                            autoresume_checkpoint_path = None
+                # Symlink is local.
+                else:
+                    save_latest_filename = format_name_with_dist(save_latest_filename, self.state.run_name)
+                    save_folder = format_name_with_dist(save_folder, self.state.run_name)
+                    latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
+                    if os.path.exists(latest_checkpoint_path):
+                        latest_checkpoint_path = os.path.join(os.path.dirname(latest_checkpoint_path),
+                                                              os.readlink(latest_checkpoint_path))
+                        autoresume_checkpoint_path = latest_checkpoint_path
+                    else:
+                        autoresume_checkpoint_path = None
+
+            # Standard non-elastic codepath for autoresume.
+            else:
+                autoresume_checkpoint_path = self._get_autoresume_checkpoint(
+                    save_folder=save_folder,
+                    save_latest_filename=save_latest_filename,
+                    save_latest_remote_file_name=latest_remote_file_name,
+                    loggers=loggers,
+                    load_progress_bar=load_progress_bar)
+
             # Found latest checkpoint path, load that instead
             if autoresume_checkpoint_path:
                 load_path = autoresume_checkpoint_path
@@ -1687,6 +1728,13 @@ class Trainer:
             device_train_microbatch_size (int | str, optional): See :class:`.Trainer`.
             precision (Precision | str, optional): See :class:`.Trainer`.
         """
+        # Check Optimizer
+        if len(self.state.optimizers) == 0:
+            raise ValueError(f'No optimizer was specified when constructing the Trainer. As the '
+                             'model had no parameters, SGD was not created by default. This trainer '
+                             'object can only be used to evaluate or predict. Please specify a model '
+                             'with parameters and an optimizer for training.')
+
         # Train Dataloader
         if train_dataloader is not None:
             self._train_data_spec = ensure_data_spec(train_dataloader)
