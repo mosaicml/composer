@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple, Typ
 import torch
 from torchmetrics import Metric
 
-from composer.metrics import InContextLearningMetric
+from composer.metrics import InContextLearningCodeEvalAccuracy, InContextLearningMetric
 from composer.models.base import ComposerModel
 from composer.utils import MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp, safe_torch_load
 
@@ -140,12 +140,14 @@ class HuggingFaceModel(ComposerModel):
         self.dummy_forward_called = False
 
     @staticmethod
-    def load_huggingface_tokenizer_from_saved_state(
-            hf_state: Dict[str, Any]) -> Optional[transformers.PreTrainedTokenizer]:
+    def load_huggingface_tokenizer_from_saved_state(hf_state: Dict[str, Any],
+                                                    trust_remote_code: bool = False
+                                                   ) -> Optional[transformers.PreTrainedTokenizer]:
         """A helper function that loads a HuggingFace tokenizer from a loaded in hf state.
 
         Args:
             hf_state (Dict[str, Any]): HF state loaded from a Composer checkpoint.
+            trust_remote_code (bool, optional): Whether to trust the remote code when loading the tokenizer. Defaults to False.
 
         Returns:
             Optional[transformers.PreTrainedTokenizer]: The loaded HuggingFace tokenizer
@@ -170,6 +172,9 @@ class HuggingFaceModel(ComposerModel):
                             for line in saved_content['content']:
                                 _tmp_file.write(line)
                                 _tmp_file.write('\n')
+                    elif saved_content['file_extension'] == '.py':
+                        with open(tokenizer_file_path, 'w') as _tmp_file:
+                            _tmp_file.write(saved_content['content'])
                     elif saved_content['file_extension'] == '.model':
                         try:
                             import sentencepiece as spm
@@ -180,7 +185,8 @@ class HuggingFaceModel(ComposerModel):
                         s.load_from_serialized_proto(saved_content['content'])
                         with open(tokenizer_file_path, 'wb') as _tmp_file:
                             _tmp_file.write(s.serialized_model_proto())
-                hf_tokenizer = transformers.AutoTokenizer.from_pretrained(_tmp_dir, trust_remote_code=True)
+
+                hf_tokenizer = transformers.AutoTokenizer.from_pretrained(_tmp_dir, trust_remote_code=trust_remote_code)
 
                 # we need to set the name_or_path back because otherwise it is the tmp dir we are loading from here
                 hf_tokenizer.name_or_path = hf_tokenizer_state['tokenizer_config']['content'].get('name_or_path', '')
@@ -343,7 +349,7 @@ class HuggingFaceModel(ComposerModel):
         loaded_state_dict = safe_torch_load(local_checkpoint_save_location)
 
         hf_state = loaded_state_dict['state']['integrations']['huggingface']
-        hf_tokenizer = HuggingFaceModel.load_huggingface_tokenizer_from_saved_state(hf_state)
+        hf_tokenizer = HuggingFaceModel.load_huggingface_tokenizer_from_saved_state(hf_state, trust_remote_code)
         hf_model = HuggingFaceModel.load_huggingface_model_from_saved_state(hf_state, loaded_state_dict,
                                                                             model_instantiation_class,
                                                                             model_config_kwargs)
@@ -383,7 +389,17 @@ class HuggingFaceModel(ComposerModel):
                                        max_new_tokens=batch['generation_length'],
                                        synced_gpus=dist.get_world_size() > 1,
                                        **batch.get('generation_kwargs', {}))
-            return self.tokenizer.batch_decode(generation[:, batch['input_ids'].shape[1]:], skip_special_tokens=True)
+
+            # don't remove prefix space to sentencepiece models
+            if len(self.tokenizer(' a', add_special_tokens=False)['input_ids']) == 1:
+                return self.tokenizer.batch_decode(generation[:, batch['input_ids'].shape[1]:],
+                                                   skip_special_tokens=True)
+            else:
+                return [
+                    ' ' + generation
+                    for generation in self.tokenizer.batch_decode(generation[:, batch['input_ids'].shape[1]:],
+                                                                  skip_special_tokens=True)
+                ]
 
         if self.use_logits or batch.get('mode', None) == 'icl_task':
             # pop labels first to avoid computing loss
@@ -431,9 +447,10 @@ class HuggingFaceModel(ComposerModel):
         return metrics if metrics else {}
 
     def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
-        if isinstance(metric, InContextLearningMetric) and batch.get('mode', None) == 'icl_task':
+        if (isinstance(metric, InContextLearningMetric) and batch.get('mode', None) == 'icl_task') or isinstance(
+                metric, InContextLearningCodeEvalAccuracy):
             assert self.labels is not None
-            metric.update(batch, outputs, self.labels)
+            metric.update(batch, outputs, self.labels)  # pyright: ignore [reportGeneralTypeIssues]
         else:
             metric.update(outputs, self.labels)  # pyright: ignore [reportGeneralTypeIssues]
 

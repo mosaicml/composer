@@ -223,11 +223,11 @@ def build_streaming_ade20k_dataloader(
         transform=image_transform,
         target_transform=target_transform,
         predownload=predownload,
-        keep_zip=keep_zip,
+        keep_zip=keep_zip if keep_zip is not None else False,
         download_retry=download_retry,
         download_timeout=download_timeout,
         validate_hash=validate_hash,
-        shuffle_seed=shuffle_seed,
+        shuffle_seed=shuffle_seed if shuffle_seed is not None else 9176,
         num_canonical_nodes=num_canonical_nodes,
         batch_size=batch_size,
     )
