@@ -499,6 +499,8 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
     In each case, the model constructs a given number of continuations (termed pass@K for K continuations), and each continuation is run against a set of test cases. The model is considered
     correct if at least one of the proposed continuations passes all the test cases.
 
+    Runs on AWS Lambdas by default.
+
     Adds metric state variables:
         correct (float): The number of instances where the predictions passed all the test cases.
         total (float): The number of total instances that were predicted.
@@ -516,19 +518,22 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.remote = 'CODE_EVAL_DEVICE' in os.environ and os.environ['CODE_EVAL_DEVICE'] != 'LOCAL'
+        if not 'CODE_EVAL_DEVICE' in os.environ:
+            log.info(f"'CODE_EVAL_DEVICE' env var was not set, so defaulting to 'LAMBDA' as eval device")
+            os.environ['CODE_EVAL_DEVICE'] = 'LAMBDA'
+        self.local = os.environ['CODE_EVAL_DEVICE'].upper() == 'LOCAL'
 
     def get_client(self) -> EvalClient:
         """Returns a client for the appropriate remote platform."""
         client = None
-        if not self.remote:
+        if self.local:
             warnings.warn(
                 'Running code eval locally may be insecure. Please set environment variable CODE_EVAL_DEVICE '
-                'to LAMBDA to run on remote. To use Lambdas, spin up your instance that checks code, set the ARN as '
-                'CODE_EVAL_ARN and the region as CODE_EVAL_REGION.')
+                'to LAMBDA to run on remote. To use Lambdas, spin up your instance that checks code, set the URL as '
+                'CODE_EVAL_URL and the API key as CODE_EVAL_APIKEY.')
             log.debug('Running code eval locally.')
             client = LocalEvalClient()
-        elif os.environ['CODE_EVAL_DEVICE'] == 'LAMBDA':
+        elif os.environ['CODE_EVAL_DEVICE'].upper() == 'LAMBDA':
             client = LambdaEvalClient()
 
         else:
