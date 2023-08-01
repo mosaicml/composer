@@ -271,7 +271,6 @@ class CheckpointSaver(Callback):  # noqa: D101
             This parameter only controls how many checkpoints are kept locally; checkpoints are not deleted from
             remote file systems.
 
-
     Attributes:
         saved_checkpoints (List[Tuple[Timestamp, List[pathlib.Path]]]): The checkpoint timestamps and filepaths.
 
