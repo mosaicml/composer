@@ -8,7 +8,7 @@
 
 import functools
 import warnings
-from typing import Any, Callable, Dict, Set, Tuple, Union, cast
+from typing import Any, Callable, Dict, Iterable, Optional, Set, Tuple, Union, cast
 
 import torch
 import torch.nn as nn
@@ -340,28 +340,14 @@ elif version.parse(torch.__version__) < version.parse('2.0.1'):
 elif version.parse(torch.__version__) < version.parse('2.1.0'):
     # FullyShardedDataParallel monkey path for torch < 2.1 ie torch == 2.0.1
 
-    import collections
-    import contextlib
-    import copy
-    import functools
-    import warnings
-    from abc import ABC, abstractmethod
-    from typing import (Any, Callable, Deque, Dict, Generator, Iterable, List, NamedTuple, Optional, Sequence, Set,
-                        Tuple, Type, cast)
-
-    from torch.distributed.fsdp._common_utils import (FSDP_PREFIX, FSDP_WRAPPED_MODULE, TrainingState, _FSDPState,
-                                                      _get_param_to_fqns, _is_fsdp_flattened)
     from torch.distributed.fsdp._dynamo_utils import _annotate_modules_for_dynamo
     from torch.distributed.fsdp._init_utils import (HYBRID_SHARDING_STRATEGIES, ProcessGroupType,
-                                                    _check_orig_params_flattened, _get_default_comm_hook,
-                                                    _init_buffer_state, _init_core_state, _init_ignored_module_states,
-                                                    _init_param_handle_from_module, _init_prefetching_state,
-                                                    _init_process_group_state, _init_runtime_state,
-                                                    _init_state_dict_state)
+                                                    _check_orig_params_flattened, _init_buffer_state, _init_core_state,
+                                                    _init_ignored_module_states, _init_param_handle_from_module,
+                                                    _init_prefetching_state, _init_process_group_state,
+                                                    _init_runtime_state, _init_state_dict_state)
     from torch.distributed.fsdp._state_dict_utils import _register_all_state_dict_hooks
-    from torch.distributed.fsdp._unshard_param_utils import (_deregister_orig_params, _register_flat_param,
-                                                             _register_orig_params, _unshard_params,
-                                                             _unshard_params_recurse)
+    from torch.distributed.fsdp._unshard_param_utils import _register_flat_param
     from torch.distributed.fsdp._utils import _contains_batchnorm, _override_batchnorm_mixed_precision
     from torch.distributed.fsdp.wrap import _FSDPPolicy, _or_policy, _wrap, _wrap_batchnorm_individually
 
@@ -470,8 +456,7 @@ elif version.parse(torch.__version__) < version.parse('2.1.0'):
                     _meta_init = any(p.device.type == 'meta' for p in module.parameters())
                     if _meta_init and len(_pg_ranks) != dist.get_world_size() and final_kwargs.get('use_orig_params'):
                         raise NotImplementedError(
-                            f'FSDP with custom process groups cannot use `use_orig_params: True` when using meta init.'
-                        )
+                            f'FSDP with custom process groups cannot use `use_orig_params: True` when using meta init.')
 
                 # Leaf node or final wrapping of the remainder both happen here.
                 return _wrap(module, wrapper_cls, **final_kwargs), nonwrapped_numel
