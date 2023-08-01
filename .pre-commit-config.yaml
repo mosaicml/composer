@@ -52,7 +52,8 @@ repos:
         args:
           - --autofix
           - --no-sort-keys
-          - --indent=4
+          - --indent=1
+          - --no-ensure-ascii
       - id: check-merge-conflict
       - id: check-symlinks
       - id: check-toml
