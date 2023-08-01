@@ -13,6 +13,7 @@ import logging
 import os
 import random
 import re
+import tempfile
 import textwrap
 import time
 import warnings
@@ -1353,12 +1354,43 @@ class Trainer:
                     'Multiple concurrent uploads is not currently supported when using autoresume. Please set `num_concurrent_uploads` to 1 '
                     'for all `RemoteUploaderDownloader` instances.')
             assert latest_remote_file_name is not None
-            autoresume_checkpoint_path = self._get_autoresume_checkpoint(
-                save_folder=save_folder,
-                save_latest_filename=save_latest_filename,
-                save_latest_remote_file_name=latest_remote_file_name,
-                loggers=loggers,
-                load_progress_bar=load_progress_bar)
+            if self.state.fsdp_elastic_sharded_enabled:
+                ar_object_store = maybe_create_object_store_from_uri(save_folder)
+                # Symlink is on object store.
+                if ar_object_store is not None:
+                    with tempfile.TemporaryDirectory() as temp_dir:
+                        local_symlink_file = str(Path(temp_dir) / Path('autoresume.symlink'))
+                        formatted_latest_remote_file_name = format_name_with_dist(latest_remote_file_name,
+                                                                                  self.state.run_name) + '.symlink'
+                        try:
+                            ar_object_store.download_object(formatted_latest_remote_file_name, local_symlink_file)
+                            with open(local_symlink_file, 'r') as f:
+                                real_path = f.read()
+                                log.debug(f'Read path {real_path} from symlink file')
+                            autoresume_checkpoint_path = ar_object_store.get_uri(real_path)
+                        except FileNotFoundError:
+                            autoresume_checkpoint_path = None
+                # Symlink is local.
+                else:
+                    save_latest_filename = format_name_with_dist(save_latest_filename, self.state.run_name)
+                    save_folder = format_name_with_dist(save_folder, self.state.run_name)
+                    latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
+                    if os.path.exists(latest_checkpoint_path):
+                        latest_checkpoint_path = os.path.join(os.path.dirname(latest_checkpoint_path),
+                                                              os.readlink(latest_checkpoint_path))
+                        autoresume_checkpoint_path = latest_checkpoint_path
+                    else:
+                        autoresume_checkpoint_path = None
+
+            # Standard non-elastic codepath for autoresume.
+            else:
+                autoresume_checkpoint_path = self._get_autoresume_checkpoint(
+                    save_folder=save_folder,
+                    save_latest_filename=save_latest_filename,
+                    save_latest_remote_file_name=latest_remote_file_name,
+                    loggers=loggers,
+                    load_progress_bar=load_progress_bar)
+
             # Found latest checkpoint path, load that instead
             if autoresume_checkpoint_path:
                 load_path = autoresume_checkpoint_path

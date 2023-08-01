@@ -11,6 +11,7 @@ import os
 import pathlib
 import tempfile
 import textwrap
+from pathlib import Path
 from typing import Callable, List, Optional, Union
 
 from composer.core import Callback, Event, State, Time, TimeUnit
@@ -18,10 +19,14 @@ from composer.loggers import Logger
 from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, PartialFilePath,
                             checkpoint, create_symlink_file, dist, ensure_folder_has_no_conflicting_files,
                             format_name_with_dist, format_name_with_dist_and_time, is_model_deepspeed, reproducibility)
+from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
+from composer.utils.misc import using_torch_2
 
 log = logging.getLogger(__name__)
 
 __all__ = ['CheckpointSaver', 'checkpoint_periodically']
+
+_TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME = '.metadata'
 
 
 def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State, Event], bool]:
@@ -312,7 +317,6 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         self.filename = PartialFilePath(filename.lstrip('/'), folder)
         self.latest_filename = PartialFilePath(latest_filename.lstrip('/'), folder) if latest_filename else None
-
         self.remote_file_name = PartialFilePath(remote_file_name) if remote_file_name else None
         self.latest_remote_file_name = PartialFilePath(latest_remote_file_name) if latest_remote_file_name else None
 
@@ -388,9 +392,15 @@ class CheckpointSaver(Callback):  # noqa: D101
             filename=filename_with_placeholders,
             weights_only=self.weights_only,
         )
+        log.debug(f'Checkpoint locally saved to {saved_path}')
 
         if not saved_path:  # not all ranks save
             return
+        metadata_local_file_path = None
+        if dist.get_global_rank() == 0 and state.fsdp_elastic_sharded_enabled:
+            metadata_local_file_path = format_name_with_dist_and_time(
+                os.path.join(Path(saved_path).parent, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME), state.run_name,
+                state.timestamp)
 
         if self.latest_filename is not None and self.num_checkpoints_to_keep != 0:
             symlink = self.latest_filename.format(state, is_deepspeed)
@@ -399,7 +409,13 @@ class CheckpointSaver(Callback):  # noqa: D101
                 os.remove(symlink)
             except FileNotFoundError:
                 pass
-            os.symlink(os.path.relpath(saved_path, os.path.dirname(symlink)), symlink)
+            # Sharded checkpoints for torch >2.0 use directories not files for load_paths
+            if state.fsdp_elastic_sharded_enabled:
+                src_path = str(pathlib.Path(saved_path).parent)
+            else:
+                src_path = saved_path
+
+            os.symlink(os.path.relpath(src_path, os.path.dirname(symlink)), symlink)
 
         # if remote file name provided, upload the checkpoint
         if self.remote_file_name is not None:
@@ -411,10 +427,20 @@ class CheckpointSaver(Callback):  # noqa: D101
                 ).lstrip('/')
                 assert state.sharded_ckpt_prefix_dir is not None
                 remote_prefix = state.sharded_ckpt_prefix_dir
-                remote_file_name = os.path.join(
-                    pathlib.Path(remote_file_name).parent, remote_prefix,
-                    pathlib.Path(remote_file_name).name)
+                ckpt_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME if using_torch_2() else pathlib.Path(
+                    remote_file_name).name
+                remote_file_name = os.path.join(pathlib.Path(remote_file_name).parent, remote_prefix, ckpt_filename)
                 remote_file_name = format_name_with_dist_and_time(remote_file_name, state.run_name, state.timestamp)
+                # Upload metadata file.
+                # The metadata file contains info related to which shards are saved where.
+                if dist.get_global_rank() == 0 and state.fsdp_elastic_sharded_enabled:
+                    metadata_remote_file_name = format_name_with_dist_and_time(
+                        os.path.join(Path(remote_file_name).parent, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME),
+                        state.run_name, state.timestamp)
+                    assert metadata_local_file_path is not None
+                    logger.upload_file(remote_file_name=metadata_remote_file_name,
+                                       file_path=metadata_local_file_path,
+                                       overwrite=self.overwrite)
             else:
                 remote_file_name = self.remote_file_name.format(
                     state,
@@ -434,7 +460,13 @@ class CheckpointSaver(Callback):  # noqa: D101
                 # create and upload a symlink file
                 with tempfile.TemporaryDirectory() as tmpdir:
                     symlink_filename = os.path.join(tmpdir, 'latest.symlink')
-                    create_symlink_file(remote_file_name, symlink_filename)
+                    # Sharded checkpoints for torch >2.0 use directories not files for load_paths
+                    if state.fsdp_elastic_sharded_enabled:
+                        src_path = str(pathlib.Path(remote_file_name).parent)
+                    else:
+                        src_path = remote_file_name
+                    log.debug(f'Creating symlink file {symlink_filename} -> {src_path}')
+                    create_symlink_file(src_path, symlink_filename)
                     logger.upload_file(
                         remote_file_name=symlink_name,
                         file_path=symlink_filename,
@@ -444,9 +476,17 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.saved_checkpoints.append(saved_path)
 
         if self.num_checkpoints_to_keep >= 0:
-            self._rotate_checkpoints()
+            self._rotate_checkpoints(sharding_enabled=state.fsdp_sharded_state_dict_enabled)
 
-    def _rotate_checkpoints(self):
+    def _rotate_checkpoints(self, sharding_enabled: bool = False):
+
         while len(self.saved_checkpoints) > self.num_checkpoints_to_keep:
+            prefix_dir = None
             checkpoint = self.saved_checkpoints.pop(0)
+            prefix_dir = str(Path(checkpoint).parent)
             os.remove(checkpoint)
+            if sharding_enabled and dist.get_global_rank() == 0:
+                if using_torch_2():
+                    metadata_file = os.path.join(prefix_dir, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME)
+                    os.remove(metadata_file)
+                os.removedirs(prefix_dir)
