@@ -12,6 +12,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
 
+import numpy as np
 import torch
 import torch.nn.modules.utils
 from packaging import version
@@ -90,6 +91,7 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
         fsdp_state_dict_type = StateDictType.SHARDED_STATE_DICT
         state_dict_config = ShardedStateDictConfig()
         if using_torch_2():
+            state_dict_config = ShardedStateDictConfig(offload_to_cpu=True)
             from torch.distributed.fsdp.fully_sharded_data_parallel import ShardedOptimStateDictConfig
             optim_state_dict_config = ShardedOptimStateDictConfig()
 
@@ -274,6 +276,8 @@ class State(Serializable):
         max_duration (str | Time, optional): The maximum duration to train for. (default: ``None``)
         precision (str | Precision): The numerical precision to use for training. See :class:`~.Precision` for
             the supported precisions.
+        precision_config (Optional[Dict[str, Any]]): The config for FP8 scaling strategy. See parameters for
+            `DelayedScaling <https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/common.html?highlight=delayedscaling#transformer_engine.common.recipe.DelayedScaling>`_.
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer being used to
             train the model. Multiple optimizers are not currently supported.
         schedulers (types.PyTorchScheduler | Sequence[types.PyTorchScheduler], optional):
@@ -433,6 +437,7 @@ class State(Serializable):
 
         # precision
         precision: Union[str, Precision] = Precision.FP32,
+        precision_config: Optional[Dict[str, Any]] = None,
 
         # optimizers
         optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None,
@@ -472,6 +477,7 @@ class State(Serializable):
         self.eval_timestamp = Timestamp()
         self.predict_timestamp = Timestamp()
         self._precision = Precision(precision)
+        self._precision_config = precision_config
 
         if optimizers is None:
             self._optimizers = []
@@ -519,6 +525,12 @@ class State(Serializable):
         self.sharded_ckpt_prefix_dir: Optional[str] = None
         if self.fsdp_config is not None:
             self.sharded_ckpt_prefix_dir = self.fsdp_config['sharded_ckpt_prefix_dir']
+
+        if using_torch_2() and self.fsdp_state_dict_type == 'local':
+            raise DeprecationWarning(
+                textwrap.dedent(
+                    "FSDP state_dict_type='local' is deprecated in torch>=2.0.0. "
+                    "Please set fsdp_config['state_dict_type']='sharded' instead and will be removed in v0.17"))
 
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None
@@ -772,6 +784,10 @@ class State(Serializable):
         return self.fsdp_config is not None and self.fsdp_auto_wrap and self.fsdp_config[
             'state_dict_type'] == 'full' and self.fsdp_config['load_monolith_rank0_only'] == True
 
+    @property
+    def fsdp_elastic_sharded_enabled(self):
+        return (self.fsdp_sharded_state_dict_enabled and using_torch_2())
+
     def _get_integrations_state_dict(self) -> Dict[str, Any]:
         """Gets a dictionary of information about integrations to store in the state dict.
 
@@ -881,14 +897,30 @@ class State(Serializable):
                     # We need to serialize this because it cannot always be recomputed from the state dict.
                     # See https://torchmetrics.readthedocs.io/en/stable/pages/implement.html#torchmetrics.Metric for more details
                     v.persistent(mode=True)
-                    serialized_value[k] = {'state_dict': v.state_dict(), '_computed': v._computed}
+                    # We cast the metric tensor to a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
+                    _computed = v._computed
+                    _computed_device = str(_computed.device) if _computed is not None else None
+                    _np_computed = _computed.cpu().numpy() if _computed is not None else None
+                    serialized_value[k] = {
+                        'state_dict': v.state_dict(),
+                        '_computed': _np_computed,
+                        '_computed_device': _computed_device
+                    }
             elif attribute_name == 'eval_metrics':
                 serialized_value = {}
                 for eval_key, eval_metrics in attribute_value.items():
                     serialized_value[eval_key] = {}
                     for k, v in eval_metrics.items():
                         v.persistent(mode=True)
-                        serialized_value[eval_key][k] = {'state_dict': v.state_dict(), '_computed': v._computed}
+                        # We cast the metric tensor to a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
+                        _computed = v._computed
+                        _computed_device = str(_computed.device) if _computed is not None else None
+                        _np_computed = _computed.cpu().numpy() if _computed is not None else None
+                        serialized_value[eval_key][k] = {
+                            'state_dict': v.state_dict(),
+                            '_computed': _np_computed,
+                            '_computed_device': _computed_device
+                        }
             else:
                 serialized_value = attribute_value
 
@@ -1225,10 +1257,26 @@ class State(Serializable):
                         serialized_value[metric_name]._state_dict_pre_hooks = OrderedDict()
                         metric_state_dict = serialized_value[metric_name].state_dict()
                         metric_computed_field = serialized_value[metric_name]._computed
+                        # The metric tensor is saved as a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
+                        # So we have to cast it back to a torch tensor.
+                        metric_computed_device = getattr(serialized_value[metric_name], '_computed_device', None)
+                        if metric_computed_field is not None:
+                            metric_computed_field = torch.from_numpy(metric_computed_field) if isinstance(
+                                metric_computed_field, np.ndarray) else metric_computed_field
+                            if metric_computed_device is not None:
+                                metric_computed_field = metric_computed_field.to(metric_computed_device)
                     elif isinstance(serialized_value[metric_name], dict):
+                        # The metric tensor is saved as a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
+                        # So we have to cast it back to a torch tensor.
                         # For checkpoints saved using Composer >= 0.14
                         metric_state_dict = serialized_value[metric_name]['state_dict']
                         metric_computed_field = serialized_value[metric_name]['_computed']
+                        metric_computed_device = serialized_value[metric_name].get('_computed_device', None)
+                        if metric_computed_field is not None:
+                            metric_computed_field = torch.from_numpy(metric_computed_field) if isinstance(
+                                metric_computed_field, np.ndarray) else metric_computed_field
+                            if metric_computed_device is not None:
+                                metric_computed_field = metric_computed_field.to(metric_computed_device)
                     else:
                         raise ValueError(
                             'Error while loading train metric. Train metric from serialization is neither a Torchmetrics Metric object nor a dictionary.'
@@ -1265,10 +1313,28 @@ class State(Serializable):
                             serialized_value[eval_key][metric_name]._state_dict_pre_hooks = OrderedDict()
                             eval_metric_state_dict = serialized_value[eval_key][metric_name].state_dict()
                             eval_metric_computed_field = serialized_value[eval_key][metric_name]._computed
+                            # The metric tensor is saved as a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
+                            # So we have to cast it back to a torch tensor.
+                            eval_metric_computed_device = getattr(serialized_value[eval_key][metric_name],
+                                                                  '_computed_device', None)
+                            if eval_metric_computed_field is not None:
+                                eval_metric_computed_field = torch.from_numpy(eval_metric_computed_field) if isinstance(
+                                    eval_metric_computed_field, np.ndarray) else eval_metric_computed_field
+                            if eval_metric_computed_device is not None:
+                                eval_metric_computed_field = eval_metric_computed_field.to(eval_metric_computed_device)
                         elif isinstance(serialized_value[eval_key][metric_name], dict):
                             # For checkpoints saved using Composer >= 0.14
                             eval_metric_state_dict = serialized_value[eval_key][metric_name]['state_dict']
                             eval_metric_computed_field = serialized_value[eval_key][metric_name]['_computed']
+                            # The metric tensor is saved as a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
+                            # So we have to cast it back to a torch tensor.
+                            eval_metric_computed_device = serialized_value[eval_key][metric_name]['_computed_device']
+                            if eval_metric_computed_field is not None:
+                                eval_metric_computed_field = torch.from_numpy(eval_metric_computed_field) if isinstance(
+                                    eval_metric_computed_field, np.ndarray) else eval_metric_computed_field
+                                if eval_metric_computed_device is not None:
+                                    eval_metric_computed_field = eval_metric_computed_field.to(
+                                        eval_metric_computed_device)
                         else:
                             raise ValueError(
                                 'Error while loading evaluation metric. Evaluation metric from serialization is neither a Torchmetrics Metric object nor a dictionary.'
@@ -1408,6 +1474,14 @@ class State(Serializable):
     @precision.setter
     def precision(self, precision: Union[str, Precision]):
         self._precision = Precision(precision)
+
+    @property
+    def precision_config(self):
+        """The config for FP8 scaling strategy.
+
+        See parameters for `DelayedScaling <https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/common.html?highlight=delayedscaling#transformer_engine.common.recipe.DelayedScaling>`_.
+        """
+        return self._precision_config
 
     @property
     def is_model_ddp(self):
