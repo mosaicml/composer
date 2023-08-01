@@ -139,7 +139,6 @@ class MAP(Metric):
 
     Args:
         class_metrics (bool, optional): Option to enable per-class metrics for mAP and mAR_100. Has a performance impact. Default: ``False``.
-        compute_on_step (bool, optional): Forward only calls ``update()`` and return ``None`` if this is set to ``False``. Default: ``False``.
         dist_sync_on_step (bool, optional): Synchronize metric state across processes at each ``forward()`` before returning the value at the step. Default: ``False``.
         process_group (any, optional): Specify the process group on which synchronization is called. Default: ``None`` (which selects the entire world).
         dist_sync_fn (callable, optional): Callback that performs the allgather operation on the metric state. When ``None``, DDP will be used to perform the all_gather. Default: ``None``.
@@ -154,13 +153,11 @@ class MAP(Metric):
     def __init__(
             self,
             class_metrics: bool = False,
-            compute_on_step: bool = True,
             dist_sync_on_step: bool = False,
             process_group: Optional[Any] = None,
             dist_sync_fn: Callable = None,  # type: ignore
     ) -> None:  # type: ignore
         super().__init__(
-            compute_on_step=compute_on_step,
             dist_sync_on_step=dist_sync_on_step,
             process_group=process_group,
             dist_sync_fn=dist_sync_fn,
