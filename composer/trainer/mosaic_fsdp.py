@@ -173,11 +173,11 @@ def get_process_group(pg, process_group_cache=None):
     return current_group
 
 
-if version.parse(torch.__version__) <= version.parse('1.13.1'):
-    raise NotImplementedError(f'Not supported for torch <= 1.13.1')
+if version.parse(torch.__version__) < version.parse('1.13.1'):
+    raise NotImplementedError(f'Not supported for torch < 1.13.1')
 
-elif version.parse(torch.__version__) <= version.parse('2.0.0'):
-    # FullyShardedDataParallel monkey path for torch <= 2.0 ie torch == 1.13.1
+elif version.parse(torch.__version__) < version.parse('2.0.0'):
+    # FullyShardedDataParallel monkey path for torch < 2.0 ie torch == 1.13.1
 
     from torch.distributed.fsdp._utils import _contains_batchnorm, _override_batchnorm_mixed_precision
     from torch.distributed.fsdp.wrap import _or_policy, _wrap, _wrap_batchnorm_individually
@@ -335,11 +335,11 @@ elif version.parse(torch.__version__) <= version.parse('2.0.0'):
     # monkey patch _auto_wrap with _custom_auto_wrap fn
     FullyShardedDataParallel._auto_wrap = _custom_auto_wrap
 
-elif version.parse(torch.__version__) <= version.parse('2.0.1'):
-    raise NotImplementedError(f'Not supported for torch <= 2.0.0')
+elif version.parse(torch.__version__) < version.parse('2.0.1'):
+    raise NotImplementedError(f'Not supported for torch == 2.0.0')
 
-elif version.parse(torch.__version__) <= version.parse('2.1.0'):
-    # # FullyShardedDataParallel monkey path for torch <= 2.1 ie torch == 2.0.1
+elif version.parse(torch.__version__) < version.parse('2.1.0'):
+    # FullyShardedDataParallel monkey path for torch < 2.1 ie torch == 2.0.1
 
     import collections
     import contextlib
@@ -623,7 +623,7 @@ elif version.parse(torch.__version__) <= version.parse('2.1.0'):
     # monkey patch __init__ where __init__ calls the custom _auto_wrap fn
     FullyShardedDataParallel.__init__ = __init__
 
-else:
+elif version.parse(torch.__version__) >= version.parse('2.1.0'):
     raise NotImplementedError(
         f'FullyShardedDataParallel ui will be updated in torch2.1; _auto_wrap monkey patch needs to be updated accordingly.'
     )
