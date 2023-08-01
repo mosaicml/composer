@@ -290,7 +290,8 @@ def test_logging(
     assert caplog.record_tuples == [
         ('composer.core.engine', 10, '[ep=0][ba=0][event=INIT]: Running event'),
         ('composer.core.engine', 10, '[ep=0][ba=0][event=INIT]: Running callback EventCounterCallback'),
-        ('composer.core.engine', 10, 'Closing the engine'),
+        ('composer.core.engine', 10, 'Closing the engine.'),
         ('composer.core.engine', 10, 'Closing callback EventCounterCallback'),
         ('composer.core.engine', 10, 'Post-closing callback EventCounterCallback'),
+        ('composer.core.engine', 10, 'Engine closed.'),
     ]

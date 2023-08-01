@@ -30,7 +30,7 @@ from composer.models import ComposerModel
 from composer.optim import ExponentialScheduler
 from composer.trainer.trainer import _generate_run_name
 from composer.utils import dist, is_model_deepspeed, is_model_fsdp, map_collection, reproducibility
-from tests.common import (InfiniteClassificationDataset, RandomClassificationDataset, RandomImageDataset,
+from tests.common import (EmptyModel, InfiniteClassificationDataset, RandomClassificationDataset, RandomImageDataset,
                           RandomTextLMDataset, SimpleConvModel, SimpleModel, SimpleTransformerMaskedLM, device,
                           world_size)
 from tests.common.events import EventCounterCallback
@@ -56,6 +56,12 @@ class TestTrainerInit():
 
     def test_minimal_init(self, model: ComposerModel):
         Trainer(model=model)
+
+    @pytest.mark.parametrize('env_var', ['COMPOSER_RUN_NAME', 'RUN_NAME'])
+    def test_env_run_name(self, monkeypatch, model: ComposerModel, env_var: str):
+        monkeypatch.setenv(env_var, 'env_run_name')
+        trainer = Trainer(model=model)
+        assert trainer.state.run_name == 'env_run_name'
 
     @world_size(1, 2)
     def test_model_ddp_wrapped(self, model: ComposerModel, world_size: int):
@@ -98,6 +104,25 @@ class TestTrainerInit():
         parameters = trainer.state.optimizers[0].param_groups[0]['params']
         target_device = 'cuda' if device == 'gpu' else 'cpu'
         assert all(param.device.type == target_device for param in parameters)
+
+    @pytest.mark.parametrize('call_fit,call_eval', [[True, False], [False, True]])
+    def test_no_param_model(self, call_fit: bool, call_eval: bool):
+        model = EmptyModel()
+        train_dataset = RandomClassificationDataset()
+        trainer = None
+        with pytest.warns(match='No optimizer was specified, and the model does not have parameters.*'):
+            trainer = Trainer(
+                model=model,
+                max_duration='1ep',
+                train_dataloader=DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset)),
+                eval_dataloader=DataLoader(train_dataset, sampler=dist.get_sampler(train_dataset)),
+            )
+
+        if call_fit:
+            with pytest.raises(ValueError, match='No optimizer was specified when constructing the Trainer.*'):
+                trainer.fit()
+        if call_eval:
+            trainer.eval(subset_num_batches=1)
 
     @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.0'),
                         reason='requires PyTorch 2.0 or higher')

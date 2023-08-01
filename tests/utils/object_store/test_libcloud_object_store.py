@@ -34,6 +34,25 @@ def _get_provider(remote_dir: pathlib.Path, chunk_size: int = 1024 * 1024):
     )
 
 
+@pytest.mark.filterwarnings(
+    r'ignore:Driver LocalStorageDriver does not implement native object filtering; falling back to filtering the full object stream.'
+)
+def test_list_objects(remote_dir: pathlib.Path, local_dir: pathlib.Path):
+    with open(os.path.join(remote_dir, 'dummy_file'), 'w+') as f:
+        f.write('Hello World')
+
+    os.makedirs(os.path.join(remote_dir, 'dummy_folder'))
+    with open(os.path.join(remote_dir, 'dummy_folder', 'dummy_file'), 'w+') as f:
+        f.write('Hello World')
+
+    provider = _get_provider(remote_dir)
+
+    result = provider.list_objects()
+    assert len(result) == 2
+    assert result[0] == 'dummy_file'
+    assert result[1] == 'dummy_folder/dummy_file'
+
+
 @pytest.mark.parametrize('chunk_size', [100, 128])
 def test_libcloud_object_store_callback(remote_dir: pathlib.Path, local_dir: pathlib.Path, chunk_size: int):
     pytest.importorskip('libcloud')
