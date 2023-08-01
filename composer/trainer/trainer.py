@@ -1107,6 +1107,11 @@ class Trainer:
         self._checkpoint_saver = None
         latest_remote_file_name = None
         if save_folder is not None:
+            if save_weights_only:
+                log.info(
+                    'save_weights_only=True now also saves metadata and integrations! Please adjust your workflow accordingly.'
+                )
+
             _, _, parsed_save_folder = parse_uri(save_folder)
 
             # If user passes a URI with s3:// and a bucket_name, but no other
