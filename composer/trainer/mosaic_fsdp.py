@@ -261,7 +261,6 @@ elif version.parse(torch.__version__) < version.parse('2.0.0'):
             module_kwargs = auto_wrap_policy(module=module, recurse=False, unwrapped_params=remainder)
             if not only_wrap_children and module_kwargs:
                 module_kwargs = module_kwargs if isinstance(module_kwargs, dict) else {}
-                # backward_prefetch_map
                 if 'sharding_strategy' in module_kwargs and module_kwargs[
                         'sharding_strategy'] not in sharding_map.values():
                     module_kwargs['sharding_strategy'] = sharding_map[module_kwargs['sharding_strategy'].upper()]
@@ -445,7 +444,6 @@ elif version.parse(torch.__version__) < version.parse('2.1.0'):
             module_kwargs = auto_wrap_policy(module=module, recurse=False, nonwrapped_numel=remainder)
             if not only_wrap_children and module_kwargs:
                 module_kwargs = module_kwargs if isinstance(module_kwargs, dict) else {}
-                # backward_prefetch_map
                 if 'sharding_strategy' in module_kwargs and module_kwargs[
                         'sharding_strategy'] not in sharding_map.values():
                     module_kwargs['sharding_strategy'] = sharding_map[module_kwargs['sharding_strategy'].upper()]
@@ -466,6 +464,13 @@ elif version.parse(torch.__version__) < version.parse('2.1.0'):
                                                                        process_group_cache)
 
                 final_kwargs = {**kwargs, **module_kwargs}
+
+                if final_kwargs.get('process_group', None) is not None:
+                    pg_ranks = distributed.get_process_group_ranks(final_kwargs['process_group'])
+                    if len(pg_ranks) != dist.get_world_size() and final_kwargs.get('use_orig_params'):
+                        raise NotImplementedError(
+                            f'FSDP with custom process groups cannot use `use_orig_params: True`.'
+                        )
 
                 # Leaf node or final wrapping of the remainder both happen here.
                 return _wrap(module, wrapper_cls, **final_kwargs), nonwrapped_numel
