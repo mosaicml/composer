@@ -399,12 +399,16 @@ class TestCheckpointSaving:
                           save_weights_only=save_weights_only,
                           save_interval='1ba')
         trainer.fit()
+        expected_metadata = trainer.state._get_state_metadata()
+        expected_integrations = trainer.state._get_integrations_state_dict()
         trainer.close()
         checkpoint_filepath = os.path.join(save_folder, save_filename.format(batch=1))
         composer_state_dict = torch.load(checkpoint_filepath, map_location='cpu')
 
         if save_weights_only:
             assert set(composer_state_dict['state'].keys()) == {'model', 'metadata', 'integrations'}
+            assert composer_state_dict['state']['metadata'] == expected_metadata
+            assert composer_state_dict['state']['integrations'] == expected_integrations
         else:
             assert set(composer_state_dict['state'].keys()) != {'model', 'metadata', 'integrations'}
 
