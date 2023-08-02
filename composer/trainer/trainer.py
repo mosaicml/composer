@@ -1356,7 +1356,10 @@ class Trainer:
                 if ar_object_store is not None:
                     with tempfile.TemporaryDirectory() as temp_dir:
                         local_symlink_file = str(Path(temp_dir) / Path('autoresume.symlink'))
-                        formatted_latest_remote_file_name = format_name_with_dist(latest_remote_file_name,
+                        rank0_latest_remote_file_name = latest_remote_file_name.format(rank=0)
+                        log.debug(f'rank 0 latest={rank0_latest_remote_file_name}')
+                        assert False
+                        formatted_latest_remote_file_name = format_name_with_dist(rank0_latest_remote_file_name,
                                                                                   self.state.run_name) + '.symlink'
                         try:
                             ar_object_store.download_object(formatted_latest_remote_file_name, local_symlink_file)
