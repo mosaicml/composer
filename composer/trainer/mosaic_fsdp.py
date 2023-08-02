@@ -344,7 +344,7 @@ elif version.parse(torch.__version__) < version.parse('2.0.1'):
     raise NotImplementedError(f'Not supported for torch == 2.0.0')
 
 elif version.parse(torch.__version__) < version.parse('2.1.0'):
-    # FullyShardedDataParallel monkey path for torch < 2.1 ie torch == 2.0.1
+    # FullyShardedDataParallel monkey patch for torch < 2.1 ie torch == 2.0.1
 
     from torch.distributed.fsdp._dynamo_utils import _annotate_modules_for_dynamo
     from torch.distributed.fsdp._init_utils import (HYBRID_SHARDING_STRATEGIES, ProcessGroupType,
@@ -370,7 +370,7 @@ elif version.parse(torch.__version__) < version.parse('2.1.0'):
         """Updates FSDPs _recursive_wrap to enable module_kwargs and custom process_group cache.
 
         modified version of
-        https://github.com/pytorch/pytorch/blob/96ca226a7332be0d8f3d6159d0c797e032ab0721/torch/distributed/fsdp/wrap.py
+        https://github.com/pytorch/pytorch/blob/96ca226a7332be0d8f3d6159d0c797e032ab0721/torch/distributed/fsdp/wrap.py#L320
         which recursively wraps modules as FSDP modules for parameter sharding.
         This modification enables the user to pass custom FSDP arguements for every wrapped module.
         The added process_group_cache enables different FSDP modules to, when appropriate, use the
