@@ -24,6 +24,7 @@ class EvalClient(abc.ABC):
                 'input': <test input>,
                 'output': <test output>,
                 'entry_point': <entry point>,
+                'language': <language>,
 
             }
 
