@@ -1358,7 +1358,8 @@ class Trainer:
                         local_symlink_file = str(Path(temp_dir) / Path('autoresume.symlink'))
                         formatted_latest_remote_file_name = format_name_with_dist(latest_remote_file_name,
                                                                                   self.state.run_name) + '.symlink'
-                        rank0_formatted_latest_remote_file_name = dist.all_gather_object(formatted_latest_remote_file_name)[0]
+                        rank0_formatted_latest_remote_file_name = dist.all_gather_object(
+                            formatted_latest_remote_file_name)[0]
                         try:
                             ar_object_store.download_object(rank0_formatted_latest_remote_file_name, local_symlink_file)
                             with open(local_symlink_file, 'r') as f:

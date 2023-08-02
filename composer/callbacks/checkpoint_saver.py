@@ -412,8 +412,9 @@ class CheckpointSaver(Callback):  # noqa: D101
                 src_path = str(pathlib.Path(saved_path).parent)
             else:
                 src_path = saved_path
-
-            os.symlink(os.path.relpath(src_path, os.path.dirname(symlink)), symlink)
+            this_rank_saves_symlinks = dist.get_global_rank() == 0 or not state.fsdp_elastic_sharded_enabled
+            if this_rank_saves_symlinks:
+                os.symlink(os.path.relpath(src_path, os.path.dirname(symlink)), symlink)
 
         # if remote file name provided, upload the checkpoint
         if self.remote_file_name is not None:
@@ -464,12 +465,14 @@ class CheckpointSaver(Callback):  # noqa: D101
                     else:
                         src_path = remote_file_name
                     log.debug(f'Creating symlink file {symlink_filename} -> {src_path}')
-                    create_symlink_file(src_path, symlink_filename)
-                    logger.upload_file(
-                        remote_file_name=symlink_name,
-                        file_path=symlink_filename,
-                        overwrite=True,
-                    )
+                    this_rank_saves_symlinks = dist.get_global_rank() == 0 or not state.fsdp_elastic_sharded_enabled
+                    if this_rank_saves_symlinks:
+                        create_symlink_file(src_path, symlink_filename)
+                        logger.upload_file(
+                            remote_file_name=symlink_name,
+                            file_path=symlink_filename,
+                            overwrite=True,
+                        )
 
         self.saved_checkpoints.append(saved_path)
 
