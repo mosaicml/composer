@@ -332,7 +332,7 @@ elif version.parse(torch.__version__) < version.parse('2.0.0'):
         _custom_recursive_wrap_t1p13p1(**auto_wrap_kwargs, **fsdp_kwargs)
 
     # monkey patch _auto_wrap with _custom_auto_wrap fn
-    FullyShardedDataParallel._auto_wrap = _custom_auto_wrap_t1p13p1
+    FullyShardedDataParallel._auto_wrap = _custom_auto_wrap_t1p13p1  # type: ignore
 
 elif version.parse(torch.__version__) < version.parse('2.0.1'):
     raise NotImplementedError(f'Not supported for torch == 2.0.0')
@@ -546,7 +546,7 @@ elif version.parse(torch.__version__) < version.parse('2.1.0'):
         # over which sharding occurs, if sharding_strategy is {HYBRID_SHARD, _HYBRID_SHARD_ZERO2}.
         # Note that this is done before auto_wrapping, so that child FSDP modules simply pick up
         # the same process group state as the root FSDP module.
-        _init_process_group_state(self, process_group, sharding_strategy, auto_wrap_policy)
+        _init_process_group_state(self, process_group, sharding_strategy, auto_wrap_policy)  # type: ignore
         if auto_wrap_policy is not None:
             auto_wrap_kwargs = {
                 'module': module,
@@ -591,7 +591,7 @@ elif version.parse(torch.__version__) < version.parse('2.1.0'):
             forward_prefetch_limit,
         )
         _init_runtime_state(self)
-        _init_prefetching_state(self, backward_prefetch, forward_prefetch)
+        _init_prefetching_state(self, backward_prefetch, forward_prefetch)  # type: ignore
         _init_buffer_state(self, module)
         _init_param_handle_from_module(
             self,
