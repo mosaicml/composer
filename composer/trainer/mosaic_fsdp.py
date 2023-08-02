@@ -338,7 +338,7 @@ elif version.parse(torch.__version__) < version.parse('2.0.1'):
     raise NotImplementedError(f'Not supported for torch == 2.0.0')
 
 elif version.parse(torch.__version__) < version.parse('2.1.0'):
-    # FullyShardedDataParallel monkey path for torch < 2.1 ie torch == 2.0.1
+    # FullyShardedDataParallel monkey patch for torch < 2.1 ie torch == 2.0.1
 
     from torch.distributed.fsdp._dynamo_utils import _annotate_modules_for_dynamo
     from torch.distributed.fsdp._init_utils import (HYBRID_SHARDING_STRATEGIES, ProcessGroupType,
