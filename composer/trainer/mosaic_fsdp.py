@@ -173,7 +173,7 @@ def get_process_group(pg, process_group_cache=None):
     return current_group
 
 
-def set_custom_fsdp_module_kwargs(module_kwargs: Dict) -> Dict:
+def set_custom_fsdp_module_kwargs(module_kwargs: Dict, process_group_cache: Dict[Tuple[int], Any]) -> Dict:
     """Set custom module_kwargs per fsdp module."""
     if 'sharding_strategy' in module_kwargs and module_kwargs['sharding_strategy'] not in sharding_map.values():
         module_kwargs['sharding_strategy'] = sharding_map[module_kwargs['sharding_strategy'].upper()]
@@ -281,7 +281,7 @@ elif version.parse(torch.__version__) < version.parse('2.0.0'):
             module_kwargs = auto_wrap_policy(module=module, recurse=False, unwrapped_params=remainder)
             if not only_wrap_children and module_kwargs:
                 module_kwargs = module_kwargs if isinstance(module_kwargs, dict) else {}
-                module_kwargs = set_custom_fsdp_module_kwargs(module_kwargs)
+                module_kwargs = set_custom_fsdp_module_kwargs(module_kwargs, process_group_cache)
 
                 final_kwargs = {**kwargs, **module_kwargs}
 
@@ -433,7 +433,7 @@ elif version.parse(torch.__version__) < version.parse('2.1.0'):
             module_kwargs = auto_wrap_policy(module=module, recurse=False, nonwrapped_numel=remainder)
             if not only_wrap_children and module_kwargs:
                 module_kwargs = module_kwargs if isinstance(module_kwargs, dict) else {}
-                module_kwargs = set_custom_fsdp_module_kwargs(module_kwargs)
+                module_kwargs = set_custom_fsdp_module_kwargs(module_kwargs, process_group_cache)
 
                 final_kwargs = {**kwargs, **module_kwargs}
 
