@@ -4,8 +4,10 @@
 """Eval client for local evaluation."""
 import logging
 import multiprocessing
+import os
+import subprocess
 import types
-from typing import Dict
+from typing import Dict, List
 
 from composer.utils.eval_client.eval_client import EvalClient
 
@@ -18,12 +20,19 @@ TIMEOUT = 5  # in seconds
 class LocalEvalClient(EvalClient):
     """Utility for creating a client for and invoking local evaluations."""
 
-    def invoke(self, payload: Dict[str, str]) -> bool:
+    def invoke(self, payload: List[List[List[Dict[str, str]]]]) -> List[List[List[bool]]]:
+        """Invoke a batch of provided payloads for code evaluations."""
+        return [[[self.invoke_helper(test_case)
+                  for test_case in generation_group]
+                 for generation_group in prompt_group]
+                for prompt_group in payload]
+
+    def invoke_helper(self, payload: Dict[str, str]) -> bool:
         """Invoke a provided dictionary payload to a multiprocessing subprocess that performs code eval."""
         ret = multiprocessing.Value('b', 0)  # Store result of test case in shared memory
         p = multiprocessing.Process(target=self.update_offline_helper,
-                                    args=(payload['code'], payload['input'], payload['output'], payload['entry_point'], payload['language'],
-                                          ret))  # Evaluate test case in an independent subprocess
+                                    args=(payload['code'], payload['input'], payload['output'], payload['entry_point'],
+                                          payload['language'], ret))  # Evaluate test case in an independent subprocess
         p.start()
         p.join(TIMEOUT)  # wait for timeout to terminate
         p.terminate()
@@ -67,47 +76,61 @@ class LocalEvalClient(EvalClient):
                 val.value = int(result == expected_result)
             else:
                 val.value = 0
-            return val.value
         elif language == 'c++':
+            prefix = '#include <iostream>\nusing namespace std;\n'
+            code_gen = prefix + code_gen
+
+            ending = '\nint main() {\n    cout << (' + entry_point + '(' + test_input + ') == ' + test_output + ');\n    return 0;\n}'
+            code_gen = code_gen + ending
             with open('test_code.cpp', 'w') as f:
                 f.write(code_gen)
-            # Command to compile the C++ program 
-            compile_command = ["g++", "readme.cpp", "-o", "readme"] 
-            
-            # Command to execute the compiled program 
-            run_command = ["./readme"] 
-            
-            # Compile the C++ program 
-            compile_process = subprocess.run(compile_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE) 
-            
-            # Check if the compilation was successful 
-            if compile_process.returncode == 0: 
-                print("Compilation successful.") 
-                # Run the compiled program 
-                run_process = subprocess.run(run_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE) 
-                
-                # Get the output and error messages from the program 
-                output = run_process.stdout.decode() 
-                error = run_process.stderr.decode() 
-                
-                # Print the output and error messages 
-                print("Output:") 
-                print(output) 
-                
-                print("Error:") 
-                print(error) 
-            else: 
-                # Print the compilation error messages 
-                print("Compilation failed.") 
-                print(compile_process.stderr.decode()) 
 
-            print(os.listdir())
-            os.remove('readme.cpp')
-            print(os.listdir())
-            os.remove('readme')
-            print(os.listdir())
+            if subprocess.run(['g++', 'test_code.cpp', '-o', 'test_code'],
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE).returncode == 0:
+                run_process = subprocess.run('./test_code', stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                output = run_process.stdout.decode()
+            else:
+                output = '0'
+
+            if 'test_code.cpp' in os.listdir():
+                os.remove('test_code.cpp')
+            if 'test_code' in os.listdir():
+                os.remove('test_code')
+            val.value = output == '1'
         elif language == 'javascript':
-        
+            ending = '\nconsole.log(JSON.stringify(' + entry_point + '(' + test_input + ')) === JSON.stringify(' + test_output + '));'
+            code_gen = code_gen + ending
+
+            with open('test_code.js', 'w') as f:
+                f.write(code_gen)
+
+            run_process = subprocess.run(['node', 'test_code.js'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            output = run_process.stdout.decode()
+            if 'test_code.js' in os.listdir():
+                os.remove('test_code.js')
+            val.value = output == 'true\n'
+
         elif language == 'c':
+            prefix = '#include <stdio.h>\n'
+            code_gen = prefix + code_gen
 
+            ending = '\nint main() {\n    printf("%d", (' + entry_point + '(' + test_input + ') == ' + test_output + '));\n    return 0;\n}'
+            code_gen = code_gen + ending
+            with open('test_code.c', 'w') as f:
+                f.write(code_gen)
 
+            if subprocess.run(['gcc', 'test_code.c', '-o', 'test_code'], stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE).returncode == 0:
+                run_process = subprocess.run('./test_code', stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                output = run_process.stdout.decode()
+            else:
+                output = '0'
+
+            if 'test_code.c' in os.listdir():
+                os.remove('test_code.c')
+            if 'test_code' in os.listdir():
+                os.remove('test_code')
+            val.value = output == '1'
+        else:
+            raise ValueError(f'Language {language} not supported.')

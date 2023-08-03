@@ -1167,7 +1167,8 @@ def test_qa_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_g
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [0])
 @pytest.mark.parametrize('generations_per_sample', range(1, 3))
-def test_code_eval_microbatching(monkeypatch, device, world_size, num_fewshot, dataset_uri, tmp_path, generations_per_sample):
+def test_code_eval_microbatching(monkeypatch, device, world_size, num_fewshot, dataset_uri, tmp_path,
+                                 generations_per_sample):
     pytest.importorskip('datasets')
     monkeypatch.setenv('CODE_EVAL_DEVICE', 'LOCAL')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger

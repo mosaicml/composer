@@ -7,7 +7,7 @@
 """Abstract class for utilities that access and run code on serverless eval clients."""
 
 import abc
-from typing import Dict
+from typing import Dict, List
 
 __all__ = ['EvalClient']
 
@@ -15,8 +15,8 @@ __all__ = ['EvalClient']
 class EvalClient(abc.ABC):
     """Abstract class for implementing eval clients, such as LambdaEvalClient."""
 
-    def invoke(self, payload: Dict[str, str]) -> bool:
-        """Invoke a provided dictionary payload to the client.
+    def invoke(self, payload: List[List[List[Dict[str, str]]]]) -> List[List[List[bool]]]:
+        """Invoke a provided batch of dictionary payload to the client.
 
         For code generation, the payload is a JSON with the following attributes:
             {
@@ -29,7 +29,7 @@ class EvalClient(abc.ABC):
             }
 
         Args:
-            payload: the materials of the HTTPS request to the client.
+            payload: the materials of the batched HTTPS request to the client organized by prompt, beam generation, and test case.
 
         Returns:
             Whether the test case passed or failed.

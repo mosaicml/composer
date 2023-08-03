@@ -1004,8 +1004,16 @@ class InContextLearningCodeEvalDataset(Dataset):
         inputs, prompts, tests, canonical_solutions, entry_points, test_inputs, test_outputs, languages = [], [], [], [], [], [], [], []
         for sample in data:
             preamble, prompt, text_prompt, canonical_solution, test, entry_point, test_input, test_output, language = (
-                sample['preamble'], sample['prompt'], sample['prompt_text'], sample['canonical_solution'],
-                sample['test'], sample['entry_point'], sample['test_inputs'], sample['test_outputs'], sample['language'],)
+                sample['preamble'],
+                sample['prompt'],
+                sample['prompt_text'],
+                sample['canonical_solution'],
+                sample['test'],
+                sample['entry_point'],
+                sample['test_inputs'],
+                sample['test_outputs'],
+                sample['language'],
+            )
             context_enc = preamble['input_ids'] + prompt['input_ids']
             inp, _ = _make_padded_input(context_enc, [],
                                         self.max_prompt_length,
@@ -1057,7 +1065,8 @@ class InContextLearningCodeEvalDataset(Dataset):
         no_split = ['mode', 'generation_length', 'generation_kwargs']
         normal_split = ['input_ids', 'attention_mask']
         list_split = [
-            'labels', 'tests', 'canonical_solutions', 'entry_points', 'test_inputs', 'test_outputs', 'prompts', 'languages'
+            'labels', 'tests', 'canonical_solutions', 'entry_points', 'test_inputs', 'test_outputs', 'prompts',
+            'languages'
         ]
         chunked = {}
         for k, v in batch.items():
