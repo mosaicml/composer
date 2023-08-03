@@ -20,7 +20,7 @@ import tqdm
 
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_callback
-from composer.utils.object_store import LibcloudObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore
+from composer.utils.object_store import LibcloudObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore, UCVolumeObjectStore
 
 if TYPE_CHECKING:
     from composer.core import Timestamp
@@ -358,6 +358,8 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
         )
     elif backend == 'oci':
         return OCIObjectStore(bucket=bucket_name)
+    elif backend == 'ucvol':
+        return UCVolumeObjectStore(bucket=bucket_name)
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
                                   's3 or one of the supported object stores')
