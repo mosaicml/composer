@@ -53,9 +53,10 @@ class MLFlowLogger(LoggerDestination):
         self.run_name = run_name
         self.experiment_name = experiment_name
         self._rank_zero_only = rank_zero_only
-        self.tracking_uri = tracking_uri
+        self.tracking_uri = str(tracking_uri)
         self.metrics_batch_number = 0
         self._last_flush_time = time.time()
+        self._run_id = None
 
     def init(self, state: State, logger: Logger) -> None:
         import mlflow
@@ -75,24 +76,28 @@ class MLFlowLogger(LoggerDestination):
             self.run_name += f'-rank{dist.get_global_rank()}'
 
         if self._enabled:
+            import mlflow
+            from mlflow import MlflowClient
+
             self._mlflow_client = MlflowAutologgingQueueingClient(self.tracking_uri)
 
             # set experiment
             env_exp_id = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None)
             if env_exp_id is not None:
-                self._experiment_id = mlflow.set_experiment(experiment_id=env_exp_id).experiment_id
+                self._experiment_id = env_exp_id
+            elif experiment := MlflowClient(self.tracking_uri).get_experiment_by_name(name=self.experiment_name):
+                self._experiment_id = experiment.experiment_id
             else:
-                self._experiment_id = mlflow.set_experiment(experiment_name=self.experiment_name).experiment_id
+                self._experiment_id = MlflowClient(self.tracking_uri).create_experiment(name=self.experiment_name)
 
             # start run
             env_run_id = os.getenv(mlflow.environment_variables.MLFLOW_RUN_ID.name, None)
             if env_run_id is not None:
                 self._run_id = env_run_id
             else:
-                self._run_id = self._mlflow_client.create_run(experiment_id=self._experiment_id)
+                self._run_id = MlflowClient(self.tracking_uri).create_run(experiment_id=self._experiment_id, run_name=self.run_name).info.run_id
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
-        import mlflow
         if self._enabled:
             metrics = {k: float(v) for k, v in metrics.items()}
             self._mlflow_client.log_metrics(
@@ -101,8 +106,8 @@ class MLFlowLogger(LoggerDestination):
                 step=step,
             )
             time_since_flush = (time.time() - self._last_flush_time)
-            if time_since_flush >= 10:
-                self._mlflow_client.flush(synchronous=False)
+            if time_since_flush >= 0:
+                self._mlflow_client.flush(synchronous=True)
                 self._last_flush_time = time.time()
 
             # import time
@@ -118,16 +123,14 @@ class MLFlowLogger(LoggerDestination):
             # })
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
-        import mlflow
         if self._enabled:
             self._mlflow_client.log_params(
                 run_id=self._run_id,
                 params=hyperparameters,
             )
-            self._mlflow_client.flush(synchronous=False)
+            self._mlflow_client.flush(synchronous=True)
 
     def post_close(self):
-        import mlflow
         if self._enabled:
             self._mlflow_client.set_terminated(self._run_id)
             self._mlflow_client.flush(synchronous=True)
