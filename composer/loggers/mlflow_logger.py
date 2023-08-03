@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import pathlib
+import time
 from typing import Any, Dict, Optional, Union
 
 from composer.core.state import State
@@ -92,7 +93,6 @@ class MLFlowLogger(LoggerDestination):
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         import mlflow
-        import time
         if self._enabled:
             metrics = {k: float(v) for k, v in metrics.items()}
             self._mlflow_client.log_metrics(
