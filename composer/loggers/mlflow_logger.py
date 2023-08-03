@@ -75,7 +75,7 @@ class MLFlowLogger(LoggerDestination):
             self.run_name += f'-rank{dist.get_global_rank()}'
 
         if self._enabled:
-            self._mlflow_client = MlflowAutologgingQueuingClient(self.tracking_uri)
+            self._mlflow_client = MlflowAutologgingQueueingClient(self.tracking_uri)
 
             # set experiment
             env_exp_id = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None)
