@@ -660,10 +660,6 @@ class Trainer:
             Example 2: ``load_exclude_algorithms = ["FusedLayerNorm", "Alibi"]`` would exclude FusedLayerNorm and Alibi from loading.
 
             (default: ``None``)
-        load_fsdp_monolith_rank0_only (bool, optional): If ``True``, when loading a monolith (non-sharded) checkpoint
-            with FSDP, only rank 0 will load the checkpoint and broadcast weights/optimizers to other ranks.
-            This will dramatically reduce the memory usage on system. (default: ``False``)
-
         save_folder (str, optional): Format string for the folder where checkpoints are saved.
             If ``None``, checkpoints will not be saved. Can also be a URI for S3 paths only.
             In the case of an S3 URI, the appropriate `~.RemoteUploader` object will be created
@@ -1107,6 +1103,11 @@ class Trainer:
         self._checkpoint_saver = None
         latest_remote_file_name = None
         if save_folder is not None:
+            if save_weights_only:
+                log.info(
+                    'save_weights_only=True now also saves metadata and integrations! Please adjust your workflow accordingly.'
+                )
+
             _, _, parsed_save_folder = parse_uri(save_folder)
 
             # If user passes a URI with s3:// and a bucket_name, but no other
