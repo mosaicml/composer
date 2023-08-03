@@ -174,8 +174,9 @@ Saving for Inference
 --------------------
 
 By default, the :class:`.Trainer` stores the entire training state in each checkpoint. If you would like to store
-only the model weights in a checkpoint, set ``save_weights_only=True``.
-
+only the model weights in a checkpoint (plus metadata and integrations), set ``save_weights_only=True``. The metadata includes the information about the enviornment used to train the model and any integrations, such as HuggingFace,
+and those integrations' metadata.
+.
 .. testcode::
 
     from composer.trainer import Trainer
