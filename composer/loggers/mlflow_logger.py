@@ -88,7 +88,7 @@ class MLFlowLogger(LoggerDestination):
             if env_run_id is not None:
                 self._run_id = env_run_id
             else:
-                run_id = self._mlflow_client.create_run(experiment_id=self._experiment_id)
+                self._run_id = self._mlflow_client.create_run(experiment_id=self._experiment_id)
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         import mlflow
