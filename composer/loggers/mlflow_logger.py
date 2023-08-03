@@ -14,6 +14,8 @@ from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import MissingConditionalImportError, dist
 
+from mlflow.utils.autologging_utils import MlflowAutologgingQueuingClient
+
 __all__ = ['MLFlowLogger']
 
 DEFAULT_MLFLOW_EXPERIMENT_NAME = 'my-mlflow-experiment'
@@ -54,6 +56,7 @@ class MLFlowLogger(LoggerDestination):
         self._rank_zero_only = rank_zero_only
         self.tracking_uri = tracking_uri
         self.metrics_batch_number = 0
+        self._last_flush_time = time.time()
 
     def init(self, state: State, logger: Logger) -> None:
         import mlflow
@@ -71,46 +74,60 @@ class MLFlowLogger(LoggerDestination):
             self.run_name += f'-rank{dist.get_global_rank()}'
 
         if self._enabled:
-            if self.tracking_uri is not None:
-                mlflow.set_tracking_uri(self.tracking_uri)
+            self._mlflow_client = MlflowAutologgingQueuingClient(self.tracking_uri)
 
             # set experiment
             env_exp_id = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None)
             if env_exp_id is not None:
-                mlflow.set_experiment(experiment_id=env_exp_id)
+                self._experiment_id = mlflow.set_experiment(experiment_id=env_exp_id).experiment_id
             else:
-                mlflow.set_experiment(experiment_name=self.experiment_name)
+                self._experiment_id = mlflow.set_experiment(experiment_name=self.experiment_name).experiment_id
 
             # start run
             env_run_id = os.getenv(mlflow.environment_variables.MLFLOW_RUN_ID.name, None)
             if env_run_id is not None:
-                mlflow.start_run(run_id=env_run_id)
+                self._run_id = env_run_id
             else:
-                mlflow.start_run(run_name=self.run_name)
+                run_id = self._mlflow_client.create_run(experiment_id=self._experiment_id)
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         import mlflow
+        import time
         if self._enabled:
-            import time
-            before = time.time()
-            # Convert all metrics to floats to placate mlflow.
             metrics = {k: float(v) for k, v in metrics.items()}
-            mlflow.log_metrics(metrics=metrics, step=step)
-            after = time.time()
-            size = len(metrics)
-            latency = (after - before)
-            mlflow.log_metrics({
-                "mlflow_batch_latency_s": latency,
-                "mlflow_batch_size": size
-            }, step=self.metrics_batch_number)
-            self.metrics_batch_number += 1
+            self._mlflow_client.log_metrics(
+                run_id=self._run_id,
+                metrics=metrics,
+                step=step,
+            )
+            time_since_flush = (time.time() - self._last_flush_time)
+            if time_since_flush >= 10:
+                self._mlflow_client.flush(synchronous=False)
+                self._last_flush_time = time.time()
+
+            # import time
+            # before = time.time()
+            # Convert all metrics to floats to placate mlflow.
+            # mlflow.log_metrics(metrics=metrics, step=step)
+            # after = time.time()
+            # size = len(metrics)
+            # latency = (after - before)
+            # mlflow.log_metrics({
+            #     "mlflow_batch_latency_s": latency,
+            #     "mlflow_batch_size": size
+            # })
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         import mlflow
         if self._enabled:
-            mlflow.log_params(params=hyperparameters)
+            self._mlflow_client.log_params(
+                run_id=self._run_id,
+                params=hyperparameters,
+            )
+            self._mlflow_client.flush(synchronous=False)
 
     def post_close(self):
         import mlflow
         if self._enabled:
-            mlflow.end_run()
+            self._mlflow_client.set_terminated(self._run_id)
+            self._mlflow_client.flush(synchronous=True)
