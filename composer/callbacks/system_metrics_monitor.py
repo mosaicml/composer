@@ -22,7 +22,7 @@ __all__ = ["SystemMetricsMonitor"]
 class SystemMetricsMonitor(Callback):
     """Track system metrics."""
 
-    def log_system_metrics(self, event: Event, state: State, logger: Logger):
+    def run_event(self, event: Event, state: State, logger: Logger):
         # run on every event
         system_metrics = self.compute_system_metrics()
         logger.log_metrics(system_metrics)
