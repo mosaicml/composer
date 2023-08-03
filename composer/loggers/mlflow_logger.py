@@ -53,6 +53,7 @@ class MLFlowLogger(LoggerDestination):
         self.experiment_name = experiment_name
         self._rank_zero_only = rank_zero_only
         self.tracking_uri = tracking_uri
+        self.metrics_batch_number = 0
 
     def init(self, state: State, logger: Logger) -> None:
         import mlflow
@@ -90,9 +91,19 @@ class MLFlowLogger(LoggerDestination):
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         import mlflow
         if self._enabled:
+            import time
+            before = time.time()
             # Convert all metrics to floats to placate mlflow.
             metrics = {k: float(v) for k, v in metrics.items()}
             mlflow.log_metrics(metrics=metrics, step=step)
+            after = time.time()
+            size = len(metrics)
+            latency = (after - before)
+            mlflow.log_metrics({
+                "mlflow_batch_latency_s": latency,
+                "mlflow_batch_size": size
+            }, step=self.metrics_batch_number)
+            self.metrics_batch_number += 1
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         import mlflow
