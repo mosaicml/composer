@@ -2462,7 +2462,7 @@ class Trainer:
             self.engine.run_event(Event.AFTER_BACKWARD)
 
             # Use microbatch outputs to update training metrics
-            if self.state.train_metrics is not None:
+            if self.state.train_metrics is not None and len(self.state.train_metrics) != 0:
                 self.state.train_metrics = self._ensure_metrics_device_and_dtype(self.state.train_metrics)
                 self._eval_train_metrics(device_batch)
 
