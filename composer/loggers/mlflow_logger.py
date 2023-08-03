@@ -14,7 +14,7 @@ from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import MissingConditionalImportError, dist
 
-from mlflow.utils.autologging_utils import MlflowAutologgingQueuingClient
+from mlflow.utils.autologging_utils import MlflowAutologgingQueueingClient
 
 __all__ = ['MLFlowLogger']
 
