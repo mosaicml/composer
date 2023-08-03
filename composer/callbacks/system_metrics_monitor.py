@@ -23,7 +23,16 @@ class SystemMetricsMonitor(Callback):
     """Track system metrics."""
 
     def run_event(self, event: Event, state: State, logger: Logger):
-        # run on every event
+        # skip the microbatch events
+        if event in [
+            Event.BEFORE_FORWARD,
+            Event.AFTER_FORWARD,
+            Event.BEFORE_LOSS,
+            Event.AFTER_LOSS,
+            Event.BEFORE_BACKWARD,
+            Event.AFTER_BACKWARD,
+        ]:
+            return
         system_metrics = self.compute_system_metrics()
         logger.log_metrics(system_metrics)
 
