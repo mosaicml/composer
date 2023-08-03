@@ -14,8 +14,6 @@ from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import MissingConditionalImportError, dist
 
-from mlflow.utils.autologging_utils import MlflowAutologgingQueueingClient
-
 __all__ = ['MLFlowLogger']
 
 DEFAULT_MLFLOW_EXPERIMENT_NAME = 'my-mlflow-experiment'
@@ -60,6 +58,8 @@ class MLFlowLogger(LoggerDestination):
 
     def init(self, state: State, logger: Logger) -> None:
         import mlflow
+        from mlflow.utils.autologging_utils import MlflowAutologgingQueueingClient
+
         del logger  # unused
 
         if self.experiment_name is None:
