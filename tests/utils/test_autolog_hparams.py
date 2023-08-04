@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 
 from composer.algorithms import EMA
 from composer.callbacks import SpeedMonitor
+from composer.core import Precision
 from composer.loggers import InMemoryLogger
 from composer.trainer import Trainer
 from composer.utils import (
@@ -95,6 +96,7 @@ def test_extract_hparams_trainer():
         model=model,
         train_dataloader=train_dl,
         device_train_microbatch_size=16,
+        precision=Precision.FP32,
         optimizers=optimizer,
         auto_log_hparams=True,
         progress_bar=False,
@@ -179,7 +181,7 @@ def test_extract_hparams_trainer():
 
         # System/Numerics
         'device': 'DeviceCPU',
-        'precision': 'Precision',
+        'precision': 'fp32',
         'precision_config': None,
         'device_train_microbatch_size': 16,
 
