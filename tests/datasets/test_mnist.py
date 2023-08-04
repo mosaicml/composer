@@ -16,7 +16,7 @@ def test_mnist_shape_length(is_train, synthetic):
     else:
         loader = build_mnist_dataloader(datadir='/tmp', global_batch_size=batch_size, is_train=is_train)
 
-    samples = [_ for _ in loader]
+    samples = list(loader)
     if is_train:
         assert len(samples) == 60000 // batch_size
     else:
