@@ -186,7 +186,6 @@ def test_mlflow_experiment_set_up(tmp_path):
 def test_mlflow_logging_works(tmp_path, device):
     mlflow = pytest.importorskip('mlflow')
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
-    mlflow.set_tracking_uri(mlflow_uri)
     test_mlflow_logger = MLFlowLogger(tracking_uri=mlflow_uri)
 
     dataset_size = 64
