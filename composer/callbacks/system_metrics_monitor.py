@@ -10,6 +10,7 @@ import logging
 import psutil
 from py3nvml import py3nvml
 import os
+import dist
 
 from composer.core import Callback, State, Event
 from composer.loggers import Logger
@@ -37,27 +38,35 @@ class SystemMetricsMonitor(Callback):
             Event.AFTER_BACKWARD,
         ]:
             return
-        system_metrics = self.compute_system_metrics()
+        local_node_system_metrics = self.compute_system_metrics()
+        all_system_metrics = dist.all_gather_object(local_node_system_metrics)
+        system_metrics = {
+            key: value
+            for local_metrics in all_system_metrics
+            for key, value in local_metrics.items()
+        }
         logger.log_metrics(system_metrics)
 
     def compute_system_metrics(self):
-        deviceCount = py3nvml.nvmlDeviceGetCount()
         system_metrics = {}
 
-        # Get metrics for each device
-        for i in range(0, deviceCount):
-            handle = py3nvml.nvmlDeviceGetHandleByIndex(i)
-            memory = py3nvml.nvmlDeviceGetMemoryInfo(handle)
-            system_metrics[f"device{i}_memory_total"] = memory.total
-            system_metrics[f"device{i}_memory_free"] = memory.free
-            system_metrics[f"device{i}_memory_used"] = memory.used
-            device_utilization = py3nvml.nvmlDeviceGetUtilizationRates(handle)
-            system_metrics[f"device{i}_gpu_percentage"] = device_utilization.gpu
-            system_metrics[f"device{i}_memory_percentage"] = device_utilization.memory
-            temperature = py3nvml.nvmlDeviceGetTemperature(
-                handle, py3nvml.NVML_TEMPERATURE_GPU
-            )
-            system_metrics[f"device{i}_gpu_temperature"] = temperature
+        # Get metrics for this device
+        local_rank = dist.get_local_rank()
+        global_rank = dist.get_global_rank()
+        handle = py3nvml.nvmlDeviceGetHandleByIndex(local_rank)
+        memory = py3nvml.nvmlDeviceGetMemoryInfo(handle)
+        system_metrics[f"device{global_rank}_memory_total"] = memory.total
+        system_metrics[f"device{global_rank}_memory_free"] = memory.free
+        system_metrics[f"device{global_rank}_memory_used"] = memory.used
+        device_utilization = py3nvml.nvmlDeviceGetUtilizationRates(handle)
+        system_metrics[f"device{global_rank}_gpu_percentage"] = device_utilization.gpu
+        system_metrics[
+            f"device{global_rank}_memory_percentage"
+        ] = device_utilization.memory
+        temperature = py3nvml.nvmlDeviceGetTemperature(
+            handle, py3nvml.NVML_TEMPERATURE_GPU
+        )
+        system_metrics[f"device{global_rank}_gpu_temperature"] = temperature
 
         # Get metrics for the system
         cpu_percent = psutil.cpu_percent()
