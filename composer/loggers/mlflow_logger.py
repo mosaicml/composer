@@ -87,10 +87,19 @@ class MLFlowLogger(LoggerDestination):
             # set experiment
             env_exp_id = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None)
             if env_exp_id is not None:
+                log.info("1")
+                log.info("TRACKING URI %s", self.tracking_uri)
+                log.info("EXP NAME %s", self.experiment_name)
                 self._experiment_id = env_exp_id
             elif experiment := MlflowClient(self.tracking_uri).get_experiment_by_name(name=self.experiment_name):
+                log.info("2")
+                log.info("TRACKING URI %s", self.tracking_uri)
+                log.info("EXP NAME %s", self.experiment_name)
                 self._experiment_id = experiment.experiment_id
             else:
+                log.info("3")
+                log.info("TRACKING URI %s", self.tracking_uri)
+                log.info("EXP NAME %s", self.experiment_name)
                 self._experiment_id = MlflowClient(self.tracking_uri).create_experiment(name=self.experiment_name)
 
             # start run
