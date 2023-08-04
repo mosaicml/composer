@@ -10,8 +10,8 @@ import logging
 import psutil
 from py3nvml import py3nvml
 import os
-import dist
 
+from composer.utils import dist
 from composer.core import Callback, State, Event
 from composer.loggers import Logger
 
