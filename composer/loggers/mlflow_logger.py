@@ -100,8 +100,8 @@ class MLFlowLogger(LoggerDestination):
             else:
                 self._run_id = MlflowClient(self.tracking_uri).create_run(experiment_id=self._experiment_id, run_name=self.run_name).info.run_id
 
-            log.info("RUN ID", self._run_id)
-            log.info("EXPERIMENT ID", self._experiment_id)
+            log.info("RUN ID %s", self._run_id)
+            log.info("EXPERIMENT ID %s", self._experiment_id)
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         if self._enabled:
