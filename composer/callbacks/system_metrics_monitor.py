@@ -22,6 +22,10 @@ __all__ = ["SystemMetricsMonitor"]
 class SystemMetricsMonitor(Callback):
     """Track system metrics."""
 
+    def __init__(self) -> None:
+        super().__init__()
+        py3nvml.nvmlInit()
+
     def run_event(self, event: Event, state: State, logger: Logger):
         # skip the microbatch events
         if event in [
