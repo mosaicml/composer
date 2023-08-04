@@ -19,9 +19,6 @@ __all__ = ['MLFlowLogger']
 
 DEFAULT_MLFLOW_EXPERIMENT_NAME = 'my-mlflow-experiment'
 
-import logging
-log = logging.getLogger(__name__)
-
 
 class MLFlowLogger(LoggerDestination):
     """Log to `MLFlow <https://www.mlflow.org/docs/latest/index.html>`_.
@@ -58,11 +55,11 @@ class MLFlowLogger(LoggerDestination):
         self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
         self.metrics_batch_number = 0
         self._last_flush_time = time.time()
-        self._run_id = None
         del mlflow
 
     def init(self, state: State, logger: Logger) -> None:
         import mlflow
+        from mlflow import MlflowClient
         from mlflow.utils.autologging_utils import MlflowAutologgingQueueingClient
 
         del logger  # unused
@@ -79,27 +76,17 @@ class MLFlowLogger(LoggerDestination):
             self.run_name += f'-rank{dist.get_global_rank()}'
 
         if self._enabled:
-            import mlflow
-            from mlflow import MlflowClient
-
             self._mlflow_client = MlflowAutologgingQueueingClient(self.tracking_uri)
 
             # set experiment
+            # NB: we use MlflowClient for experiment creation because
+            # MlflowAutologgingQueueingClient doesn't support it
             env_exp_id = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None)
             if env_exp_id is not None:
-                log.info("1")
-                log.info("TRACKING URI %s", self.tracking_uri)
-                log.info("EXP NAME %s", self.experiment_name)
                 self._experiment_id = env_exp_id
             elif experiment := MlflowClient(self.tracking_uri).get_experiment_by_name(name=self.experiment_name):
-                log.info("2")
-                log.info("TRACKING URI %s", self.tracking_uri)
-                log.info("EXP NAME %s", self.experiment_name)
                 self._experiment_id = experiment.experiment_id
             else:
-                log.info("3")
-                log.info("TRACKING URI %s", self.tracking_uri)
-                log.info("EXP NAME %s", self.experiment_name)
                 self._experiment_id = MlflowClient(self.tracking_uri).create_experiment(name=self.experiment_name)
 
             # start run
@@ -108,9 +95,6 @@ class MLFlowLogger(LoggerDestination):
                 self._run_id = env_run_id
             else:
                 self._run_id = MlflowClient(self.tracking_uri).create_run(experiment_id=self._experiment_id, run_name=self.run_name).info.run_id
-
-            log.info("RUN ID %s", self._run_id)
-            log.info("EXPERIMENT ID %s", self._experiment_id)
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         if self._enabled:
@@ -121,37 +105,19 @@ class MLFlowLogger(LoggerDestination):
                 step=step,
             )
             time_since_flush = (time.time() - self._last_flush_time)
-            if time_since_flush >= 0:
-                log.info("FLUSHING METRICS")
-                self._mlflow_client.flush(synchronous=True)
+            if time_since_flush >= 10:
+                self._mlflow_client.flush(synchronous=False)
                 self._last_flush_time = time.time()
-                log.info("FLUSHED METRICS")
-
-            # import time
-            # before = time.time()
-            # Convert all metrics to floats to placate mlflow.
-            # mlflow.log_metrics(metrics=metrics, step=step)
-            # after = time.time()
-            # size = len(metrics)
-            # latency = (after - before)
-            # mlflow.log_metrics({
-            #     "mlflow_batch_latency_s": latency,
-            #     "mlflow_batch_size": size
-            # })
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         if self._enabled:
-            log.info("FLUSHING PARAMS")
             self._mlflow_client.log_params(
                 run_id=self._run_id,
                 params=hyperparameters,
             )
-            self._mlflow_client.flush(synchronous=True)
-            log.info("FLUSHED PARAMS")
+            self._mlflow_client.flush(synchronous=False)
 
     def post_close(self):
         if self._enabled:
-            log.info("TERMINATING RUN")
             self._mlflow_client.set_terminated(self._run_id)
             self._mlflow_client.flush(synchronous=True)
-            log.info("TERMINATED RUN")
