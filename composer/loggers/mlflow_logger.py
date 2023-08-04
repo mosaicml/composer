@@ -19,6 +19,9 @@ __all__ = ['MLFlowLogger']
 
 DEFAULT_MLFLOW_EXPERIMENT_NAME = 'my-mlflow-experiment'
 
+import logging
+log = logging.getLogger(__name__)
+
 
 class MLFlowLogger(LoggerDestination):
     """Log to `MLFlow <https://www.mlflow.org/docs/latest/index.html>`_.
@@ -97,6 +100,9 @@ class MLFlowLogger(LoggerDestination):
             else:
                 self._run_id = MlflowClient(self.tracking_uri).create_run(experiment_id=self._experiment_id, run_name=self.run_name).info.run_id
 
+            log.info("RUN ID", self._run_id)
+            log.info("EXPERIMENT ID", self._experiment_id)
+
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         if self._enabled:
             metrics = {k: float(v) for k, v in metrics.items()}
@@ -107,8 +113,10 @@ class MLFlowLogger(LoggerDestination):
             )
             time_since_flush = (time.time() - self._last_flush_time)
             if time_since_flush >= 0:
+                log.info("FLUSHING METRICS")
                 self._mlflow_client.flush(synchronous=True)
                 self._last_flush_time = time.time()
+                log.info("FLUSHED METRICS")
 
             # import time
             # before = time.time()
@@ -124,13 +132,17 @@ class MLFlowLogger(LoggerDestination):
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         if self._enabled:
+            log.info("FLUSHING PARAMS")
             self._mlflow_client.log_params(
                 run_id=self._run_id,
                 params=hyperparameters,
             )
             self._mlflow_client.flush(synchronous=True)
+            log.info("FLUSHED PARAMS")
 
     def post_close(self):
         if self._enabled:
+            log.info("TERMINATING RUN")
             self._mlflow_client.set_terminated(self._run_id)
             self._mlflow_client.flush(synchronous=True)
+            log.info("TERMINATED RUN")
