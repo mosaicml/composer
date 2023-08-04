@@ -13,6 +13,7 @@ from composer.core.state import State
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import MissingConditionalImportError, dist
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 
 __all__ = ['MLFlowLogger']
 
@@ -70,22 +71,37 @@ class MLFlowLogger(LoggerDestination):
             self.run_name += f'-rank{dist.get_global_rank()}'
 
         if self._enabled:
-            if self.tracking_uri is not None:
-                mlflow.set_tracking_uri(self.tracking_uri)
-
-            # set experiment
-            env_exp_id = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None)
-            if env_exp_id is not None:
-                mlflow.set_experiment(experiment_id=env_exp_id)
-            else:
-                mlflow.set_experiment(experiment_name=self.experiment_name)
 
             # start run
-            env_run_id = os.getenv(mlflow.environment_variables.MLFLOW_RUN_ID.name, None)
-            if env_run_id is not None:
-                mlflow.start_run(run_id=env_run_id)
+            if dist.get_global_rank() == 0:
+                if self.tracking_uri is not None:
+                    mlflow.set_tracking_uri(self.tracking_uri)
+                # set experiment
+                env_exp_id = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None)
+                if env_exp_id is not None:
+                    mlflow.set_experiment(experiment_id=env_exp_id)
+                else:
+                    parent_exp_id = mlflow.set_experiment(experiment_name=self.experiment_name).experiment_id
+                env_run_id = os.getenv(mlflow.environment_variables.MLFLOW_RUN_ID.name, None)
+                if env_run_id is None:
+                    parent_run = mlflow.start_run(run_name=self.run_name)
+                    parent_run_id = parent_run.info.run_id
+                else:
+                    mlflow.start_run(run_id=env_run_id, run_name=self.run_name)
+                    parent_run_id = env_run_id
+                mlflow.end_run()
+
             else:
-                mlflow.start_run(run_name=self.run_name)
+                parent_run_id = None
+                parent_exp_id = None
+
+            run_id_list = [parent_run_id, parent_exp_id]
+            dist.broadcast_object_list(run_id_list, src=0)
+            parent_run_id = run_id_list[0]
+            parent_exp_id = run_id_list[1]
+            mlflow.set_experiment(experiment_id=parent_exp_id)
+            mlflow.set_tag(MLFLOW_PARENT_RUN_ID, parent_run_id)
+            mlflow.start_run(run_name=self.run_name, nested=True)
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         import mlflow
@@ -103,3 +119,5 @@ class MLFlowLogger(LoggerDestination):
         import mlflow
         if self._enabled:
             mlflow.end_run()
+            if dist.get_global_rank() == 0:
+                mlflow.end_run()
