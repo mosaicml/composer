@@ -50,7 +50,6 @@ class MLFlowLogger(LoggerDestination):
             raise MissingConditionalImportError(extra_deps_group='mlflow',
                                                 conda_package='mlflow',
                                                 conda_channel='conda-forge') from e
-        del mlflow
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
 
         self.run_name = run_name
@@ -60,6 +59,7 @@ class MLFlowLogger(LoggerDestination):
         self.metrics_batch_number = 0
         self._last_flush_time = time.time()
         self._run_id = None
+        del mlflow
 
     def init(self, state: State, logger: Logger) -> None:
         import mlflow
