@@ -56,7 +56,7 @@ class MLFlowLogger(LoggerDestination):
         self.run_name = run_name
         self.experiment_name = experiment_name
         self._rank_zero_only = rank_zero_only
-        self.tracking_uri = str(tracking_uri) or mlflow.get_tracking_uri()
+        self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
         self.metrics_batch_number = 0
         self._last_flush_time = time.time()
         self._run_id = None
