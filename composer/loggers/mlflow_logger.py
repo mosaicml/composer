@@ -90,10 +90,12 @@ class MLFlowLogger(LoggerDestination):
             env_exp_id = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None)
             if env_exp_id is not None:
                 self._experiment_id = env_exp_id
-            elif experiment := self._mlflow_client.get_experiment_by_name(name=self.experiment_name):
-                self._experiment_id = experiment.experiment_id
+            elif exp := self._mlflow_client.get_experiment_by_name(name=self.experiment_name):
+                self._experiment_id = exp.experiment_id
             else:
-                self._experiment_id = self._mlflow_client.create_experiment(name=self.experiment_name)
+                self._experiment_id = (
+                    self._mlflow_client.create_experiment(name=self.experiment_name)
+                )
 
             # start run
             env_run_id = os.getenv(mlflow.environment_variables.MLFLOW_RUN_ID.name, None)
