@@ -82,7 +82,6 @@ class MLFlowLogger(LoggerDestination):
 
         if self._enabled:
             self._optimized_mlflow_client = MlflowAutologgingQueueingClient(self.tracking_uri)
-
             self._mlflow_client = MlflowClient(self.tracking_uri)
 
             # set experiment. we use MlflowClient for experiment retrieval and creation
