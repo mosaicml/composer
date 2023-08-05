@@ -14,6 +14,8 @@ from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import MissingConditionalImportError, dist
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
+from mlflow.entities import Metric, Param
+from mlflow.utils.time_utils import get_current_time_millis
 
 __all__ = ['MLFlowLogger']
 
@@ -47,13 +49,13 @@ class MLFlowLogger(LoggerDestination):
             raise MissingConditionalImportError(extra_deps_group='mlflow',
                                                 conda_package='mlflow',
                                                 conda_channel='conda-forge') from e
-        del mlflow
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
 
         self.run_name = run_name
         self.experiment_name = experiment_name
         self._rank_zero_only = rank_zero_only
         self.tracking_uri = tracking_uri
+        self._mlflow_client = mlflow.MlflowClient(tracking_uri)
 
     def init(self, state: State, logger: Logger) -> None:
         import mlflow
@@ -99,21 +101,30 @@ class MLFlowLogger(LoggerDestination):
             dist.broadcast_object_list(run_id_list, src=0)
             parent_run_id = run_id_list[0]
             parent_exp_id = run_id_list[1]
-            mlflow.set_experiment(experiment_id=parent_exp_id)
-            mlflow.set_tag(MLFLOW_PARENT_RUN_ID, parent_run_id)
-            mlflow.start_run(run_name=self.run_name, nested=True)
+            # mlflow.set_experiment(experiment_id=parent_exp_id)
+            # mlflow.set_tag(MLFLOW_PARENT_RUN_ID, parent_run_id)
+            self.run = self._mlflow_client.create_run(
+                experiment_id=parent_exp_id,
+                run_name=self.run_name,
+                tags={MLFLOW_PARENT_RUN_ID: parent_run_id})
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
-        import mlflow
         if self._enabled:
             # Convert all metrics to floats to placate mlflow.
             metrics = {k: float(v) for k, v in metrics.items()}
-            mlflow.log_metrics(metrics=metrics, step=step)
+            timestamp = get_current_time_millis()
+            metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
+            self._mlflow_client.log_batch(
+                run_id=self.run.info.run_id,
+                metrics=metrics_arr,
+                params=[],
+                tags=[])
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
-        import mlflow
         if self._enabled:
-            mlflow.log_params(params=hyperparameters)
+            params_arr = [Param(key, str(value)) for key, value in hyperparameters.items()]
+            self._mlflow_client.log_batch(
+                run_id=self.run.info.run_id, metrics=[], params=params_arr, tags=[])
 
     def post_close(self):
         import mlflow
