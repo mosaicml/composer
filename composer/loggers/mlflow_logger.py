@@ -119,7 +119,7 @@ class MLFlowLogger(LoggerDestination):
                 metrics=metrics,
                 step=step,
             )
-            time_since_flush = (time.time() - self._last_flush_time)
+            time_since_flush = time.time() - self._last_flush_time
             if time_since_flush >= self._flush_interval:
                 self._optimized_mlflow_client.flush(synchronous=False)
                 self._last_flush_time = time.time()
