@@ -16,17 +16,29 @@ from tests.common.markers import device
 from tests.common.models import SimpleConvModel
 
 
+def _get_latest_mlflow_run_or_none(experiment_name, tracking_uri=None):
+    from mlflow import MlflowClient
+
+    client = MlflowClient(tracking_uri)
+    experiment_id = (
+        client.get_experiment_by_name(experiment_name).experiment_id
+    )
+    first_run_or_empty = client.search_runs(
+        experiment_ids=[experiment_id],
+        max_results=1,
+        order_by=["start_time DESC"],
+    )
+    if first_run_or_empty:
+        return first_run_or_empty[0]
+
+
 def test_mlflow_experiment_init_unspecified(monkeypatch):
     """ Test that MLFlow experiment is set up correctly when no parameters are specified
 
     This mocks the mlflow library to check that the correct calls are made to set up the experiment
     """
-
     import mlflow
-
-    monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
-    monkeypatch.setattr(mlflow, 'set_experiment', MagicMock())
-    monkeypatch.setattr(mlflow, 'start_run', MagicMock())
+    from mlflow import MlflowClient
 
     mock_state = MagicMock()
     mock_state.run_name = 'dummy-run-name'
@@ -36,21 +48,23 @@ def test_mlflow_experiment_init_unspecified(monkeypatch):
 
     assert unspecified.run_name == 'dummy-run-name'
     assert unspecified.experiment_name == 'my-mlflow-experiment'
-    assert mlflow.set_tracking_uri.call_count == 0
-    assert mlflow.set_experiment.called_with(experiment_name='my-mlflow-experiment')
-    assert mlflow.start_run.called_with(run_name='dummy-run-name')
 
+    tracking_uri = mlflow.get_tracking_uri()
+    assert MlflowClient(tracking_uri=tracking_uri).get_experiment_by_name('my-mlflow-experiment')
+    assert (
+        _get_latest_mlflow_run_or_none(
+            experiment_name=unspecified.experiment_name,
+            tracking_uri=tracking_uri,
+        ).info.run_name
+        == unspecified.run_name
+    )
 
-def test_mlflow_experiment_init_specified(monkeypatch):
+def test_mlflow_experiment_init_specified():
     """ Test that MLFlow experiment is set up correctly when all parameters are specified
 
     This mocks the mlflow library to check that the correct calls are made to set up the experiment
     """
-    import mlflow
-
-    monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
-    monkeypatch.setattr(mlflow, 'set_experiment', MagicMock())
-    monkeypatch.setattr(mlflow, 'start_run', MagicMock())
+    from mlflow import MlflowClient
 
     mock_state = MagicMock()
     mock_state.run_name = 'dummy-run-name'  # Not used
@@ -71,10 +85,16 @@ def test_mlflow_experiment_init_specified(monkeypatch):
 
     assert specified.run_name == exp_run_name
     assert specified.experiment_name == mlflow_exp_name
-    assert mlflow.set_tracking_uri.call_count == 1
-    assert mlflow.set_tracking_uri.called_with(mlflow_uri)
-    assert mlflow.set_experiment.called_with(experiment_name=mlflow_exp_name)
-    assert mlflow.start_run.called_with(run_name=exp_run_name)
+
+    mlflow_client = MlflowClient(tracking_uri=mlflow_uri)
+    assert mlflow_client.get_experiment_by_name(specified.experiment_name)
+    assert (
+        _get_latest_mlflow_run_or_none(
+            experiment_name=mlflow_exp_name,
+            tracking_uri=mlflow_uri,
+        ).info.run_name
+        == specified.run_name 
+    )
 
 
 def test_mlflow_experiment_init_ids(monkeypatch):
@@ -150,9 +170,12 @@ def test_mlflow_experiment_set_up(tmp_path):
 
     test_mlflow_logger.init(state=mock_state, logger=mock_logger)
 
-    run_info = mlflow.active_run().info
-    run_id = run_info.run_id
-    experiment_id = run_info.experiment_id
+    run = _get_latest_mlflow_run_or_none(
+        experiment_name=mlflow_exp_name,
+        tracking_uri=mlflow_uri,
+    )
+    run_id = run.info.run_id
+    experiment_id = run.info.experiment_id
 
     # Check uri set correctly.
     assert mlflow_uri.exists()
@@ -186,7 +209,11 @@ def test_mlflow_experiment_set_up(tmp_path):
 def test_mlflow_logging_works(tmp_path, device):
     mlflow = pytest.importorskip('mlflow')
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
-    test_mlflow_logger = MLFlowLogger(tracking_uri=mlflow_uri)
+    experiment_name = "mlflow_logging_test"
+    test_mlflow_logger = MLFlowLogger(
+        tracking_uri=mlflow_uri,
+        experiment_name=experiment_name,
+    )
 
     dataset_size = 64
     batch_size = 4
@@ -201,10 +228,14 @@ def test_mlflow_logging_works(tmp_path, device):
                       eval_interval=eval_interval,
                       device=device)
     trainer.fit()
+    test_mlflow_logger._flush()
 
-    run_info = mlflow.active_run().info
-    run_id = run_info.run_id
-    experiment_id = run_info.experiment_id
+    run = _get_latest_mlflow_run_or_none(
+        experiment_name=experiment_name,
+        tracking_uri=mlflow_uri,
+    )
+    run_id = run.info.run_id
+    experiment_id = run.info.experiment_id
 
     run_file_path = mlflow_uri / Path(experiment_id) / Path(run_id)
 
