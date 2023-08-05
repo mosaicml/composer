@@ -81,8 +81,11 @@ class MLFlowLogger(LoggerDestination):
             self.run_name += f'-rank{dist.get_global_rank()}'
 
         if self._enabled:
-            self._optimized_mlflow_client = MlflowAutologgingQueueingClient(self.tracking_uri)
             self._mlflow_client = MlflowClient(self.tracking_uri)
+            # Create an instance of MlflowAutologgingQueueingClient - an optimized version
+            # of MlflowClient - that automatically batches metrics together and supports
+            # asynchronous logging for improved performance
+            self._optimized_mlflow_client = MlflowAutologgingQueueingClient(self.tracking_uri)
 
             # set experiment. we use MlflowClient for experiment retrieval and creation
             # because MlflowAutologgingQueueingClient doesn't support it
@@ -101,7 +104,11 @@ class MLFlowLogger(LoggerDestination):
             if env_run_id is not None:
                 self._run_id = env_run_id
             else:
-                self._run_id = self._mlflow_client.create_run(experiment_id=self._experiment_id, run_name=self.run_name).info.run_id
+                new_run = self._mlflow_client.create_run(
+                    experiment_id=self._experiment_id,
+                    run_name=self.run_name,
+                )
+                self._run_id = new_run.info.run_id
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         if self._enabled:
