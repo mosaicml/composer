@@ -7,12 +7,15 @@ from __future__ import annotations
 
 import os
 import pathlib
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Sequence, Union
 
 from composer.core.state import State
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import MissingConditionalImportError, dist
+import numpy as np
+import torch
+import textwrap
 
 __all__ = ['MLFlowLogger']
 
@@ -98,8 +101,63 @@ class MLFlowLogger(LoggerDestination):
         import mlflow
         if self._enabled:
             mlflow.log_params(params=hyperparameters)
+    
+    def log_images(
+            self,
+            images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
+            name: str = 'image',
+            channels_last: bool = False,
+            step: Optional[int] = None,
+            masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
+            mask_class_labels: Optional[Dict[int, str]] = None,
+            use_table: bool = True,
+        ):
+            del masks, mask_class_labels, use_table  # Unused (only for wandb)
+            import mlflow
+            if self._enabled:
+                if not isinstance(images, Sequence) and images.ndim <= 3:
+                    images = [images]
+                for im_ind, image in enumerate(images):
+                    image = _convert_to_mlflow_image(image, channels_last)
+                    mlflow.log_image(image, artifact_file=f'{name}_{step}_{im_ind}.png')
+
 
     def post_close(self):
         import mlflow
         if self._enabled:
             mlflow.end_run()
+
+
+def _convert_to_mlflow_image(image: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:
+    if isinstance(image, torch.Tensor):
+        image = image.data.cpu().numpy()
+
+    # Error out for empty arrays or weird arrays of dimension 0.
+    if np.any(np.equal(image.shape, 0)):
+        raise ValueError(f'Got an image (shape {image.shape}) with at least one dimension being 0! ')
+
+    # Squeeze any singleton dimensions and then add them back in if image dimension
+    # less than 3.
+    image = image.squeeze()
+
+    # Add in length-one dimensions to get back up to 3
+    # putting channels last.
+    if image.ndim == 1:
+        image = np.expand_dims(image, (1, 2))
+        channels_last = True
+    if image.ndim == 2:
+        image = np.expand_dims(image, 2)
+        channels_last = True
+
+    if image.ndim != 3:
+        raise ValueError(
+            textwrap.dedent(f'''Input image must be 3 dimensions, but instead
+                            got {image.ndim} dims at shape: {image.shape}
+                            Your input image was interpreted as a batch of {image.ndim}
+                            -dimensional images because you either specified a
+                            {image.ndim + 1}D image or a list of {image.ndim}D images.
+                            Please specify either a 4D image of a list of 3D images'''))
+    assert isinstance(image, np.ndarray)
+    if not channels_last:
+        image = image.transpose(1, 2, 0)
+    return image
