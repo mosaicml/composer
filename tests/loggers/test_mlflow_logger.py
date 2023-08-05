@@ -93,7 +93,7 @@ def test_mlflow_experiment_init_specified():
             experiment_name=mlflow_exp_name,
             tracking_uri=mlflow_uri,
         ).info.run_name
-        == specified.run_name 
+        == specified.run_name
     )
 
 
