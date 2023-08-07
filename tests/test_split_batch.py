@@ -106,7 +106,7 @@ def test_split_without_error(batch):
 @pytest.mark.parametrize('batch', [dummy_tensor_batch(i) for i in [12, 13, 14, 15]])
 def test_tensor_vs_list_chunking(batch):
     tensor_microbatches = _split_tensor(batch, microbatch_size=4)
-    list_microbatches = _split_list([t for t in batch], microbatch_size=4)
+    list_microbatches = _split_list(list(batch), microbatch_size=4)
 
     assert len(tensor_microbatches) == len(list_microbatches)
     assert all(torch.equal(t1, torch.stack(t2, dim=0)) for t1, t2 in zip(tensor_microbatches, list_microbatches))

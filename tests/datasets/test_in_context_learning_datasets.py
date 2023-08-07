@@ -31,13 +31,13 @@ def test_fewshot_sample_idxs():
     rng = random.Random(1234)
 
     fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=4, sample_idx=4, rng=rng)
-    assert fewshot_idxs == set([0, 1, 2, 3])
+    assert fewshot_idxs == {0, 1, 2, 3}
 
     fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=5, sample_idx=4, rng=rng)
-    assert fewshot_idxs == set([0, 1, 2, 3])
+    assert fewshot_idxs == {0, 1, 2, 3}
 
     fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=500, sample_idx=4, rng=rng)
-    assert fewshot_idxs == set([0, 1, 2, 3])
+    assert fewshot_idxs == {0, 1, 2, 3}
 
     fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=10, num_fewshot=7, sample_idx=4, rng=rng)
     assert len(fewshot_idxs) == 7 and 4 not in fewshot_idxs
@@ -549,11 +549,11 @@ def test_qa_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fews
     assert all(item[0] == tokenizer.eos_token_id for item in batch['input_ids'])
 
     decoded_batch = tokenizer.batch_decode(batch['input_ids'])
-    assert all([item.count('Q: ') == num_fewshot + 1 for item in decoded_batch])
-    assert all([item.count('\nA:') == num_fewshot + 1 for item in decoded_batch])
+    assert all(item.count('Q: ') == num_fewshot + 1 for item in decoded_batch)
+    assert all(item.count('\nA:') == num_fewshot + 1 for item in decoded_batch)
 
     if len(prompt_string) > 0:
-        assert all([item.count('I am a prompt') == 1 for item in decoded_batch])
+        assert all(item.count('I am a prompt') == 1 for item in decoded_batch)
 
     assert batch['labels'] == [['David Seville'], ['Scorpio', 'Skorpio']]
 
@@ -711,10 +711,10 @@ def test_code_eval_sentpiece_dataloader(dataset_uri, tmp_path, num_fewshot, prom
     assert any(item[0] != tokenizer.eos_token_id for item in batch['input_ids'])  # longest should be pushed left
 
     decoded_batch = tokenizer.batch_decode(batch['input_ids'])
-    assert all([item.count('Code start: \n') == num_fewshot + 1 for item in decoded_batch])
+    assert all(item.count('Code start: \n') == num_fewshot + 1 for item in decoded_batch)
 
     if len(prompt_string) > 0:
-        assert all([item.count('Please code:\n') == 1 for item in decoded_batch])
+        assert all(item.count('Please code:\n') == 1 for item in decoded_batch)
 
     assert batch['labels'] == [
         "    result = []\n    current_string = []\n    current_depth = 0\n\n    for c in paren_string:\n        if c == '(':\n            current_depth += 1\n            current_string.append(c)\n        elif c == ')':\n            current_depth -= 1\n            current_string.append(c)\n\n            if current_depth == 0:\n                result.append(''.join(current_string))\n                current_string.clear()\n\n    return result\n",
@@ -847,10 +847,10 @@ def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_st
     assert any(item[0] != tokenizer.eos_token_id for item in batch['input_ids'])  # longest should be pushed left
 
     decoded_batch = tokenizer.batch_decode(batch['input_ids'])
-    assert all([item.count('Code start: \n') == num_fewshot + 1 for item in decoded_batch])
+    assert all(item.count('Code start: \n') == num_fewshot + 1 for item in decoded_batch)
 
     if len(prompt_string) > 0:
-        assert all([item.count('Please code:\n') == 1 for item in decoded_batch])
+        assert all(item.count('Please code:\n') == 1 for item in decoded_batch)
 
     assert batch['labels'] == [
         "    result = []\n    current_string = []\n    current_depth = 0\n\n    for c in paren_string:\n        if c == '(':\n            current_depth += 1\n            current_string.append(c)\n        elif c == ')':\n            current_depth -= 1\n            current_string.append(c)\n\n            if current_depth == 0:\n                result.append(''.join(current_string))\n                current_string.clear()\n\n    return result\n",

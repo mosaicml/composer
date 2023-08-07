@@ -218,8 +218,7 @@ def prepare_fsdp_module(
     if not is_torch_2_0:
         from torch.distributed.fsdp.flatten_params_wrapper import FlattenParamsWrapper
 
-    from composer.trainer.mosaic_fsdp import (MosaicFullyShardedDataParallel, backward_prefetch_map, get_cpu_offload,
-                                              get_mixed_precision, sharding_map)
+    from composer.trainer.mosaic_fsdp import backward_prefetch_map, get_cpu_offload, get_mixed_precision, sharding_map
 
     set_fsdp_default(fsdp_config)
 
@@ -472,7 +471,7 @@ def prepare_fsdp_module(
 
                 _auto_wrap_policy = _auto_wrap_policy_old
 
-            fsdp_obj = MosaicFullyShardedDataParallel(
+            fsdp_obj = FullyShardedDataParallel(
                 obj,
                 sharding_strategy=sharding_strategy,
                 auto_wrap_policy=_auto_wrap_policy,

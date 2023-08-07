@@ -135,7 +135,6 @@ extra_deps['dev'] = [
     'cryptography==38.0.4',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
-    'identify==2.5.25',
 ]
 
 extra_deps['health_checker'] = {
@@ -224,7 +223,7 @@ extra_deps['mlflow'] = [
     'mlflow>=2.0.1,<3.0',
 ]
 
-extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
+extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
 composer_data_files = ['py.typed']
 composer_data_files += package_files('composer', 'yamls', '.yaml')

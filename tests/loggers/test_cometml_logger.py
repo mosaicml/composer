@@ -267,7 +267,7 @@ def test_comet_ml_log_metrics_and_hyperparameters(monkeypatch, tmp_path):
     # those written to offline dump.
     assert [msg['metricValue'] for msg in metric_msgs] == metric_values
     assert [msg['step'] for msg in metric_msgs] == steps
-    assert all([msg['metricName'] == metric_name for msg in metric_msgs])
+    assert all(msg['metricName'] == metric_name for msg in metric_msgs)
 
     # Assert dummy params input to log_hyperparameters are the same as
     # those written to offline dump

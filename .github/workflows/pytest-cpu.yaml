@@ -67,6 +67,9 @@ jobs:
           export AWS_ACCESS_KEY_ID='${{ secrets.aws-access-key-id }}'
           export AWS_SECRET_ACCESS_KEY='${{ secrets.aws-secret-access-key }}'
           export S3_BUCKET='${{ inputs.pytest-s3-bucket }}'
+          export CODE_EVAL_DEVICE='${{ secrets.code-eval-device }}'
+          export CODE_EVAL_URL='${{ secrets.code-eval-url }}'
+          export CODE_EVAL_APIKEY='${{ secrets.code-eval-apikey }}'
           export COMMON_ARGS="-v --durations=20 -m '${{ inputs.pytest-markers }}' --s3_bucket '$S3_BUCKET'"
 
           # Necessary to run git diff for doctests
@@ -86,6 +89,6 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.slack-notifications-bot-token }}
         uses: voxmedia/github-action-slack-notify-build@v1
         with:
-          channel: composer-helpdesk
+          channel: composer-issues
           status: FAILED
           color: danger
