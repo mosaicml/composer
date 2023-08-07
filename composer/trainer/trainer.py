@@ -1249,8 +1249,8 @@ class Trainer:
             self._scheduler_step_frequency = TimeUnit.BATCH if step_schedulers_every_batch else TimeUnit.EPOCH
 
         # Some algorithms require specific settings
-        self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, self.state.algorithms))
-        self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, self.state.algorithms))
+        self._backwards_create_graph = any((x.backwards_create_graph for x in self.state.algorithms))
+        self._find_unused_parameters = any((x.find_unused_parameters for x in self.state.algorithms))
         self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
 
         # Suppressing GradScaler warnings as they are always created
@@ -2159,7 +2159,7 @@ class Trainer:
                 model_eval_mode(self.state.model),\
                 _get_precision_context(self.state.precision, self.state.precision_config, self.state.deepspeed_enabled):
             eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
-            for _, metric in self.state.train_metrics.items():
+            for metric in self.state.train_metrics.values():
                 self._original_model.update_metric(
                     device_batch,
                     eval_outputs,
@@ -2209,7 +2209,7 @@ class Trainer:
             # Reset train_metrics on every batch
             # Placing reset here ensures that if auto grad accum catches an OOM, incomplete metric state is cleared
             if self.state.train_metrics is not None:
-                for _, metric in self.state.train_metrics.items():
+                for metric in self.state.train_metrics.values():
                     metric.reset()
 
             total_loss_dict = {'loss/train/total': self.state.device.tensor_to_device(torch.zeros(size=(1,)))}
@@ -2801,7 +2801,7 @@ class Trainer:
 
             metrics = self._ensure_metrics_device_and_dtype(metrics)
 
-            for _, metric in metrics.items():
+            for metric in metrics.values():
                 metric.reset()
 
             dataloader = self.state.dataloader
@@ -2899,7 +2899,7 @@ class Trainer:
                                 else:
                                     outputs = self.state.outputs
 
-                                for _, metric in metrics.items():
+                                for metric in metrics.values():
                                     self._original_model.update_metric(
                                         self.state.batch,
                                         outputs,
