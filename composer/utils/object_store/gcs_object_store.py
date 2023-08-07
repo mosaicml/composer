@@ -142,7 +142,7 @@ class GCSObjectStore(ObjectStore):
             callback: optional
         """
         if callback is not None:
-            raise ValueError("callback is not supported in gcs upload_object()")
+            raise ValueError('callback is not supported in gcs upload_object()')
         dest = str(src) if dest == '' else dest
         blob = self.bucket.blob(self.get_key(dest))
         blob.upload_from_filename(src)
@@ -170,7 +170,7 @@ class GCSObjectStore(ObjectStore):
             FileExistsError: If the destination file already exists and the `overwrite` parameter is set to False.
         """
         if callback is not None:
-            raise ValueError("callback is not supported in gcs upload_object()")
+            raise ValueError('callback is not supported in gcs upload_object()')
 
         if os.path.exists(dest) and not overwrite:
             raise FileExistsError(f'The file at {dest} already exists and overwrite is set to False.')
