@@ -131,7 +131,6 @@ class GCSObjectStore(ObjectStore):
                       src: Union[str, pathlib.Path],
                       dest: str = '',
                       callback: Optional[Callable[[int, int], None]] = None):
-
         """Uploads a file to the cloud storage bucket.
 
         Args:
