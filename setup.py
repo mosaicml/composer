@@ -210,7 +210,7 @@ extra_deps['oci'] = [
 ]
 
 extra_deps['gcs'] = [
-    'google-cloud-storage>=2.0.0',<3.0,
+    'google-cloud-storage>=2.0.0,<3.0',
 ]
 
 extra_deps['onnx'] = [
