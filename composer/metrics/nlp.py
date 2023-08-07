@@ -596,7 +596,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
 
         results = client.invoke(payloads)
         passes = sum(
-            [any([all(generation_payload) for generation_payload in prompt_payload]) for prompt_payload in results])
+            [any(all(generation_payload) for generation_payload in prompt_payload) for prompt_payload in results])
         self.correct += torch.tensor(float(passes))
         client.close()  # pyright: ignore [reportOptionalMemberAccess]
 
