@@ -132,7 +132,6 @@ class GCSObjectStore(ObjectStore):
                       dest: str = '',
                       callback: Optional[Callable[[int, int], None]] = None):
 
-        del callback
         """Uploads a file to the cloud storage bucket.
 
         Args:
@@ -142,7 +141,8 @@ class GCSObjectStore(ObjectStore):
                 name as the source file. Default is an empty string.
             callback: optional
         """
-
+        if callback is not None:
+            raise ValueError("callback is not supported in gcs upload_object()")
         dest = str(src) if dest == '' else dest
         blob = self.bucket.blob(self.get_key(dest))
         blob.upload_from_filename(src)
@@ -169,6 +169,9 @@ class GCSObjectStore(ObjectStore):
         Raises:
             FileExistsError: If the destination file already exists and the `overwrite` parameter is set to False.
         """
+        if callback is not None:
+            raise ValueError("callback is not supported in gcs upload_object()")
+
         if os.path.exists(dest) and not overwrite:
             raise FileExistsError(f'The file at {dest} already exists and overwrite is set to False.')
 
