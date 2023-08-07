@@ -250,7 +250,7 @@ def _main():
             entry['PYTORCH_VERSION'],  # Pytorch version
             cuda_version,  # Cuda version
             entry['PYTHON_VERSION'],  # Python version,
-            ', '.join(reversed(list(f'`{x}`' for x in entry['TAGS']))),  # Docker tags
+            ', '.join(reversed([f'`{x}`' for x in entry['TAGS']])),  # Docker tags
         ])
     table.sort(
         key=lambda x: x[3].replace('Infiniband', '1').replace('EFA', '2'))  # cuda version, put infiniband ahead of EFA
@@ -272,7 +272,7 @@ def _main():
         table.append([
             entry['TAGS'][0].split(':')[1].replace('_cpu', ''),  # Composer version, or 'latest'
             'No' if entry['BASE_IMAGE'].startswith('ubuntu:') else 'Yes',  # Whether there is Cuda support
-            ', '.join(reversed(list(f'`{x}`' for x in entry['TAGS']))),  # Docker tags
+            ', '.join(reversed([f'`{x}`' for x in entry['TAGS']])),  # Docker tags
         ])
     table.sort(key=lambda x: x[1], reverse=True)  # cuda support
     table.sort(key=lambda x: packaging.version.parse('9999999999999'
