@@ -74,7 +74,7 @@ def test_fsdp_optimizer_monitor(device, world_size, use_orig_params):
                       loggers=in_memory_logger,
                       train_dataloader=DataLoader(dataset, sampler=dist.get_sampler(dataset)),
                       optimizers=DecoupledAdamW(model.parameters()),
-                      max_duration='3ba',
+                      max_duration='11ba',
                       fsdp_config={
                           'sharding_strategy': 'FULL_SHARD' if world_size > 1 else 'NO_SHARD',
                           'cpu_offload': False,
@@ -103,9 +103,9 @@ def test_fsdp_optimizer_monitor(device, world_size, use_orig_params):
         assert key in in_memory_logger.data.keys()
 
     # Expected to log gradient norm once per step (total batch)
-    assert grad_norm_calls == num_train_steps
+    assert grad_norm_calls == num_train_steps // 10  # default batch log interval is 10
     for num_calls in layer_norm_calls:
-        assert num_calls == num_train_steps
+        assert num_calls == num_train_steps // 10  # default batch log interval is 10
 
 
 @device('gpu')
