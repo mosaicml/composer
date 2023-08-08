@@ -43,10 +43,7 @@ def test_optimizer_monitor(log_optimizer_metrics: bool, batch_log_interval: int)
     assert 'l2_norm/grad/module.2.weight' in in_memory_logger.data.keys()
     if log_optimizer_metrics:
         assert 'l2_norm/moment/module.2.weight' in in_memory_logger.data.keys()
-        assert 'cosine/moment_grad/module.2.weight' in in_memory_logger.data.keys()
-        assert 'l2_norm/second_moment_sqrt/module.2.weight' in in_memory_logger.data.keys()
         assert 'l2_norm/update/module.2.weight' in in_memory_logger.data.keys()
-        assert 'cosine/update_grad/module.2.weight' in in_memory_logger.data.keys()
 
     # Expected to log gradient norm once per step (total batch)
     assert grad_norm_calls == expected_num_calls
@@ -99,10 +96,7 @@ def test_fsdp_optimizer_monitor(device, world_size, use_orig_params):
     test_keys = [
         f'l2_norm/grad/module._fsdp_wrapped_module{infix}.4._fsdp_wrapped_module',
         f'l2_norm/moment/module._fsdp_wrapped_module{infix}.4._fsdp_wrapped_module',
-        f'cosine/moment_grad/module._fsdp_wrapped_module{infix}.4._fsdp_wrapped_module',
-        f'l2_norm/second_moment_sqrt/module._fsdp_wrapped_module{infix}.4._fsdp_wrapped_module',
         f'l2_norm/update/module._fsdp_wrapped_module{infix}.4._fsdp_wrapped_module',
-        f'cosine/update_grad/module._fsdp_wrapped_module{infix}.4._fsdp_wrapped_module',
     ]
     test_keys = [key + suffix for key in test_keys]
     for key in test_keys:
@@ -175,17 +169,11 @@ def test_fsdp_optimizer_monitor_transformer(device, world_size, tiny_gpt2_model,
         test_keys = [
             f'l2_norm/grad/model._fsdp_wrapped_module{infix}.transformer.h.1._fsdp_wrapped_module{suffix}',
             f'l2_norm/update/model._fsdp_wrapped_module{infix}.transformer.h.1._fsdp_wrapped_module{suffix}',
-            f'cosine/moment_grad/model._fsdp_wrapped_module{infix}.transformer.h.1._fsdp_wrapped_module{suffix}',
-            f'cosine/update_grad/model._fsdp_wrapped_module{infix}.transformer.h.1._fsdp_wrapped_module{suffix}',
-            f'cosine/moment_grad/model._fsdp_wrapped_module{infix}.transformer.h.1._fsdp_wrapped_module{suffix}',
         ]
     else:
         test_keys = [
             'l2_norm/grad/model._fsdp_wrapped_module.transformer.h.1._fsdp_wrapped_module.mlp.c_proj.weight',
             'l2_norm/update/model._fsdp_wrapped_module.transformer.h.1._fsdp_wrapped_module.mlp.c_proj.weight',
-            'cosine/moment_grad/model._fsdp_wrapped_module.transformer.h.1._fsdp_wrapped_module.attn.c_attn.weight',
-            'cosine/update_grad/model._fsdp_wrapped_module.transformer.h.1._fsdp_wrapped_module.attn.c_attn.weight',
-            'cosine/moment_grad/model._fsdp_wrapped_module.transformer.h.1._fsdp_wrapped_module.mlp.c_proj.weight',
         ]
     for key in test_keys:
         assert key in in_memory_logger.data.keys()
