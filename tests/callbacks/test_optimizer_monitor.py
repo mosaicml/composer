@@ -145,7 +145,7 @@ def test_fsdp_optimizer_monitor_transformer(device, world_size, tiny_gpt2_model,
                       loggers=in_memory_logger,
                       train_dataloader=train_dataloader,
                       optimizers=DecoupledAdamW(model.parameters()),
-                      max_duration='10ba',
+                      max_duration='11ba',
                       fsdp_config={
                           'sharding_strategy': 'FULL_SHARD' if world_size > 1 else 'NO_SHARD',
                           'cpu_offload': False,
