@@ -82,6 +82,7 @@ if __name__ == '__main__':
         image=args.image,
         integrations=[git_integration],
         command=command,
+        scheduling={'max_duration_seconds:': args.timeout},
     )
 
     # Create run
@@ -96,12 +97,6 @@ if __name__ == '__main__':
     # Print logs
     for line in follow_run_logs(run):
         print(line, end='')
-        # Check if args.timeout seconds have elapsed
-        if time.time() - start_time > args.timeout:
-            print(f'[GHA] Run timed out and did not complete in {args.timeout/60} minutes.')
-            run = stop_run(run)
-            print('[GHA] Run stopped.')
-            break
 
     print('[GHA] Run completed. Waiting for run to finish...')
     run = wait_for_run_status(run, status='completed')
