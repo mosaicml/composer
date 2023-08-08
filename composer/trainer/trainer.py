@@ -2707,7 +2707,7 @@ class Trainer:
                 dataloader. Can also be provided in the trainer.__init__() as ``eval_subset_num_batches``.
 
         """
-        self.engine.run_event(Event.STANDALONE_EVAL_START)
+        self.engine.run_event(Event.EVAL_STANDALONE_START)
 
         if eval_dataloader is not None:
             eval_passed_in = True
@@ -2765,7 +2765,7 @@ class Trainer:
             if eval_passed_in:
                 self.state.evaluators.remove(evaluator)  # Remove them from state once eval is finished.
 
-        self.engine.run_event(Event.STANDALONE_EVAL_END)
+        self.engine.run_event(Event.EVAL_STANDALONE_END)
 
     def _eval_loop(
         self,

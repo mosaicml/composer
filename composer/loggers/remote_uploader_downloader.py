@@ -447,7 +447,7 @@ class RemoteUploaderDownloader(LoggerDestination):
     def fit_end(self, state: State, logger: Logger):
         self.wait_for_workers(state.device)
 
-    def standalone_eval_end(self, state: State, logger: Logger):
+    def eval_standlone_end(self, state: State, logger: Logger):
         self.wait_for_workers(state.device)
 
     def predict_end(self, state: State, logger: Logger):
