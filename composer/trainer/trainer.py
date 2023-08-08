@@ -1356,13 +1356,12 @@ class Trainer:
                 if ar_object_store is not None:
                     with tempfile.TemporaryDirectory() as temp_dir:
                         local_symlink_file = str(Path(temp_dir) / Path('autoresume.symlink'))
-                        rank0_latest_remote_file_name = latest_remote_file_name.format(rank=0)
-                        log.debug(f'rank 0 latest={rank0_latest_remote_file_name}')
-                        assert False
-                        formatted_latest_remote_file_name = format_name_with_dist(rank0_latest_remote_file_name,
+                        formatted_latest_remote_file_name = format_name_with_dist(latest_remote_file_name,
                                                                                   self.state.run_name) + '.symlink'
+                        rank0_formatted_latest_remote_file_name = dist.all_gather_object(
+                            formatted_latest_remote_file_name)[0]
                         try:
-                            ar_object_store.download_object(formatted_latest_remote_file_name, local_symlink_file)
+                            ar_object_store.download_object(rank0_formatted_latest_remote_file_name, local_symlink_file)
                             with open(local_symlink_file, 'r') as f:
                                 real_path = f.read()
                                 log.debug(f'Read path {real_path} from symlink file')
@@ -1372,8 +1371,9 @@ class Trainer:
                 # Symlink is local.
                 else:
                     save_latest_filename = format_name_with_dist(save_latest_filename, self.state.run_name)
+                    rank0_save_latest_filename = dist.all_gather_object(save_latest_filename)[0]
                     save_folder = format_name_with_dist(save_folder, self.state.run_name)
-                    latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
+                    latest_checkpoint_path = os.path.join(save_folder, rank0_save_latest_filename)
                     if os.path.exists(latest_checkpoint_path):
                         latest_checkpoint_path = os.path.join(os.path.dirname(latest_checkpoint_path),
                                                               os.readlink(latest_checkpoint_path))
