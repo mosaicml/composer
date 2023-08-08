@@ -449,6 +449,24 @@ class Callback(Serializable, abc.ABC):
         del state, logger  # unused
         pass
 
+    def standalone_eval_start(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`.Event.STANDALONE_EVAL_START` event.
+
+        Args:
+            state (State): The training state.
+            logger (Logger): The logger.
+        """
+        pass
+
+    def standalone_eval_end(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`.Event.STANDALONE_EVAL_END` event.
+
+        Args:
+            state (State): The training state.
+            logger (Logger): The logger.
+        """
+        pass
+
     def fit_end(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`.Event.FIT_END` event.
 

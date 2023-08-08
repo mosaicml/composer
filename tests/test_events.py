@@ -171,6 +171,8 @@ class TestEventCalls:
             Event.EVAL_BATCH_END: total_eval_steps,
             Event.EVAL_END: total_evals_start,
             Event.EVAL_AFTER_ALL: total_evals,
+            Event.STANDALONE_EVAL_START: 0,
+            Event.STANDALONE_EVAL_END: 0,
         }
 
         counter_callback = (cb for cb in trainer.state.callbacks if isinstance(cb, EventCounterCallback))
