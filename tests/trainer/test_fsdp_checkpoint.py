@@ -589,9 +589,9 @@ def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type:
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool):
-    if state_dict_type == 'local' and using_torch_2():
+    if using_torch_2():
         pytest.xfail(
-            'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info'
+            'Torch 2 uses elastic checkpointing, which does not have 1 symlink file per checkpoint, so this tests is irrelevant'
         )
     run_name = 'my-run-ar' if autoresume else 'my-run'
     tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
