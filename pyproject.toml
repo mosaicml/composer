@@ -10,6 +10,25 @@ line_length = 120
 skip = [ "env", "wandb", "runs", "build", "node_modules" ]
 known_third_party = ["wandb"]
 
+[tool.ruff]
+select = [
+    "C4",
+    # TODO port pydocstyle
+    # "D", # pydocstyle
+    "PERF",
+]
+
+ignore = [
+    "C408",
+    "PERF2",
+    "PERF4",
+]
+exclude = [
+    "build/**",
+    "docs/**",
+    "node_modules/**",
+]
+
 # Pyright
 [tool.pyright]
 include = [

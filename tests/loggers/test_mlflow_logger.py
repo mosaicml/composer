@@ -218,7 +218,7 @@ def test_mlflow_logging_works(tmp_path, device):
         metric_file = run_file_path / Path('metrics') / Path(metric_name)
         with open(metric_file) as f:
             csv_reader = csv.reader(f, delimiter=' ')
-            lines = [line for line in csv_reader]
+            lines = list(csv_reader)
 
         assert len(lines) == num_batches
 
