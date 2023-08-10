@@ -49,7 +49,7 @@ def test_extract_hparams():
             self.local_hparams = {'m': 11}
 
     class Baz(StringEnum):
-        A = "abc"
+        A = 'abc'
 
     locals_dict = {
         'a': 1.5,
