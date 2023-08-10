@@ -9,7 +9,7 @@ import logging
 import os
 
 import psutil
-import pynvml
+from composer.utils.import_helpers import MissingConditionalImportError
 
 from composer.core import Callback, Event, State
 from composer.loggers import Logger
@@ -25,6 +25,12 @@ class SystemMetricsMonitor(Callback):
 
     def __init__(self) -> None:
         super().__init__()
+        try:
+            import pynvml
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='pynvml',
+                                                conda_package='pynvml',
+                                                conda_channel='conda-forge') from e
         pynvml.nvmlInit()
 
     def run_event(self, event: Event, state: State, logger: Logger):
@@ -44,6 +50,8 @@ class SystemMetricsMonitor(Callback):
         logger.log_metrics(system_metrics)
 
     def compute_system_metrics(self):
+        import pynvml
+
         system_metrics = {}
 
         # Get metrics for this device
