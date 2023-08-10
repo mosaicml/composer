@@ -40,6 +40,18 @@ def _tokenizer_needs_prefix_space(tokenizer) -> bool:
     return len(tokenizer(' a', add_special_tokens=False)['input_ids']) == 1
 
 
+def _strip_pad_token(inputs, pad_token_id, padding_side='right'):
+    """This function removes unnecessary pad tokens
+    """
+    inputs = torch.stack(inputs)
+    max_seq_len = torch.sum(inputs != pad_token_id, dim=-1).max().item()
+    if padding_side == 'left':
+        return inputs[..., -max_seq_len:]
+    else:
+        return inputs[..., :max_seq_len]
+        
+
+
 def _make_padded_input(context_enc, continuation_enc, max_seq_len, pad_tok_id, padding_side='right'):
     if len(continuation_enc) + len(context_enc) > max_seq_len:
         # clip from the end
@@ -249,7 +261,7 @@ class InContextLearningQATaskDataset(Dataset):
             answers.append(aliases)
 
         batch = {
-            'input_ids': torch.stack(inputs),
+            'input_ids': _strip_pad_token(inputs, self.pad_tok_id, padding_side=self.padding_side),
             'mode': 'generate',
             'labels': answers,
             'generation_length': self.max_answer_length,
@@ -428,10 +440,10 @@ class InContextLearningLMTaskDataset(Dataset):
             continuation_indices.append(continuation_span)
 
         batch = {
-            'input_ids': torch.stack(inputs),
+            'input_ids': _strip_pad_token(inputs, self.pad_tok_id),
             'continuation_indices': continuation_indices,
             'mode': 'icl_task',
-            'labels': torch.stack(inputs),
+            'labels': _strip_pad_token(inputs, self.pad_tok_id),
         }
 
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
@@ -619,10 +631,10 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         # which contiguous sequences of elements in the batch correspond to which question
         # gold_indices indicates which of the [0, N-1] choices is the correct one for each question.
         batch = {
-            'input_ids': torch.stack(inputs),
+            'input_ids': _strip_pad_token(inputs, self.pad_tok_id),
             'continuation_indices': continuation_indices,
             'mode': 'icl_task',
-            'labels': torch.stack(inputs),
+            'labels': _strip_pad_token(inputs, self.pad_tok_id),
             'gold_indices': gold_idxs,
             'choice_groupings': choice_groupings
         }
@@ -838,10 +850,10 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         # which contiguous sequences of elements in the batch correspond to which question
         # gold_indices indicates which of the [0, N-1] choices is the correct one for each question.
         batch = {
-            'input_ids': torch.stack(inputs),
+            'input_ids': _strip_pad_token(inputs, self.pad_tok_id),
             'continuation_indices': continuation_indices,
             'mode': 'icl_task',
-            'labels': torch.stack(inputs),
+            'labels': _strip_pad_token(inputs, self.pad_tok_id),
             'gold_indices': gold_idxs,
             'choice_groupings': choice_groupings
         }
@@ -1018,7 +1030,7 @@ class InContextLearningCodeEvalDataset(Dataset):
             test_outputs.append(test_output)
 
         batch = {
-            'input_ids': torch.stack(inputs),
+            'input_ids': _strip_pad_token(inputs, self.pad_tok_id, padding_side=self.padding_side),
             'mode': 'generate',
             'labels': canonical_solutions,
             'prompts': prompts,  # list of prompts
