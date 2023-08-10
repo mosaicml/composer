@@ -142,10 +142,10 @@ def test_composer_metadata_in_state_dict(tmp_path, request: pytest.FixtureReques
         torch.save(state.state_dict(), _tmp_file)
 
     loaded_state_dict = torch.load(save_path)
-    expected_env_info_keys = set([
+    expected_env_info_keys = {
         'composer_version', 'composer_commit_hash', 'node_world_size', 'host_processor_model_name',
         'host_processor_core_count', 'local_world_size', 'accelerator_model_name', 'cuda_device_count'
-    ])
+    }
     actual_env_info_keys = set(loaded_state_dict['metadata']['composer_env_info'].keys())
     assert expected_env_info_keys == actual_env_info_keys
     assert loaded_state_dict['metadata']['composer_env_info']['composer_version'] == composer.__version__

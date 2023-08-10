@@ -53,7 +53,7 @@ def _get_obj_repr(obj: Any):
         obj if obj is None or it is a int, float, str, bool type.
         obj.value if obj is an Enum. Otherwise returns obj.__class__.__name__.
     """
-    if any([isinstance(obj, type_) for type_ in [int, float, str, bool]]) or obj is None:
+    if any(isinstance(obj, type_) for type_ in [int, float, str, bool]) or obj is None:
         return obj
     elif isinstance(obj, Enum):
         return obj.value

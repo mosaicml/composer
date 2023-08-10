@@ -67,7 +67,7 @@ def compare_models(model_1: torch.nn.Module, model_2: torch.nn.Module, is_equal:
             model_2_modules = list(model_2.module.modules())
             assert len(model_1_modules) == len(model_2_modules)
             for module_1, module_2 in zip(model_1_modules, model_2_modules):
-                assert sorted(list(module_1.__dict__.keys())) == sorted(list(module_2.__dict__.keys()))
+                assert sorted(module_1.__dict__.keys()) == sorted(module_2.__dict__.keys())
         # Compare model parameters
         for (name0, tensor0), (name1, tensor1) in zip(model_1.state_dict().items(), model_2.state_dict().items()):
             assert name0 == name1
