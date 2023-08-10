@@ -6,18 +6,18 @@
 from __future__ import annotations
 
 import logging
+import os
 
 import psutil
 from py3nvml import py3nvml
-import os
 
-from composer.utils import dist
-from composer.core import Callback, State, Event
+from composer.core import Callback, Event, State
 from composer.loggers import Logger
+from composer.utils import dist
 
 log = logging.getLogger(__name__)
 
-__all__ = ["SystemMetricsMonitor"]
+__all__ = ['SystemMetricsMonitor']
 
 
 class SystemMetricsMonitor(Callback):
@@ -30,21 +30,17 @@ class SystemMetricsMonitor(Callback):
     def run_event(self, event: Event, state: State, logger: Logger):
         # skip the microbatch events
         if event in [
-            Event.BEFORE_FORWARD,
-            Event.AFTER_FORWARD,
-            Event.BEFORE_LOSS,
-            Event.AFTER_LOSS,
-            Event.BEFORE_BACKWARD,
-            Event.AFTER_BACKWARD,
+                Event.BEFORE_FORWARD,
+                Event.AFTER_FORWARD,
+                Event.BEFORE_LOSS,
+                Event.AFTER_LOSS,
+                Event.BEFORE_BACKWARD,
+                Event.AFTER_BACKWARD,
         ]:
             return
         local_node_system_metrics = self.compute_system_metrics()
         all_system_metrics = dist.all_gather_object(local_node_system_metrics)
-        system_metrics = {
-            key: value
-            for local_metrics in all_system_metrics
-            for key, value in local_metrics.items()
-        }
+        system_metrics = {key: value for local_metrics in all_system_metrics for key, value in local_metrics.items()}
         logger.log_metrics(system_metrics)
 
     def compute_system_metrics(self):
@@ -55,29 +51,25 @@ class SystemMetricsMonitor(Callback):
         global_rank = dist.get_global_rank()
         handle = py3nvml.nvmlDeviceGetHandleByIndex(local_rank)
         memory = py3nvml.nvmlDeviceGetMemoryInfo(handle)
-        system_metrics[f"device{global_rank}_memory_total"] = memory.total
-        system_metrics[f"device{global_rank}_memory_free"] = memory.free
-        system_metrics[f"device{global_rank}_memory_used"] = memory.used
+        system_metrics[f'device{global_rank}_memory_total'] = memory.total
+        system_metrics[f'device{global_rank}_memory_free'] = memory.free
+        system_metrics[f'device{global_rank}_memory_used'] = memory.used
         device_utilization = py3nvml.nvmlDeviceGetUtilizationRates(handle)
-        system_metrics[f"device{global_rank}_gpu_percentage"] = device_utilization.gpu
-        system_metrics[
-            f"device{global_rank}_memory_percentage"
-        ] = device_utilization.memory
-        temperature = py3nvml.nvmlDeviceGetTemperature(
-            handle, py3nvml.NVML_TEMPERATURE_GPU
-        )
-        system_metrics[f"device{global_rank}_gpu_temperature"] = temperature
+        system_metrics[f'device{global_rank}_gpu_percentage'] = device_utilization.gpu
+        system_metrics[f'device{global_rank}_memory_percentage'] = device_utilization.memory
+        temperature = py3nvml.nvmlDeviceGetTemperature(handle, py3nvml.NVML_TEMPERATURE_GPU)
+        system_metrics[f'device{global_rank}_gpu_temperature'] = temperature
 
         # Get metrics for the system
         cpu_percent = psutil.cpu_percent()
-        system_metrics[f"cpu_percentage"] = cpu_percent
+        system_metrics[f'cpu_percentage'] = cpu_percent
         system_memory = psutil.virtual_memory()._asdict()
         for k, v in system_memory.items():
-            system_metrics[f"cpu_memory_{k}"] = v
+            system_metrics[f'cpu_memory_{k}'] = v
         disk_usage = psutil.disk_usage(os.sep)._asdict()
         for k, v in disk_usage.items():
-            system_metrics[f"disk_memory_{k}"] = v
+            system_metrics[f'disk_memory_{k}'] = v
         network_usage = psutil.net_io_counters()._asdict()
         for k, v in network_usage.items():
-            system_metrics[f"network_{k}"] = v
+            system_metrics[f'network_{k}'] = v
         return system_metrics
