@@ -9,11 +9,11 @@ import logging
 import os
 
 import psutil
-from composer.utils.import_helpers import MissingConditionalImportError
 
 from composer.core import Callback, Event, State
 from composer.loggers import Logger
 from composer.utils import dist
+from composer.utils.import_helpers import MissingConditionalImportError
 
 log = logging.getLogger(__name__)
 
