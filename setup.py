@@ -88,7 +88,6 @@ install_requires = [
     'packaging>=21.3.0,<23',
     'importlib-metadata>=5.0.0,<7',
     'mosaicml-cli>=0.4.12,<0.5',
-    'py3nvml>=0.2.7'
 ]
 extra_deps = {}
 
@@ -139,6 +138,10 @@ extra_deps['dev'] = [
 ]
 
 extra_deps['health_checker'] = {
+    'pynvml>=11.5.0,<12',
+}
+
+extra_deps['system_metrics_monitor'] = {
     'pynvml>=11.5.0,<12',
 }
 

@@ -9,7 +9,7 @@ import logging
 import os
 
 import psutil
-from py3nvml import py3nvml
+import pynvml
 
 from composer.core import Callback, Event, State
 from composer.loggers import Logger
@@ -25,7 +25,7 @@ class SystemMetricsMonitor(Callback):
 
     def __init__(self) -> None:
         super().__init__()
-        py3nvml.nvmlInit()
+        pynvml.nvmlInit()
 
     def run_event(self, event: Event, state: State, logger: Logger):
         # skip the microbatch events
@@ -49,15 +49,15 @@ class SystemMetricsMonitor(Callback):
         # Get metrics for this device
         local_rank = dist.get_local_rank()
         global_rank = dist.get_global_rank()
-        handle = py3nvml.nvmlDeviceGetHandleByIndex(local_rank)
-        memory = py3nvml.nvmlDeviceGetMemoryInfo(handle)
+        handle = pynvml.nvmlDeviceGetHandleByIndex(local_rank)
+        memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
         system_metrics[f'device{global_rank}_memory_total'] = memory.total
         system_metrics[f'device{global_rank}_memory_free'] = memory.free
         system_metrics[f'device{global_rank}_memory_used'] = memory.used
-        device_utilization = py3nvml.nvmlDeviceGetUtilizationRates(handle)
+        device_utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
         system_metrics[f'device{global_rank}_gpu_percentage'] = device_utilization.gpu
         system_metrics[f'device{global_rank}_memory_percentage'] = device_utilization.memory
-        temperature = py3nvml.nvmlDeviceGetTemperature(handle, py3nvml.NVML_TEMPERATURE_GPU)
+        temperature = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
         system_metrics[f'device{global_rank}_gpu_temperature'] = temperature
 
         # Get metrics for the system
