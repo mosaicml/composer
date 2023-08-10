@@ -136,6 +136,9 @@ class Event(StringEnum):
         EVAL_BATCH_END: After the call to ``model.eval_forward(batch)``
         EVAL_END: End of evaluation through the validation dataset.
         EVAL_AFTER_ALL: After all evaluators process validation dataset.
+
+        EVAL_STANDALONE_START: Start of evaluation through a direct call to `trainer.eval`.
+        EVAL_STANDALONE_END: End of evaluation through a direct call to `trainer.eval`.
     """
 
     INIT = 'init'
@@ -178,6 +181,9 @@ class Event(StringEnum):
     EVAL_BATCH_END = 'eval_batch_end'
     EVAL_END = 'eval_end'
     EVAL_AFTER_ALL = 'eval_after_all'
+
+    EVAL_STANDALONE_START = 'eval_standalone_start'
+    EVAL_STANDALONE_END = 'eval_standalone_end'
 
     PREDICT_START = 'predict_start'
     PREDICT_BATCH_START = 'predict_batch_start'
@@ -240,8 +246,9 @@ class Event(StringEnum):
 _BEFORE_EVENTS = (Event.FIT_START, Event.EPOCH_START, Event.BEFORE_DATALOADER, Event.BATCH_START,
                   Event.BEFORE_TRAIN_BATCH, Event.BEFORE_FORWARD, Event.BEFORE_LOSS, Event.BEFORE_BACKWARD,
                   Event.EVAL_BEFORE_ALL, Event.EVAL_START, Event.EVAL_BATCH_START, Event.EVAL_BEFORE_FORWARD,
-                  Event.PREDICT_START, Event.PREDICT_BATCH_START, Event.PREDICT_BEFORE_FORWARD)
+                  Event.PREDICT_START, Event.PREDICT_BATCH_START, Event.PREDICT_BEFORE_FORWARD,
+                  Event.EVAL_STANDALONE_START)
 _AFTER_EVENTS = (Event.EPOCH_END, Event.BATCH_END, Event.AFTER_DATALOADER, Event.AFTER_TRAIN_BATCH, Event.AFTER_FORWARD,
                  Event.AFTER_LOSS, Event.AFTER_BACKWARD, Event.EVAL_AFTER_ALL, Event.EVAL_END, Event.EVAL_BATCH_END,
                  Event.EVAL_AFTER_FORWARD, Event.FIT_END, Event.PREDICT_END, Event.PREDICT_BATCH_END,
-                 Event.PREDICT_AFTER_FORWARD)
+                 Event.PREDICT_AFTER_FORWARD, Event.EVAL_STANDALONE_END)

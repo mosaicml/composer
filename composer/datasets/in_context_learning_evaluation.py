@@ -223,7 +223,7 @@ class InContextLearningQATaskDataset(Dataset):
 
             max_answer_length = max(
                 max_answer_length,
-                max(map(lambda x: len(self.tokenizer(x)['input_ids']), self.samples[sample_idx]['aliases'])))
+                max((len(self.tokenizer(x)['input_ids']) for x in self.samples[sample_idx]['aliases'])))
 
         self.max_answer_length = max_answer_length
         return examples

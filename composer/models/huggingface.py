@@ -558,7 +558,7 @@ def _is_registered_causal_lm(model: transformers.PreTrainedModel) -> bool:
                                             conda_package='transformers',
                                             conda_channel='conda-forge') from e
     causal_lm_classes = list(MODEL_FOR_CAUSAL_LM_MAPPING.values())
-    return any([isinstance(model, causal_lm_class) for causal_lm_class in causal_lm_classes])
+    return any(isinstance(model, causal_lm_class) for causal_lm_class in causal_lm_classes)
 
 
 def get_hf_config_from_composer_state_dict(state_dict: Dict[str, Any],
