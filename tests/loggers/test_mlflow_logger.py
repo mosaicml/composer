@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import csv
+import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -9,12 +10,11 @@ import pytest
 import yaml
 from torch.utils.data import DataLoader
 
-from composer.loggers import MLFlowLogger, Logger
-from composer.trainer import Trainer
 from composer.core import Callback, State
+from composer.loggers import Logger, MLFlowLogger
+from composer.trainer import Trainer
 from tests.common.datasets import RandomImageDataset
 from tests.common.markers import device
-import os
 from tests.common.models import SimpleConvModel
 
 
@@ -234,13 +234,14 @@ def test_mlflow_logging_works(tmp_path, device):
 def test_mlflow_log_image_works(tmp_path, device):
 
     class ImageLogger(Callback):
-        def __init__(self, ):
+
+        def __init__(self,):
             pass
 
         def before_forward(self, state: State, logger: Logger):
             inputs = state.batch_get_item(key=0)
             images = inputs.data.cpu().numpy()
-            logger.log_images(images, step=state.timestamp.batch, use_table=True)
+            logger.log_images(images, step=state.timestamp.batch.value, use_table=True)
 
     mlflow = pytest.importorskip('mlflow')
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')

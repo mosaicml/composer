@@ -7,15 +7,16 @@ from __future__ import annotations
 
 import os
 import pathlib
+import textwrap
 from typing import Any, Dict, Optional, Sequence, Union
+
+import numpy as np
+import torch
 
 from composer.core.state import State
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import MissingConditionalImportError, dist
-import numpy as np
-import torch
-import textwrap
 
 __all__ = ['MLFlowLogger']
 
@@ -101,26 +102,25 @@ class MLFlowLogger(LoggerDestination):
         import mlflow
         if self._enabled:
             mlflow.log_params(params=hyperparameters)
-    
-    def log_images(
-            self,
-            images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
-            name: str = 'image',
-            channels_last: bool = False,
-            step: Optional[int] = None,
-            masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
-            mask_class_labels: Optional[Dict[int, str]] = None,
-            use_table: bool = True,
-        ):
-            del masks, mask_class_labels, use_table  # Unused (only for wandb)
-            import mlflow
-            if self._enabled:
-                if not isinstance(images, Sequence) and images.ndim <= 3:
-                    images = [images]
-                for im_ind, image in enumerate(images):
-                    image = _convert_to_mlflow_image(image, channels_last)
-                    mlflow.log_image(image, artifact_file=f'{name}_{step}_{im_ind}.png')
 
+    def log_images(
+        self,
+        images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
+        name: str = 'image',
+        channels_last: bool = False,
+        step: Optional[int] = None,
+        masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
+        mask_class_labels: Optional[Dict[int, str]] = None,
+        use_table: bool = True,
+    ):
+        del masks, mask_class_labels, use_table  # Unused (only for wandb)
+        import mlflow
+        if self._enabled:
+            if not isinstance(images, Sequence) and images.ndim <= 3:
+                images = [images]
+            for im_ind, image in enumerate(images):
+                image = _convert_to_mlflow_image(image, channels_last)
+                mlflow.log_image(image, artifact_file=f'{name}_{step}_{im_ind}.png')
 
     def post_close(self):
         import mlflow
