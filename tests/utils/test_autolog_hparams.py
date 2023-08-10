@@ -6,10 +6,11 @@ from torch.utils.data import DataLoader
 
 from composer.algorithms import EMA
 from composer.callbacks import SpeedMonitor
+from composer.core import Precision
 from composer.loggers import InMemoryLogger
 from composer.trainer import Trainer
-from composer.utils import (convert_flat_dict_to_nested_dict, convert_nested_dict_to_flat_dict, extract_hparams,
-                            using_torch_2)
+from composer.utils import (StringEnum, convert_flat_dict_to_nested_dict, convert_nested_dict_to_flat_dict,
+                            extract_hparams, using_torch_2)
 from tests.common.datasets import RandomClassificationDataset
 from tests.common.models import SimpleModel
 
@@ -42,6 +43,9 @@ def test_extract_hparams():
         def __init__(self):
             self.local_hparams = {'m': 11}
 
+    class Baz(StringEnum):
+        A = 'abc'
+
     locals_dict = {
         'a': 1.5,
         'b': {
@@ -53,7 +57,8 @@ def test_extract_hparams():
         'p': Bar(),
         '_g': 7,
         'h': None,
-        'i': True
+        'i': True,
+        'j': Baz.A,
     }
 
     expected_parsed_dict = {
@@ -71,6 +76,7 @@ def test_extract_hparams():
         },
         'h': None,
         'i': True,
+        'j': 'abc',
     }
 
     parsed_dict = extract_hparams(locals_dict)
@@ -85,6 +91,7 @@ def test_extract_hparams_trainer():
         model=model,
         train_dataloader=train_dl,
         device_train_microbatch_size=16,
+        precision=Precision.FP32,
         optimizers=optimizer,
         auto_log_hparams=True,
         progress_bar=False,
@@ -169,7 +176,7 @@ def test_extract_hparams_trainer():
 
         # System/Numerics
         'device': 'DeviceCPU',
-        'precision': 'Precision',
+        'precision': 'fp32',
         'precision_config': None,
         'device_train_microbatch_size': 16,
 
