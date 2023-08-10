@@ -9,13 +9,8 @@ from composer.callbacks import SpeedMonitor
 from composer.core import Precision
 from composer.loggers import InMemoryLogger
 from composer.trainer import Trainer
-from composer.utils import (
-    StringEnum,
-    convert_flat_dict_to_nested_dict,
-    convert_nested_dict_to_flat_dict,
-    extract_hparams,
-    using_torch_2,
-)
+from composer.utils import (StringEnum, convert_flat_dict_to_nested_dict, convert_nested_dict_to_flat_dict,
+                            extract_hparams, using_torch_2)
 from tests.common.datasets import RandomClassificationDataset
 from tests.common.models import SimpleModel
 
