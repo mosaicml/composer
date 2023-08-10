@@ -2462,7 +2462,7 @@ class Trainer:
             self.engine.run_event(Event.AFTER_BACKWARD)
 
             # Use microbatch outputs to update training metrics
-            if self.state.train_metrics is not None:
+            if self.state.train_metrics is not None and len(self.state.train_metrics) != 0:
                 self.state.train_metrics = self._ensure_metrics_device_and_dtype(self.state.train_metrics)
                 self._eval_train_metrics(device_batch)
 
@@ -2707,6 +2707,8 @@ class Trainer:
                 dataloader. Can also be provided in the trainer.__init__() as ``eval_subset_num_batches``.
 
         """
+        self.engine.run_event(Event.EVAL_STANDALONE_START)
+
         if eval_dataloader is not None:
             eval_passed_in = True
             eval_metrics = deepcopy(self._original_model.get_metrics(is_train=False))
@@ -2762,6 +2764,8 @@ class Trainer:
             )
             if eval_passed_in:
                 self.state.evaluators.remove(evaluator)  # Remove them from state once eval is finished.
+
+        self.engine.run_event(Event.EVAL_STANDALONE_END)
 
     def _eval_loop(
         self,
