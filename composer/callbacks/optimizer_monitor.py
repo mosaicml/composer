@@ -53,37 +53,17 @@ class OptimizerMonitor(Callback):
     | ``l2_norm/moment/LAYER_NAME``                 |  calling optimizer step.                            |
     |                                               |                                                     |
     +-----------------------------------------------+-----------------------------------------------------+
-    |                                               | Layer-wise ratio of the gradient norm to the        |
-    | ``l2_norm_ratio/moment_grad/LAYER_NAME``      | moment norm after calling optimizer step.           |
-    |                                               |                                                     |
-    +-----------------------------------------------+-----------------------------------------------------+
-    |                                               | Layer-wise cosine angle between gradient and moment |
-    | ``cosine/moment_grad/LAYER_NAME``             | after calling optimizer step.                       |
-    |                                               |                                                     |
-    +-----------------------------------------------+-----------------------------------------------------+
     |                                               | Layer-wise L2 norms of parameter weights            |
     | ``l2_norm/param/LAYER_NAME``                  |                                                     |
-    |                                               |                                                     |
-    +-----------------------------------------------+-----------------------------------------------------+
-    |                                               | Layer-wise L2 norms of the square root              |
-    | ``l2_norm/second_moment_sqrt/LAYER_NAME``     |  of the Adam second moment is.                      |
     |                                               |                                                     |
     +-----------------------------------------------+-----------------------------------------------------+
     |                                               | Layer-wise L2 norms of the step                     |
     | ``l2_norm/update/LAYER_NAME``                 |                                                     |
     |                                               |                                                     |
     +-----------------------------------------------+-----------------------------------------------------+
-    |                                               | Layer-wise cosine between the gradient and the step |
-    | ``cosine/update_grad/LAYER_NAME``             |                                                     |
-    |                                               |                                                     |
-    +-----------------------------------------------+-----------------------------------------------------+
-    |                                               | Layer-wise ratio between step size and parameter    |
-    | ``l2_norm_ratio/update_param/LAYER_NAME``     | norm                                                |
-    |                                               |                                                     |
-    +-----------------------------------------------+-----------------------------------------------------+
     """
 
-    def __init__(self, log_optimizer_metrics: bool = True, batch_log_interval: int = 1):
+    def __init__(self, log_optimizer_metrics: bool = True, batch_log_interval: int = 10):
         self.log_optimizer_metrics = log_optimizer_metrics
         self.batch_log_interval = batch_log_interval
 

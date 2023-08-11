@@ -24,8 +24,8 @@ import torch
 
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import (LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, OCIObjectStore, S3ObjectStore,
-                            SFTPObjectStore, dist, format_name_with_dist, get_file, retry)
+from composer.utils import (GCSObjectStore, LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, OCIObjectStore,
+                            S3ObjectStore, SFTPObjectStore, dist, format_name_with_dist, get_file, retry)
 
 if TYPE_CHECKING:
     from composer.core import State
@@ -41,7 +41,8 @@ def _build_remote_backend(remote_backend_name: str, backend_kwargs: Dict[str, An
         's3': S3ObjectStore,
         'oci': OCIObjectStore,
         'sftp': SFTPObjectStore,
-        'libcloud': LibcloudObjectStore
+        'libcloud': LibcloudObjectStore,
+        'gs': GCSObjectStore,
     }
     remote_backend_cls = remote_backend_name_to_cls.get(remote_backend_name, None)
     if remote_backend_cls is None:
@@ -228,7 +229,7 @@ class RemoteUploaderDownloader(LoggerDestination):
         parsed_remote_bucket = urlparse(bucket_uri)
         self.remote_backend_name, self.remote_bucket_name = parsed_remote_bucket.scheme, parsed_remote_bucket.netloc
         self.backend_kwargs = backend_kwargs if backend_kwargs is not None else {}
-        if self.remote_backend_name in ['s3', 'oci'] and 'bucket' not in self.backend_kwargs:
+        if self.remote_backend_name in ['s3', 'oci', 'gs'] and 'bucket' not in self.backend_kwargs:
             self.backend_kwargs['bucket'] = self.remote_bucket_name
         elif self.remote_backend_name == 'sftp' and 'host' not in self.backend_kwargs:
             self.backend_kwargs['host'] = f'sftp://{self.remote_bucket_name}'
@@ -446,7 +447,7 @@ class RemoteUploaderDownloader(LoggerDestination):
     def fit_end(self, state: State, logger: Logger):
         self.wait_for_workers(state.device)
 
-    def eval_end(self, state: State, logger: Logger):
+    def eval_standalone_end(self, state: State, logger: Logger):
         self.wait_for_workers(state.device)
 
     def predict_end(self, state: State, logger: Logger):
