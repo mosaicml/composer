@@ -244,7 +244,16 @@ class DataSpec:
                                          '`get_num_samples_in_batch(your_batch) -> int` method.')
                     dim0_sizes.append(t.shape[0])
         elif isinstance(batch, dict):
-            dim0_sizes = [t.shape[0] for t in batch.values()]
+            for t in batch.values():
+                if isinstance(t, torch.Tensor):
+                    dim0_sizes.append(t.shape[0])
+                elif isinstance(t, list):
+                    dim0_sizes.append(len(t))
+                else:
+                    raise ValueError('Unable to determine the batch size, batch contains'
+                                         f'an element of type {type(t)}, which does not have a'
+                                         'shape. Please use a DataSpec and provide a'
+                                         '`get_num_samples_in_batch(your_batch) -> int` method.')
 
         if len(set(dim0_sizes)) == 1:
             return dim0_sizes[0]
