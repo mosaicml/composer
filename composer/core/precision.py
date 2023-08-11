@@ -67,7 +67,7 @@ def get_precision_context(precision: Union[str, Precision],
             os.environ['XLA_USE_BF16'] = '1'
             yield
     elif precision == Precision.AMP_FP8:
-        if te_installed and torch.cuda.get_device_capability()[0] > 8:
+        if te_installed and torch.cuda.get_device_capability() >= (8, 9):
             from transformer_engine.common.recipe import DelayedScaling, Format
 
             if precision_config is None:

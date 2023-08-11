@@ -21,6 +21,7 @@ from tests.common import (EventCounterCallback, ParityDataset, RandomClassificat
 
 def test_eval():
     # Construct the trainer
+    event_counter_callback = EventCounterCallback()
     dataset = RandomClassificationDataset()
     trainer = Trainer(
         eval_dataloader=DataLoader(
@@ -28,6 +29,7 @@ def test_eval():
             sampler=dist.get_sampler(dataset),
         ),
         model=SimpleModel(),
+        callbacks=[event_counter_callback],
     )
 
     # Evaluate the model
@@ -35,6 +37,10 @@ def test_eval():
 
     # Assert that there is some accuracy
     assert trainer.state.eval_metrics['eval']['MulticlassAccuracy'].compute() != 0.0
+
+    # Assert that the eval events were called
+    assert event_counter_callback.event_to_num_calls[Event.EVAL_STANDALONE_START] == 1
+    assert event_counter_callback.event_to_num_calls[Event.EVAL_STANDALONE_END] == 1
 
 
 def test_eval_call():
@@ -58,7 +64,7 @@ def test_eval_call():
 @pytest.mark.filterwarnings(r'ignore:Cannot split tensor of length.*:UserWarning')
 def test_eval_with_nondivisible_dataset(world_size: int, size: int, batch_size: int):
     # Construct the trainer
-    trainer = Trainer(model=ZeroModel())
+    trainer = Trainer(model=ZeroModel(), device='cpu')
 
     # Evaluate the model
     dataset = ParityDataset(size=size)
