@@ -84,7 +84,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: List[pytest.Item
     remaining = []
     deselected = []
     for item in items:
-        if all([condition(item) for condition in conditions]):
+        if all(condition(item) for condition in conditions):
             remaining.append(item)
         else:
             deselected.append(item)

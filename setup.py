@@ -209,6 +209,10 @@ extra_deps['oci'] = [
     'oci>=2.88.2,<3.0.0',
 ]
 
+extra_deps['gcs'] = [
+    'google-cloud-storage>=2.0.0,<3.0',
+]
+
 extra_deps['onnx'] = [
     'onnx>=1.12.0,<2',
     'onnxruntime>=1.12.1,<2',
@@ -218,7 +222,7 @@ extra_deps['mlflow'] = [
     'mlflow>=2.0.1,<3.0',
 ]
 
-extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
+extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
 composer_data_files = ['py.typed']
 composer_data_files += package_files('composer', 'yamls', '.yaml')

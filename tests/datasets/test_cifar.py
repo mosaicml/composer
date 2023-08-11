@@ -16,7 +16,7 @@ def test_cifar10_shape_length(is_train, synthetic):
     else:
         dataspec = build_cifar10_dataloader(datadir='/tmp', global_batch_size=batch_size, is_train=is_train)
 
-    samples = [_ for _ in dataspec.dataloader]
+    samples = list(dataspec.dataloader)
     if is_train:
         assert len(samples) == 50000 // batch_size
     else:

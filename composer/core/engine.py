@@ -352,7 +352,8 @@ class Engine():
     def _assert_dataloader_and_duration_set(state: State, event: Event):
         # correctness checks that dataloader and max duration need to be set for certain events
 
-        if event != Event.INIT and event != Event.AFTER_LOAD:  # dataloader should be set on all events expect INIT/AFTER_LOAD
+        # dataloader should be set on all events expect INIT/AFTER_LOAD/EVAL_STANDALONE_START/EVAL_STANDALONE_END
+        if event not in {Event.INIT, Event.AFTER_LOAD, Event.EVAL_STANDALONE_START, Event.EVAL_STANDALONE_END}:
             assert state.dataloader is not None, f'The trainer should have set state.dataloader for event {event}.'
 
         if event != Event.INIT and event != Event.AFTER_LOAD and not event.is_predict and not event.is_eval:
