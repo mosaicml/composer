@@ -237,16 +237,22 @@ class InContextLearningQATaskDataset(Dataset):
     def collate_fn(self, data):
         inputs, answers = [], []
 
+        context_encs = []
+        max_len = 1
         for sample in data:
             preamble, context, aliases = (sample['preamble'], sample['context'], sample['aliases'])
             context_enc = preamble['input_ids'] + context['input_ids']
+            answers.append(aliases)
+            context_encs.append(context_enc)
+            max_len = max(max_len, len(context_enc))
+
+        for context_enc in context_encs:
             inp, _ = _make_padded_input(context_enc, [],
-                                        self.max_seq_len - self.max_answer_length,
+                                        min(max_len, self.max_seq_len - self.max_answer_length),
                                         self.pad_tok_id,
                                         padding_side=self.padding_side)
 
             inputs.append(inp)
-            answers.append(aliases)
 
         batch = {
             'input_ids': torch.stack(inputs),
@@ -415,13 +421,19 @@ class InContextLearningLMTaskDataset(Dataset):
     def collate_fn(self, data):
         inputs = []
         continuation_indices = []
+        context_encs, continuation_encs = [], []
+        max_len = 1
         for data_pair in data:
             preamble, context, continuation = (data_pair['preamble'], data_pair['context'], data_pair['continuation'])
 
             context_enc = preamble['input_ids'] + context['input_ids']
             continuation_enc = continuation['input_ids']
+            context_encs.append(context_enc)
+            continuation_encs.append(continuation_enc)
+            max_len = max(max_len, len(context_enc)+len(continuation_enc))
 
-            inp, continuation_span = _make_padded_input(context_enc, continuation_enc, self.max_seq_len,
+        for context_enc, continuation_enc in zip(context_encs, continuation_encs):
+            inp, continuation_span = _make_padded_input(context_enc, continuation_enc, min(max_len, self.max_seq_len),
                                                         self.pad_tok_id)
 
             inputs.append(inp)
@@ -592,6 +604,8 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         continuation_indices = []
         gold_idxs = []
         choice_groupings = []
+        context_encs, continuation_encs = [], []
+        max_len = 1
         for data_pair in data:
 
             choice_start_idx = len(continuation_indices)
@@ -601,16 +615,20 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
             for choice in choices:
                 context_enc = preamble['input_ids'] + context['input_ids']
                 continuation_enc = choice['input_ids']
-                inp, continuation_span = _make_padded_input(context_enc, continuation_enc, self.max_seq_len,
-                                                            self.pad_tok_id)
-
-                inputs.append(inp)
-                continuation_indices.append(continuation_span)
+                context_encs.append(context_enc)
+                continuation_encs.append(continuation_enc)
+                max_len = max(max_len, len(context_enc)+len(continuation_enc))
 
             gold_idxs.append(gold_idx)
             choice_end_idx = len(continuation_indices)
             choice_groupings.append((choice_start_idx, choice_end_idx))
 
+        for context_enc, continuation_enc in zip(context_encs, continuation_encs):
+            inp, continuation_span = _make_padded_input(context_enc, continuation_enc, min(max_len, self.max_seq_len),
+                                                        self.pad_tok_id)
+
+            inputs.append(inp)
+            continuation_indices.append(continuation_span)
         # We run each distinct query + answer choice through the model separately and determine which
         # answer has the lowest per-token-perplexity.
         #
@@ -811,6 +829,8 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         continuation_indices = []
         gold_idxs = []
         choice_groupings = []
+        context_encs, continuation_encs = [], []
+        max_len = 1
         for data_pair in data:
 
             continuation_start_idx = len(continuation_indices)
@@ -820,16 +840,21 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
             for ctxt in context_options:
                 context_enc = preamble['input_ids'] + ctxt['input_ids']
                 continuation_enc = continuation['input_ids']
-                inp, continuation_span = _make_padded_input(context_enc, continuation_enc, self.max_seq_len,
-                                                            self.pad_tok_id)
+                context_encs.append(context_enc)
+                continuation_encs.append(continuation_enc)
+                max_len = max(max_len, len(context_enc)+len(continuation_enc))
 
-                inputs.append(inp)
-                continuation_indices.append(continuation_span)
 
             gold_idxs.append(gold_idx)
             continuation_end_idx = len(continuation_indices)
             choice_groupings.append((continuation_start_idx, continuation_end_idx))
 
+        for context_enc, continuation_enc in zip(context_encs, continuation_encs):
+            inp, continuation_span = _make_padded_input(context_enc, continuation_enc, min(max_len, self.max_seq_len),
+                                                        self.pad_tok_id)
+
+            inputs.append(inp)
+            continuation_indices.append(continuation_span)
         # We run each distinct query + answer choice through the model separately and determine which
         # answer has the lowest per-token-perplexity.
         #
@@ -999,16 +1024,14 @@ class InContextLearningCodeEvalDataset(Dataset):
 
     def collate_fn(self, data):
         inputs, prompts, tests, canonical_solutions, entry_points, test_inputs, test_outputs = [], [], [], [], [], [], []
+        context_encs = []
+        max_len = 1
         for sample in data:
             preamble, prompt, text_prompt, canonical_solution, test, entry_point, test_input, test_output = (
                 sample['preamble'], sample['prompt'], sample['prompt_text'], sample['canonical_solution'],
                 sample['test'], sample['entry_point'], sample['test_inputs'], sample['test_outputs'])
             context_enc = preamble['input_ids'] + prompt['input_ids']
-            inp, _ = _make_padded_input(context_enc, [],
-                                        self.max_prompt_length,
-                                        self.pad_tok_id,
-                                        padding_side=self.padding_side)
-
+            context_encs.append(context_enc)
             inputs.append(inp)
             tests.append(test)
             prompts.append(text_prompt)
@@ -1016,6 +1039,13 @@ class InContextLearningCodeEvalDataset(Dataset):
             entry_points.append(entry_point)
             test_inputs.append(test_input)
             test_outputs.append(test_output)
+            max_len = max(max_len, len(context_enc))
+
+        for context_enc in context_encs:
+            inp, _ = _make_padded_input(context_enc, [],
+                                        min(self.max_prompt_length, max_len),
+                                        self.pad_tok_id,
+                                        padding_side=self.padding_side)
 
         batch = {
             'input_ids': torch.stack(inputs),
