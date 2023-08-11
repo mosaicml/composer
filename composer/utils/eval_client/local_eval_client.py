@@ -85,8 +85,8 @@ class LocalEvalClient(EvalClient):
             with open('test_code.cpp', 'w') as f:
                 f.write(code_gen)
             compilation_process = subprocess.run(['g++', '-std=c++11', 'test_code.cpp', '-o', 'test_code'],
-                              stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE)
+                                                 stdout=subprocess.PIPE,
+                                                 stderr=subprocess.PIPE)
             if compilation_process.returncode == 0:
                 run_process = subprocess.run('./test_code', stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 output = run_process.stdout.decode()
@@ -119,8 +119,9 @@ class LocalEvalClient(EvalClient):
             code_gen = code_gen + ending
             with open('test_code.c', 'w') as f:
                 f.write(code_gen)
-            compilation_process = subprocess.run(['gcc', 'test_code.c', '-o', 'test_code'], stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE)
+            compilation_process = subprocess.run(['gcc', 'test_code.c', '-o', 'test_code'],
+                                                 stdout=subprocess.PIPE,
+                                                 stderr=subprocess.PIPE)
             if compilation_process.returncode == 0:
                 run_process = subprocess.run('./test_code', stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 output = run_process.stdout.decode()
