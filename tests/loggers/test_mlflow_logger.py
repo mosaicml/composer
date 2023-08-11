@@ -230,7 +230,6 @@ def test_mlflow_logging_works(tmp_path, device):
     assert set(expected_params_list) == set(actual_params_list)
 
 
-@device('cpu')
 def test_mlflow_log_image_works(tmp_path, device):
 
     class ImageLogger(Callback):
