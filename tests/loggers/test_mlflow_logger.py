@@ -235,9 +235,6 @@ def test_mlflow_log_image_works(tmp_path, device):
 
     class ImageLogger(Callback):
 
-        def __init__(self,):
-            pass
-
         def before_forward(self, state: State, logger: Logger):
             inputs = state.batch_get_item(key=0)
             images = inputs.data.cpu().numpy()
