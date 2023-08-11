@@ -117,6 +117,12 @@ class WandBLogger(LoggerDestination):
             import wandb
             wandb.config.update(hyperparameters)
 
+    def log_text(self, columns: List[str], rows: List[List[str]], name: str = "Text", step: Optional[int] = None) -> None:
+        if self._enabled:
+            import wandb
+            table = wandb.Table(columns=columns, rows=rows)
+            wandb.log({name: table}, step)
+
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         if self._enabled:
             import wandb
