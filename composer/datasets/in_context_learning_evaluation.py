@@ -236,7 +236,7 @@ class InContextLearningQATaskDataset(Dataset):
 
     def collate_fn(self, data):
         inputs, answers = [], []
-
+        max_batch_len = 1
         for sample in data:
             preamble, context, aliases = (sample['preamble'], sample['context'], sample['aliases'])
             context_enc = preamble['input_ids'] + context['input_ids']
@@ -247,9 +247,13 @@ class InContextLearningQATaskDataset(Dataset):
 
             inputs.append(inp)
             answers.append(aliases)
+            max_batch_len = max(max_batch_len, len(context_enc))
 
+        max_batch_len = min(max_batch_len, self.max_seq_len)
+        # Truncate pad token from left padding
+        input_ids = torch.stack(inputs)[..., -max_batch_len:]
         batch = {
-            'input_ids': torch.stack(inputs),
+            'input_ids': input_ids,
             'mode': 'generate',
             'labels': answers,
             'generation_length': self.max_answer_length,
@@ -415,6 +419,7 @@ class InContextLearningLMTaskDataset(Dataset):
     def collate_fn(self, data):
         inputs = []
         continuation_indices = []
+        max_batch_len = 1
         for data_pair in data:
             preamble, context, continuation = (data_pair['preamble'], data_pair['context'], data_pair['continuation'])
 
@@ -426,12 +431,15 @@ class InContextLearningLMTaskDataset(Dataset):
 
             inputs.append(inp)
             continuation_indices.append(continuation_span)
+            max_batch_len = max(max_batch_len, len(context_enc)+len(continuation_enc))
 
+        max_batch_len = min(max_batch_len, self.max_seq_len)
+        input_ids = torch.stack(inputs)[..., :max_batch_len] # right padding
         batch = {
-            'input_ids': torch.stack(inputs),
+            'input_ids': input_ids,
             'continuation_indices': continuation_indices,
             'mode': 'icl_task',
-            'labels': torch.stack(inputs),
+            'labels': input_ids,
         }
 
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
@@ -592,6 +600,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         continuation_indices = []
         gold_idxs = []
         choice_groupings = []
+        max_batch_len = 1
         for data_pair in data:
 
             choice_start_idx = len(continuation_indices)
@@ -606,6 +615,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
 
                 inputs.append(inp)
                 continuation_indices.append(continuation_span)
+                max_batch_len = max(max_batch_len, len(context_enc)+len(continuation_enc))
 
             gold_idxs.append(gold_idx)
             choice_end_idx = len(continuation_indices)
@@ -618,11 +628,14 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         # since the batch may consist of multiple questions, the choice_groupings indicates
         # which contiguous sequences of elements in the batch correspond to which question
         # gold_indices indicates which of the [0, N-1] choices is the correct one for each question.
+
+        max_batch_len = min(max_batch_len, self.max_seq_len)
+        input_ids = torch.stack(inputs)[..., :max_batch_len] # right padding
         batch = {
-            'input_ids': torch.stack(inputs),
+            'input_ids': input_ids,
             'continuation_indices': continuation_indices,
             'mode': 'icl_task',
-            'labels': torch.stack(inputs),
+            'labels': input_ids,
             'gold_indices': gold_idxs,
             'choice_groupings': choice_groupings
         }
@@ -811,6 +824,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         continuation_indices = []
         gold_idxs = []
         choice_groupings = []
+        max_batch_len = 1
         for data_pair in data:
 
             continuation_start_idx = len(continuation_indices)
@@ -825,6 +839,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
 
                 inputs.append(inp)
                 continuation_indices.append(continuation_span)
+                max_batch_len = max(max_batch_len, len(context_enc)+len(continuation_enc))
 
             gold_idxs.append(gold_idx)
             continuation_end_idx = len(continuation_indices)
@@ -837,11 +852,14 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         # since the batch may consist of multiple questions, the choice_groupings indicates
         # which contiguous sequences of elements in the batch correspond to which question
         # gold_indices indicates which of the [0, N-1] choices is the correct one for each question.
+
+        max_batch_len = min(max_batch_len, self.max_seq_len)
+        input_ids = torch.stack(inputs)[..., :max_batch_len] # right padding
         batch = {
-            'input_ids': torch.stack(inputs),
+            'input_ids': input_ids,
             'continuation_indices': continuation_indices,
             'mode': 'icl_task',
-            'labels': torch.stack(inputs),
+            'labels': input_ids,
             'gold_indices': gold_idxs,
             'choice_groupings': choice_groupings
         }
@@ -999,6 +1017,7 @@ class InContextLearningCodeEvalDataset(Dataset):
 
     def collate_fn(self, data):
         inputs, prompts, tests, canonical_solutions, entry_points, test_inputs, test_outputs = [], [], [], [], [], [], []
+        max_batch_len = 1
         for sample in data:
             preamble, prompt, text_prompt, canonical_solution, test, entry_point, test_input, test_output = (
                 sample['preamble'], sample['prompt'], sample['prompt_text'], sample['canonical_solution'],
@@ -1016,9 +1035,13 @@ class InContextLearningCodeEvalDataset(Dataset):
             entry_points.append(entry_point)
             test_inputs.append(test_input)
             test_outputs.append(test_output)
+            max_batch_len = max(max_batch_len, len(context_enc))
 
+        max_batch_len = min(max_batch_len, self.max_seq_len)
+        # Truncate pad token from left padding
+        input_ids = torch.stack(inputs)[..., -max_batch_len:]
         batch = {
-            'input_ids': torch.stack(inputs),
+            'input_ids': input_ids,
             'mode': 'generate',
             'labels': canonical_solutions,
             'prompts': prompts,  # list of prompts
