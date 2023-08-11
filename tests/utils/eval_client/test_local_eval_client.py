@@ -12,7 +12,7 @@ from composer.utils import LocalEvalClient
         ['def add_1(x):\n    return y + 1', False, 'python'],
         ['def add_1(x):\n    while True:\n        x += 1', False, 'python'],
         ['def add_1(x): return x + 2', False, 'python'],
-        ['int add_1(int x) {\n\treturn x + 1;\n}', True, 'c++'],
+        ['int add_1(int x) {\n    return x + 1;\n}', True, 'c++'],
         ['int add_1(int x) {\n\treturn y + 1;\n}', False, 'c++'],
         ['int add_1(int x) {\n\twhile (true) {\n\t\tx += 1;\n\t}\n}', False, 'c++'],
         ['int add_1(int x) {\n\treturn x + 2;\n}', False, 'c++'],

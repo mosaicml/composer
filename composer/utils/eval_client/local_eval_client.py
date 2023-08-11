@@ -77,17 +77,17 @@ class LocalEvalClient(EvalClient):
             else:
                 val.value = 0
         elif language == 'c++':
-            prefix = '#include <iostream>\nusing namespace std;\n'
+            prefix = '#include <iostream>\n#include <vector>\n#include <string>\n#include <map>\n#include <math.h>\nusing namespace std;\nbool issame(vector<string> a,vector<string>b){\n    if (a.size()!=b.size()) return false;\n    for (int i=0;i<a.size();i++)\n    {\n    if (a[i]!=b[i]) return false;\n    }\n    return true;\n}\nbool issame(float a, float b){\n    return abs(a - b) < 1e-4;\n}\nbool issame(bool a, bool b){\n    return a == b;\n}\nbool issame(int a, int b){\n    return a == b;\n}\nbool issame(vector<int> a,vector<int>b){\n    if (a.size()!=b.size()) return false;\n    for (int i=0;i<a.size();i++)\n    {\n        if (a[i]!=b[i]) return false;\n    }\n    return true;\n}\nbool issame(string a, string b){\n    return a == b;\n}\nbool issame(vector<float> a,vector<float>b){\n    if (a.size()!=b.size()) return false;\n    for (int i=0;i<a.size();i++)\n    {\n        if (abs(a[i]-b[i])>1e-4) return false;\n    }\n    return true;\n}\nbool issame(double a, double b){\n    return abs(a - b) < 1e-3;\n}\nbool issame(vector<vector<int>> a,vector<vector<int>> b){\n    if (a.size()!=b.size()) return false;\n\n    for (int i=0;i<a.size();i++)\n    {\n        if (a[i].size()!=b[i].size()) return false;\n        for (int j=0;j<a[i].size();j++)\n            if (a[i][j]!=b[i][j]) return false;\n    }\n    return true;\n}\nbool issame(map<char,int> a,map<char,int> b){\n    if (a.size()!=b.size()) return false;\n    map <char,int>::iterator it;\n    for (it=a.begin();it!=a.end();it++)\n    {\n        char w1=it->first;\n        int w2=it->second;\n        if (b.find(w1)==b.end()) return false;\n        if (b[w1]!=w2) return false;\n    }\n\n    return true;\n}\nbool issame(long long a, long long b){\n    return a == b;\n}\n'
             code_gen = prefix + code_gen
 
-            ending = '\nint main() {\n    cout << (' + entry_point + '(' + test_input + ') == ' + test_output + ');\n    return 0;\n}'
+            ending = '\nint main() {\n    cout << issame(' + entry_point + '(' + test_input + '), ' + test_output + ');\n    return 0;\n}'
             code_gen = code_gen + ending
             with open('test_code.cpp', 'w') as f:
                 f.write(code_gen)
-
-            if subprocess.run(['g++', 'test_code.cpp', '-o', 'test_code'],
+            compilation_process = subprocess.run(['g++', '-std=c++11', 'test_code.cpp', '-o', 'test_code'],
                               stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE).returncode == 0:
+                              stderr=subprocess.PIPE)
+            if compilation_process.returncode == 0:
                 run_process = subprocess.run('./test_code', stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 output = run_process.stdout.decode()
             else:
@@ -112,16 +112,16 @@ class LocalEvalClient(EvalClient):
             val.value = output == 'true\n'
 
         elif language == 'c':
-            prefix = '#include <stdio.h>\n'
+            prefix = '#include <stdio.h>\n#include <stdbool.h>\n#include <math.h>\n#include <stdlib.h>\nbool issame_int(int a, int b){\n    return a == b;\n}\nbool issame_bool(bool a, bool b){\n    return a == b;\n}\nbool issame_float(float a, float b){\n    return fabs(a-b) < 1e-4;\n}\n#define issame(a, b) _Generic((a), int: issame_int, bool: issame_bool, float: issame_float)(a, b)\n'
             code_gen = prefix + code_gen
 
-            ending = '\nint main() {\n    printf("%d", (' + entry_point + '(' + test_input + ') == ' + test_output + '));\n    return 0;\n}'
+            ending = '\nint main() {\n    bool val = issame(' + entry_point + '(' + test_input + ') , ' + test_output + ');\n    printf("%d", val);\n    return 0;\n}'
             code_gen = code_gen + ending
             with open('test_code.c', 'w') as f:
                 f.write(code_gen)
-
-            if subprocess.run(['gcc', 'test_code.c', '-o', 'test_code'], stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE).returncode == 0:
+            compilation_process = subprocess.run(['gcc', 'test_code.c', '-o', 'test_code'], stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE)
+            if compilation_process.returncode == 0:
                 run_process = subprocess.run('./test_code', stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 output = run_process.stdout.decode()
             else:

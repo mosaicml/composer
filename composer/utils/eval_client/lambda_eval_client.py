@@ -31,10 +31,15 @@ class LambdaEvalClient(EvalClient):
 
     def invoke(self, payload: List[List[List[Dict[str, str]]]]) -> List[List[List[bool]]]:
         """Invoke a batch of provided payloads for code evaluations."""
-        return [[[self.invoke_helper(test_case)
+        requests.post(os.environ['CODE_EVAL_URL'],
+                                 data=payload[0][0][0],
+                                 headers={'x-api-key': os.environ['CODE_EVAL_APIKEY']}) # dummy request to warm up lambda
+        ret = [[[self.invoke_helper(test_case)
                   for test_case in generation_group]
                  for generation_group in prompt_group]
                 for prompt_group in payload]
+        print(ret)
+        return ret
 
     def invoke_helper(self, payload: Dict[str, str]) -> bool:
         """Invoke a provided dictionary payload to the client."""
