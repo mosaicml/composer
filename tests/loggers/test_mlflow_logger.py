@@ -19,6 +19,8 @@ from tests.common.models import SimpleConvModel
 def _get_latest_mlflow_run_or_none(experiment_name, tracking_uri=None):
     from mlflow import MlflowClient
 
+    # NB: Convert tracking URI to string because MlflowClient doesn't support non-string
+    # (e.g. PosixPath) tracking URI representations
     client = MlflowClient(str(tracking_uri))
     experiment_id = (
         client.get_experiment_by_name(experiment_name).experiment_id
