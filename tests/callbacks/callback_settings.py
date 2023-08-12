@@ -11,7 +11,7 @@ import composer.loggers
 import composer.profiler
 from composer import Callback
 from composer.callbacks import (EarlyStopper, ExportForInferenceCallback, HealthChecker, ImageVisualizer, MemoryMonitor,
-                                MLPerfCallback, SpeedMonitor, ThresholdStopper, SystemMetricsMonitor)
+                                MLPerfCallback, SpeedMonitor, SystemMetricsMonitor, ThresholdStopper)
 from composer.loggers import (CometMLLogger, ConsoleLogger, LoggerDestination, MLFlowLogger, ProgressBarLogger,
                               RemoteUploaderDownloader, TensorboardLogger, WandBLogger)
 from tests.common import get_module_subclasses
@@ -68,7 +68,6 @@ try:
     del pynmvl  # unused
 except ImportError:
     _PYNMVL_INSTALLED = False
-
 
 _callback_kwargs: Dict[Type[Callback], Dict[str, Any],] = {
     RemoteUploaderDownloader: {
