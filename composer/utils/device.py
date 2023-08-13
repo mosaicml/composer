@@ -10,7 +10,7 @@ import torch.cuda
 if TYPE_CHECKING:
     from composer.devices import Device
 
-__all__ = ['get_device', 'is_tpu_installed']
+__all__ = ['get_device', 'is_tpu_installed', 'is_hpu_installed']
 
 
 def get_device(device: Optional[Union[str, 'Device']]) -> 'Device':
@@ -25,7 +25,7 @@ def get_device(device: Optional[Union[str, 'Device']]) -> 'Device':
             Device. If no argument is passed, returns :class:`.DeviceGPU` if available,
             or :class:`.DeviceCPU` if no GPU is available.
     """
-    from composer.devices import DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
+    from composer.devices import DeviceCPU, DeviceGPU, DeviceHPU, DeviceMPS, DeviceTPU
 
     if not device:
         device = DeviceGPU() if torch.cuda.is_available() else DeviceCPU()
@@ -42,8 +42,13 @@ def get_device(device: Optional[Union[str, 'Device']]) -> 'Device':
                     'Unable to import torch_xla. Please follow installation instructions at https://github.com/pytorch/xla'
                 )
             device = DeviceTPU()
+        elif device.lower() == 'hpu':
+            if not is_hpu_installed():
+                raise ImportError('Unable to import habana-torch-plugin.')
+            import habana_frameworks
+            device = DeviceHPU()
         else:
-            raise ValueError(f'device ({device}) must be one of (cpu, gpu, mps, tpu).')
+            raise ValueError(f'device ({device}) must be one of (cpu, gpu, mps, tpu, hpu).')
     return device
 
 
@@ -56,6 +61,20 @@ def is_tpu_installed() -> bool:
     try:
         import torch_xla
         del torch_xla
+        return True
+    except ModuleNotFoundError:
+        return False
+
+
+def is_hpu_installed() -> bool:
+    """Determines whether the module needed for training on HPUs (Gaudi, Gaudi2) is installed.
+
+    Returns:
+        bool: Whether habana-torch-plugin is installed.
+    """
+    try:
+        import habana_frameworks
+        del habana_frameworks
         return True
     except ModuleNotFoundError:
         return False
