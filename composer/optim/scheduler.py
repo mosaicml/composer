@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, List, Union
 
 from torch.optim.lr_scheduler import LambdaLR
 
-from composer.core import PyTorchScheduler, State, Time, TimeUnit
+from composer.core import PyTorchScheduler, State, Time
 
 if TYPE_CHECKING:
     from typing import Protocol
@@ -124,29 +124,6 @@ class ComposerScheduler(Protocol):
         raise NotImplementedError
 
 
-def _convert_time(time: Union[str, Time[int], Time[float]], state: State, ssr: float = 1.0) -> Time[int]:
-    if isinstance(time, str):
-        time = Time.from_timestring(time)
-
-    assert state.max_duration is not None, 'max_duration should be set whenever schedulers are invoked'
-
-    if time.unit == TimeUnit.DURATION:
-        if state.max_duration.unit == TimeUnit.EPOCH:
-            if state.dataloader_len is None:
-                raise RuntimeError('Cannot convert time, as state.dataloader_len is None.')
-            return Time(int(time.value * int(state.dataloader_len) * state.max_duration.value), TimeUnit.BATCH)
-        return Time(int(time.value * state.max_duration.value), state.max_duration.unit)
-    elif time.unit == TimeUnit.EPOCH:
-        # Epochs do not provide sufficient granularity for SSR scaling
-        # e.g. if max_duration = 1ep, then any SSR would result in a new duration of 0.
-        # so, convert the time into batches
-        if state.dataloader_len is None:
-            raise RuntimeError('Cannot convert time, as state.dataloader_len is None.')
-        time = Time(value=time.value * int(state.dataloader_len), unit=TimeUnit.BATCH)
-
-    return Time(value=int(time.value * ssr), unit=time.unit)
-
-
 def compile_composer_scheduler(scheduler: ComposerScheduler, state: State, ssr: float = 1.0) -> PyTorchScheduler:
     """Converts a stateless scheduler into a PyTorch scheduler object.
 
@@ -215,7 +192,7 @@ class StepScheduler(ComposerScheduler):
         self.gamma = gamma
 
     def __call__(self, state: State, ssr: float = 1.0):
-        step_size = _convert_time(self.step_size, state, ssr=ssr)
+        step_size = state.convert_time(self.step_size, ssr=ssr)
         current_time = state.timestamp.get(step_size.unit)
         steps = int(current_time / step_size)
 
@@ -248,7 +225,7 @@ class MultiStepScheduler(ComposerScheduler):
         self.gamma = gamma
 
     def __call__(self, state: State, ssr: float = 1.0):
-        milestones = [_convert_time(milestone, state, ssr=ssr) for milestone in self.milestones]
+        milestones = [state.convert_time(milestone, ssr=ssr) for milestone in self.milestones]
 
         factor = 1.0
         for milestone in milestones:
@@ -284,7 +261,7 @@ class ConstantScheduler(ComposerScheduler):
         self.t_max = t_max
 
     def __call__(self, state: State, ssr: float = 1.0) -> float:
-        t_max = _convert_time(self.t_max, state, ssr=ssr)
+        t_max = state.convert_time(self.t_max, ssr=ssr)
 
         if state.timestamp < t_max:
             return self.alpha
@@ -331,7 +308,7 @@ class LinearScheduler(ComposerScheduler):
         self.t_max = Time.from_timestring(t_max) if isinstance(t_max, str) else t_max
 
     def __call__(self, state: State, ssr: float = 1.0):
-        t_max = _convert_time(self.t_max, state, ssr=ssr)
+        t_max = state.convert_time(self.t_max, ssr=ssr)
         current_time = state.timestamp.get(t_max.unit)
         frac_of_total = min(1.0, (current_time / t_max).value)
 
@@ -365,7 +342,7 @@ class ExponentialScheduler(ComposerScheduler):
         self.decay_period = decay_period
 
     def __call__(self, state: State, ssr: float = 1.0):
-        decay_period = _convert_time(self.decay_period, state, ssr)
+        decay_period = state.convert_time(self.decay_period, ssr=ssr)
         current_time_in_decay_units = state.timestamp.get(decay_period.unit)
 
         return self.gamma**float(current_time_in_decay_units / decay_period)
@@ -410,7 +387,7 @@ class CosineAnnealingScheduler(ComposerScheduler):
         self.alpha_f = alpha_f
 
     def __call__(self, state: State, ssr: float = 1.0):
-        t_max = _convert_time(self.t_max, state, ssr=ssr)
+        t_max = state.convert_time(self.t_max, ssr=ssr)
         current_time = state.timestamp.get(t_max.unit)
         frac_of_total = (current_time / t_max).value
 
@@ -453,7 +430,7 @@ class CosineAnnealingWarmRestartsScheduler(ComposerScheduler):
         self.alpha_f = alpha_f
 
     def __call__(self, state: State, ssr: float = 1.0):
-        t_0 = _convert_time(self.t_0, state, ssr=ssr)
+        t_0 = state.convert_time(self.t_0, ssr=ssr)
         current_interval_len = t_0
         current_interval_end = t_0
         while current_interval_end <= state.timestamp.get(current_interval_end.unit):
@@ -501,7 +478,7 @@ class PolynomialScheduler(ComposerScheduler):
         self.alpha_f = alpha_f
 
     def __call__(self, state: State, ssr: float = 1.0):
-        t_max = _convert_time(self.t_max, state, ssr=ssr)
+        t_max = state.convert_time(self.t_max, ssr=ssr)
         current_time = state.timestamp.get(t_max.unit)
         frac_of_total = (current_time / t_max).value
 
@@ -558,7 +535,7 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
         self.step_scheduler = MultiStepScheduler(milestones=milestones, gamma=gamma)
 
     def __call__(self, state: State, ssr: float = 1.0):
-        t_warmup = _convert_time(self.t_warmup, state)
+        t_warmup = state.convert_time(self.t_warmup)
         if t_warmup.value == 0:
             warnings.warn(
                 textwrap.dedent("""\
@@ -676,7 +653,7 @@ class LinearWithWarmupScheduler(ComposerScheduler):
         self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=alpha_i, t_max=t_warmup)
 
     def __call__(self, state: State, ssr: float = 1.0):
-        t_warmup = _convert_time(self.t_warmup, state)
+        t_warmup = state.convert_time(self.t_warmup)
         if t_warmup.value == 0:
             warnings.warn(
                 textwrap.dedent("""\
@@ -689,7 +666,7 @@ class LinearWithWarmupScheduler(ComposerScheduler):
                 return self.warmup_scheduler(state, ssr)
             return self.warmup_scheduler(state)
 
-        t_max = _convert_time(self.t_max, state, ssr=ssr)
+        t_max = state.convert_time(self.t_max, ssr=ssr)
         current_time = state.timestamp.get(t_warmup.unit)
         frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value if (t_max > t_warmup) else 0.0
         frac_of_total = min(1.0, frac_of_total)
@@ -744,7 +721,7 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
         self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=1.0, t_max=t_warmup)
 
     def __call__(self, state: State, ssr: float = 1.0):
-        t_warmup = _convert_time(self.t_warmup, state)
+        t_warmup = state.convert_time(self.t_warmup)
         if t_warmup.value == 0:
             warnings.warn(
                 textwrap.dedent("""\
@@ -757,7 +734,7 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
                 return self.warmup_scheduler(state, ssr)
             return self.warmup_scheduler(state)
 
-        t_max = _convert_time(self.t_max, state, ssr=ssr)
+        t_max = state.convert_time(self.t_max, ssr=ssr)
         current_time = state.timestamp.get(t_warmup.unit)
         frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value if (t_max > t_warmup) else 0.0
         frac_of_total = min(1.0, frac_of_total)
@@ -814,7 +791,7 @@ class PolynomialWithWarmupScheduler(ComposerScheduler):
         self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=1.0, t_max=t_warmup)
 
     def __call__(self, state: State, ssr: float = 1.0):
-        t_warmup = _convert_time(self.t_warmup, state)
+        t_warmup = state.convert_time(self.t_warmup)
         if t_warmup.value == 0:
             warnings.warn(
                 textwrap.dedent("""\
@@ -827,7 +804,7 @@ class PolynomialWithWarmupScheduler(ComposerScheduler):
                 return self.warmup_scheduler(state, ssr)
             return self.warmup_scheduler(state)
 
-        t_max = _convert_time(self.t_max, state, ssr=ssr)
+        t_max = state.convert_time(self.t_max, ssr=ssr)
         current_time = state.timestamp.get(t_warmup.unit)
         frac_of_total = ((current_time - t_warmup) / (t_max - t_warmup)).value if (t_max > t_warmup) else 0.0
         frac_of_total = min(1.0, frac_of_total)
