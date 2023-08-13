@@ -27,7 +27,6 @@ class DeviceHPU(Device):
 
     dist_backend = 'hccl'
     name = 'hpu'
-    import habana_frameworks.torch.core as htcore
     _device = torch.device('hpu')
 
     def module_to_device(self, module: T_nnModule) -> T_nnModule:
