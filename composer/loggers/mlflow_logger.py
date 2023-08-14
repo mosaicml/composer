@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import os
 import pathlib
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from composer.core.state import State
 from composer.loggers.logger import Logger
@@ -86,6 +86,12 @@ class MLFlowLogger(LoggerDestination):
                 mlflow.start_run(run_id=env_run_id)
             else:
                 mlflow.start_run(run_name=self.run_name)
+
+    def log_text(self, columns: List[str], rows: List[List[str]], name: str = "Text", step: Optional[int] = None) -> None:
+        if self._enabled:
+            import mlflow, pandas as pd
+            table = pd.DataFrame.from_records(data=rows, columns=columns)
+            mlflow.log_table(table, f"{name}.json")
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         import mlflow
