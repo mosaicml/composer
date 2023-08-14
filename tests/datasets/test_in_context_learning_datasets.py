@@ -656,6 +656,7 @@ def test_code_eval_split_batch(dataset_uri, tmp_path):
         'entry_points': str,
         'test_inputs': list,
         'test_outputs': list,
+        'languages': str,
     }
     for k, v in list_split.items():
         assert len(split1[k]) == 6
