@@ -6,6 +6,7 @@ import logging
 import multiprocessing
 import os
 import subprocess
+import textwrap
 import types
 from typing import Dict, List
 
@@ -77,11 +78,102 @@ class LocalEvalClient(EvalClient):
             else:
                 val.value = 0
         elif language == 'c++':
-            prefix = '#include <iostream>\n#include <vector>\n#include <string>\n#include <map>\n#include <math.h>\nusing namespace std;\nbool issame(vector<string> a,vector<string>b){\n    if (a.size()!=b.size()) return false;\n    for (int i=0;i<a.size();i++)\n    {\n    if (a[i]!=b[i]) return false;\n    }\n    return true;\n}\nbool issame(float a, float b){\n    return abs(a - b) < 1e-4;\n}\nbool issame(bool a, bool b){\n    return a == b;\n}\nbool issame(int a, int b){\n    return a == b;\n}\nbool issame(vector<int> a,vector<int>b){\n    if (a.size()!=b.size()) return false;\n    for (int i=0;i<a.size();i++)\n    {\n        if (a[i]!=b[i]) return false;\n    }\n    return true;\n}\nbool issame(string a, string b){\n    return a == b;\n}\nbool issame(vector<float> a,vector<float>b){\n    if (a.size()!=b.size()) return false;\n    for (int i=0;i<a.size();i++)\n    {\n        if (abs(a[i]-b[i])>1e-4) return false;\n    }\n    return true;\n}\nbool issame(double a, double b){\n    return abs(a - b) < 1e-3;\n}\nbool issame(vector<vector<int>> a,vector<vector<int>> b){\n    if (a.size()!=b.size()) return false;\n\n    for (int i=0;i<a.size();i++)\n    {\n        if (a[i].size()!=b[i].size()) return false;\n        for (int j=0;j<a[i].size();j++)\n            if (a[i][j]!=b[i][j]) return false;\n    }\n    return true;\n}\nbool issame(map<char,int> a,map<char,int> b){\n    if (a.size()!=b.size()) return false;\n    map <char,int>::iterator it;\n    for (it=a.begin();it!=a.end();it++)\n    {\n        char w1=it->first;\n        int w2=it->second;\n        if (b.find(w1)==b.end()) return false;\n        if (b[w1]!=w2) return false;\n    }\n\n    return true;\n}\nbool issame(long long a, long long b){\n    return a == b;\n}\n'
-            code_gen = prefix + code_gen
+            # since we can't run tostring based comparisons in C++, initialize a series of overloaded equality functions
+            prefix = '''\
+                #include <iostream>
+                #include <vector>
+                #include <string>
+                #include <map>
+                #include <math.h>
+                using namespace std;
 
-            ending = '\nint main() {\n    cout << issame(' + entry_point + '(' + test_input + '), ' + test_output + ');\n    return 0;\n}'
-            code_gen = code_gen + ending
+                bool issame(vector<string> a,vector<string>b){
+                    if (a.size()!=b.size()) return false;
+                    for (int i=0;i<a.size();i++)
+                    {
+                        if (a[i]!=b[i]) return false;
+                    }
+                    return true;
+                }
+
+                bool issame(float a, float b){
+                    return abs(a - b) < 1e-4;
+                }
+
+                bool issame(bool a, bool b){
+                    return a == b;
+                }
+
+                bool issame(int a, int b){
+                    return a == b;
+                }
+
+                bool issame(vector<int> a,vector<int>b){
+                    if (a.size()!=b.size()) return false;
+                    for (int i=0;i<a.size();i++)
+                    {
+                        if (a[i]!=b[i]) return false;
+                    }
+                    return true;
+                }
+
+                bool issame(string a, string b){
+                    return a == b;
+                }
+
+                bool issame(vector<float> a,vector<float>b){
+                    if (a.size()!=b.size()) return false;
+                    for (int i=0;i<a.size();i++)
+                    {
+                        if (abs(a[i]-b[i])>1e-4) return false;
+                    }
+                    return true;
+                }
+
+                bool issame(double a, double b){
+                    return abs(a - b) < 1e-3;
+                }
+
+                bool issame(vector<vector<int>> a,vector<vector<int>> b){
+                    if (a.size()!=b.size()) return false;
+                    for (int i=0;i<a.size();i++)
+                    {
+                        if (a[i].size()!=b[i].size()) return false;
+                        for (int j=0;j<a[i].size();j++)
+                        {
+                            if (a[i][j]!=b[i][j]) return false;
+                        }
+                    }
+                    return true;
+                }
+
+                bool issame(map<char,int> a,map<char,int> b){
+                    if (a.size()!=b.size()) return false;
+                    map <char,int>::iterator it;
+                    for (it=a.begin();it!=a.end();it++)
+                    {
+                        char w1=it->first;
+                        int w2=it->second;
+                        if (b.find(w1)==b.end()) return false;
+                        if (b[w1]!=w2) return false;
+                    }
+                    return true;
+                }
+
+                bool issame(long long a, long long b){
+                    return a == b;
+                }
+            '''
+            code_gen = textwrap.dedent(prefix) + code_gen
+
+            # print out the result of the equality check to console, use double brackets to override f string defaults
+            ending = f'''\
+                int main() {{
+                    cout << issame({entry_point}({test_input}), {test_output});
+                    return 0;
+                }}
+            '''
+            code_gen = code_gen + '\n' + textwrap.dedent(ending)
             with open('test_code.cpp', 'w') as f:
                 f.write(code_gen)
             compilation_process = subprocess.run(['g++', '-std=c++11', 'test_code.cpp', '-o', 'test_code'],
@@ -112,11 +204,38 @@ class LocalEvalClient(EvalClient):
             val.value = output == 'true\n'
 
         elif language == 'c':
-            prefix = '#include <stdio.h>\n#include <stdbool.h>\n#include <math.h>\n#include <stdlib.h>\nbool issame_int(int a, int b){\n    return a == b;\n}\nbool issame_bool(bool a, bool b){\n    return a == b;\n}\nbool issame_float(float a, float b){\n    return fabs(a-b) < 1e-4;\n}\n#define issame(a, b) _Generic((a), int: issame_int, bool: issame_bool, float: issame_float)(a, b)\n'
-            code_gen = prefix + code_gen
+            # since we can't run tostring based comparisons in C, initialize a series of overloaded equality functions
+            prefix = '''\
+                #include <stdio.h>
+                #include <stdbool.h>
+                #include <math.h>
+                #include <stdlib.h>
 
-            ending = '\nint main() {\n    bool val = issame(' + entry_point + '(' + test_input + ') , ' + test_output + ');\n    printf("%d", val);\n    return 0;\n}'
-            code_gen = code_gen + ending
+                bool issame_int(int a, int b){
+                    return a == b;
+                }
+
+                bool issame_bool(bool a, bool b){
+                    return a == b;
+                }
+
+                bool issame_float(float a, float b){
+                    return fabs(a-b) < 1e-4;
+                }
+
+                #define issame(a, b) _Generic((a), int: issame_int, bool: issame_bool, float: issame_float)(a, b)
+            '''
+            code_gen = textwrap.dedent(prefix) + code_gen
+
+            # print out the result of the equality check to console, use double brackets to override f string defaults
+            ending = f'''\
+                int main() {{
+                    bool val = issame({entry_point}({test_input}), {test_output});
+                    printf("%d", val);
+                    return 0;
+                }}
+            '''
+            code_gen = code_gen + '\n' + textwrap.dedent(ending)
             with open('test_code.c', 'w') as f:
                 f.write(code_gen)
             compilation_process = subprocess.run(['gcc', 'test_code.c', '-o', 'test_code'],
