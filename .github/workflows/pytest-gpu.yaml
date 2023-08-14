@@ -11,7 +11,7 @@ on:
       mcloud-timeout:
         required: false
         type: number
-        default: 1800
+        default: 2700
       name:
         required: true
         type: string
