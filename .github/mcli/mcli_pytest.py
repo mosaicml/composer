@@ -82,7 +82,7 @@ if __name__ == '__main__':
         image=args.image,
         integrations=[git_integration],
         command=command,
-        scheduling={'max_duration_seconds:': args.timeout},
+        scheduling={'max_duration:': args.timeout / 60 / 60},
     )
 
     # Create run
