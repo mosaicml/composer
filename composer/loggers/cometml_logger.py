@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import textwrap
-from typing import Any, Dict, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -97,6 +97,13 @@ class CometMLLogger(LoggerDestination):
         if self._enabled:
             assert self.experiment is not None
             self.experiment.set_name(self.name)
+    
+    def log_text(self, columns: List[str], rows: List[List[str]], name: str = "Text", step: Optional[int] = None) -> None:
+        if self._enabled:
+            assert self.experiment is not None
+            import pandas as pd
+            table = pd.DataFrame.from_records(data=rows, columns=columns)
+            self.experiment.log_table(filename=f"{name}.json", tabular_data=table)
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         if self._enabled:
