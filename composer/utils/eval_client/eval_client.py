@@ -23,14 +23,15 @@ class EvalClient(abc.ABC):
         final tier of nesting for each generation, the JSONs are grouped by test case. We note that the evaluation client is agnostic to the list
         structure and instead iterates over each JSON payload for a test cases, converting each JSON to a boolean independently, only maintaining
         the list shape. The JSON for each test case containing the following attributes:
-            {
-                'code': <code to be evaluated>,
-                'input': <test input>,
-                'output': <test output>,
-                'entry_point': <entry point>,
-                'language': <language>,
 
-            }
+        {
+            'code': <code to be evaluated>,
+            'input': <test input>,
+            'output': <test output>,
+            'entry_point': <entry point>,
+            'language': <language>,
+
+        }
 
         The JSON is formatted as [[[request]]] so that the client can batch requests. The outermost list is for the generations of a
         given prompt, the middle list is for the beam generations of a given prompt, and the innermost list is for each test cases.
