@@ -22,18 +22,16 @@ def _get_latest_mlflow_run(experiment_name, tracking_uri=None):
     # NB: Convert tracking URI to string because MlflowClient doesn't support non-string
     # (e.g. PosixPath) tracking URI representations
     client = MlflowClient(str(tracking_uri))
-    experiment_id = (
-        client.get_experiment_by_name(experiment_name).experiment_id
-    )
+    experiment_id = (client.get_experiment_by_name(experiment_name).experiment_id)
     first_run_or_empty = client.search_runs(
         experiment_ids=[experiment_id],
         max_results=1,
-        order_by=["start_time DESC"],
+        order_by=['start_time DESC'],
     )
     if first_run_or_empty:
         return first_run_or_empty[0]
     else:
-        raise ValueError(f"Experiment with name {experiment_name} is unexpectedly empty")
+        raise ValueError(f'Experiment with name {experiment_name} is unexpectedly empty')
 
 
 def test_mlflow_experiment_init_unspecified(monkeypatch):
@@ -55,13 +53,11 @@ def test_mlflow_experiment_init_unspecified(monkeypatch):
 
     tracking_uri = mlflow.get_tracking_uri()
     assert MlflowClient(tracking_uri=tracking_uri).get_experiment_by_name('my-mlflow-experiment')
-    assert (
-        _get_latest_mlflow_run(
-            experiment_name=unspecified.experiment_name,
-            tracking_uri=tracking_uri,
-        ).info.run_name
-        == unspecified.run_name
-    )
+    assert (_get_latest_mlflow_run(
+        experiment_name=unspecified.experiment_name,
+        tracking_uri=tracking_uri,
+    ).info.run_name == unspecified.run_name)
+
 
 def test_mlflow_experiment_init_specified():
     """ Test that MLFlow experiment is set up correctly when all parameters are specified
@@ -92,13 +88,10 @@ def test_mlflow_experiment_init_specified():
 
     mlflow_client = MlflowClient(tracking_uri=mlflow_uri)
     assert mlflow_client.get_experiment_by_name(specified.experiment_name)
-    assert (
-        _get_latest_mlflow_run(
-            experiment_name=mlflow_exp_name,
-            tracking_uri=mlflow_uri,
-        ).info.run_name
-        == specified.run_name
-    )
+    assert (_get_latest_mlflow_run(
+        experiment_name=mlflow_exp_name,
+        tracking_uri=mlflow_uri,
+    ).info.run_name == specified.run_name)
 
 
 def test_mlflow_experiment_init_ids(monkeypatch):
@@ -211,9 +204,8 @@ def test_mlflow_experiment_set_up(tmp_path):
 
 @device('cpu')
 def test_mlflow_logging_works(tmp_path, device):
-    mlflow = pytest.importorskip('mlflow')
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
-    experiment_name = "mlflow_logging_test"
+    experiment_name = 'mlflow_logging_test'
     test_mlflow_logger = MLFlowLogger(
         tracking_uri=mlflow_uri,
         experiment_name=experiment_name,
