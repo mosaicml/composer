@@ -9,6 +9,7 @@ import logging
 import math
 import os
 import pathlib
+import shutil
 import tempfile
 import textwrap
 from pathlib import Path
@@ -21,7 +22,6 @@ from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WI
                             format_name_with_dist, format_name_with_dist_and_time, is_model_deepspeed, reproducibility)
 from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
 from composer.utils.misc import using_torch_2
-import shutil
 
 log = logging.getLogger(__name__)
 
