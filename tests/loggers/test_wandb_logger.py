@@ -71,7 +71,7 @@ def test_wandb_log_image(test_wandb_logger):
 
         else:
             expected_num_images = 1 if images.ndim < 4 else images.shape[0]
-            np_images = images.to(torch.float32).numpy(force=True)
+            np_images = images.to(torch.float32).numpy()
         test_wandb_logger.log_images(images=images, channels_last=channels_last)
         test_wandb_logger.log_images(images=np_images, channels_last=channels_last)
         expected_num_images *= 2  # One set of torch tensors, one set of numpy arrays
