@@ -8,7 +8,6 @@
   PYTORCH_VERSION: 2.0.1
   TAGS:
   - mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04
-  - mosaicml/pytorch:latest
   TARGET: pytorch_stage
   TORCHTEXT_VERSION: 0.15.2
   TORCHVISION_VERSION: 0.15.2
@@ -21,7 +20,6 @@
   PYTORCH_VERSION: 2.0.1
   TAGS:
   - mosaicml/pytorch:2.0.1_cu118-python3.10-ubuntu20.04-aws
-  - mosaicml/pytorch:latest-aws
   TARGET: pytorch_stage
   TORCHTEXT_VERSION: 0.15.2
   TORCHVISION_VERSION: 0.15.2
@@ -34,7 +32,6 @@
   PYTORCH_VERSION: 2.0.1
   TAGS:
   - mosaicml/pytorch_vision:2.0.1_cu118-python3.10-ubuntu20.04
-  - mosaicml/pytorch_vision:latest
   TARGET: vision_stage
   TORCHTEXT_VERSION: 0.15.2
   TORCHVISION_VERSION: 0.15.2
@@ -47,7 +44,6 @@
   PYTORCH_VERSION: 2.0.1
   TAGS:
   - mosaicml/pytorch:2.0.1_cpu-python3.10-ubuntu20.04
-  - mosaicml/pytorch:latest_cpu
   TARGET: pytorch_stage
   TORCHTEXT_VERSION: 0.15.2
   TORCHVISION_VERSION: 0.15.2
@@ -60,7 +56,6 @@
   PYTORCH_VERSION: 2.0.1
   TAGS:
   - mosaicml/pytorch_vision:2.0.1_cpu-python3.10-ubuntu20.04
-  - mosaicml/pytorch_vision:latest_cpu
   TARGET: vision_stage
   TORCHTEXT_VERSION: 0.15.2
   TORCHVISION_VERSION: 0.15.2
@@ -73,6 +68,7 @@
   PYTORCH_VERSION: 1.13.1
   TAGS:
   - mosaicml/pytorch:1.13.1_cu117-python3.10-ubuntu20.04
+  - mosaicml/pytorch:latest
   TARGET: pytorch_stage
   TORCHTEXT_VERSION: 0.14.1
   TORCHVISION_VERSION: 0.14.1
@@ -85,6 +81,7 @@
   PYTORCH_VERSION: 1.13.1
   TAGS:
   - mosaicml/pytorch:1.13.1_cu117-python3.10-ubuntu20.04-aws
+  - mosaicml/pytorch:latest-aws
   TARGET: pytorch_stage
   TORCHTEXT_VERSION: 0.14.1
   TORCHVISION_VERSION: 0.14.1
@@ -97,6 +94,7 @@
   PYTORCH_VERSION: 1.13.1
   TAGS:
   - mosaicml/pytorch_vision:1.13.1_cu117-python3.10-ubuntu20.04
+  - mosaicml/pytorch_vision:latest
   TARGET: vision_stage
   TORCHTEXT_VERSION: 0.14.1
   TORCHVISION_VERSION: 0.14.1
@@ -109,6 +107,7 @@
   PYTORCH_VERSION: 1.13.1
   TAGS:
   - mosaicml/pytorch:1.13.1_cpu-python3.10-ubuntu20.04
+  - mosaicml/pytorch:latest_cpu
   TARGET: pytorch_stage
   TORCHTEXT_VERSION: 0.14.1
   TORCHVISION_VERSION: 0.14.1
@@ -121,23 +120,24 @@
   PYTORCH_VERSION: 1.13.1
   TAGS:
   - mosaicml/pytorch_vision:1.13.1_cpu-python3.10-ubuntu20.04
+  - mosaicml/pytorch_vision:latest_cpu
   TARGET: vision_stage
   TORCHTEXT_VERSION: 0.14.1
   TORCHVISION_VERSION: 0.14.1
 - AWS_OFI_NCCL_VERSION: ''
-  BASE_IMAGE: nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04
+  BASE_IMAGE: nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
   COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.16.0
-  CUDA_VERSION: 11.8.0
+  CUDA_VERSION: 11.7.1
   IMAGE_NAME: composer-0-16-0
   MOFED_VERSION: 5.5-1.0.3.2
   PYTHON_VERSION: '3.10'
-  PYTORCH_VERSION: 2.0.1
+  PYTORCH_VERSION: 1.13.1
   TAGS:
   - mosaicml/composer:0.16.0
   - mosaicml/composer:latest
   TARGET: composer_stage
-  TORCHTEXT_VERSION: 0.15.2
-  TORCHVISION_VERSION: 0.15.2
+  TORCHTEXT_VERSION: 0.14.1
+  TORCHVISION_VERSION: 0.14.1
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: ubuntu:20.04
   COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.16.0
@@ -145,10 +145,10 @@
   IMAGE_NAME: composer-0-16-0-cpu
   MOFED_VERSION: 5.5-1.0.3.2
   PYTHON_VERSION: '3.10'
-  PYTORCH_VERSION: 2.0.1
+  PYTORCH_VERSION: 1.13.1
   TAGS:
   - mosaicml/composer:0.16.0_cpu
   - mosaicml/composer:latest_cpu
   TARGET: composer_stage
-  TORCHTEXT_VERSION: 0.15.2
-  TORCHVISION_VERSION: 0.15.2
+  TORCHTEXT_VERSION: 0.14.1
+  TORCHVISION_VERSION: 0.14.1
