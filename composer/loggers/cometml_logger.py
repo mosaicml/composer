@@ -103,7 +103,8 @@ class CometMLLogger(LoggerDestination):
             assert self.experiment is not None
             import pandas as pd
             table = pd.DataFrame.from_records(data=rows, columns=columns)
-            self.experiment.log_table(filename=f'{name}.json', tabular_data=table)
+            self.experiment.log_table(filename=f'{name}.json', tabular_data=table, orient='split',
+                                      index=False)  # formatting to be consistent with mlflow and wandb json formats
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         if self._enabled:
