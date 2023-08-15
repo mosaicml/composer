@@ -60,23 +60,43 @@ class MLFlowLogger(LoggerDestination):
         self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
         self._last_flush_time = time.time()
         self._flush_interval = flush_interval
-        # Declare MLflow clients and configurations that will be set within `init()`
-        self._mlflow_client = None
-        self._optimized_mlflow_client = None
-        self._experiment_id = None
         self._run_id = None
+        if self._enabled:
+            self._set_up_mlflow_state()
         del mlflow
 
-    def init(self, state: State, logger: Logger) -> None:
+    def _set_up_mlflow_state(self):
         import mlflow
         from mlflow import MlflowClient
         from mlflow.utils.autologging_utils import MlflowAutologgingQueueingClient
 
-        del logger  # unused
-
         if self.experiment_name is None:
-            self.experiment_name = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,
-                                             DEFAULT_MLFLOW_EXPERIMENT_NAME)
+            self.experiment_name = os.getenv(
+                mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,
+                DEFAULT_MLFLOW_EXPERIMENT_NAME
+            )
+
+        self._mlflow_client = MlflowClient(self.tracking_uri)
+        # Create an instance of MlflowAutologgingQueueingClient - an optimized version
+        # of MlflowClient - that automatically batches metrics together and supports
+        # asynchronous logging for improved performance
+        self._optimized_mlflow_client = MlflowAutologgingQueueingClient(self.tracking_uri)
+
+        # set experiment. we use MlflowClient for experiment retrieval and creation
+        # because MlflowAutologgingQueueingClient doesn't support it
+        env_exp_id = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None)
+        if env_exp_id is not None:
+            self._experiment_id = env_exp_id
+        elif exp := self._mlflow_client.get_experiment_by_name(name=self.experiment_name):
+            self._experiment_id = exp.experiment_id
+        else:
+            self._experiment_id = (
+                self._mlflow_client.create_experiment(name=self.experiment_name)
+            )
+
+    def init(self, state: State, logger: Logger) -> None:
+        import mlflow
+        del logger  # unused
 
         if self.run_name is None:
             self.run_name = state.run_name
@@ -85,30 +105,13 @@ class MLFlowLogger(LoggerDestination):
         if not self._rank_zero_only:
             self.run_name += f'-rank{dist.get_global_rank()}'
 
+        # start run
         if self._enabled:
-            self._mlflow_client = MlflowClient(self.tracking_uri)
-            # Create an instance of MlflowAutologgingQueueingClient - an optimized version
-            # of MlflowClient - that automatically batches metrics together and supports
-            # asynchronous logging for improved performance
-            self._optimized_mlflow_client = MlflowAutologgingQueueingClient(self.tracking_uri)
-
-            # set experiment. we use MlflowClient for experiment retrieval and creation
-            # because MlflowAutologgingQueueingClient doesn't support it
-            env_exp_id = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None)
-            if env_exp_id is not None:
-                self._experiment_id = env_exp_id
-            elif exp := self._mlflow_client.get_experiment_by_name(name=self.experiment_name):
-                self._experiment_id = exp.experiment_id
-            else:
-                self._experiment_id = (
-                    self._mlflow_client.create_experiment(name=self.experiment_name)
-                )
-
-            # start run
             env_run_id = os.getenv(mlflow.environment_variables.MLFLOW_RUN_ID.name, None)
             if env_run_id is not None:
                 self._run_id = env_run_id
             else:
+                print("RUN NAME", self.run_name)
                 new_run = self._mlflow_client.create_run(
                     experiment_id=self._experiment_id,
                     run_name=self.run_name,
