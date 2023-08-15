@@ -7,7 +7,6 @@ import pathlib
 import textwrap
 import uuid
 from functools import partial
-import time
 import numpy as np
 import pytest
 import torch
@@ -672,7 +671,6 @@ def test_cleanup_sharded_checkpoints(world_size, tmp_path: pathlib.Path, state_d
         assert num_checkpoint_dirs == batches_to_train
     else:
         assert num_checkpoint_dirs == num_ckpts_to_keep
-
     for ckpt_dir in dir_contents:
         full_path_ckpt_dir = os.path.join(shards_dir, ckpt_dir)
         elastic_file_list = {'.metadata', *[f'__{rank}_0.distcp' for rank in range(dist.get_world_size())]}
