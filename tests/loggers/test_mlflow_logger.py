@@ -16,7 +16,7 @@ from tests.common.markers import device
 from tests.common.models import SimpleConvModel
 
 
-def _get_latest_mlflow_run_or_none(experiment_name, tracking_uri=None):
+def _get_latest_mlflow_run(experiment_name, tracking_uri=None):
     from mlflow import MlflowClient
 
     # NB: Convert tracking URI to string because MlflowClient doesn't support non-string
@@ -32,6 +32,8 @@ def _get_latest_mlflow_run_or_none(experiment_name, tracking_uri=None):
     )
     if first_run_or_empty:
         return first_run_or_empty[0]
+    else:
+        raise ValueError(f"Experiment with name {experiment_name} is unexpectedly empty")
 
 
 def test_mlflow_experiment_init_unspecified(monkeypatch):
@@ -54,7 +56,7 @@ def test_mlflow_experiment_init_unspecified(monkeypatch):
     tracking_uri = mlflow.get_tracking_uri()
     assert MlflowClient(tracking_uri=tracking_uri).get_experiment_by_name('my-mlflow-experiment')
     assert (
-        _get_latest_mlflow_run_or_none(
+        _get_latest_mlflow_run(
             experiment_name=unspecified.experiment_name,
             tracking_uri=tracking_uri,
         ).info.run_name
@@ -91,7 +93,7 @@ def test_mlflow_experiment_init_specified():
     mlflow_client = MlflowClient(tracking_uri=mlflow_uri)
     assert mlflow_client.get_experiment_by_name(specified.experiment_name)
     assert (
-        _get_latest_mlflow_run_or_none(
+        _get_latest_mlflow_run(
             experiment_name=mlflow_exp_name,
             tracking_uri=mlflow_uri,
         ).info.run_name
@@ -172,7 +174,7 @@ def test_mlflow_experiment_set_up(tmp_path):
 
     test_mlflow_logger.init(state=mock_state, logger=mock_logger)
 
-    run = _get_latest_mlflow_run_or_none(
+    run = _get_latest_mlflow_run(
         experiment_name=mlflow_exp_name,
         tracking_uri=mlflow_uri,
     )
@@ -232,7 +234,7 @@ def test_mlflow_logging_works(tmp_path, device):
     trainer.fit()
     test_mlflow_logger._flush()
 
-    run = _get_latest_mlflow_run_or_none(
+    run = _get_latest_mlflow_run(
         experiment_name=experiment_name,
         tracking_uri=mlflow_uri,
     )

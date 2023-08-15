@@ -60,6 +60,11 @@ class MLFlowLogger(LoggerDestination):
         self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
         self._last_flush_time = time.time()
         self._flush_interval = flush_interval
+        # Declare MLflow clients and configurations that will be set within `init()`
+        self._mlflow_client = None
+        self._optimized_mlflow_client = None
+        self._experiment_id = None
+        self._run_id = None
         del mlflow
 
     def init(self, state: State, logger: Logger) -> None:
