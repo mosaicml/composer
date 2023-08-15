@@ -21,6 +21,7 @@ from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WI
                             format_name_with_dist, format_name_with_dist_and_time, is_model_deepspeed, reproducibility)
 from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
 from composer.utils.misc import using_torch_2
+import shutil
 
 log = logging.getLogger(__name__)
 
@@ -489,6 +490,4 @@ class CheckpointSaver(Callback):  # noqa: D101
                 os.remove(checkpoint)
             else:
                 if dist.get_global_rank() == 0:
-                    for file in os.listdir(prefix_dir):
-                        os.remove(os.path.join(prefix_dir, file))
-                    os.removedirs(prefix_dir)
+                    shutil.rmtree(prefix_dir)
