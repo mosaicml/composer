@@ -56,7 +56,7 @@ def test_wandb_log_image(test_wandb_logger):
     image_variants = [
         (torch.rand(4, 4), False),  # 2D image
         (torch.rand(2, 3, 4, 4), False),  # multiple images, not channels last
-        (torch.rand(2, 3, 4, 4, dtype=torch.bfloat16), False), # same as above but with bfloat16
+        (torch.rand(2, 3, 4, 4, dtype=torch.bfloat16), False),  # same as above but with bfloat16
         (torch.rand(3, 4, 4), False),  # with channels, not channels last
         ([torch.rand(4, 4, 3)], True),  # with channels, channels last
         (torch.rand(2, 4, 4, 3), True),  # multiple images, channels last
