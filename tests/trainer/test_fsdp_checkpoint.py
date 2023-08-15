@@ -665,7 +665,6 @@ def test_cleanup_sharded_checkpoints(world_size, tmp_path: pathlib.Path, state_d
     run_name = trainer1.state.run_name
     trainer1.fit()
     trainer1.close()
-
     shards_dir = os.path.join(save_folder.format(run_name=run_name))
     dir_contents = [file_or_dir for file_or_dir in os.listdir(shards_dir) if 'latest' not in file_or_dir]
     num_checkpoint_dirs = len(dir_contents)
@@ -673,7 +672,6 @@ def test_cleanup_sharded_checkpoints(world_size, tmp_path: pathlib.Path, state_d
         assert num_checkpoint_dirs == batches_to_train
     else:
         assert num_checkpoint_dirs == num_ckpts_to_keep
-
     for ckpt_dir in dir_contents:
         full_path_ckpt_dir = os.path.join(shards_dir, ckpt_dir)
         elastic_file_list = {'.metadata', *[f'__{rank}_0.distcp' for rank in range(dist.get_world_size())]}
