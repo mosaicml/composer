@@ -110,7 +110,6 @@ class MLFlowLogger(LoggerDestination):
             if env_run_id is not None:
                 self._run_id = env_run_id
             else:
-                print("RUN NAME", self.run_name)
                 new_run = self._mlflow_client.create_run(
                     experiment_id=self._experiment_id,
                     run_name=self.run_name,
