@@ -665,8 +665,6 @@ def test_cleanup_sharded_checkpoints(world_size, tmp_path: pathlib.Path, state_d
     run_name = trainer1.state.run_name
     trainer1.fit()
     trainer1.close()
-    # Because os.remove is async
-    time.sleep(5)
     shards_dir = os.path.join(save_folder.format(run_name=run_name))
     dir_contents = [file_or_dir for file_or_dir in os.listdir(shards_dir) if 'latest' not in file_or_dir]
     num_checkpoint_dirs = len(dir_contents)
