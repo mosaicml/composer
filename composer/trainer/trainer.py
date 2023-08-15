@@ -1249,8 +1249,8 @@ class Trainer:
             self._scheduler_step_frequency = TimeUnit.BATCH if step_schedulers_every_batch else TimeUnit.EPOCH
 
         # Some algorithms require specific settings
-        self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, self.state.algorithms))
-        self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, self.state.algorithms))
+        self._backwards_create_graph = any((x.backwards_create_graph for x in self.state.algorithms))
+        self._find_unused_parameters = any((x.find_unused_parameters for x in self.state.algorithms))
         self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
 
         # Suppressing GradScaler warnings as they are always created
@@ -1358,8 +1358,10 @@ class Trainer:
                         local_symlink_file = str(Path(temp_dir) / Path('autoresume.symlink'))
                         formatted_latest_remote_file_name = format_name_with_dist(latest_remote_file_name,
                                                                                   self.state.run_name) + '.symlink'
+                        rank0_formatted_latest_remote_file_name = dist.all_gather_object(
+                            formatted_latest_remote_file_name)[0]
                         try:
-                            ar_object_store.download_object(formatted_latest_remote_file_name, local_symlink_file)
+                            ar_object_store.download_object(rank0_formatted_latest_remote_file_name, local_symlink_file)
                             with open(local_symlink_file, 'r') as f:
                                 real_path = f.read()
                                 log.debug(f'Read path {real_path} from symlink file')
@@ -1369,8 +1371,9 @@ class Trainer:
                 # Symlink is local.
                 else:
                     save_latest_filename = format_name_with_dist(save_latest_filename, self.state.run_name)
+                    rank0_save_latest_filename = dist.all_gather_object(save_latest_filename)[0]
                     save_folder = format_name_with_dist(save_folder, self.state.run_name)
-                    latest_checkpoint_path = os.path.join(save_folder, save_latest_filename)
+                    latest_checkpoint_path = os.path.join(save_folder, rank0_save_latest_filename)
                     if os.path.exists(latest_checkpoint_path):
                         latest_checkpoint_path = os.path.join(os.path.dirname(latest_checkpoint_path),
                                                               os.readlink(latest_checkpoint_path))
@@ -2159,7 +2162,7 @@ class Trainer:
                 model_eval_mode(self.state.model),\
                 _get_precision_context(self.state.precision, self.state.precision_config, self.state.deepspeed_enabled):
             eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
-            for _, metric in self.state.train_metrics.items():
+            for metric in self.state.train_metrics.values():
                 self._original_model.update_metric(
                     device_batch,
                     eval_outputs,
@@ -2209,7 +2212,7 @@ class Trainer:
             # Reset train_metrics on every batch
             # Placing reset here ensures that if auto grad accum catches an OOM, incomplete metric state is cleared
             if self.state.train_metrics is not None:
-                for _, metric in self.state.train_metrics.items():
+                for metric in self.state.train_metrics.values():
                     metric.reset()
 
             total_loss_dict = {'loss/train/total': self.state.device.tensor_to_device(torch.zeros(size=(1,)))}
@@ -2462,7 +2465,7 @@ class Trainer:
             self.engine.run_event(Event.AFTER_BACKWARD)
 
             # Use microbatch outputs to update training metrics
-            if self.state.train_metrics is not None:
+            if self.state.train_metrics is not None and len(self.state.train_metrics) != 0:
                 self.state.train_metrics = self._ensure_metrics_device_and_dtype(self.state.train_metrics)
                 self._eval_train_metrics(device_batch)
 
@@ -2707,6 +2710,8 @@ class Trainer:
                 dataloader. Can also be provided in the trainer.__init__() as ``eval_subset_num_batches``.
 
         """
+        self.engine.run_event(Event.EVAL_STANDALONE_START)
+
         if eval_dataloader is not None:
             eval_passed_in = True
             eval_metrics = deepcopy(self._original_model.get_metrics(is_train=False))
@@ -2763,6 +2768,8 @@ class Trainer:
             if eval_passed_in:
                 self.state.evaluators.remove(evaluator)  # Remove them from state once eval is finished.
 
+        self.engine.run_event(Event.EVAL_STANDALONE_END)
+
     def _eval_loop(
         self,
         evaluator: Evaluator,
@@ -2801,7 +2808,7 @@ class Trainer:
 
             metrics = self._ensure_metrics_device_and_dtype(metrics)
 
-            for _, metric in metrics.items():
+            for metric in metrics.values():
                 metric.reset()
 
             dataloader = self.state.dataloader
@@ -2899,7 +2906,7 @@ class Trainer:
                                 else:
                                     outputs = self.state.outputs
 
-                                for _, metric in metrics.items():
+                                for metric in metrics.values():
                                     self._original_model.update_metric(
                                         self.state.batch,
                                         outputs,

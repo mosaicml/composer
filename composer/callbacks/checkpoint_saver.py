@@ -9,6 +9,7 @@ import logging
 import math
 import os
 import pathlib
+import shutil
 import tempfile
 import textwrap
 from pathlib import Path
@@ -412,8 +413,9 @@ class CheckpointSaver(Callback):  # noqa: D101
                 src_path = str(pathlib.Path(saved_path).parent)
             else:
                 src_path = saved_path
-
-            os.symlink(os.path.relpath(src_path, os.path.dirname(symlink)), symlink)
+            this_rank_saves_symlinks = dist.get_global_rank() == 0 or not state.fsdp_elastic_sharded_enabled
+            if this_rank_saves_symlinks:
+                os.symlink(os.path.relpath(src_path, os.path.dirname(symlink)), symlink)
 
         # if remote file name provided, upload the checkpoint
         if self.remote_file_name is not None:
@@ -464,12 +466,14 @@ class CheckpointSaver(Callback):  # noqa: D101
                     else:
                         src_path = remote_file_name
                     log.debug(f'Creating symlink file {symlink_filename} -> {src_path}')
-                    create_symlink_file(src_path, symlink_filename)
-                    logger.upload_file(
-                        remote_file_name=symlink_name,
-                        file_path=symlink_filename,
-                        overwrite=True,
-                    )
+                    this_rank_saves_symlinks = dist.get_global_rank() == 0 or not state.fsdp_elastic_sharded_enabled
+                    if this_rank_saves_symlinks:
+                        create_symlink_file(src_path, symlink_filename)
+                        logger.upload_file(
+                            remote_file_name=symlink_name,
+                            file_path=symlink_filename,
+                            overwrite=True,
+                        )
 
         self.saved_checkpoints.append(saved_path)
 
@@ -482,9 +486,8 @@ class CheckpointSaver(Callback):  # noqa: D101
             prefix_dir = None
             checkpoint = self.saved_checkpoints.pop(0)
             prefix_dir = str(Path(checkpoint).parent)
-            os.remove(checkpoint)
-            if sharding_enabled and dist.get_global_rank() == 0:
-                if using_torch_2():
-                    metadata_file = os.path.join(prefix_dir, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME)
-                    os.remove(metadata_file)
-                os.removedirs(prefix_dir)
+            if not sharding_enabled:
+                os.remove(checkpoint)
+            else:
+                if dist.get_global_rank() == 0:
+                    shutil.rmtree(prefix_dir)
