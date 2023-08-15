@@ -61,8 +61,7 @@ class MLFlowLogger(LoggerDestination):
         self._last_flush_time = time.time()
         self._flush_interval = flush_interval
         self._run_id = None
-        if self._enabled:
-            self._set_up_mlflow_state()
+        self._set_up_mlflow_state()
         del mlflow
 
     def _set_up_mlflow_state(self):
