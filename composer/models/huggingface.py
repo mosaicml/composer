@@ -8,6 +8,7 @@ from __future__ import annotations
 import inspect
 import json
 import logging
+import os
 import tempfile
 import textwrap
 from pathlib import Path
@@ -141,7 +142,8 @@ class HuggingFaceModel(ComposerModel):
 
     @staticmethod
     def load_huggingface_tokenizer_from_saved_state(hf_state: Dict[str, Any],
-                                                    trust_remote_code: bool = False
+                                                    trust_remote_code: bool = False,
+                                                    tokenizer_save_dir: Optional[str] = None
                                                    ) -> Optional[transformers.PreTrainedTokenizer]:
         """A helper function that loads a HuggingFace tokenizer from a loaded in hf state.
 
@@ -161,40 +163,45 @@ class HuggingFaceModel(ComposerModel):
         hf_tokenizer = None
         hf_tokenizer_state = hf_state['tokenizer']
         if hf_tokenizer_state != {}:
-            with tempfile.TemporaryDirectory() as _tmp_dir:
-                for filename, saved_content in hf_tokenizer_state.items():
-                    tokenizer_file_path = Path(_tmp_dir) / f'{filename}{saved_content["file_extension"]}'
-                    if saved_content['file_extension'] == '.json':
-                        with open(tokenizer_file_path, 'w') as _tmp_file:
-                            json.dump(saved_content['content'], _tmp_file)
-                    elif saved_content['file_extension'] == '.txt':
-                        with open(tokenizer_file_path, 'w') as _tmp_file:
-                            for line in saved_content['content']:
-                                _tmp_file.write(line)
-                                _tmp_file.write('\n')
-                    elif saved_content['file_extension'] == '.py':
-                        with open(tokenizer_file_path, 'w') as _tmp_file:
-                            _tmp_file.write(saved_content['content'])
-                    elif saved_content['file_extension'] == '.model':
-                        try:
-                            import sentencepiece as spm
-                        except ImportError as e:
-                            raise MissingConditionalImportError(extra_deps_group='sentencepiece',
-                                                                conda_package='sentencepiece') from e
-                        s = spm.SentencePieceProcessor()
-                        s.load_from_serialized_proto(saved_content['content'])
-                        with open(tokenizer_file_path, 'wb') as _tmp_file:
-                            _tmp_file.write(s.serialized_model_proto())
+            if tokenizer_save_dir is None:
+                tokenizer_save_dir = os.path.join(os.getcwd(), 'tokenizer-save-dir')
+            os.makedirs(tokenizer_save_dir, exist_ok=True)
 
-                hf_tokenizer = transformers.AutoTokenizer.from_pretrained(_tmp_dir, trust_remote_code=trust_remote_code)
+            for filename, saved_content in hf_tokenizer_state.items():
+                # This cannot be a temporary directory because huggingface relies on the slow tokenizer file
+                # being persistent on disk
+                tokenizer_file_path = Path(tokenizer_save_dir) / f'{filename}{saved_content["file_extension"]}'
+                if saved_content['file_extension'] == '.json':
+                    with open(tokenizer_file_path, 'w') as _tmp_file:
+                        json.dump(saved_content['content'], _tmp_file)
+                elif saved_content['file_extension'] == '.txt':
+                    with open(tokenizer_file_path, 'w') as _tmp_file:
+                        for line in saved_content['content']:
+                            _tmp_file.write(line)
+                            _tmp_file.write('\n')
+                elif saved_content['file_extension'] == '.py':
+                    with open(tokenizer_file_path, 'w') as _tmp_file:
+                        _tmp_file.write(saved_content['content'])
+                elif saved_content['file_extension'] == '.model':
+                    try:
+                        import sentencepiece as spm
+                    except ImportError as e:
+                        raise MissingConditionalImportError(extra_deps_group='sentencepiece',
+                                                            conda_package='sentencepiece') from e
+                    s = spm.SentencePieceProcessor()
+                    s.load_from_serialized_proto(saved_content['content'])
+                    with open(tokenizer_file_path, 'wb') as _tmp_file:
+                        _tmp_file.write(s.serialized_model_proto())
 
-                # we need to set the name_or_path back because otherwise it is the tmp dir we are loading from here
-                hf_tokenizer.name_or_path = hf_tokenizer_state['tokenizer_config']['content'].get('name_or_path', '')
-                hf_tokenizer.init_kwargs['name_or_path'] = hf_tokenizer.name_or_path
+            hf_tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_save_dir, trust_remote_code=trust_remote_code)
 
-                # for an unknown reason this key is missing when loading the saved tokenizer, but present with a value of None
-                # for the original tokenizer, so we default it to None
-                hf_tokenizer.init_kwargs['tokenizer_file'] = hf_tokenizer.init_kwargs.get('tokenizer_file', None)
+            # we need to set the name_or_path back because otherwise it is the tmp dir we are loading from here
+            hf_tokenizer.name_or_path = hf_tokenizer_state['tokenizer_config']['content'].get('name_or_path', '')
+            hf_tokenizer.init_kwargs['name_or_path'] = hf_tokenizer.name_or_path
+
+            # for an unknown reason this key is missing when loading the saved tokenizer, but present with a value of None
+            # for the original tokenizer, so we default it to None
+            hf_tokenizer.init_kwargs['tokenizer_file'] = hf_tokenizer.init_kwargs.get('tokenizer_file', None)
         return hf_tokenizer
 
     @staticmethod
