@@ -56,6 +56,7 @@ def test_wandb_log_image(test_wandb_logger):
     image_variants = [
         (torch.rand(4, 4), False),  # 2D image
         (torch.rand(2, 3, 4, 4), False),  # multiple images, not channels last
+        (torch.rand(2, 3, 4, 4, dtype=torch.bfloat16), False), # same as above but with bfloat16
         (torch.rand(3, 4, 4), False),  # with channels, not channels last
         ([torch.rand(4, 4, 3)], True),  # with channels, channels last
         (torch.rand(2, 4, 4, 3), True),  # multiple images, channels last
@@ -66,11 +67,11 @@ def test_wandb_log_image(test_wandb_logger):
     for (images, channels_last) in image_variants:
         if isinstance(images, Sequence):
             expected_num_images = len(images)
-            np_images = [image.numpy() for image in images]
+            np_images = [image.to(torch.float32).numpy() for image in images]
 
         else:
             expected_num_images = 1 if images.ndim < 4 else images.shape[0]
-            np_images = images.numpy()
+            np_images = images.to(torch.float32).numpy(force=True)
         test_wandb_logger.log_images(images=images, channels_last=channels_last)
         test_wandb_logger.log_images(images=np_images, channels_last=channels_last)
         expected_num_images *= 2  # One set of torch tensors, one set of numpy arrays
