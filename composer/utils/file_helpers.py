@@ -346,7 +346,7 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
         raise NotImplementedError(f'There is no implementation for WandB load_object_store via URI. Please use '
                                   'WandBLogger')
     elif backend == 'gs':
-        return GCSObjectStore(uri)
+        return GCSObjectStore(bucket=bucket_name)
     elif backend == 'oci':
         return OCIObjectStore(bucket=bucket_name)
     else:
