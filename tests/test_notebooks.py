@@ -136,7 +136,6 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
     files = bucket.objects.filter(Prefix=obj.path.lstrip('/'))
     for file in files:
         target = os.path.join(os.getcwd(), 'data', os.path.relpath(file.key, obj.path.lstrip('/')))
-        print(target)
         if not os.path.exists(target):
             os.makedirs(os.path.dirname(target), exist_ok=True)
         if file.key[-1] == '/':
