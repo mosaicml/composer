@@ -65,10 +65,8 @@ class MLFlowLogger(LoggerDestination):
         # Set up MLflow state
         self._run_id = None
         if self.experiment_name is None:
-            self.experiment_name = os.getenv(
-                mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,
-                DEFAULT_MLFLOW_EXPERIMENT_NAME
-            )
+            self.experiment_name = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,
+                                             DEFAULT_MLFLOW_EXPERIMENT_NAME)
         self._mlflow_client = MlflowClient(self.tracking_uri)
         # Create an instance of MlflowAutologgingQueueingClient - an optimized version
         # of MlflowClient - that automatically batches metrics together and supports
