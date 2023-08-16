@@ -50,7 +50,7 @@ def test_upload_object(gs_object_store, monkeypatch):
     source_file_name = 'dummy-file.txt'
     destination_blob_name = 'dummy-blob.txt'
 
-    gs_object_store.upload_object(source_file_name, destination_blob_name)
+    gs_object_store.upload_object(destination_blob_name, source_file_name)
 
     mock_blob.upload_from_filename.assert_called_with(source_file_name)
     assert mock_blob.upload_from_filename.call_count == 1

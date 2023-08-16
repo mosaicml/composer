@@ -29,7 +29,10 @@ def _reraise_gcs_errors(uri: str, e: Exception):
 
     # If it's a google service NotFound error
     if isinstance(e, NotFound):
-        raise FileNotFoundError(f'Object {uri} not found.') from e
+        if 'bucket' in e.message:
+            raise FileNotFoundError(f'Bucket {uri} not found.') from e
+        else:
+            raise FileNotFoundError(f'Object {uri} not found.') from e
 
     # All clienterror (HTTP 4xx) responses
     elif isinstance(e, GatewayTimeout):
@@ -129,9 +132,10 @@ class GCSObjectStore(ObjectStore):
         return blob.size  # size in bytes
 
     def upload_object(self,
+                      object_name: str,
                       filename: Union[str, pathlib.Path],
-                      object_name: str = '',
-                      callback: Optional[Callable[[int, int], None]] = None):
+                      callback: Optional[Callable[[int, int], None]] = None
+                      ):
         """Uploads a file to the cloud storage bucket.
 
         Args:
