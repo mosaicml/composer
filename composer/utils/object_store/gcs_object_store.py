@@ -49,12 +49,14 @@ class GCSObjectStore(ObjectStore):
         See :ref:`guide to credentials <boto3:guide_credentials>` for more information.
 
     Args:
-        gcs_root_dir (str, optional): Required. The URL to a Google Cloud Storage object, formatted as gs://bucket/path
+        bucket (str, required): The bucket to Google Cloud Storage object, formatted in gs://{bucket}/{prefix}
+        prefix (str, optional): The prefix for cloud storage url shown above
     """
 
     def __init__(
         self,
-        gcs_root_dir: str,
+        bucket: str,
+        prefix='',
     ) -> None:
         try:
             from google.cloud.storage import Client
@@ -84,15 +86,13 @@ class GCSObjectStore(ObjectStore):
                              f'service level accounts or GCS_KEY and GCS_SECRET env variables must be set.')
 
         from composer.utils import parse_uri
-        backend, self.bucket_name, self.prefix = parse_uri(gcs_root_dir)
-        if backend == '':
-            raise ValueError(f"gcs_root_dir ({gcs_root_dir}) doesn't have a valid format")
+        self.bucket_name, self.prefix = bucket, prefix
         self.prefix = self.prefix.lstrip('/')
 
         try:
             self.bucket = self.client.get_bucket(self.bucket_name, timeout=60.0)
         except Exception as e:
-            _reraise_gcs_errors(gcs_root_dir, e)
+            _reraise_gcs_errors(self.bucket, e)
 
     def get_key(self, object_name: str) -> str:
         return f'{self.prefix}{object_name}'
