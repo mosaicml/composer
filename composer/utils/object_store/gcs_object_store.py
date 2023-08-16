@@ -92,7 +92,7 @@ class GCSObjectStore(ObjectStore):
         try:
             self.bucket = self.client.get_bucket(self.bucket_name, timeout=60.0)
         except Exception as e:
-            _reraise_gcs_errors(self.bucket, e)
+            _reraise_gcs_errors(bucket, e)
 
     def get_key(self, object_name: str) -> str:
         return f'{self.prefix}{object_name}'

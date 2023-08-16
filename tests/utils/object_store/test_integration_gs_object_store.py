@@ -17,8 +17,9 @@ bucket_name = 'mosaicml-composer-tests'
 @pytest.fixture
 def gs_object_store():
     pytest.skip('Run this test suite only after GCS service account is configured on CI node.')
-    remote_dir = 'gs://mosaicml-composer-tests/streaming/'
-    yield GCSObjectStore(remote_dir)
+    bucket = 'mosaicml-composer-tests'
+    prefix = '/streaming/'
+    yield GCSObjectStore(bucket, prefix)
 
 
 @pytest.mark.remote

@@ -17,7 +17,7 @@ def gs_object_store(monkeypatch):
     with mock.patch.dict(os.environ, {'GOOGLE_APPLICATION_CREDENTIALS': 'FAKE_CREDENTIAL'}):
         mock_client = mock.MagicMock()
         with mock.patch.object(Client, 'from_service_account_json', return_value=mock_client):
-            yield GCSObjectStore('gs://test-bucket/test-prefix/')
+            yield GCSObjectStore('test-bucket', '/test-prefix/')
 
 
 def test_get_uri(gs_object_store):
