@@ -52,7 +52,8 @@ class GCSObjectStore(ObjectStore):
         See :ref:`guide to credentials <boto3:guide_credentials>` for more information.
 
     Args:
-        gcs_root_dir (str, optional): Required. The URL to a Google Cloud Storage object, formatted as gs://bucket/path
+        bucket (str): The name of the Google Cloud bucket to upload to or download from.
+        prefix (str, optional): The prefix to use when uploading to or downloading from the bucket. Default is an empty string.
     """
 
     def __init__(
@@ -134,15 +135,14 @@ class GCSObjectStore(ObjectStore):
     def upload_object(self,
                       object_name: str,
                       filename: Union[str, pathlib.Path],
-                      callback: Optional[Callable[[int, int], None]] = None
-                      ):
+                      callback: Optional[Callable[[int, int], None]] = None):
         """Uploads a file to the cloud storage bucket.
 
         Args:
-            src (Union[str, pathlib.Path]): The path to the local file
-            dest (str, optional): The destination path in the cloud storage bucket where the file will be saved.
+            object_name (str, optional): The destination path in the cloud storage bucket where the file will be saved.
                 If not provided or an empty string is given, the file will be uploaded to the root of the bucket with the same
                 name as the source file. Default is an empty string.
+            filename (Union[str, pathlib.Path]): The path to the local file
             callback: optional
         """
         if callback is not None:
@@ -163,14 +163,14 @@ class GCSObjectStore(ObjectStore):
         """Downloads an object from the specified source in the cloud storage bucket and saves it to the given destination.
 
         Args:
-            src (str): The path to the object in the cloud storage bucket that needs to be downloaded.
-            dest (Union[str, pathlib.Path]): The destination path where the object will be saved locally. It can be a
+            object_name (str): The path to the object in the cloud storage bucket that needs to be downloaded.
+            filename (Union[str, pathlib.Path]): The destination path where the object will be saved locally. It can be a
                 string representing the file path or a pathlib.Path object.
             overwrite (bool, optional): If set to True, the function will overwrite the destination file if it already
                 exists. If set to False, and the destination file exists, a FileExistsError will be raised. Default is False.
             callback (Callable[[int, int], None], optional): A callback function that can be used to track the progress of
                 the download. It takes two integer arguments - the number of bytes downloaded and the total size of the
-                object. Default is None.
+                object. Default is None. Unused for GCSObjectStore.
 
         Raises:
             FileExistsError: If the destination file already exists and the `overwrite` parameter is set to False.
