@@ -85,7 +85,6 @@ class GCSObjectStore(ObjectStore):
             raise ValueError(f'GOOGLE_APPLICATION_CREDENTIALS needs to be set for ' +
                              f'service level accounts or GCS_KEY and GCS_SECRET env variables must be set.')
 
-        from composer.utils import parse_uri
         self.bucket_name, self.prefix = bucket, prefix
         self.prefix = self.prefix.lstrip('/')
 
