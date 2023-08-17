@@ -327,7 +327,10 @@ class WandBLogger(LoggerDestination):
 
 def _convert_to_wandb_image(image: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:
     if isinstance(image, torch.Tensor):
-        image = image.data.cpu().numpy()
+        if image.dtype == torch.float16 or image.dtype == torch.bfloat16:
+            image = image.data.cpu().to(torch.float32).numpy()
+        else:
+            image = image.data.cpu().numpy()
 
     # Error out for empty arrays or weird arrays of dimension 0.
     if np.any(np.equal(image.shape, 0)):
