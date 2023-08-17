@@ -9,7 +9,7 @@ import os
 import queue
 import sys
 import textwrap
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, TextIO
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TextIO
 
 from composer.loggers.logger import Logger, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
@@ -183,6 +183,11 @@ class FileLogger(LoggerDestination):  # noqa: D101
                     f'[trace]: {trace_name}:',
                     trace_str + '\n',
                 )
+
+    def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
+        import pandas as pd
+        table = pd.DataFrame.from_records(columns=columns, data=rows).to_json(orient='split', index=False)
+        self.write('[table]: ', f'{name}: {table}\n')
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
         for metric_name, metric in metrics.items():

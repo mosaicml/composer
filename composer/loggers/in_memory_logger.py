@@ -12,7 +12,6 @@ import copy
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
-import pandas as pd
 from torch import Tensor
 
 from composer.core.time import Time
@@ -72,6 +71,7 @@ class InMemoryLogger(LoggerDestination):
         self.hyperparameters.update(hyperparameters)
 
     def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
+        import pandas as pd
         table = pd.DataFrame.from_records(data=rows, columns=columns)
         self.tables[name] = table
 
