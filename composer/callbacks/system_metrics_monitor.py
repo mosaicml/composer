@@ -25,13 +25,21 @@ class SystemMetricsMonitor(Callback):
 
     def __init__(self) -> None:
         super().__init__()
-        try:
-            import pynvml
-        except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='pynvml',
-                                                conda_package='pynvml',
-                                                conda_channel='conda-forge') from e
-        pynvml.nvmlInit()
+        self.gpu_available = False
+
+    def init(self, state: State, logger: Logger) -> None:
+        # Not relying on `torch.cuda.is_available()` since the model could be on CPU.
+        model_device = next(state.model.parameters()).device
+
+        if model_device.type != 'cuda':
+            try:
+                import pynvml
+            except ImportError as e:
+                raise MissingConditionalImportError(extra_deps_group='pynvml',
+                                                    conda_package='pynvml',
+                                                    conda_channel='conda-forge') from e
+            self.gpu_available = True
+            pynvml.nvmlInit()
 
     def run_event(self, event: Event, state: State, logger: Logger):
         # skip the microbatch events
@@ -50,23 +58,23 @@ class SystemMetricsMonitor(Callback):
         logger.log_metrics(system_metrics)
 
     def compute_system_metrics(self):
-        import pynvml
-
         system_metrics = {}
 
-        # Get metrics for this device
-        local_rank = dist.get_local_rank()
-        global_rank = dist.get_global_rank()
-        handle = pynvml.nvmlDeviceGetHandleByIndex(local_rank)
-        memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
-        system_metrics[f'device{global_rank}_memory_total'] = memory.total
-        system_metrics[f'device{global_rank}_memory_free'] = memory.free
-        system_metrics[f'device{global_rank}_memory_used'] = memory.used
-        device_utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
-        system_metrics[f'device{global_rank}_gpu_percentage'] = device_utilization.gpu
-        system_metrics[f'device{global_rank}_memory_percentage'] = device_utilization.memory
-        temperature = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
-        system_metrics[f'device{global_rank}_gpu_temperature'] = temperature
+        # Get metrics for this device if available
+        if self.gpu_available:
+            import pynvml
+            local_rank = dist.get_local_rank()
+            global_rank = dist.get_global_rank()
+            handle = pynvml.nvmlDeviceGetHandleByIndex(local_rank)
+            memory = pynvml.nvmlDeviceGetMemoryInfo(handle)
+            system_metrics[f'device{global_rank}_memory_total'] = memory.total
+            system_metrics[f'device{global_rank}_memory_free'] = memory.free
+            system_metrics[f'device{global_rank}_memory_used'] = memory.used
+            device_utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
+            system_metrics[f'device{global_rank}_gpu_percentage'] = device_utilization.gpu
+            system_metrics[f'device{global_rank}_memory_percentage'] = device_utilization.memory
+            temperature = pynvml.nvmlDeviceGetTemperature(handle, pynvml.NVML_TEMPERATURE_GPU)
+            system_metrics[f'device{global_rank}_gpu_temperature'] = temperature
 
         # Get metrics for the system
         cpu_percent = psutil.cpu_percent()
