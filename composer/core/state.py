@@ -257,6 +257,7 @@ class State(Serializable):
         rank_zero_seed (int): The seed used on the rank zero process. It is assumed that each rank's seed is
             ``rank_zero_seed + dist.get_global_rank()``.
         run_name (str): The name for this training run.
+        parent_run_id (int): The mlflow run id of rank 0 process.
         device (Device): The device used by this process. The trainer moves the model and loaded data to this device.
         device_train_microbatch_size (int, optional): The microbatch size for each device during training.
         auto_microbatching (bool, optional): Whether automatic microbatching is enabled.
@@ -457,6 +458,7 @@ class State(Serializable):
         self.rank_zero_seed = rank_zero_seed
         self.model = model
         self.run_name = run_name
+        self.parent_run_id = None
         self.device = device
         self.device_train_microbatch_size = device_train_microbatch_size
         self.auto_microbatching = auto_microbatching
