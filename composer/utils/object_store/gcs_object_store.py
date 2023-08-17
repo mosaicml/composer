@@ -29,10 +29,7 @@ def _reraise_gcs_errors(uri: str, e: Exception):
 
     # If it's a google service NotFound error
     if isinstance(e, NotFound):
-        if 'bucket' in e.message:
-            raise FileNotFoundError(f'Bucket {uri} not found.') from e
-        else:
-            raise FileNotFoundError(f'Object {uri} not found.') from e
+        raise FileNotFoundError(f'Object {uri} not found.') from e
 
     # All clienterror (HTTP 4xx) responses
     elif isinstance(e, GatewayTimeout):
