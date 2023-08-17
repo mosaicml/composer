@@ -557,6 +557,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
                 'test_inputs': List[List[str]],
                 'test_outputs': List[List[str]],
                 'entry_points': List[str],
+                'languages': List[str],
                 'generation_kwargs': Dict[str, Any]
             }
             outputs (List[str]): A list of code generations in the format of HF generate with beam search,
@@ -570,28 +571,33 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
 
         num_beams = batch['generation_kwargs']['num_beams']
         processed_outputs = [outputs[i * num_beams:(i + 1) * num_beams] for i in range(len(batch['prompts']))]
-        for sample_outputs, sample_prompt, test_inputs, test_outputs, entry_point in zip(
-                processed_outputs, batch['prompts'], batch['test_inputs'], batch['test_outputs'],
-                batch['entry_points']):
+        payloads = []
+        for sample_outputs, sample_prompt, test_inputs, test_outputs, entry_point, language in zip(
+                processed_outputs, batch['prompts'], batch['test_inputs'], batch['test_outputs'], batch['entry_points'],
+                batch['languages']):
             self.total += torch.tensor(1.0)
+            prompt_payload = []
             for code_gen in sample_outputs:
                 code_gen = re.split(r'\n[A-Za-z0-9#`]', code_gen)[0]  # remove everything after function ends
                 final_code = sample_prompt + code_gen  # combine prompt with the code generation
-                passes_all = True
+                generation_payload = []
                 for test_input, test_output in zip(test_inputs, test_outputs):
                     payload = {
                         'code': final_code,
                         'input': test_input,
                         'output': test_output,
-                        'entry_point': entry_point
+                        'entry_point': entry_point,
+                        'language': language,
                     }
-                    if not client.invoke(payload):
-                        passes_all = False
-                        break
+                    generation_payload.append(payload)
 
-                if passes_all:
-                    self.correct += torch.tensor(1.0)
-                    break
+                prompt_payload.append(generation_payload)
+            payloads.append(prompt_payload)
+
+        results = client.invoke(payloads)
+        passes = sum(
+            [any(all(generation_payload) for generation_payload in prompt_payload) for prompt_payload in results])
+        self.correct += torch.tensor(float(passes))
         client.close()  # pyright: ignore [reportOptionalMemberAccess]
 
     def compute(self):
