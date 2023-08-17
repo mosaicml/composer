@@ -12,6 +12,7 @@ import copy
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
+import pandas as pd
 from torch import Tensor
 
 from composer.core.time import Time
@@ -65,9 +66,14 @@ class InMemoryLogger(LoggerDestination):
         self.most_recent_timestamps: Dict[str, Timestamp] = {}
         self.state: Optional[State] = None
         self.hyperparameters: Dict[str, Any] = {}
+        self.tables: Dict[str, List[pd.DataFrame]] = {}
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         self.hyperparameters.update(hyperparameters)
+
+    def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
+        table = pd.DataFrame.from_records(data=rows, columns=columns)
+        self.tables[name] = table
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         assert self.state is not None
