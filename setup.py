@@ -87,7 +87,7 @@ install_requires = [
     'py-cpuinfo>=8.0.0,<10',
     'packaging>=21.3.0,<23',
     'importlib-metadata>=5.0.0,<7',
-    'mosaicml-cli>=0.4.12,<0.6',
+    'mosaicml-cli>=0.4.12,<0.5',
 ]
 extra_deps = {}
 
@@ -99,12 +99,12 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
     'junitparser==3.1.0',
-    'coverage[toml]==7.3.0',
+    'coverage[toml]==7.2.7',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.0',
     'toml==0.10.2',
     'ipython==8.11.0',
-    'ipykernel==6.25.1',
+    'ipykernel==6.24.0',
     'jupyter==1.0.0',
     'yamllint==1.32.0',
     'recommonmark==0.7.1',
@@ -132,7 +132,7 @@ extra_deps['dev'] = [
     'GitPython==3.1.31',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
-    'cryptography==41.0.3',
+    'cryptography==38.0.4',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
 ]
@@ -158,6 +158,10 @@ extra_deps['comet_ml'] = [
     'comet_ml>=3.31.12,<4.0.0',
 ]
 
+extra_deps['neptune'] = [
+    'neptune >= 1.0.0',
+]
+
 extra_deps['tensorboard'] = [
     'tensorboard>=2.9.1,<3.0.0',
 ]
@@ -180,7 +184,7 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<4.32',
+    'transformers>=4.11,<4.31',
     'datasets>=2.4,<3',
 ]
 
@@ -207,10 +211,6 @@ extra_deps['libcloud'] = [
 
 extra_deps['oci'] = [
     'oci>=2.88.2,<3.0.0',
-]
-
-extra_deps['gcs'] = [
-    'google-cloud-storage>=2.0.0,<3.0',
 ]
 
 extra_deps['onnx'] = [

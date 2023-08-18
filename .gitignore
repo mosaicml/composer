@@ -136,6 +136,9 @@ venv/
 # WandB
 wandb/
 
+# Neptune
+.neptune/
+
 # Spacemacs
 ._#*
 .#*
