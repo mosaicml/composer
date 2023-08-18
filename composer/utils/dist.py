@@ -96,6 +96,11 @@ def _tensor_to_object(tensor, tensor_size):
 
 def all_gather_object_list_hpu(object_list, obj, group=None):
     """
+    This function is a modified version of
+    https://github.com/pytorch/pytorch/blob/main/torch/distributed/distributed_c10d.py
+    which should be used only for habana devices, for other devices continue using
+    original version of this function.
+
     Gathers picklable objects from the whole group into a list. Similar to
     :func:`all_gather`, but Python objects can be passed in. Note that the object
     must be picklable in order to be gathered.
@@ -141,10 +146,6 @@ def all_gather_object_list_hpu(object_list, obj, group=None):
         >>> output
         ['foo', 12, {1: 2}]
     """
-    #if _rank_not_in_group(group):
-    #    _warn_not_in_group("all_gather_object")
-    #    return
-
     current_device = torch.device("hpu")
     input_tensor, local_size = _object_to_tensor(obj, current_device)
     # Gather all local sizes. This is so that we can find the max size, and index
