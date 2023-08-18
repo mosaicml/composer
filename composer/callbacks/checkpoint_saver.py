@@ -9,6 +9,7 @@ import logging
 import math
 import os
 import pathlib
+import shutil
 import tempfile
 import textwrap
 from pathlib import Path
@@ -485,9 +486,8 @@ class CheckpointSaver(Callback):  # noqa: D101
             prefix_dir = None
             checkpoint = self.saved_checkpoints.pop(0)
             prefix_dir = str(Path(checkpoint).parent)
-            os.remove(checkpoint)
-            if sharding_enabled and dist.get_global_rank() == 0:
-                if using_torch_2():
-                    metadata_file = os.path.join(prefix_dir, _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME)
-                    os.remove(metadata_file)
-                os.removedirs(prefix_dir)
+            if not sharding_enabled:
+                os.remove(checkpoint)
+            else:
+                if dist.get_global_rank() == 0:
+                    shutil.rmtree(prefix_dir)
