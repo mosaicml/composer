@@ -95,12 +95,10 @@ def _tensor_to_object(tensor, tensor_size):
 
 
 def all_gather_object_list_hpu(object_list, obj, group=None):
-    """
-    This function is a modified version of
-    https://github.com/pytorch/pytorch/blob/main/torch/distributed/distributed_c10d.py
-    which should be used only for habana devices, for other devices continue using
-    original version of this function.
+    """Use this only for habana devices, for other devices use all_gather_object.
 
+    Function is a modified version of
+    https://github.com/pytorch/pytorch/blob/main/torch/distributed/distributed_c10d.py.
     Gathers picklable objects from the whole group into a list. Similar to
     :func:`all_gather`, but Python objects can be passed in. Note that the object
     must be picklable in order to be gathered.
@@ -146,26 +144,26 @@ def all_gather_object_list_hpu(object_list, obj, group=None):
         >>> output
         ['foo', 12, {1: 2}]
     """
-    current_device = torch.device("hpu")
+    current_device = torch.device('hpu')
     input_tensor, local_size = _object_to_tensor(obj, current_device)
     # Gather all local sizes. This is so that we can find the max size, and index
     # until the correct size when deserializing the tensors.
-    group_size = torch.distributed.get_world_size(group=group)
+    group_size = dist.get_world_size(group=group)
     object_sizes_tensor = torch.zeros(group_size, dtype=torch.long, device=current_device)
     object_size_list = [object_sizes_tensor[i].unsqueeze(dim=0) for i in range(group_size)]
     # Allgather tensor sizes
-    torch.distributed.all_gather(object_size_list, local_size, group=group)
+    dist.all_gather(object_size_list, local_size, group=group)
     max_object_size = int(max(object_size_list).item())  # type: ignore[type-var]
     # Resize tensor to max size across all ranks.
     input_tensor.resize_(max_object_size)
     coalesced_output_tensor = torch.empty(max_object_size * group_size, dtype=torch.bfloat16, device=current_device)
     # Output tensors are nonoverlapping views of coalesced_output_tensor
     output_tensors = [coalesced_output_tensor[max_object_size * i:max_object_size * (i + 1)] for i in range(group_size)]
-    torch.distributed.all_gather(output_tensors, input_tensor.to(torch.bfloat16), group=group)
+    dist.all_gather(output_tensors, input_tensor.to(torch.bfloat16), group=group)
     # Deserialize outputs back to object.
     for i, tensor in enumerate(output_tensors):
         tensor = tensor.type(torch.uint8)
-        if tensor.device != torch.device("cpu"):
+        if tensor.device != torch.device('cpu'):
             tensor = tensor.cpu()
         tensor_size = object_size_list[i]
         object_list[i] = _tensor_to_object(tensor, tensor_size)

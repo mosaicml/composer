@@ -45,7 +45,6 @@ def get_device(device: Optional[Union[str, 'Device']]) -> 'Device':
         elif device.lower() == 'hpu':
             if not is_hpu_installed():
                 raise ImportError('Unable to import habana-torch-plugin.')
-            import habana_frameworks
             device = DeviceHPU()
         else:
             raise ValueError(f'device ({device}) must be one of (cpu, gpu, mps, tpu, hpu).')
