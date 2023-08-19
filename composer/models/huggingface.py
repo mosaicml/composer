@@ -8,7 +8,9 @@ from __future__ import annotations
 import inspect
 import json
 import logging
+import random
 import os
+import string
 import tempfile
 import textwrap
 from pathlib import Path
@@ -164,7 +166,8 @@ class HuggingFaceModel(ComposerModel):
         hf_tokenizer_state = hf_state['tokenizer']
         if hf_tokenizer_state != {}:
             if tokenizer_save_dir is None:
-                tokenizer_save_dir = os.path.join(os.getcwd(), 'tokenizer-save-dir')
+                unique_suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+                tokenizer_save_dir = os.path.join(os.getcwd(), f'tokenizer-save-dir={unique_suffix}')
             os.makedirs(tokenizer_save_dir, exist_ok=True)
 
             for filename, saved_content in hf_tokenizer_state.items():
