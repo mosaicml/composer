@@ -31,7 +31,7 @@ class SystemMetricsMonitor(Callback):
         # Not relying on `torch.cuda.is_available()` since the model could be on CPU.
         model_device = next(state.model.parameters()).device
 
-        if model_device.type != 'cuda':
+        if model_device.type == 'cuda':
             try:
                 import pynvml
             except ImportError as e:
