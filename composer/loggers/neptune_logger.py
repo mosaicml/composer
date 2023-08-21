@@ -8,6 +8,8 @@
 
 __all__ = ['NeptuneLogger']
 
+import pathlib
+import warnings
 from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Union
 
 import numpy as np
@@ -124,6 +126,31 @@ class NeptuneLogger(LoggerDestination):
         assert self._base_handler is not None
 
         self._base_handler[NeptuneLogger.TRACE_NAMESPACE] = stringify_unsupported(traces)
+
+    def upload_file(
+        self,
+        state: 'State',
+        remote_file_name: str,
+        file_path: pathlib.Path,
+        *,
+        overwrite: bool,
+    ):
+        if not self._enabled:
+            return
+
+        assert self._neptune_run is not None
+
+        neptune_path = f'{self._base_namespace}/{remote_file_name}'
+        if self._neptune_run.exists(neptune_path) and not overwrite:
+
+            warnings.warn(f"The file '{neptune_path}' already exists and overwrite is set to False."
+                          'No action will be taken.')
+            return
+
+        del state  # unused
+
+        assert self._base_handler is not None
+        self._base_handler[remote_file_name].upload(str(file_path))
 
     def log_images(
         self,
