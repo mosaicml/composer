@@ -19,6 +19,8 @@ ARG PYTHON_VERSION=3.10
 
 # The Pytorch Version to install
 ARG PYTORCH_VERSION=1.13.1
+# The URL to download the Pytorch nightly version from. If this is set, PYTORCH_VERSION is ignored
+ARG PYTORCH_NIGHTLY_URL=''
 
 # The Torchvision version to install.
 # Reference https://github.com/pytorch/vision#installation to determine the Torchvision
@@ -215,13 +217,23 @@ ARG TORCHTEXT_VERSION
 
 # Set so supporting PyTorch packages such as Torchvision, Torchaudio, Torchtext pin PyTorch version
 ENV PYTORCH_VERSION=${PYTORCH_VERSION}
+ENV PYTORCH_NIGHTLY_URL=${PYTORCH_NIGHTLY_URL}
 
-RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
-    pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
-        torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
-        torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} \
-        torchtext==${TORCHTEXT_VERSION}
+RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
+      echo "Pytorch nightly url is empty"; \
+      CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
+        pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
+            torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
+            torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} \
+            torchtext==${TORCHTEXT_VERSION} ; \
+    fi
+RUN 
 
+RUN if [ -n "$PYTORCH_NIGHTLY_URL" ] ; then \
+      echo "Pytorch nightly url is not empty"; \
+      pip${PYTHON_VERSION} install -U --pre torch torchvision torchaudio -f ${PYTORCH_NIGHTLY_URL} ; \ 
+    fi
+RUN 
 #####################################
 # Install EFA and AWS-OFI-NCCL plugin
 #####################################

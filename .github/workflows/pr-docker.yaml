@@ -54,6 +54,7 @@ jobs:
         PYTORCH_VERSION=${{ matrix.PYTORCH_VERSION }}
         TORCHTEXT_VERSION=${{ matrix.TORCHTEXT_VERSION }}
         TORCHVISION_VERSION=${{ matrix.TORCHVISION_VERSION }}
+        PYTORCH_NIGHTLY_URL=${{ matrix.PYTORCH_NIGHTLY_URL }}
       context: ./docker
       image-name: ${{ matrix.IMAGE_NAME }}
       image-uuid: ${{ matrix.UUID }}
