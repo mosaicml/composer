@@ -289,8 +289,8 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
 # Install NVIDIA Apex
 #####################
 RUN if [ -n "$CUDA_VERSION"] ; then \
-        && if [ -z "$PYTORCH_NIGHTLY_URL" ]; then \
-           mkdir -p /tmp/apex && \
+        && if [ -z "${PYTORCH_NIGHTLY_URL}" ]; then
+            mkdir -p /tmp/apex && \
             cd /tmp/apex && \
             git clone https://github.com/NVIDIA/apex && \
             cd apex && \
