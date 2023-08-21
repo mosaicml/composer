@@ -19,8 +19,6 @@ ARG PYTHON_VERSION=3.10
 
 # The Pytorch Version to install
 ARG PYTORCH_VERSION=1.13.1
-# The URL to download the Pytorch nightly version from. If this is set, PYTORCH_VERSION is ignored
-ARG PYTORCH_NIGHTLY_URL=''
 
 # The Torchvision version to install.
 # Reference https://github.com/pytorch/vision#installation to determine the Torchvision
@@ -93,6 +91,10 @@ ARG DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-c"]
 
 ARG CUDA_VERSION
+
+# The URL to download the Pytorch nightly version from. If this is set, PYTORCH_VERSION is ignored
+ARG PYTORCH_NIGHTLY_URL
+RUN echo "Pytorch nightly url is ${PYTORCH_NIGHTLY_URL}"
 
 # Remove a bad symlink from the base composer image
 # If this file is present after the first command, kaniko
