@@ -15,6 +15,7 @@ from composer.core.time import Time, TimeUnit
 from composer.loggers.logger import Logger, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
+from composer.utils.import_helpers import MissingConditionalImportError
 
 if TYPE_CHECKING:
     from composer.core import State
@@ -81,7 +82,12 @@ class ConsoleLogger(LoggerDestination):
         self.hparams.update(hyperparameters)
 
     def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
-        import pandas as pd
+        try:
+            import pandas as pd
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='pandas',
+                                                conda_package='pandas',
+                                                conda_channel='conda-forge') from e
         table = pd.DataFrame.from_records(data=rows, columns=columns).to_json(orient='split', index=False)
         self.tables[name] = str(table)
 

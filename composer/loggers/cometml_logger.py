@@ -101,7 +101,13 @@ class CometMLLogger(LoggerDestination):
     def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
         if self._enabled:
             assert self.experiment is not None
-            import pandas as pd
+            try:
+                import pandas as pd
+            except ImportError as e:
+                raise MissingConditionalImportError(extra_deps_group='pandas',
+                                                    conda_package='pandas',
+                                                    conda_channel='conda-forge') from e
+
             table = pd.DataFrame.from_records(data=rows, columns=columns)
             self.experiment.log_table(filename=f'{name}.json', tabular_data=table, orient='split',
                                       index=False)  # formatting to be consistent with mlflow and wandb json formats

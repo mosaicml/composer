@@ -90,7 +90,12 @@ class MLFlowLogger(LoggerDestination):
     def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
         if self._enabled:
             import mlflow
-            import pandas as pd
+            try:
+                import pandas as pd
+            except ImportError as e:
+                raise MissingConditionalImportError(extra_deps_group='pandas',
+                                                    conda_package='pandas',
+                                                    conda_channel='conda-forge') from e
             table = pd.DataFrame.from_records(data=rows, columns=columns)
             mlflow.log_table(table, f'{name}.json')
 

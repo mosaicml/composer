@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TextIO
 from composer.loggers.logger import Logger, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import FORMAT_NAME_WITH_DIST_TABLE, format_name_with_dist
+from composer.utils.import_helpers import MissingConditionalImportError
 
 if TYPE_CHECKING:
     from composer.core import State
@@ -185,7 +186,12 @@ class FileLogger(LoggerDestination):  # noqa: D101
                 )
 
     def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
-        import pandas as pd
+        try:
+            import pandas as pd
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='pandas',
+                                                conda_package='pandas',
+                                                conda_channel='conda-forge') from e
         table = pd.DataFrame.from_records(columns=columns, data=rows).to_json(orient='split', index=False)
         self.write('[table]: ', f'{name}: {table}\n')
 

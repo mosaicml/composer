@@ -17,6 +17,7 @@ from torch import Tensor
 from composer.core.time import Time
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
+from composer.utils.import_helpers import MissingConditionalImportError
 
 if TYPE_CHECKING:
     from composer.core import State, Timestamp
@@ -56,6 +57,7 @@ class InMemoryLogger(LoggerDestination):
         most_recent_timestamps (Dict[str, Timestamp]): Mapping of a key to the
             :class:`~.time.Timestamp` of the last logging call for that key.
         hyperparameters (Dict[str, Any]): Dictionary of all hyperparameters.
+        tables (Dict[str, str]): Dictionary of table name to json table.
 
     """
 
@@ -65,14 +67,19 @@ class InMemoryLogger(LoggerDestination):
         self.most_recent_timestamps: Dict[str, Timestamp] = {}
         self.state: Optional[State] = None
         self.hyperparameters: Dict[str, Any] = {}
-        self.tables: Dict[str, List[pd.DataFrame]] = {}
+        self.tables: Dict[str, str] = {}
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         self.hyperparameters.update(hyperparameters)
 
     def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
-        import pandas as pd
-        table = pd.DataFrame.from_records(data=rows, columns=columns)
+        try:
+            import pandas as pd
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='pandas',
+                                                conda_package='pandas',
+                                                conda_channel='conda-forge') from e
+        table = pd.DataFrame.from_records(data=rows, columns=columns).to_json(orient='split', index=False)
         self.tables[name] = table
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
