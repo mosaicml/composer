@@ -282,7 +282,6 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
 # Install NVIDIA Apex
 #####################
 RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \ 
-        echo 'Installing NVIDIA Ape cause "${CUDA_VERSION}" is nonempty and "${PYTORCH_NIGHTLY_URL}" is empty' && \
         mkdir -p /tmp/apex && \
         cd /tmp/apex && \
         git clone https://github.com/NVIDIA/apex && \
