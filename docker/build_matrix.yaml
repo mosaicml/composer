@@ -7,12 +7,12 @@
   PYTHON_VERSION: '3.10'
   PYTORCH_VERSION: 2.1.0
   PYTORCH_NIGHTLY_URL: https://download.pytorch.org/whl/nightly/cu121 # https://download.pytorch.org/whl/nightly/cu121/torch-2.1.0.dev20230818%2Bcu121-cp310-cp310-linux_x86_64.whl
-  PYTORCH_NIGHTLY_VERSION: 2.1.0.dev20230821+cu121
+  PYTORCH_NIGHTLY_VERSION: dev20230623+cu121
   TAGS:
   - mosaicml/pytorch_nightly:2.1.0_cu121-python3.10-ubuntu20.04
   TARGET: pytorch_stage
-  TORCHTEXT_VERSION: 0.15.2
-  TORCHVISION_VERSION: 0.15.2
+  TORCHTEXT_VERSION: 0.16.0
+  TORCHVISION_VERSION: 0.16.0
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 11.8.0
