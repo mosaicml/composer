@@ -230,7 +230,6 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
         pip${PYTHON_VERSION} install -U --pre torch -f ${PYTORCH_NIGHTLY_URL} ; \ 
         pip${PYTHON_VERSION} install -U --pre torchvision==${TORCHVISION_VERSION} torchtext==${TORCHTEXT_VERSION} ; \ 
     fi
-    #pip install -U --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu121
 RUN
 #####################################
 # Install EFA and AWS-OFI-NCCL plugin
@@ -301,7 +300,10 @@ RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \
 # Install Flash Attention
 ##########################
 RUN if [ -n "$CUDA_VERSION" ] ; then \
-        pip${PYTHON_VERSION} install --no-cache-dir packaging==22.0 flash-attn==1.0.3.post0; \
+        ninja --version && \
+        echo $? && \
+        pip${PYTHON_VERSION} install --no-cache-dir packaging==22.0 && \
+        pip${PYTHON_VERSION} install --no-cache-dir flash-attn==1.0.3.post0; \
     fi
 
 ###############
