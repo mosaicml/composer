@@ -226,18 +226,11 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
             torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
             torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} \
             torchtext==${TORCHTEXT_VERSION} ; \
+    else \
+        pip${PYTHON_VERSION} install -U --pre torch -f ${PYTORCH_NIGHTLY_URL} ; \ 
+        pip${PYTHON_VERSION} install -U --pre torchvision==${TORCHVISION_VERSION} torchtext==${TORCHTEXT_VERSION} ; \ 
     fi
-RUN 
-
-RUN if [ -n "$PYTORCH_NIGHTLY_URL" ] ; then \
-      pip${PYTHON_VERSION} install -U --pre torch -f ${PYTORCH_NIGHTLY_URL} ; \ 
-    fi
-RUN 
-
-RUN if [ -n "$PYTORCH_NIGHTLY_URL" ] ; then \
-      pip${PYTHON_VERSION} install -U --pre torchvision==${TORCHVISION_VERSION} torchtext==${TORCHTEXT_VERSION} ; \ 
-    fi
-RUN 
+RUN
 #####################################
 # Install EFA and AWS-OFI-NCCL plugin
 #####################################
