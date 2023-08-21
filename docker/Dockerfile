@@ -230,14 +230,12 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
 RUN 
 
 RUN if [ -n "$PYTORCH_NIGHTLY_URL" ] ; then \
-    CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
       pip${PYTHON_VERSION} install -U --pre torch -f ${PYTORCH_NIGHTLY_URL} ; \ 
     fi
 RUN 
 
 RUN if [ -n "$PYTORCH_NIGHTLY_URL" ] ; then \
-    CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
-      pip${PYTHON_VERSION} install -U --pre torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} torchtext==${TORCHTEXT_VERSION} ; \ 
+      pip${PYTHON_VERSION} install -U --pre torchvision==${TORCHVISION_VERSION} torchtext==${TORCHTEXT_VERSION} ; \ 
     fi
 RUN 
 #####################################
