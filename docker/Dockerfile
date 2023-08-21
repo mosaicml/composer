@@ -300,9 +300,9 @@ RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \
 # Install Flash Attention
 ##########################
 RUN if [ -n "$CUDA_VERSION" ] ; then \
-        pip${PYTHON_VERSION} install --no-cache-dir ninja==1.11.1 && \
-        ninja --version && \
-        echo $? && \
+        # pip${PYTHON_VERSION} install --no-cache-dir ninja==1.11.1 && \
+        # ninja --version && \
+        # echo $? && \
         pip${PYTHON_VERSION} install --no-cache-dir packaging==22.0 && \
         pip${PYTHON_VERSION} install --no-cache-dir flash-attn==1.0.3.post0; \
     fi
