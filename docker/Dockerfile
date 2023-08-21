@@ -213,12 +213,14 @@ RUN pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
 # Install Pytorch
 #################
 ARG PYTORCH_VERSION
+ARG PYTORCH_NIGHTLY_VERSION
 ARG TORCHVISION_VERSION
 ARG TORCHTEXT_VERSION
 
 # Set so supporting PyTorch packages such as Torchvision, Torchaudio, Torchtext pin PyTorch version
 ENV PYTORCH_VERSION=${PYTORCH_VERSION}
 ENV PYTORCH_NIGHTLY_URL=${PYTORCH_NIGHTLY_URL}
+ENV PYTORCH_NIGHTLY_VERSION=${PYTORCH_NIGHTLY_VERSION}
 
 RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
       CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
@@ -227,10 +229,10 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
             torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} \
             torchtext==${TORCHTEXT_VERSION} ; \
     else \
-        pip3 install --no-cache-dir --pre --index-url ${PYTORCH_NIGHTLY_URL} \
-            torch==${PYTORCH_VERSION} \
+        pip${PYTHON_VERSION} install --no-cache-dir --pre --index-url ${PYTORCH_NIGHTLY_URL} \
+            torch==${PYTORCH_NIGHTLY_VERSION} \
             torchvision \
-            torchtext \
+            torchtext ; \
     fi
 RUN
 #####################################
@@ -303,8 +305,6 @@ RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \
 ##########################
 RUN if [ -n "$CUDA_VERSION" ] ; then \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir ninja==1.11.1 && \
-        ninja --version && \
-        echo $? && \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir --force-reinstall packaging==22.0 && \
         pip${PYTHON_VERSION} install --no-cache-dir flash-attn==1.0.3.post0; \
     fi
