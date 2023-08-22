@@ -522,7 +522,7 @@ def _raise_if_warmup_and_max_duration_incompatible(t_warmup: Union[str, Time], t
                                                            t_max.unit == TimeUnit('ba'))
     if not units_same and not warmup_is_dur and not batches_vs_epochs:
         raise ValueError(f'Cannot use warmup scheduler with max_duration {t_max} and warmup {t_warmup}. '
-                         't_warmup units must be the same as max_duration units, warmup must be in units "dur". '
+                         't_warmup units must be the same as max_duration units, warmup must be in units "dur", '
                          'max_duration must be "ba" and t_warmup "ep", or max_duration must be "ep" and t_warmup "ba".')
 
 
