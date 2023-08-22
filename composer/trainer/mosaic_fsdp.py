@@ -194,6 +194,7 @@ def set_custom_fsdp_module_kwargs(module_kwargs: Dict, process_group_cache: Dict
     return module_kwargs
 
 print(f'\n\n\n {torch.__version__=}, {version.parse(torch.__version__)=} \n\n\n')
+print(f"\n\n\n Torch 2.0 {version.parse(torch.__version__) < version.parse('2.0.0')} Torch 2.0.1 {version.parse(torch.__version__) < version.parse('2.1.0')} Torch 2.1 {version.parse(torch.__version__) < version.parse('2.1.1')}")
 
 if version.parse(torch.__version__) < version.parse('1.13.1'):
     raise NotImplementedError(f'Not supported for torch < 1.13.1')
