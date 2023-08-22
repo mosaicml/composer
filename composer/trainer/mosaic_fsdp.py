@@ -628,7 +628,9 @@ elif version.parse(torch.__version__) < version.parse('2.1.1'):
         wrapper_cls: Callable,
         ignored_modules: Set[nn.Module],
         ignored_params: Set[nn.Parameter],
+        ### BEGIN CHANGE
         process_group_cache: Dict[Tuple[int], Any],
+        ### END CHANGE
         only_wrap_children: bool = False,
         **kwargs: Any,
     ) -> Tuple[nn.Module, int]:
@@ -683,6 +685,9 @@ elif version.parse(torch.__version__) < version.parse('2.1.1'):
                     wrapper_cls=wrapper_cls,
                     ignored_modules=ignored_modules,
                     ignored_params=ignored_params,
+                    ### BEGIN CHANGE
+                    process_group_cache=process_group_cache,
+                    ### END CHANGE
                     **kwargs,
                 )
                 setattr(module, name, wrapped_child)
