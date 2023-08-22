@@ -100,8 +100,6 @@ def _get_fewshot_sample_idxs(dataset_size: int, num_fewshot: int, sample_idx: in
     return fewshot_idxs
 
 
-
-
 class InContextLearningQATaskDataset(Dataset):
     """A dataset that construct batches for in-context learning question answering evaluation
 
@@ -140,7 +138,7 @@ class InContextLearningQATaskDataset(Dataset):
         destination_path: str,
         question_prelimiter: str,
         fewshot_random_seed: int,
-        cot_delimiter: str = "",
+        cot_delimiter: str = '',
     ):
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
@@ -153,12 +151,13 @@ class InContextLearningQATaskDataset(Dataset):
                 get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
         self.samples = list(
-            dataset.map(lambda examples: {
-                'context': examples['context'],
-                'answer': examples['answer'],
-                'aliases': [examples['answer']] + examples.get('aliases', []),
-                'chain_of_thought': examples.get('chain_of_thought', '')
-            }))
+            dataset.map(
+                lambda examples: {
+                    'context': examples['context'],
+                    'answer': examples['answer'],
+                    'aliases': [examples['answer']] + examples.get('aliases', []),
+                    'chain_of_thought': examples.get('chain_of_thought', '')
+                }))
         self.samples = strip_data(self.samples)
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
@@ -167,7 +166,7 @@ class InContextLearningQATaskDataset(Dataset):
         self.max_answer_length = 0
         fewshot_rng = random.Random(fewshot_random_seed)
         self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
-                                                  question_prelimiter,cot_delimiter, fewshot_rng)
+                                                  question_prelimiter, cot_delimiter, fewshot_rng)
 
     def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
                       question_prelimiter: str, cot_delimiter: str, fewshot_rng: random.Random):
@@ -198,11 +197,9 @@ class InContextLearningQATaskDataset(Dataset):
             if num_fewshot > 0:
                 fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx, fewshot_rng)
                 for fewshot_idx in fewshot_idxs:
-                    ctxt, cot, cont = (
-                        self.samples[fewshot_idx]['context'],
-                        self.samples[fewshot_idx].get('chain_of_thought', ''),
-                        self.samples[fewshot_idx]['answer']
-                    )
+                    ctxt, cot, cont = (self.samples[fewshot_idx]['context'],
+                                       self.samples[fewshot_idx].get('chain_of_thought',
+                                                                     ''), self.samples[fewshot_idx]['answer'])
                     if len(cot) == 0:
                         cot_delimiter = ''
                     ctxt = f'{question_prelimiter}{ctxt}'
@@ -247,7 +244,7 @@ class InContextLearningQATaskDataset(Dataset):
 
     def collate_fn(self, data):
         inputs, answers = [], []
-        cot_delimiter = ""
+        cot_delimiter = ''
 
         for sample in data:
             preamble, context, aliases = (sample['preamble'], sample['context'], sample['aliases'])
@@ -286,9 +283,9 @@ class InContextLearningQATaskDataset(Dataset):
         # Don't split kwargs that don't change
         # Normally split torch tensors
         # List split lists of strings
-        no_split = ['mode', 'generation_length', 'generation_kwargs']
+        no_split = ['mode', 'generation_length', 'generation_kwargs', 'cot_delimiter']
         normal_split = ['input_ids', 'attention_mask']
-        list_split = ['labels', 'cot_delimiter']
+        list_split = ['labels']
         chunked = {}
         for k, v in batch.items():
             if k in no_split:
@@ -1334,7 +1331,8 @@ def get_icl_task_dataloader(
                 example_delimiter,
                 continuation_delimiter,
                 partition_uri + '_tmp',
-                question_prelimiter,                cot_delimiter,
+                question_prelimiter,
+                cot_delimiter,
                 fewshot_random_seed,
                 generations_per_sample,
             )
@@ -1353,7 +1351,7 @@ def get_icl_task_dataloader(
             continuation_delimiter,
             destination_path,
             question_prelimiter,
-                        cot_delimiter,
+            cot_delimiter,
             fewshot_random_seed,
             generations_per_sample,
         )

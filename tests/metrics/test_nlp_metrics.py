@@ -228,11 +228,24 @@ def test_in_context_learning_lm_ece(tiny_gpt2_tokenizer):
 def test_in_context_learning_qa_accuracy():
     outputs = ['Correct but then some more text', 'Incorrect', ' the CORREct with weird casing and spacing']
     labels = [['Correct'], ['blah', 'blah2'], ['blah', 'correct']]
-
+    batch = {'cot_delimiter': '', 'labels': labels}
     metric = InContextLearningQAAccuracy()
-    metric.update(outputs, labels)
+    metric.update(batch, outputs, labels)
 
     assert metric.compute() == (2 / 3)
+
+
+def test_in_context_learning_qa_cot_accuracy():
+    outputs = [
+        'chain of thought ### Correct but then some more text', 'Incorrect',
+        'chain of thought ### the CORREct with weird casing and spacing', 'Correct but missing chain of thought'
+    ]
+    labels = [['Correct'], ['blah', 'blah2'], ['blah', 'correct'], ['correct']]
+    batch = {'cot_delimiter': ' ### ', 'labels': labels}
+    metric = InContextLearningQAAccuracy()
+    metric.update(batch, outputs, labels)
+
+    assert metric.compute() == (2 / 4)
 
 
 def test_in_context_learning_code_eval_accuracy(monkeypatch):
