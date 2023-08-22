@@ -100,6 +100,8 @@ def _get_fewshot_sample_idxs(dataset_size: int, num_fewshot: int, sample_idx: in
     return fewshot_idxs
 
 
+
+
 class InContextLearningQATaskDataset(Dataset):
     """A dataset that construct batches for in-context learning question answering evaluation
 
@@ -138,6 +140,7 @@ class InContextLearningQATaskDataset(Dataset):
         destination_path: str,
         question_prelimiter: str,
         fewshot_random_seed: int,
+        cot_delimiter: str = "",
     ):
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
@@ -153,7 +156,8 @@ class InContextLearningQATaskDataset(Dataset):
             dataset.map(lambda examples: {
                 'context': examples['context'],
                 'answer': examples['answer'],
-                'aliases': examples['aliases']
+                'aliases': [examples['answer']] + examples.get('aliases', []),
+                'chain_of_thought': examples.get('chain_of_thought', '')
             }))
         self.samples = strip_data(self.samples)
         self.tokenizer = tokenizer
@@ -163,10 +167,10 @@ class InContextLearningQATaskDataset(Dataset):
         self.max_answer_length = 0
         fewshot_rng = random.Random(fewshot_random_seed)
         self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
-                                                  question_prelimiter, fewshot_rng)
+                                                  question_prelimiter,cot_delimiter, fewshot_rng)
 
     def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
-                      question_prelimiter: str, fewshot_rng: random.Random):
+                      question_prelimiter: str, cot_delimiter: str, fewshot_rng: random.Random):
         """Prepares a set of language modeling tasks into tokenized format with prompt and fewshot examples.
 
         Each task consists of a context and a continuation as well as an optional prompt and optional list of
@@ -178,6 +182,7 @@ class InContextLearningQATaskDataset(Dataset):
             example_delimiter (str): The delimiter used to separate each individual context/continuation pair
             continuation_delimiter (str): The delimiter used to separate each context from its continuation
             question_prelimiter (str): The text to prepend to each question
+            cot_delimiter (str): The delimiter used to separate the chain-of-thought (if present) from the final model response.
             fewshot_rng (random.Random): Random number generator to use for fewshot sampling
 
         Returns:
@@ -193,11 +198,17 @@ class InContextLearningQATaskDataset(Dataset):
             if num_fewshot > 0:
                 fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx, fewshot_rng)
                 for fewshot_idx in fewshot_idxs:
-                    ctxt, cont = self.samples[fewshot_idx]['context'], self.samples[fewshot_idx]['answer']
+                    ctxt, cot, cont = (
+                        self.samples[fewshot_idx]['context'],
+                        self.samples[fewshot_idx].get('chain_of_thought', ''),
+                        self.samples[fewshot_idx]['answer']
+                    )
+                    if len(cot) == 0:
+                        cot_delimiter = ''
                     ctxt = f'{question_prelimiter}{ctxt}'
                     if len(preamble) > 0:
                         ctxt = f'{example_delimiter}{ctxt}'
-                    preamble += f'{ctxt}{continuation_delimiter}{cont}'
+                    preamble += f'{ctxt}{continuation_delimiter}{cot}{cot_delimiter}{cont}'
 
             ctxt = self.samples[sample_idx]['context']
             ctxt = f'{question_prelimiter}{ctxt}'
@@ -217,8 +228,8 @@ class InContextLearningQATaskDataset(Dataset):
                 encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
 
             encoded_example['context'] = self.tokenizer(ctxt, add_special_tokens=False)
-            encoded_example['aliases'] = self.samples[sample_idx]['aliases']
-
+            encoded_example['aliases'] = list(set(self.samples[sample_idx]['aliases']))
+            encoded_example['cot_delimiter'] = cot_delimiter
             examples.append(encoded_example)
 
             max_answer_length = max(
@@ -236,6 +247,7 @@ class InContextLearningQATaskDataset(Dataset):
 
     def collate_fn(self, data):
         inputs, answers = [], []
+        cot_delimiter = ""
 
         for sample in data:
             preamble, context, aliases = (sample['preamble'], sample['context'], sample['aliases'])
@@ -248,10 +260,15 @@ class InContextLearningQATaskDataset(Dataset):
             inputs.append(inp)
             answers.append(aliases)
 
+            # we will search for the answer within the portion of the model response
+            # beginning with `cot_delimiter`
+            cot_delimiter = sample['cot_delimiter']
+
         batch = {
             'input_ids': torch.stack(inputs),
             'mode': 'generate',
             'labels': answers,
+            'cot_delimiter': cot_delimiter,
             'generation_length': self.max_answer_length,
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
@@ -271,7 +288,7 @@ class InContextLearningQATaskDataset(Dataset):
         # List split lists of strings
         no_split = ['mode', 'generation_length', 'generation_kwargs']
         normal_split = ['input_ids', 'attention_mask']
-        list_split = ['labels']
+        list_split = ['labels', 'cot_delimiter']
         chunked = {}
         for k, v in batch.items():
             if k in no_split:
@@ -1100,6 +1117,7 @@ def build_icl_dataloader(
     continuation_delimiter: str,  # e.g. ''
     destination_path: str,
     question_prelimiter: str = '',  # e.g. 'Question: '
+    cot_delimiter: str = '',
     fewshot_random_seed: int = 1234,
     generations_per_sample: int = 1,
 ) -> DataSpec:
@@ -1152,7 +1170,8 @@ def build_icl_dataloader(
                                                  continuation_delimiter,
                                                  destination_path=destination_path,
                                                  question_prelimiter=question_prelimiter,
-                                                 fewshot_random_seed=fewshot_random_seed)
+                                                 fewshot_random_seed=fewshot_random_seed,
+                                                 cot_delimiter=cot_delimiter)
         effective_batchsize = batch_size
     elif icl_task_type == 'code_evaluation':
         dataset = InContextLearningCodeEvalDataset(dataset_uri,
@@ -1249,6 +1268,7 @@ def get_icl_task_dataloader(
         question_prelimiter: str = '',  # e.g. 'Question: '
         fewshot_random_seed: int = 1234,
         generations_per_sample: int = 1,
+        cot_delimiter: str = '',
         has_categories: bool = False) -> Union[DataSpec, Dict[str, DataSpec]]:
     """This constructs a dataloader (or dataloaders if has_categories is True) capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
 
@@ -1314,7 +1334,7 @@ def get_icl_task_dataloader(
                 example_delimiter,
                 continuation_delimiter,
                 partition_uri + '_tmp',
-                question_prelimiter,
+                question_prelimiter,                cot_delimiter,
                 fewshot_random_seed,
                 generations_per_sample,
             )
@@ -1333,6 +1353,7 @@ def get_icl_task_dataloader(
             continuation_delimiter,
             destination_path,
             question_prelimiter,
+                        cot_delimiter,
             fewshot_random_seed,
             generations_per_sample,
         )
