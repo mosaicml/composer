@@ -62,26 +62,29 @@ class MLFlowLogger(LoggerDestination):
         self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
         self._last_flush_time = time.time()
         self._flush_interval = flush_interval
-        # Set up MLflow state
-        self._run_id = None
-        if self.experiment_name is None:
-            self.experiment_name = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,
-                                             DEFAULT_MLFLOW_EXPERIMENT_NAME)
-        self._mlflow_client = MlflowClient(self.tracking_uri)
-        # Create an instance of MlflowAutologgingQueueingClient - an optimized version
-        # of MlflowClient - that automatically batches metrics together and supports
-        # asynchronous logging for improved performance
-        self._optimized_mlflow_client = MlflowAutologgingQueueingClient(self.tracking_uri)
-        # set experiment. we use MlflowClient for experiment retrieval and creation
-        # because MlflowAutologgingQueueingClient doesn't support it
-        env_exp_id = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None)
-        if env_exp_id is not None:
-            self._experiment_id = env_exp_id
-        elif exp := self._mlflow_client.get_experiment_by_name(name=self.experiment_name):
-            self._experiment_id = exp.experiment_id
-        else:
-            self._experiment_id = (self._mlflow_client.create_experiment(name=self.experiment_name))
-        del mlflow
+        if self._enabled:
+            # Set up MLflow state
+            self._run_id = None
+            if self.experiment_name is None:
+                self.experiment_name = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,
+                                                 DEFAULT_MLFLOW_EXPERIMENT_NAME)
+            self._mlflow_client = MlflowClient(self.tracking_uri)
+            # Create an instance of MlflowAutologgingQueueingClient - an optimized version
+            # of MlflowClient - that automatically batches metrics together and supports
+            # asynchronous logging for improved performance
+            self._optimized_mlflow_client = MlflowAutologgingQueueingClient(self.tracking_uri)
+            # set experiment. we use MlflowClient for experiment retrieval and creation
+            # because MlflowAutologgingQueueingClient doesn't support it
+            env_exp_id = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None)
+            if env_exp_id is not None:
+                self._experiment_id = env_exp_id
+            else:
+                exp_from_name = self._mlflow_client.get_experiment_by_name(name=self.experiment_name)
+                if exp_from_name is not None:
+                    self._experiment_id = exp_from_name.experiment_id
+                else:
+                    self._experiment_id = (self._mlflow_client.create_experiment(name=self.experiment_name))
+            del mlflow
 
     def init(self, state: State, logger: Logger) -> None:
         import mlflow
