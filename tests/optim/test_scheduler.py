@@ -8,7 +8,7 @@ import pytest
 from torch.utils.data import DataLoader
 
 from composer.core import State, Time
-from composer.core.time import TimeUnit, Timestamp
+from composer.core.time import Timestamp, TimeUnit
 from composer.devices import DeviceCPU, DeviceGPU
 from composer.optim.scheduler import (ComposerScheduler, ConstantWithWarmupScheduler, CosineAnnealingScheduler,
                                       CosineAnnealingWarmRestartsScheduler, CosineAnnealingWithWarmupScheduler,
@@ -178,15 +178,22 @@ def test_scheduler_trains(
         )
         trainer.fit()
 
-@pytest.mark.parametrize('scheduler_class', [CosineAnnealingWithWarmupScheduler, MultiStepWithWarmupScheduler, ConstantWithWarmupScheduler, LinearWithWarmupScheduler, PolynomialWithWarmupScheduler])
+
+@pytest.mark.parametrize('scheduler_class', [
+    CosineAnnealingWithWarmupScheduler, MultiStepWithWarmupScheduler, ConstantWithWarmupScheduler,
+    LinearWithWarmupScheduler, PolynomialWithWarmupScheduler
+])
 @pytest.mark.parametrize('max_duration_unit', ['tok', 'sp', 'ba', 'ep'])
 @pytest.mark.parametrize('warmup_duration_unit', ['ba', 'tok', 'sp', 'ep', 'dur'])
-def test_warmup_schedulers_fail_fast(scheduler_class: Type[ComposerScheduler], max_duration_unit: str, warmup_duration_unit: str, dummy_schedulers_state: State):
-    if warmup_duration_unit == max_duration_unit or warmup_duration_unit == 'dur' or (max_duration_unit == 'ep' and warmup_duration_unit == 'ba') or (max_duration_unit == 'ba' and warmup_duration_unit == 'ep'):
+def test_warmup_schedulers_fail_fast(scheduler_class: Type[ComposerScheduler], max_duration_unit: str,
+                                     warmup_duration_unit: str, dummy_schedulers_state: State):
+    if warmup_duration_unit == max_duration_unit or warmup_duration_unit == 'dur' or (
+            max_duration_unit == 'ep' and warmup_duration_unit == 'ba') or (max_duration_unit == 'ba' and
+                                                                            warmup_duration_unit == 'ep'):
         error_context = contextlib.nullcontext()
     else:
         error_context = pytest.raises(ValueError, match='Cannot use warmup scheduler with max_duration')
-    
+
     tokens_per_sample = 8
     samples_per_batch = 16
     batches_per_epoch = 32
@@ -223,7 +230,6 @@ def test_warmup_schedulers_fail_fast(scheduler_class: Type[ComposerScheduler], m
         'dur': f'{warmup_duration_pct}dur',
     }
 
-    max_duration_value = max_duration_unit_to_value[max_duration_unit]
     max_duration_str = max_duration_unit_to_str[max_duration_unit]
     warmup_duration_str = warmup_duration_unit_to_str[warmup_duration_unit]
     num_steps = total_batches
@@ -241,7 +247,5 @@ def test_warmup_schedulers_fail_fast(scheduler_class: Type[ComposerScheduler], m
     with error_context:
         for _ in range(num_steps):
             _ = scheduler(state)
-            state.timestamp = state.timestamp.to_next_batch(samples=samples_per_batch, tokens=tokens_per_sample*samples_per_batch)
-
-    
-    
+            state.timestamp = state.timestamp.to_next_batch(samples=samples_per_batch,
+                                                            tokens=tokens_per_sample * samples_per_batch)
