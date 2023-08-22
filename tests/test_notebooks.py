@@ -130,7 +130,7 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
     except ImportError as e:
         raise MissingConditionalImportError('streaming', 'boto3') from e
 
-    obj = urlparse('s3://mosaicml-internal-integration-testing/CIFAR-10/')
+    obj = urlparse('s3://mosaicml-internal-integration-testing/read_only/CIFAR-10/')
     s3 = boto3.resource('s3')
     bucket = s3.Bucket(obj.netloc)
     files = bucket.objects.filter(Prefix=obj.path.lstrip('/'))
