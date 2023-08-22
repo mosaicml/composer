@@ -193,14 +193,11 @@ def set_custom_fsdp_module_kwargs(module_kwargs: Dict, process_group_cache: Dict
 
     return module_kwargs
 
-print(f'\n\n\n {torch.__version__=}, {version.parse(torch.__version__)=} \n\n\n')
-print(f"\n\n\n Torch 2.0 {version.parse(torch.__version__) < version.parse('2.0.0')} Torch 2.0.1 {version.parse(torch.__version__) < version.parse('2.1.0')} Torch 2.1 {version.parse(torch.__version__) < version.parse('2.1.1')}")
-
 if version.parse(torch.__version__) < version.parse('1.13.1'):
     raise NotImplementedError(f'Not supported for torch < 1.13.1')
 
-elif version.parse(torch.__version__) < version.parse('2.0.0'):
-    # FullyShardedDataParallel monkey path for torch < 2.0 ie torch == 1.13.1
+elif version.parse(torch.__version__) <= version.parse('1.13.1'):
+    # FullyShardedDataParallel monkey path for torch <= 1.13.1
 
     from torch.distributed.fsdp._utils import _contains_batchnorm, _override_batchnorm_mixed_precision
     from torch.distributed.fsdp.wrap import _or_policy, _wrap, _wrap_batchnorm_individually
@@ -340,11 +337,11 @@ elif version.parse(torch.__version__) < version.parse('2.0.0'):
     # monkey patch _auto_wrap with _custom_auto_wrap fn
     FullyShardedDataParallel._auto_wrap = _custom_auto_wrap_t1p13p1  # type: ignore
 
-elif version.parse(torch.__version__) < version.parse('2.0.1'):
+elif version.parse(torch.__version__) == version.parse('2.0.0'):
     raise NotImplementedError(f'Not supported for torch == 2.0.0')
 
-elif version.parse(torch.__version__) < version.parse('2.1.0'):
-    # FullyShardedDataParallel monkey patch for torch < 2.1 ie torch == 2.0.1
+elif version.parse(torch.__version__) <= version.parse('2.0.1'):
+    # FullyShardedDataParallel monkey patch for torch <= 2.0.1
 
     from torch.distributed.fsdp._dynamo_utils import _annotate_modules_for_dynamo
     from torch.distributed.fsdp._init_utils import (HYBRID_SHARDING_STRATEGIES, ProcessGroupType,
@@ -603,8 +600,8 @@ elif version.parse(torch.__version__) < version.parse('2.1.0'):
     # monkey patch __init__ where __init__ calls the custom _auto_wrap fn
     FullyShardedDataParallel.__init__ = init_fn_t2p0p1
 
-elif version.parse(torch.__version__) < version.parse('2.1.1'):
-    # FullyShardedDataParallel monkey patch for torch < 2.1.1 ie torch == 2.1.0
+elif version.parse(torch.__version__) <= version.parse('2.1.0'):
+    # FullyShardedDataParallel monkey patch for torch <= 2.1.0
 
     from functools import partial
 
