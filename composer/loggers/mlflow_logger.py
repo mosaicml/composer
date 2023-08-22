@@ -59,10 +59,10 @@ class MLFlowLogger(LoggerDestination):
         self.run_name = run_name
         self.experiment_name = experiment_name
         self._rank_zero_only = rank_zero_only
-        self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
         self._last_flush_time = time.time()
         self._flush_interval = flush_interval
         if self._enabled:
+            self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
             # Set up MLflow state
             self._run_id = None
             if self.experiment_name is None:
@@ -73,7 +73,7 @@ class MLFlowLogger(LoggerDestination):
             # of MlflowClient - that automatically batches metrics together and supports
             # asynchronous logging for improved performance
             self._optimized_mlflow_client = MlflowAutologgingQueueingClient(self.tracking_uri)
-            # set experiment. we use MlflowClient for experiment retrieval and creation
+            # Set experiment. We use MlflowClient for experiment retrieval and creation
             # because MlflowAutologgingQueueingClient doesn't support it
             env_exp_id = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None)
             if env_exp_id is not None:
@@ -84,7 +84,6 @@ class MLFlowLogger(LoggerDestination):
                     self._experiment_id = exp_from_name.experiment_id
                 else:
                     self._experiment_id = (self._mlflow_client.create_experiment(name=self.experiment_name))
-        del mlflow
 
     def init(self, state: State, logger: Logger) -> None:
         import mlflow
@@ -97,7 +96,7 @@ class MLFlowLogger(LoggerDestination):
         if not self._rank_zero_only:
             self.run_name += f'-rank{dist.get_global_rank()}'
 
-        # start run
+        # Start run
         if self._enabled:
             env_run_id = os.getenv(mlflow.environment_variables.MLFLOW_RUN_ID.name, None)
             if env_run_id is not None:
@@ -133,7 +132,7 @@ class MLFlowLogger(LoggerDestination):
 
     def post_close(self):
         if self._enabled:
-            # we use MlflowClient for run termination because MlflowAutologgingQueueingClient's
+            # We use MlflowClient for run termination because MlflowAutologgingQueueingClient's
             # run termination relies on scheduling Python futures, which is not supported within
             # the Python atexit handler in which post_close() is called
             self._mlflow_client.set_terminated(self._run_id)
