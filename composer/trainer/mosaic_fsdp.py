@@ -691,6 +691,8 @@ elif version.parse(torch.__version__) < version.parse('2.1.1'):
             # decide if we need to wrap the current module,
             # since the left over parameters exceed the number of params to wrap
             remainder = nonwrapped_numel - total_wrapped_numel
+            
+            ### BEGIN CHANGE
             module_kwargs = auto_wrap_policy(module=module, recurse=False, nonwrapped_numel=remainder)
             if not only_wrap_children and module_kwargs:
                 module_kwargs = module_kwargs if isinstance(module_kwargs, dict) else {}
@@ -704,6 +706,7 @@ elif version.parse(torch.__version__) < version.parse('2.1.1'):
                     if _meta_init and len(_pg_ranks) != dist.get_world_size() and final_kwargs.get('use_orig_params'):
                         raise NotImplementedError(
                             f'FSDP with custom process groups cannot use `use_orig_params: True` when using meta init.')
+                ### END CHANGE
 
                 # Leaf node or final wrapping of the remainder both happen here.
                 return _wrap(module, wrapper_cls, **kwargs), nonwrapped_numel
