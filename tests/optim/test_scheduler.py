@@ -228,9 +228,9 @@ def test_warmup_schedulers_fail_fast(scheduler_class: Type[ComposerScheduler], m
     num_steps = total_batches
 
     if scheduler_class == MultiStepWithWarmupScheduler:
-        scheduler = scheduler_class(milestones=['60ba'], t_warmup=warmup_duration_str) # type: ignore
+        scheduler = scheduler_class(milestones=['60ba'], t_warmup=warmup_duration_str)  # type: ignore
     else:
-        scheduler = scheduler_class(t_warmup=warmup_duration_str) # type: ignore
+        scheduler = scheduler_class(t_warmup=warmup_duration_str)  # type: ignore
 
     state = dummy_schedulers_state
     state.max_duration = Time.from_timestring(max_duration_str)
