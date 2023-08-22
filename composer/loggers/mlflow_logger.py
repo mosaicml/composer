@@ -7,8 +7,10 @@ from __future__ import annotations
 
 import os
 import pathlib
+
 import time
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
+
 
 from composer.core.state import State
 from composer.loggers.logger import Logger
@@ -107,6 +109,18 @@ class MLFlowLogger(LoggerDestination):
                     run_name=self.run_name,
                 )
                 self._run_id = new_run.info.run_id
+
+    def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
+        if self._enabled:
+            import mlflow
+            try:
+                import pandas as pd
+            except ImportError as e:
+                raise MissingConditionalImportError(extra_deps_group='pandas',
+                                                    conda_package='pandas',
+                                                    conda_channel='conda-forge') from e
+            table = pd.DataFrame.from_records(data=rows, columns=columns)
+            mlflow.log_table(table, f'{name}.json')
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         if self._enabled:

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import csv
+import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -200,6 +201,41 @@ def test_mlflow_experiment_set_up(tmp_path):
     test_mlflow_logger = MLFlowLogger(experiment_name=mlflow_exp_name, run_name=mlflow_run_name + '_new')
     test_mlflow_logger.init(state=mock_state, logger=mock_logger)
     test_mlflow_logger.post_close()
+
+
+def test_mlflow_log_table(tmp_path):
+    mlflow = pytest.importorskip('mlflow')
+    mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
+    test_mlflow_logger = MLFlowLogger(tracking_uri=mlflow_uri)
+
+    mock_state = MagicMock()
+    mock_state.run_name = 'dummy-run-name'  # this run name should be unused.
+    mock_logger = MagicMock()
+
+    test_mlflow_logger.init(state=mock_state, logger=mock_logger)
+
+    run_info = mlflow.active_run().info
+    run_id = run_info.run_id
+    experiment_id = run_info.experiment_id
+    run_file_path = mlflow_uri / Path(experiment_id) / Path(run_id)
+
+    # Create log table to test.
+    columns = ['prompt', 'generation']
+    rows = [['p0', 'g0'], ['p1', 'g1']]
+    name = 'test_table'
+    test_mlflow_logger.log_table(columns=columns, rows=rows, name='test_table')
+
+    test_mlflow_logger.post_close()
+
+    table_file = run_file_path / Path('artifacts') / Path(f'{name}.json')
+
+    # Check that the table file exists.
+    assert table_file.exists()
+
+    # Check that table file contents match what was logged.
+    table = json.load(open(table_file))
+    assert table['columns'] == columns
+    assert table['data'] == rows
 
 
 @device('cpu')

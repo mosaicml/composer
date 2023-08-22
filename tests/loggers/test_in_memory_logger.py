@@ -31,6 +31,19 @@ def test_in_memory_logger(dummy_state: State):
     assert in_memory_logger.most_recent_timestamps['epoch'].batch == 1
 
 
+def test_in_memory_logger_log_table(dummy_state: State):
+    in_memory_logger = InMemoryLogger()
+    logger = Logger(dummy_state, destinations=[in_memory_logger])
+    in_memory_logger.init(dummy_state, logger)
+
+    columns = ['prompt', 'generation']
+    rows = [['p0', 'g0'], ['p1', 'g1']]
+    name = 'test_table'
+    in_memory_logger.log_table(columns=columns, rows=rows, name=name)
+
+    assert name in in_memory_logger.tables
+
+
 def test_in_memory_logger_get_timeseries(minimal_state: State, empty_logger: Logger):
     in_memory_logger = InMemoryLogger()
     state = minimal_state
