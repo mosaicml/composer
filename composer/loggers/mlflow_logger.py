@@ -84,7 +84,7 @@ class MLFlowLogger(LoggerDestination):
                     self._experiment_id = exp_from_name.experiment_id
                 else:
                     self._experiment_id = (self._mlflow_client.create_experiment(name=self.experiment_name))
-            del mlflow
+        del mlflow
 
     def init(self, state: State, logger: Logger) -> None:
         import mlflow
