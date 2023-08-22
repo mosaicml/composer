@@ -7,10 +7,8 @@ from __future__ import annotations
 
 import os
 import pathlib
-
 import time
 from typing import Any, Dict, List, Optional, Union
-
 
 from composer.core.state import State
 from composer.loggers.logger import Logger
