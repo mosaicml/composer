@@ -77,8 +77,8 @@ install_requires = [
     'tqdm>=4.62.3,<5',
     'torchmetrics>=0.10.0,<1.1',
     'torch_optimizer>=0.3.0,<0.4',
-    'torchvision>=0.13.1,<0.16',
-    'torch>=1.13.1,<2.1',
+    'torchvision>=0.13.1,<0.17',
+    'torch>=1.13.1,<2.1.1',
     'requests>=2.26.0,<3',
     'numpy>=1.21.5,<1.26.0',
     'psutil>=5.8.0,<6',
@@ -221,6 +221,8 @@ extra_deps['onnx'] = [
 extra_deps['mlflow'] = [
     'mlflow>=2.0.1,<3.0',
 ]
+
+extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 

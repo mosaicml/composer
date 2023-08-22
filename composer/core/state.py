@@ -844,6 +844,24 @@ class State(Serializable):
 
         return obj
 
+    def get_model_state_dict(self) -> Dict[str, Any]:
+        """Collect the state dict for the model.
+
+        Returns:
+            Dict[str, Any]: The state dict for the model.
+        """
+        if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
+            with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
+                model_state_dict = self.model.state_dict()
+        else:
+            model_state_dict = self.model.state_dict()
+
+        # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
+        # If it is DDP wrapped, do not save the `module.` prefix, as that is an implementation detail
+        if self.is_model_ddp:
+            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, 'module.')
+        return model_state_dict
+
     def state_dict(self) -> Dict[str, Any]:
         """Collect the state dicts of our serializable attributes.
 
@@ -857,17 +875,7 @@ class State(Serializable):
             if attribute_name == 'dataset_state':
                 serialized_value = self._dataset_state_dict()
             elif attribute_name == 'model':
-                # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
-                # If it is DDP wrapped, do not save the `module.` prefix, as that is an implementation detail
-                if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
-                    with fsdp_state_dict_type_context(attribute_value, state_dict_type=self.fsdp_state_dict_type):
-                        model_state = attribute_value.state_dict()
-                else:
-                    model_state = attribute_value.state_dict()
-
-                if self.is_model_ddp:
-                    torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state, 'module.')
-                serialized_value = model_state
+                serialized_value = self.get_model_state_dict()
             elif attribute_name == 'optimizers':
                 optimizer = ensure_tuple(attribute_value)[
                     0]  # Let's stop pretending. We don't support more than one optimizer.
