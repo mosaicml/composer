@@ -8,7 +8,7 @@ import pytest
 from torch.utils.data import DataLoader
 
 from composer.core import State, Time
-from composer.core.time import TimeUnit
+from composer.core.time import TimeUnit, Timestamp
 from composer.devices import DeviceCPU, DeviceGPU
 from composer.optim.scheduler import (ComposerScheduler, ConstantWithWarmupScheduler, CosineAnnealingScheduler,
                                       CosineAnnealingWarmRestartsScheduler, CosineAnnealingWithWarmupScheduler,
@@ -177,3 +177,71 @@ def test_scheduler_trains(
             seed=rank_zero_seed,
         )
         trainer.fit()
+
+@pytest.mark.parametrize('scheduler_class', [CosineAnnealingWithWarmupScheduler, MultiStepWithWarmupScheduler, ConstantWithWarmupScheduler, LinearWithWarmupScheduler, PolynomialWithWarmupScheduler])
+@pytest.mark.parametrize('max_duration_unit', ['tok', 'sp', 'ba', 'ep'])
+@pytest.mark.parametrize('warmup_duration_unit', ['ba', 'tok', 'sp', 'ep', 'dur'])
+def test_warmup_schedulers_fail_fast(scheduler_class: Type[ComposerScheduler], max_duration_unit: str, warmup_duration_unit: str, dummy_schedulers_state: State):
+    if warmup_duration_unit == max_duration_unit or warmup_duration_unit == 'dur' or (max_duration_unit == 'ep' and warmup_duration_unit == 'ba') or (max_duration_unit == 'ba' and warmup_duration_unit == 'ep'):
+        error_context = contextlib.nullcontext()
+    else:
+        error_context = pytest.raises(ValueError, match='Cannot use warmup scheduler with max_duration')
+    
+    tokens_per_sample = 8
+    samples_per_batch = 16
+    batches_per_epoch = 32
+    num_epochs = 4
+    total_batches = batches_per_epoch * num_epochs
+    total_samples = total_batches * samples_per_batch
+    total_tokens = total_samples * tokens_per_sample
+
+    warmup_duration_pct = 0.25
+    warmup_batches = int(total_batches * warmup_duration_pct)
+    warmup_samples = int(total_samples * warmup_duration_pct)
+    warmup_tokens = int(total_tokens * warmup_duration_pct)
+    warmup_epochs = int(num_epochs * warmup_duration_pct)
+
+    max_duration_unit_to_value = {
+        'tok': total_tokens,
+        'sp': total_samples,
+        'ba': total_batches,
+        'ep': num_epochs,
+    }
+
+    max_duration_unit_to_str = {
+        'tok': f'{total_tokens}tok',
+        'sp': f'{total_samples}sp',
+        'ba': f'{total_batches}ba',
+        'ep': f'{num_epochs}ep',
+    }
+
+    warmup_duration_unit_to_str = {
+        'tok': f'{warmup_tokens}tok',
+        'sp': f'{warmup_samples}sp',
+        'ba': f'{warmup_batches}ba',
+        'ep': f'{warmup_epochs}ep',
+        'dur': f'{warmup_duration_pct}dur',
+    }
+
+    max_duration_value = max_duration_unit_to_value[max_duration_unit]
+    max_duration_str = max_duration_unit_to_str[max_duration_unit]
+    warmup_duration_str = warmup_duration_unit_to_str[warmup_duration_unit]
+    num_steps = total_batches
+
+    if scheduler_class == MultiStepWithWarmupScheduler:
+        scheduler = scheduler_class(milestones=['60ba'], t_warmup=warmup_duration_str)
+    else:
+        scheduler = scheduler_class(t_warmup=warmup_duration_str)
+
+    state = dummy_schedulers_state
+    state.max_duration = Time.from_timestring(max_duration_str)
+    state.timestamp = Timestamp()
+    state.set_dataloader([None] * batches_per_epoch, 'train')
+
+    with error_context:
+        for _ in range(num_steps):
+            _ = scheduler(state)
+            state.timestamp = state.timestamp.to_next_batch(samples=samples_per_batch, tokens=tokens_per_sample*samples_per_batch)
+
+    
+    
