@@ -222,7 +222,7 @@ extra_deps['mlflow'] = [
     'mlflow>=2.0.1,<3.0',
 ]
 
-extra_deps['pandas'] = ['pandas>=2.0.3']
+extra_deps['pandas'] = ['pandas==2.0.3']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
