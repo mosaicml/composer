@@ -803,7 +803,7 @@ elif version.parse(torch.__version__) < version.parse('2.1.1'):
 
     FullyShardedDataParallel._auto_wrap = _custom_auto_wrap_t2p1p0  # type: ignore
 
-elif version.parse(torch.__version__) >= version.parse('2.1.0'):
+elif version.parse(torch.__version__) >= version.parse('2.1.1'):
     raise NotImplementedError(
         f'FullyShardedDataParallel ui will be updated in torch2.1; _auto_wrap monkey patch needs to be updated accordingly.'
     )
