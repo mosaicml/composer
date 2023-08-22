@@ -9,6 +9,7 @@ import subprocess
 import textwrap
 import types
 from typing import Dict, List
+
 from composer.utils import dist
 from composer.utils.eval_client.eval_client import EvalClient
 
@@ -177,9 +178,10 @@ class LocalEvalClient(EvalClient):
             code_gen = code_gen + '\n' + textwrap.dedent(ending)
             with open(f'test_code_{rank}.cpp', 'w') as f:
                 f.write(code_gen)
-            compilation_process = subprocess.run(['g++', '-std=c++11', f'test_code_{rank}.cpp', '-o', f'test_code_{rank}'],
-                                                 stdout=subprocess.PIPE,
-                                                 stderr=subprocess.PIPE)
+            compilation_process = subprocess.run(
+                ['g++', '-std=c++11', f'test_code_{rank}.cpp', '-o', f'test_code_{rank}'],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
             if compilation_process.returncode == 0:
                 run_process = subprocess.run(f'./test_code_{rank}', stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 output = run_process.stdout.decode()
@@ -198,7 +200,9 @@ class LocalEvalClient(EvalClient):
             with open(f'test_code_{rank}.js', 'w') as f:
                 f.write(code_gen)
 
-            run_process = subprocess.run(['node', f'test_code_{rank}.js'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            run_process = subprocess.run(['node', f'test_code_{rank}.js'],
+                                         stdout=subprocess.PIPE,
+                                         stderr=subprocess.PIPE)
             output = run_process.stdout.decode()
             if f'test_code_{rank}.js' in os.listdir():
                 os.remove(f'test_code_{rank}.js')
