@@ -110,7 +110,6 @@ class MLFlowLogger(LoggerDestination):
 
     def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
         if self._enabled:
-            import mlflow
             try:
                 import pandas as pd
             except ImportError as e:
@@ -118,7 +117,11 @@ class MLFlowLogger(LoggerDestination):
                                                     conda_package='pandas',
                                                     conda_channel='conda-forge') from e
             table = pd.DataFrame.from_records(data=rows, columns=columns)
-            mlflow.log_table(table, f'{name}.json')
+            self._mlflow_client.log_table(
+                run_id=self._run_id,
+                data=table,
+                artifact_file=f'{name}.json',
+            )
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         if self._enabled:

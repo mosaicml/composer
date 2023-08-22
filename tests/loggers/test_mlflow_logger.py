@@ -204,9 +204,12 @@ def test_mlflow_experiment_set_up(tmp_path):
 
 
 def test_mlflow_log_table(tmp_path):
-    mlflow = pytest.importorskip('mlflow')
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
-    test_mlflow_logger = MLFlowLogger(tracking_uri=mlflow_uri)
+    mlflow_exp_name = 'test-log-table-exp-name'
+    test_mlflow_logger = MLFlowLogger(
+        tracking_uri=mlflow_uri,
+        experiment_name=mlflow_exp_name,
+    )
 
     mock_state = MagicMock()
     mock_state.run_name = 'dummy-run-name'  # this run name should be unused.
@@ -214,7 +217,8 @@ def test_mlflow_log_table(tmp_path):
 
     test_mlflow_logger.init(state=mock_state, logger=mock_logger)
 
-    run_info = mlflow.active_run().info
+    run = _get_latest_mlflow_run(mlflow_exp_name, tracking_uri=mlflow_uri)
+    run_info = run.info
     run_id = run_info.run_id
     experiment_id = run_info.experiment_id
     run_file_path = mlflow_uri / Path(experiment_id) / Path(run_id)
