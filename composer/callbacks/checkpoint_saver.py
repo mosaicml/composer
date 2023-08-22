@@ -30,7 +30,8 @@ __all__ = ['CheckpointSaver', 'checkpoint_periodically']
 _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME = '.metadata'
 
 
-def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State, Event], bool]:
+def checkpoint_periodically(interval: Union[str, int, Time],
+                            save_end_of_training=True) -> Callable[[State, Event], bool]:
     r"""Helper function to create a checkpoint scheduler according to a specified interval.
 
     Args:
@@ -65,7 +66,7 @@ def checkpoint_periodically(interval: Union[str, int, Time]) -> Callable[[State,
         assert elapsed_duration is not None, 'elapsed_duration is set on the BATCH_CHECKPOINT and EPOCH_CHECKPOINT'
 
         # Always checkpoint at end of training
-        if elapsed_duration >= 1.0:
+        if save_end_of_training and elapsed_duration >= 1.0:
             return True
 
         # previous timestamp will only be None if training has not started, but we are returning False
