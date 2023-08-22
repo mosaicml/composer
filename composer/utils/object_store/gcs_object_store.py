@@ -69,6 +69,7 @@ class GCSObjectStore(ObjectStore):
         if self.prefix != '':
             self.prefix += '/'
 
+        default_auth = False
         if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ:
             service_account_path = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
             self.client = Client.from_service_account_json(service_account_path)
@@ -88,13 +89,19 @@ class GCSObjectStore(ObjectStore):
                                          aws_access_key_id=os.environ['GCS_KEY'],
                                          aws_secret_access_key=os.environ['GCS_SECRET'])
         else:
-            raise ValueError(f'GOOGLE_APPLICATION_CREDENTIALS needs to be set for ' +
-                             f'service level accounts or GCS_KEY and GCS_SECRET env variables must be set.')
+            self.client = Client()
+            default_auth = True
 
         try:
             self.bucket = self.client.get_bucket(self.bucket_name, timeout=60.0)
         except Exception as e:
-            _reraise_gcs_errors(self.get_uri(object_name=''), e)
+            if default_auth:
+                raise ValueError(f'No available authentication methods found. ' +
+                                 f'Set either GOOGLE_APPLICATION_CREDENTIALS, ' +
+                                 f'GCS_KEY and GCS_SECRET environment variables, ' +
+                                 f'use gcloud auth login or run on GCE instance with appropriate IAM roles.')
+            else:
+                _reraise_gcs_errors(self.get_uri(object_name=''), e)
 
     def get_key(self, object_name: str) -> str:
         return f'{self.prefix}{object_name}'
