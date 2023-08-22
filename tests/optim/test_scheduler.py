@@ -208,13 +208,6 @@ def test_warmup_schedulers_fail_fast(scheduler_class: Type[ComposerScheduler], m
     warmup_tokens = int(total_tokens * warmup_duration_pct)
     warmup_epochs = int(num_epochs * warmup_duration_pct)
 
-    max_duration_unit_to_value = {
-        'tok': total_tokens,
-        'sp': total_samples,
-        'ba': total_batches,
-        'ep': num_epochs,
-    }
-
     max_duration_unit_to_str = {
         'tok': f'{total_tokens}tok',
         'sp': f'{total_samples}sp',
@@ -235,9 +228,9 @@ def test_warmup_schedulers_fail_fast(scheduler_class: Type[ComposerScheduler], m
     num_steps = total_batches
 
     if scheduler_class == MultiStepWithWarmupScheduler:
-        scheduler = scheduler_class(milestones=['60ba'], t_warmup=warmup_duration_str)
+        scheduler = scheduler_class(milestones=['60ba'], t_warmup=warmup_duration_str) # type: ignore
     else:
-        scheduler = scheduler_class(t_warmup=warmup_duration_str)
+        scheduler = scheduler_class(t_warmup=warmup_duration_str) # type: ignore
 
     state = dummy_schedulers_state
     state.max_duration = Time.from_timestring(max_duration_str)
