@@ -19,7 +19,7 @@ from composer.utils.import_helpers import MissingConditionalImportError
 
 
 class Generate(Callback):
-    """Periodically log generations.
+    """Periodically log generations from a set of prompts.
 
     Args:
         prompts (List[str]): The list of prompts you would like to produce generations for
@@ -32,7 +32,6 @@ class Generate(Callback):
     """
 
     def __init__(self, prompts: List[str], interval: Union[str, int, Time], batch_size: int, **kwargs: Any):
-
         self.prompts = prompts
         self.generate_kwargs = kwargs
         self.batch_size = batch_size
@@ -111,7 +110,7 @@ class Generate(Callback):
                 output_text = tokenizer.decode(output_tokens, skip_special_tokens=True)
                 rows.append([prompt, output_text])
 
-            # TODO: LOG TABLE
+            logger.log_table(columns=['prompt', 'generation'], rows=rows, name='generations')
 
         tokenizer.padding_side = original_padding_side
         model.train(mode=original_mode)

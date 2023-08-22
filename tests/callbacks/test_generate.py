@@ -10,6 +10,7 @@ from packaging import version
 
 from composer.callbacks import Generate
 from composer.trainer import Trainer
+from composer.utils import dist
 from tests.common.datasets import dummy_gpt_lm_dataloader
 from tests.common.markers import device, world_size
 from tests.common.models import configure_tiny_gpt2_hf_model
@@ -46,20 +47,33 @@ def test_generate_callback(device, world_size, use_fsdp):
     model.generate = Mock(wraps=model.generate)
     prompts = ['a', 'b', 'c']
 
-    cb_batch_size = 2
-    interval_batch = 2
-    generate_cb = Generate(prompts, interval=f'{interval_batch}ba', batch_size=cb_batch_size, max_length=5)
+    prompt_batch_size = 2
+    gen_interval = 2
+    generate_cb = Generate(prompts, interval=f'{gen_interval}ba', batch_size=prompt_batch_size, max_length=5)
     generate_cb.generate = Mock(wraps=generate_cb.generate)
 
-    n_batches = 6
+    train_batches = 6
     trainer = Trainer(model=model,
                       train_dataloader=dummy_gpt_lm_dataloader(),
                       device=device,
-                      max_duration=f'{n_batches}ba',
+                      max_duration=f'{train_batches}ba',
                       callbacks=generate_cb,
                       fsdp_config=fsdp_config)
 
+    trainer.logger.log_table = Mock()
+
     trainer.fit()
 
-    assert generate_cb.generate.call_count == math.ceil(n_batches / interval_batch)
-    assert model.generate.call_count == math.ceil(len(prompts) / cb_batch_size) * generate_cb.generate.call_count
+    expected_cb_call_count = math.ceil(train_batches / gen_interval)
+
+    # Assert that the generate callback has been called the correct number of times.
+    assert generate_cb.generate.call_count == expected_cb_call_count
+
+    # Assert that model.generate has been called the correct number of times to ensure that prompt batching is correct.
+    assert model.generate.call_count == math.ceil(len(prompts) / prompt_batch_size) * expected_cb_call_count
+
+    # Assert that log_table is called on the 0th rank only.
+    if dist.get_global_rank() == 0:
+        assert trainer.logger.log_table.call_count == expected_cb_call_count
+    else:
+        trainer.logger.log_table.assert_not_called()
