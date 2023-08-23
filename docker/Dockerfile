@@ -210,18 +210,29 @@ RUN pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
 # Install Pytorch
 #################
 ARG PYTORCH_VERSION
+ARG PYTORCH_NIGHTLY_URL
+ARG PYTORCH_NIGHTLY_VERSION
 ARG TORCHVISION_VERSION
 ARG TORCHTEXT_VERSION
 
 # Set so supporting PyTorch packages such as Torchvision, Torchaudio, Torchtext pin PyTorch version
 ENV PYTORCH_VERSION=${PYTORCH_VERSION}
+ENV PYTORCH_NIGHTLY_URL=${PYTORCH_NIGHTLY_URL}
+ENV PYTORCH_NIGHTLY_VERSION=${PYTORCH_NIGHTLY_VERSION}
 
-RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
-    pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
-        torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
-        torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} \
-        torchtext==${TORCHTEXT_VERSION}
-
+RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
+      CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
+        pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
+            torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
+            torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} \
+            torchtext==${TORCHTEXT_VERSION} ; \
+    else \
+        pip${PYTHON_VERSION} install --no-cache-dir --pre --index-url ${PYTORCH_NIGHTLY_URL} \
+            torch==${PYTORCH_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
+	    torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
+            torchtext ; \
+    fi
+RUN
 #####################################
 # Install EFA and AWS-OFI-NCCL plugin
 #####################################
@@ -272,7 +283,8 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
 #####################
 # Install NVIDIA Apex
 #####################
-RUN if [ -n "$CUDA_VERSION" ] ; then \
+# skip if torch nightly is installed as there is incompatability
+RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \
         mkdir -p /tmp/apex && \
         cd /tmp/apex && \
         git clone https://github.com/NVIDIA/apex && \
@@ -291,6 +303,8 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
 # Install Flash Attention
 ##########################
 RUN if [ -n "$CUDA_VERSION" ] ; then \
+        pip${PYTHON_VERSION} install --upgrade --no-cache-dir ninja==1.11.1 && \
+        pip${PYTHON_VERSION} install --upgrade --no-cache-dir --force-reinstall packaging==22.0 && \
         pip${PYTHON_VERSION} install --no-cache-dir flash-attn==1.0.3.post0; \
     fi
 
