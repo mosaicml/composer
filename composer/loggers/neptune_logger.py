@@ -45,14 +45,16 @@ class NeptuneLogger(LoggerDestination):
     TRACE_NAMESPACE = 'traces'
     INTEGRATION_VERSION_KEY = 'source_code/integrations/neptune-MosaicML'
 
-    def __init__(self,
-                 *,
-                 project: Optional[str] = None,
-                 api_token: Optional[str] = None,
-                 rank_zero_only: bool = True,
-                 log_artifacts: bool = False,
-                 base_namespace: str = 'training',
-                 **neptune_kwargs: Dict[str, Any]) -> None:
+    def __init__(
+        self,
+        *,
+        project: Optional[str] = None,
+        api_token: Optional[str] = None,
+        rank_zero_only: bool = True,
+        log_artifacts: bool = False,
+        base_namespace: str = 'training',
+        **neptune_kwargs,
+    ) -> None:
         try:
             from neptune import Run
         except ImportError as e:
@@ -89,6 +91,14 @@ class NeptuneLogger(LoggerDestination):
             self._base_handler = self._neptune_run[self._base_namespace]
 
         super(NeptuneLogger, self).__init__()
+
+    @property
+    def neptune_run(self):
+        return self._neptune_run
+
+    @property
+    def base_handler(self):
+        return self._base_handler
 
     def init(self, state: 'State', logger: 'Logger') -> None:
         del logger  # unused
