@@ -1,9 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-'do a backflip'  # Copyright 2022 MosaicML Composer authors
-# SPDX-License-Identifier: Apache-2.0
-
 import math
 
 import pytest
@@ -252,6 +249,7 @@ def test_in_context_learning_code_eval_accuracy(monkeypatch):
     entry_points = ['fib', 'multiply_by_two', 'add_one']
     test_inputs = [['(1,)', '(2,)', '(4,)'], ['(1,)', '(2,)', '(4,)'], ['(1,)', '(2,)', '(4,)']]
     test_outputs = [['1', '2', '5'], ['2', '4', '8'], ['2', '3', '5']]
+    languages = ['python', 'python', 'python']
     monkeypatch.setenv('CODE_EVAL_DEVICE', 'LOCAL')
     batch = {
         'generation_kwargs': {
@@ -260,7 +258,8 @@ def test_in_context_learning_code_eval_accuracy(monkeypatch):
         'prompts': prompts,
         'entry_points': entry_points,
         'test_inputs': test_inputs,
-        'test_outputs': test_outputs
+        'test_outputs': test_outputs,
+        'languages': languages,
     }
     metric = InContextLearningCodeEvalAccuracy()
     metric.update(batch, outputs, labels)

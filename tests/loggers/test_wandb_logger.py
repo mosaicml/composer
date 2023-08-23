@@ -56,6 +56,7 @@ def test_wandb_log_image(test_wandb_logger):
     image_variants = [
         (torch.rand(4, 4), False),  # 2D image
         (torch.rand(2, 3, 4, 4), False),  # multiple images, not channels last
+        (torch.rand(2, 3, 4, 4, dtype=torch.bfloat16), False),  # same as above but with bfloat16
         (torch.rand(3, 4, 4), False),  # with channels, not channels last
         ([torch.rand(4, 4, 3)], True),  # with channels, channels last
         (torch.rand(2, 4, 4, 3), True),  # multiple images, channels last
@@ -66,11 +67,11 @@ def test_wandb_log_image(test_wandb_logger):
     for (images, channels_last) in image_variants:
         if isinstance(images, Sequence):
             expected_num_images = len(images)
-            np_images = [image.numpy() for image in images]
+            np_images = [image.to(torch.float32).numpy() for image in images]
 
         else:
             expected_num_images = 1 if images.ndim < 4 else images.shape[0]
-            np_images = images.numpy()
+            np_images = images.to(torch.float32).numpy()
         test_wandb_logger.log_images(images=images, channels_last=channels_last)
         test_wandb_logger.log_images(images=np_images, channels_last=channels_last)
         expected_num_images *= 2  # One set of torch tensors, one set of numpy arrays
@@ -179,6 +180,31 @@ def test_wandb_log_image_with_masks_and_table(images, masks, test_wandb_logger):
         image_count += num_images
 
     assert image_count == expected_num_images
+
+
+def test_wandb_log_table(test_wandb_logger: WandBLogger):
+    wandb = pytest.importorskip('wandb', reason='wandb is optional')
+
+    assert wandb.run is not None
+    wandb_run_dir = Path(wandb.run.dir)
+
+    # Create log table to test.
+    columns = ['prompt', 'generation']
+    rows = [['p0', 'g0'], ['p1', 'g1']]
+    test_wandb_logger.log_table(columns=columns, rows=rows)
+
+    test_wandb_logger.post_close()
+
+    wandb_media_dir = wandb_run_dir.parent / Path('files') / Path('media') / Path('table')
+    table_files = list(wandb_media_dir.glob('./*.json'))
+
+    # There should only be one table file.
+    assert len(table_files) == 1
+
+    # Check that the table file contents match what was logged.
+    table = json.load(open(table_files[0]))
+    assert table['columns'] == columns
+    assert table['data'] == rows
 
 
 def test_wandb_log_metrics(test_wandb_logger):

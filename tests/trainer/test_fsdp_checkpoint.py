@@ -588,11 +588,9 @@ def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type:
 @pytest.mark.parametrize('autoresume', [True])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
+@pytest.mark.skipif(version.parse(torch.__version__) > version.parse('1.13.0'),
+                    reason='All Pytorch 2.0 checkpoints have just 1 symlink')
 def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool):
-    if state_dict_type == 'local' and using_torch_2():
-        pytest.xfail(
-            'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info'
-        )
     run_name = 'my-run-ar' if autoresume else 'my-run'
     tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
     save_folder = str(tmp_paths[0] / pathlib.Path(run_name))
@@ -667,7 +665,6 @@ def test_cleanup_sharded_checkpoints(world_size, tmp_path: pathlib.Path, state_d
     run_name = trainer1.state.run_name
     trainer1.fit()
     trainer1.close()
-
     shards_dir = os.path.join(save_folder.format(run_name=run_name))
     dir_contents = [file_or_dir for file_or_dir in os.listdir(shards_dir) if 'latest' not in file_or_dir]
     num_checkpoint_dirs = len(dir_contents)
@@ -675,7 +672,6 @@ def test_cleanup_sharded_checkpoints(world_size, tmp_path: pathlib.Path, state_d
         assert num_checkpoint_dirs == batches_to_train
     else:
         assert num_checkpoint_dirs == num_ckpts_to_keep
-
     for ckpt_dir in dir_contents:
         full_path_ckpt_dir = os.path.join(shards_dir, ckpt_dir)
         elastic_file_list = {'.metadata', *[f'__{rank}_0.distcp' for rank in range(dist.get_world_size())]}
