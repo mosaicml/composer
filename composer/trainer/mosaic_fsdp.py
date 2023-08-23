@@ -823,7 +823,7 @@ elif version.parse(torch.__version__) <= version.parse('2.1.0'):
         """Modified version of hhttps://github.com/pytorch/pytorch/blob/8ed169b1628285924e10fc98de53dbb75c92c43e/torch/distributed/fsdp/fully_sharded_data_parallel.py#L399C1."""
         torch._C._log_api_usage_once('torch.distributed.fsdp')
         ## BEGIN CHANGE
-        super(FullyShardedDataParallel).__init__()
+        super(FullyShardedDataParallel, self).__init__()
         ## END CHANGE
         _init_ignored_module_states(self, module, ignored_modules, ignored_states)
         _init_device_handle(self, module, self._ignored_params, device_id)
