@@ -1,8 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-
 import pathlib
 import random
+from typing import Union
 
 import pytest
 import torch
@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader
 
 import composer
 from composer.core import Batch, Precision, State
+from composer.core.time import Time
 from composer.devices import DeviceCPU, DeviceGPU
 from composer.loggers import Logger
 from tests.common import SimpleModel, assert_state_equivalent
@@ -155,3 +156,148 @@ def test_composer_metadata_in_state_dict(tmp_path, request: pytest.FixtureReques
     assert loaded_state_dict['metadata']['world_size'] == 1
     assert loaded_state_dict['metadata']['device_train_microbatch_size'] == 2
     assert loaded_state_dict['metadata']['train_dataloader_batch_size'] == 4
+
+
+@pytest.mark.parametrize(
+    'time',
+    [
+        '3ep',
+        '5dur',
+        Time.from_timestring('3ep'),
+        Time.from_timestring('5dur'),
+    ],
+)
+def test_convert_time_none_dataloader_len(time: Time, request: pytest.FixtureRequest):
+    # Get a dummy state without a dataloader_len
+    state = get_dummy_state(request)
+    assert state.max_duration is not None
+    assert state.dataloader_len is None
+
+    with pytest.raises(RuntimeError, match='Cannot convert time, as state.dataloader_len is None.'):
+        state.convert_time(time)
+
+
+@pytest.mark.parametrize(
+    'time',
+    [
+        '3ep',
+        '2ba',
+        '1024sp',
+        '98tok',
+        '5dur',
+        Time.from_timestring('3ep'),
+        Time.from_timestring('2ba'),
+        Time.from_timestring('1024sp'),
+        Time.from_timestring('98tok'),
+        Time.from_timestring('5dur'),
+    ],
+)
+def test_convert_time_max_duration_none(time: Time, request: pytest.FixtureRequest):
+    # Get a dummy state without a dataloader_len
+    state = get_dummy_state(request)
+    state.max_duration = None
+    assert state.max_duration is None
+
+    with pytest.raises(
+            RuntimeError,
+            match='`max_duration` should be set whenever time conversion is invoked.',
+    ):
+        state.convert_time(time)
+
+
+@pytest.mark.parametrize(
+    'max_duration',
+    [
+        Time.from_timestring('1024ep'),
+        Time.from_timestring('25600ba'),
+        Time.from_timestring('102400sp'),
+    ],
+)
+@pytest.mark.parametrize(
+    'time,expected_time',
+    [
+        ('3ep', Time.from_timestring('75ba')),
+        ('2ba', Time.from_timestring('2ba')),
+        ('1024sp', Time.from_timestring('1024sp')),
+        ('98tok', Time.from_timestring('98tok')),
+        (Time.from_timestring('3ep'), Time.from_timestring('75ba')),
+        (Time.from_timestring('2ba'), Time.from_timestring('2ba')),
+        (Time.from_timestring('1024sp'), Time.from_timestring('1024sp')),
+        (Time.from_timestring('98tok'), Time.from_timestring('98tok')),
+    ],
+)
+def test_convert_time(
+    max_duration: Time,
+    time: Union[str, Time],
+    expected_time: Time,
+    request: pytest.FixtureRequest,
+):
+    # Get a dummy state without a dataloader_len
+    state = get_dummy_state(request)
+
+    state.set_dataloader(dataloader=state.train_dataloader, dataloader_label='train_dataloader')
+    assert state.dataloader_len is not None
+
+    state.max_duration = max_duration
+    assert state.max_duration is not None
+
+    out_time = state.convert_time(time)
+    assert out_time == expected_time
+
+
+@pytest.mark.parametrize(
+    'max_duration',
+    [
+        Time.from_timestring('1024ep'),
+        Time.from_timestring('25600ba'),
+    ],
+)
+@pytest.mark.parametrize(
+    'time,expected_time',
+    [
+        ('0.1dur', Time.from_timestring('2560ba')),
+        (Time.from_timestring('0.1dur'), Time.from_timestring('2560ba')),
+    ],
+)
+def test_convert_time_duration(
+    max_duration: Time,
+    time: Union[str, Time],
+    expected_time: Time,
+    request: pytest.FixtureRequest,
+):
+    # Get a dummy state without a dataloader_len
+    state = get_dummy_state(request)
+
+    state.set_dataloader(dataloader=state.train_dataloader, dataloader_label='train_dataloader')
+    assert state.dataloader_len is not None
+
+    state.max_duration = max_duration
+    assert state.max_duration is not None
+
+    out_time = state.convert_time(time)
+    assert out_time == expected_time
+
+
+@pytest.mark.parametrize(
+    'time,expected_time',
+    [
+        ('0.1dur', Time.from_timestring('10240sp')),
+        (Time.from_timestring('0.1dur'), Time.from_timestring('10240sp')),
+    ],
+)
+def test_convert_time_duration_samples(
+    time: Union[str, Time],
+    expected_time: Time,
+    request: pytest.FixtureRequest,
+):
+    # Get a dummy state without a dataloader_len
+    state = get_dummy_state(request)
+
+    state.set_dataloader(dataloader=state.train_dataloader, dataloader_label='train_dataloader')
+    assert state.dataloader_len is not None
+
+    state.max_duration = Time.from_timestring('102400sp')
+    assert state.max_duration is not None
+
+    out_time = state.convert_time(time)
+    assert out_time == expected_time

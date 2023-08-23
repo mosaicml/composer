@@ -651,6 +651,55 @@ class State(Serializable):
             return None
         return self.timestamp.get(self.max_duration.unit) / self.max_duration
 
+    def convert_time(self, time: Union[str, Time[int], Time[float]], ssr: float = 1.0) -> Time[int]:
+        """Converts ``time`` into a fine-grained :class:`.TimeUnit` according to the current state.
+
+        It will not convert ``TimeUnit.BATCH``, ``TimeUnit.SAMPLE`` and ``TimeUnit.TOKEN``.
+        ``TimeUnit.Epoch`` is converted to ``TimeUnit.BATCH```.
+        Finally, ``TimeUnit.DURATION`` is converted either to ``TimeUnit.BATCH`` or ``TimeUnit.SAMPLE`` if ``.max_duration`` is ``TimeUnit.SAMPLE``.
+
+        .. note::
+
+            ``.max_duration`` cannot be `None`.
+
+            ``.dataloader_len`` cannot be `None` if,
+                * ``time.unit`` is ``TimeUnit.EPOCH``
+                * ``time.unit`` is ``TimeUnit.DURATION`` and ``.max_duration.unit`` is ``TimeUnit.EPOCH``.
+
+            Scale Schedule Ratio (ssr) is not applied if ``time.unit`` is ``TimeUnit.DURATION``
+
+        Args:
+            time (Time | str): A time string, or instance of :class:`.Time`.
+            ssr (float): Scale Schedule Ratio.
+
+        Returns:
+            Time: An instance of :class:`.Time`.
+        """
+        if isinstance(time, str):
+            time = Time.from_timestring(time)
+
+        if self.max_duration is None:
+            raise RuntimeError('`max_duration` should be set whenever time conversion is invoked.')
+
+        if time.unit == TimeUnit.DURATION:
+            if self.max_duration.unit == TimeUnit.EPOCH:
+                if self.dataloader_len is None:
+                    raise RuntimeError('Cannot convert time, as state.dataloader_len is None.')
+                return Time(
+                    int(time.value * int(self.dataloader_len) * self.max_duration.value),
+                    TimeUnit.BATCH,
+                )
+            return Time(int(time.value * self.max_duration.value), self.max_duration.unit)
+        elif time.unit == TimeUnit.EPOCH:
+            # Epochs do not provide sufficient granularity for SSR scaling
+            # e.g. if max_duration = 1ep, then any SSR would result in a new duration of 0.
+            # so, convert the time into batches
+            if self.dataloader_len is None:
+                raise RuntimeError('Cannot convert time, as state.dataloader_len is None.')
+            time = Time(value=time.value * int(self.dataloader_len), unit=TimeUnit.BATCH)
+
+        return Time(value=int(time.value * ssr), unit=time.unit)
+
     def stop_training(self):
         """Gracefully stop training.
 
