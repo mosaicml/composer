@@ -7,7 +7,7 @@
   PYTHON_VERSION: '3.10'
   PYTORCH_VERSION: 2.1.0
   PYTORCH_NIGHTLY_URL: https://download.pytorch.org/whl/nightly/cu121
-  PYTORCH_NIGHTLY_VERSION: dev20230623+cu121
+  PYTORCH_NIGHTLY_VERSION: dev20230818+cu121
   TAGS:
   - mosaicml/pytorch_nightly:2.1.0_cu121-python3.10-ubuntu20.04
   TARGET: pytorch_stage
