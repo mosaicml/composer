@@ -151,7 +151,7 @@ class NeptuneLogger(LoggerDestination):
         remote_file_name: str,
         file_path: pathlib.Path,
         *,
-        overwrite: bool,
+        overwrite: bool = False,
     ):
         if not self._enabled or not self._log_artifacts:
             return
@@ -182,7 +182,10 @@ class NeptuneLogger(LoggerDestination):
         if not self._enabled:
             return
 
-        if os.path.exists(destination) and not overwrite:
+        if os.path.exists(os.path.join(
+                destination,
+                remote_file_name,
+        )) and not overwrite:
             warnings.warn(f"Destination '{destination}' already exists and overwrite is set to False."
                           'No action will be taken.')
             return
