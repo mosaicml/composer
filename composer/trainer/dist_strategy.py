@@ -367,63 +367,71 @@ def prepare_fsdp_module(
                 continue
 
             def _param_init_fn(module: torch.nn.Module) -> None:
-                # A dictionary of all tied parameter pointers to module names
-                tied_pointers = {}
+                # Torch 2 fixed weight tying with init modules
+                if not is_torch_2_0:
+                    # A dictionary of all tied parameter pointers to module names
+                    tied_pointers = {}
 
-                # Goes through all modules finding which weights have the same pointers
-                for name, mod in module.named_modules():
-                    for attr in ['weight', 'bias']:
-                        if hasattr(mod, attr):
-                            mod_attr = getattr(mod, attr)
-                            if mod_attr is None:
-                                continue
-                            ptr = id(mod_attr)
-                            ptr_attr = (ptr, attr)
-                            name_list = tied_pointers.get(ptr_attr, [])
-                            name_list.append(name)
-                            tied_pointers[ptr_attr] = name_list
+                    # Goes through all modules finding which weights have the same pointers
+                    for name, mod in module.named_modules():
+                        for attr in ['weight', 'bias']:
+                            if hasattr(mod, attr):
+                                mod_attr = getattr(mod, attr)
+                                if mod_attr is None:
+                                    continue
+                                ptr = id(mod_attr)
+                                ptr_attr = (ptr, attr)
+                                name_list = tied_pointers.get(ptr_attr, [])
+                                name_list.append(name)
+                                tied_pointers[ptr_attr] = name_list
 
-                # Creates a dictionary of module names that should be tied together
-                tied_mod_names = collections.defaultdict(list)
-                # Creates a set of modules we should not initialize
-                should_not_init_params = set()
-                for ptr_attr_type, mod_names in tied_pointers.items():
-                    # No modules for this pointer are tied
-                    if len(mod_names) == 1:
-                        continue
-                    _, attr_type = ptr_attr_type
-                    first = next(mod_names.__iter__())
-                    for elem in mod_names:
-                        should_not_init_params.add('.'.join([elem, attr_type]))
-                        tied_mod_names[(first, attr_type)].append(elem)
-                    # Make sure at least one of the tied parameters is initialized
-                    should_not_init_params.remove('.'.join([first, attr_type]))
+                    # Creates a dictionary of module names that should be tied together
+                    tied_mod_names = collections.defaultdict(list)
+                    # Creates a set of modules we should not initialize
+                    should_not_init_params = set()
+                    for ptr_attr_type, mod_names in tied_pointers.items():
+                        # No modules for this pointer are tied
+                        if len(mod_names) == 1:
+                            continue
+                        _, attr_type = ptr_attr_type
+                        first = next(mod_names.__iter__())
+                        for elem in mod_names:
+                            should_not_init_params.add('.'.join([elem, attr_type]))
+                            tied_mod_names[(first, attr_type)].append(elem)
+                        # Make sure at least one of the tied parameters is initialized
+                        should_not_init_params.remove('.'.join([first, attr_type]))
 
-                meta_safe_apply(module,
-                                lambda t: torch.empty_like(t, device=f'cuda:{torch.cuda.current_device()}'),
-                                should_not_init_params,
-                                module_name='')
+                    meta_safe_apply(module,
+                                    lambda t: torch.empty_like(t, device=f'cuda:{torch.cuda.current_device()}'),
+                                    should_not_init_params,
+                                    module_name='')
 
-                if len(tied_mod_names) > 0:
-                    warnings.warn(('The passed in model appears to have tied weights. In order to '
-                                   'support effective weight tying, the tied modules need to be '
-                                   'in the same FSDP module. If the weights are not properly tied '
-                                   'it can lead to loss spikes. We have tried our best to ensure '
-                                   'the tied weights are in the same FSDP module.'))
+                    if len(tied_mod_names) > 0:
+                        warnings.warn(('The passed in model appears to have tied weights. In order to '
+                                    'support effective weight tying, the tied modules need to be '
+                                    'in the same FSDP module. If the weights are not properly tied '
+                                    'it can lead to loss spikes. We have tried our best to ensure '
+                                    'the tied weights are in the same FSDP module.'))
 
-                # Redoes weight tying
-                for name_attr, tied_names in tied_mod_names.items():
-                    name, attr = name_attr
-                    src_mod = module.get_submodule(name)
-                    # We need to make sure the source and destination
-                    # modules end up in the same FSDP module otherwise
-                    # with sharding weight tying gets violated
-                    src_mod._fsdp_wrap = False  # type: ignore
-                    src_params = getattr(src_mod, attr)
-                    for tied_name in tied_names:
-                        dest_mod = module.get_submodule(tied_name)
-                        dest_mod._fsdp_wrap = False  # type: ignore
-                        setattr(dest_mod, attr, src_params)
+                    # Redoes weight tying
+                    for name_attr, tied_names in tied_mod_names.items():
+                        name, attr = name_attr
+                        src_mod = module.get_submodule(name)
+                        # We need to make sure the source and destination
+                        # modules end up in the same FSDP module otherwise
+                        # with sharding weight tying gets violated
+                        src_mod._fsdp_wrap = False  # type: ignore
+                        src_params = getattr(src_mod, attr)
+                        for tied_name in tied_names:
+                            dest_mod = module.get_submodule(tied_name)
+                            dest_mod._fsdp_wrap = False  # type: ignore
+                            setattr(dest_mod, attr, src_params)
+                
+                else:
+                    meta_safe_apply(module, 
+                                    lambda t: torch.empty_like(t, device=f'cuda:{torch.cuda.current_device()}'),
+                                    {},
+                                    module_name='')
 
                 if hasattr(obj, 'param_init_fn') and isinstance(obj.param_init_fn, Callable):
                     module.apply(obj.param_init_fn)
