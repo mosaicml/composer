@@ -4,17 +4,14 @@
 from typing import Type, cast
 
 import pytest
-from torch.utils.data import DataLoader
 
 from composer.core import Callback, Engine, Event, State
 from composer.core.time import Time
 from composer.loggers import Logger, LoggerDestination
 from composer.profiler import Profiler, ProfilerAction
 from composer.trainer import Trainer
-from tests.callbacks.callback_settings import get_cb_kwargs, get_cbs_and_marks
+from tests.callbacks.callback_settings import get_cb_kwargs, get_cb_model_and_datasets, get_cbs_and_marks
 from tests.common import EventCounterCallback
-from tests.common.datasets import RandomClassificationDataset
-from tests.common.models import SimpleModel
 
 
 def test_callbacks_map_to_events():
@@ -117,12 +114,13 @@ class TestCallbackTrains:
     def _get_trainer(self, cb: Callback, device_train_microbatch_size: int):
         loggers = cb if isinstance(cb, LoggerDestination) else None
         callbacks = cb if not isinstance(cb, LoggerDestination) else None
-        batch_size = 2
+
+        model, train_dataloader, eval_dataloader = get_cb_model_and_datasets(cb)
 
         return Trainer(
-            model=SimpleModel(),
-            train_dataloader=DataLoader(RandomClassificationDataset(size=4), batch_size=batch_size),
-            eval_dataloader=DataLoader(RandomClassificationDataset(size=4), batch_size=batch_size),
+            model=model,
+            train_dataloader=train_dataloader,
+            eval_dataloader=eval_dataloader,
             max_duration=2,
             device_train_microbatch_size=device_train_microbatch_size,
             callbacks=callbacks,

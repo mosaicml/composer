@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Tuple, Type
 
 import pytest
+from torch.utils.data import DataLoader
 
 import composer.callbacks
 import composer.loggers
@@ -14,7 +15,10 @@ from composer.callbacks import (EarlyStopper, ExportForInferenceCallback, Genera
                                 MemoryMonitor, MLPerfCallback, SpeedMonitor, SystemMetricsMonitor, ThresholdStopper)
 from composer.loggers import (CometMLLogger, ConsoleLogger, LoggerDestination, MLFlowLogger, ProgressBarLogger,
                               RemoteUploaderDownloader, TensorboardLogger, WandBLogger)
+from composer.models.base import ComposerModel
 from tests.common import get_module_subclasses
+from tests.common.datasets import RandomClassificationDataset, dummy_gpt_lm_dataloader
+from tests.common.models import SimpleModel, configure_tiny_gpt2_hf_model
 
 try:
     import wandb
@@ -111,7 +115,6 @@ _callback_kwargs: Dict[Type[Callback], Dict[str, Any],] = {
 }
 
 _callback_marks: Dict[Type[Callback], List[pytest.MarkDecorator],] = {
-    Generate: [pytest.mark.skip(reason='Generate requires HuggingFaceModel.')],
     RemoteUploaderDownloader: [
         pytest.mark.filterwarnings(
             # post_close might not be called if being used outside of the trainer
@@ -206,3 +209,11 @@ def get_cb_hparams_and_marks():
     implementations = []
     ans = [_to_pytest_param(impl) for impl in implementations]
     return ans
+
+
+def get_cb_model_and_datasets(cb: Callback) -> Tuple[ComposerModel, DataLoader, DataLoader]:
+    if isinstance(cb, Generate):
+        return (configure_tiny_gpt2_hf_model(), dummy_gpt_lm_dataloader(), dummy_gpt_lm_dataloader())
+    batch_size = 2
+    return (SimpleModel(), DataLoader(RandomClassificationDataset(size=4), batch_size=batch_size),
+            DataLoader(RandomClassificationDataset(size=4), batch_size=batch_size))
