@@ -36,20 +36,18 @@ class SystemMetricsMonitor(Callback):
             pynvml.nvmlInit()
 
     def run_event(self, event: Event, state: State, logger: Logger):
-        # skip the microbatch events
+        # only run on the following events
         if event in [
-                Event.BEFORE_FORWARD,
-                Event.AFTER_FORWARD,
-                Event.BEFORE_LOSS,
-                Event.AFTER_LOSS,
-                Event.BEFORE_BACKWARD,
-                Event.AFTER_BACKWARD,
+                Event.BATCH_START,
+                Event.EVAL_BATCH_START,
+                Event.PREDICT_BATCH_START,
         ]:
-            return
-        local_node_system_metrics = self.compute_system_metrics()
-        all_system_metrics = dist.all_gather_object(local_node_system_metrics)
-        system_metrics = {key: value for local_metrics in all_system_metrics for key, value in local_metrics.items()}
-        logger.log_metrics(system_metrics)
+            local_node_system_metrics = self.compute_system_metrics()
+            all_system_metrics = dist.all_gather_object(local_node_system_metrics)
+            system_metrics = {
+                key: value for local_metrics in all_system_metrics for key, value in local_metrics.items()
+            }
+            logger.log_metrics(system_metrics)
 
     def compute_system_metrics(self):
         system_metrics = {}
