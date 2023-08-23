@@ -193,6 +193,7 @@ def set_custom_fsdp_module_kwargs(module_kwargs: Dict, process_group_cache: Dict
 
     return module_kwargs
 
+
 if version.parse(torch.__version__) < version.parse('1.13.1'):
     raise NotImplementedError(f'Not supported for torch < 1.13.1')
 
@@ -617,9 +618,9 @@ elif version.parse(torch.__version__) <= version.parse('2.1.0'):
     from torch.distributed.fsdp._unshard_param_utils import _register_flat_param
     from torch.distributed.fsdp._wrap_utils import (_check_nested_wrapping, _validate_frozen_params,
                                                     _warn_on_overridden_mixed_precision)
-    from torch.distributed.fsdp.wrap import (ModuleWrapPolicy, _construct_wrap_fn, _FSDPPolicy, _or_policy, _Policy,
+    from torch.distributed.fsdp.wrap import (ModuleWrapPolicy, _construct_wrap_fn, _or_policy, _Policy,
                                              _post_order_apply, _run_mixed_precision_override_policy, _wrap,
-                                             _wrap_batchnorm_individually, _wrap_module_cls_individually)
+                                             _wrap_module_cls_individually)
 
     def _custom_recursive_wrap_t2p1p0(
         module: nn.Module,
