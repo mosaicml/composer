@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pathlib
 from abc import ABC
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -54,6 +54,17 @@ class LoggerDestination(Callback, ABC):
                 (strings) to their values (Any).
         """
         del hyperparameters  # unused
+        pass
+
+    def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
+        """Log a table.
+
+        Args:
+            columns (List[str]): Names of the columns in the table.
+            rows (List[List[Any]]): 2D row-oriented array of values.
+            name (str): Name of table. (Default: ``'Table'``)
+        """
+        del columns, rows, name
         pass
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:

@@ -182,6 +182,31 @@ def test_wandb_log_image_with_masks_and_table(images, masks, test_wandb_logger):
     assert image_count == expected_num_images
 
 
+def test_wandb_log_table(test_wandb_logger: WandBLogger):
+    wandb = pytest.importorskip('wandb', reason='wandb is optional')
+
+    assert wandb.run is not None
+    wandb_run_dir = Path(wandb.run.dir)
+
+    # Create log table to test.
+    columns = ['prompt', 'generation']
+    rows = [['p0', 'g0'], ['p1', 'g1']]
+    test_wandb_logger.log_table(columns=columns, rows=rows)
+
+    test_wandb_logger.post_close()
+
+    wandb_media_dir = wandb_run_dir.parent / Path('files') / Path('media') / Path('table')
+    table_files = list(wandb_media_dir.glob('./*.json'))
+
+    # There should only be one table file.
+    assert len(table_files) == 1
+
+    # Check that the table file contents match what was logged.
+    table = json.load(open(table_files[0]))
+    assert table['columns'] == columns
+    assert table['data'] == rows
+
+
 def test_wandb_log_metrics(test_wandb_logger):
     wandb = pytest.importorskip('wandb', reason='wandb is optional')
 
