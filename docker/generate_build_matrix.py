@@ -169,8 +169,10 @@ def _main():
                     stage=stage,
                     interconnect=interconnect,
                 ),
-            'PYTORCH_NIGHTLY_URL': '',
-            'PYTORCH_NIGHTLY_VERSION': '',
+            'PYTORCH_NIGHTLY_URL':
+                '',
+            'PYTORCH_NIGHTLY_VERSION':
+                '',
         }
 
         # Only build the vision image on latest python
@@ -280,7 +282,7 @@ def _main():
     table.sort(key=lambda x: x[1])  # flavor
     table_contents = tabulate.tabulate(table, headers, tablefmt='github', floatfmt='', disable_numparse=True)
     _write_table('PYTORCH_BUILD_MATRIX', table_contents)
-    
+
     # Composer Table
     # Also print the table for the readme
     headers = ['Composer Version', 'CUDA Support', 'Docker Tag']

@@ -230,7 +230,7 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
         pip${PYTHON_VERSION} install --no-cache-dir --pre --index-url ${PYTORCH_NIGHTLY_URL} \
             torch==${PYTORCH_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
 	    torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
-            torchtext==${TORCHTEXT_VERSION} ; \
+            torchtext ; \
     fi
 RUN
 #####################################
@@ -284,7 +284,7 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
 # Install NVIDIA Apex
 #####################
 # skip if torch nightly is installed as there is incompatability
-RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \ 
+RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \
         mkdir -p /tmp/apex && \
         cd /tmp/apex && \
         git clone https://github.com/NVIDIA/apex && \
