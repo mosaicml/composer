@@ -615,7 +615,6 @@ elif version.parse(torch.__version__) <= version.parse('2.1.0'):
                                                     _init_state_dict_state)
     from torch.distributed.fsdp._state_dict_utils import _register_all_state_dict_hooks
     from torch.distributed.fsdp._unshard_param_utils import _register_flat_param
-    from torch.distributed.fsdp._utils import _contains_batchnorm, _override_batchnorm_mixed_precision
     from torch.distributed.fsdp._wrap_utils import (_check_nested_wrapping, _validate_frozen_params,
                                                     _warn_on_overridden_mixed_precision)
     from torch.distributed.fsdp.wrap import (ModuleWrapPolicy, _construct_wrap_fn, _FSDPPolicy, _or_policy, _Policy,
