@@ -50,6 +50,7 @@ class NeptuneLogger(LoggerDestination):
                  project: Optional[str] = None,
                  api_token: Optional[str] = None,
                  rank_zero_only: bool = True,
+                 log_artifacts: bool = False,
                  base_namespace: str = 'training',
                  **neptune_kwargs: Dict[str, Any]) -> None:
         try:
@@ -62,6 +63,7 @@ class NeptuneLogger(LoggerDestination):
         verify_type('project', project, (str, type(None)))
         verify_type('api_token', api_token, (str, type(None)))
         verify_type('rank_zero_only', rank_zero_only, bool)
+        verify_type('log_artifacts', log_artifacts, bool)
         verify_type('base_namespace', base_namespace, str)
 
         if not base_namespace:
@@ -70,6 +72,7 @@ class NeptuneLogger(LoggerDestination):
         self._project = project
         self._api_token = api_token
         self._rank_zero_only = rank_zero_only
+        self._log_artifacts = log_artifacts
         self._base_namespace = base_namespace
         self._neptune_kwargs = neptune_kwargs
 
@@ -140,7 +143,7 @@ class NeptuneLogger(LoggerDestination):
         *,
         overwrite: bool,
     ):
-        if not self._enabled:
+        if not self._enabled or not self._log_artifacts:
             return
 
         assert self._neptune_run is not None
@@ -197,6 +200,9 @@ class NeptuneLogger(LoggerDestination):
             return
 
         assert self._base_handler is not None
+
+        if not isinstance(images, Sequence) and images.ndim <= 3:
+            images = [images]
 
         for img in images:
             self._base_handler[name].append(img, step=step)
