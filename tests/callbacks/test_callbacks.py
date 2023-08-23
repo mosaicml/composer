@@ -115,7 +115,7 @@ class TestCallbackTrains:
         loggers = cb if isinstance(cb, LoggerDestination) else None
         callbacks = cb if not isinstance(cb, LoggerDestination) else None
 
-        model, train_dataloader, eval_dataloader = get_cb_model_and_datasets(cb)
+        model, train_dataloader, eval_dataloader = get_cb_model_and_datasets(cb, dl_size=4, batch_size=2)
 
         return Trainer(
             model=model,

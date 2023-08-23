@@ -16,6 +16,8 @@ from composer.callbacks import (EarlyStopper, ExportForInferenceCallback, Genera
 from composer.loggers import (CometMLLogger, ConsoleLogger, LoggerDestination, MLFlowLogger, ProgressBarLogger,
                               RemoteUploaderDownloader, TensorboardLogger, WandBLogger)
 from composer.models.base import ComposerModel
+from composer.utils import dist
+from composer.utils.device import get_device
 from tests.common import get_module_subclasses
 from tests.common.datasets import RandomClassificationDataset, dummy_gpt_lm_dataloader
 from tests.common.models import SimpleModel, configure_tiny_gpt2_hf_model
@@ -211,9 +213,15 @@ def get_cb_hparams_and_marks():
     return ans
 
 
-def get_cb_model_and_datasets(cb: Callback) -> Tuple[ComposerModel, DataLoader, DataLoader]:
+def get_cb_model_and_datasets(cb: Callback,
+                              dl_size=100,
+                              **default_dl_kwargs) -> Tuple[ComposerModel, DataLoader, DataLoader]:
     if isinstance(cb, Generate):
-        return (configure_tiny_gpt2_hf_model(), dummy_gpt_lm_dataloader(), dummy_gpt_lm_dataloader())
-    batch_size = 2
-    return (SimpleModel(), DataLoader(RandomClassificationDataset(size=4), batch_size=batch_size),
-            DataLoader(RandomClassificationDataset(size=4), batch_size=batch_size))
+        if get_device(None).name == 'cpu' and dist.get_world_size() > 1:
+            pytest.xfail(
+                'GPT2 is not currently supported with DDP. See https://github.com/huggingface/transformers/issues/22482 for more details.'
+            )
+        return (configure_tiny_gpt2_hf_model(), dummy_gpt_lm_dataloader(size=dl_size),
+                dummy_gpt_lm_dataloader(size=dl_size))
+    return (SimpleModel(), DataLoader(RandomClassificationDataset(size=dl_size), **default_dl_kwargs),
+            DataLoader(RandomClassificationDataset(size=dl_size), **default_dl_kwargs))
