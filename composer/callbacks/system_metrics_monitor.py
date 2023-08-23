@@ -23,22 +23,16 @@ __all__ = ['SystemMetricsMonitor']
 class SystemMetricsMonitor(Callback):
     """Track system metrics."""
 
-    def __init__(self) -> None:
+    def __init__(self, gpu_available: bool = False) -> None:
         super().__init__()
-        self.gpu_available = False
-
-    def init(self, state: State, logger: Logger) -> None:
-        # Not relying on `torch.cuda.is_available()` since the model could be on CPU.
-        model_device = next(state.model.parameters()).device
-
-        if model_device.type == 'cuda':
+        self.gpu_available = gpu_available
+        if self.gpu_available:
             try:
                 import pynvml
             except ImportError as e:
                 raise MissingConditionalImportError(extra_deps_group='pynvml',
                                                     conda_package='pynvml',
                                                     conda_channel='conda-forge') from e
-            self.gpu_available = True
             pynvml.nvmlInit()
 
     def run_event(self, event: Event, state: State, logger: Logger):
