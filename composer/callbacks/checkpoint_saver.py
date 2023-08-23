@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import logging
-import math
 import os
 import pathlib
 import shutil
@@ -15,7 +14,8 @@ import textwrap
 from pathlib import Path
 from typing import Callable, List, Optional, Union
 
-from composer.core import Callback, Event, State, Time, TimeUnit
+from composer.callbacks.utils import create_interval_scheduler
+from composer.core import Callback, Event, State, Time
 from composer.loggers import Logger
 from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, PartialFilePath,
                             checkpoint, create_symlink_file, dist, ensure_folder_has_no_conflicting_files,
@@ -25,67 +25,9 @@ from composer.utils.misc import using_torch_2
 
 log = logging.getLogger(__name__)
 
-__all__ = ['CheckpointSaver', 'checkpoint_periodically']
+__all__ = ['CheckpointSaver']
 
 _TORCH_DISTRIBUTED_CHECKPOINTS_METADATA_FILENAME = '.metadata'
-
-
-def checkpoint_periodically(interval: Union[str, int, Time],
-                            save_end_of_training=True) -> Callable[[State, Event], bool]:
-    r"""Helper function to create a checkpoint scheduler according to a specified interval.
-
-    Args:
-        interval (Union[str, int, :class:`.Time`]): The interval describing how often checkpoints should be
-            saved. If an integer, it will be assumed to be in :attr:`.TimeUnit.EPOCH`\s.
-            Otherwise, the unit must be either :attr:`.TimeUnit.EPOCH`, :attr:`.TimeUnit.BATCH`,
-            :attr:`.TimeUnit.TOKEN`, or :attr:`.TimeUnit.SAMPLE`.
-
-            Checkpoints will be saved every ``n`` batches or epochs (depending on the unit),
-            and at the end of training.
-
-    Returns:
-        Callable[[State, Event], bool]: A function that can be passed as the ``save_interval``
-            argument into the :class:`.CheckpointSaver`.
-    """
-    if isinstance(interval, str):
-        interval = Time.from_timestring(interval)
-    if isinstance(interval, int):
-        interval = Time(interval, TimeUnit.EPOCH)
-
-    if interval.unit == TimeUnit.EPOCH:
-        save_event = Event.EPOCH_CHECKPOINT
-    elif interval.unit in {TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE}:
-        save_event = Event.BATCH_CHECKPOINT
-    else:
-        raise NotImplementedError(
-            f'Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.'
-        )
-
-    def save_interval(state: State, event: Event):
-        elapsed_duration = state.get_elapsed_duration()
-        assert elapsed_duration is not None, 'elapsed_duration is set on the BATCH_CHECKPOINT and EPOCH_CHECKPOINT'
-
-        # Always checkpoint at end of training
-        if save_end_of_training and elapsed_duration >= 1.0:
-            return True
-
-        # previous timestamp will only be None if training has not started, but we are returning False
-        # in this case, just to be safe
-        if state.previous_timestamp is None:
-            return False
-
-        if interval.unit in {TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE}:
-            previous_count = state.previous_timestamp.get(interval.unit)
-            count = state.timestamp.get(interval.unit)
-        else:
-            raise NotImplementedError(
-                f'Unknown checkpointing interval: {interval.unit}. Must be TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.'
-            )
-
-        threshold_passed = math.floor(previous_count / interval.value) != math.floor(count / interval.value)
-        return event == save_event and threshold_passed
-
-    return save_interval
 
 
 class CheckpointSaver(Callback):  # noqa: D101
@@ -310,7 +252,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         latest_remote_file_name = str(latest_remote_file_name) if latest_remote_file_name is not None else None
 
         if not callable(save_interval):
-            save_interval = checkpoint_periodically(save_interval)
+            save_interval = create_interval_scheduler(save_interval)
         self.save_interval = save_interval
         self.last_checkpoint_batch: Optional[Time] = None
 

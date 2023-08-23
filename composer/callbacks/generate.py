@@ -10,7 +10,7 @@ from typing import Any, List, Union, cast
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, TensorDataset
 
-from composer.callbacks.checkpoint_saver import checkpoint_periodically
+from composer.callbacks.utils import create_interval_scheduler
 from composer.core import Callback, Event, State, Time, get_precision_context
 from composer.loggers import Logger
 from composer.models import HuggingFaceModel
@@ -35,10 +35,10 @@ class Generate(Callback):
         self.prompts = prompts
         self.generate_kwargs = kwargs
         self.batch_size = batch_size
-        self.save_interval = checkpoint_periodically(interval, save_end_of_training=False)
+        self.check_interval = create_interval_scheduler(interval, include_end_of_training=False)
 
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
-        if state.get_elapsed_duration() is not None and self.save_interval(state, event):
+        if state.get_elapsed_duration() is not None and self.check_interval(state, event):
             self.generate(state, logger)
         else:
             super().run_event(event, state, logger)
