@@ -92,9 +92,6 @@ SHELL ["/bin/bash", "-c"]
 
 ARG CUDA_VERSION
 
-# The URL to download the Pytorch nightly version from. If this is set, PYTORCH_VERSION is ignored
-ARG PYTORCH_NIGHTLY_URL
-
 # Remove a bad symlink from the base composer image
 # If this file is present after the first command, kaniko
 # won't be able to build the docker image.
@@ -213,6 +210,7 @@ RUN pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
 # Install Pytorch
 #################
 ARG PYTORCH_VERSION
+ARG PYTORCH_NIGHTLY_URL
 ARG PYTORCH_NIGHTLY_VERSION
 ARG TORCHVISION_VERSION
 ARG TORCHTEXT_VERSION
