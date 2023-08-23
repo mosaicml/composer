@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 import math
 import re
 from pathlib import Path
@@ -245,6 +246,36 @@ def test_log_to_console_and_progress_bar_warning():
 
     with pytest.warns(Warning):
         Trainer(model=SimpleModel(), loggers=ConsoleLogger())
+
+
+def test_console_logger_log_table(console_logger_test_stream, console_logger_test_file_path, dummy_state):
+    console_logger = ConsoleLogger(stream=console_logger_test_stream)
+    columns = ['prompt', 'generation']
+    rows = [['p0', 'g0'], ['p1', 'g1']]
+    name = 'test_table'
+
+    console_logger.log_table(columns=columns, rows=rows, name=name)
+
+    console_logger.log_to_console({}, dummy_state)
+
+    console_logger_test_stream.flush()
+    console_logger_test_stream.close()
+    assert name in console_logger.tables
+
+    lines = open(console_logger_test_file_path, 'r').readlines()
+    found_table = False
+    for line in lines:
+        # Use regex to find the logged table.
+        logged_table_string = re.match(rf'\s*{name}: (.*)', line)
+        if logged_table_string is not None:
+            # Extract the json string and check to see that it matches what we logged.
+            json_table = logged_table_string.group(1)
+            table = json.loads(json_table)
+            if 'columns' in table and 'data' in table:
+                found_table = table['columns'] == columns and table['data'] == rows
+
+    # Assert that we have found the logged table
+    assert found_table
 
 
 @pytest.mark.parametrize('log_interval_unit', ['ba', 'ep'])
