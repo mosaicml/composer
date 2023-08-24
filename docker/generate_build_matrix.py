@@ -208,7 +208,7 @@ def _main():
         'PYTORCH_VERSION': '2.1.0',
         'PYTORCH_NIGHTLY_URL': 'https://download.pytorch.org/whl/nightly/cu121',
         'PYTORCH_NIGHTLY_VERSION': 'dev20230818+cu121',
-        'TAGS': ['mosaicml/pytorch_nightly:2.1.0_cu121-python3.10-ubuntu20.04'],
+        'TAGS': ['mosaicml/pytorch:2.1.0_cu121-nightly20230818-python3.10-ubuntu20.04'],
         'TARGET': 'pytorch_stage',
         'TORCHTEXT_VERSION': '0.16.0',
         'TORCHVISION_VERSION': '0.16.0'
