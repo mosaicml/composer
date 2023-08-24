@@ -229,7 +229,7 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
     else \
         pip${PYTHON_VERSION} install --no-cache-dir --pre --index-url ${PYTORCH_NIGHTLY_URL} \
             torch==${PYTORCH_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
-	    torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
+	        torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
             torchtext ; \
     fi
 RUN
