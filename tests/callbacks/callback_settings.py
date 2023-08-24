@@ -11,7 +11,7 @@ import composer.loggers
 import composer.profiler
 from composer import Callback
 from composer.callbacks import (EarlyStopper, ExportForInferenceCallback, HealthChecker, ImageVisualizer, MemoryMonitor,
-                                MLPerfCallback, SpeedMonitor, ThresholdStopper)
+                                MLPerfCallback, SpeedMonitor, SystemMetricsMonitor, ThresholdStopper)
 from composer.loggers import (CometMLLogger, ConsoleLogger, LoggerDestination, MLFlowLogger, ProgressBarLogger,
                               RemoteUploaderDownloader, TensorboardLogger, WandBLogger)
 from tests.common import get_module_subclasses
@@ -61,6 +61,13 @@ try:
     del libcloud  # unused
 except ImportError:
     _LIBCLOUD_INSTALLED = False
+
+try:
+    import pynmvl
+    _PYNMVL_INSTALLED = True
+    del pynmvl  # unused
+except ImportError:
+    _PYNMVL_INSTALLED = False
 
 _callback_kwargs: Dict[Type[Callback], Dict[str, Any],] = {
     RemoteUploaderDownloader: {
@@ -124,6 +131,7 @@ _callback_marks: Dict[Type[Callback], List[pytest.MarkDecorator],] = {
     TensorboardLogger: [pytest.mark.skipif(not _TENSORBOARD_INSTALLED, reason='Tensorboard is optional'),],
     ImageVisualizer: [pytest.mark.skipif(not _WANDB_INSTALLED, reason='Wandb is optional')],
     MLFlowLogger: [pytest.mark.skipif(not _MLFLOW_INSTALLED, reason='mlflow is optional'),],
+    SystemMetricsMonitor: [pytest.mark.skipif(not _PYNMVL_INSTALLED, reason='pynmvl is optional'),],
     HealthChecker: [pytest.mark.filterwarnings('ignore:.*HealthChecker is deprecated.*')],
 }
 

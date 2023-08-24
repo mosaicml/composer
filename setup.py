@@ -141,6 +141,10 @@ extra_deps['health_checker'] = {
     'pynvml>=11.5.0,<12',
 }
 
+extra_deps['system_metrics_monitor'] = {
+    'pynvml>=11.5.0,<12',
+}
+
 extra_deps['slack'] = {
     'slack_sdk>=3.19.5,<4',
 }
