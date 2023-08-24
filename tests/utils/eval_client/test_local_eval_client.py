@@ -3,6 +3,7 @@
 import pytest
 
 from composer.utils import LocalEvalClient
+from tests.common.markers import world_size
 
 
 @pytest.mark.parametrize(
@@ -26,7 +27,8 @@ from composer.utils import LocalEvalClient
         ['function add_1(x) {\n\treturn x+2;\n}', False, 'javascript'],
     ],
 )
-def test_local_invoke(code, result, language):
+@world_size(1, 2)
+def test_local_invoke(code: str, result: str, language: str, world_size: int):
     """Test invocation function for LocalEvalClient with code that succeeds, fails compilation, times out, and is incorrect in C, C++, Python, JS.
     """
     eval_client = LocalEvalClient()
