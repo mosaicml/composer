@@ -10,6 +10,7 @@ import textwrap
 import types
 from typing import Dict, List
 
+from composer.utils import dist
 from composer.utils.eval_client.eval_client import EvalClient
 
 __all__ = ['LocalEvalClient']
@@ -55,6 +56,7 @@ class LocalEvalClient(EvalClient):
             language (str): The language of the code generation
             val (multiprocessing.Value): The value in which to save the final value of the test case
         """
+        rank = dist.get_global_rank()
         if language == 'python':
             mod = types.ModuleType('test_module')
             val.value = 0
@@ -174,33 +176,36 @@ class LocalEvalClient(EvalClient):
                 }}
             '''
             code_gen = code_gen + '\n' + textwrap.dedent(ending)
-            with open('test_code.cpp', 'w') as f:
+            with open(f'test_code_{rank}.cpp', 'w') as f:
                 f.write(code_gen)
-            compilation_process = subprocess.run(['g++', '-std=c++11', 'test_code.cpp', '-o', 'test_code'],
-                                                 stdout=subprocess.PIPE,
-                                                 stderr=subprocess.PIPE)
+            compilation_process = subprocess.run(
+                ['g++', '-std=c++11', f'test_code_{rank}.cpp', '-o', f'test_code_{rank}'],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
             if compilation_process.returncode == 0:
-                run_process = subprocess.run('./test_code', stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                run_process = subprocess.run(f'./test_code_{rank}', stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 output = run_process.stdout.decode()
             else:
                 output = '0'
 
-            if 'test_code.cpp' in os.listdir():
-                os.remove('test_code.cpp')
-            if 'test_code' in os.listdir():
-                os.remove('test_code')
+            if f'test_code_{rank}.cpp' in os.listdir():
+                os.remove(f'test_code_{rank}.cpp')
+            if f'test_code_{rank}' in os.listdir():
+                os.remove(f'test_code_{rank}')
             val.value = output == '1'
         elif language == 'javascript':
             ending = '\nconsole.log(JSON.stringify(' + entry_point + '(' + test_input + ')) === JSON.stringify(' + test_output + '));'
             code_gen = code_gen + ending
 
-            with open('test_code.js', 'w') as f:
+            with open(f'test_code_{rank}.js', 'w') as f:
                 f.write(code_gen)
 
-            run_process = subprocess.run(['node', 'test_code.js'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            run_process = subprocess.run(['node', f'test_code_{rank}.js'],
+                                         stdout=subprocess.PIPE,
+                                         stderr=subprocess.PIPE)
             output = run_process.stdout.decode()
-            if 'test_code.js' in os.listdir():
-                os.remove('test_code.js')
+            if f'test_code_{rank}.js' in os.listdir():
+                os.remove(f'test_code_{rank}.js')
             val.value = output == 'true\n'
 
         elif language == 'c':
@@ -236,21 +241,21 @@ class LocalEvalClient(EvalClient):
                 }}
             '''
             code_gen = code_gen + '\n' + textwrap.dedent(ending)
-            with open('test_code.c', 'w') as f:
+            with open(f'test_code_{rank}.c', 'w') as f:
                 f.write(code_gen)
-            compilation_process = subprocess.run(['gcc', 'test_code.c', '-o', 'test_code'],
+            compilation_process = subprocess.run(['gcc', f'test_code_{rank}.c', '-o', f'test_code_{rank}'],
                                                  stdout=subprocess.PIPE,
                                                  stderr=subprocess.PIPE)
             if compilation_process.returncode == 0:
-                run_process = subprocess.run('./test_code', stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                run_process = subprocess.run(f'./test_code_{rank}', stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 output = run_process.stdout.decode()
             else:
                 output = '0'
 
-            if 'test_code.c' in os.listdir():
-                os.remove('test_code.c')
-            if 'test_code' in os.listdir():
-                os.remove('test_code')
+            if f'test_code_{rank}.c' in os.listdir():
+                os.remove(f'test_code_{rank}.c')
+            if f'test_code_{rank}' in os.listdir():
+                os.remove(f'test_code_{rank}')
             val.value = output == '1'
         else:
             raise ValueError(f'Language {language} not supported.')
