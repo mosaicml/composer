@@ -372,7 +372,7 @@ def prepare_fsdp_module(
 
                 # Goes through all modules finding which weights have the same pointers
                 for name, mod in module.named_modules():
-                    # Since FSDP recursively wraps, at parent modules we can encounter already 
+                    # Since FSDP recursively wraps, at parent modules we can encounter already
                     # wrapped weights, as a result we should skip any modules with `_fsdp_wrapped_module.`
                     if '_fsdp_wrapped_module' in name:
                         continue
@@ -410,10 +410,10 @@ def prepare_fsdp_module(
 
                 if len(tied_mod_names) > 0:
                     warnings.warn(('The passed in model appears to have tied weights. In order to '
-                                'support effective weight tying, the tied modules need to be '
-                                'in the same FSDP module. If the weights are not properly tied '
-                                'it can lead to loss spikes. We have tried our best to ensure '
-                                'the tied weights are in the same FSDP module.'))
+                                   'support effective weight tying, the tied modules need to be '
+                                   'in the same FSDP module. If the weights are not properly tied '
+                                   'it can lead to loss spikes. We have tried our best to ensure '
+                                   'the tied weights are in the same FSDP module.'))
 
                 # Redoes weight tying
                 for name_attr, tied_names in tied_mod_names.items():
