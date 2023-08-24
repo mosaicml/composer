@@ -1336,7 +1336,7 @@ class State(Serializable):
                             eval_metric_computed_field = serialized_value[eval_key][metric_name]['_computed']
                             # The metric tensor is saved as a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
                             # So we have to cast it back to a torch tensor.
-                            eval_metric_computed_device = serialized_value[eval_key][metric_name]['_computed_device']
+                            eval_metric_computed_device = serialized_value[eval_key][metric_name].get('_computed_device', None)
                             if eval_metric_computed_field is not None:
                                 eval_metric_computed_field = torch.from_numpy(eval_metric_computed_field) if isinstance(
                                     eval_metric_computed_field, np.ndarray) else eval_metric_computed_field
