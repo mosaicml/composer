@@ -45,11 +45,11 @@ def test_generate_callback(device, world_size, use_fsdp):
 
     model = configure_tiny_gpt2_hf_model()
     model.generate = Mock(wraps=model.generate)
-    prompts = ['a', 'b', 'c']
+    prompts = ['a', 'bc', 'defg']
 
     prompt_batch_size = 2
     gen_interval = 2
-    generate_cb = Generate(prompts, interval=f'{gen_interval}ba', batch_size=prompt_batch_size, max_length=5)
+    generate_cb = Generate(prompts, interval=f'{gen_interval}ba', batch_size=prompt_batch_size, max_new_tokens=5)
     generate_cb.generate = Mock(wraps=generate_cb.generate)
 
     train_batches = 6

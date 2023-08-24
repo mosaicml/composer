@@ -80,7 +80,7 @@ _callback_kwargs: Dict[Type[Callback], Dict[str, Any],] = {
         'prompts': ['a', 'b', 'c'],
         'interval': '1ba',
         'batch_size': 2,
-        'max_length': 20
+        'max_new_tokens': 20
     },
     RemoteUploaderDownloader: {
         'bucket_uri': 'libcloud://.',

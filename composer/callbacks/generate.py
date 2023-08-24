@@ -4,11 +4,8 @@
 # Copyright 2022 MosaicML LLM Foundry authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Periodically log generations to wandb from a set of prompts."""
+"""Periodically log generations from a set of prompts."""
 from typing import Any, List, Union, cast
-
-from torch.nn.parallel import DistributedDataParallel
-from torch.utils.data import DataLoader, TensorDataset
 
 from composer.callbacks.utils import create_interval_scheduler
 from composer.core import Callback, Event, State, Time, get_precision_context
@@ -32,6 +29,13 @@ class Generate(Callback):
     """
 
     def __init__(self, prompts: List[str], interval: Union[str, int, Time], batch_size: int, **kwargs: Any):
+        try:
+            from transformers import PreTrainedTokenizerBase
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='nlp',
+                                                conda_package='transformers',
+                                                conda_channel='conda-forge') from e
+        del PreTrainedTokenizerBase
         self.prompts = prompts
         self.generate_kwargs = kwargs
         self.batch_size = batch_size
@@ -40,29 +44,19 @@ class Generate(Callback):
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
         if state.get_elapsed_duration() is not None and self.check_interval(state, event):
             self.generate(state, logger)
-        else:
-            super().run_event(event, state, logger)
 
     def generate(self, state: State, logger: Logger):
-        model = state.model
-        if isinstance(model, DistributedDataParallel):
-            # Why does DistributedDataParallel wrap the HuggingFaceModel and not the other way around?
-            # Can we make this assumption?
-            model = model.module
+        model = state.model.module if state.is_model_ddp else state.model
         assert isinstance(
             model, HuggingFaceModel
-        ), f'Expected HuggingFaceModel, but got {state.model.__class__}'  # TODO: Extend to support any models that have a generate method.
+        ), f'Expected HuggingFaceModel, but got {model.__class__.__name__}'  # TODO: Extend to support any models that have a generate method.
 
+        if not hasattr(model, 'tokenizer') or model.tokenizer is None:
+            raise ValueError(f'Model {model.__class__.__name__} does not have a tokenizer.')
         tokenizer = model.tokenizer
 
-        try:
-            from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
-        except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='nlp',
-                                                conda_package='transformers',
-                                                conda_channel='conda-forge') from e
-        Tokenizer = Union[PreTrainedTokenizer, PreTrainedTokenizerFast]
-        tokenizer = cast(Tokenizer, tokenizer)
+        from transformers import PreTrainedTokenizerBase
+        tokenizer = cast(PreTrainedTokenizerBase, tokenizer)
 
         # Set to evaluation mode and stash the original mode.
         original_mode = model.training
@@ -76,19 +70,19 @@ class Generate(Callback):
             tokenizer.pad_token_id = tokenizer.eos_token_id
         tokenized_input = tokenizer(self.prompts, return_tensors='pt', padding=True)
 
-        for k, v in tokenized_input.items():
-            tokenized_input[k] = device.tensor_to_device(v)
-
         all_input_ids = tokenized_input['input_ids']
         all_attn_masks = tokenized_input['attention_mask']
 
-        batches = DataLoader(TensorDataset(all_input_ids, all_attn_masks), self.batch_size)
-
         output_token_ids = []
         # dummy forward call needed for FSDP to work consistently
-        model.dummy_forward_called = False  #
+        model.dummy_forward_called = False
 
-        for input_ids, attn_mask in batches:
+        n_prompts = len(self.prompts)
+        for start in range(0, n_prompts, self.batch_size):
+            end = min(start + self.batch_size, n_prompts)
+            input_ids = all_input_ids[start:end]
+            attn_mask = all_attn_masks[start:end]
+
             # Move batch to device.
             input_ids = device.tensor_to_device(input_ids)
             attn_mask = device.tensor_to_device(attn_mask)
