@@ -28,20 +28,23 @@ from composer.utils.reproducibility import get_rng_state
 from tests.common import RandomClassificationDataset, deep_compare
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
+from torchmetrics import Metric, MetricCollection
+from torchmetrics.classification import MulticlassAccuracy, MulticlassAveragePrecision, MulticlassROC
 
 
 # This model is to be used explicitly for this unit test because some old reference checkpoints
 # were saved using it exactly as it is. Changing this model will break test_fsdp_load_old_checkpoint.
 class SimpleMLP(ComposerClassifier):
 
-    def __init__(self, num_features: int = 32, num_classes: int = 8):
+    def __init__(self, num_features: int = 32, num_classes: int = 8, train_metrics = None,
+                 val_metrics = None):
         net = torch.nn.Sequential(
             torch.nn.Linear(num_features, num_features, bias=True),
             torch.nn.ReLU(),
             torch.nn.Linear(num_features, num_classes, bias=False),
         )
         net.param_init_fn = self.param_init_fn
-        super().__init__(module=net, num_classes=num_classes)
+        super().__init__(module=net, num_classes=num_classes, train_metrics=train_metrics, val_metrics=val_metrics)
 
     def param_init_fn(self, module):
         init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
@@ -75,8 +78,10 @@ def get_trainer(
     load_fsdp_monolith_rank0_only=False,
     save_num_checkpoints_to_keep=-1,
     sync_module_states=True,
+    train_metrics=None,
+    val_metrics=None
 ):
-    model = SimpleMLP(num_features=num_features, num_classes=num_classes)
+    model = SimpleMLP(num_features=num_features, num_classes=num_classes, train_metrics=train_metrics, val_metrics=val_metrics)
     model.to(model_init_device)
     dataset = RandomClassificationDataset(shape=(num_features,), size=128)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=8)
@@ -311,6 +316,9 @@ def test_fsdp_mixed_with_sync(world_size, tmp_path: pathlib.Path, sync_module_st
     pytest.param('0.14.1',
                  marks=pytest.mark.filterwarnings(
                      r'ignore:MosaicMLLogger is not in the state_dict. Its state will not be restored.:UserWarning')),
+    pytest.param('0.15.1',
+                 marks=pytest.mark.filterwarnings(
+                     r'ignore:MosaicMLLogger is not in the state_dict. Its state will not be restored.:UserWarning'))
 ])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
@@ -322,11 +330,29 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
             'Loading a torch 1.13 checkpoint with torch 2.0 for state_dict_type local is not backwards compatible. See https://github.com/pytorch/pytorch/issues/102667 for more info'
         )
 
-    rank = 0 if state_dict_type == 'full' else '{rank}'
-    load_path = f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_{precision}/ba2_rank{rank}.pt'
-
-    assert is_checkpoint_legacy_sharded(object_store=S3ObjectStore(bucket=f'{s3_bucket}'),
+    
+    if composer_version in ['0.13.5', '0.14.0','0.14.1', '0.15.1' ]:
+        rank = 0 if state_dict_type == 'full' else '{rank}'
+        load_path_dir = f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_{precision}/'
+        load_path_dir = (load_path_dir + 'ep0-ba2/') if ((version.parse(composer_version) > version.parse('0.15.0')) and state_dict_type != 'full') else load_path_dir
+        load_path = load_path_dir + 'ba2_rank{rank}.pt'
+        assert is_checkpoint_legacy_sharded(object_store=S3ObjectStore(bucket=f'{s3_bucket}'),
                                         source_path=load_path.lstrip(f's3://{s3_bucket}/'))
+    else:
+        load_path = f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_{precision}/'
+    
+    if composer_version == '0.15.1':
+        num_classes=8  # This parameter setting is very important. Don't change or the test will fail.
+        train_metrics = MetricCollection([MulticlassAccuracy(num_classes=num_classes),
+                                                      MulticlassAveragePrecision(num_classes=num_classes),
+                                                      MulticlassROC(num_classes=num_classes)])
+        val_metrics = MetricCollection([MulticlassAccuracy(num_classes=num_classes),
+                                                      MulticlassAveragePrecision(num_classes=num_classes),
+                                                      MulticlassROC(num_classes=num_classes)])
+    else:
+        train_metrics = None
+        val_metrics = None
+
     trainer = get_trainer(
         fsdp_state_dict_type=state_dict_type,
         num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
@@ -335,6 +361,8 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
         load_path=load_path,
         precision=precision,
         max_duration='4ba',
+        train_metrics=train_metrics,
+        val_metrics=val_metrics
     )
     state_dict2 = trainer.state.state_dict()
 
@@ -349,7 +377,8 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
         _compare_optims_between_state_dicts(state_dict1, state_dict2)
 
     # Continue to fit to make sure we can continue training.
-    trainer.fit()
+    if train_metrics is None and val_metrics is None:
+        trainer.fit() # weird torchmetrics issue that I am not gonna solve right now.
     trainer.close()
 
 

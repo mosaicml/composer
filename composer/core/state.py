@@ -907,13 +907,19 @@ class State(Serializable):
                     v.persistent(mode=True)
                     # We cast the metric tensor to a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
                     _computed = v._computed
-                    _computed_device = str(_computed.device) if _computed is not None else None
-                    _np_computed = _computed.cpu().numpy() if _computed is not None else None
-                    serialized_value[k] = {
-                        'state_dict': v.state_dict(),
-                        '_computed': _np_computed,
-                        '_computed_device': _computed_device
-                    }
+                    if isinstance(_computed, torch.Tensor):
+                        _computed_device = str(_computed.device) if _computed is not None else None
+                        _np_computed = _computed.cpu().numpy() if _computed is not None else None
+                        serialized_value[k] = {
+                            'state_dict': v.state_dict(),
+                            '_computed': _np_computed,
+                            '_computed_device': _computed_device
+                        }
+                    else:
+                        serialized_value[k] = {
+                            'state_dict': v.state_dict(),
+                            '_computed': _computed,
+                        }
             elif attribute_name == 'eval_metrics':
                 serialized_value = {}
                 for eval_key, eval_metrics in attribute_value.items():
@@ -922,13 +928,19 @@ class State(Serializable):
                         v.persistent(mode=True)
                         # We cast the metric tensor to a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
                         _computed = v._computed
-                        _computed_device = str(_computed.device) if _computed is not None else None
-                        _np_computed = _computed.cpu().numpy() if _computed is not None else None
-                        serialized_value[eval_key][k] = {
-                            'state_dict': v.state_dict(),
-                            '_computed': _np_computed,
-                            '_computed_device': _computed_device
-                        }
+                        if isinstance(_computed, torch.Tensor):
+                            _computed_device = str(_computed.device) if _computed is not None else None
+                            _np_computed = _computed.cpu().numpy() if _computed is not None else None
+                            serialized_value[k] = {
+                                'state_dict': v.state_dict(),
+                                '_computed': _np_computed,
+                                '_computed_device': _computed_device
+                            }
+                        else:
+                            serialized_value[k] = {
+                                'state_dict': v.state_dict(),
+                                '_computed': _computed,
+                            }
             else:
                 serialized_value = attribute_value
 
