@@ -600,6 +600,7 @@ class TestTrainerInitOrFit:
                              ['FULL_SHARD', 'SHARD_GRAD_OP', 'HYBRID_SHARD', '_HYBRID_SHARD_ZERO2'])
     def test_fsdp(
         self,
+        world_size: int,
         model: ComposerModel,
         precision: Precision,
         max_duration: Time[int],
