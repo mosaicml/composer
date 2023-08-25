@@ -45,9 +45,9 @@ def apply_low_precision_layernorm(model,
             DeprecationWarning(
                 textwrap.dedent(
                     'You are using Low Precision LayerNorm on PyTorch < v.1.13 with bfloat16 precision. '
-                    'In this scenario, we fall back to Fused LayerNorm.'
-                    'Fused LayerNorm has been deprecated and will be removed in Composer 0.18.'
-                    'Please upgrade your PyTorch version to >=v.1.13 to use Low Precision LayerNorm without the Fused LayerNorm fallback'
+                    'In this scenario, we fall back to Fused LayerNorm. '
+                    'Fused LayerNorm has been deprecated and will be removed in Composer 0.18. '
+                    'Please upgrade your PyTorch version to >=v.1.13 to use Low Precision LayerNorm without the Fused LayerNorm fallback.'
                 )))
         check_if_apex_installed()
         policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
