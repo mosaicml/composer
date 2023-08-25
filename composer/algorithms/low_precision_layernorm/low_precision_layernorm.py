@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import logging
+import textwrap
 import warnings
 from typing import Dict, Optional, Sequence, Type, Union
 
@@ -40,6 +41,14 @@ def apply_low_precision_layernorm(model,
     # Prior to v1.13, torch.nn.LayerNorm is slow in bf16 precision.
     # We use FusedLayerNorm as a fallback.
     if version.parse(torch.__version__) < version.parse('1.13') and precision == Precision.AMP_BF16:
+        warnings.warn(
+            DeprecationWarning(
+                textwrap.dedent(
+                    'You are using Low Precision LayerNorm on PyTorch < v.1.13 with bfloat16 precision. '
+                    'In this scenario, we fall back to Fused LayerNorm.'
+                    'Fused LayerNorm has been deprecated and will be removed in Composer 0.18.'
+                    'Please upgrade your PyTorch version to >=v.1.13 to use Low Precision LayerNorm without the Fused LayerNorm fallback'
+                )))
         check_if_apex_installed()
         policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
             torch.nn.LayerNorm: _to_FusedLayerNorm
