@@ -28,7 +28,7 @@ from composer.utils.reproducibility import get_rng_state
 from tests.common import RandomClassificationDataset, deep_compare
 from tests.common.compare import deep_compare
 from tests.common.markers import world_size
-from torchmetrics import Metric, MetricCollection
+from torchmetrics import MetricCollection
 from torchmetrics.classification import MulticlassAccuracy, MulticlassAveragePrecision, MulticlassROC
 
 
@@ -335,7 +335,7 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
         rank = 0 if state_dict_type == 'full' else '{rank}'
         load_path_dir = f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_{precision}/'
         load_path_dir = (load_path_dir + 'ep0-ba2/') if ((version.parse(composer_version) > version.parse('0.15.0')) and state_dict_type != 'full') else load_path_dir
-        load_path = load_path_dir + 'ba2_rank{rank}.pt'
+        load_path = load_path_dir + f'ba2_rank{rank}.pt'
         assert is_checkpoint_legacy_sharded(object_store=S3ObjectStore(bucket=f'{s3_bucket}'),
                                         source_path=load_path.lstrip(f's3://{s3_bucket}/'))
     else:
