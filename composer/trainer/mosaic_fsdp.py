@@ -34,7 +34,6 @@ sharding_map = {
     'NO_SHARD': ShardingStrategy.NO_SHARD,
     'SHARD_GRAD_OP': ShardingStrategy.SHARD_GRAD_OP,
     'FULL_SHARD': ShardingStrategy.FULL_SHARD,
-    '_HYBRID_SHARD_ZERO2': ShardingStrategy._HYBRID_SHARD_ZERO2,
     'HYBRID_SHARD': ShardingStrategy.HYBRID_SHARD,
 }
 
