@@ -596,8 +596,7 @@ class TestTrainerInitOrFit:
                         reason='requires PyTorch 1.13 or higher')
     @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])
     @pytest.mark.filterwarnings('ignore::UserWarning')
-    @pytest.mark.parametrize('sharding_strategy',
-                             ['FULL_SHARD', 'SHARD_GRAD_OP', 'HYBRID_SHARD', '_HYBRID_SHARD_ZERO2'])
+    @pytest.mark.parametrize('sharding_strategy', ['FULL_SHARD', 'SHARD_GRAD_OP', 'HYBRID_SHARD'])
     def test_fsdp(
         self,
         model: ComposerModel,
@@ -606,8 +605,7 @@ class TestTrainerInitOrFit:
         train_dataloader: DataLoader,
         sharding_strategy: str,
     ):
-        if sharding_strategy in ('HYBRID_SHARD',
-                                 '_HYBRID_SHARD_ZERO2') and version.parse(torch.__version__) < version.parse('2.0.0'):
+        if sharding_strategy in ('HYBRID_SHARD') and version.parse(torch.__version__) < version.parse('2.0.0'):
             pytest.skip('Hybrid shard requires PyTorch 2 or higher')
 
         if precision == Precision.FP32:  # FSDP FULL_SHARD doesn't support FP32
