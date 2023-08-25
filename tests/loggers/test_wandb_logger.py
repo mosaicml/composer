@@ -21,8 +21,7 @@ from composer.core import Callback, Engine, Event, State
 from composer.loggers import InMemoryLogger, Logger, WandBLogger
 from composer.trainer import Trainer
 from composer.utils import dist
-from tests.callbacks.callback_settings import get_cb_kwargs, get_cbs_and_marks
-from tests.common import RandomClassificationDataset, SimpleModel
+from tests.callbacks.callback_settings import get_cb_kwargs, get_cb_model_and_datasets, get_cbs_and_marks
 from tests.common.datasets import RandomImageDataset
 from tests.common.models import SimpleConvModel
 
@@ -255,9 +254,10 @@ def test_logged_data_is_json_serializable(callback_cls: Type[Callback]):
     callback_kwargs = get_cb_kwargs(callback_cls)
     callback = callback_cls(**callback_kwargs)
     logger = InMemoryLogger()  # using an in memory logger to manually validate json serializability
+    model, train_dataloader, _ = get_cb_model_and_datasets(callback)
     trainer = Trainer(
-        model=SimpleModel(),
-        train_dataloader=DataLoader(RandomClassificationDataset()),
+        model=model,
+        train_dataloader=train_dataloader,
         train_subset_num_batches=2,
         max_duration='1ep',
         callbacks=callback,

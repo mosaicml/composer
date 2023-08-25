@@ -862,7 +862,7 @@ class InContextLearningCodeEvalDataset(Dataset):
     - test_outputs: list of test outputs
     - language: the language of the code snippet
     Args:
-	dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
+        dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
         supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "task_id",
         "prompt", "entry_point", "canonical_solution", "test", "test_inputs", and "test_outputs". See tests/datasets/local_data/human_eval_small.jsonl.
         tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to map between strings and token ids
