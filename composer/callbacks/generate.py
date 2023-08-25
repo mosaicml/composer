@@ -1,11 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-# Copyright 2022 MosaicML LLM Foundry authors
-# SPDX-License-Identifier: Apache-2.0
-
 """Periodically log generations from a set of prompts."""
-from typing import Any, List, Union, cast
+from typing import Any, List, Optional, Union, cast
 
 from composer.callbacks.utils import create_interval_scheduler
 from composer.core import Callback, Event, State, Time, get_precision_context
@@ -24,21 +21,25 @@ class Generate(Callback):
             saved. If an integer, it will be assumed to be in :attr:`.TimeUnit.EPOCH`.
             Otherwise, the unit must be either :attr:`.TimeUnit.EPOCH`, :attr:`.TimeUnit.BATCH`,
             :attr:`.TimeUnit.TOKEN`, or :attr:`.TimeUnit.SAMPLE`.
-        batch_size (int): Size of a prompt batch for generation.
-        kwargs: All kwargs well be passed along to the call to generate. This is for things like `do_sample`, `top_p`, etc
+        batch_size (Optional[int]): Size of a prompt batch for generation. If None, defaults to the number of prompts.
+        kwargs: All kwargs will be passed along to the call to generate. This is for things like `do_sample`, `top_p`, etc
     """
 
-    def __init__(self, prompts: List[str], interval: Union[str, int, Time], batch_size: int, **kwargs: Any):
+    def __init__(self,
+                 prompts: List[str],
+                 interval: Union[str, int, Time],
+                 batch_size: Optional[int] = None,
+                 **kwargs: Any):
         try:
-            from transformers import PreTrainedTokenizerBase
+            import transformers
         except ImportError as e:
             raise MissingConditionalImportError(extra_deps_group='nlp',
                                                 conda_package='transformers',
                                                 conda_channel='conda-forge') from e
-        del PreTrainedTokenizerBase
+        del transformers
         self.prompts = prompts
         self.generate_kwargs = kwargs
-        self.batch_size = batch_size
+        self.batch_size = batch_size if batch_size is not None else len(prompts)
         self.check_interval = create_interval_scheduler(interval, include_end_of_training=False)
 
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
@@ -47,12 +48,12 @@ class Generate(Callback):
 
     def generate(self, state: State, logger: Logger):
         model = state.model.module if state.is_model_ddp else state.model
-        assert isinstance(
-            model, HuggingFaceModel
-        ), f'Expected HuggingFaceModel, but got {model.__class__.__name__}'  # TODO: Extend to support any models that have a generate method.
+        if not isinstance(model, HuggingFaceModel):  # TODO: Extend to support any models that have a generate method.
+            raise ValueError(f'Expected HuggingFaceModel, but got {model.__class__.__name__}')
 
         if not hasattr(model, 'tokenizer') or model.tokenizer is None:
-            raise ValueError(f'Model {model.__class__.__name__} does not have a tokenizer.')
+            raise ValueError(
+                f'Model {model.__class__.__name__} does not have a tokenizer which is required for generation.')
         tokenizer = model.tokenizer
 
         from transformers import PreTrainedTokenizerBase

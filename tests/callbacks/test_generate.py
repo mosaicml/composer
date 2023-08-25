@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import math
-from typing import Dict, Optional
+from typing import Optional
 from unittest.mock import Mock
 
 import pytest
@@ -39,13 +39,6 @@ class TestGenerate():
             pytest.xfail(
                 'GPT2 is not currently supported with DDP. See https://github.com/huggingface/transformers/issues/22482 for more details.'
             )
-
-    def _fsdp_config(self, use_fsdp: bool) -> Optional[Dict]:
-        if use_fsdp:
-            return {
-                'sharding_strategy': 'FULL_SHARD',
-            }
-        return None
 
     def _create_trainer(self, device, max_duration, use_fsdp, generate_cb: Optional[Generate] = None) -> Trainer:
         return Trainer(model=configure_tiny_gpt2_hf_model(),
