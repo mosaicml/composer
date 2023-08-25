@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 import imghdr
+import json
 import os
 import zipfile
 from collections import defaultdict
@@ -34,6 +35,38 @@ def comet_logger(monkeypatch, comet_offline_directory):
 
     comet_logger = CometMLLogger()
     return comet_logger
+
+
+def test_cometml_log_table(comet_logger: CometMLLogger, comet_offline_directory: str):
+    # Create log table to test.
+    columns = ['prompt', 'generation']
+    rows = [['p0', 'g0'], ['p1', 'g1']]
+    comet_logger.log_table(columns=columns, rows=rows)
+
+    comet_logger.post_close()
+
+    assert comet_logger.experiment is not None
+
+    comet_exp_dump_filepath = Path(comet_offline_directory) / Path(comet_logger.experiment.id).with_suffix('.zip')
+    zf = zipfile.ZipFile(str(comet_exp_dump_filepath))
+    zf.extractall(comet_offline_directory)
+
+    found_table = False
+    for filename in Path(comet_offline_directory).iterdir():
+        filename_string = str(os.path.basename(filename))
+        # Ignore irrelevant json files
+        if filename_string not in ('messages.json', 'experiment.json'):
+            # Try to open the file as a json
+            try:
+                table = json.load(open(filename))
+                # Check to see if this is the logged table
+                if 'columns' in table and 'data' in table:
+                    found_table = table['columns'] == columns and table['data'] == rows
+            except:
+                pass  # If there's a file that is not a json, just continue
+
+    # Assert that we have found the logged table
+    assert found_table
 
 
 def test_comet_ml_log_image_saves_images(comet_logger: CometMLLogger, comet_offline_directory: str):

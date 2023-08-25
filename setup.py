@@ -141,6 +141,10 @@ extra_deps['health_checker'] = {
     'pynvml>=11.5.0,<12',
 }
 
+extra_deps['system_metrics_monitor'] = {
+    'pynvml>=11.5.0,<12',
+}
+
 extra_deps['slack'] = {
     'slack_sdk>=3.19.5,<4',
 }
@@ -221,6 +225,8 @@ extra_deps['onnx'] = [
 extra_deps['mlflow'] = [
     'mlflow>=2.0.1,<3.0',
 ]
+
+extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
