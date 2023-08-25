@@ -519,14 +519,16 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
+        self.eval_device = 'LAMBDA'
         if not 'CODE_EVAL_DEVICE' in os.environ:
             if 'MOSAICML_PLATFORM' in os.environ:
                 log.info('Defaulting to MCLI evaluation on the MosaicML Platform')
+                self.eval_device = 'MCLI'
             else:
                 log.info(f"'CODE_EVAL_DEVICE' env var was not set, so defaulting to 'LAMBDA' as eval device")
                 os.environ['CODE_EVAL_DEVICE'] = 'LAMBDA'
-
-        self.eval_device = 'MCLI' if 'MOSAICML_PLATFORM' in os.environ else os.environ['CODE_EVAL_DEVICE'].upper()
+        else:
+            self.eval_device = os.environ['CODE_EVAL_DEVICE'].upper()
 
     def get_client(self) -> EvalClient:
         """Returns a client for the appropriate remote platform."""

@@ -24,7 +24,7 @@ class MCLIEvalClient(EvalClient):
 
         There must be MOSAICML_PLATFORM to be on MCLI.
         """
-        if os.environ.get('MOSAICML_PLATFORM', False):
+        if os.environ.get('MOSAICML_PLATFORM', False) == False:
             raise Exception('Cannot use MCLI eval without being on MosaicML Platform.')
         log.debug('Running code eval through MCLI.')
         self.backoff = backoff
