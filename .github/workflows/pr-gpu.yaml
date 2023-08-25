@@ -27,7 +27,7 @@ jobs:
             pytest_command: 'coverage run -m pytest'
             composer_package_name: 'mosaicml'
           - name: 'gpu-3.10-2.1-pytorch-nightly-doctest'
-            container: mosaicml/ci-staging:72744756-794c-4390-94db-72c212dd5e00
+            container: mosaicml/pytorch:2.1.0_cu121-nightly20230818-python3.10-ubuntu20.04
             markers: 'not daily and not remote and gpu and (vision or not vision) and (doctest or not doctest)'
             pytest_command: 'coverage run -m pytest'
             composer_package_name: 'mosaicml'
