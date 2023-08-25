@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, TextIO, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, TextIO, Union
 
 import numpy as np
 import yaml
@@ -15,6 +15,7 @@ from composer.core.time import Time, TimeUnit
 from composer.loggers.logger import Logger, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
+from composer.utils.import_helpers import MissingConditionalImportError
 
 if TYPE_CHECKING:
     from composer.core import State
@@ -68,6 +69,7 @@ class ConsoleLogger(LoggerDestination):
         self.hparams_already_logged_to_console: bool = False
         self.logged_metrics: Dict[str, float] = {}
         self.eval_batch_idxs_to_log: Sequence[int] = []
+        self.tables: Dict[str, str] = {}
 
     def log_traces(self, traces: Dict[str, Any]):
         if self.should_log_traces:
@@ -78,6 +80,16 @@ class ConsoleLogger(LoggerDestination):
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         # Lazy logging of hyperparameters.
         self.hparams.update(hyperparameters)
+
+    def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
+        try:
+            import pandas as pd
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='pandas',
+                                                conda_package='pandas',
+                                                conda_channel='conda-forge') from e
+        table = pd.DataFrame.from_records(data=rows, columns=columns).to_json(orient='split', index=False)
+        self.tables[name] = str(table)
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
         del step
@@ -203,6 +215,8 @@ class ConsoleLogger(LoggerDestination):
         for data_name, data in data.items():
             data_str = format_log_data_value(data)
             log_str += f'\n\t {prefix}{data_name}: {data_str}'
+        for table_name, table in self.tables.items():
+            log_str += f'\n\t {prefix}{table_name}: {table}'
         self._log_to_console(log_str)
 
     def _log_to_console(self, log_str: str):
