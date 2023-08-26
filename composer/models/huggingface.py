@@ -143,10 +143,10 @@ class HuggingFaceModel(ComposerModel):
         self.dummy_forward_called = False
 
     @staticmethod
-    def load_huggingface_tokenizer_from_saved_state(hf_state: Dict[str, Any],
-                                                    trust_remote_code: bool = False,
-                                                    tokenizer_save_dir: Optional[str] = None
-                                                   ) -> Optional[transformers.PreTrainedTokenizer]:
+    def load_huggingface_tokenizer_from_saved_state(
+            hf_state: Dict[str, Any],
+            trust_remote_code: bool = False,
+            tokenizer_save_dir: Optional[str] = None) -> Optional[transformers.PreTrainedTokenizer]:
         """A helper function that loads a HuggingFace tokenizer from a loaded in hf state.
 
         Args:
@@ -203,7 +203,8 @@ class HuggingFaceModel(ComposerModel):
                     with open(tokenizer_file_path, 'wb') as _f:
                         _f.write(s.serialized_model_proto())
 
-            hf_tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_save_dir, trust_remote_code=trust_remote_code)
+            hf_tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_save_dir,
+                                                                      trust_remote_code=trust_remote_code)
 
             # we need to set the name_or_path back because otherwise it is the tmp dir we are loading from here
             hf_tokenizer.name_or_path = hf_tokenizer_state['tokenizer_config']['content'].get('name_or_path', '')
@@ -515,7 +516,7 @@ class HuggingFaceModel(ComposerModel):
                     else:
                         raise ValueError(
                             f'Unexpected file ending {tokenizer_file_name} in output of tokenizer.save_pretrained.')
-                    
+
                     tokenizer_output[tokenizer_file_path] = {
                         'file_extension': tokenizer_file_extension,
                         'content': tokenizer_file_content

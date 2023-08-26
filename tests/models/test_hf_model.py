@@ -560,8 +560,9 @@ def test_hf_loading_sentencepiece_tokenizer(modify_tokenizer: bool, tmp_path: Pa
 
     hf_loaded_model, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
         checkpoint_path=str(tmp_path / 'hf-checkpoint.pt'))
-    
+
     # Make sure we can use the loaded tokenizer and save it again
+    assert hf_loaded_tokenizer is not None
     _ = hf_loaded_tokenizer('This is some text that should get tokenizer !? @ totallyarealtoken')
     hf_loaded_tokenizer.save_pretrained(str(tmp_path / 'hf-tokenizer-2'))
 
