@@ -194,7 +194,7 @@ class HuggingFaceModel(ComposerModel):
                     s = spm.SentencePieceProcessor()
                     s.load_from_serialized_proto(saved_content['content'])
                     with open(tokenizer_file_path, 'wb') as _f:
-                        _F.write(s.serialized_model_proto())
+                        _f.write(s.serialized_model_proto())
 
             hf_tokenizer = transformers.AutoTokenizer.from_pretrained(tokenizer_save_dir, trust_remote_code=trust_remote_code)
 
