@@ -8,8 +8,8 @@ from __future__ import annotations
 import inspect
 import json
 import logging
-import random
 import os
+import random
 import string
 import tempfile
 import textwrap
@@ -180,7 +180,7 @@ class HuggingFaceModel(ComposerModel):
                 else:
                     tokenizer_file_name = filename + saved_content['file_extension']
 
-                tokenizer_file_path = Path(tokenizer_save_dir) / tokenizer_file_name'
+                tokenizer_file_path = Path(tokenizer_save_dir) / tokenizer_file_name
                 if saved_content['file_extension'] == '.json':
                     with open(tokenizer_file_path, 'w') as _f:
                         json.dump(saved_content['content'], _f)
@@ -515,6 +515,7 @@ class HuggingFaceModel(ComposerModel):
                     else:
                         raise ValueError(
                             f'Unexpected file ending {tokenizer_file_name} in output of tokenizer.save_pretrained.')
+                    
                     tokenizer_output[tokenizer_file_path] = {
                         'file_extension': tokenizer_file_extension,
                         'content': tokenizer_file_content
