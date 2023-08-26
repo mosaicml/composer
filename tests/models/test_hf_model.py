@@ -109,6 +109,7 @@ def test_hf_train_eval_predict(num_classes: int, tiny_bert_config):
     assert predictions[0]['logits'].shape == (batch_size, num_classes)
 
 
+@pytest.mark.filterwarnings('ignore: The variance of predictions')
 def test_hf_train_eval_predict_regression(tiny_deberta_config):
     transformers = pytest.importorskip('transformers')
 
