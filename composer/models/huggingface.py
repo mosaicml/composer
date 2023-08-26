@@ -169,7 +169,7 @@ class HuggingFaceModel(ComposerModel):
         if hf_tokenizer_state != {}:
             if tokenizer_save_dir is None:
                 unique_suffix = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
-                tokenizer_save_dir = os.path.join(os.getcwd(), f'tokenizer-save-dir={unique_suffix}')
+                tokenizer_save_dir = os.path.join(os.getcwd(), f'tokenizer-save-dir-{unique_suffix}')
             os.makedirs(tokenizer_save_dir, exist_ok=True)
 
             for filename, saved_content in hf_tokenizer_state.items():
