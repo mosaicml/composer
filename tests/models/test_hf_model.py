@@ -347,8 +347,6 @@ def test_hf_state_dict_info(tmp_path: Path, pass_in_tokenizer: bool, modify_toke
         with tempfile.TemporaryDirectory() as _tmp_dir:
             if dist.get_local_rank() == 0:
                 for filename, saved_content in hf_tokenizer_state.items():
-                    if not filename.endswith(saved_content['file_extension']):
-                        filename = f'{filename}{saved_content["file_extension"]}'
                     with open(Path(_tmp_dir) / filename, 'w') as _tmp_file:
                         if saved_content['file_extension'] == '.json':
                             json.dump(saved_content['content'], _tmp_file)
