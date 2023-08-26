@@ -543,7 +543,8 @@ def test_hf_loading_load_save_paths(checkpoint_upload_path: Optional[str], local
 
 
 @pytest.mark.parametrize('modify_tokenizer', [False, True])
-def test_hf_loading_sentencepiece_tokenizer(modify_tokenizer: bool, tmp_path: Path, tiny_t5_model):
+@pytest.mark.parametrize('save_fast', [True, False])
+def test_hf_loading_sentencepiece_tokenizer(modify_tokenizer: bool, tmp_path: Path, save_fast: bool, tiny_t5_model):
     transformers = pytest.importorskip('transformers')
 
     t0_pp_tokenizer = transformers.AutoTokenizer.from_pretrained('bigscience/T0pp')
@@ -557,6 +558,12 @@ def test_hf_loading_sentencepiece_tokenizer(modify_tokenizer: bool, tmp_path: Pa
 
     trainer = get_lm_trainer(tiny_t5_model, t0_pp_tokenizer, str(tmp_path), is_conditional_generation=True)
     trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
+
+    if not save_fast:
+        sd = torch.load(str(tmp_path / 'hf-checkpoint.pt'))
+        # remove the fast tokenizer file from the checkpoint
+        del sd['state']['integrations']['huggingface']['tokenizer']['tokenizer.json']
+        torch.save(sd, str(tmp_path / 'hf-checkpoint.pt'))
 
     hf_loaded_model, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
         checkpoint_path=str(tmp_path / 'hf-checkpoint.pt'))

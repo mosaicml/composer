@@ -207,7 +207,9 @@ class HuggingFaceModel(ComposerModel):
                                                                       trust_remote_code=trust_remote_code)
 
             # we need to set the name_or_path back because otherwise it is the tmp dir we are loading from here
-            hf_tokenizer.name_or_path = hf_tokenizer_state['tokenizer_config']['content'].get('name_or_path', '')
+            # For backwards compatibility we try both the old and new key
+            tokenizer_config_key = 'tokenizer_config.json' if 'tokenizer_config.json' in hf_tokenizer_state else 'tokenizer_config'
+            hf_tokenizer.name_or_path = hf_tokenizer_state[tokenizer_config_key]['content'].get('name_or_path', '')
             hf_tokenizer.init_kwargs['name_or_path'] = hf_tokenizer.name_or_path
 
             # for an unknown reason this key is missing when loading the saved tokenizer, but present with a value of None
@@ -517,7 +519,7 @@ class HuggingFaceModel(ComposerModel):
                         raise ValueError(
                             f'Unexpected file ending {tokenizer_file_name} in output of tokenizer.save_pretrained.')
 
-                    tokenizer_output[tokenizer_file_path] = {
+                    tokenizer_output[tokenizer_file_path.name] = {
                         'file_extension': tokenizer_file_extension,
                         'content': tokenizer_file_content
                     }
