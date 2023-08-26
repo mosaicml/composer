@@ -152,6 +152,8 @@ class HuggingFaceModel(ComposerModel):
         Args:
             hf_state (Dict[str, Any]): HF state loaded from a Composer checkpoint.
             trust_remote_code (bool, optional): Whether to trust the remote code when loading the tokenizer. Defaults to False.
+            tokenizer_save_dir (Optional[str], optional): If specified, where to save the tokenizer files to locally. If not specified,
+                a folder with a unique suffix will be saved in the current working directory. Defaults to None.
 
         Returns:
             Optional[transformers.PreTrainedTokenizer]: The loaded HuggingFace tokenizer
