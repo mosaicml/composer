@@ -147,7 +147,7 @@ filterwarnings = [
     # Ignore has_mkldnn is deprecated warning please use torch.backends.mkldnn.is_available
     '''ignore:'has_mkldnn' is deprecated, please use 'torch.backends.mkldnn.is_available():UserWarning''',
     # Ignore torch distributed deprecated warnings 
-    '''Ignore:torch.distributed.reduce_op is deprecated, please use torch.distributed.ReduceOp instead:UserWarning''',
+    '''ignore:torch.distributed.reduce_op is deprecated, please use torch.distributed.ReduceOp instead:UserWarning''',
 ]
 
 # Coverage
