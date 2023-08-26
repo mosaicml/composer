@@ -756,15 +756,19 @@ def save_checkpoint(
 
     is_deepspeed = is_model_deepspeed(state.model)
 
-    state_dict = {
-        'state': state.state_dict(),
-        'rng': reproducibility.get_rng_state(),
-    }
     if weights_only and not is_deepspeed:
-        state_dict['state'] = {
-            'model': state_dict['state']['model'],
-            'integrations': state_dict['state']['integrations'],
-            'metadata': state_dict['state']['metadata'],
+        state_dict = {
+            'state': {
+                'model': state.get_model_state_dict(),
+                'integrations': state._get_integrations_state_dict(),
+                'metadata': state._get_state_metadata(),
+            },
+            'rng': reproducibility.get_rng_state(),
+        }
+    else:
+        state_dict = {
+            'state': state.state_dict(),
+            'rng': reproducibility.get_rng_state(),
         }
 
     log.debug('State dict created.')
