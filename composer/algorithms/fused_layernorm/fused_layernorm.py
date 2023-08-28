@@ -46,6 +46,10 @@ def apply_fused_layernorm(model: torch.nn.Module, optimizers: Union[torch.optim.
 
     By fusing multiple kernel launches into one, this usually improves GPU utilization.
     """
+    warnings.warn(
+        DeprecationWarning(
+            'Fused LayerNorm has been deprecated and will be removed in Composer 0.18. Please switch to Low Precision LayerNorm.'
+        ))
     check_if_apex_installed()
 
     # prepare the replacement policy and perform replacement
@@ -99,6 +103,10 @@ class FusedLayerNorm(Algorithm):
 
     def __init__(self):
         # FusedLayerNorm takes no arguments
+        warnings.warn(
+            DeprecationWarning(
+                'Fused LayerNorm has been deprecated and will be removed in Composer 0.18. Please switch to Low Precision LayerNorm.'
+            ))
         check_if_apex_installed()
 
     def __repr__(self) -> str:
