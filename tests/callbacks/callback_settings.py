@@ -2,19 +2,25 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Tuple, Type
 
 import pytest
+from torch.utils.data import DataLoader
 
 import composer.callbacks
 import composer.loggers
 import composer.profiler
 from composer import Callback
-from composer.callbacks import (EarlyStopper, ExportForInferenceCallback, HealthChecker, ImageVisualizer, MemoryMonitor,
-                                MLPerfCallback, SpeedMonitor, SystemMetricsMonitor, ThresholdStopper)
+from composer.callbacks import (EarlyStopper, ExportForInferenceCallback, Generate, HealthChecker, ImageVisualizer,
+                                MemoryMonitor, MLPerfCallback, SpeedMonitor, SystemMetricsMonitor, ThresholdStopper)
 from composer.loggers import (CometMLLogger, ConsoleLogger, LoggerDestination, MLFlowLogger, ProgressBarLogger,
                               RemoteUploaderDownloader, TensorboardLogger, WandBLogger)
+from composer.models.base import ComposerModel
+from composer.utils import dist
+from composer.utils.device import get_device
 from tests.common import get_module_subclasses
+from tests.common.datasets import RandomClassificationDataset, dummy_gpt_lm_dataloader
+from tests.common.models import SimpleModel, configure_tiny_gpt2_hf_model
 
 try:
     import wandb
@@ -70,6 +76,12 @@ except ImportError:
     _PYNMVL_INSTALLED = False
 
 _callback_kwargs: Dict[Type[Callback], Dict[str, Any],] = {
+    Generate: {
+        'prompts': ['a', 'b', 'c'],
+        'interval': '1ba',
+        'batch_size': 2,
+        'max_new_tokens': 20
+    },
     RemoteUploaderDownloader: {
         'bucket_uri': 'libcloud://.',
         'backend_kwargs': {
@@ -199,3 +211,17 @@ def get_cb_hparams_and_marks():
     implementations = []
     ans = [_to_pytest_param(impl) for impl in implementations]
     return ans
+
+
+def get_cb_model_and_datasets(cb: Callback,
+                              dl_size=100,
+                              **default_dl_kwargs) -> Tuple[ComposerModel, DataLoader, DataLoader]:
+    if isinstance(cb, Generate):
+        if get_device(None).name == 'cpu' and dist.get_world_size() > 1:
+            pytest.xfail(
+                'GPT2 is not currently supported with DDP. See https://github.com/huggingface/transformers/issues/22482 for more details.'
+            )
+        return (configure_tiny_gpt2_hf_model(), dummy_gpt_lm_dataloader(size=dl_size),
+                dummy_gpt_lm_dataloader(size=dl_size))
+    return (SimpleModel(), DataLoader(RandomClassificationDataset(size=dl_size), **default_dl_kwargs),
+            DataLoader(RandomClassificationDataset(size=dl_size), **default_dl_kwargs))
