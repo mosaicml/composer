@@ -43,7 +43,7 @@ on:
         required: false
 jobs:
   pytest-cpu:
-    timeout-minutes: 40
+    timeout-minutes: 45
     runs-on: ubuntu-latest
     container: ${{ inputs.container }}
     steps:
