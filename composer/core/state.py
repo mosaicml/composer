@@ -931,13 +931,13 @@ class State(Serializable):
                         if isinstance(_computed, torch.Tensor):
                             _computed_device = str(_computed.device) if _computed is not None else None
                             _np_computed = _computed.cpu().numpy() if _computed is not None else None
-                            serialized_value[k] = {
+                            serialized_value[eval_key][k] = {
                                 'state_dict': v.state_dict(),
                                 '_computed': _np_computed,
                                 '_computed_device': _computed_device
                             }
                         else:
-                            serialized_value[k] = {
+                            serialized_value[eval_key][k] = {
                                 'state_dict': v.state_dict(),
                                 '_computed': _computed,
                             }
