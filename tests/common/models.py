@@ -282,7 +282,10 @@ class SimpleTransformerBase(torch.nn.Module):
         # necessary to make the model scriptable
         layer.__constants__ = []
 
-        transformer = torch.nn.TransformerEncoder(layer, num_layers=2, norm=torch.nn.LayerNorm(d_model))
+        transformer = torch.nn.TransformerEncoder(layer,
+                                                  num_layers=2,
+                                                  norm=torch.nn.LayerNorm(d_model),
+                                                  enable_nested_tensor=False)
 
         # necessary to make the model scriptable
         transformer.__constants__ = []

@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 import math
 import re
 from pathlib import Path
@@ -247,6 +248,36 @@ def test_log_to_console_and_progress_bar_warning():
         Trainer(model=SimpleModel(), loggers=ConsoleLogger())
 
 
+def test_console_logger_log_table(console_logger_test_stream, console_logger_test_file_path, dummy_state):
+    console_logger = ConsoleLogger(stream=console_logger_test_stream)
+    columns = ['prompt', 'generation']
+    rows = [['p0', 'g0'], ['p1', 'g1']]
+    name = 'test_table'
+
+    console_logger.log_table(columns=columns, rows=rows, name=name)
+
+    console_logger.log_to_console({}, dummy_state)
+
+    console_logger_test_stream.flush()
+    console_logger_test_stream.close()
+    assert name in console_logger.tables
+
+    lines = open(console_logger_test_file_path, 'r').readlines()
+    found_table = False
+    for line in lines:
+        # Use regex to find the logged table.
+        logged_table_string = re.match(rf'\s*{name}: (.*)', line)
+        if logged_table_string is not None:
+            # Extract the json string and check to see that it matches what we logged.
+            json_table = logged_table_string.group(1)
+            table = json.loads(json_table)
+            if 'columns' in table and 'data' in table:
+                found_table = table['columns'] == columns and table['data'] == rows
+
+    # Assert that we have found the logged table
+    assert found_table
+
+
 @pytest.mark.parametrize('log_interval_unit', ['ba', 'ep'])
 @pytest.mark.parametrize('max_duration_unit', ['ba', 'ep'])
 @pytest.mark.parametrize('log_interval', [1])
@@ -347,7 +378,7 @@ def test_console_logger_overlapping(console_logger_test_stream, console_logger_t
 
     assert model.train_metrics is not None
     num_metrics = len(list(model.train_metrics.keys())) if isinstance(model.train_metrics, MetricCollection) else 1
-    num_metrics += len(list(model.parameters())) * 7 + 1  # number from Adam, 7 metrics per layer
+    num_metrics += len(list(model.parameters())) * 4 + 1  # number from Adam, 3 metrics per layer
 
     num_losses = 1
     num_metrics_and_losses_per_logging_event = num_metrics + num_losses  # prints loss and all metrics at each log
