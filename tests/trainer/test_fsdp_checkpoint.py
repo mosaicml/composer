@@ -18,10 +18,10 @@ from torchmetrics.classification import MulticlassAccuracy, MulticlassAveragePre
 
 from composer.algorithms import EMA
 from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_context
+from composer.metrics import MAP
 from composer.models import ComposerClassifier
 from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
-from composer.metrics import MAP
 from composer.utils import dist
 from composer.utils.checkpoint import is_checkpoint_legacy_sharded
 from composer.utils.file_helpers import get_file
@@ -297,6 +297,7 @@ def test_fsdp_mixed_with_sync(world_size, tmp_path: pathlib.Path, sync_module_st
             sync_module_states=sync_module_states,
         )
 
+
 @pytest.mark.gpu
 @world_size(2)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
@@ -330,7 +331,7 @@ def test_map_with_sharded(world_size, tmp_path: pathlib.Path):
         },  # coco image id 73
     ]
 
-    map.update(predictions, targets)    
+    map.update(predictions, targets)
     map.compute()
 
     trainer1 = get_trainer(
@@ -339,7 +340,7 @@ def test_map_with_sharded(world_size, tmp_path: pathlib.Path):
         train_metrics=map,
     )
 
-    trainer1._checkpoint_saver._save_checkpoint(trainer1.state, trainer1.logger)
+    trainer1._checkpoint_saver._save_checkpoint(trainer1.state, trainer1.logger)  # type: ignore
 
     trainer2 = get_trainer(
         load_path=str(tmp_path / f'latest-rank{dist.get_global_rank()}.pt'),

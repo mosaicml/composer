@@ -12,7 +12,6 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
 
-import numpy as np
 import torch
 import torch.nn.modules.utils
 from packaging import version
@@ -905,42 +904,28 @@ class State(Serializable):
                     # We need to serialize this because it cannot always be recomputed from the state dict.
                     # See https://torchmetrics.readthedocs.io/en/stable/pages/implement.html#torchmetrics.Metric for more details
                     v.persistent(mode=True)
-                    # We cast the metric tensor to a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
+                    # We wrap _computed if it's a tensor so FSDP doesn't mistake it for a tensor to be sharded
                     _computed = v._computed
                     if isinstance(_computed, torch.Tensor):
-                        _computed_device = str(_computed.device)
-                        _np_computed = _computed.cpu().numpy()
-                        serialized_value[k] = {
-                            'state_dict': v.state_dict(),
-                            '_computed': _np_computed,
-                            '_computed_device': _computed_device
-                        }
-                    else:
-                        serialized_value[k] = {
-                            'state_dict': v.state_dict(),
-                            '_computed': _computed,
-                        }
+                        _computed = {'composer_wrap': _computed}
+                    serialized_value[k] = {
+                        'state_dict': v.state_dict(),
+                        '_computed': _computed,
+                    }
             elif attribute_name == 'eval_metrics':
                 serialized_value = {}
                 for eval_key, eval_metrics in attribute_value.items():
                     serialized_value[eval_key] = {}
                     for k, v in eval_metrics.items():
                         v.persistent(mode=True)
-                        # We cast the metric tensor to a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
+                        # We wrap _computed if it's a tensor so FSDP doesn't mistake it for a tensor to be sharded
                         _computed = v._computed
                         if isinstance(_computed, torch.Tensor):
-                            _computed_device = str(_computed.device)
-                            _np_computed = _computed.cpu().numpy()
-                            serialized_value[eval_key][k] = {
-                                'state_dict': v.state_dict(),
-                                '_computed': _np_computed,
-                                '_computed_device': _computed_device
-                            }
-                        else:
-                            serialized_value[eval_key][k] = {
-                                'state_dict': v.state_dict(),
-                                '_computed': _computed,
-                            }
+                            _computed = {'composer_wrap': _computed}
+                        serialized_value[eval_key][k] = {
+                            'state_dict': v.state_dict(),
+                            '_computed': _computed,
+                        }
             else:
                 serialized_value = attribute_value
 
@@ -1277,26 +1262,18 @@ class State(Serializable):
                         serialized_value[metric_name]._state_dict_pre_hooks = OrderedDict()
                         metric_state_dict = serialized_value[metric_name].state_dict()
                         metric_computed_field = serialized_value[metric_name]._computed
-                        # The metric tensor is saved as a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
-                        # So we have to cast it back to a torch tensor.
-                        metric_computed_device = getattr(serialized_value[metric_name], '_computed_device', None)
-                        if metric_computed_field is not None:
-                            metric_computed_field = torch.from_numpy(metric_computed_field) if isinstance(
-                                metric_computed_field, np.ndarray) else metric_computed_field
-                            if metric_computed_device is not None:
-                                metric_computed_field = metric_computed_field.to(metric_computed_device)
+                        # We wrap singleton tensors so FSDP doesn't shard it, so we have to unwrap it.
+                        if isinstance(metric_computed_field, dict) and len(metric_computed_field.keys()) == 1 and next(
+                                iter(metric_computed_field.keys())) == 'composer_wrap':
+                            metric_computed_field = next(iter(metric_computed_field.values()))
                     elif isinstance(serialized_value[metric_name], dict):
-                        # The metric tensor is saved as a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
-                        # So we have to cast it back to a torch tensor.
                         # For checkpoints saved using Composer >= 0.14
                         metric_state_dict = serialized_value[metric_name]['state_dict']
                         metric_computed_field = serialized_value[metric_name]['_computed']
-                        metric_computed_device = serialized_value[metric_name].get('_computed_device', None)
-                        if metric_computed_field is not None:
-                            metric_computed_field = torch.from_numpy(metric_computed_field) if isinstance(
-                                metric_computed_field, np.ndarray) else metric_computed_field
-                            if metric_computed_device is not None:
-                                metric_computed_field = metric_computed_field.to(metric_computed_device)
+                        # We wrap singleton tensors so FSDP doesn't shard it, so we have to unwrap it.
+                        if isinstance(metric_computed_field, dict) and len(metric_computed_field.keys()) == 1 and next(
+                                iter(metric_computed_field.keys())) == 'composer_wrap':
+                            metric_computed_field = next(iter(metric_computed_field.values()))
                     else:
                         raise ValueError(
                             'Error while loading train metric. Train metric from serialization is neither a Torchmetrics Metric object nor a dictionary.'
@@ -1333,29 +1310,20 @@ class State(Serializable):
                             serialized_value[eval_key][metric_name]._state_dict_pre_hooks = OrderedDict()
                             eval_metric_state_dict = serialized_value[eval_key][metric_name].state_dict()
                             eval_metric_computed_field = serialized_value[eval_key][metric_name]._computed
-                            # The metric tensor is saved as a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
-                            # So we have to cast it back to a torch tensor.
-                            eval_metric_computed_device = getattr(serialized_value[eval_key][metric_name],
-                                                                  '_computed_device', None)
-                            if eval_metric_computed_field is not None:
-                                eval_metric_computed_field = torch.from_numpy(eval_metric_computed_field) if isinstance(
-                                    eval_metric_computed_field, np.ndarray) else eval_metric_computed_field
-                            if eval_metric_computed_device is not None:
-                                eval_metric_computed_field = eval_metric_computed_field.to(eval_metric_computed_device)
+                            # We wrap singleton tensors so FSDP doesn't shard it, so we have to unwrap it.
+                            if isinstance(eval_metric_computed_field, dict) and len(
+                                    eval_metric_computed_field.keys()) == 1 and next(
+                                        iter(eval_metric_computed_field.keys())) == 'composer_wrap':
+                                eval_metric_computed_field = next(iter(eval_metric_computed_field.values()))
                         elif isinstance(serialized_value[eval_key][metric_name], dict):
                             # For checkpoints saved using Composer >= 0.14
                             eval_metric_state_dict = serialized_value[eval_key][metric_name]['state_dict']
                             eval_metric_computed_field = serialized_value[eval_key][metric_name]['_computed']
-                            # The metric tensor is saved as a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
-                            # So we have to cast it back to a torch tensor.
-                            eval_metric_computed_device = serialized_value[eval_key][metric_name].get(
-                                '_computed_device', None)
-                            if eval_metric_computed_field is not None:
-                                eval_metric_computed_field = torch.from_numpy(eval_metric_computed_field) if isinstance(
-                                    eval_metric_computed_field, np.ndarray) else eval_metric_computed_field
-                                if eval_metric_computed_device is not None:
-                                    eval_metric_computed_field = eval_metric_computed_field.to(
-                                        eval_metric_computed_device)
+                            # We wrap singleton tensors so FSDP doesn't shard it, so we have to unwrap it.
+                            if isinstance(eval_metric_computed_field, dict) and len(
+                                    eval_metric_computed_field.keys()) == 1 and next(
+                                        iter(eval_metric_computed_field.keys())) == 'composer_wrap':
+                                eval_metric_computed_field = next(iter(eval_metric_computed_field.values()))
                         else:
                             raise ValueError(
                                 'Error while loading evaluation metric. Evaluation metric from serialization is neither a Torchmetrics Metric object nor a dictionary.'
