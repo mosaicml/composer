@@ -169,8 +169,6 @@ RUN \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN npm list -g semver --depth=1
-
 ################
 # Install Python
 ################
