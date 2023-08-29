@@ -21,6 +21,7 @@ from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_
 from composer.models import ComposerClassifier
 from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
+from composer.metrics import MAP
 from composer.utils import dist
 from composer.utils.checkpoint import is_checkpoint_legacy_sharded
 from composer.utils.file_helpers import get_file
@@ -71,6 +72,7 @@ def get_trainer(model_init_device='cpu',
                 save_interval='2ba',
                 save_weights_only=False,
                 load_weights_only=False,
+                load_ignore_keys=None,
                 algorithms=None,
                 optimizer='adam',
                 load_fsdp_monolith_rank0_only=False,
@@ -120,6 +122,7 @@ def get_trainer(model_init_device='cpu',
         save_weights_only=save_weights_only,
         load_weights_only=load_weights_only,
         save_num_checkpoints_to_keep=save_num_checkpoints_to_keep,
+        load_ignore_keys=load_ignore_keys,
     )
     return trainer
 
@@ -293,6 +296,58 @@ def test_fsdp_mixed_with_sync(world_size, tmp_path: pathlib.Path, sync_module_st
             fsdp_state_dict_type='full',
             sync_module_states=sync_module_states,
         )
+
+@pytest.mark.gpu
+@world_size(2)
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                    reason='requires PyTorch 1.13 or higher')
+def test_map_with_sharded(world_size, tmp_path: pathlib.Path):
+    map = MAP()
+
+    targets = [
+        {
+            'boxes': torch.tensor([[258.15, 41.29, 606.41, 285.07]], device='cuda'),
+            'labels': torch.tensor([4], device='cuda'),
+        },  # coco image id 42
+        {
+            'boxes': torch.tensor([[61.00, 22.75, 565.00, 632.42], [12.66, 3.32, 281.26, 275.23]], device='cuda'),
+            'labels': torch.tensor([3, 2], device='cuda'),
+        },  # coco image id 73
+    ]
+
+    # Perfect result
+    predictions = [
+        {
+            'boxes': torch.tensor([[258.15, 41.29, 606.41, 285.07]], device='cuda'),
+            'scores': torch.tensor([0.236], device='cuda'),
+            'labels': torch.tensor([4], device='cuda'),
+        },  # coco image id 42
+        {
+            'boxes': torch.tensor([[61.00, 22.75, 565.00, 632.42], [12.66, 3.32, 281.26, 275.23]], device='cuda'),
+            'scores': torch.tensor([0.318, 0.726], device='cuda'),
+            'labels': torch.tensor([3, 2], device='cuda'),
+        },  # coco image id 73
+    ]
+
+    map.update(predictions, targets)    
+    map.compute()
+
+    trainer1 = get_trainer(
+        save_folder=str(tmp_path),
+        fsdp_state_dict_type='sharded',
+        train_metrics=map,
+    )
+
+    trainer1._checkpoint_saver._save_checkpoint(trainer1.state, trainer1.logger)
+
+    trainer2 = get_trainer(
+        load_path=str(tmp_path / f'latest-rank{dist.get_global_rank()}.pt'),
+        fsdp_state_dict_type='sharded',
+        load_ignore_keys=['state/model', 'state/optimizers'],
+        train_metrics=MAP(),
+    )
+
+    _compare_metrics_between_state_dicts(trainer1.state.state_dict(), trainer2.state.state_dict())
 
 
 @pytest.mark.gpu
