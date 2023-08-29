@@ -435,8 +435,7 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
         _compare_optims_between_state_dicts(state_dict1, state_dict2)
 
     # Continue to fit to make sure we can continue training.
-    if train_metrics is None and val_metrics is None:
-        trainer.fit()  # weird torchmetrics issue that I am not gonna solve right now.
+    trainer.fit()
     trainer.close()
 
 
