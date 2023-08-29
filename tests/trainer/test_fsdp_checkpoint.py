@@ -301,6 +301,7 @@ def test_fsdp_mixed_with_sync(world_size, tmp_path: pathlib.Path, sync_module_st
 @world_size(2)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
+@pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 def test_map_with_sharded(world_size, tmp_path: pathlib.Path):
     map = MAP()
 
