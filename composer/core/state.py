@@ -908,8 +908,8 @@ class State(Serializable):
                     # We cast the metric tensor to a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
                     _computed = v._computed
                     if isinstance(_computed, torch.Tensor):
-                        _computed_device = str(_computed.device) if _computed is not None else None
-                        _np_computed = _computed.cpu().numpy() if _computed is not None else None
+                        _computed_device = str(_computed.device)
+                        _np_computed = _computed.cpu().numpy()
                         serialized_value[k] = {
                             'state_dict': v.state_dict(),
                             '_computed': _np_computed,
@@ -929,8 +929,8 @@ class State(Serializable):
                         # We cast the metric tensor to a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
                         _computed = v._computed
                         if isinstance(_computed, torch.Tensor):
-                            _computed_device = str(_computed.device) if _computed is not None else None
-                            _np_computed = _computed.cpu().numpy() if _computed is not None else None
+                            _computed_device = str(_computed.device)
+                            _np_computed = _computed.cpu().numpy()
                             serialized_value[eval_key][k] = {
                                 'state_dict': v.state_dict(),
                                 '_computed': _np_computed,
