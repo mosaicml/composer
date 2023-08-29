@@ -9,7 +9,7 @@ import collections.abc
 import operator
 import pathlib
 from functools import reduce
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -59,6 +59,10 @@ class Logger:
     def log_hyperparameters(self, parameters: Dict[str, Any]):
         for destination in self.destinations:
             destination.log_hyperparameters(parameters)
+
+    def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
+        for destination in self.destinations:
+            destination.log_table(columns, rows, name)
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
         if step is None:

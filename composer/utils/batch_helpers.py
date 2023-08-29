@@ -190,7 +190,7 @@ def _batch_set_tuple(batch: Any, key: Union[int, str], value: Any) -> Any:
 
 
 def _is_key_get_and_set_fn_pair(key):
-    if all([callable(key_element) for key_element in key]):
+    if all(callable(key_element) for key_element in key):
         if len(key) == 2:
             return True
         else:

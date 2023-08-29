@@ -9,7 +9,7 @@ from composer.utils.batch_helpers import batch_get, batch_set
 from composer.utils.checkpoint import PartialFilePath, load_checkpoint, safe_torch_load, save_checkpoint
 from composer.utils.collect_env import (configure_excepthook, disable_env_report, enable_env_report,
                                         get_composer_env_dict, print_env)
-from composer.utils.device import get_device, is_tpu_installed
+from composer.utils.device import get_device, is_hpu_installed, is_tpu_installed
 from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
                                          create_symlink_file, ensure_folder_has_no_conflicting_files,
@@ -21,8 +21,8 @@ from composer.utils.inference import ExportFormat, Transform, export_for_inferen
 from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, map_collection
 from composer.utils.misc import (get_free_tcp_port, is_model_deepspeed, is_model_fsdp, is_notebook, model_eval_mode,
                                  using_torch_2)
-from composer.utils.object_store import (LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, OCIObjectStore,
-                                         S3ObjectStore, SFTPObjectStore)
+from composer.utils.object_store import (GCSObjectStore, LibcloudObjectStore, ObjectStore, ObjectStoreTransientError,
+                                         OCIObjectStore, S3ObjectStore, SFTPObjectStore)
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
 
@@ -42,6 +42,7 @@ __all__ = [
     'S3ObjectStore',
     'SFTPObjectStore',
     'OCIObjectStore',
+    'GCSObjectStore',
     'MissingConditionalImportError',
     'import_object',
     'is_model_deepspeed',
@@ -73,6 +74,7 @@ __all__ = [
     'model_eval_mode',
     'get_device',
     'is_tpu_installed',
+    'is_hpu_installed',
     'ExportFormat',
     'Transform',
     'export_with_logger',
