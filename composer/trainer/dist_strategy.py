@@ -368,10 +368,6 @@ def prepare_fsdp_module(
 
                 # Goes through all modules finding which weights have the same pointers
                 for name, mod in module.named_modules():
-                    # Since FSDP recursively wraps, at parent modules we can encounter already
-                    # wrapped weights, as a result we should skip any modules with `_fsdp_wrapped_module.`
-                    if '_fsdp_wrapped_module' in name:
-                        continue
                     for attr in ['weight', 'bias']:
                         if hasattr(mod, attr):
                             mod_attr = getattr(mod, attr)
