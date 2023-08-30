@@ -587,14 +587,14 @@ class TestCheckpointLoading:
         # Perfect result
         predictions = [
             {
-                'boxes': torch.tensor([[258.15, 41.29, 606.41, 285.07]], device='cuda'),
-                'scores': torch.tensor([0.236], device='cuda'),
-                'labels': torch.tensor([4], device='cuda'),
+                'boxes': torch.tensor([[258.15, 41.29, 606.41, 285.07]]),
+                'scores': torch.tensor([0.236]),
+                'labels': torch.tensor([4]),
             },  # coco image id 42
             {
-                'boxes': torch.tensor([[61.00, 22.75, 565.00, 632.42], [12.66, 3.32, 281.26, 275.23]], device='cuda'),
-                'scores': torch.tensor([0.318, 0.726], device='cuda'),
-                'labels': torch.tensor([3, 2], device='cuda'),
+                'boxes': torch.tensor([[61.00, 22.75, 565.00, 632.42], [12.66, 3.32, 281.26, 275.23]]),
+                'scores': torch.tensor([0.318, 0.726]),
+                'labels': torch.tensor([3, 2]),
             },  # coco image id 73
         ]
 
