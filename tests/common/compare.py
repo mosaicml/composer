@@ -55,10 +55,11 @@ def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: floa
         item2._update_count += 1
         item1_compute = item1.compute()
         item2_compute = item2.compute()
-        if isinstance(item1, torch.Tensor) and isinstance(item2, torch.Tensor):
+        if isinstance(item1_compute, torch.Tensor) and isinstance(item2_compute, torch.Tensor):
             assert item1_compute.allclose(item2_compute, atol=atol,
-                                          rtol=rtol), f'{path} differs: {item1_compute} != {item2_compute}'
-        elif isinstance(item1, dict) and isinstance(item2, dict):
+                                          rtol=rtol, equal_nan=True), f'{path} differs: {item1_compute} != {item2_compute}'
+        elif isinstance(item1_compute, dict):
+            assert isinstance(item2_compute, dict)
             _check_dict_recursively(item1_compute, item2_compute, path, atol, rtol)
         else:
             assert 'Torchmetric compute() returned unexpected type, please add support in `_check_item`'
