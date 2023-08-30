@@ -401,7 +401,7 @@ def load_sharded_checkpoint(
         # We need no_grad because we overwrite tensor values with set_() when we do elastic loading and we don't want the set_ op recorded in the computation graph.
         with torch.no_grad():
             # 1. Load just model first.
-            model_state_dict = {'state': {'model': state.state_dict()['model']}}
+            model_state_dict = {'state': {'model': state.get_model_state_dict()}}
             dist_cp.load_state_dict(model_state_dict, storage_reader)
 
             state.load_model_state(

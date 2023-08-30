@@ -304,7 +304,7 @@ def test_fsdp_mixed_with_sync(world_size, tmp_path: pathlib.Path, sync_module_st
                     reason='requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 def test_map_with_sharded(world_size, tmp_path: pathlib.Path):
-    map = MAP()
+    map_metric = MAP()
 
     targets = [
         {
@@ -331,29 +331,32 @@ def test_map_with_sharded(world_size, tmp_path: pathlib.Path):
         },  # coco image id 73
     ]
 
-    map.update(predictions, targets)
-    map.compute()
+    map_metric.update(predictions, targets)
+    map_metric.compute()
+
+    tmp_path = dist.all_gather_object(tmp_path)[0]
 
     trainer1 = get_trainer(
         save_folder=str(tmp_path),
         fsdp_state_dict_type='sharded',
-        train_metrics=map,
+        train_metrics=map_metric,
     )
 
     trainer1._checkpoint_saver._save_checkpoint(trainer1.state, trainer1.logger)  # type: ignore
 
     trainer2 = get_trainer(
-        load_path=str(tmp_path / f'latest-rank{dist.get_global_rank()}.pt'),
+        load_path=str(tmp_path / 'ba0'),
         fsdp_state_dict_type='sharded',
-        load_ignore_keys=['state/model', 'state/optimizers'],
+        # load_ignore_keys=['state/model', 'state/optimizers'],
         train_metrics=MAP(),
+        # train_metrics=map_metric,
     )
 
     _compare_metrics_between_state_dicts(trainer1.state.state_dict(), trainer2.state.state_dict())
-
+    assert False
 
 @pytest.mark.gpu
-@pytest.mark.remote
+# @pytest.mark.remote
 @world_size(2)
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.parametrize('sharding_strategy', ['FULL_SHARD', 'SHARD_GRAD_OP'])
