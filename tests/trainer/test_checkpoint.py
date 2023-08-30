@@ -607,7 +607,7 @@ class TestCheckpointLoading:
             model=model_1,
             save_folder=str(tmp_path),
         )
-        trainer_1._checkpoint_saver._save_checkpoint(trainer_1.state, trainer_1.logger)  # type: ignore
+        trainer_1.save_checkpoint('latest-rank0.pt')
 
         model_2 = SimpleConvModel()
         model_2.train_metrics = MAP()
