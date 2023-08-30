@@ -18,7 +18,6 @@ from torchmetrics.classification import MulticlassAccuracy, MulticlassAveragePre
 
 from composer.algorithms import EMA
 from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_context
-from composer.metrics import MAP
 from composer.models import ComposerClassifier
 from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
@@ -299,63 +298,7 @@ def test_fsdp_mixed_with_sync(world_size, tmp_path: pathlib.Path, sync_module_st
 
 
 @pytest.mark.gpu
-@world_size(2)
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
-@pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
-def test_map_with_sharded(world_size, tmp_path: pathlib.Path):
-    map_metric = MAP()
-
-    targets = [
-        {
-            'boxes': torch.tensor([[258.15, 41.29, 606.41, 285.07]], device='cuda'),
-            'labels': torch.tensor([4], device='cuda'),
-        },  # coco image id 42
-        {
-            'boxes': torch.tensor([[61.00, 22.75, 565.00, 632.42], [12.66, 3.32, 281.26, 275.23]], device='cuda'),
-            'labels': torch.tensor([3, 2], device='cuda'),
-        },  # coco image id 73
-    ]
-
-    # Perfect result
-    predictions = [
-        {
-            'boxes': torch.tensor([[258.15, 41.29, 606.41, 285.07]], device='cuda'),
-            'scores': torch.tensor([0.236], device='cuda'),
-            'labels': torch.tensor([4], device='cuda'),
-        },  # coco image id 42
-        {
-            'boxes': torch.tensor([[61.00, 22.75, 565.00, 632.42], [12.66, 3.32, 281.26, 275.23]], device='cuda'),
-            'scores': torch.tensor([0.318, 0.726], device='cuda'),
-            'labels': torch.tensor([3, 2], device='cuda'),
-        },  # coco image id 73
-    ]
-
-    map_metric.update(predictions, targets)
-    map_metric.compute()
-
-    tmp_path = dist.all_gather_object(tmp_path)[0]
-
-    trainer1 = get_trainer(
-        save_folder=str(tmp_path),
-        fsdp_state_dict_type='sharded',
-        train_metrics=map_metric,
-    )
-
-    trainer1._checkpoint_saver._save_checkpoint(trainer1.state, trainer1.logger)  # type: ignore
-
-    trainer2 = get_trainer(
-        load_path=str(tmp_path / 'ba0'),
-        fsdp_state_dict_type='sharded',
-        train_metrics=MAP(),
-    )
-
-    _compare_metrics_between_state_dicts(trainer1.state.state_dict(), trainer2.state.state_dict())
-    assert False
-
-
-@pytest.mark.gpu
-# @pytest.mark.remote
+@pytest.mark.remote
 @world_size(2)
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.parametrize('sharding_strategy', ['FULL_SHARD', 'SHARD_GRAD_OP'])
