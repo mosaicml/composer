@@ -620,7 +620,6 @@ class TestCheckpointLoading:
             trainer_1.state.train_metrics, trainer_2.state.train_metrics, trainer_1.state.eval_metrics,
             trainer_2.state.eval_metrics), 'Original metrics do not equal metrics from loaded checkpoint.'
 
-
     @pytest.mark.parametrize('missing_key', [True, False])
     @pytest.mark.parametrize('unexpected_key', [True, False])
     def test_strict_errors(self, missing_key: bool, unexpected_key: bool):
