@@ -918,6 +918,7 @@ class State(Serializable):
                             '_computed': v._computed,
                         }
             elif attribute_name == 'eval_metrics':
+                serialized_value = {}
                 if self.fsdp_sharded_state_dict_enabled:
                     # Sharded state dict breaks in many different ways with torchmetrics, due to both sharding
                     # metric tensors and only sometimes flattening path names in state dict and _computed, so
@@ -926,7 +927,6 @@ class State(Serializable):
                                                     'be sharded and break on load. If you wish to save metric state, set '
                                                     'fsdp_config["state_dict_type"] = "full" to disable sharded checkpoints.'))
                 else:
-                    serialized_value = {}
                     for eval_key, eval_metrics in attribute_value.items():
                         serialized_value[eval_key] = {}
                         for k, v in eval_metrics.items():
