@@ -20,11 +20,11 @@ from packaging import version
 from pytest import MonkeyPatch
 from torch.utils.data import DataLoader
 
-from composer.metrics import MAP
 from composer.algorithms import NoOpModel
 from composer.callbacks import CheckpointSaver
 from composer.core import Callback, Time, TimeUnit
 from composer.loggers import RemoteUploaderDownloader, remote_uploader_downloader
+from composer.metrics import MAP
 from composer.optim import ExponentialScheduler
 from composer.trainer import trainer
 from composer.trainer.trainer import Trainer
@@ -429,12 +429,12 @@ class TestCheckpointLoading:
             return False
 
     def get_trainer(
-            self, 
-            model=None, 
-            max_duration='2ep', 
-            latest_filename='latest-rank{rank}.pt',
-            **kwargs,
-            ):
+        self,
+        model=None,
+        max_duration='2ep',
+        latest_filename='latest-rank{rank}.pt',
+        **kwargs,
+    ):
         if model is None:
             model = SimpleConvModel()
         optimizer = torch.optim.Adam(model.parameters())
