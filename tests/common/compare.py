@@ -59,7 +59,7 @@ def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: floa
             assert item1_compute.allclose(item2_compute, atol=atol,
                                           rtol=rtol), f'{path} differs: {item1_compute} != {item2_compute}'
         elif isinstance(item1, dict) and isinstance(item2, dict):
-            _check_dict_recursively(item1_compute, item2_compute)
+            _check_dict_recursively(item1_compute, item2_compute, path, atol, rtol)
         else:
             assert 'Torchmetric compute() returned unexpected type, please add support in `_check_item`'
         item1._update_count -= 1
