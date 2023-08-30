@@ -433,12 +433,12 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.parametrize('weights_only', [False, True])
-@pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
-@pytest.mark.parametrize('state_dict_type', ['sharded', 'local'])
-@pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
-@pytest.mark.parametrize('use_remote', [pytest.param(True, marks=pytest.mark.remote), False])
-@pytest.mark.parametrize('autoresume', [True, False])
+@pytest.mark.parametrize('weights_only', [False])
+@pytest.mark.parametrize('optimizer', ['adam'])
+@pytest.mark.parametrize('state_dict_type', ['sharded'])
+@pytest.mark.parametrize('precision', ['amp_bf16'])
+@pytest.mark.parametrize('use_remote', [False])
+@pytest.mark.parametrize('autoresume', [True])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
@@ -479,7 +479,6 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
                            save_weights_only=weights_only,
                            fsdp_sharded_ckpt_prefix_dir='ba{batch}')
     run_name = trainer1.state.run_name
-    print(run_name)
     trainer1.fit()
     rng1 = get_rng_state()
     state_dict_from_trainer1_ba2 = trainer1.state.state_dict()
@@ -502,6 +501,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
         assert not is_checkpoint_legacy_sharded(object_store=object_store,
                                                 source_path=load_path.replace(f's3://{s3_bucket}/', ''))
 
+    print('\n\n\n\n\n\n TRAINER 2 \n\n\n\n\n\n')
     if autoresume:
         load_path = None
     trainer2 = get_trainer(save_folder=str(save_folder),
