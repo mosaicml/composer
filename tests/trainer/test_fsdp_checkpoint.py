@@ -355,6 +355,7 @@ def test_map_with_sharded(world_size, tmp_path: pathlib.Path):
     _compare_metrics_between_state_dicts(trainer1.state.state_dict(), trainer2.state.state_dict())
     assert False
 
+
 @pytest.mark.gpu
 # @pytest.mark.remote
 @world_size(2)

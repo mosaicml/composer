@@ -908,12 +908,14 @@ class State(Serializable):
                     # We cast the metric tensor to a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
                     _computed = v._computed
                     success = False
-                    if _computed is None:
+                    # Directly serialize if not using sharded
+                    if not self.fsdp_sharded_state_dict_enabled or _computed is None:
                         serialized_value[k] = {
                             'state_dict': v.state_dict(),
                             '_computed': _computed,
                         }
                         success = True
+                    # Otherwise, move singleton tensor to numpy
                     elif isinstance(_computed, torch.Tensor):
                         serialized_value[k] = {
                             'state_dict': v.state_dict(),
@@ -921,6 +923,7 @@ class State(Serializable):
                             '_computed_device': str(_computed.device),
                         }
                         success = True
+                    # Otherwise, move dict of singleton tensors to numpy
                     elif isinstance(_computed, dict):
                         serialized_value[k] = {
                             'state_dict': v.state_dict(),
@@ -935,58 +938,60 @@ class State(Serializable):
                             else:
                                 success = False
                                 break
-                    if not success:
-                        if self.fsdp_sharded_state_dict_enabled():
-                            pass
-                        else:
-                            raise RuntimeError(textwrap.dedent(
-                                'Metric object has an unsupported _computed attribute which is not a '
-                                'singleton tensor or a dict of singleton tensors. Either disable this '
-                                'metric or set fsdp_config["state_dict_type"] = "full" to disable sharded '
-                                'checkpoints. Please file an issue at to add support for this metric.'))
+                    # Otherwise, raise a value error
+                    if not success and self.fsdp_sharded_state_dict_enabled:
+                        raise RuntimeError(
+                            textwrap.dedent('Metric object has an unsupported _computed attribute which is not a '
+                                            'singleton tensor or a dict of singleton tensors. Either disable this '
+                                            'metric or set fsdp_config["state_dict_type"] = "full" to disable sharded '
+                                            'checkpoints. Please file an issue at to add support for this metric.'))
             elif attribute_name == 'eval_metrics':
                 serialized_value = {}
                 for eval_key, eval_metrics in attribute_value.items():
                     serialized_value[eval_key] = {}
                     for k, v in eval_metrics.items():
                         v.persistent(mode=True)
-                    _computed = v._computed
-                    success = False
-                    if _computed is None:
-                        serialized_value[eval_key][k] = {
-                            'state_dict': v.state_dict(),
-                            '_computed': _computed,
-                        }
-                        success = True
-                    elif isinstance(_computed, torch.Tensor):
-                        serialized_value[eval_key][k] = {
-                            'state_dict': v.state_dict(),
-                            '_computed': _computed.cpu().numpy(),
-                            '_computed_device': str(_computed.device),
-                        }
-                        success = True
-                    elif isinstance(_computed, dict):
-                        serialized_value[eval_key][k] = {
-                            'state_dict': v.state_dict(),
-                        }
-                        for key, value in _computed.items():
-                            if isinstance(value, torch.Tensor):
-                                serialized_value[eval_key][k][key] = {
-                                    '_computed': value.cpu().numpy(),
-                                    '_computed_device': str(value.device),
-                                }
-                            else:
-                                success = False
-                                break
-                    if not success:
-                        if self.fsdp_sharded_state_dict_enabled():
-                            pass
-                        else:
-                            raise RuntimeError(textwrap.dedent(
-                                'Metric object has an unsupported _computed attribute which is not a '
-                                'singleton tensor or a dict of singleton tensors. Either disable this '
-                                'metric or set fsdp_config["state_dict_type"] = "full" to disable sharded '
-                                'checkpoints. Please file an issue at to add support for this metric.'))
+                        # We cast the metric tensor to a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
+                        _computed = v._computed
+                        success = False
+                        # Directly serialize if not using sharded
+                        if not self.fsdp_sharded_state_dict_enabled or _computed is None:
+                            serialized_value[eval_key][k] = {
+                                'state_dict': v.state_dict(),
+                                '_computed': _computed,
+                            }
+                            success = True
+                        # Otherwise, move singleton tensor to numpy
+                        elif isinstance(_computed, torch.Tensor):
+                            serialized_value[eval_key][k] = {
+                                'state_dict': v.state_dict(),
+                                '_computed': _computed.cpu().numpy(),
+                                '_computed_device': str(_computed.device),
+                            }
+                            success = True
+                        # Otherwise, move dict of singleton tensors to numpy
+                        elif isinstance(_computed, dict):
+                            serialized_value[eval_key][k] = {
+                                'state_dict': v.state_dict(),
+                                '_computed': {},
+                            }
+                            for key, value in _computed.items():
+                                if isinstance(value, torch.Tensor):
+                                    serialized_value[eval_key][k]['_computed'][key] = {
+                                        '_computed': value.cpu().numpy(),
+                                        '_computed_device': str(value.device),
+                                    }
+                                else:
+                                    success = False
+                                    break
+                        # Otherwise, raise a value error
+                        if not success and self.fsdp_sharded_state_dict_enabled:
+                            raise RuntimeError(
+                                textwrap.dedent(
+                                    'Metric object has an unsupported _computed attribute which is not a '
+                                    'singleton tensor or a dict of singleton tensors. Either disable this '
+                                    'metric or set fsdp_config["state_dict_type"] = "full" to disable sharded '
+                                    'checkpoints. Please file an issue at to add support for this metric.'))
             else:
                 serialized_value = attribute_value
 
@@ -1329,11 +1334,16 @@ class State(Serializable):
                         # For checkpoints saved using Composer >= 0.14
                         metric_state_dict = serialized_value[metric_name]['state_dict']
                         metric_computed_field = serialized_value[metric_name]['_computed']
+                        # Unflatten metric_computed_field if it's a dict of singleton tensors and move to correct device
                         if isinstance(metric_computed_field, dict):
                             for key, computed_dict in metric_computed_field.items():
-                        elif metric_computed_field is not None:
-                            metric_computed_field = torch.from_numpy(metric_computed_field) if isinstance(
-                                metric_computed_field, np.ndarray) else metric_computed_field
+                                metric_tensor = computed_dict['_computed']
+                                metric_device = computed_dict['_computed_device']
+                                metric_computed_field[key] = torch.from_numpy(metric_tensor).to(metric_device)
+                            del metric_computed_field['_computed']
+                        # Move singleton tensor to device
+                        elif isinstance(metric_computed_field, np.ndarray):
+                            metric_computed_field = torch.from_numpy(metric_computed_field)
                             metric_computed_device = serialized_value[metric_name].get('_computed_device', None)
                             if metric_computed_device is not None:
                                 metric_computed_field = metric_computed_field.to(metric_computed_device)
@@ -1374,16 +1384,23 @@ class State(Serializable):
                             eval_metric_state_dict = serialized_value[eval_key][metric_name].state_dict()
                             eval_metric_computed_field = serialized_value[eval_key][metric_name]._computed
                         elif isinstance(serialized_value[eval_key][metric_name], dict):
+                            # The metric tensor is saved as a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
+                            # So we have to cast it back to a torch tensor.
                             # For checkpoints saved using Composer >= 0.14
                             eval_metric_state_dict = serialized_value[eval_key][metric_name]['state_dict']
                             eval_metric_computed_field = serialized_value[eval_key][metric_name]['_computed']
-                            # The metric tensor is saved as a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
-                            # So we have to cast it back to a torch tensor.
-                            eval_metric_computed_device = serialized_value[eval_key][metric_name].get(
-                                '_computed_device', None)
-                            if eval_metric_computed_field is not None:
-                                eval_metric_computed_field = torch.from_numpy(eval_metric_computed_field) if isinstance(
-                                    eval_metric_computed_field, np.ndarray) else eval_metric_computed_field
+                            # Unflatten eval_metric_computed_field if it's a dict of singleton tensors and move to correct device
+                            if isinstance(eval_metric_computed_field, dict):
+                                for key, computed_dict in eval_metric_computed_field.items():
+                                    metric_tensor = computed_dict['_computed']
+                                    metric_device = computed_dict['_computed_device']
+                                    eval_metric_computed_field[key] = torch.from_numpy(metric_tensor).to(metric_device)
+                                del eval_metric_computed_field['_computed']
+                            # Move singleton tensor to device
+                            elif isinstance(eval_metric_computed_field, np.ndarray):
+                                eval_metric_computed_field = torch.from_numpy(eval_metric_computed_field)
+                                eval_metric_computed_device = serialized_value[eval_key][metric_name].get(
+                                    '_computed_device', None)
                                 if eval_metric_computed_device is not None:
                                     eval_metric_computed_field = eval_metric_computed_field.to(
                                         eval_metric_computed_device)
