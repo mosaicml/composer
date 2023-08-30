@@ -57,7 +57,7 @@ def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: floa
         item2_compute = item2.compute()
         if isinstance(item1, torch.Tensor) and isinstance(item2, torch.Tensor):
             assert item1_compute.allclose(item2_compute, atol=atol,
-                                        rtol=rtol), f'{path} differs: {item1_compute} != {item2_compute}'
+                                          rtol=rtol), f'{path} differs: {item1_compute} != {item2_compute}'
         elif isinstance(item1, dict) and isinstance(item2, dict):
             _check_dict_recursively(item1_compute, item2_compute)
         else:

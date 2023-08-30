@@ -898,9 +898,10 @@ class State(Serializable):
                     # Sharded state dict breaks in many different ways with torchmetrics, due to both sharding
                     # metric tensors and only sometimes flattening path names in state dict and _computed, so
                     # we disable saving metrics with sharded checkpoints.
-                    warnings.warn(textwrap.dedent('Train metrics are not saved with sharded state dict as metric tensors will '
-                                                    'be sharded and break on load. If you wish to save metric state, set '
-                                                    'fsdp_config["state_dict_type"] = "full" to disable sharded checkpoints.'))
+                    warnings.warn(
+                        textwrap.dedent('Train metrics are not saved with sharded state dict as metric tensors will '
+                                        'be sharded and break on load. If you wish to save metric state, set '
+                                        'fsdp_config["state_dict_type"] = "full" to disable sharded checkpoints.'))
                 else:
                     for k, v in attribute_value.items():
                         # No need to use __qualname__, we already know this corresponds to
@@ -923,9 +924,10 @@ class State(Serializable):
                     # Sharded state dict breaks in many different ways with torchmetrics, due to both sharding
                     # metric tensors and only sometimes flattening path names in state dict and _computed, so
                     # we disable saving metrics with sharded checkpoints.
-                    warnings.warn(textwrap.dedent('Eval metrics are not saved with sharded state dict as metric tensors will '
-                                                    'be sharded and break on load. If you wish to save metric state, set '
-                                                    'fsdp_config["state_dict_type"] = "full" to disable sharded checkpoints.'))
+                    warnings.warn(
+                        textwrap.dedent('Eval metrics are not saved with sharded state dict as metric tensors will '
+                                        'be sharded and break on load. If you wish to save metric state, set '
+                                        'fsdp_config["state_dict_type"] = "full" to disable sharded checkpoints.'))
                 else:
                     for eval_key, eval_metrics in attribute_value.items():
                         serialized_value[eval_key] = {}
