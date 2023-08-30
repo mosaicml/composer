@@ -92,7 +92,6 @@ def get_trainer(
         optimizers=optim,
         train_dataloader=dataloader,
         fsdp_config={
-            'min_params': 16,
             'state_dict_type': fsdp_state_dict_type,
             'sharding_strategy': sharding_strategy,
             'sharded_ckpt_prefix_dir': fsdp_sharded_ckpt_prefix_dir,

@@ -176,7 +176,6 @@ def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path
     if fsdp:
         fsdp_config = {
             'sharding_strategy': 'FULL_SHARD',
-            'min_params': 1e8,
             'cpu_offload': False,
             'mixed_precision': 'PURE',
             'backward_prefetch': 'BACKWARD_PRE',
