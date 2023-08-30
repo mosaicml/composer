@@ -347,9 +347,7 @@ def test_map_with_sharded(world_size, tmp_path: pathlib.Path):
     trainer2 = get_trainer(
         load_path=str(tmp_path / 'ba0'),
         fsdp_state_dict_type='sharded',
-        # load_ignore_keys=['state/model', 'state/optimizers'],
         train_metrics=MAP(),
-        # train_metrics=map_metric,
     )
 
     _compare_metrics_between_state_dicts(trainer1.state.state_dict(), trainer2.state.state_dict())

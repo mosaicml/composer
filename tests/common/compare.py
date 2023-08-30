@@ -53,8 +53,15 @@ def _check_item(item1: Any, item2: Any, path: str, rtol: float = 0.0, atol: floa
         # Increase update count so Torchmetrics doesn't throw warning when computing two metrics which haven't been updated
         item1._update_count += 1
         item2._update_count += 1
-        assert item1.compute().allclose(item2.compute(), atol=atol,
-                                        rtol=rtol), f'{path} differs: {item1.compute()} != {item2.compute()}'
+        item1_compute = item1.compute()
+        item2_compute = item2.compute()
+        if isinstance(item1, torch.Tensor) and isinstance(item2, torch.Tensor):
+            assert item1_compute.allclose(item2_compute, atol=atol,
+                                        rtol=rtol), f'{path} differs: {item1_compute} != {item2_compute}'
+        elif isinstance(item1, dict) and isinstance(item2, dict):
+            _check_dict_recursively(item1, item2)
+        else:
+            assert 'Torchmetric compute() returned unexpected type, please add support in `_check_item`'
         item1._update_count -= 1
         item2._update_count -= 1
         return
