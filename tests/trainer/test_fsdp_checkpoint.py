@@ -336,7 +336,7 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
             '0.13.5', '0.14.0', '0.14.1'
     ]:
         pytest.skip(
-            'Composer 0.15.1 and above checkpoints were not saved with torch 1.13 and as a result compatible with torch 1.13.'
+            'Composer 0.15.1 and above checkpoints were saved with torch 2 and as a result are not compatible with torch 1.13.'
         )
     if version.parse(torch.__version__) >= version.parse('2.0.0') and state_dict_type == 'local':
         pytest.xfail(
