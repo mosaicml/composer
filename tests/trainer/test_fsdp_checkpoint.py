@@ -42,6 +42,11 @@ class SimpleMLP(ComposerClassifier):
             torch.nn.ReLU(),
             torch.nn.Linear(num_features, num_classes, bias=False),
         )
+
+        for module in net:
+            if isinstance(module, torch.nn.Linear):
+                module._fsdp_wrap = True
+
         net.param_init_fn = self.param_init_fn
         super().__init__(module=net, num_classes=num_classes, train_metrics=train_metrics, val_metrics=val_metrics)
 
