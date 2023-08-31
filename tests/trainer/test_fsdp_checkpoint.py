@@ -14,8 +14,7 @@ import torch
 from packaging import version
 from torch.utils.data import DataLoader
 from torchmetrics import MetricCollection
-from torchmetrics.classification import MulticlassAccuracy, MulticlassAveragePrecision, MulticlassROC
-
+from torchmetrics.classification import MulticlassAccuracy
 from composer.algorithms import EMA
 from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_context
 from composer.models import ComposerClassifier
@@ -333,7 +332,9 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
                                   state_dict_type: str, s3_bucket: str, s3_read_only_prefix: str,
                                   composer_version: str):
 
-    if version.parse(torch.__version__) >= version.parse('1.13.0') and composer_version not in ['0.13.5', '0.14.0', '0.14.1']:
+    if version.parse(torch.__version__) >= version.parse('1.13.0') and composer_version not in [
+            '0.13.5', '0.14.0', '0.14.1'
+    ]:
         pytest.skip(
             'Composer 0.15.1 and above checkpoints were not saved with torch 1.13 and as a result compatible with torch 1.13.'
         )
@@ -341,7 +342,6 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
         pytest.xfail(
             'Loading a torch 1.13 checkpoint with torch 2.0 for state_dict_type local is not backwards compatible. See https://github.com/pytorch/pytorch/issues/102667 for more info'
         )
-
 
     if composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']:
         rank = 0 if state_dict_type == 'full' else '{rank}'
@@ -361,7 +361,6 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
         ])
         val_metrics = MetricCollection([
             MulticlassAccuracy(num_classes=num_classes),
-
         ])
     else:
         train_metrics = None
