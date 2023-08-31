@@ -1161,7 +1161,7 @@ class Trainer:
             raise ValueError("There can only be one WandBLogger in the loggers list.")
         if len(wandb_loggers) == 1:
             wandb_logger: WandBLogger = wandb_loggers[0]
-            self.logger.log_hyperparameters('wandb_url': wandb_logger.run_url)
+            self.logger.log_hyperparameters({'wandb_url': wandb_logger.run_url})
             
         # Log gpus and nodes.
         device_name = self.state.device.__class__.__name__.lstrip('Device').lower()
