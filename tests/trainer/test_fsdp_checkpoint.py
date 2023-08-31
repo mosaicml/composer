@@ -42,6 +42,11 @@ class SimpleMLP(ComposerClassifier):
             torch.nn.ReLU(),
             torch.nn.Linear(num_features, num_classes, bias=False),
         )
+
+        for module in net:
+            if isinstance(module, torch.nn.Linear):
+                module._fsdp_wrap = True
+
         net.param_init_fn = self.param_init_fn
         super().__init__(module=net, num_classes=num_classes, train_metrics=train_metrics, val_metrics=val_metrics)
 
@@ -321,6 +326,7 @@ def test_fsdp_mixed_with_sync(world_size, tmp_path: pathlib.Path, sync_module_st
                  marks=pytest.mark.filterwarnings(
                      r'ignore:MosaicMLLogger is not in the state_dict. Its state will not be restored.:UserWarning'))
 ])
+@pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision: str, sharding_strategy: str,
