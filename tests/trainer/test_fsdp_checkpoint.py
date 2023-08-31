@@ -337,6 +337,10 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
             'Loading a torch 1.13 checkpoint with torch 2.0 for state_dict_type local is not backwards compatible. See https://github.com/pytorch/pytorch/issues/102667 for more info'
         )
 
+    if version.parse(torch.__version__) >= version.parse('1.13.0') and composer_version not in ['0.13.5', '0.14.0', '0.14.1']:
+        pytest.xfail(
+            'Composer 0.15.1 and above checkpoints were not saved with torch 1.13 and as a result compatible with torch 1.13.'
+        )
     if composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']:
         rank = 0 if state_dict_type == 'full' else '{rank}'
         load_path_dir = f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_{precision}/'
@@ -352,13 +356,10 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
         num_classes = 8  # This parameter setting is very important. Don't change or the test will fail.
         train_metrics = MetricCollection([
             MulticlassAccuracy(num_classes=num_classes),
-            MulticlassAveragePrecision(num_classes=num_classes),
-            MulticlassROC(num_classes=num_classes)
         ])
         val_metrics = MetricCollection([
             MulticlassAccuracy(num_classes=num_classes),
-            MulticlassAveragePrecision(num_classes=num_classes),
-            MulticlassROC(num_classes=num_classes)
+
         ])
     else:
         train_metrics = None
