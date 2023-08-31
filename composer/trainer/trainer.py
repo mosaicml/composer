@@ -1155,6 +1155,14 @@ class Trainer:
             self.local_hparams = extract_hparams(locals())
             self.logger.log_hyperparameters(self.local_hparams)
 
+        # Log Wandb URL.
+        wandb_loggers = [logger for logger in loggers if isinstance(logger, WandBLogger)]
+        if len(wandb_loggers) > 1:
+            raise ValueError("There can only be one WandBLogger in the loggers list.")
+        if len(wandb_loggers) == 1:
+            wandb_logger: WandBLogger = wandb_loggers[0]
+            self.logger.log_hyperparameters('wandb_url': wandb_logger.run_url)
+            
         # Log gpus and nodes.
         device_name = self.state.device.__class__.__name__.lstrip('Device').lower()
         self.logger.log_hyperparameters({
