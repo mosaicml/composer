@@ -24,6 +24,7 @@ from composer.algorithms import NoOpModel
 from composer.callbacks import CheckpointSaver
 from composer.core import Callback, Time, TimeUnit
 from composer.loggers import RemoteUploaderDownloader, remote_uploader_downloader
+from composer.metrics import MAP
 from composer.optim import ExponentialScheduler
 from composer.trainer import trainer
 from composer.trainer.trainer import Trainer
@@ -427,7 +428,13 @@ class TestCheckpointLoading:
         except AssertionError:
             return False
 
-    def get_trainer(self, model=None, max_duration='2ep', latest_filename='latest-rank{rank}.pt', **kwargs):
+    def get_trainer(
+        self,
+        model=None,
+        max_duration='2ep',
+        latest_filename='latest-rank{rank}.pt',
+        **kwargs,
+    ):
         if model is None:
             model = SimpleConvModel()
         optimizer = torch.optim.Adam(model.parameters())
@@ -562,6 +569,56 @@ class TestCheckpointLoading:
         monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
         with pytest.raises(NotImplementedError):
             self.get_trainer(load_path=load_path)
+
+    def test_load_map(self, tmp_path: pathlib.Path):
+        map_metric = MAP()
+
+        targets = [
+            {
+                'boxes': torch.tensor([[258.15, 41.29, 606.41, 285.07]]),
+                'labels': torch.tensor([4]),
+            },  # coco image id 42
+            {
+                'boxes': torch.tensor([[61.00, 22.75, 565.00, 632.42], [12.66, 3.32, 281.26, 275.23]]),
+                'labels': torch.tensor([3, 2]),
+            },  # coco image id 73
+        ]
+
+        # Perfect result
+        predictions = [
+            {
+                'boxes': torch.tensor([[258.15, 41.29, 606.41, 285.07]]),
+                'scores': torch.tensor([0.236]),
+                'labels': torch.tensor([4]),
+            },  # coco image id 42
+            {
+                'boxes': torch.tensor([[61.00, 22.75, 565.00, 632.42], [12.66, 3.32, 281.26, 275.23]]),
+                'scores': torch.tensor([0.318, 0.726]),
+                'labels': torch.tensor([3, 2]),
+            },  # coco image id 73
+        ]
+
+        map_metric.update(predictions, targets)
+        map_metric.compute()
+
+        model_1 = SimpleConvModel()
+        model_1.train_metrics = map_metric
+        trainer_1 = self.get_trainer(
+            model=model_1,
+            save_folder=str(tmp_path),
+        )
+        trainer_1.save_checkpoint('latest-rank0.pt')
+
+        model_2 = SimpleConvModel()
+        model_2.train_metrics = MAP()
+        trainer_2 = self.get_trainer(
+            model=model_2,
+            load_path=str(tmp_path / 'latest-rank0.pt'),
+        )
+
+        assert self._metrics_equal(
+            trainer_1.state.train_metrics, trainer_2.state.train_metrics, trainer_1.state.eval_metrics,
+            trainer_2.state.eval_metrics), 'Original metrics do not equal metrics from loaded checkpoint.'
 
     @pytest.mark.parametrize('missing_key', [True, False])
     @pytest.mark.parametrize('unexpected_key', [True, False])
