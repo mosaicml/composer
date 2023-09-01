@@ -65,6 +65,7 @@ class MosaicMLLogger(LoggerDestination):
         self.ignore_keys = ignore_keys
         self._enabled = dist.get_global_rank() == 0
         if self._enabled:
+            self.allowed_fails_left = 3
             self.time_last_logged = 0
             self.buffered_metadata: Dict[str, Any] = {}
 
@@ -126,6 +127,9 @@ class MosaicMLLogger(LoggerDestination):
                 self.time_last_logged = time.time()
             except mcli.MAPIException as e:
                 log.error(f'Failed to log metadata to Mosaic with error: {e}')
+                self.allowed_fails_left -= 1
+                if self.allowed_fails_left <= 0:
+                    self._enabled = False
 
 
 def format_data_to_json_serializable(data: Any):
