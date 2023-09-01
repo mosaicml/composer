@@ -98,10 +98,14 @@ class MemoryMonitor(Callback):
 
 
 _MEMORY_KEYS = {
-    'allocated_bytes.all.current': 'allocated_mem',
-    'active_bytes.all.current': 'active_mem',
-    'inactive_split_bytes.all.current': 'inactive_mem',
-    'reserved_bytes.all.current': 'reserved_mem',
+    'allocated_bytes.all.current': 'current_allocated_mem',
+    'active_bytes.all.current': 'current_active_mem',
+    'inactive_split_bytes.all.current': 'current_inactive_mem',
+    'reserved_bytes.all.current': 'current_reserved_mem',
+    'allocated_bytes.all.peak': 'peak_allocated_mem',
+    'active_bytes.all.peak': 'peak_active_mem',
+    'inactive_split_bytes.all.peak': 'peak_inactive_mem',
+    'reserved_bytes.all.peak': 'peak_reserved_mem',
     'num_alloc_retries': 'alloc_retries',
 }
 
