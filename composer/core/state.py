@@ -893,8 +893,8 @@ class State(Serializable):
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                 serialized_value = {type(obj).__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)}
             elif attribute_name == 'train_metrics':
-                serialized_value = {}
                 if self.fsdp_sharded_state_dict_enabled:
+                    serialized_value = None
                     # Sharded state dict breaks in many different ways with torchmetrics, due to both sharding
                     # metric tensors and only sometimes flattening path names in state dict and _computed, so
                     # we disable saving metrics with sharded checkpoints.
@@ -903,6 +903,7 @@ class State(Serializable):
                                         'be sharded and break on load. If you wish to save metric state, set '
                                         'fsdp_config["state_dict_type"] = "full" to disable sharded checkpoints.'))
                 else:
+                    serialized_value = {}
                     for k, v in attribute_value.items():
                         # No need to use __qualname__, we already know this corresponds to
                         # a metric object when we deserialize.
@@ -919,8 +920,8 @@ class State(Serializable):
                             '_computed': v._computed,
                         }
             elif attribute_name == 'eval_metrics':
-                serialized_value = {}
                 if self.fsdp_sharded_state_dict_enabled:
+                    serialized_value = None
                     # Sharded state dict breaks in many different ways with torchmetrics, due to both sharding
                     # metric tensors and only sometimes flattening path names in state dict and _computed, so
                     # we disable saving metrics with sharded checkpoints.
@@ -929,6 +930,7 @@ class State(Serializable):
                                         'be sharded and break on load. If you wish to save metric state, set '
                                         'fsdp_config["state_dict_type"] = "full" to disable sharded checkpoints.'))
                 else:
+                    serialized_value = {}
                     for eval_key, eval_metrics in attribute_value.items():
                         serialized_value[eval_key] = {}
                         for k, v in eval_metrics.items():
@@ -940,7 +942,8 @@ class State(Serializable):
             else:
                 serialized_value = attribute_value
 
-            state_dict[attribute_name] = serialized_value
+            if serialized_value is not None:
+                state_dict[attribute_name] = serialized_value
 
         state_dict['integrations'] = self._get_integrations_state_dict()
         state_dict['metadata'] = self._get_state_metadata()

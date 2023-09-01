@@ -7,6 +7,7 @@ import pathlib
 import textwrap
 import uuid
 from functools import partial
+from typing import Any, Dict
 
 import numpy as np
 import pytest
@@ -210,18 +211,25 @@ def _compare_rng_states_between_trainers(rng_state1, rng_state2):
             torch.equal(cuda_state1, cuda_state2), f'Cuda rng state not the same between state_dicts for rank {rank}'
 
 
-def _compare_metrics_between_state_dicts(state_dict1, state_dict2):
+def _compare_metrics_between_state_dicts(state_dict1: Dict[str, Any], state_dict2: Dict[str, Any]):
     # Check that metric states are equal between in memory mode and checkpoint
-    state_dict1_train_metrics = state_dict1['train_metrics']
-    state_dict2_train_metrics = state_dict2['train_metrics']
+    state_dict1_train_metrics = state_dict1.get('train_metrics', None)
+    state_dict2_train_metrics = state_dict2.get('train_metrics', None)
 
-    state_dict1_eval_metrics = state_dict1['eval_metrics']
-    state_dict2_eval_metrics = state_dict2['eval_metrics']
-    for metric1, metric2 in zip(state_dict1_train_metrics.values(), state_dict2_train_metrics.values()):
-        assert metric1['_computed'] == metric2['_computed']
+    state_dict1_eval_metrics = state_dict1.get('eval_metrics', None)
+    state_dict2_eval_metrics = state_dict2.get('eval_metrics', None)
 
-    for metric1, metric2 in zip(state_dict1_eval_metrics.values(), state_dict2_eval_metrics.values()):
-        assert metric1['_computed'] == metric2['_computed']
+    if state_dict1_train_metrics is not None and state_dict2_train_metrics is not None:
+        for metric1, metric2 in zip(state_dict1_train_metrics.values(), state_dict2_train_metrics.values()):
+            assert metric1['_computed'] == metric2['_computed']
+    else:
+        assert state_dict1_train_metrics == state_dict2_train_metrics
+
+    if state_dict1_eval_metrics is not None and state_dict2_eval_metrics is not None:
+        for metric1, metric2 in zip(state_dict1_eval_metrics.values(), state_dict2_eval_metrics.values()):
+            assert metric1['_computed'] == metric2['_computed']
+    else:
+        assert state_dict1_eval_metrics == state_dict2_eval_metrics
 
 
 def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
