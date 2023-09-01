@@ -904,21 +904,22 @@ class State(Serializable):
                                         'fsdp_config["state_dict_type"] = "full" to disable sharded checkpoints.'))
                 else:
                     serialized_value = {}
-                    for k, v in attribute_value.items():
-                        # No need to use __qualname__, we already know this corresponds to
-                        # a metric object when we deserialize.
-                        # Along with the rest of a Composer checkpoint, the state_dict() and _computed attributes of
-                        # a Torchmetrics object are enough information to recreate it upon serialization. We only serialize
-                        # the minimum metric information to maximize backwards compatibility --- old checkpoints
-                        # will continue to be compatible even if other Torchmetrics attributes have changed.
-                        # metric._computed stores the cached value of the previous metric computation
-                        # We need to serialize this because it cannot always be recomputed from the state dict.
-                        # See https://torchmetrics.readthedocs.io/en/stable/pages/implement.html#torchmetrics.Metric for more details
-                        v.persistent(mode=True)
-                        serialized_value[k] = {
-                            'state_dict': v.state_dict(),
-                            '_computed': v._computed,
-                        }
+                    if attribute_value is not None:
+                        for k, v in attribute_value.items():
+                            # No need to use __qualname__, we already know this corresponds to
+                            # a metric object when we deserialize.
+                            # Along with the rest of a Composer checkpoint, the state_dict() and _computed attributes of
+                            # a Torchmetrics object are enough information to recreate it upon serialization. We only serialize
+                            # the minimum metric information to maximize backwards compatibility --- old checkpoints
+                            # will continue to be compatible even if other Torchmetrics attributes have changed.
+                            # metric._computed stores the cached value of the previous metric computation
+                            # We need to serialize this because it cannot always be recomputed from the state dict.
+                            # See https://torchmetrics.readthedocs.io/en/stable/pages/implement.html#torchmetrics.Metric for more details
+                            v.persistent(mode=True)
+                            serialized_value[k] = {
+                                'state_dict': v.state_dict(),
+                                '_computed': v._computed,
+                            }
             elif attribute_name == 'eval_metrics':
                 if self.fsdp_sharded_state_dict_enabled:
                     serialized_value = None
