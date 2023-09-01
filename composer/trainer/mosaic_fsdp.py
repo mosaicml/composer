@@ -8,9 +8,10 @@
 
 import torch
 from packaging import version
+from torch.distributed._shard.sharding_spec import ChunkShardingSpec
 from torch.distributed.fsdp import FullyShardedDataParallel
 
-from composer.trainer.mosaic_fsdp_utils import custom_auto_wrap_t1p13p1
+from composer.trainer.mosaic_fsdp_utils import build_metadata, custom_auto_wrap_t1p13p1, shard
 
 
 def patch_pytorch():
