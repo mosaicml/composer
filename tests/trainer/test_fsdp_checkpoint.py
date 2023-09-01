@@ -625,7 +625,8 @@ def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type:
         state_dict_from_trainer2 = get_mono_state_dict_from_sharded_one(sharded_trainer)
         _compare_model_params_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
         _compare_optims_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
-        _compare_metrics_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
+        # Metrics are NOT equal as sharded checkpoints do not save or load metrics
+        # _compare_metrics_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
         _compare_timestamps_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
 
     # Compare state dicts.
