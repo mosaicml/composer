@@ -547,6 +547,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.1'), reason='requires PyTorch 2.01 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:MosaicMLLogger is not in the state_dict.:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool, precision: str,
                             sharding_strategy, s3_bucket, s3_read_only_prefix, num_shards: int):
     if state_dict_type == 'local' and using_torch_2():
