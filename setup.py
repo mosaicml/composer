@@ -129,7 +129,7 @@ extra_deps['dev'] = [
     'nbsphinx==0.9.1',
     'pandoc==2.3',
     'pypandoc==1.11',
-    'GitPython==3.1.31',
+    'GitPython==3.1.34',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
     'cryptography==41.0.3',
