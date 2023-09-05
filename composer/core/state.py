@@ -283,6 +283,7 @@ class State(Serializable):
         schedulers (types.PyTorchScheduler | Sequence[types.PyTorchScheduler], optional):
             The learning rate scheduler (can also be a list or tuple of schedulers).
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
+        save_metrics (bool, optional): Whether to save metrics in state_dict.
         algorithms (Algorithm | Sequence[Algorithm], optional): The algorithms used for training.
         callbacks (Callback | Sequence[Callback], optional): The callbacks used for training.
         deepspeed_config (Dict[str, Any], optional): The configuration dictionary for deepspeed.
@@ -445,6 +446,9 @@ class State(Serializable):
         # scaler
         scaler: Optional[torch.cuda.amp.grad_scaler.GradScaler] = None,
 
+        # state_dict
+        save_metrics: bool = False,
+
         # algorithms and callbacks
         algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
         callbacks: Optional[Union[Callback, Sequence[Callback]]] = None,
@@ -468,6 +472,7 @@ class State(Serializable):
         self.dataset_resumption = dataset_resumption or {}
         self._max_duration = None
         self.max_duration = max_duration
+        self.save_metrics = save_metrics
 
         self._train_dataloader = train_dataloader
         self._evaluators = list(ensure_tuple(evaluators))
@@ -531,6 +536,14 @@ class State(Serializable):
                 textwrap.dedent(
                     "FSDP state_dict_type='local' is deprecated in torch>=2.0.0. "
                     "Please set fsdp_config['state_dict_type']='sharded' instead and will be removed in v0.17"))
+        if self.fsdp_sharded_state_dict_enabled and self.save_metrics:
+            # Sharded state dict breaks in many different ways with torchmetrics, due to both sharding
+            # metric tensors and only sometimes flattening path names in state dict and _computed, so
+            # we saving metrics is not allowed with sharded state dict.
+            raise ValueError(
+                textwrap.dedent('Saving metrics is not allowed with sharded state dict as metric tensors will '
+                                'be sharded and break on load. If you wish to save metric state, set '
+                                'fsdp_config["state_dict_type"] = "full" to disable sharded checkpoints.'))
 
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None
@@ -893,16 +906,7 @@ class State(Serializable):
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                 serialized_value = {type(obj).__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)}
             elif attribute_name == 'train_metrics':
-                if self.fsdp_sharded_state_dict_enabled:
-                    serialized_value = None
-                    # Sharded state dict breaks in many different ways with torchmetrics, due to both sharding
-                    # metric tensors and only sometimes flattening path names in state dict and _computed, so
-                    # we disable saving metrics with sharded checkpoints.
-                    warnings.warn(
-                        textwrap.dedent('Train metrics are not saved with sharded state dict as metric tensors will '
-                                        'be sharded and break on load. If you wish to save metric state, set '
-                                        'fsdp_config["state_dict_type"] = "full" to disable sharded checkpoints.'))
-                else:
+                if self.save_metrics and attribute_value is not None:
                     serialized_value = {}
                     for k, v in attribute_value.items():
                         # No need to use __qualname__, we already know this corresponds to
@@ -919,17 +923,10 @@ class State(Serializable):
                             'state_dict': v.state_dict(),
                             '_computed': v._computed,
                         }
-            elif attribute_name == 'eval_metrics':
-                if self.fsdp_sharded_state_dict_enabled:
-                    serialized_value = None
-                    # Sharded state dict breaks in many different ways with torchmetrics, due to both sharding
-                    # metric tensors and only sometimes flattening path names in state dict and _computed, so
-                    # we disable saving metrics with sharded checkpoints.
-                    warnings.warn(
-                        textwrap.dedent('Eval metrics are not saved with sharded state dict as metric tensors will '
-                                        'be sharded and break on load. If you wish to save metric state, set '
-                                        'fsdp_config["state_dict_type"] = "full" to disable sharded checkpoints.'))
                 else:
+                    serialized_value = None
+            elif attribute_name == 'eval_metrics':
+                if self.save_metrics and attribute_value is not None:
                     serialized_value = {}
                     for eval_key, eval_metrics in attribute_value.items():
                         serialized_value[eval_key] = {}
@@ -939,6 +936,8 @@ class State(Serializable):
                                 'state_dict': v.state_dict(),
                                 '_computed': v._computed,
                             }
+                else:
+                    serialized_value = None
             else:
                 serialized_value = attribute_value
 
