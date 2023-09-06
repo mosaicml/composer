@@ -513,6 +513,7 @@ class TestCheckpointLoading:
             run_name='big-chungus',
             autoresume=True,
             loggers=[self.get_logger(tmp_path)] if use_object_store else [],
+            save_metrics=save_metrics,
         )
 
         # trains the model, saving the checkpoint files
@@ -657,7 +658,7 @@ class TestCheckpointLoading:
     @pytest.mark.parametrize('save_metrics', [True, False])
     def test_load_weights(self, device, load_weights_only, save_metrics):
 
-        trainer_1 = self.get_trainer(save_folder='first', device=device)
+        trainer_1 = self.get_trainer(save_folder='first', device=device, save_metrics=save_metrics)
         trainer_1.fit()
         trainer_1.close()
 
@@ -666,7 +667,6 @@ class TestCheckpointLoading:
             load_path=last_checkpoint,
             load_weights_only=load_weights_only,
             load_strict_model_weights=load_weights_only,
-            save_metrics=save_metrics,
         )
 
         # check weights loaded properly
@@ -674,6 +674,7 @@ class TestCheckpointLoading:
             trainer_1.state.model,
             trainer_2.state.model,
         )
+
 
         # check metrics loaded
         metrics_equal = self._metrics_equal(trainer_1.state.train_metrics, trainer_2.state.train_metrics,
