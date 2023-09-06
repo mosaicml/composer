@@ -1908,7 +1908,6 @@ class Trainer:
             metrics (Dict[str, Metric]): The metrics to compute.
         """
         metrics = deepcopy(metrics)
-        metrics = self._ensure_metrics_device_and_dtype(metrics)
 
         # log computed metrics
         computed_metrics = {}
@@ -2121,6 +2120,7 @@ class Trainer:
                     # did (e.g. duration specified in samples/batches/tokens), but it is still
                     # the end of the dataloader (i.e. next(dataloader) would raise StopIteration)
                     if self.state.train_metrics is not None:
+                        self.state.train_metrics = self._ensure_metrics_device_and_dtype(self.state.train_metrics)
                         self._compute_and_log_metrics(
                             dataloader_label='train',
                             metrics=self.state.train_metrics,
