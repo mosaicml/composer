@@ -198,7 +198,7 @@ Determining which methods to compose together isn't as simple as assembling a se
 <img src="https://storage.googleapis.com/docs.mosaicml.com/images/methods/explorer.png"/>
 </p>
 
-As an example, here are two performant recipes, one for ResNet-101 on ImageNet, and the other for GPT-2 on OpenWebText, on 8xA100s:
+As an example, here are two performant recipes, one for ResNet-101 on ImageNet, and the other for GPT-2 on OpenWebText on 8xA100s:
 
 ### ResNet-101
 
