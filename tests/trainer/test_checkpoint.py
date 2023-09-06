@@ -495,8 +495,16 @@ class TestCheckpointLoading:
     @pytest.mark.parametrize('delete_local', [True, False])
     @pytest.mark.parametrize('test_slashed', [True, False])
     @pytest.mark.parametrize('save_metrics', [True, False])
-    def test_autoresume(self, device: str, tmp_path: pathlib.Path, use_object_store: bool, delete_local: bool,
-                        test_slashed: bool, save_metrics: bool, world_size: int, ):
+    def test_autoresume(
+        self,
+        device: str,
+        tmp_path: pathlib.Path,
+        use_object_store: bool,
+        delete_local: bool,
+        test_slashed: bool,
+        save_metrics: bool,
+        world_size: int,
+    ):
         if delete_local and not use_object_store:
             pytest.skip('Invalid test setting.')
 
@@ -675,7 +683,6 @@ class TestCheckpointLoading:
             trainer_2.state.model,
         )
 
-
         # check metrics loaded
         metrics_equal = self._metrics_equal(trainer_1.state.train_metrics, trainer_2.state.train_metrics,
                                             trainer_1.state.eval_metrics, trainer_2.state.eval_metrics)
@@ -796,7 +803,6 @@ class TestCheckpointLoading:
             trainer_1.state.model,
             trainer_2.state.model,
         )
-
 
     @pytest.mark.parametrize(
         'run_name,save_folder,save_overwrite,latest_filename',
@@ -961,6 +967,8 @@ class TestCheckpointResumption:
             ],  # test save batch after complete epoch
         ],
     )
+    # trainer_2 will call compute if checkpoint is already at end of epoch
+    @pytest.mark.filterwarnings('ignore:The ``compute`` method of metric MulticlassAccuracy.*:UserWarning')
     def test_resumption(
         self,
         device: str,
