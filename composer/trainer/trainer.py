@@ -1908,6 +1908,7 @@ class Trainer:
             metrics (Dict[str, Metric]): The metrics to compute.
         """
         metrics = deepcopy(metrics)
+        metrics = self._ensure_metrics_device_and_dtype(metrics)
 
         # log computed metrics
         computed_metrics = {}
