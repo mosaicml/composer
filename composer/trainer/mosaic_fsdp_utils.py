@@ -7,9 +7,9 @@
 """Utilities for monkey patching FSDP."""
 
 import functools
-from functools import partial
-import warnings
 import inspect
+import warnings
+from functools import partial
 from typing import Any, Callable, Dict, Iterable, Optional, Set, Tuple, Union, cast
 
 import torch
@@ -694,6 +694,7 @@ def _custom_recursive_wrap_t2p1p0(
             return module, total_wrapped_numel
     return module, 0
 
+
 def _custom_auto_wrap_t2p1p0(
         root_module: nn.Module,
         policy: Union[Callable, _Policy],
@@ -716,9 +717,8 @@ def _custom_auto_wrap_t2p1p0(
     from torch.distributed.fsdp._common_utils import _override_module_mixed_precision
     from torch.distributed.fsdp._wrap_utils import (_check_nested_wrapping, _validate_frozen_params,
                                                     _warn_on_overridden_mixed_precision)
-    from torch.distributed.fsdp.wrap import (_construct_wrap_fn, _or_policy, _Policy,
-                                             _post_order_apply, _run_mixed_precision_override_policy,
-                                             _wrap_module_cls_individually)
+    from torch.distributed.fsdp.wrap import (_construct_wrap_fn, _or_policy, _Policy, _post_order_apply,
+                                             _run_mixed_precision_override_policy, _wrap_module_cls_individually)
 
     mixed_precision = root_kwargs['mixed_precision']
     is_wrapper = inspect.isclass(fsdp_fn)
@@ -738,7 +738,7 @@ def _custom_auto_wrap_t2p1p0(
                 target_module_to_kwargs,
             )
             overridden_module_classes = _override_module_mixed_precision(root_module,
-                                                                            mixed_precision._module_classes_to_ignore)
+                                                                         mixed_precision._module_classes_to_ignore)
             _warn_on_overridden_mixed_precision(overridden_module_classes)
         use_orig_params = root_kwargs.get('use_orig_params', False)
         _validate_frozen_params(
@@ -763,7 +763,7 @@ def _custom_auto_wrap_t2p1p0(
         # Wrap modules of the ignored types separately and register forward
         # hooks to cast to fp32 and back to the original dtype, respectively
         overridden_module_classes = _override_module_mixed_precision(root_module,
-                                                                        mixed_precision._module_classes_to_ignore)
+                                                                     mixed_precision._module_classes_to_ignore)
         policy = functools.partial(
             _or_policy,
             policies=[
@@ -780,6 +780,7 @@ def _custom_auto_wrap_t2p1p0(
     recursive_wrap_kwargs['process_group_cache'] = {}
 
     _custom_recursive_wrap_t2p1p0(**recursive_wrap_kwargs, **root_kwargs)  # type: ignore[arg-type]
+
 
 if version.parse(torch.__version__) < version.parse('2.1.1'):
     from torch.distributed.fsdp.wrap import ModuleWrapPolicy
@@ -803,16 +804,15 @@ if version.parse(torch.__version__) < version.parse('2.1.1'):
         ignored_states: Union[Optional[Iterable[torch.nn.Parameter]], Optional[Iterable[torch.nn.Module]]] = None,
     ):
         """Modified version of hhttps://github.com/pytorch/pytorch/blob/8ed169b1628285924e10fc98de53dbb75c92c43e/torch/distributed/fsdp/fully_sharded_data_parallel.py#L399C1."""
-        from torch.distributed.fsdp._init_utils import (HYBRID_SHARDING_STRATEGIES,
-                                                    _check_orig_params_flattened, _init_buffer_state, _init_core_state,
-                                                    _init_device_handle, _init_ignored_module_states,
-                                                    _init_param_handle_from_module, _init_prefetching_state,
-                                                    _init_process_group_state, _init_runtime_state,
-                                                    _init_state_dict_state)
         from torch.distributed.fsdp._dynamo_utils import _annotate_modules_for_dynamo
-        from torch.distributed.fsdp._unshard_param_utils import _register_flat_param
+        from torch.distributed.fsdp._init_utils import (HYBRID_SHARDING_STRATEGIES, _check_orig_params_flattened,
+                                                        _init_buffer_state, _init_core_state, _init_device_handle,
+                                                        _init_ignored_module_states, _init_param_handle_from_module,
+                                                        _init_prefetching_state, _init_process_group_state,
+                                                        _init_runtime_state, _init_state_dict_state)
         from torch.distributed.fsdp._state_dict_utils import _register_all_state_dict_hooks
-        
+        from torch.distributed.fsdp._unshard_param_utils import _register_flat_param
+
         torch._C._log_api_usage_once('torch.distributed.fsdp')
         super(FullyShardedDataParallel, self).__init__()
         _init_ignored_module_states(self, module, ignored_modules, ignored_states)
