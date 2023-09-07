@@ -96,7 +96,6 @@ trainer.fit()
 
 Here we run `mixup` using dense/one-hot labels and interpolate the labels (general case).
 
-<!--pytest.mark.gpu-->
 <!--
 ```python
 from torch.utils.data import DataLoader

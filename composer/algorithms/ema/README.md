@@ -33,7 +33,6 @@ def training_loop(model, train_loader):
 
 ### Composer Trainer
 
-<!--pytest.mark.gpu-->
 <!--
 ```python
 from torch.utils.data import DataLoader
