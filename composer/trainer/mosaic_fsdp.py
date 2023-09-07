@@ -10,27 +10,29 @@ import torch
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel
 
-from composer.trainer.mosaic_fsdp_utils import custom_auto_wrap_t1p13p1, init_fn_t2p0p1
+from composer.trainer.mosaic_fsdp_utils import custom_auto_wrap_t1p13p1
 
-if version.parse(torch.__version__) < version.parse('1.13.1'):
-    raise NotImplementedError(f'Not supported for torch < 1.13.1')
+def patch_pytorch():
+    if version.parse(torch.__version__) < version.parse('1.13.1'):
+        raise NotImplementedError(f'Not supported for torch < 1.13.1')
 
-elif version.parse(torch.__version__) < version.parse('2.0.0'):
-    # FullyShardedDataParallel monkey path for torch < 2.0 ie torch == 1.13.1
+    elif version.parse(torch.__version__) < version.parse('2.0.0'):
+        # FullyShardedDataParallel monkey path for torch < 2.0 ie torch == 1.13.1
 
-    # monkey patch _auto_wrap with _custom_auto_wrap fn
-    FullyShardedDataParallel._auto_wrap = custom_auto_wrap_t1p13p1  # type: ignore
+        # monkey patch _auto_wrap with _custom_auto_wrap fn
+        FullyShardedDataParallel._auto_wrap = custom_auto_wrap_t1p13p1  # type: ignore
 
-elif version.parse(torch.__version__) < version.parse('2.0.1'):
-    raise NotImplementedError(f'Not supported for torch == 2.0.0')
+    elif version.parse(torch.__version__) < version.parse('2.0.1'):
+        raise NotImplementedError(f'Not supported for torch == 2.0.0')
 
-elif version.parse(torch.__version__) < version.parse('2.1.0'):
-    # FullyShardedDataParallel monkey patch for torch < 2.1 ie torch == 2.0.1
+    elif version.parse(torch.__version__) == version.parse('2.0.1'):
+        # FullyShardedDataParallel monkey patch for torch == 2.0.1
 
-    # monkey patch __init__ where __init__ calls the custom _auto_wrap fn
-    FullyShardedDataParallel.__init__ = init_fn_t2p0p1
+        # monkey patch __init__ where __init__ calls the custom _auto_wrap fn
+        from composer.trainer.mosaic_fsdp_utils import init_fn_t2p0p1
+        FullyShardedDataParallel.__init__ = init_fn_t2p0p1
 
-elif version.parse(torch.__version__) >= version.parse('2.1.0'):
-    raise NotImplementedError(
-        f'FullyShardedDataParallel ui will be updated in torch2.1; _auto_wrap monkey patch needs to be updated accordingly.'
-    )
+    elif version.parse(torch.__version__) >= version.parse('2.0.1'):
+        raise NotImplementedError(
+            f'FullyShardedDataParallel ui will be updated in torch2.1; _auto_wrap monkey patch needs to be updated accordingly.'
+        )
