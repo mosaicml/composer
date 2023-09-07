@@ -560,13 +560,13 @@ def _custom_auto_wrap_t2p0p1(
     _custom_recursive_wrap_t2p0p1(**auto_wrap_kwargs, **fsdp_kwargs)
 
 
-def init_fn(
+def init_fn_t2p0p1(
     self,
     module: nn.Module,
-    process_group: ProcessGroupType = None,
+    process_group: ProcessGroupType = None, # type: ignore
     sharding_strategy: Optional[ShardingStrategy] = None,
     cpu_offload: Optional[CPUOffload] = None,
-    auto_wrap_policy: Optional[Union[Callable, _FSDPPolicy]] = None,
+    auto_wrap_policy: Optional[Union[Callable, _FSDPPolicy]] = None, # type: ignore
     backward_prefetch: Optional[BackwardPrefetch] = BackwardPrefetch.BACKWARD_PRE,
     mixed_precision: Optional[MixedPrecision] = None,
     ignored_modules: Optional[Iterable[torch.nn.Module]] = None,

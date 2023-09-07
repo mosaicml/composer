@@ -10,7 +10,7 @@ import torch
 from packaging import version
 from torch.distributed.fsdp import FullyShardedDataParallel
 
-from composer.trainer.mosaic_fsdp_utils import custom_auto_wrap_t1p13p1, init_fn
+from composer.trainer.mosaic_fsdp_utils import custom_auto_wrap_t1p13p1, init_fn_t2p0p1
 
 if version.parse(torch.__version__) < version.parse('1.13.1'):
     raise NotImplementedError(f'Not supported for torch < 1.13.1')
@@ -28,7 +28,7 @@ elif version.parse(torch.__version__) < version.parse('2.1.0'):
     # FullyShardedDataParallel monkey patch for torch < 2.1 ie torch == 2.0.1
 
     # monkey patch __init__ where __init__ calls the custom _auto_wrap fn
-    FullyShardedDataParallel.__init__ = init_fn
+    FullyShardedDataParallel.__init__ = init_fn_t2p0p1
 
 elif version.parse(torch.__version__) >= version.parse('2.1.0'):
     raise NotImplementedError(
