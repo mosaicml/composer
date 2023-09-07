@@ -34,7 +34,7 @@ def patch_pytorch():
         from composer.trainer.mosaic_fsdp_utils import init_fn_t2p0p1
         FullyShardedDataParallel.__init__ = init_fn_t2p0p1
 
-    elif version.parse(torch.__version__) >= version.parse('2.0.1'):
+    elif version.parse(torch.__version__) >= version.parse('2.1.0'):
         raise NotImplementedError(
             f'FullyShardedDataParallel ui will be updated in torch2.1; _auto_wrap monkey patch needs to be updated accordingly.'
         )
