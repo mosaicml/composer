@@ -4,22 +4,14 @@
 # Released under BSD 3-Clause License,
 # Copyright (c) Facebook, Inc. and its affiliates.
 
-"""
-Monkey patch FSDPs _auto_wrap to enable module_kwargs, custom process_group
-cache, and tensor sharding and ChunkShardingSpec to enable sharding over all
-gpus.
-"""
+"""Monkey patch FSDPs _auto_wrap to enable module_kwargs and custom process_group cache and ChunkShardingSpec to enable sharding over all gpus."""
 
 import torch
 from packaging import version
 from torch.distributed._shard.sharding_spec import ChunkShardingSpec
 from torch.distributed.fsdp import FullyShardedDataParallel
 
-from composer.trainer.mosaic_fsdp_utils import (
-    build_metadata,
-    custom_auto_wrap_t1p13p1,
-    shard,
-)
+from composer.trainer.mosaic_fsdp_utils import build_metadata, custom_auto_wrap_t1p13p1, shard
 
 
 def patch_pytorch():
@@ -55,6 +47,4 @@ def patch_pytorch():
         ChunkShardingSpec.shard = shard
 
     elif version.parse(torch.__version__) >= version.parse('2.2.0'):
-        raise NotImplementedError(
-            f'Not supported for torch >= 2.2.0'
-        )
+        raise NotImplementedError(f'Not supported for torch >= 2.2.0')
