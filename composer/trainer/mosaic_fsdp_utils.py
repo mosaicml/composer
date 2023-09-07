@@ -27,8 +27,19 @@ import torch.nn as nn
 from packaging import version
 from torch import distributed
 from torch.distributed import ProcessGroup
-from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
-                                    ShardingStrategy)
+from torch.distributed._shard._utils import narrow_tensor
+from torch.distributed._shard.sharding_spec import ChunkShardingSpec, ShardMetadata
+from torch.distributed._shard.sharded_tensor.shard import Shard
+from torch.distributed._shard.sharded_tensor.utils import (
+    _parse_and_validate_remote_device,
+)
+from torch.distributed.fsdp import (
+    BackwardPrefetch,
+    CPUOffload,
+    FullyShardedDataParallel,
+    MixedPrecision,
+    ShardingStrategy,
+)
 
 from composer.core import Precision
 from composer.utils import dist
@@ -529,12 +540,21 @@ if version.parse(torch.__version__) == version.parse('2.0.1'):
         https://github.com/pytorch/pytorch/blob/96ca226a7332be0d8f3d6159d0c797e032ab0721/torch/distributed/fsdp/fully_sharded_data_parallel.py#L330
         """
         from torch.distributed.fsdp._dynamo_utils import _annotate_modules_for_dynamo
-        from torch.distributed.fsdp._init_utils import (HYBRID_SHARDING_STRATEGIES, _check_orig_params_flattened,
-                                                        _init_buffer_state, _init_core_state,
-                                                        _init_ignored_module_states, _init_param_handle_from_module,
-                                                        _init_prefetching_state, _init_process_group_state,
-                                                        _init_runtime_state, _init_state_dict_state)
-        from torch.distributed.fsdp._state_dict_utils import _register_all_state_dict_hooks
+        from torch.distributed.fsdp._init_utils import (
+            HYBRID_SHARDING_STRATEGIES,
+            _check_orig_params_flattened,
+            _init_buffer_state,
+            _init_core_state,
+            _init_ignored_module_states,
+            _init_param_handle_from_module,
+            _init_prefetching_state,
+            _init_process_group_state,
+            _init_runtime_state,
+            _init_state_dict_state,
+        )
+        from torch.distributed.fsdp._state_dict_utils import (
+            _register_all_state_dict_hooks,
+        )
         from torch.distributed.fsdp._unshard_param_utils import _register_flat_param
 
         torch._C._log_api_usage_once('torch.distributed.fsdp')
@@ -609,28 +629,59 @@ if version.parse(torch.__version__) == version.parse('2.0.1'):
             _check_orig_params_flattened(self, self._ignored_params)
             _register_flat_param(self, self)
 
-    # `_state_dict_type` controls the `state_dict()` behavior, which is
-    # implemented using post-save and pre-load hooks
-    _init_state_dict_state(self)
-    _register_all_state_dict_hooks(self)
+        # `_state_dict_type` controls the `state_dict()` behavior, which is
+        # implemented using post-save and pre-load hooks
+        _init_state_dict_state(self)
+        _register_all_state_dict_hooks(self)
+
+
+def get_split_size(dim_size: int, chunks: int) -> int:
+    """Gets the minimum size per chunk.
+
+    A tensor of dim_size 5 and 4 chunks will have chunks of size [2, 1, 1, 1].
+
+    Args:
+        dim_size(int): Size of the dimension being chunked.
+        chunks(int): Number of chunks to create for ``dim_size``.
+
+    Returns:
+        An int indicating the split size to use.
+    """
+    return dim_size // chunks
+
+
+def get_chunked_dim_size(dim_size: int, chunks: int, idx: int) -> int:
+    """
+    Computes the dim size of the chunk for provided ``idx`` given ``dim_size``
+    and ``chunks``.
+
+    A tensor of dim_size 5 and 4 chunks will have chunks of size [2, 1, 1, 1].
+
+    Args:
+        dim_size(int): Size of the dimension being chunked.
+        chunks(int): Number of chunks to create for ``dim_size``.
+        idx(int): The index of chunk whose dim size is being requested.
+
+    Returns:
+        An int indicating the dim size of the chunk.
+    """
+    assert idx >= 0 and idx < chunks
+    split_size = get_split_size(dim_size, chunks)
+    if idx < dim_size % chunks:
+        split_size += 1
+    return split_size
 
 
 def build_metadata(
-    self,
+    self: ChunkShardingSpec,
     tensor_sizes: torch.Size,
     tensor_properties: sharded_tensor_meta.TensorProperties,
 ) -> sharded_tensor_meta.ShardedTensorMetadata:
-    """Updates ChunkShardingSpec's build_metadata function to use a dynamic sharding dimension.
+    """Updates ChunkShardingSpec's build_metadata fn to use a dynamic sharding dimension.
 
     modified version of
     https://github.com/pytorch/pytorch/blob/v2.0.1/torch/distributed/_shard/sharding_spec/chunk_sharding_spec.py#L77
     """
-    from torch.distributed._shard.metadata import ShardMetadata
-    from torch.distributed._shard.sharding_spec._internals import (
-        get_chunked_dim_size,
-        get_split_size,
-    )
-
     tensor_num_dim = len(tensor_sizes)
 
     self._verify_dim(self.dim)
@@ -641,29 +692,27 @@ def build_metadata(
     while True:
         sharding_dim_size = tensor_sizes[self.dim]  # type: ignore[index]
         chunks = len(self.placements)
-        split_size = get_split_size(sharding_dim_size, chunks)
 
         if sharding_dim_size // chunks == 0:
             self.dim += 1
         else:
             break
+    current_offsets = [0] * tensor_num_dim
     for idx, placement in enumerate(self.placements):
         # generate ShardMetadata for each placement device
-        chunked_dim_size = get_chunked_dim_size(sharding_dim_size, split_size, idx)
+        chunked_dim_size = get_chunked_dim_size(sharding_dim_size, chunks, idx)
         if chunked_dim_size > 0:
             shard_size = list(tensor_sizes)
-            current_offsets = [0] * tensor_num_dim
-            current_offsets[self.dim] = split_size * idx  # type: ignore[index]
             shard_size[self.dim] = chunked_dim_size  # type: ignore[index]
 
             shard_metadata = ShardMetadata(
-                shard_offsets=current_offsets,
+                shard_offsets=current_offsets.copy(),
                 shard_sizes=shard_size,
                 placement=placement,
             )
             shards_metadata.append(shard_metadata)
 
-            # current_offsets[self.dim] += chunked_dim_size  # type: ignore[index]
+            current_offsets[self.dim] += chunked_dim_size  # type: ignore[index]
     self.dim = 0
     return sharded_tensor_meta.ShardedTensorMetadata(
         shards_metadata, tensor_sizes, tensor_properties
@@ -671,23 +720,15 @@ def build_metadata(
 
 
 def shard(
-    self, tensor: torch.Tensor, src_rank: int = 0, process_group=None
+    self: ChunkShardingSpec, tensor: torch.Tensor, src_rank: int = 0, process_group=None
 ) -> 'ShardedTensor':
-    """Updates ChunkShardingSpec's shard function to use a dynamic sharding dimension.
+    """Updates ChunkShardingSpec's shard fn to use a dynamic sharding dimension.
 
     modified version of
     https://github.com/pytorch/pytorch/blob/v2.0.1/torch/distributed/_shard/sharding_spec/chunk_sharding_spec.py#L116
     """
-    import torch.distributed.distributed_c10d as distributed_c10d
-    from torch.distributed._shard._utils import narrow_tensor
-
     # relative imports to avoid circular dependency
     from torch.distributed._shard.sharded_tensor import ShardedTensor
-    from torch.distributed._shard.sharded_tensor.shard import Shard
-    from torch.distributed._shard.sharded_tensor.utils import (
-        _parse_and_validate_remote_device,
-    )
-    from torch.distributed._shard.sharding_spec._internals import get_split_size
 
     tensor_properties = sharded_tensor_meta.TensorProperties(
         dtype=tensor.dtype,
@@ -706,14 +747,13 @@ def shard(
     while True:
         sharding_dim_size = tensor.size()[self.dim]  # type: ignore[index]
         chunks = len(self.placements)
-        split_size = get_split_size(sharding_dim_size, chunks)
 
         if sharding_dim_size // chunks == 0:
             self.dim += 1
         else:
             break
     scatter_shape = list(tensor.size())
-    scatter_shape[self.dim] = split_size  # type: ignore[index]
+    scatter_shape[self.dim] = get_chunked_dim_size(sharding_dim_size, chunks, 0)  # type: ignore[index]
 
     for shard_meta in tensor_meta.shards_metadata:
         rank, device = _parse_and_validate_remote_device(
@@ -724,7 +764,7 @@ def shard(
             # recording here for the narrow op and 'local_shard' should be a
             # leaf variable in the autograd graph.
             narrowed_tensor = narrow_tensor(tensor, shard_meta)
-            if shard_meta.shard_sizes[self.dim] < split_size:  # type: ignore[index]
+            if shard_meta.shard_sizes[self.dim] < scatter_shape[self.dim]:  # type: ignore[index]
                 # for the last shard that might be smaller to other shards
                 # resize the narrowed tensor to the same size and use it for
                 # the scatter collective as dist.scatter requires same size
@@ -753,9 +793,9 @@ def shard(
     src_for_scatter = src_rank
     if (
         process_group is not None
-        and process_group is not distributed_c10d._get_default_group()
+        and process_group is not distributed.distributed_c10d._get_default_group()
     ):
-        src_for_scatter = distributed_c10d.get_global_rank(
+        src_for_scatter = distributed.distributed_c10d.get_global_rank(
             process_group, src_for_scatter
         )
 

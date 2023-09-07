@@ -4,7 +4,11 @@
 # Released under BSD 3-Clause License,
 # Copyright (c) Facebook, Inc. and its affiliates.
 
-"""Monkey patch FSDPs _auto_wrap to enable module_kwargs, custom process_group cache, and tensor sharding."""
+"""
+Monkey patch FSDPs _auto_wrap to enable module_kwargs, custom process_group
+cache, and tensor sharding and ChunkShardingSpec to enable sharding over all
+gpus.
+"""
 
 import torch
 from packaging import version
@@ -32,14 +36,25 @@ def patch_pytorch():
     elif version.parse(torch.__version__) < version.parse('2.0.1'):
         raise NotImplementedError(f'Not supported for torch == 2.0.0')
 
-    elif version.parse(torch.__version__) < version.parse('2.1.0'):
-        # FullyShardedDataParallel monkey patch for torch < 2.1 ie torch == 2.0.1
+    elif version.parse(torch.__version__) == version.parse('2.0.1'):
+        # Monkey patch for torch == 2.0.1
 
-        # monkey patch __init__ where __init__ calls the custom _auto_wrap fn
+        # Monkey patch __init__ where __init__ calls the custom _auto_wrap fn
         from composer.trainer.mosaic_fsdp_utils import init_fn_t2p0p1
         FullyShardedDataParallel.__init__ = init_fn_t2p0p1
 
-    elif version.parse(torch.__version__) >= version.parse('2.1.0'):
+        # Monkey patch sharding method
+        ChunkShardingSpec.build_metadata = build_metadata
+        ChunkShardingSpec.shard = shard
+
+    elif version.parse(torch.__version__) < version.parse('2.2.0'):
+        # Monkey path for torch < 2.2.0 ie torch == 2.1.0
+
+        # Monkey patch sharding method
+        ChunkShardingSpec.build_metadata = build_metadata
+        ChunkShardingSpec.shard = shard
+
+    elif version.parse(torch.__version__) >= version.parse('2.2.0'):
         raise NotImplementedError(
-            f'FullyShardedDataParallel ui will be updated in torch2.1; _auto_wrap monkey patch needs to be updated accordingly.'
+            f'Not supported for torch >= 2.2.0'
         )
