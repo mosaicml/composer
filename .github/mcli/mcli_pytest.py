@@ -66,6 +66,8 @@ if __name__ == '__main__':
 
     export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}' {s3_bucket_flag}"
 
+    export PYTHONUNBUFFERED=1
+
     make test PYTEST='{args.pytest_command}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
 
     make test-dist PYTEST='{args.pytest_command}' EXTRA_ARGS="$COMMON_ARGS" WORLD_SIZE=2
