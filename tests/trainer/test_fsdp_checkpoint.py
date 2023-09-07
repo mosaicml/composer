@@ -7,6 +7,7 @@ import pathlib
 import textwrap
 import uuid
 from functools import partial
+from typing import Any, Dict
 
 import numpy as np
 import pytest
@@ -14,7 +15,7 @@ import torch
 from packaging import version
 from torch.utils.data import DataLoader
 from torchmetrics import MetricCollection
-from torchmetrics.classification import MulticlassAccuracy, MulticlassAveragePrecision, MulticlassROC
+from torchmetrics.classification import MulticlassAccuracy
 
 from composer.algorithms import EMA
 from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_context
@@ -210,18 +211,25 @@ def _compare_rng_states_between_trainers(rng_state1, rng_state2):
             torch.equal(cuda_state1, cuda_state2), f'Cuda rng state not the same between state_dicts for rank {rank}'
 
 
-def _compare_metrics_between_state_dicts(state_dict1, state_dict2):
+def _compare_metrics_between_state_dicts(state_dict1: Dict[str, Any], state_dict2: Dict[str, Any]):
     # Check that metric states are equal between in memory mode and checkpoint
-    state_dict1_train_metrics = state_dict1['train_metrics']
-    state_dict2_train_metrics = state_dict2['train_metrics']
+    state_dict1_train_metrics = state_dict1.get('train_metrics', None)
+    state_dict2_train_metrics = state_dict2.get('train_metrics', None)
 
-    state_dict1_eval_metrics = state_dict1['eval_metrics']
-    state_dict2_eval_metrics = state_dict2['eval_metrics']
-    for metric1, metric2 in zip(state_dict1_train_metrics.values(), state_dict2_train_metrics.values()):
-        assert metric1['_computed'] == metric2['_computed']
+    state_dict1_eval_metrics = state_dict1.get('eval_metrics', None)
+    state_dict2_eval_metrics = state_dict2.get('eval_metrics', None)
 
-    for metric1, metric2 in zip(state_dict1_eval_metrics.values(), state_dict2_eval_metrics.values()):
-        assert metric1['_computed'] == metric2['_computed']
+    if state_dict1_train_metrics is not None and state_dict2_train_metrics is not None:
+        for metric1, metric2 in zip(state_dict1_train_metrics.values(), state_dict2_train_metrics.values()):
+            assert metric1['_computed'] == metric2['_computed']
+    else:
+        assert state_dict1_train_metrics == state_dict2_train_metrics
+
+    if state_dict1_eval_metrics is not None and state_dict2_eval_metrics is not None:
+        for metric1, metric2 in zip(state_dict1_eval_metrics.values(), state_dict2_eval_metrics.values()):
+            assert metric1['_computed'] == metric2['_computed']
+    else:
+        assert state_dict1_eval_metrics == state_dict2_eval_metrics
 
 
 def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
@@ -332,6 +340,13 @@ def test_fsdp_mixed_with_sync(world_size, tmp_path: pathlib.Path, sync_module_st
 def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision: str, sharding_strategy: str,
                                   state_dict_type: str, s3_bucket: str, s3_read_only_prefix: str,
                                   composer_version: str):
+
+    if version.parse(torch.__version__) >= version.parse('1.13.0') and composer_version not in [
+            '0.13.5', '0.14.0', '0.14.1'
+    ]:
+        pytest.skip(
+            'Composer 0.15.1 and above checkpoints were saved with torch 2 and as a result are not compatible with torch 1.13.'
+        )
     if version.parse(torch.__version__) >= version.parse('2.0.0') and state_dict_type == 'local':
         pytest.xfail(
             'Loading a torch 1.13 checkpoint with torch 2.0 for state_dict_type local is not backwards compatible. See https://github.com/pytorch/pytorch/issues/102667 for more info'
@@ -352,13 +367,9 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
         num_classes = 8  # This parameter setting is very important. Don't change or the test will fail.
         train_metrics = MetricCollection([
             MulticlassAccuracy(num_classes=num_classes),
-            MulticlassAveragePrecision(num_classes=num_classes),
-            MulticlassROC(num_classes=num_classes)
         ])
         val_metrics = MetricCollection([
             MulticlassAccuracy(num_classes=num_classes),
-            MulticlassAveragePrecision(num_classes=num_classes),
-            MulticlassROC(num_classes=num_classes)
         ])
     else:
         train_metrics = None
@@ -544,6 +555,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.1'), reason='requires PyTorch 2.01 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:MosaicMLLogger is not in the state_dict.:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool, precision: str,
                             sharding_strategy, s3_bucket, s3_read_only_prefix, num_shards: int):
     if state_dict_type == 'local' and using_torch_2():
@@ -613,7 +625,8 @@ def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type:
         state_dict_from_trainer2 = get_mono_state_dict_from_sharded_one(sharded_trainer)
         _compare_model_params_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
         _compare_optims_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
-        _compare_metrics_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
+        # Metrics are NOT equal as sharded checkpoints do not save or load metrics
+        # _compare_metrics_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
         _compare_timestamps_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
 
     # Compare state dicts.
