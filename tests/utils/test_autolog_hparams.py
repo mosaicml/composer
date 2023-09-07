@@ -165,6 +165,7 @@ def test_extract_hparams_trainer():
         'save_interval': '1ep',
         'save_weights_only': False,
         'save_num_checkpoints_to_keep': -1,
+        'save_metrics': False,
 
         # Graceful Resumption
         'autoresume': False,

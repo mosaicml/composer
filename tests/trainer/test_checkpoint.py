@@ -494,8 +494,17 @@ class TestCheckpointLoading:
     @pytest.mark.parametrize('use_object_store', [True, False])
     @pytest.mark.parametrize('delete_local', [True, False])
     @pytest.mark.parametrize('test_slashed', [True, False])
-    def test_autoresume(self, device: str, tmp_path: pathlib.Path, use_object_store: bool, delete_local: bool,
-                        test_slashed: bool, world_size: int):
+    @pytest.mark.parametrize('save_metrics', [True, False])
+    def test_autoresume(
+        self,
+        device: str,
+        tmp_path: pathlib.Path,
+        use_object_store: bool,
+        delete_local: bool,
+        test_slashed: bool,
+        save_metrics: bool,
+        world_size: int,
+    ):
         if delete_local and not use_object_store:
             pytest.skip('Invalid test setting.')
 
@@ -512,6 +521,7 @@ class TestCheckpointLoading:
             run_name='big-chungus',
             autoresume=True,
             loggers=[self.get_logger(tmp_path)] if use_object_store else [],
+            save_metrics=save_metrics,
         )
 
         # trains the model, saving the checkpoint files
@@ -537,9 +547,10 @@ class TestCheckpointLoading:
             trainer_2.state.model,
         )
 
-        assert self._metrics_equal(
-            trainer_1.state.train_metrics, trainer_2.state.train_metrics, trainer_1.state.eval_metrics,
-            trainer_2.state.eval_metrics), 'Original metrics do not equal metrics from loaded checkpoint.'
+        if save_metrics:
+            assert self._metrics_equal(
+                trainer_1.state.train_metrics, trainer_2.state.train_metrics, trainer_1.state.eval_metrics,
+                trainer_2.state.eval_metrics), 'Original metrics do not equal metrics from loaded checkpoint.'
 
         assert trainer_1.state.run_name == trainer_2.state.run_name
 
@@ -606,6 +617,7 @@ class TestCheckpointLoading:
         trainer_1 = self.get_trainer(
             model=model_1,
             save_folder=str(tmp_path),
+            save_metrics=True,
         )
         trainer_1.save_checkpoint('latest-rank0.pt')
 
@@ -614,6 +626,7 @@ class TestCheckpointLoading:
         trainer_2 = self.get_trainer(
             model=model_2,
             load_path=str(tmp_path / 'latest-rank0.pt'),
+            save_metrics=True,
         )
 
         assert self._metrics_equal(
@@ -650,9 +663,10 @@ class TestCheckpointLoading:
 
     @device('cpu', 'gpu')
     @pytest.mark.parametrize('load_weights_only', [True, False])
-    def test_load_weights(self, device, load_weights_only):
+    @pytest.mark.parametrize('save_metrics', [True, False])
+    def test_load_weights(self, device, load_weights_only, save_metrics):
 
-        trainer_1 = self.get_trainer(save_folder='first', device=device)
+        trainer_1 = self.get_trainer(save_folder='first', device=device, save_metrics=save_metrics)
         trainer_1.fit()
         trainer_1.close()
 
@@ -684,7 +698,8 @@ class TestCheckpointLoading:
             assert not metrics_equal
         else:
             assert stateful_callbacks_equal
-            assert metrics_equal
+            if save_metrics:
+                assert metrics_equal
 
     @pytest.mark.remote
     @device('cpu')
@@ -788,11 +803,6 @@ class TestCheckpointLoading:
             trainer_1.state.model,
             trainer_2.state.model,
         )
-
-        # check metrics loaded properly
-        assert self._metrics_equal(
-            trainer_1.state.train_metrics, trainer_2.state.train_metrics, trainer_1.state.eval_metrics,
-            trainer_2.state.eval_metrics), 'Original metrics do not equal metrics from loaded checkpoint.'
 
     @pytest.mark.parametrize(
         'run_name,save_folder,save_overwrite,latest_filename',
@@ -957,6 +967,8 @@ class TestCheckpointResumption:
             ],  # test save batch after complete epoch
         ],
     )
+    # trainer_2 will call compute if checkpoint is already at end of epoch
+    @pytest.mark.filterwarnings('ignore:The ``compute`` method of metric MulticlassAccuracy.*:UserWarning')
     def test_resumption(
         self,
         device: str,
