@@ -15,13 +15,8 @@ import torch.nn as nn
 from packaging import version
 from torch import distributed
 from torch.distributed import ProcessGroup
-from torch.distributed.fsdp import (
-    BackwardPrefetch,
-    CPUOffload,
-    FullyShardedDataParallel,
-    MixedPrecision,
-    ShardingStrategy,
-)
+from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
+                                    ShardingStrategy)
 
 from composer.core import Precision
 from composer.utils import dist
@@ -50,21 +45,15 @@ def _get_torch_dtype(dtype: Union[Precision, str]):
         return torch.bfloat16
     elif dtype in ['float8', 'torch.float8', 'fp8', 'amp_fp8']:
         if hasattr(torch, 'float8'):
-            raise NotImplementedError(
-                'Torch has enabled float8. This should be updated to `return torch.float8`'
-            )
+            raise NotImplementedError('Torch has enabled float8. This should be updated to `return torch.float8`')
         else:
-            warnings.warn(
-                'We use torch.bfloat16 by default for amp_fp8 as there is no fp8 datatype in PyTorch yet.'
-            )
+            warnings.warn('We use torch.bfloat16 by default for amp_fp8 as there is no fp8 datatype in PyTorch yet.')
             return torch.bfloat16
     else:
         raise ValueError(f'Not sure how to convert dtype={dtype} to a torch dtype.')
 
 
-def get_mixed_precision(
-    precision, mixed_precision='DEFAULT', keep_low_precision_grads=False
-):
+def get_mixed_precision(precision, mixed_precision='DEFAULT', keep_low_precision_grads=False):
     """Helper function for configuring mixed_precision."""
     param_dtype = None
     reduce_dtype = None
@@ -115,9 +104,7 @@ def get_cpu_offload(cpu_offload=False):
 
 def _get_process_group(pg, process_group_cache=None):
     """Helper function for configuring and/or retrieving process groups."""
-    warnings.warn(
-        f'Instantiating FSDP with custom process groups is an experimental feature.'
-    )
+    warnings.warn(f'Instantiating FSDP with custom process groups is an experimental feature.')
 
     # Return regular process_groups as is, no cacheing
     if pg is None or isinstance(pg, ProcessGroup):
@@ -135,9 +122,7 @@ def _get_process_group(pg, process_group_cache=None):
         warnings.warn(f"Converting process_group='node' to process_group='{pg}'")
     elif pg == 'local_rank_across_nodes':
         pg = f'mod{local_world_size}'
-        warnings.warn(
-            f"Converting process_group='local_rank_across_nodes' to process_group='{pg}'"
-        )
+        warnings.warn(f"Converting process_group='local_rank_across_nodes' to process_group='{pg}'")
 
     # Handle str and Union[List[int], Tuple[int]] process_group cases
     if isinstance(pg, str) and pg.startswith('set'):
@@ -160,63 +145,42 @@ def _get_process_group(pg, process_group_cache=None):
 
     if process_group_cache is not None and ranks in process_group_cache:
         warnings.warn(
-            f'On rank={dist.get_global_rank()} using cached progress group with {ranks=}. '
-            + 'If the intention was to use a new process group, a new process group can be instantiated and passed'
-            + " in as an arguement (`'process_group': newly_instantiated_process_group_obect,`)"
-        )
+            f'On rank={dist.get_global_rank()} using cached progress group with {ranks=}. ' +
+            'If the intention was to use a new process group, a new process group can be instantiated and passed' +
+            " in as an arguement (`'process_group': newly_instantiated_process_group_obect,`)")
         return process_group_cache[ranks]
 
     warnings.warn(
-        f'Composer is instantiating custom process groups with {ranks=} (on rank={dist.get_global_rank()}). '
-        + 'This is an experimental feature.'
-    )
+        f'Composer is instantiating custom process groups with {ranks=} (on rank={dist.get_global_rank()}). ' +
+        'This is an experimental feature.')
 
     ranks_per_subgroup_list = list(set(dist.all_gather_object(ranks)))
     (
         current_group,
         _subgroups,
-    ) = distributed.distributed_c10d.new_subgroups_by_enumeration(
-        ranks_per_subgroup_list
-    )
+    ) = distributed.distributed_c10d.new_subgroups_by_enumeration(ranks_per_subgroup_list)
 
     if process_group_cache is not None:
         process_group_cache[ranks] = current_group
     return current_group
 
 
-def _set_custom_fsdp_module_kwargs(
-    module_kwargs: Dict, process_group_cache: Dict[Tuple[int], Any]
-) -> Dict:
+def _set_custom_fsdp_module_kwargs(module_kwargs: Dict, process_group_cache: Dict[Tuple[int], Any]) -> Dict:
     """Set custom module_kwargs per fsdp module."""
-    if (
-        'sharding_strategy' in module_kwargs
-        and module_kwargs['sharding_strategy'] not in SHARDING_MAP.values()
-    ):
-        module_kwargs['sharding_strategy'] = SHARDING_MAP[
-            module_kwargs['sharding_strategy'].upper()
-        ]
+    if ('sharding_strategy' in module_kwargs and module_kwargs['sharding_strategy'] not in SHARDING_MAP.values()):
+        module_kwargs['sharding_strategy'] = SHARDING_MAP[module_kwargs['sharding_strategy'].upper()]
     if 'backward_prefetch' in module_kwargs:
         if module_kwargs['backward_prefetch'] not in BACKWARD_PREFETCH_MAP.values():
-            module_kwargs['backward_prefetch'] = BACKWARD_PREFETCH_MAP[
-                module_kwargs['backward_prefetch'].upper()
-            ]
-    if 'cpu_offload' in module_kwargs and not isinstance(
-        module_kwargs['cpu_offload'], CPUOffload
-    ):
-        module_kwargs['cpu_offload'] = get_cpu_offload(
-            cpu_offload=module_kwargs['cpu_offload'].upper()
-        )
-    if 'mixed_precision' in module_kwargs and not isinstance(
-        module_kwargs['mixed_precision'], MixedPrecision
-    ):
+            module_kwargs['backward_prefetch'] = BACKWARD_PREFETCH_MAP[module_kwargs['backward_prefetch'].upper()]
+    if 'cpu_offload' in module_kwargs and not isinstance(module_kwargs['cpu_offload'], CPUOffload):
+        module_kwargs['cpu_offload'] = get_cpu_offload(cpu_offload=module_kwargs['cpu_offload'].upper())
+    if 'mixed_precision' in module_kwargs and not isinstance(module_kwargs['mixed_precision'], MixedPrecision):
         # `precision` needs to set `'mixed_precision'`, but `precision` is not part of fsdp kwargs
         raise NotImplementedError(
             f"Automated setting of custom per module mixed_precision is not implemented, but it can be set if `isinstance(module_kwargs['mixed_precision'], MixedPrecision)`"
         )
     if 'process_group' in module_kwargs:
-        module_kwargs['process_group'] = _get_process_group(
-            module_kwargs['process_group'], process_group_cache
-        )
+        module_kwargs['process_group'] = _get_process_group(module_kwargs['process_group'], process_group_cache)
 
     return module_kwargs
 
@@ -301,14 +265,10 @@ def _custom_recursive_wrap_t1p13p1(
         # decide if we need to wrap the current module,
         # since the left over parameters exceed the number of params to wrap
         remainder = num_params - total_wrapped_params
-        module_kwargs = auto_wrap_policy(
-            module=module, recurse=False, unwrapped_params=remainder
-        )
+        module_kwargs = auto_wrap_policy(module=module, recurse=False, unwrapped_params=remainder)
         if not only_wrap_children and module_kwargs:
             module_kwargs = module_kwargs if isinstance(module_kwargs, dict) else {}
-            module_kwargs = _set_custom_fsdp_module_kwargs(
-                module_kwargs, process_group_cache
-            )
+            module_kwargs = _set_custom_fsdp_module_kwargs(module_kwargs, process_group_cache)
 
             final_kwargs = {**kwargs, **module_kwargs}
 
@@ -342,10 +302,7 @@ def custom_auto_wrap_t1p13p1(
     ``_recursive_wrap()``, where ``auto_wrap_policy`` is not ``None``.
     ``fsdp_kwargs`` contains all FSDP arguments except ``module``.
     """
-    from torch.distributed.fsdp._utils import (
-        _contains_batchnorm,
-        _override_batchnorm_mixed_precision,
-    )
+    from torch.distributed.fsdp._utils import _contains_batchnorm, _override_batchnorm_mixed_precision
     from torch.distributed.fsdp.wrap import _or_policy, _wrap_batchnorm_individually
 
     auto_wrap_policy = auto_wrap_kwargs['auto_wrap_policy']
@@ -355,23 +312,17 @@ def custom_auto_wrap_t1p13p1(
     # since double wrapping is not supported
     for module_name, module in root_module.named_modules():
         if isinstance(module, FullyShardedDataParallel):
-            raise ValueError(
-                f'Expected {module_name} to NOT be FullyShardedDataParallel '
-                'if using an `auto_wrap_policy`'
-            )
+            raise ValueError(f'Expected {module_name} to NOT be FullyShardedDataParallel '
+                             'if using an `auto_wrap_policy`')
     mixed_precision = fsdp_kwargs['mixed_precision']
     if mixed_precision is not None and _contains_batchnorm(root_module):
         _override_batchnorm_mixed_precision(root_module)
-        auto_wrap_policy = functools.partial(
-            _or_policy, policies=[_wrap_batchnorm_individually, auto_wrap_policy]
-        )
-        warnings.warn(
-            'Both mixed precision and an `auto_wrap_policy` were specified '
-            'for FSDP, where the wrapped module has batch norm submodules. '
-            'The batch norm submodules will be wrapped as separate FSDP '
-            'instances with mixed precision disabled since some batch norm '
-            'kernels do not support low precision.'
-        )
+        auto_wrap_policy = functools.partial(_or_policy, policies=[_wrap_batchnorm_individually, auto_wrap_policy])
+        warnings.warn('Both mixed precision and an `auto_wrap_policy` were specified '
+                      'for FSDP, where the wrapped module has batch norm submodules. '
+                      'The batch norm submodules will be wrapped as separate FSDP '
+                      'instances with mixed precision disabled since some batch norm '
+                      'kernels do not support low precision.')
         auto_wrap_kwargs['auto_wrap_policy'] = auto_wrap_policy
     auto_wrap_kwargs['process_group_cache'] = {}
     _custom_recursive_wrap_t1p13p1(**auto_wrap_kwargs, **fsdp_kwargs)
@@ -433,9 +384,7 @@ def _custom_recursive_wrap_t2p0p1(
             pass
 
     # We count all params, assuming none of them are already wrapped.
-    nonwrapped_numel = sum(
-        p.numel() for p in module.parameters() if p not in ignored_params
-    )
+    nonwrapped_numel = sum(p.numel() for p in module.parameters() if p not in ignored_params)
 
     assert auto_wrap_policy is not None
     if auto_wrap_policy(module=module, recurse=True, nonwrapped_numel=nonwrapped_numel):
@@ -459,30 +408,19 @@ def _custom_recursive_wrap_t2p0p1(
         # decide if we need to wrap the current module,
         # since the left over parameters exceed the number of params to wrap
         remainder = nonwrapped_numel - total_wrapped_numel
-        module_kwargs = auto_wrap_policy(
-            module=module, recurse=False, nonwrapped_numel=remainder
-        )
+        module_kwargs = auto_wrap_policy(module=module, recurse=False, nonwrapped_numel=remainder)
         if not only_wrap_children and module_kwargs:
             module_kwargs = module_kwargs if isinstance(module_kwargs, dict) else {}
-            module_kwargs = _set_custom_fsdp_module_kwargs(
-                module_kwargs, process_group_cache
-            )
+            module_kwargs = _set_custom_fsdp_module_kwargs(module_kwargs, process_group_cache)
 
             final_kwargs = {**kwargs, **module_kwargs}
 
             if final_kwargs.get('process_group', None) is not None:
-                _pg_ranks = distributed.get_process_group_ranks(
-                    final_kwargs['process_group']
-                )
+                _pg_ranks = distributed.get_process_group_ranks(final_kwargs['process_group'])
                 _meta_init = any(p.device.type == 'meta' for p in module.parameters())
-                if (
-                    _meta_init
-                    and len(_pg_ranks) != dist.get_world_size()
-                    and final_kwargs.get('use_orig_params')
-                ):
+                if (_meta_init and len(_pg_ranks) != dist.get_world_size() and final_kwargs.get('use_orig_params')):
                     raise NotImplementedError(
-                        f'FSDP with custom process groups cannot use `use_orig_params: True` when using meta init.'
-                    )
+                        f'FSDP with custom process groups cannot use `use_orig_params: True` when using meta init.')
 
             # Leaf node or final wrapping of the remainder both happen here.
             return _wrap(module, wrapper_cls, **final_kwargs), nonwrapped_numel
@@ -492,9 +430,9 @@ def _custom_recursive_wrap_t2p0p1(
 
 
 def _custom_auto_wrap_t2p0p1(
-    auto_wrap_kwargs: Dict[str, Any],
-    fsdp_kwargs: Dict[str, Any],
-    module_wrapper_cls: Any,  # e.g. `FullyShardedDataParallel`
+        auto_wrap_kwargs: Dict[str, Any],
+        fsdp_kwargs: Dict[str, Any],
+        module_wrapper_cls: Any,  # e.g. `FullyShardedDataParallel`
 ) -> None:
     """Updates _auto_wrap to enable module_kwargs.
 
@@ -515,15 +453,8 @@ def _custom_auto_wrap_t2p0p1(
     ``_recursive_wrap()``, where ``auto_wrap_policy`` is not ``None``.
     ``fsdp_kwargs`` contains all FSDP arguments except ``module``.
     """
-    from torch.distributed.fsdp._utils import (
-        _contains_batchnorm,
-        _override_batchnorm_mixed_precision,
-    )
-    from torch.distributed.fsdp.wrap import (
-        _FSDPPolicy,
-        _or_policy,
-        _wrap_batchnorm_individually,
-    )
+    from torch.distributed.fsdp._utils import _contains_batchnorm, _override_batchnorm_mixed_precision
+    from torch.distributed.fsdp.wrap import _FSDPPolicy, _or_policy, _wrap_batchnorm_individually
 
     auto_wrap_policy = auto_wrap_kwargs['auto_wrap_policy']
     # Support new way to pass an auto wrap policy
@@ -535,32 +466,26 @@ def _custom_auto_wrap_t2p0p1(
     # since double wrapping is not supported
     for module_name, module in root_module.named_modules():
         if isinstance(module, module_wrapper_cls):
-            raise ValueError(
-                f'Expected {module_name} to NOT be FullyShardedDataParallel '
-                'if using an `auto_wrap_policy`'
-            )
+            raise ValueError(f'Expected {module_name} to NOT be FullyShardedDataParallel '
+                             'if using an `auto_wrap_policy`')
     mixed_precision = fsdp_kwargs['mixed_precision']
     if mixed_precision is not None and _contains_batchnorm(root_module):
         _override_batchnorm_mixed_precision(root_module)
-        auto_wrap_policy = functools.partial(
-            _or_policy, policies=[_wrap_batchnorm_individually, auto_wrap_policy]
-        )
-        warnings.warn(
-            'Both mixed precision and an `auto_wrap_policy` were specified '
-            'for FSDP, where the wrapped module has batch norm submodules. '
-            'The batch norm submodules will be wrapped as separate FSDP '
-            'instances with mixed precision disabled since some batch norm '
-            'kernels do not support low precision.'
-        )
+        auto_wrap_policy = functools.partial(_or_policy, policies=[_wrap_batchnorm_individually, auto_wrap_policy])
+        warnings.warn('Both mixed precision and an `auto_wrap_policy` were specified '
+                      'for FSDP, where the wrapped module has batch norm submodules. '
+                      'The batch norm submodules will be wrapped as separate FSDP '
+                      'instances with mixed precision disabled since some batch norm '
+                      'kernels do not support low precision.')
     auto_wrap_kwargs['auto_wrap_policy'] = auto_wrap_policy
     auto_wrap_kwargs['process_group_cache'] = {}
     _custom_recursive_wrap_t2p0p1(**auto_wrap_kwargs, **fsdp_kwargs)
 
 
-
 if version.parse(torch.__version__) == version.parse('2.0.1'):
     from torch.distributed.fsdp._init_utils import ProcessGroupType
     from torch.distributed.fsdp.wrap import _FSDPPolicy
+
     def init_fn_t2p0p1(
         self,
         module: nn.Module,
@@ -587,18 +512,11 @@ if version.parse(torch.__version__) == version.parse('2.0.1'):
         https://github.com/pytorch/pytorch/blob/96ca226a7332be0d8f3d6159d0c797e032ab0721/torch/distributed/fsdp/fully_sharded_data_parallel.py#L330
         """
         from torch.distributed.fsdp._dynamo_utils import _annotate_modules_for_dynamo
-        from torch.distributed.fsdp._init_utils import (
-            HYBRID_SHARDING_STRATEGIES,
-            _check_orig_params_flattened,
-            _init_buffer_state,
-            _init_core_state,
-            _init_ignored_module_states,
-            _init_param_handle_from_module,
-            _init_prefetching_state,
-            _init_process_group_state,
-            _init_runtime_state,
-            _init_state_dict_state,
-        )
+        from torch.distributed.fsdp._init_utils import (HYBRID_SHARDING_STRATEGIES, _check_orig_params_flattened,
+                                                        _init_buffer_state, _init_core_state,
+                                                        _init_ignored_module_states, _init_param_handle_from_module,
+                                                        _init_prefetching_state, _init_process_group_state,
+                                                        _init_runtime_state, _init_state_dict_state)
         from torch.distributed.fsdp._state_dict_utils import _register_all_state_dict_hooks
         from torch.distributed.fsdp._unshard_param_utils import _register_flat_param
 
@@ -644,9 +562,7 @@ if version.parse(torch.__version__) == version.parse('2.0.1'):
                 fsdp_kwargs['process_group'] = (self.process_group, self._inter_node_pg)
 
             # call the custom _auto_wrap function
-            _custom_auto_wrap_t2p0p1(
-                auto_wrap_kwargs, fsdp_kwargs, FullyShardedDataParallel
-            )
+            _custom_auto_wrap_t2p0p1(auto_wrap_kwargs, fsdp_kwargs, FullyShardedDataParallel)
 
         backward_prefetch_limit = 1
         forward_prefetch_limit = 1

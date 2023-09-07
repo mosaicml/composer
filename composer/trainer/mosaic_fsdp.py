@@ -12,7 +12,9 @@ from torch.distributed.fsdp import FullyShardedDataParallel
 
 from composer.trainer.mosaic_fsdp_utils import custom_auto_wrap_t1p13p1
 
+
 def patch_pytorch():
+    """Monkey patches pytorch functions based on pytorch version."""
     if version.parse(torch.__version__) < version.parse('1.13.1'):
         raise NotImplementedError(f'Not supported for torch < 1.13.1')
 
