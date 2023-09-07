@@ -539,7 +539,7 @@ class State(Serializable):
         if self.fsdp_sharded_state_dict_enabled and self.save_metrics:
             # Sharded state dict breaks in many different ways with torchmetrics, due to both sharding
             # metric tensors and only sometimes flattening path names in state dict and _computed, so
-            # we saving metrics is not allowed with sharded state dict.
+            # saving metrics is not allowed with sharded state dict.
             raise ValueError(
                 textwrap.dedent('Saving metrics is not allowed with sharded state dict as metric tensors will '
                                 'be sharded and break on load. If you wish to save metric state, set '
