@@ -19,7 +19,7 @@ def patch_pytorch():
         raise NotImplementedError(f'Not supported for torch < 1.13.1')
 
     elif version.parse(torch.__version__) < version.parse('2.0.0'):
-        # Monkey path for torch < 2.0 ie torch == 1.13.1
+        # Monkey patch for torch < 2.0 ie torch == 1.13.1
 
         # Monkey patch _auto_wrap with _custom_auto_wrap fn
         FullyShardedDataParallel._auto_wrap = custom_auto_wrap_t1p13p1  # type: ignore
