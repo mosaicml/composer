@@ -29,7 +29,7 @@ def patch_pytorch():
         raise NotImplementedError(f'Not supported for torch == 2.0.0')
 
     elif version.parse(torch.__version__) < version.parse('2.0.2'):
-        # FullyShardedDataParallel monkey patch for torch == 2.0.1
+        # Monkey patch for torch == 2.0.1
 
         # Monkey patch __init__ where __init__ calls the custom _auto_wrap fn
         from composer.trainer.mosaic_fsdp_utils import init_fn_t2p0p1
