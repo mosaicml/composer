@@ -697,6 +697,7 @@ def _custom_recursive_wrap_t2p1p0(
 
 if version.parse(torch.__version__) > version.parse('2.0.1') and version.parse(
         torch.__version__) < version.parse('2.1.1'):
+    assert False, f'{torch.__version__} {version.parse(torch.__version__) > version.parse("2.0.1")}'
     from torch.distributed.fsdp.wrap import ModuleWrapPolicy, _Policy
 
     def _custom_auto_wrap_t2p1p0(
