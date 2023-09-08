@@ -798,6 +798,7 @@ if version.parse(torch.__version__) > version.parse('2.0.2') and version.parse(
             recursive_wrap_kwargs['auto_wrap_policy'] = policy
             _warn_on_overridden_mixed_precision(overridden_module_classes)
 
+        # CHANGE: Add process group cache and call our custom _recursive_wrap
         recursive_wrap_kwargs['process_group_cache'] = {}
 
         _custom_recursive_wrap_t2p1p0(**recursive_wrap_kwargs, **root_kwargs)  # type: ignore[arg-type]
@@ -865,6 +866,7 @@ if version.parse(torch.__version__) > version.parse('2.0.2') and version.parse(
                 # process groups.
                 root_kwargs['process_group'] = (self.process_group, self._inter_node_pg)
 
+            # CHANGE: Call our custom _auto_wrap function
             _custom_auto_wrap_t2p1p0(
                 module,
                 auto_wrap_policy,
