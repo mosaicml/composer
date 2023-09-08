@@ -665,7 +665,7 @@ def build_metadata(
         chunks = len(self.placements)
 
         if sharding_dim_size // chunks == 0:
-            self.dim += 1
+            self.dim += 1  # type: ignore[operator]
         else:
             break
     current_offsets = [0] * tensor_num_dim
@@ -716,7 +716,7 @@ def shard(self: ChunkShardingSpec, tensor: torch.Tensor, src_rank: int = 0, proc
         chunks = len(self.placements)
 
         if sharding_dim_size // chunks == 0:
-            self.dim += 1
+            self.dim += 1  # type: ignore[operator]
         else:
             break
     scatter_shape = list(tensor.size())
@@ -738,7 +738,7 @@ def shard(self: ChunkShardingSpec, tensor: torch.Tensor, src_rank: int = 0, proc
             else:
                 tensor_to_scatter = narrowed_tensor.detach().clone().contiguous()
 
-            tensors_to_scatter[rank] = tensor_to_scatter
+            tensors_to_scatter[rank] = tensor_to_scatter  # type: ignore[index]
 
         if current_rank == rank:
             local_tensor = torch.empty(scatter_shape, dtype=tensor.dtype, layout=tensor.layout, device=device)
