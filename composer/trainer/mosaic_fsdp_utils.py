@@ -279,6 +279,8 @@ def _custom_recursive_wrap_t1p13p1(
         remainder = num_params - total_wrapped_params
         module_kwargs = auto_wrap_policy(module=module, recurse=False, unwrapped_params=remainder)
         if not only_wrap_children and module_kwargs:
+            # CHANGE: We modify the original code to support custom FSDP kwargs and add
+            # the process_group_cache to avoid instantiating a new process group.
             module_kwargs = module_kwargs if isinstance(module_kwargs, dict) else {}
             module_kwargs = _set_custom_fsdp_module_kwargs(module_kwargs, process_group_cache)
 
@@ -336,6 +338,7 @@ def custom_auto_wrap_t1p13p1(
                       'instances with mixed precision disabled since some batch norm '
                       'kernels do not support low precision.')
         auto_wrap_kwargs['auto_wrap_policy'] = auto_wrap_policy
+    # CHANGE: Add process group cache and call our custom _recursive_wrap
     auto_wrap_kwargs['process_group_cache'] = {}
     _custom_recursive_wrap_t1p13p1(**auto_wrap_kwargs, **fsdp_kwargs)
 
@@ -422,6 +425,8 @@ def _custom_recursive_wrap_t2p0p1(
         remainder = nonwrapped_numel - total_wrapped_numel
         module_kwargs = auto_wrap_policy(module=module, recurse=False, nonwrapped_numel=remainder)
         if not only_wrap_children and module_kwargs:
+            # CHANGE: We modify the original code to support custom FSDP kwargs and add
+            # the process_group_cache to avoid instantiating a new process group.
             module_kwargs = module_kwargs if isinstance(module_kwargs, dict) else {}
             module_kwargs = _set_custom_fsdp_module_kwargs(module_kwargs, process_group_cache)
 
@@ -490,6 +495,8 @@ def _custom_auto_wrap_t2p0p1(
                       'instances with mixed precision disabled since some batch norm '
                       'kernels do not support low precision.')
     auto_wrap_kwargs['auto_wrap_policy'] = auto_wrap_policy
+
+    # CHANGE: Add process group cache and call our custom _recursive_wrap
     auto_wrap_kwargs['process_group_cache'] = {}
     _custom_recursive_wrap_t2p0p1(**auto_wrap_kwargs, **fsdp_kwargs)
 
@@ -574,7 +581,7 @@ if version.parse(torch.__version__) >= version.parse('2.0.1') and version.parse(
                 # process groups.
                 fsdp_kwargs['process_group'] = (self.process_group, self._inter_node_pg)
 
-            # call the custom _auto_wrap function
+            # CHANGE: Call our custom _auto_wrap function
             _custom_auto_wrap_t2p0p1(auto_wrap_kwargs, fsdp_kwargs, FullyShardedDataParallel)
 
         backward_prefetch_limit = 1
