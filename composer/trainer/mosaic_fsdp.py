@@ -27,7 +27,7 @@ def patch_pytorch():
     elif version.parse(torch.__version__) < version.parse('2.0.1'):
         raise NotImplementedError(f'Not supported for torch == 2.0.0')
 
-    elif version.parse(torch.__version__) == version.parse('2.0.1'):
+    elif version.parse(torch.__version__) < version.parse('2.0.2'):
         # FullyShardedDataParallel monkey patch for torch == 2.0.1
 
         # Monkey patch __init__ where __init__ calls the custom _auto_wrap fn

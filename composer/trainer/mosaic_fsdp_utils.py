@@ -484,7 +484,8 @@ def _custom_auto_wrap_t2p0p1(
     _custom_recursive_wrap_t2p0p1(**auto_wrap_kwargs, **fsdp_kwargs)
 
 
-if version.parse(torch.__version__) == version.parse('2.0.1'):
+if version.parse(torch.__version__) > version.parse('1.13.2') and version.parse(
+        torch.__version__) < version.parse('2.0.2'):
     from torch.distributed.fsdp._init_utils import ProcessGroupType
     from torch.distributed.fsdp.wrap import _FSDPPolicy
 
