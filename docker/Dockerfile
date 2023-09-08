@@ -227,8 +227,8 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
             torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} \
             torchtext==${TORCHTEXT_VERSION} ; \
     else \
-        if [ "$PYTORCH_NIGHTLY_URL" == "https://download.pytorch.org/whl/test/cu121/" ]; then \
-            pip3 install torch torchvision torchtext==0.6.0 --index-url https://download.pytorch.org/whl/test/cu121/ \
+        if [ "$PYTORCH_NIGHTLY_URL" == "https://download.pytorch.org/whl/test/cu121/" ] ; then \
+            pip3 install torch torchvision torchtext==0.6.0 --index-url https://download.pytorch.org/whl/test/cu121/ ; \
         else \
             pip${PYTHON_VERSION} install --no-cache-dir --pre --index-url ${PYTORCH_NIGHTLY_URL} \
                 torch==${PYTORCH_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
