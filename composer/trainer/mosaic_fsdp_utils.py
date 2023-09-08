@@ -494,7 +494,7 @@ def _custom_auto_wrap_t2p0p1(
     _custom_recursive_wrap_t2p0p1(**auto_wrap_kwargs, **fsdp_kwargs)
 
 
-if version.parse(torch.__version__) > version.parse('1.13.2') and version.parse(
+if version.parse(torch.__version__) >= version.parse('2.0.1') and version.parse(
         torch.__version__) < version.parse('2.0.2'):
     from torch.distributed.fsdp._init_utils import ProcessGroupType
     from torch.distributed.fsdp.wrap import _FSDPPolicy
@@ -621,9 +621,12 @@ def _custom_recursive_wrap_t2p1p0(
     only_wrap_children: bool = False,
     **kwargs: Any,
 ) -> Tuple[nn.Module, int]:
-    """Modified version of https://github.com/pytorch/pytorch/blob/8292b03c47fd71beb23ae834971e044aef6f4d7c/torch/distributed/fsdp/_wrap_utils.py#L25.
+    """Supports custom wrapping of modules with FSDP kwargs.
 
-    Supports custom wrapping of modules with FSDP kwargs.
+    Torch version must be 2.1.0.
+
+    Modified version of https://github.com/pytorch/pytorch/blob/8292b03c47fd71beb23ae834971e044aef6f4d7c/torch/distributed/fsdp/_wrap_utils.py#L25
+    to support custom FSDP kwargs, e.g. process groups.
 
     Wraps submodules of ``module`` for which ``auto_wrap_policy`` returns
     ``True`` with ``wrapper_cls``.
@@ -687,6 +690,8 @@ def _custom_recursive_wrap_t2p1p0(
 
         module_kwargs = auto_wrap_policy(module=module, recurse=False, nonwrapped_numel=remainder)
         if not only_wrap_children and module_kwargs:
+            # CHANGE: We modify the original code to support custom FSDP kwargs and add
+            # the process_group_cache to avoid instantiating a new process group.
             module_kwargs = module_kwargs if isinstance(module_kwargs, dict) else {}
             module_kwargs = _set_custom_fsdp_module_kwargs(module_kwargs, process_group_cache)
 
