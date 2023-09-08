@@ -878,8 +878,9 @@ class InContextLearningCodeEvalDataset(Dataset):
     - test: the checker code that will run to completion if the code generation is valid and otherwise throw assertion
     - test_inputs: list of test inputs
     - test_outputs: list of test outputs
+    - language: the language of the code snippet
     Args:
-	dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
+        dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
         supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "task_id",
         "prompt", "entry_point", "canonical_solution", "test", "test_inputs", and "test_outputs". See tests/datasets/local_data/human_eval_small.jsonl.
         tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to map between strings and token ids
@@ -933,6 +934,7 @@ class InContextLearningCodeEvalDataset(Dataset):
                     'entry_point': examples['entry_point'],
                     'test_inputs': examples['test_inputs'],
                     'test_outputs': examples['test_outputs'],
+                    'language': examples['language'],
                 }))
         self.generations_per_sample = generations_per_sample
         self.tokenizer = tokenizer
@@ -1000,6 +1002,7 @@ class InContextLearningCodeEvalDataset(Dataset):
             encoded_example['entry_point'] = self.samples[sample_idx]['entry_point']
             encoded_example['test_inputs'] = self.samples[sample_idx]['test_inputs']
             encoded_example['test_outputs'] = self.samples[sample_idx]['test_outputs']
+            encoded_example['language'] = self.samples[sample_idx]['language']
 
             examples.append(encoded_example)
             max_prompt_length = max(
@@ -1016,12 +1019,20 @@ class InContextLearningCodeEvalDataset(Dataset):
         return len(self.encoded_dataset)
 
     def collate_fn(self, data):
-        inputs, prompts, tests, canonical_solutions, entry_points, test_inputs, test_outputs = [], [], [], [], [], [], []
         max_batch_len = 1
+        inputs, prompts, tests, canonical_solutions, entry_points, test_inputs, test_outputs, languages = [], [], [], [], [], [], [], []
         for sample in data:
-            preamble, prompt, text_prompt, canonical_solution, test, entry_point, test_input, test_output = (
-                sample['preamble'], sample['prompt'], sample['prompt_text'], sample['canonical_solution'],
-                sample['test'], sample['entry_point'], sample['test_inputs'], sample['test_outputs'])
+            preamble, prompt, text_prompt, canonical_solution, test, entry_point, test_input, test_output, language = (
+                sample['preamble'],
+                sample['prompt'],
+                sample['prompt_text'],
+                sample['canonical_solution'],
+                sample['test'],
+                sample['entry_point'],
+                sample['test_inputs'],
+                sample['test_outputs'],
+                sample['language'],
+            )
             context_enc = preamble['input_ids'] + prompt['input_ids']
             inp, _ = _make_padded_input(context_enc, [],
                                         self.max_prompt_length,
@@ -1036,6 +1047,7 @@ class InContextLearningCodeEvalDataset(Dataset):
             test_inputs.append(test_input)
             test_outputs.append(test_output)
             max_batch_len = max(max_batch_len, len(context_enc))
+            languages.append(language)
 
         max_batch_len = min(max_batch_len, self.max_seq_len)
         # Truncate pad token from left padding
@@ -1050,6 +1062,7 @@ class InContextLearningCodeEvalDataset(Dataset):
             'entry_points': entry_points,  # list of entry points
             'test_inputs': test_inputs,  # list of test inputs
             'test_outputs': test_outputs,  # list of test outputs
+            'languages': languages,  # list of languages
             'generation_length': self.max_seq_len - self.max_prompt_length,
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
@@ -1075,7 +1088,8 @@ class InContextLearningCodeEvalDataset(Dataset):
         no_split = ['mode', 'generation_length', 'generation_kwargs']
         normal_split = ['input_ids', 'attention_mask']
         list_split = [
-            'labels', 'tests', 'canonical_solutions', 'entry_points', 'test_inputs', 'test_outputs', 'prompts'
+            'labels', 'tests', 'canonical_solutions', 'entry_points', 'test_inputs', 'test_outputs', 'prompts',
+            'languages'
         ]
         chunked = {}
         for k, v in batch.items():
