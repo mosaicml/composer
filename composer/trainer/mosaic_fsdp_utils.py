@@ -656,7 +656,7 @@ def _custom_recursive_wrap_t2p1p0(
         try:
             assert not isinstance(child, cast(type, wrapper_cls))
         except TypeError:
-            # wrapper_cls is a function as opposed to a class type, just bypass above check.
+            # wrapper_cls is a function as opposed to a class type so we bypass the above check.
             pass
 
     # We count all params, assuming none of them are already wrapped.
