@@ -39,6 +39,7 @@ include = [
 exclude = [
     "build/**",
     "node_modules/**",
+    'composer/trainer/mosaic_fsdp_utils.py'
 ]
 # Disable checks for missing imports, as a conditional install of composer will not include them
 # Any incorrect imports will be discovered through test cases
