@@ -229,7 +229,7 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
     else \
         if [ "$PYTORCH_NIGHTLY_URL" == "https://download.pytorch.org/whl/test/cu121/" ] ; then \
             pip3 install sentencepiece && \
-            pip3 install torch torchtext torchvision --index-url https://download.pytorch.org/whl/test/cu121 \
+            pip3 install torch torchtext==0.6.0 torchvision --index-url https://download.pytorch.org/whl/test/cu121/ \
         else \
             pip${PYTHON_VERSION} install --no-cache-dir --pre --index-url ${PYTORCH_NIGHTLY_URL} \
                 torch==${PYTORCH_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
