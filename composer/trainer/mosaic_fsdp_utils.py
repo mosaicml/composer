@@ -805,7 +805,7 @@ if version.parse(torch.__version__) > version.parse('2.0.2') and version.parse(
         use_orig_params: bool = False,
         ignored_states: Union[Optional[Iterable[torch.nn.Parameter]], Optional[Iterable[torch.nn.Module]]] = None,
     ):
-        """Modified version of hhttps://github.com/pytorch/pytorch/blob/8ed169b1628285924e10fc98de53dbb75c92c43e/torch/distributed/fsdp/fully_sharded_data_parallel.py#L399C1."""
+        """Modified version of https://github.com/pytorch/pytorch/blob/8ed169b1628285924e10fc98de53dbb75c92c43e/torch/distributed/fsdp/fully_sharded_data_parallel.py#L399C1."""
         from torch.distributed.fsdp._dynamo_utils import _annotate_modules_for_dynamo
         from torch.distributed.fsdp._init_utils import (HYBRID_SHARDING_STRATEGIES, _check_orig_params_flattened,
                                                         _init_buffer_state, _init_core_state, _init_device_handle,
