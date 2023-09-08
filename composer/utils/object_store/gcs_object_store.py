@@ -69,32 +69,34 @@ class GCSObjectStore(ObjectStore):
         if self.prefix != '':
             self.prefix += '/'
 
+        self.s3_object_store = None
+
         if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ:
             service_account_path = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
             self.client = Client.from_service_account_json(service_account_path)
+            self.use_gcs_sdk = True
+            try:
+                self.bucket = self.client.get_bucket(self.bucket_name, timeout=60.0)
+            except Exception as e:
+                _reraise_gcs_errors(self.get_uri(object_name=''), e)
+
         elif 'GCS_KEY' in os.environ and 'GCS_SECRET' in os.environ:
             # Create a session and use it to make our client. Unlike Resources and Sessions,
             # clients are generally thread-safe.
 
-            try:
-                import boto3
-            except ImportError as e:
-                raise MissingConditionalImportError('gcs', 'boto3') from e
+            from composer.utils.object_store.s3_object_store import S3ObjectStore
 
-            session = boto3.session.Session()
-            self.client = session.client('s3',
-                                         region_name='auto',
-                                         endpoint_url='https://storage.googleapis.com',
-                                         aws_access_key_id=os.environ['GCS_KEY'],
-                                         aws_secret_access_key=os.environ['GCS_SECRET'])
+            self.s3_object_store = S3ObjectStore(bucket=self.bucket_name,
+                                                 prefix=self.prefix,
+                                                 region_name='auto',
+                                                 endpoint_url='https://storage.googleapis.com',
+                                                 aws_access_key_id=os.environ['GCS_KEY'],
+                                                 aws_secret_access_key=os.environ['GCS_SECRET'])
+            self.client = None
+            self.use_gcs_sdk = False
         else:
             raise ValueError(f'GOOGLE_APPLICATION_CREDENTIALS needs to be set for ' +
                              f'service level accounts or GCS_KEY and GCS_SECRET env variables must be set.')
-
-        try:
-            self.bucket = self.client.get_bucket(self.bucket_name, timeout=60.0)
-        except Exception as e:
-            _reraise_gcs_errors(self.get_uri(object_name=''), e)
 
     def get_key(self, object_name: str) -> str:
         return f'{self.prefix}{object_name}'
@@ -115,6 +117,9 @@ class GCSObjectStore(ObjectStore):
             FileNotFoundError: If the specified object does not exist in the cloud storage bucket.
             Exception: If an error occurs while trying to retrieve the object's size.
         """
+        if not self.use_gcs_sdk and self.s3_object_store is not None:
+            return self.s3_object_store.get_object_size(object_name)
+
         from google.cloud.storage import Blob
 
         key = self.get_key(object_name)
@@ -142,6 +147,9 @@ class GCSObjectStore(ObjectStore):
             filename (Union[str, pathlib.Path]): The path to the local file
             callback: optional
         """
+        if not self.use_gcs_sdk and self.s3_object_store is not None:
+            return self.s3_object_store.upload_object(object_name, filename, callback)
+
         if callback is not None:
             raise ValueError('callback is not supported in gcs upload_object()')
         src = filename
@@ -172,6 +180,8 @@ class GCSObjectStore(ObjectStore):
         Raises:
             FileExistsError: If the destination file already exists and the `overwrite` parameter is set to False.
         """
+        if not self.use_gcs_sdk and self.s3_object_store is not None:
+            return self.s3_object_store.download_object(object_name, filename, overwrite, callback)
         dest = filename
         src = object_name
 
@@ -203,7 +213,8 @@ class GCSObjectStore(ObjectStore):
                 os.rename(tmp_path, dest)
 
     def list_objects(self, prefix: Optional[str] = None) -> List[str]:
-
+        if not self.use_gcs_sdk and self.s3_object_store is not None:
+            return self.s3_object_store.list_objects(prefix)
         if prefix is None:
             prefix = ''
         prefix = self.get_key(prefix)

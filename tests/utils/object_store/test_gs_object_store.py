@@ -7,8 +7,40 @@ from unittest.mock import MagicMock
 
 import pytest
 from botocore.exceptions import ClientError
+from torch.utils.data import DataLoader
 
+from composer.trainer import Trainer
 from composer.utils import GCSObjectStore
+from tests.common import RandomClassificationDataset, SimpleModel
+
+
+@pytest.mark.remote
+def test_gs_object_store_integration_json_auth():
+    model = SimpleModel()
+    train_dataset = RandomClassificationDataset()
+    train_dataloader = DataLoader(dataset=train_dataset)
+    trainer_save = Trainer(model=model,
+                           train_dataloader=train_dataloader,
+                           save_folder='gs://mosaicml-composer-tests/checkpoints/{run_name}',
+                           save_filename='test-model.pt',
+                           max_duration='1ba')
+    run_name = trainer_save.state.run_name
+    trainer_save.fit()
+    trainer_save.close()
+
+    trainer_load = Trainer(model=model,
+                           train_dataloader=train_dataloader,
+                           load_path=f'gs://mosaicml-composer-tests/checkpoints/{run_name}/test-model.pt',
+                           max_duration='2ba')
+    trainer_load.fit()
+    trainer_load.close()
+
+
+@pytest.mark.remote
+def test_gs_object_store_integration_hmac_auth():
+    with mock.patch.dict(os.environ):
+        del os.environ['GOOGLE_APPLICATION_CREDENTIALS']
+        test_gs_object_store_integration_json_auth()
 
 
 @pytest.fixture
