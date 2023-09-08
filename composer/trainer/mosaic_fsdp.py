@@ -51,4 +51,4 @@ def patch_pytorch():
         ChunkShardingSpec.shard = shard
 
     elif version.parse(torch.__version__) >= version.parse('2.2.0'):
-        raise NotImplementedError(f'FullyShardedDataParallel supported for torch >= 2.2.0')
+        raise NotImplementedError(f'FullyShardedDataParallel is not supported for torch >= 2.2.0')
