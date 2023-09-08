@@ -44,7 +44,7 @@ on:
 jobs:
   pytest-cpu:
     timeout-minutes: 30
-    runs-on: ubuntu-latest-16-cores
+    runs-on: ubuntu-latest-4-cores
     container: ${{ inputs.container }}
     steps:
       - name: Checkout Repo
