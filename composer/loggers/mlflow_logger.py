@@ -160,48 +160,12 @@ class MLFlowLogger(LoggerDestination):
         use_table: bool = True,
     ):
         del masks, mask_class_labels, use_table  # Unused (only for wandb)
-        import mlflow
         if self._enabled:
             if not isinstance(images, Sequence) and images.ndim <= 3:
                 images = [images]
             for im_ind, image in enumerate(images):
                 image = _convert_to_mlflow_image(image, channels_last)
-                mlflow.log_image(image, artifact_file=f'{name}_{step}_{im_ind}.png')
-    
-    def _convert_to_mlflow_image(image: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:
-        if isinstance(image, torch.Tensor):
-            image = image.data.cpu().numpy()
-
-        # Error out for empty arrays or weird arrays of dimension 0.
-        if np.any(np.equal(image.shape, 0)):
-            raise ValueError(f'Got an image (shape {image.shape}) with at least one dimension being 0! ')
-
-        # Squeeze any singleton dimensions and then add them back in if image dimension
-        # less than 3.
-        image = image.squeeze()
-
-        # Add in length-one dimensions to get back up to 3
-        # putting channels last.
-        if image.ndim == 1:
-            image = np.expand_dims(image, (1, 2))
-            channels_last = True
-        if image.ndim == 2:
-            image = np.expand_dims(image, 2)
-            channels_last = True
-
-        if image.ndim != 3:
-            raise ValueError(
-                textwrap.dedent(f'''Input image must be 3 dimensions, but instead
-                                got {image.ndim} dims at shape: {image.shape}
-                                Your input image was interpreted as a batch of {image.ndim}
-                                -dimensional images because you either specified a
-                                {image.ndim + 1}D image or a list of {image.ndim}D images.
-                                Please specify either a 4D image of a list of 3D images'''))
-        
-        assert isinstance(image, np.ndarray)
-        if not channels_last:
-            image = image.transpose(1, 2, 0)
-        return image
+                self._mlflow_client.log_image(image=image, artifact_file=f'{name}_{step}_{im_ind}.png', run_id=self._run_id)
 
     def post_close(self):
         if self._enabled:
@@ -213,3 +177,45 @@ class MLFlowLogger(LoggerDestination):
     def _flush(self):
         """Test-only method to synchronously flush all queued metrics."""
         return self._optimized_mlflow_client.flush(synchronous=True)
+
+
+def _convert_to_mlflow_image(image: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:
+    if isinstance(image, torch.Tensor):
+        image = image.data.cpu().numpy()
+
+    # Error out for empty arrays or weird arrays of dimension 0.
+    if np.any(np.equal(image.shape, 0)):
+        raise ValueError(f'Got an image (shape {image.shape}) with at least one dimension being 0! ')
+
+    # Squeeze any singleton dimensions and then add them back in if image dimension
+    # less than 3.
+    image = image.squeeze()
+
+    # Add in length-one dimensions to get back up to 3
+    # putting channels last.
+    if image.ndim == 1:
+        image = np.expand_dims(image, (1, 2))
+        channels_last = True
+    if image.ndim == 2:
+        image = np.expand_dims(image, 2)
+        channels_last = True
+
+    if image.ndim != 3:
+        raise ValueError(
+            textwrap.dedent(f'''Input image must be 3 dimensions, but instead
+                            got {image.ndim} dims at shape: {image.shape}
+                            Your input image was interpreted as a batch of {image.ndim}
+                            -dimensional images because you either specified a
+                            {image.ndim + 1}D image or a list of {image.ndim}D images.
+                            Please specify either a 4D image of a list of 3D images'''))
+    
+    assert isinstance(image, np.ndarray)
+    if not channels_last:
+        image = image.transpose(1, 2, 0)
+    if image.shape[-1] not in [1, 3, 4]:
+        raise ValueError(
+            textwrap.dedent(f'''Input image must have 1, 3, or 4 channels, but instead
+                            got {image.shape[-1]} channels at shape: {image.shape}
+                            Please specify either a 1-, 3-, or 4-channel image or a list of
+                            1-, 3-, or 4-channel images'''))
+    return image

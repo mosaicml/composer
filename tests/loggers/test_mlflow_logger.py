@@ -296,7 +296,7 @@ def test_mlflow_logging_works(tmp_path, device):
     expected_params_list = ['num_cpus_per_node', 'node_name', 'num_nodes', 'rank_zero_seed']
     assert set(expected_params_list) == set(actual_params_list)
 
-
+@device('cpu')
 def test_mlflow_log_image_works(tmp_path, device):
 
     class ImageLogger(Callback):
@@ -306,9 +306,9 @@ def test_mlflow_log_image_works(tmp_path, device):
             images = inputs.data.cpu().numpy()
             logger.log_images(images, step=state.timestamp.batch.value, use_table=True)
 
-    mlflow = pytest.importorskip('mlflow')
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
-    test_mlflow_logger = MLFlowLogger(tracking_uri=mlflow_uri)
+    experiment_name = 'mlflow_logging_test'
+    test_mlflow_logger = MLFlowLogger(tracking_uri=mlflow_uri, experiment_name=experiment_name)
 
     dataset_size = 64
     batch_size = 4
@@ -325,11 +325,18 @@ def test_mlflow_log_image_works(tmp_path, device):
                       eval_interval=eval_interval,
                       callbacks=ImageLogger(),
                       device=device)
+    
     trainer.fit()
+    test_mlflow_logger._flush()
 
-    run_info = mlflow.active_run().info
-    run_id = run_info.run_id
-    experiment_id = run_info.experiment_id
+    run = _get_latest_mlflow_run(
+        experiment_name=experiment_name,
+        tracking_uri=mlflow_uri,
+    )
+    run_id = run.info.run_id
+    experiment_id = run.info.experiment_id
+
+
 
     run_file_path = mlflow_uri / Path(experiment_id) / Path(run_id)
     im_dir = run_file_path / Path('artifacts')
