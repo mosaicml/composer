@@ -191,21 +191,25 @@ def test_in_context_learning_lm_accuracy(tiny_gpt2_tokenizer):
     logits = torch.nn.functional.one_hot(inputs.roll(-1), num_classes=pad + 1).float() * 100
     start, end = cont_idxs[1].tolist()[0] - 1, cont_idxs[1].tolist()[-1]
     logits[1][start:end] = logits[0][start:end].clone()  # make one of the answer's continuations incorrect
-    metric = InContextLearningLMAccuracy()
+    metric = InContextLearningLMAccuracy(cache_responses=True)
     metric.update(batch, logits, batch['labels'])
 
     assert metric.compute() == 0.75
     assert tiny_gpt2_tokenizer.decode(
-        metric.incorrect_responses[0]['context_tok'].tolist() 
+        metric.response_cache[1]['context_tok'].tolist() 
     ) == 'I love to eat'
 
     assert tiny_gpt2_tokenizer.decode(
-        metric.incorrect_responses[0]['continuation_tok_pred'].tolist() 
+        metric.response_cache[1]['continuation_tok_pred'].tolist() 
     ) == '[PAD]'
 
     assert tiny_gpt2_tokenizer.decode(
-        metric.incorrect_responses[0]['continuation_tok_target'].tolist() 
+        metric.response_cache[1]['continuation_tok_target'].tolist() 
     ) == ' pie'
+
+    columns, rows = metric.format_response_cache(tiny_gpt2_tokenizer)
+    assert rows == [['The dog is', ' furry', ' furry', True], ['I love to eat', ' pie', '[PAD]', False], ['I hate', ' long lines', ' long lines', True], ['The weather is', ' snowy', ' snowy', True]]
+    assert columns == ['context_tok', 'continuation_tok_target', 'continuation_tok_pred', 'correct']
 
 def test_in_context_learning_lm_ece(tiny_gpt2_tokenizer):
     contexts = ['The dog is', 'I love to eat', 'I hate', 'The weather is']
@@ -238,11 +242,19 @@ def test_in_context_learning_qa_accuracy():
     outputs = ['Correct but then some more text', 'Incorrect', ' the CORREct with weird casing and spacing']
     labels = [['Correct'], ['blah', 'blah2'], ['blah', 'correct']]
 
-    metric = InContextLearningQAAccuracy()
+    metric = InContextLearningQAAccuracy(cache_responses=True)
     metric.update(outputs, labels)
 
     assert metric.compute() == (2 / 3)
-    assert metric.incorrect_responses == [{'original_model_output': 'Incorrect', 'cleaned_model_output': 'incorrect', 'original_labels': ['blah', 'blah2'], 'cleaned_labels': {'blah2', 'blah'}}]
+    assert metric.response_cache == [
+        {'original_model_output': 'Correct but then some more text', 'cleaned_model_output': 'correct but then some more text', 'original_labels': ['Correct'], 'cleaned_labels': {'correct'}, 'correct': True},
+        {'original_model_output': 'Incorrect', 'cleaned_model_output': 'incorrect', 'original_labels': ['blah', 'blah2'], 'cleaned_labels': {'blah2', 'blah'}, 'correct': False},
+        {'original_model_output': ' the CORREct with weird casing and spacing', 'cleaned_model_output': 'correct with weird casing and spacing', 'original_labels': ['blah', 'correct'], 'cleaned_labels': {'correct', 'blah'}, 'correct': True}
+    ]
+    columns, rows = metric.format_response_cache(None)
+    assert rows == [['Correct but then some more text', 'correct but then some more text', ['Correct'], {'correct'}, True], ['Incorrect', 'incorrect', ['blah', 'blah2'], {'blah2', 'blah'}, False], [' the CORREct with weird casing and spacing', 'correct with weird casing and spacing', ['blah', 'correct'], {'blah', 'correct'}, True]]
+    assert columns == ['original_model_output', 'cleaned_model_output', 'original_labels', 'cleaned_labels', 'correct']
+
 
 def test_in_context_learning_code_eval_accuracy(monkeypatch):
     outputs = [
@@ -270,10 +282,15 @@ def test_in_context_learning_code_eval_accuracy(monkeypatch):
         'test_outputs': test_outputs,
         'languages': languages,
     }
-    metric = InContextLearningCodeEvalAccuracy()
+    metric = InContextLearningCodeEvalAccuracy(cache_responses=True)
     metric.update(batch, outputs, labels)
 
     assert metric.compute() == (2 / 3)
+    assert metric.response_cache[0] == {'code_completions': ['def fib(n):\n    return 1 if n <= 1 else fib(n - 1) + fib(n - 1)', 'def fib(n):\n   if n <= 1:\n        return 1\n    return fib(n-1) + fib(n-2)'], 'passing': [False, False], 'correct': False}
+
+    columns, rows = metric.format_response_cache(None)
+    assert rows == [[['def fib(n):\n    return 1 if n <= 1 else fib(n - 1) + fib(n - 1)', 'def fib(n):\n   if n <= 1:\n        return 1\n    return fib(n-1) + fib(n-2)'], [False, False], False], [['def multiply_by_two(n):\n    return n * 2', 'def multiply_by_two(n):\n    return 2*n'], [True, True], True], [['def add_one(n):\n    return n + 2', 'def add_one(n):\n    return n + 1'], [False, True], True]]
+    assert columns == ['code_completions', 'passing', 'correct']
 
 def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):
     contexts = [
@@ -315,14 +332,17 @@ def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):
     start, end = cont_idxs[3].tolist()[0], cont_idxs[3].tolist()[-1]
     logits[3][start:end] = logits[2][start:end].clone()
 
-    metric = InContextLearningMultipleChoiceAccuracy()
+    metric = InContextLearningMultipleChoiceAccuracy(cache_responses=True)
 
     metric.update(batch, logits, batch['labels'])
     assert metric.compute() == 0.5
-    metric.incorrect_responses
-    assert tiny_gpt2_tokenizer.decode(metric.incorrect_responses[0]['question_tok'].tolist()) == 'Q: How old is the earth?'
-    assert tiny_gpt2_tokenizer.decode(metric.incorrect_responses[0]['selected_choice'].tolist()) == ' A: 2 minutes'
-    assert tiny_gpt2_tokenizer.decode(metric.incorrect_responses[0]['correct_choice'].tolist()) == ' A: 4.5 billion years'
+    assert tiny_gpt2_tokenizer.decode(metric.response_cache[-1]['question_tok'].tolist()) == 'Q: How old is the earth?'
+    assert tiny_gpt2_tokenizer.decode(metric.response_cache[-1]['selected_choice'].tolist()) == ' A: 2 minutes'
+    assert tiny_gpt2_tokenizer.decode(metric.response_cache[-1]['correct_choice'].tolist()) == ' A: 4.5 billion years'
+
+    columns, rows = metric.format_response_cache(tiny_gpt2_tokenizer)
+    assert rows == [['Q: How do you cook a cake?', ' A: turn on the oven', ' A: turn on the oven', True], ['Q: How old is the earth?', ' A: 4.5 billion years', ' A: 2 minutes', False]]
+    assert columns == ['question_tok', 'correct_choice', 'selected_choice', 'correct']
 
 def test_in_context_learning_mc_ece(tiny_gpt2_tokenizer):
     contexts = [
