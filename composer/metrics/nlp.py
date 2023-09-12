@@ -195,6 +195,10 @@ class LanguagePerplexity(LanguageCrossEntropy):
 
 class InContextLearningMetric(Metric):
 
+    def __init__(self, dist_sync_on_step=False):
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.add_state('incorrect_responses', default=[], dist_reduce_fx='cat')
+
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
         """Abstract interface for computing an in-context learning metrics.
 
@@ -271,6 +275,15 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
             cleaned_sample_labels = {self.normalize_answer(label) for label in sample_labels}
             if any(cleaned_sample_output.startswith(label) for label in cleaned_sample_labels):
                 self.correct += torch.tensor(1.0)
+            else:
+                self.incorrect_responses.append(
+                    {
+                        "original_model_output": sample_output,
+                        "cleaned_model_output": cleaned_sample_output,
+                        "original_labels": sample_labels,
+                        "cleaned_labels": cleaned_sample_labels
+                    }
+                )
             self.total += torch.tensor(1.0)
 
     def compute(self):
@@ -314,7 +327,16 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
             cont_tok_pred = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
             cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
 
-            self.correct += (cont_tok_pred == cont_tok_targ).all().int()
+            if (cont_tok_pred == cont_tok_targ).all().int() == 1:
+                self.correct += torch.tensor(1.0)
+            else:
+                self.incorrect_responses.append(
+                    {
+                        "context_tok": batch['input_ids'][batch_idx][:cont_idx[0]],
+                        "continuation_tok_target": cont_tok_targ,
+                        "continuation_tok_pred": cont_tok_pred,
+                    }
+                )
             self.total += torch.tensor(1.0)
 
     def compute(self):
@@ -368,6 +390,17 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
 
             if idx_min == gold_idx:
                 self.correct += torch.tensor(1.0)
+            else:
+                question = batch['input_ids'][start][:batch['continuation_indices'][start][0]]
+                correct_choice = batch['input_ids'][start:end][gold_idx][batch['continuation_indices'][start:end][gold_idx][0]:batch['continuation_indices'][start:end][gold_idx][-1]+1]
+                selected_choice = batch['input_ids'][start:end][idx_min][batch['continuation_indices'][start:end][idx_min][0]:batch['continuation_indices'][start:end][idx_min][-1]+1]
+                self.incorrect_responses.append(
+                    {
+                        "question_tok": question,
+                        "correct_choice": correct_choice,
+                        "selected_choice": selected_choice,
+                    }
+                )
             self.total += torch.tensor(1.0)
 
     def compute(self):

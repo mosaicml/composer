@@ -195,7 +195,17 @@ def test_in_context_learning_lm_accuracy(tiny_gpt2_tokenizer):
     metric.update(batch, logits, batch['labels'])
 
     assert metric.compute() == 0.75
+    assert tiny_gpt2_tokenizer.decode(
+        metric.incorrect_responses[0]['context_tok'].tolist() 
+    ) == 'I love to eat'
 
+    assert tiny_gpt2_tokenizer.decode(
+        metric.incorrect_responses[0]['continuation_tok_pred'].tolist() 
+    ) == '[PAD]'
+
+    assert tiny_gpt2_tokenizer.decode(
+        metric.incorrect_responses[0]['continuation_tok_target'].tolist() 
+    ) == ' pie'
 
 def test_in_context_learning_lm_ece(tiny_gpt2_tokenizer):
     contexts = ['The dog is', 'I love to eat', 'I hate', 'The weather is']
@@ -224,7 +234,6 @@ def test_in_context_learning_lm_ece(tiny_gpt2_tokenizer):
     # hence ECE should be 0.2
     assert abs(metric.compute() - 0.2) < 0.0001
 
-
 def test_in_context_learning_qa_accuracy():
     outputs = ['Correct but then some more text', 'Incorrect', ' the CORREct with weird casing and spacing']
     labels = [['Correct'], ['blah', 'blah2'], ['blah', 'correct']]
@@ -233,7 +242,7 @@ def test_in_context_learning_qa_accuracy():
     metric.update(outputs, labels)
 
     assert metric.compute() == (2 / 3)
-
+    assert metric.incorrect_responses == [{'original_model_output': 'Incorrect', 'cleaned_model_output': 'incorrect', 'original_labels': ['blah', 'blah2'], 'cleaned_labels': {'blah2', 'blah'}}]
 
 def test_in_context_learning_code_eval_accuracy(monkeypatch):
     outputs = [
@@ -265,7 +274,6 @@ def test_in_context_learning_code_eval_accuracy(monkeypatch):
     metric.update(batch, outputs, labels)
 
     assert metric.compute() == (2 / 3)
-
 
 def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):
     contexts = [
@@ -311,7 +319,10 @@ def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):
 
     metric.update(batch, logits, batch['labels'])
     assert metric.compute() == 0.5
-
+    metric.incorrect_responses
+    assert tiny_gpt2_tokenizer.decode(metric.incorrect_responses[0]['question_tok'].tolist()) == 'Q: How old is the earth?'
+    assert tiny_gpt2_tokenizer.decode(metric.incorrect_responses[0]['selected_choice'].tolist()) == ' A: 2 minutes'
+    assert tiny_gpt2_tokenizer.decode(metric.incorrect_responses[0]['correct_choice'].tolist()) == ' A: 4.5 billion years'
 
 def test_in_context_learning_mc_ece(tiny_gpt2_tokenizer):
     contexts = [
