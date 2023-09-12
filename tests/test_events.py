@@ -98,7 +98,6 @@ class TestEventCalls:
         if use_fsdp:
             fsdp_config = {
                 'sharding_strategy': 'FULL_SHARD',
-                'min_params': 1e8,
                 'cpu_offload': False,
                 'mixed_precision': 'PURE',
                 'backward_prefetch': 'BACKWARD_PRE',

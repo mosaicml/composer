@@ -417,7 +417,6 @@ To enable FSDP, simply pass in as shown below:
 
     fsdp_config = {
         'sharding_strategy': 'FULL_SHARD',
-        'min_params': 1e9,
         'cpu_offload': False, # Not supported yet
         'mixed_precision': 'DEFAULT',
         'backward_prefetch': 'BACKWARD_POST',
