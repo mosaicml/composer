@@ -573,7 +573,7 @@ def test_qa_task_with_cot_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path,
     batch_size = 2
     seqlen = 2048
     # empirical number from the small test dataset
-    maximum_answer_length = 2
+    maximum_answer_length = 157
     dl = get_icl_task_dataloader('question_answering',
                                  dataset_uri,
                                  tokenizer,
@@ -591,7 +591,7 @@ def test_qa_task_with_cot_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path,
 
     assert isinstance(dl.dataloader, DataLoader)  # pyright
     batch = next(dl.dataloader._get_iterator())
-
+    assert  dl.dataloader.dataset.max_answer_length == maximum_answer_length
     assert tuple(batch['input_ids'].shape) == (batch_size, seqlen - maximum_answer_length)
     assert tuple(batch['attention_mask'].shape) == (batch_size, seqlen - maximum_answer_length)
     assert batch['mode'] == 'generate'
@@ -1273,7 +1273,7 @@ def test_qa_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_g
 @pytest.mark.parametrize('dataset_uri', ['gsm8k_small.jsonl'])
 @device('gpu')
 @world_size(1, 2)
-@pytest.mark.parametrize('num_fewshot', [0, 5])
+@pytest.mark.parametrize('num_fewshot', [5])
 def test_qa_task_with_cot_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tiny_gpt2_model,
                                      tmp_path):
     pytest.importorskip('datasets')

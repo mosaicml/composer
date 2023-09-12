@@ -21,6 +21,9 @@ from composer.utils import MissingConditionalImportError, dist, get_file
 if TYPE_CHECKING:
     import transformers
 
+ # allow models slightly more tokens than were used in the most verbose CoT in the dataset
+MAX_ANSWER_BUFFER_LENGTH = 10
+
 __all__ = [
     'InContextLearningLMTaskDataset',
     'InContextLearningMultipleChoiceTaskDataset',
@@ -228,12 +231,11 @@ class InContextLearningQATaskDataset(Dataset):
             encoded_example['aliases'] = list(set(self.samples[sample_idx]['aliases']))
             encoded_example['cot_delimiter'] = cot_delimiter
             examples.append(encoded_example)
+            for answer in self.samples[sample_idx]['aliases'] + [self.samples[sample_idx]['answer']]:
+                response = f"{self.samples[sample_idx]['chain_of_thought']}{cot_delimiter}{answer}"
+                max_answer_length = max(max_answer_length, len(self.tokenizer(response)['input_ids']))
 
-            max_answer_length = max(
-                max_answer_length,
-                max((len(self.tokenizer(x)['input_ids']) for x in self.samples[sample_idx]['aliases'])))
-
-        self.max_answer_length = max_answer_length
+        self.max_answer_length = max_answer_length + MAX_ANSWER_BUFFER_LENGTH 
         return examples
 
     def __getitem__(self, index):
