@@ -268,7 +268,6 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
     def update(self, batch, outputs: List[str], labels: List[List[str]]):
         cot_delimiter = batch['cot_delimiter']
         for sample_output, sample_labels in zip(outputs, labels):
-            print(f"Got sample output: {sample_output} and sample label: {sample_labels}")
             if cot_delimiter is not None and len(cot_delimiter) > 0:
                 # in chain of thought, the final answer comes after the
                 # explanation and is delimited by `cot_delimiter`
@@ -280,7 +279,6 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
                 final_answer = sample_output
             cleaned_final_answer = self.normalize_answer(final_answer)
             cleaned_sample_labels = {self.normalize_answer(label) for label in sample_labels}
-            print(f"Got cleaned final answer: {cleaned_final_answer} and cleaned label: {cleaned_sample_labels}", flush=True)
 
             if any(cleaned_final_answer.startswith(label) for label in cleaned_sample_labels):
                 self.correct += torch.tensor(1.0)

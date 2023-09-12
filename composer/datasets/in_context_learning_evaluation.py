@@ -21,7 +21,7 @@ from composer.utils import MissingConditionalImportError, dist, get_file
 if TYPE_CHECKING:
     import transformers
 
- # allow models slightly more tokens than were used in the most verbose CoT in the dataset
+# allow models slightly more tokens than were used in the most verbose CoT in the dataset
 MAX_ANSWER_BUFFER_LENGTH = 10
 
 __all__ = [
@@ -191,6 +191,7 @@ class InContextLearningQATaskDataset(Dataset):
             dict: Contains the context, the continuation, and the preamble (prompt + fewshot examples)
         """
         max_answer_length = 0
+        has_cot = False
         examples = []
         for sample_idx in tqdm(range(len(self.samples))):
             encoded_example = {}
@@ -231,11 +232,14 @@ class InContextLearningQATaskDataset(Dataset):
             encoded_example['aliases'] = list(set(self.samples[sample_idx]['aliases']))
             encoded_example['cot_delimiter'] = cot_delimiter
             examples.append(encoded_example)
-            for answer in self.samples[sample_idx]['aliases'] + [self.samples[sample_idx]['answer']]:
+            for answer in self.samples[sample_idx]['aliases']:
                 response = f"{self.samples[sample_idx]['chain_of_thought']}{cot_delimiter}{answer}"
                 max_answer_length = max(max_answer_length, len(self.tokenizer(response)['input_ids']))
 
-        self.max_answer_length = max_answer_length + MAX_ANSWER_BUFFER_LENGTH 
+            if len(self.samples[sample_idx]['chain_of_thought']) > 0:
+                has_cot = True
+
+        self.max_answer_length = max_answer_length + (MAX_ANSWER_BUFFER_LENGTH if has_cot else 0)
         return examples
 
     def __getitem__(self, index):

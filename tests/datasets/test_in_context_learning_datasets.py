@@ -591,7 +591,6 @@ def test_qa_task_with_cot_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path,
 
     assert isinstance(dl.dataloader, DataLoader)  # pyright
     batch = next(dl.dataloader._get_iterator())
-    assert  dl.dataloader.dataset.max_answer_length == maximum_answer_length
     assert tuple(batch['input_ids'].shape) == (batch_size, seqlen - maximum_answer_length)
     assert tuple(batch['attention_mask'].shape) == (batch_size, seqlen - maximum_answer_length)
     assert batch['mode'] == 'generate'
