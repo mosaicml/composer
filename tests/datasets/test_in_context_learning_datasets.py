@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import contextlib
+import json
 import os
 import random
 import types
 from pathlib import Path
-from composer.callbacks import EvalOutputLogging
-import json
+
 import pytest
 import torch
 import transformers
@@ -15,6 +15,7 @@ from torch.utils.data import DataLoader
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from composer import Evaluator
+from composer.callbacks import EvalOutputLogging
 from composer.core import DataSpec
 from composer.datasets.in_context_learning_evaluation import (InContextLearningCodeEvalDataset,
                                                               _get_fewshot_sample_idxs, _make_padded_input,
@@ -929,15 +930,16 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
         use_logits=True,
     )
 
-    trainer = Trainer(model=model, max_duration='1ep', loggers=in_memory_logger, callbacks=EvalOutputLogging(print_only_incorrect=True, subset_sample=1))
+    trainer = Trainer(model=model,
+                      max_duration='1ep',
+                      loggers=in_memory_logger,
+                      callbacks=EvalOutputLogging(print_only_incorrect=True, subset_sample=1))
     trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
     assert 'metrics/lambada/InContextLearningLMAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/lambada/InContextLearningLMAccuracy'][0][1].item() == 0
-    icl_outputs = json.loads( in_memory_logger.tables['icl_outputs/lambada'])
+    icl_outputs = json.loads(in_memory_logger.tables['icl_outputs/lambada'])
     assert icl_outputs['columns'] == ['context_tok', 'continuation_tok_target', 'continuation_tok_pred', 'correct']
     assert len(icl_outputs['data']) == 1
-
-
 
 
 @pytest.mark.parametrize('dataset_uri', ['winograd_small.jsonl'])

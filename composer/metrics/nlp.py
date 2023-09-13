@@ -197,12 +197,12 @@ class InContextLearningMetric(Metric):
 
     def __init__(self, dist_sync_on_step=False, cache_responses=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
-        self.add_state('response_cache', default=[], dist_reduce_fx='cat')
+        self.add_state('response_cache', default=[], dist_reduce_fx=None)
         self.cache_responses = cache_responses
-    
+
     def set_response_cache(self, cache: bool):
         self.cache_responses = cache
-    
+
     def format_response_cache(self, tokenizer):
         columns, rows = None, None
         if self.cache_responses and len(self.response_cache) > 0:
@@ -292,15 +292,13 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
             if any(cleaned_sample_output.startswith(label) for label in cleaned_sample_labels):
                 self.correct += torch.tensor(1.0)
                 correct = True
-            self.response_cache.append(
-                {
-                    "original_model_output": sample_output,
-                    "cleaned_model_output": cleaned_sample_output,
-                    "original_labels": sample_labels,
-                    "cleaned_labels": cleaned_sample_labels,
-                    "correct": correct
-                }
-            )
+            self.response_cache.append({
+                'original_model_output': sample_output,
+                'cleaned_model_output': cleaned_sample_output,
+                'original_labels': sample_labels,
+                'cleaned_labels': cleaned_sample_labels,
+                'correct': correct
+            })
             self.total += torch.tensor(1.0)
 
     def compute(self):
@@ -349,14 +347,12 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
                 self.correct += torch.tensor(1.0)
                 correct = True
             if self.cache_responses:
-                self.response_cache.append(
-                    {
-                        "context_tok": batch['input_ids'][batch_idx][:cont_idx[0]],
-                        "continuation_tok_target": cont_tok_targ,
-                        "continuation_tok_pred": cont_tok_pred,
-                        "correct": correct
-                    }
-                )
+                self.response_cache.append({
+                    'context_tok': batch['input_ids'][batch_idx][:cont_idx[0]],
+                    'continuation_tok_target': cont_tok_targ,
+                    'continuation_tok_pred': cont_tok_pred,
+                    'correct': correct
+                })
             self.total += torch.tensor(1.0)
 
     def compute(self):
@@ -364,8 +360,6 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
         assert isinstance(self.total, Tensor)
         return self.correct / self.total
 
-    
-            
 
 class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
     r"""Computes accuracy for In-context learning (ICL) multiple choice (MC) tasks.
@@ -416,16 +410,16 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
 
             if self.cache_responses:
                 question = batch['input_ids'][start][:batch['continuation_indices'][start][0]]
-                correct_choice = batch['input_ids'][start:end][gold_idx][batch['continuation_indices'][start:end][gold_idx][0]:batch['continuation_indices'][start:end][gold_idx][-1]+1]
-                selected_choice = batch['input_ids'][start:end][idx_min][batch['continuation_indices'][start:end][idx_min][0]:batch['continuation_indices'][start:end][idx_min][-1]+1]
-                self.response_cache.append(
-                    {
-                        "question_tok": question,
-                        "correct_choice": correct_choice,
-                        "selected_choice": selected_choice,
-                        "correct": correct
-                    }
-                )
+                correct_choice = batch['input_ids'][start:end][gold_idx][batch['continuation_indices'][start:end][
+                    gold_idx][0]:batch['continuation_indices'][start:end][gold_idx][-1] + 1]
+                selected_choice = batch['input_ids'][start:end][idx_min][batch['continuation_indices'][start:end][
+                    idx_min][0]:batch['continuation_indices'][start:end][idx_min][-1] + 1]
+                self.response_cache.append({
+                    'question_tok': question,
+                    'correct_choice': correct_choice,
+                    'selected_choice': selected_choice,
+                    'correct': correct
+                })
             self.total += torch.tensor(1.0)
 
     def compute(self):
@@ -655,7 +649,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         results = client.invoke(payloads)
         passes = sum(
             [any(all(generation_payload) for generation_payload in prompt_payload) for prompt_payload in results])
-        
+
         self.correct += torch.tensor(float(passes))
 
         if self.cache_responses:
@@ -663,14 +657,12 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
                 passed = [all(tests) for tests in test_result]
 
                 code_completions = [c[0]['code'] for c in code_gen_payload]
-                self.response_cache.append(
-                        {
-                            "code_completions": code_completions,
-                            "passing": passed,
-                            "correct": any(passed)
-                        }
-                    )
-        
+                self.response_cache.append({
+                    'code_completions': code_completions,
+                    'passing': passed,
+                    'correct': any(passed)
+                })
+
         client.close()  # pyright: ignore [reportOptionalMemberAccess]
 
     def compute(self):

@@ -9,6 +9,7 @@ examples for writing your own callbacks at the :class:`.Callback` base class.
 from composer.callbacks.activation_monitor import ActivationMonitor
 from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.callbacks.early_stopper import EarlyStopper
+from composer.callbacks.eval_output_logging_callback import EvalOutputLogging
 from composer.callbacks.export_for_inference import ExportForInferenceCallback
 from composer.callbacks.generate import Generate
 from composer.callbacks.health_checker import HealthChecker
@@ -21,7 +22,7 @@ from composer.callbacks.runtime_estimator import RuntimeEstimator
 from composer.callbacks.speed_monitor import SpeedMonitor
 from composer.callbacks.system_metrics_monitor import SystemMetricsMonitor
 from composer.callbacks.threshold_stopper import ThresholdStopper
-from composer.callbacks.eval_output_logging_callback import EvalOutputLogging
+
 __all__ = [
     'ActivationMonitor',
     'OptimizerMonitor',
