@@ -169,6 +169,10 @@ def _main():
                     stage=stage,
                     interconnect=interconnect,
                 ),
+            'PYTORCH_NIGHTLY_URL':
+                '',
+            'PYTORCH_NIGHTLY_VERSION':
+                '',
         }
 
         # Only build the vision image on latest python
@@ -194,10 +198,27 @@ def _main():
 
         pytorch_entries.append(entry)
 
+    nightly_entry = {
+        'AWS_OFI_NCCL_VERSION': '',
+        'BASE_IMAGE': 'nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04',
+        'CUDA_VERSION': '12.1.0',
+        'IMAGE_NAME': 'torch-nightly-2-1-0-20230903-cu121',
+        'MOFED_VERSION': '5.5-1.0.3.2',
+        'PYTHON_VERSION': '3.10',
+        'PYTORCH_VERSION': '2.1.0',
+        'PYTORCH_NIGHTLY_URL': 'https://download.pytorch.org/whl/nightly/cu121',
+        'PYTORCH_NIGHTLY_VERSION': 'dev20230903+cu121',
+        'TAGS': ['mosaicml/pytorch:2.1.0_cu121-nightly20230903-python3.10-ubuntu20.04'],
+        'TARGET': 'pytorch_stage',
+        'TORCHTEXT_VERSION': '0.16.0',
+        'TORCHVISION_VERSION': '0.16.0'
+    }
+    pytorch_entries.append(nightly_entry)
+
     composer_entries = []
 
     # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
-    composer_versions = ['0.16.0']  # Only build images for the latest composer version
+    composer_versions = ['0.16.1']  # Only build images for the latest composer version
     composer_python_versions = [LATEST_PYTHON_VERSION]  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):
@@ -213,6 +234,8 @@ def _main():
             'CUDA_VERSION': cuda_version,
             'PYTHON_VERSION': python_version,
             'PYTORCH_VERSION': pytorch_version,
+            'PYTORCH_NIGHTLY_URL': '',
+            'PYTORCH_NIGHTLY_VERSION': '',
             'TARGET': 'composer_stage',
             'TORCHVISION_VERSION': _get_torchvision_version(pytorch_version),
             'TORCHTEXT_VERSION': _get_torchtext_version(pytorch_version),

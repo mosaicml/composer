@@ -15,7 +15,7 @@ from composer.loggers.mosaicml_logger import (MOSAICML_ACCESS_TOKEN_ENV_VAR, MOS
                                               format_data_to_json_serializable)
 from composer.trainer import Trainer
 from composer.utils import dist
-from tests.callbacks.callback_settings import get_cb_kwargs, get_cbs_and_marks
+from tests.callbacks.callback_settings import get_cb_kwargs, get_cb_model_and_datasets, get_cbs_and_marks
 from tests.common import RandomClassificationDataset, SimpleModel
 from tests.common.markers import world_size
 
@@ -76,13 +76,11 @@ def test_logged_data_is_json_serializable(monkeypatch, callback_cls: Type[Callba
     callback_kwargs = get_cb_kwargs(callback_cls)
     callback = callback_cls(**callback_kwargs)
     train_dataset = RandomClassificationDataset()
+    model, train_dataloader, _ = get_cb_model_and_datasets(callback, sampler=dist.get_sampler(train_dataset))
     trainer = Trainer(
-        model=SimpleModel(),
-        train_dataloader=DataLoader(
-            train_dataset,
-            sampler=dist.get_sampler(train_dataset),
-        ),
-        train_subset_num_batches=2,
+        model=model,
+        train_dataloader=train_dataloader,
+        train_subset_num_batches=1,
         max_duration='1ep',
         callbacks=callback,
         loggers=MosaicMLLogger(),
