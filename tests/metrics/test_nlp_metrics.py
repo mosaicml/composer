@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import math
+from typing import List
 
 import pytest
 import torch
@@ -195,21 +196,21 @@ def test_in_context_learning_lm_accuracy(tiny_gpt2_tokenizer):
     metric.update(batch, logits, batch['labels'])
 
     assert metric.compute() == 0.75
-    assert tiny_gpt2_tokenizer.decode(
-        metric.response_cache[1]['context_tok'].tolist() 
-    ) == 'I love to eat'
+    assert isinstance(metric.response_cache, list)
+    responses: list = metric.response_cache
+    assert len(responses) > 1 and isinstance(responses[1], dict)
+    row: dict = responses[1] # pyright: ignore [reportGeneralTypeIssues]
+    assert tiny_gpt2_tokenizer.decode(row['context_tok'].tolist()) == 'I love to eat'
 
-    assert tiny_gpt2_tokenizer.decode(
-        metric.response_cache[1]['continuation_tok_pred'].tolist() 
-    ) == '[PAD]'
+    assert tiny_gpt2_tokenizer.decode(row['continuation_tok_pred'].tolist()) == '[PAD]'
 
-    assert tiny_gpt2_tokenizer.decode(
-        metric.response_cache[1]['continuation_tok_target'].tolist() 
-    ) == ' pie'
+    assert tiny_gpt2_tokenizer.decode(row['continuation_tok_target'].tolist()) == ' pie'
 
     columns, rows = metric.format_response_cache(tiny_gpt2_tokenizer)
-    assert rows == [['The dog is', ' furry', ' furry', True], ['I love to eat', ' pie', '[PAD]', False], ['I hate', ' long lines', ' long lines', True], ['The weather is', ' snowy', ' snowy', True]]
+    assert rows == [['The dog is', ' furry', ' furry', True], ['I love to eat', ' pie', '[PAD]', False],
+                    ['I hate', ' long lines', ' long lines', True], ['The weather is', ' snowy', ' snowy', True]]
     assert columns == ['context_tok', 'continuation_tok_target', 'continuation_tok_pred', 'correct']
+
 
 def test_in_context_learning_lm_ece(tiny_gpt2_tokenizer):
     contexts = ['The dog is', 'I love to eat', 'I hate', 'The weather is']
@@ -238,6 +239,7 @@ def test_in_context_learning_lm_ece(tiny_gpt2_tokenizer):
     # hence ECE should be 0.2
     assert abs(metric.compute() - 0.2) < 0.0001
 
+
 def test_in_context_learning_qa_accuracy():
     outputs = ['Correct but then some more text', 'Incorrect', ' the CORREct with weird casing and spacing']
     labels = [['Correct'], ['blah', 'blah2'], ['blah', 'correct']]
@@ -246,13 +248,33 @@ def test_in_context_learning_qa_accuracy():
     metric.update(batch, outputs, labels)
 
     assert metric.compute() == (2 / 3)
-    assert metric.response_cache == [
-        {'original_model_output': 'Correct but then some more text', 'cleaned_model_output': 'correct but then some more text', 'original_labels': ['Correct'], 'cleaned_labels': {'correct'}, 'correct': True},
-        {'original_model_output': 'Incorrect', 'cleaned_model_output': 'incorrect', 'original_labels': ['blah', 'blah2'], 'cleaned_labels': {'blah2', 'blah'}, 'correct': False},
-        {'original_model_output': ' the CORREct with weird casing and spacing', 'cleaned_model_output': 'correct with weird casing and spacing', 'original_labels': ['blah', 'correct'], 'cleaned_labels': {'correct', 'blah'}, 'correct': True}
-    ]
+    assert metric.response_cache == [{
+        'original_model_output': 'Correct but then some more text',
+        'cleaned_model_output': 'correct but then some more text',
+        'original_labels': ['Correct'],
+        'cleaned_labels': {'correct'},
+        'correct': True
+    }, {
+        'original_model_output': 'Incorrect',
+        'cleaned_model_output': 'incorrect',
+        'original_labels': ['blah', 'blah2'],
+        'cleaned_labels': {'blah2', 'blah'},
+        'correct': False
+    }, {
+        'original_model_output': ' the CORREct with weird casing and spacing',
+        'cleaned_model_output': 'correct with weird casing and spacing',
+        'original_labels': ['blah', 'correct'],
+        'cleaned_labels': {'correct', 'blah'},
+        'correct': True
+    }]
     columns, rows = metric.format_response_cache(None)
-    assert rows == [['Correct but then some more text', 'correct but then some more text', ['Correct'], {'correct'}, True], ['Incorrect', 'incorrect', ['blah', 'blah2'], {'blah2', 'blah'}, False], [' the CORREct with weird casing and spacing', 'correct with weird casing and spacing', ['blah', 'correct'], {'blah', 'correct'}, True]]
+    assert rows == [[
+        'Correct but then some more text', 'correct but then some more text', ['Correct'], {'correct'}, True
+    ], ['Incorrect', 'incorrect', ['blah', 'blah2'], {'blah2', 'blah'}, False],
+                    [
+                        ' the CORREct with weird casing and spacing', 'correct with weird casing and spacing',
+                        ['blah', 'correct'], {'blah', 'correct'}, True
+                    ]]
     assert columns == ['original_model_output', 'cleaned_model_output', 'original_labels', 'cleaned_labels', 'correct']
 
 
@@ -299,11 +321,30 @@ def test_in_context_learning_code_eval_accuracy(monkeypatch):
     metric.update(batch, outputs, labels)
 
     assert metric.compute() == (2 / 3)
-    assert metric.response_cache[0] == {'code_completions': ['def fib(n):\n    return 1 if n <= 1 else fib(n - 1) + fib(n - 1)', 'def fib(n):\n   if n <= 1:\n        return 1\n    return fib(n-1) + fib(n-2)'], 'passing': [False, False], 'correct': False}
+    assert isinstance(metric.response_cache, list)
+    assert len(metric.response_cache) > 0
+    assert isinstance(metric.response_cache[0], dict)
+    responses: List[dict] = metric.response_cache
+    assert len(responses) > 0
+    assert responses[0] == {
+        'code_completions': [
+            'def fib(n):\n    return 1 if n <= 1 else fib(n - 1) + fib(n - 1)',
+            'def fib(n):\n   if n <= 1:\n        return 1\n    return fib(n-1) + fib(n-2)'
+        ],
+        'passing': [False, False],
+        'correct': False
+    }
 
     columns, rows = metric.format_response_cache(None)
-    assert rows == [[['def fib(n):\n    return 1 if n <= 1 else fib(n - 1) + fib(n - 1)', 'def fib(n):\n   if n <= 1:\n        return 1\n    return fib(n-1) + fib(n-2)'], [False, False], False], [['def multiply_by_two(n):\n    return n * 2', 'def multiply_by_two(n):\n    return 2*n'], [True, True], True], [['def add_one(n):\n    return n + 2', 'def add_one(n):\n    return n + 1'], [False, True], True]]
+    assert rows == [[[
+        'def fib(n):\n    return 1 if n <= 1 else fib(n - 1) + fib(n - 1)',
+        'def fib(n):\n   if n <= 1:\n        return 1\n    return fib(n-1) + fib(n-2)'
+    ], [False, False], False],
+                    [['def multiply_by_two(n):\n    return n * 2', 'def multiply_by_two(n):\n    return 2*n'],
+                     [True, True], True],
+                    [['def add_one(n):\n    return n + 2', 'def add_one(n):\n    return n + 1'], [False, True], True]]
     assert columns == ['code_completions', 'passing', 'correct']
+
 
 def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):
     contexts = [
@@ -349,13 +390,27 @@ def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):
 
     metric.update(batch, logits, batch['labels'])
     assert metric.compute() == 0.5
-    assert tiny_gpt2_tokenizer.decode(metric.response_cache[-1]['question_tok'].tolist()) == 'Q: How old is the earth?'
-    assert tiny_gpt2_tokenizer.decode(metric.response_cache[-1]['selected_choice'].tolist()) == ' A: 2 minutes'
-    assert tiny_gpt2_tokenizer.decode(metric.response_cache[-1]['correct_choice'].tolist()) == ' A: 4.5 billion years'
+
+    assert isinstance(metric.response_cache, list)
+    assert len(metric.response_cache) > 0
+    assert isinstance(metric.response_cache[-1], dict)
+    last_row: dict = metric.response_cache[-1]  # pyright: ignore [reportGeneralTypeIssues]
+    assert 'question_tok' in last_row
+    assert isinstance(last_row['question_tok'], torch.Tensor)
+    assert 'selected_choice' in last_row
+    assert isinstance(last_row['selected_choice'], torch.Tensor)
+    assert 'correct_choice' in last_row
+    assert isinstance(last_row['correct_choice'], torch.Tensor)
+
+    assert tiny_gpt2_tokenizer.decode(last_row['question_tok'].tolist()) == 'Q: How old is the earth?'
+    assert tiny_gpt2_tokenizer.decode(last_row['selected_choice'].tolist()) == ' A: 2 minutes'
+    assert tiny_gpt2_tokenizer.decode(last_row['correct_choice'].tolist()) == ' A: 4.5 billion years'
 
     columns, rows = metric.format_response_cache(tiny_gpt2_tokenizer)
-    assert rows == [['Q: How do you cook a cake?', ' A: turn on the oven', ' A: turn on the oven', True], ['Q: How old is the earth?', ' A: 4.5 billion years', ' A: 2 minutes', False]]
+    assert rows == [['Q: How do you cook a cake?', ' A: turn on the oven', ' A: turn on the oven', True],
+                    ['Q: How old is the earth?', ' A: 4.5 billion years', ' A: 2 minutes', False]]
     assert columns == ['question_tok', 'correct_choice', 'selected_choice', 'correct']
+
 
 def test_in_context_learning_mc_ece(tiny_gpt2_tokenizer):
     contexts = [
