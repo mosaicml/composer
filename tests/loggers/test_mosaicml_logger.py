@@ -189,7 +189,7 @@ def test_auto_add_logger(monkeypatch, platform_env_var, access_token_env_var, lo
     if logger_set:
         assert logger_count == 1
     # Otherwise, auto-add only if platform and access token are set
-    elif platform_env_var and access_token_env_var is not None:
+    elif platform_env_var.lower() == 'true' and access_token_env_var is not None:
         assert logger_count == 1
     # Otherwise, no logger
     else:
