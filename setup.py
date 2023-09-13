@@ -101,7 +101,7 @@ extra_deps['dev'] = [
     'junitparser==3.1.0',
     'coverage[toml]==7.3.0',
     'fasteners==0.18',  # object store tests require fasteners
-    'pytest==7.4.0',
+    'pytest==7.4.2',
     'toml==0.10.2',
     'ipython==8.11.0',
     'ipykernel==6.25.1',
@@ -129,7 +129,7 @@ extra_deps['dev'] = [
     'nbsphinx==0.9.1',
     'pandoc==2.3',
     'pypandoc==1.11',
-    'GitPython==3.1.34',
+    'GitPython==3.1.35',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
     'cryptography==41.0.3',
@@ -223,7 +223,7 @@ extra_deps['onnx'] = [
 ]
 
 extra_deps['mlflow'] = [
-    'mlflow>=2.0.1,<3.0',
+    'mlflow>=2.5.0,<3.0',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
