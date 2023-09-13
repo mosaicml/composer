@@ -10,7 +10,6 @@ import numpy as np
 
 import mcli
 
-from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR
 from composer.utils.eval_client.eval_client import EvalClient
 
 __all__ = ['MosaicMLLambdaEvalClient']
@@ -25,6 +24,8 @@ class MosaicMLLambdaEvalClient(EvalClient):
 
         `MOSAICML_ACCESS_TOKEN_ENV_VAR` environment variable must be set to access the platform.
         """
+        from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR  # in-line import to avoid circular import
+
         if MOSAICML_ACCESS_TOKEN_ENV_VAR in os.environ:
             raise RuntimeError('Cannot use MosaicML Lambda Client Eval without setting MOSAICML_ACCESS_TOKEN_ENV_VAR.')
         log.debug('Running code eval through MosaicMLLambdaEvalClient.')
