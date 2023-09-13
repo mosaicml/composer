@@ -8,11 +8,11 @@ from __future__ import annotations
 import os
 import pathlib
 import textwrap
+import time
 from typing import Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 import torch
-import time
 
 from composer.core.state import State
 from composer.loggers.logger import Logger
@@ -165,7 +165,9 @@ class MLFlowLogger(LoggerDestination):
                 images = [images]
             for im_ind, image in enumerate(images):
                 image = _convert_to_mlflow_image(image, channels_last)
-                self._mlflow_client.log_image(image=image, artifact_file=f'{name}_{step}_{im_ind}.png', run_id=self._run_id)
+                self._mlflow_client.log_image(image=image,
+                                              artifact_file=f'{name}_{step}_{im_ind}.png',
+                                              run_id=self._run_id)
 
     def post_close(self):
         if self._enabled:
@@ -208,7 +210,7 @@ def _convert_to_mlflow_image(image: Union[np.ndarray, torch.Tensor], channels_la
                             -dimensional images because you either specified a
                             {image.ndim + 1}D image or a list of {image.ndim}D images.
                             Please specify either a 4D image of a list of 3D images'''))
-    
+
     assert isinstance(image, np.ndarray)
     if not channels_last:
         image = image.transpose(1, 2, 0)

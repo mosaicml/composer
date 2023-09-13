@@ -2,8 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import csv
-import os
 import json
+import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -296,6 +296,7 @@ def test_mlflow_logging_works(tmp_path, device):
     expected_params_list = ['num_cpus_per_node', 'node_name', 'num_nodes', 'rank_zero_seed']
     assert set(expected_params_list) == set(actual_params_list)
 
+
 @device('cpu')
 def test_mlflow_log_image_works(tmp_path, device):
 
@@ -325,7 +326,7 @@ def test_mlflow_log_image_works(tmp_path, device):
                       eval_interval=eval_interval,
                       callbacks=ImageLogger(),
                       device=device)
-    
+
     trainer.fit()
     test_mlflow_logger._flush()
 
@@ -335,8 +336,6 @@ def test_mlflow_log_image_works(tmp_path, device):
     )
     run_id = run.info.run_id
     experiment_id = run.info.experiment_id
-
-
 
     run_file_path = mlflow_uri / Path(experiment_id) / Path(run_id)
     im_dir = run_file_path / Path('artifacts')
