@@ -4,11 +4,11 @@
 """MCLI compatible eval client."""
 import logging
 import os
-from typing import Dict, List
 import time
-import numpy as np
+from typing import Dict, List
 
 import mcli
+import numpy as np
 
 from composer.utils.eval_client.eval_client import EvalClient
 
@@ -24,7 +24,8 @@ class MosaicMLLambdaEvalClient(EvalClient):
 
         `MOSAICML_ACCESS_TOKEN_ENV_VAR` environment variable must be set to access the platform.
         """
-        from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR  # in-line import to avoid circular import
+        from composer.loggers.mosaicml_logger import \
+            MOSAICML_ACCESS_TOKEN_ENV_VAR  # in-line import to avoid circular import
 
         if MOSAICML_ACCESS_TOKEN_ENV_VAR in os.environ:
             raise RuntimeError('Cannot use MosaicML Lambda Client Eval without setting MOSAICML_ACCESS_TOKEN_ENV_VAR.')
@@ -36,8 +37,11 @@ class MosaicMLLambdaEvalClient(EvalClient):
         """Invoke a batch of provided payloads for code evaluations."""
         num_beams = len(payload[0])
         num_tests = [len(generation_payload[0]) for generation_payload in payload]
-        cum_tests = (np.cumsum([0] + num_tests[:-1])*num_beams).tolist()
-        test_cases = [test_case for generation_payload in payload for beam_payload in generation_payload for test_case in beam_payload]
+        cum_tests = (np.cumsum([0] + num_tests[:-1]) * num_beams).tolist()
+        test_cases = [
+            test_case for generation_payload in payload for beam_payload in generation_payload
+            for test_case in beam_payload
+        ]
         ret_helper = [False] * len(test_cases)
         for i in range(self.num_retries):
             try:
@@ -48,18 +52,21 @@ class MosaicMLLambdaEvalClient(EvalClient):
                     if i == self.num_retries - 1:
                         log.error(f'Failed to get code eval output after {self.num_retries} retries. Error: {e}')
                     log.warning(f'Failed to get code eval output, retrying in {self.backoff**i} seconds.')
-                    time.sleep(self.backoff**i) 
+                    time.sleep(self.backoff**i)
                 else:
                     log.error(f'Failed to get code eval output with unexpected MAPIException. Error: {e}')
-                    break                   
+                    break
             except TimeoutError as e:
                 if i == self.num_retries - 1:
                     log.error(f'Failed to get code eval output after {self.num_retries} retries. Error: {e}')
                 log.warning(f'Failed to get code eval output, retrying in {self.backoff**i} seconds.')
-                time.sleep(self.backoff**i) 
+                time.sleep(self.backoff**i)
             except Exception as e:
                 log.error(f'Failed to get code eval output with unexpected error. Error: {e}')
                 break
 
-        ret = [[[ret_helper[cum_tests[i] + j * num_tests[i] + k] for k in range(num_tests[i])] for j in range(num_beams)] for i in range(len(payload))]
+        ret = [[[ret_helper[cum_tests[i] + j * num_tests[i] + k]
+                 for k in range(num_tests[i])]
+                for j in range(num_beams)]
+               for i in range(len(payload))]
         return ret
