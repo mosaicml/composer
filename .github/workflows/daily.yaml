@@ -1,5 +1,10 @@
 name: Daily
 on:
+  pull_request:
+    branches:
+      - dev
+      - main
+      - release/**
   schedule:
     - cron: '30 2 * * *' # 2:30 every day
   push:
