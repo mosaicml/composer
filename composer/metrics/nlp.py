@@ -8,6 +8,7 @@ import os
 import re
 import string
 import warnings
+import numpy as np
 from typing import Any, Dict, List, Mapping, Union
 
 import torch
@@ -542,6 +543,14 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
                 'CODE_EVAL_DEVICE to LOCAL or LAMBDA.')
         return client
 
+    def estimator(self, n: int, c: int, k: int) -> float:
+        """
+        Calculates 1 - comb(n - c, k) / comb(n, k).
+        """
+        if n - c < k:
+            return 1.0
+        return 1.0 - np.prod(1.0 - k / np.arange(n - c + 1, n + 1))
+
     def update(self, batch: Dict[str, Any], outputs: List[str], labels: List[str]):
         """Updates the pass@k accuracy of code generation.
 
@@ -569,8 +578,9 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         del labels  # never used
         client = self.get_client()
 
-        num_beams = batch['generation_kwargs']['num_beams']
-        processed_outputs = [outputs[i * num_beams:(i + 1) * num_beams] for i in range(len(batch['prompts']))]
+        pass_at_k = batch['pass_at_k']
+        num_generations = batch['generation_kwargs']['num_return_sequences']
+        processed_outputs = [outputs[i * num_generations:(i + 1) * num_generations] for i in range(len(batch['prompts']))]
         payloads = []
         for sample_outputs, sample_prompt, test_inputs, test_outputs, entry_point, language in zip(
                 processed_outputs, batch['prompts'], batch['test_inputs'], batch['test_outputs'], batch['entry_points'],
@@ -595,9 +605,16 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
             payloads.append(prompt_payload)
 
         results = client.invoke(payloads)
-        passes = sum(
-            [any(all(generation_payload) for generation_payload in prompt_payload) for prompt_payload in results])
-        self.correct += torch.tensor(float(passes))
+        for prompt in results :
+            num_correct = 0
+            for generation in prompt :
+                correct = all(generation)
+                if correct :
+                    num_correct += 1
+              
+            pass_at_k_rate = self.estimator(num_generations, num_correct, pass_at_k)
+            self.correct += pass_at_k_rate
+    
         client.close()  # pyright: ignore [reportOptionalMemberAccess]
 
     def compute(self):

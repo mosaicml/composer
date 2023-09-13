@@ -892,6 +892,7 @@ class InContextLearningCodeEvalDataset(Dataset):
         destination_path: str,
         code_prelimiter: str,
         fewshot_random_seed: int,
+        pass_at_k : int,
         generations_per_sample: int,
         top_p: Optional[float] = 0.95,
         top_k: Optional[int] = 40,
@@ -918,6 +919,7 @@ class InContextLearningCodeEvalDataset(Dataset):
                     'test_outputs': examples['test_outputs'],
                     'language': examples['language'],
                 }))
+        self.pass_at_k = pass_at_k
         self.generations_per_sample = generations_per_sample
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
@@ -1040,10 +1042,11 @@ class InContextLearningCodeEvalDataset(Dataset):
             'test_inputs': test_inputs,  # list of test inputs
             'test_outputs': test_outputs,  # list of test outputs
             'languages': languages,  # list of languages
+            'pass_at_k' : self.pass_at_k,
             'generation_length': self.max_seq_len - self.max_prompt_length,
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
-                'num_beams': self.generations_per_sample,  # change strategy to beam search
+                'num_beams': 1,  # single beam
                 'num_return_sequences': self.generations_per_sample,  # how many gens per prompt
                 'do_sample': True,
                 'top_p': self.top_p,
@@ -1062,7 +1065,7 @@ class InContextLearningCodeEvalDataset(Dataset):
         # Don't split kwargs that don't change
         # Normally split torch tensors
         # List split lists of strings
-        no_split = ['mode', 'generation_length', 'generation_kwargs']
+        no_split = ['mode', 'generation_length', 'pass_at_k', 'generation_kwargs']
         normal_split = ['input_ids', 'attention_mask']
         list_split = [
             'labels', 'tests', 'canonical_solutions', 'entry_points', 'test_inputs', 'test_outputs', 'prompts',
@@ -1101,6 +1104,7 @@ def build_icl_dataloader(
     destination_path: str,
     question_prelimiter: str = '',  # e.g. 'Question: '
     fewshot_random_seed: int = 1234,
+    pass_at_k : int = 1,
     generations_per_sample: int = 1,
 ) -> DataSpec:
     if icl_task_type == 'multiple_choice':
@@ -1165,6 +1169,7 @@ def build_icl_dataloader(
                                                    destination_path=destination_path,
                                                    code_prelimiter=question_prelimiter,
                                                    fewshot_random_seed=fewshot_random_seed,
+                                                   pass_at_k=pass_at_k,
                                                    generations_per_sample=generations_per_sample)
         effective_batchsize = batch_size
     else:
@@ -1248,6 +1253,7 @@ def get_icl_task_dataloader(
         destination_path: str = '',
         question_prelimiter: str = '',  # e.g. 'Question: '
         fewshot_random_seed: int = 1234,
+        pass_at_k: int = 1,
         generations_per_sample: int = 1,
         has_categories: bool = False) -> Union[DataSpec, Dict[str, DataSpec]]:
     """This constructs a dataloader (or dataloaders if has_categories is True) capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
@@ -1316,6 +1322,7 @@ def get_icl_task_dataloader(
                 partition_uri + '_tmp',
                 question_prelimiter,
                 fewshot_random_seed,
+                pass_at_k,
                 generations_per_sample,
             )
         return result_dls
@@ -1334,5 +1341,6 @@ def get_icl_task_dataloader(
             destination_path,
             question_prelimiter,
             fewshot_random_seed,
+            pass_at_k,
             generations_per_sample,
         )
