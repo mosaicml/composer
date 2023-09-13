@@ -199,7 +199,7 @@ def test_in_context_learning_lm_accuracy(tiny_gpt2_tokenizer):
     assert isinstance(metric.response_cache, list)
     responses: list = metric.response_cache
     assert len(responses) > 1 and isinstance(responses[1], dict)
-    row: dict = responses[1] # pyright: ignore [reportGeneralTypeIssues]
+    row: dict = responses[1]  # pyright: ignore [reportGeneralTypeIssues]
     assert tiny_gpt2_tokenizer.decode(row['context_tok'].tolist()) == 'I love to eat'
 
     assert tiny_gpt2_tokenizer.decode(row['continuation_tok_pred'].tolist()) == '[PAD]'

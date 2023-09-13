@@ -209,6 +209,7 @@ class InContextLearningMetric(Metric):
         if self.cache_responses and len(self.response_cache) > 0:
             rows = []
             for row in self.response_cache:
+                assert isinstance(row, dict)
                 columns = list(row.keys())
                 row = [tokenizer.decode(r_i.tolist()) if isinstance(r_i, torch.Tensor) else r_i for r_i in row.values()]
                 rows.append(row)
@@ -418,7 +419,7 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
                     gold_idx][0]:batch['continuation_indices'][start:end][gold_idx][-1] + 1]
                 selected_choice = batch['input_ids'][start:end][idx_min][batch['continuation_indices'][start:end][
                     idx_min][0]:batch['continuation_indices'][start:end][idx_min][-1] + 1]
-                
+
                 assert isinstance(self.response_cache, list)
                 self.response_cache.append({
                     'question_tok': question,
