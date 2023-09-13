@@ -92,6 +92,8 @@ jobs:
       code-eval-device: ${{ secrets.CODE_EVAL_DEVICE }}
       code-eval-url: ${{ secrets.CODE_EVAL_URL }}
       code-eval-apikey: ${{ secrets.CODE_EVAL_APIKEY }}
+      gcs-key: ${{ secrets.GCS_KEY }}
+      gcs-secret: ${{ secrets.GCS_SECRET }}
   coverage:
     uses: ./.github/workflows/coverage.yaml
     name: Coverage Results
