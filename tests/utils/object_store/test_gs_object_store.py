@@ -22,6 +22,7 @@ def get_gcs_os_from_trainer(trainer: Trainer) -> GCSObjectStore:
     return gcs_os
 
 
+@pytest.mark.gpu  # json auth is hard to set up on github actions / CPU tests
 @pytest.mark.remote
 def test_gs_object_store_integration_json_auth(expected_use_gcs_sdk_val=True, client_should_be_none=False):
     model = SimpleModel()
