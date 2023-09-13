@@ -5,6 +5,12 @@
 # Required
 version: 2
 
+# Specify build system and tool dependencies
+build:
+   os: "ubuntu-20.04"
+   tools:
+      python: "3.8"
+
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
    builder: html
@@ -12,7 +18,6 @@ sphinx:
 
 # Optionally set the version of Python and requirements required to build your docs
 python:
-   version: "3.8"
    install:
       - method: pip
         path: .[all]

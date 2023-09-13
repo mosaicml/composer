@@ -7,12 +7,15 @@ import pathlib
 import textwrap
 import uuid
 from functools import partial
+from typing import Any, Dict
 
 import numpy as np
 import pytest
 import torch
 from packaging import version
 from torch.utils.data import DataLoader
+from torchmetrics import MetricCollection
+from torchmetrics.classification import MulticlassAccuracy
 
 from composer.algorithms import EMA
 from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_context
@@ -34,14 +37,19 @@ from tests.common.markers import world_size
 # were saved using it exactly as it is. Changing this model will break test_fsdp_load_old_checkpoint.
 class SimpleMLP(ComposerClassifier):
 
-    def __init__(self, num_features: int = 32, num_classes: int = 8):
+    def __init__(self, num_features: int = 32, num_classes: int = 8, train_metrics=None, val_metrics=None):
         net = torch.nn.Sequential(
             torch.nn.Linear(num_features, num_features, bias=True),
             torch.nn.ReLU(),
             torch.nn.Linear(num_features, num_classes, bias=False),
         )
+
+        for module in net:
+            if isinstance(module, torch.nn.Linear):
+                module._fsdp_wrap = True
+
         net.param_init_fn = self.param_init_fn
-        super().__init__(module=net, num_classes=num_classes)
+        super().__init__(module=net, num_classes=num_classes, train_metrics=train_metrics, val_metrics=val_metrics)
 
     def param_init_fn(self, module):
         init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
@@ -52,31 +60,35 @@ class SimpleMLP(ComposerClassifier):
                 torch.nn.init.zeros_(module.bias)
 
 
-def get_trainer(
-    model_init_device='cpu',
-    save_folder=None,
-    save_filename='ba{batch}-rank{rank}.pt',
-    save_overwrite=False,
-    num_features=2,
-    num_classes=2,
-    fsdp_state_dict_type='full',
-    fsdp_sharded_ckpt_prefix_dir='ba{batch}',
-    load_path=None,
-    autoresume=False,
-    run_name=None,
-    max_duration='2ba',
-    precision='amp_fp16',
-    sharding_strategy='FULL_SHARD',
-    save_interval='2ba',
-    save_weights_only=False,
-    load_weights_only=False,
-    algorithms=None,
-    optimizer='adam',
-    load_fsdp_monolith_rank0_only=False,
-    save_num_checkpoints_to_keep=-1,
-    sync_module_states=True,
-):
-    model = SimpleMLP(num_features=num_features, num_classes=num_classes)
+def get_trainer(model_init_device='cpu',
+                save_folder=None,
+                save_filename='ba{batch}-rank{rank}.pt',
+                save_overwrite=False,
+                num_features=2,
+                num_classes=2,
+                fsdp_state_dict_type='full',
+                fsdp_sharded_ckpt_prefix_dir='ba{batch}',
+                load_path=None,
+                autoresume=False,
+                run_name=None,
+                max_duration='2ba',
+                precision='amp_fp16',
+                sharding_strategy='FULL_SHARD',
+                save_interval='2ba',
+                save_weights_only=False,
+                load_weights_only=False,
+                load_ignore_keys=None,
+                algorithms=None,
+                optimizer='adam',
+                load_fsdp_monolith_rank0_only=False,
+                save_num_checkpoints_to_keep=-1,
+                sync_module_states=True,
+                train_metrics=None,
+                val_metrics=None):
+    model = SimpleMLP(num_features=num_features,
+                      num_classes=num_classes,
+                      train_metrics=train_metrics,
+                      val_metrics=val_metrics)
     model.to(model_init_device)
     dataset = RandomClassificationDataset(shape=(num_features,), size=128)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset), batch_size=8)
@@ -92,7 +104,6 @@ def get_trainer(
         optimizers=optim,
         train_dataloader=dataloader,
         fsdp_config={
-            'min_params': 16,
             'state_dict_type': fsdp_state_dict_type,
             'sharding_strategy': sharding_strategy,
             'sharded_ckpt_prefix_dir': fsdp_sharded_ckpt_prefix_dir,
@@ -115,6 +126,7 @@ def get_trainer(
         save_weights_only=save_weights_only,
         load_weights_only=load_weights_only,
         save_num_checkpoints_to_keep=save_num_checkpoints_to_keep,
+        load_ignore_keys=load_ignore_keys,
     )
     return trainer
 
@@ -199,18 +211,25 @@ def _compare_rng_states_between_trainers(rng_state1, rng_state2):
             torch.equal(cuda_state1, cuda_state2), f'Cuda rng state not the same between state_dicts for rank {rank}'
 
 
-def _compare_metrics_between_state_dicts(state_dict1, state_dict2):
+def _compare_metrics_between_state_dicts(state_dict1: Dict[str, Any], state_dict2: Dict[str, Any]):
     # Check that metric states are equal between in memory mode and checkpoint
-    state_dict1_train_metrics = state_dict1['train_metrics']
-    state_dict2_train_metrics = state_dict2['train_metrics']
+    state_dict1_train_metrics = state_dict1.get('train_metrics', None)
+    state_dict2_train_metrics = state_dict2.get('train_metrics', None)
 
-    state_dict1_eval_metrics = state_dict1['eval_metrics']
-    state_dict2_eval_metrics = state_dict2['eval_metrics']
-    for metric1, metric2 in zip(state_dict1_train_metrics.values(), state_dict2_train_metrics.values()):
-        assert metric1['_computed'] == metric2['_computed']
+    state_dict1_eval_metrics = state_dict1.get('eval_metrics', None)
+    state_dict2_eval_metrics = state_dict2.get('eval_metrics', None)
 
-    for metric1, metric2 in zip(state_dict1_eval_metrics.values(), state_dict2_eval_metrics.values()):
-        assert metric1['_computed'] == metric2['_computed']
+    if state_dict1_train_metrics is not None and state_dict2_train_metrics is not None:
+        for metric1, metric2 in zip(state_dict1_train_metrics.values(), state_dict2_train_metrics.values()):
+            assert metric1['_computed'] == metric2['_computed']
+    else:
+        assert state_dict1_train_metrics == state_dict2_train_metrics
+
+    if state_dict1_eval_metrics is not None and state_dict2_eval_metrics is not None:
+        for metric1, metric2 in zip(state_dict1_eval_metrics.values(), state_dict2_eval_metrics.values()):
+            assert metric1['_computed'] == metric2['_computed']
+    else:
+        assert state_dict1_eval_metrics == state_dict2_eval_metrics
 
 
 def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
@@ -311,22 +330,51 @@ def test_fsdp_mixed_with_sync(world_size, tmp_path: pathlib.Path, sync_module_st
     pytest.param('0.14.1',
                  marks=pytest.mark.filterwarnings(
                      r'ignore:MosaicMLLogger is not in the state_dict. Its state will not be restored.:UserWarning')),
+    pytest.param('0.15.1',
+                 marks=pytest.mark.filterwarnings(
+                     r'ignore:MosaicMLLogger is not in the state_dict. Its state will not be restored.:UserWarning'))
 ])
+@pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision: str, sharding_strategy: str,
                                   state_dict_type: str, s3_bucket: str, s3_read_only_prefix: str,
                                   composer_version: str):
+
+    if version.parse(torch.__version__) >= version.parse('1.13.0') and composer_version not in [
+            '0.13.5', '0.14.0', '0.14.1'
+    ]:
+        pytest.skip(
+            'Composer 0.15.1 and above checkpoints were saved with torch 2 and as a result are not compatible with torch 1.13.'
+        )
     if version.parse(torch.__version__) >= version.parse('2.0.0') and state_dict_type == 'local':
         pytest.xfail(
             'Loading a torch 1.13 checkpoint with torch 2.0 for state_dict_type local is not backwards compatible. See https://github.com/pytorch/pytorch/issues/102667 for more info'
         )
 
-    rank = 0 if state_dict_type == 'full' else '{rank}'
-    load_path = f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_{precision}/ba2_rank{rank}.pt'
+    if composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']:
+        rank = 0 if state_dict_type == 'full' else '{rank}'
+        load_path_dir = f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_{precision}/'
+        load_path_dir = (load_path_dir + 'ep0-ba2/') if ((version.parse(composer_version) > version.parse('0.15.0')) and
+                                                         state_dict_type != 'full') else load_path_dir
+        load_path = load_path_dir + f'ba2_rank{rank}.pt'
+        assert is_checkpoint_legacy_sharded(object_store=S3ObjectStore(bucket=f'{s3_bucket}'),
+                                            source_path=load_path.lstrip(f's3://{s3_bucket}/'))
+    else:
+        load_path = f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_{precision}/'
 
-    assert is_checkpoint_legacy_sharded(object_store=S3ObjectStore(bucket=f'{s3_bucket}'),
-                                        source_path=load_path.lstrip(f's3://{s3_bucket}/'))
+    if composer_version == '0.15.1':
+        num_classes = 8  # This parameter setting is very important. Don't change or the test will fail.
+        train_metrics = MetricCollection([
+            MulticlassAccuracy(num_classes=num_classes),
+        ])
+        val_metrics = MetricCollection([
+            MulticlassAccuracy(num_classes=num_classes),
+        ])
+    else:
+        train_metrics = None
+        val_metrics = None
+
     trainer = get_trainer(
         fsdp_state_dict_type=state_dict_type,
         num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
@@ -335,7 +383,8 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
         load_path=load_path,
         precision=precision,
         max_duration='4ba',
-    )
+        train_metrics=train_metrics,
+        val_metrics=val_metrics)
     state_dict2 = trainer.state.state_dict()
 
     if (dist.get_global_rank() == 0 and state_dict_type == 'full') or state_dict_type in ['sharded', 'local']:
@@ -409,6 +458,7 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool,
                                           precision: str, optimizer: str, weights_only: bool, use_remote, s3_bucket,
                                           s3_ephemeral_prefix, request):
@@ -445,7 +495,6 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
                            save_weights_only=weights_only,
                            fsdp_sharded_ckpt_prefix_dir='ba{batch}')
     run_name = trainer1.state.run_name
-    print(run_name)
     trainer1.fit()
     rng1 = get_rng_state()
     state_dict_from_trainer1_ba2 = trainer1.state.state_dict()
@@ -506,6 +555,7 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.1'), reason='requires PyTorch 2.01 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:MosaicMLLogger is not in the state_dict.:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool, precision: str,
                             sharding_strategy, s3_bucket, s3_read_only_prefix, num_shards: int):
     if state_dict_type == 'local' and using_torch_2():
@@ -575,7 +625,8 @@ def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type:
         state_dict_from_trainer2 = get_mono_state_dict_from_sharded_one(sharded_trainer)
         _compare_model_params_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
         _compare_optims_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
-        _compare_metrics_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
+        # Metrics are NOT equal as sharded checkpoints do not save or load metrics
+        # _compare_metrics_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
         _compare_timestamps_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
 
     # Compare state dicts.
@@ -640,6 +691,7 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 def test_cleanup_sharded_checkpoints(world_size, tmp_path: pathlib.Path, state_dict_type: str, num_ckpts_to_keep: int,
                                      batches_to_train: int, s3_bucket, s3_ephemeral_prefix, request):
     if state_dict_type == 'local' and using_torch_2():
