@@ -15,7 +15,7 @@ from torch import Tensor
 from torch.nn import functional as F
 from torchmetrics import Metric
 
-from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient, MCLIEvalClient
+from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient, MosaicMLLambdaEvalClient
 
 log = logging.getLogger(__name__)
 
@@ -522,8 +522,8 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         self.eval_device = 'LAMBDA'
         if not 'CODE_EVAL_DEVICE' in os.environ:
             if 'MOSAICML_PLATFORM' in os.environ:
-                log.info('Defaulting to MCLI evaluation on the MosaicML Platform')
-                self.eval_device = 'MCLI'
+                log.info('Defaulting to MOSAICML evaluation on the MosaicML Platform')
+                self.eval_device = 'MOSAICML'
             else:
                 log.info(f"'CODE_EVAL_DEVICE' env var was not set, so defaulting to 'LAMBDA' as eval device")
                 os.environ['CODE_EVAL_DEVICE'] = 'LAMBDA'
@@ -542,11 +542,11 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
             client = LocalEvalClient()
         elif self.eval_device == 'LAMBDA':
             client = LambdaEvalClient()
-        elif self.eval_device == 'MCLI':
-            client = MCLIEvalClient()
+        elif self.eval_device == 'MOSAICML':
+            client = MosaicMLLambdaEvalClient()
         else:
             raise Exception(
-                'Remote platforms apart from Lambdas/MCLI are not yet supported. Please set environment variable '
+                'Remote platforms apart from Lambdas/MOSAICML are not yet supported. Please set environment variable '
                 'CODE_EVAL_DEVICE to LOCAL or LAMBDA, or run on the MosaicML Platform.')
         return client
 

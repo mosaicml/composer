@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 import pytest
 
-from composer.utils import MCLIEvalClient
+from composer.utils import MosaicMLLambdaEvalClient
 
 
 @pytest.mark.remote
@@ -28,9 +28,9 @@ from composer.utils import MCLIEvalClient
     ],
 )
 def test_mcli_invoke(code, result, language):
-    """Test invocation function for MCLIEvalClient with code that succeeds, fails compilation, times out, and is incorrect in C, C++, Python, JS.
+    """Test invocation function for MosaicMLLambdaEvalClient with code that succeeds, fails compilation, times out, and is incorrect in C, C++, Python, JS.
     """
-    eval_client = MCLIEvalClient()
+    eval_client = MosaicMLLambdaEvalClient()
     input = '(1,)' if language == 'python' else '1'
     assert eval_client.invoke([[[{
         'code': code,
