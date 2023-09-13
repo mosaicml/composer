@@ -205,6 +205,7 @@ class InContextLearningMetric(Metric):
 
     def format_response_cache(self, tokenizer):
         columns, rows = None, None
+        assert isinstance(self.response_cache, list)
         if self.cache_responses and len(self.response_cache) > 0:
             rows = []
             for row in self.response_cache:
@@ -302,15 +303,15 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
             if any(cleaned_final_answer.startswith(label) for label in cleaned_sample_labels):
                 self.correct += torch.tensor(1.0)
                 correct = True
-            self.response_cache.append(
-                {
-                    "original_model_output": sample_output,
-                    "cleaned_model_output": cleaned_final_answer,
-                    "original_labels": sample_labels,
-                    "cleaned_labels": cleaned_sample_labels,
-                    "correct": correct
-                }
-            )
+
+            assert isinstance(self.response_cache, list)
+            self.response_cache.append({
+                'original_model_output': sample_output,
+                'cleaned_model_output': cleaned_final_answer,
+                'original_labels': sample_labels,
+                'cleaned_labels': cleaned_sample_labels,
+                'correct': correct
+            })
             self.total += torch.tensor(1.0)
 
     def compute(self):
@@ -359,6 +360,7 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
                 self.correct += torch.tensor(1.0)
                 correct = True
             if self.cache_responses:
+                assert isinstance(self.response_cache, list)
                 self.response_cache.append({
                     'context_tok': batch['input_ids'][batch_idx][:cont_idx[0]],
                     'continuation_tok_target': cont_tok_targ,
@@ -426,6 +428,8 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
                     gold_idx][0]:batch['continuation_indices'][start:end][gold_idx][-1] + 1]
                 selected_choice = batch['input_ids'][start:end][idx_min][batch['continuation_indices'][start:end][
                     idx_min][0]:batch['continuation_indices'][start:end][idx_min][-1] + 1]
+                
+                assert isinstance(self.response_cache, list)
                 self.response_cache.append({
                     'question_tok': question,
                     'correct_choice': correct_choice,
@@ -669,6 +673,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
                 passed = [all(tests) for tests in test_result]
 
                 code_completions = [c[0]['code'] for c in code_gen_payload]
+                assert isinstance(self.response_cache, list)
                 self.response_cache.append({
                     'code_completions': code_completions,
                     'passing': passed,
