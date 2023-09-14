@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Utilities for working with training checkpoints"""
+"""Utilities for working with training checkpoints."""
 
 from __future__ import annotations
 
