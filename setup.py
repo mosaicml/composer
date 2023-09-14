@@ -184,7 +184,7 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<4.33',
+    'transformers>=4.11,<4.34',
     'datasets>=2.4,<3',
 ]
 
