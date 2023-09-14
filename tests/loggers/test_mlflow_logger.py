@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import csv
+import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -16,7 +17,141 @@ from tests.common.markers import device
 from tests.common.models import SimpleConvModel
 
 
-def test_mlflow_experiment_set_up_correctly(tmp_path):
+def _get_latest_mlflow_run(experiment_name, tracking_uri=None):
+    from mlflow import MlflowClient
+
+    # NB: Convert tracking URI to string because MlflowClient doesn't support non-string
+    # (e.g. PosixPath) tracking URI representations
+    client = MlflowClient(str(tracking_uri))
+    experiment_id = (client.get_experiment_by_name(experiment_name).experiment_id)
+    first_run_or_empty = client.search_runs(
+        experiment_ids=[experiment_id],
+        max_results=1,
+        order_by=['start_time DESC'],
+    )
+    if first_run_or_empty:
+        return first_run_or_empty[0]
+    else:
+        raise ValueError(f'Experiment with name {experiment_name} is unexpectedly empty')
+
+
+def test_mlflow_experiment_init_unspecified(monkeypatch):
+    """ Test that MLFlow experiment is set up correctly when no parameters are specified
+
+    This mocks the mlflow library to check that the correct calls are made to set up the experiment
+    """
+    import mlflow
+    from mlflow import MlflowClient
+
+    mock_state = MagicMock()
+    mock_state.run_name = 'dummy-run-name'
+
+    unspecified = MLFlowLogger()
+    unspecified.init(state=mock_state, logger=MagicMock())
+
+    assert unspecified.run_name == 'dummy-run-name'
+    assert unspecified.experiment_name == 'my-mlflow-experiment'
+
+    tracking_uri = mlflow.get_tracking_uri()
+    assert MlflowClient(tracking_uri=tracking_uri).get_experiment_by_name('my-mlflow-experiment')
+    assert (_get_latest_mlflow_run(
+        experiment_name=unspecified.experiment_name,
+        tracking_uri=tracking_uri,
+    ).info.run_name == unspecified.run_name)
+
+
+def test_mlflow_experiment_init_specified():
+    """ Test that MLFlow experiment is set up correctly when all parameters are specified
+
+    This mocks the mlflow library to check that the correct calls are made to set up the experiment
+    """
+    from mlflow import MlflowClient
+
+    mock_state = MagicMock()
+    mock_state.run_name = 'dummy-run-name'  # Not used
+
+    mlflow_uri = 'my-test-mlflow-uri'
+    mlflow_exp_name = 'my-test-mlflow-exp'
+    mlflow_run_name = 'my-test-mlflow-run'
+
+    specified = MLFlowLogger(
+        experiment_name=mlflow_exp_name,
+        run_name=mlflow_run_name,
+        tracking_uri=mlflow_uri,
+        rank_zero_only=False,
+    )
+    specified.init(state=mock_state, logger=MagicMock())
+
+    exp_run_name = 'my-test-mlflow-run-rank0'
+
+    assert specified.run_name == exp_run_name
+    assert specified.experiment_name == mlflow_exp_name
+
+    mlflow_client = MlflowClient(tracking_uri=mlflow_uri)
+    assert mlflow_client.get_experiment_by_name(specified.experiment_name)
+    assert (_get_latest_mlflow_run(
+        experiment_name=mlflow_exp_name,
+        tracking_uri=mlflow_uri,
+    ).info.run_name == specified.run_name)
+
+
+def test_mlflow_experiment_init_ids(monkeypatch):
+    """ Test that MLFlow experiment is set up correctly when ids in the environment are specified
+
+    This mocks the mlflow library to check that the correct calls are made to set up the experiment
+    """
+    import mlflow
+
+    monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
+    monkeypatch.setattr(mlflow, 'set_experiment', MagicMock())
+    monkeypatch.setattr(mlflow, 'start_run', MagicMock())
+
+    mock_state = MagicMock()
+    mock_state.run_name = 'dummy-run-name'  # Not used
+
+    mlflow_exp_id = '123'
+    mlflow_run_id = '456'
+
+    monkeypatch.setenv(mlflow.environment_variables.MLFLOW_RUN_ID.name, mlflow_run_id)
+    monkeypatch.setenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, mlflow_exp_id)
+
+    id_logger = MLFlowLogger()
+    id_logger.init(state=mock_state, logger=MagicMock())
+
+    assert id_logger.run_name == 'dummy-run-name'  # Defaults are set, but we don't use them
+    assert id_logger.experiment_name == 'my-mlflow-experiment'
+    assert mlflow.set_tracking_uri.call_count == 0
+    assert mlflow.set_experiment.called_with(experiment_id=mlflow_exp_id)
+    assert mlflow.start_run.called_with(run_id=mlflow_run_id)
+
+
+def test_mlflow_experiment_init_experiment_name(monkeypatch):
+    """ Test that MLFlow experiment is set up correctly when experiment name is specified
+
+    This mocks the mlflow library to check that the correct calls are made to set up the experiment
+    """
+    import mlflow
+
+    monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
+    monkeypatch.setattr(mlflow, 'set_experiment', MagicMock())
+    monkeypatch.setattr(mlflow, 'start_run', MagicMock())
+
+    mock_state = MagicMock()
+    mock_state.run_name = 'dummy-run-name'
+
+    exp_name = 'foobar'
+    monkeypatch.setenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name, exp_name)
+
+    id_logger = MLFlowLogger()
+    id_logger.init(state=mock_state, logger=MagicMock())
+
+    assert id_logger.experiment_name == exp_name
+    assert mlflow.set_experiment.called_with(experiment_name=exp_name)
+
+
+def test_mlflow_experiment_set_up(tmp_path):
+    """ Test that MLFlow experiment is set up correctly within mlflow
+    """
     mlflow = pytest.importorskip('mlflow')
 
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
@@ -33,9 +168,12 @@ def test_mlflow_experiment_set_up_correctly(tmp_path):
 
     test_mlflow_logger.init(state=mock_state, logger=mock_logger)
 
-    run_info = mlflow.active_run().info
-    run_id = run_info.run_id
-    experiment_id = run_info.experiment_id
+    run = _get_latest_mlflow_run(
+        experiment_name=mlflow_exp_name,
+        tracking_uri=mlflow_uri,
+    )
+    run_id = run.info.run_id
+    experiment_id = run.info.experiment_id
 
     # Check uri set correctly.
     assert mlflow_uri.exists()
@@ -65,11 +203,53 @@ def test_mlflow_experiment_set_up_correctly(tmp_path):
     test_mlflow_logger.post_close()
 
 
+def test_mlflow_log_table(tmp_path):
+    mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
+    mlflow_exp_name = 'test-log-table-exp-name'
+    test_mlflow_logger = MLFlowLogger(
+        tracking_uri=mlflow_uri,
+        experiment_name=mlflow_exp_name,
+    )
+
+    mock_state = MagicMock()
+    mock_state.run_name = 'dummy-run-name'  # this run name should be unused.
+    mock_logger = MagicMock()
+
+    test_mlflow_logger.init(state=mock_state, logger=mock_logger)
+
+    run = _get_latest_mlflow_run(mlflow_exp_name, tracking_uri=mlflow_uri)
+    run_info = run.info
+    run_id = run_info.run_id
+    experiment_id = run_info.experiment_id
+    run_file_path = mlflow_uri / Path(experiment_id) / Path(run_id)
+
+    # Create log table to test.
+    columns = ['prompt', 'generation']
+    rows = [['p0', 'g0'], ['p1', 'g1']]
+    name = 'test_table'
+    test_mlflow_logger.log_table(columns=columns, rows=rows, name='test_table')
+
+    test_mlflow_logger.post_close()
+
+    table_file = run_file_path / Path('artifacts') / Path(f'{name}.json')
+
+    # Check that the table file exists.
+    assert table_file.exists()
+
+    # Check that table file contents match what was logged.
+    table = json.load(open(table_file))
+    assert table['columns'] == columns
+    assert table['data'] == rows
+
+
 @device('cpu')
 def test_mlflow_logging_works(tmp_path, device):
-    mlflow = pytest.importorskip('mlflow')
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
-    test_mlflow_logger = MLFlowLogger(tracking_uri=mlflow_uri)
+    experiment_name = 'mlflow_logging_test'
+    test_mlflow_logger = MLFlowLogger(
+        tracking_uri=mlflow_uri,
+        experiment_name=experiment_name,
+    )
 
     dataset_size = 64
     batch_size = 4
@@ -84,10 +264,14 @@ def test_mlflow_logging_works(tmp_path, device):
                       eval_interval=eval_interval,
                       device=device)
     trainer.fit()
+    test_mlflow_logger._flush()
 
-    run_info = mlflow.active_run().info
-    run_id = run_info.run_id
-    experiment_id = run_info.experiment_id
+    run = _get_latest_mlflow_run(
+        experiment_name=experiment_name,
+        tracking_uri=mlflow_uri,
+    )
+    run_id = run.info.run_id
+    experiment_id = run.info.experiment_id
 
     run_file_path = mlflow_uri / Path(experiment_id) / Path(run_id)
 
@@ -99,7 +283,7 @@ def test_mlflow_logging_works(tmp_path, device):
         metric_file = run_file_path / Path('metrics') / Path(metric_name)
         with open(metric_file) as f:
             csv_reader = csv.reader(f, delimiter=' ')
-            lines = [line for line in csv_reader]
+            lines = list(csv_reader)
 
         assert len(lines) == num_batches
 

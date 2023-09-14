@@ -24,6 +24,7 @@ from composer.algorithms import NoOpModel
 from composer.callbacks import CheckpointSaver
 from composer.core import Callback, Time, TimeUnit
 from composer.loggers import RemoteUploaderDownloader, remote_uploader_downloader
+from composer.metrics import MAP
 from composer.optim import ExponentialScheduler
 from composer.trainer import trainer
 from composer.trainer.trainer import Trainer
@@ -278,7 +279,7 @@ class TestCheckpointSaving:
             'overwrite': False,
             'weights_only': False,
             'save_interval': '1ep',
-            'num_checkpoints_to_keep': -1
+            'num_checkpoints_to_keep': -1,
         }
         expected_folder = expected_path.rstrip('/') if expected_path != '' else '.'
         mock_checkpoint_saver.assert_called_once_with(folder=expected_folder, **rest_of_checkpoint_saver_kwargs)
@@ -380,6 +381,38 @@ class TestCheckpointSaving:
         assert trainer._checkpoint_saver is not None
         assert len(trainer._checkpoint_saver.saved_checkpoints) == expected_num_checkpoints
 
+    @pytest.mark.parametrize('save_weights_only', [True, False])
+    def test_save_weights_only(self, tmp_path: pathlib.Path, save_weights_only: bool):
+        model = SimpleConvModel()
+        train_dataset = RandomImageDataset()
+        train_dataloader = DataLoader(
+            dataset=train_dataset,
+            batch_size=2,
+            sampler=dist.get_sampler(train_dataset),
+        )
+        save_filename = 'ba{batch}-test'
+        save_folder = str(tmp_path / 'checkpoints')
+        trainer = Trainer(model=model,
+                          train_dataloader=train_dataloader,
+                          max_duration='1ba',
+                          save_folder=save_folder,
+                          save_filename=save_filename,
+                          save_weights_only=save_weights_only,
+                          save_interval='1ba')
+        trainer.fit()
+        expected_metadata = trainer.state._get_state_metadata()
+        expected_integrations = trainer.state._get_integrations_state_dict()
+        trainer.close()
+        checkpoint_filepath = os.path.join(save_folder, save_filename.format(batch=1))
+        composer_state_dict = torch.load(checkpoint_filepath, map_location='cpu')
+
+        if save_weights_only:
+            assert set(composer_state_dict['state'].keys()) == {'model', 'metadata', 'integrations'}
+            assert composer_state_dict['state']['metadata'] == expected_metadata
+            assert composer_state_dict['state']['integrations'] == expected_integrations
+        else:
+            assert set(composer_state_dict['state'].keys()) != {'model', 'metadata', 'integrations'}
+
 
 class TestCheckpointLoading:
 
@@ -395,7 +428,13 @@ class TestCheckpointLoading:
         except AssertionError:
             return False
 
-    def get_trainer(self, model=None, max_duration='2ep', latest_filename='latest-rank{rank}.pt', **kwargs):
+    def get_trainer(
+        self,
+        model=None,
+        max_duration='2ep',
+        latest_filename='latest-rank{rank}.pt',
+        **kwargs,
+    ):
         if model is None:
             model = SimpleConvModel()
         optimizer = torch.optim.Adam(model.parameters())
@@ -455,8 +494,17 @@ class TestCheckpointLoading:
     @pytest.mark.parametrize('use_object_store', [True, False])
     @pytest.mark.parametrize('delete_local', [True, False])
     @pytest.mark.parametrize('test_slashed', [True, False])
-    def test_autoresume(self, device: str, tmp_path: pathlib.Path, use_object_store: bool, delete_local: bool,
-                        test_slashed: bool, world_size: int):
+    @pytest.mark.parametrize('save_metrics', [True, False])
+    def test_autoresume(
+        self,
+        device: str,
+        tmp_path: pathlib.Path,
+        use_object_store: bool,
+        delete_local: bool,
+        test_slashed: bool,
+        save_metrics: bool,
+        world_size: int,
+    ):
         if delete_local and not use_object_store:
             pytest.skip('Invalid test setting.')
 
@@ -473,6 +521,7 @@ class TestCheckpointLoading:
             run_name='big-chungus',
             autoresume=True,
             loggers=[self.get_logger(tmp_path)] if use_object_store else [],
+            save_metrics=save_metrics,
         )
 
         # trains the model, saving the checkpoint files
@@ -498,9 +547,10 @@ class TestCheckpointLoading:
             trainer_2.state.model,
         )
 
-        assert self._metrics_equal(
-            trainer_1.state.train_metrics, trainer_2.state.train_metrics, trainer_1.state.eval_metrics,
-            trainer_2.state.eval_metrics), 'Original metrics do not equal metrics from loaded checkpoint.'
+        if save_metrics:
+            assert self._metrics_equal(
+                trainer_1.state.train_metrics, trainer_2.state.train_metrics, trainer_1.state.eval_metrics,
+                trainer_2.state.eval_metrics), 'Original metrics do not equal metrics from loaded checkpoint.'
 
         assert trainer_1.state.run_name == trainer_2.state.run_name
 
@@ -530,6 +580,58 @@ class TestCheckpointLoading:
         monkeypatch.setattr(remote_uploader_downloader, '_validate_credentials', mock_validate_credentials)
         with pytest.raises(NotImplementedError):
             self.get_trainer(load_path=load_path)
+
+    def test_load_map(self, tmp_path: pathlib.Path):
+        map_metric = MAP()
+
+        targets = [
+            {
+                'boxes': torch.tensor([[258.15, 41.29, 606.41, 285.07]]),
+                'labels': torch.tensor([4]),
+            },  # coco image id 42
+            {
+                'boxes': torch.tensor([[61.00, 22.75, 565.00, 632.42], [12.66, 3.32, 281.26, 275.23]]),
+                'labels': torch.tensor([3, 2]),
+            },  # coco image id 73
+        ]
+
+        # Perfect result
+        predictions = [
+            {
+                'boxes': torch.tensor([[258.15, 41.29, 606.41, 285.07]]),
+                'scores': torch.tensor([0.236]),
+                'labels': torch.tensor([4]),
+            },  # coco image id 42
+            {
+                'boxes': torch.tensor([[61.00, 22.75, 565.00, 632.42], [12.66, 3.32, 281.26, 275.23]]),
+                'scores': torch.tensor([0.318, 0.726]),
+                'labels': torch.tensor([3, 2]),
+            },  # coco image id 73
+        ]
+
+        map_metric.update(predictions, targets)
+        map_metric.compute()
+
+        model_1 = SimpleConvModel()
+        model_1.train_metrics = map_metric
+        trainer_1 = self.get_trainer(
+            model=model_1,
+            save_folder=str(tmp_path),
+            save_metrics=True,
+        )
+        trainer_1.save_checkpoint('latest-rank0.pt')
+
+        model_2 = SimpleConvModel()
+        model_2.train_metrics = MAP()
+        trainer_2 = self.get_trainer(
+            model=model_2,
+            load_path=str(tmp_path / 'latest-rank0.pt'),
+            save_metrics=True,
+        )
+
+        assert self._metrics_equal(
+            trainer_1.state.train_metrics, trainer_2.state.train_metrics, trainer_1.state.eval_metrics,
+            trainer_2.state.eval_metrics), 'Original metrics do not equal metrics from loaded checkpoint.'
 
     @pytest.mark.parametrize('missing_key', [True, False])
     @pytest.mark.parametrize('unexpected_key', [True, False])
@@ -561,9 +663,10 @@ class TestCheckpointLoading:
 
     @device('cpu', 'gpu')
     @pytest.mark.parametrize('load_weights_only', [True, False])
-    def test_load_weights(self, device, load_weights_only):
+    @pytest.mark.parametrize('save_metrics', [True, False])
+    def test_load_weights(self, device, load_weights_only, save_metrics):
 
-        trainer_1 = self.get_trainer(save_folder='first', device=device)
+        trainer_1 = self.get_trainer(save_folder='first', device=device, save_metrics=save_metrics)
         trainer_1.fit()
         trainer_1.close()
 
@@ -595,7 +698,8 @@ class TestCheckpointLoading:
             assert not metrics_equal
         else:
             assert stateful_callbacks_equal
-            assert metrics_equal
+            if save_metrics:
+                assert metrics_equal
 
     @pytest.mark.remote
     @device('cpu')
@@ -699,11 +803,6 @@ class TestCheckpointLoading:
             trainer_1.state.model,
             trainer_2.state.model,
         )
-
-        # check metrics loaded properly
-        assert self._metrics_equal(
-            trainer_1.state.train_metrics, trainer_2.state.train_metrics, trainer_1.state.eval_metrics,
-            trainer_2.state.eval_metrics), 'Original metrics do not equal metrics from loaded checkpoint.'
 
     @pytest.mark.parametrize(
         'run_name,save_folder,save_overwrite,latest_filename',
@@ -868,6 +967,8 @@ class TestCheckpointResumption:
             ],  # test save batch after complete epoch
         ],
     )
+    # trainer_2 will call compute if checkpoint is already at end of epoch
+    @pytest.mark.filterwarnings('ignore:The ``compute`` method of metric MulticlassAccuracy.*:UserWarning')
     def test_resumption(
         self,
         device: str,

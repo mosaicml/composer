@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import pathlib
 import uuid
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
@@ -178,3 +178,17 @@ class S3ObjectStore(ObjectStore):
                 os.replace(tmp_path, filename)
             else:
                 os.rename(tmp_path, filename)
+
+    def list_objects(self, prefix: Optional[str] = None) -> List[str]:
+        if prefix is None:
+            prefix = ''
+
+        if self.prefix:
+            prefix = f'{self.prefix}{prefix}'
+
+        paginator = self.client.get_paginator('list_objects_v2')
+        pages = paginator.paginate(Bucket=self.bucket, Prefix=prefix)
+        try:
+            return [obj['Key'] for page in pages for obj in page['Contents']]
+        except KeyError:
+            return []

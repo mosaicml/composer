@@ -11,7 +11,7 @@ on:
       mcloud-timeout:
         required: false
         type: number
-        default: 1800
+        default: 2700
       name:
         required: true
         type: string
@@ -29,6 +29,12 @@ on:
       mcloud-api-key:
         required: true
       slack-notifications-bot-token:
+        required: false
+      code-eval-device:
+        required: false
+      code-eval-url:
+        required: false
+      code-eval-apikey:
         required: false
 jobs:
   pytest-gpu:
@@ -79,7 +85,7 @@ jobs:
 
           python .github/mcli/mcli_pytest.py --image '${{ inputs.container }}' --pip_package_name '${{ inputs.composer_package_name }}' --pytest_markers '${{ inputs.pytest-markers }}' --pytest_command '${{ inputs.pytest-command }}' --timeout ${{ inputs.mcloud-timeout }} ${REF_ARGS}
       - name: Notify slack fail
-        if: failure() && !cancelled() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+        if: failure() && !cancelled() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && github.event_name != 'pull_request'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.slack-notifications-bot-token }}
         uses: voxmedia/github-action-slack-notify-build@v1

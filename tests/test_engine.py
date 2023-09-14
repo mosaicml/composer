@@ -115,14 +115,14 @@ class TestAlgorithms:
         dummy_state.algorithms = always_match_algorithms
         trace = run_event(event, dummy_state, dummy_logger)
 
-        assert all([tr.run for tr in trace.values()])
+        assert all(tr.run for tr in trace.values())
 
     def test_engine_trace_never(self, event: Event, dummy_state: State, never_match_algorithms: List[Algorithm],
                                 dummy_logger: Logger):
         dummy_state.algorithms = never_match_algorithms
         trace = run_event(event, dummy_state, dummy_logger)
 
-        assert all([tr.run is False for tr in trace.values()])
+        assert all(tr.run is False for tr in trace.values())
 
 
 def test_engine_is_dead_after_close(dummy_state: State, dummy_logger: Logger):

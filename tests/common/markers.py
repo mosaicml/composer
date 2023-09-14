@@ -20,7 +20,7 @@ def device(*args, precision=False):
     also returns the parameter "precision".
     """
     # convert cpu-fp32 and gpu-fp32 to cpu, gpu
-    if not precision and any(['-' in arg for arg in args]):
+    if not precision and any('-' in arg for arg in args):
         raise ValueError('-fp32 and -amp tags must be removed if precision=False')
     args = [arg.replace('-fp32', '') for arg in args]
 

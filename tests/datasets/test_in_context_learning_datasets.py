@@ -31,13 +31,13 @@ def test_fewshot_sample_idxs():
     rng = random.Random(1234)
 
     fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=4, sample_idx=4, rng=rng)
-    assert fewshot_idxs == set([0, 1, 2, 3])
+    assert fewshot_idxs == {0, 1, 2, 3}
 
     fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=5, sample_idx=4, rng=rng)
-    assert fewshot_idxs == set([0, 1, 2, 3])
+    assert fewshot_idxs == {0, 1, 2, 3}
 
     fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=5, num_fewshot=500, sample_idx=4, rng=rng)
-    assert fewshot_idxs == set([0, 1, 2, 3])
+    assert fewshot_idxs == {0, 1, 2, 3}
 
     fewshot_idxs = _get_fewshot_sample_idxs(dataset_size=10, num_fewshot=7, sample_idx=4, rng=rng)
     assert len(fewshot_idxs) == 7 and 4 not in fewshot_idxs
@@ -549,11 +549,11 @@ def test_qa_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fews
     assert all(item[0] == tokenizer.eos_token_id for item in batch['input_ids'])
 
     decoded_batch = tokenizer.batch_decode(batch['input_ids'])
-    assert all([item.count('Q: ') == num_fewshot + 1 for item in decoded_batch])
-    assert all([item.count('\nA:') == num_fewshot + 1 for item in decoded_batch])
+    assert all(item.count('Q: ') == num_fewshot + 1 for item in decoded_batch)
+    assert all(item.count('\nA:') == num_fewshot + 1 for item in decoded_batch)
 
     if len(prompt_string) > 0:
-        assert all([item.count('I am a prompt') == 1 for item in decoded_batch])
+        assert all(item.count('I am a prompt') == 1 for item in decoded_batch)
 
     assert batch['labels'] == [['David Seville'], ['Scorpio', 'Skorpio']]
 
@@ -656,6 +656,7 @@ def test_code_eval_split_batch(dataset_uri, tmp_path):
         'entry_points': str,
         'test_inputs': list,
         'test_outputs': list,
+        'languages': str,
     }
     for k, v in list_split.items():
         assert len(split1[k]) == 6
@@ -711,10 +712,10 @@ def test_code_eval_sentpiece_dataloader(dataset_uri, tmp_path, num_fewshot, prom
     assert any(item[0] != tokenizer.eos_token_id for item in batch['input_ids'])  # longest should be pushed left
 
     decoded_batch = tokenizer.batch_decode(batch['input_ids'])
-    assert all([item.count('Code start: \n') == num_fewshot + 1 for item in decoded_batch])
+    assert all(item.count('Code start: \n') == num_fewshot + 1 for item in decoded_batch)
 
     if len(prompt_string) > 0:
-        assert all([item.count('Please code:\n') == 1 for item in decoded_batch])
+        assert all(item.count('Please code:\n') == 1 for item in decoded_batch)
 
     assert batch['labels'] == [
         "    result = []\n    current_string = []\n    current_depth = 0\n\n    for c in paren_string:\n        if c == '(':\n            current_depth += 1\n            current_string.append(c)\n        elif c == ')':\n            current_depth -= 1\n            current_string.append(c)\n\n            if current_depth == 0:\n                result.append(''.join(current_string))\n                current_string.clear()\n\n    return result\n",
@@ -847,10 +848,10 @@ def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_st
     assert any(item[0] != tokenizer.eos_token_id for item in batch['input_ids'])  # longest should be pushed left
 
     decoded_batch = tokenizer.batch_decode(batch['input_ids'])
-    assert all([item.count('Code start: \n') == num_fewshot + 1 for item in decoded_batch])
+    assert all(item.count('Code start: \n') == num_fewshot + 1 for item in decoded_batch)
 
     if len(prompt_string) > 0:
-        assert all([item.count('Please code:\n') == 1 for item in decoded_batch])
+        assert all(item.count('Please code:\n') == 1 for item in decoded_batch)
 
     assert batch['labels'] == [
         "    result = []\n    current_string = []\n    current_depth = 0\n\n    for c in paren_string:\n        if c == '(':\n            current_depth += 1\n            current_string.append(c)\n        elif c == ')':\n            current_depth -= 1\n            current_string.append(c)\n\n            if current_depth == 0:\n                result.append(''.join(current_string))\n                current_string.clear()\n\n    return result\n",
@@ -1166,8 +1167,10 @@ def test_qa_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_g
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [0])
 @pytest.mark.parametrize('generations_per_sample', range(1, 3))
-def test_code_eval_microbatching(device, world_size, num_fewshot, dataset_uri, tmp_path, generations_per_sample):
+def test_code_eval_microbatching(monkeypatch, device, world_size, num_fewshot, dataset_uri, tmp_path,
+                                 generations_per_sample):
     pytest.importorskip('datasets')
+    monkeypatch.setenv('CODE_EVAL_DEVICE', 'LOCAL')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
@@ -1214,10 +1217,11 @@ def test_code_eval_microbatching(device, world_size, num_fewshot, dataset_uri, t
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [0])
 @pytest.mark.parametrize('generations_per_sample', range(1, 3))
-def test_code_eval_sentpiece_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_t5_tokenizer, tiny_t5_model,
-                                        tmp_path, generations_per_sample):
+def test_code_eval_sentpiece_evaluation(monkeypatch, device, world_size, num_fewshot, dataset_uri, tiny_t5_tokenizer,
+                                        tiny_t5_model, tmp_path, generations_per_sample):
     pytest.importorskip('datasets')
     torch.cuda.empty_cache()
+    monkeypatch.setenv('CODE_EVAL_DEVICE', 'LOCAL')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
@@ -1260,10 +1264,12 @@ def test_code_eval_sentpiece_evaluation(device, world_size, num_fewshot, dataset
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [0, 2])
 @pytest.mark.parametrize('generations_per_sample', [1])
-def test_code_eval_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tiny_gpt2_model,
-                                   tmp_path, generations_per_sample):
+@pytest.mark.filterwarnings(r'ignore: Input length of input_ids is')
+def test_code_eval_task_evaluation(monkeypatch, device, world_size, num_fewshot, dataset_uri, tiny_gpt2_tokenizer,
+                                   tiny_gpt2_model, tmp_path, generations_per_sample):
     pytest.importorskip('datasets')
     torch.cuda.empty_cache()
+    monkeypatch.setenv('CODE_EVAL_DEVICE', 'LOCAL')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'

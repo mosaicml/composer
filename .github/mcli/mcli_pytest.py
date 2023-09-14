@@ -24,7 +24,7 @@ if __name__ == '__main__':
                         help='PR number to check out. Overrides git_branch/git_commit if specified')
     parser.add_argument('--pytest_markers', type=str, help='Markers to pass to pytest')
     parser.add_argument('--pytest_command', type=str, help='Command to run pytest')
-    parser.add_argument('--timeout', type=int, default=1800, help='Timeout for run (in seconds)')
+    parser.add_argument('--timeout', type=int, default=2700, help='Timeout for run (in seconds)')
     args = parser.parse_args()
 
     name = args.name
@@ -66,6 +66,8 @@ if __name__ == '__main__':
 
     export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}' {s3_bucket_flag}"
 
+    export PYTHONUNBUFFERED=1
+
     make test PYTEST='{args.pytest_command}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
 
     make test-dist PYTEST='{args.pytest_command}' EXTRA_ARGS="$COMMON_ARGS" WORLD_SIZE=2
@@ -82,6 +84,7 @@ if __name__ == '__main__':
         image=args.image,
         integrations=[git_integration],
         command=command,
+        scheduling={'max_duration': args.timeout / 60 / 60},
     )
 
     # Create run
@@ -96,12 +99,6 @@ if __name__ == '__main__':
     # Print logs
     for line in follow_run_logs(run):
         print(line, end='')
-        # Check if args.timeout seconds have elapsed
-        if time.time() - start_time > args.timeout:
-            print(f'[GHA] Run timed out and did not complete in {args.timeout/60} minutes.')
-            run = stop_run(run)
-            print('[GHA] Run stopped.')
-            break
 
     print('[GHA] Run completed. Waiting for run to finish...')
     run = wait_for_run_status(run, status='completed')

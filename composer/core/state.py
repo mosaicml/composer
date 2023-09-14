@@ -12,6 +12,7 @@ from collections import OrderedDict
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
 
+import numpy as np
 import torch
 import torch.nn.modules.utils
 from packaging import version
@@ -282,6 +283,7 @@ class State(Serializable):
         schedulers (types.PyTorchScheduler | Sequence[types.PyTorchScheduler], optional):
             The learning rate scheduler (can also be a list or tuple of schedulers).
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
+        save_metrics (bool, optional): Whether to save metrics in state_dict.
         algorithms (Algorithm | Sequence[Algorithm], optional): The algorithms used for training.
         callbacks (Callback | Sequence[Callback], optional): The callbacks used for training.
         deepspeed_config (Dict[str, Any], optional): The configuration dictionary for deepspeed.
@@ -444,6 +446,9 @@ class State(Serializable):
         # scaler
         scaler: Optional[torch.cuda.amp.grad_scaler.GradScaler] = None,
 
+        # state_dict
+        save_metrics: bool = False,
+
         # algorithms and callbacks
         algorithms: Optional[Union[Algorithm, Sequence[Algorithm]]] = None,
         callbacks: Optional[Union[Callback, Sequence[Callback]]] = None,
@@ -467,6 +472,7 @@ class State(Serializable):
         self.dataset_resumption = dataset_resumption or {}
         self._max_duration = None
         self.max_duration = max_duration
+        self.save_metrics = save_metrics
 
         self._train_dataloader = train_dataloader
         self._evaluators = list(ensure_tuple(evaluators))
@@ -530,6 +536,14 @@ class State(Serializable):
                 textwrap.dedent(
                     "FSDP state_dict_type='local' is deprecated in torch>=2.0.0. "
                     "Please set fsdp_config['state_dict_type']='sharded' instead and will be removed in v0.17"))
+        if self.fsdp_sharded_state_dict_enabled and self.save_metrics:
+            # Sharded state dict breaks in many different ways with torchmetrics, due to both sharding
+            # metric tensors and only sometimes flattening path names in state dict and _computed, so
+            # saving metrics is not allowed with sharded state dict.
+            raise ValueError(
+                textwrap.dedent('Saving metrics is not allowed with sharded state dict as metric tensors will '
+                                'be sharded and break on load. If you wish to save metric state, set '
+                                'fsdp_config["state_dict_type"] = "full" to disable sharded checkpoints.'))
 
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None
@@ -783,6 +797,10 @@ class State(Serializable):
         return self.fsdp_config is not None and self.fsdp_auto_wrap and self.fsdp_config[
             'state_dict_type'] == 'full' and self.fsdp_config['load_monolith_rank0_only'] == True
 
+    @property
+    def fsdp_elastic_sharded_enabled(self):
+        return (self.fsdp_sharded_state_dict_enabled and using_torch_2())
+
     def _get_integrations_state_dict(self) -> Dict[str, Any]:
         """Gets a dictionary of information about integrations to store in the state dict.
 
@@ -839,6 +857,24 @@ class State(Serializable):
 
         return obj
 
+    def get_model_state_dict(self) -> Dict[str, Any]:
+        """Collect the state dict for the model.
+
+        Returns:
+            Dict[str, Any]: The state dict for the model.
+        """
+        if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
+            with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
+                model_state_dict = self.model.state_dict()
+        else:
+            model_state_dict = self.model.state_dict()
+
+        # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
+        # If it is DDP wrapped, do not save the `module.` prefix, as that is an implementation detail
+        if self.is_model_ddp:
+            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, 'module.')
+        return model_state_dict
+
     def state_dict(self) -> Dict[str, Any]:
         """Collect the state dicts of our serializable attributes.
 
@@ -852,17 +888,7 @@ class State(Serializable):
             if attribute_name == 'dataset_state':
                 serialized_value = self._dataset_state_dict()
             elif attribute_name == 'model':
-                # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
-                # If it is DDP wrapped, do not save the `module.` prefix, as that is an implementation detail
-                if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
-                    with fsdp_state_dict_type_context(attribute_value, state_dict_type=self.fsdp_state_dict_type):
-                        model_state = attribute_value.state_dict()
-                else:
-                    model_state = attribute_value.state_dict()
-
-                if self.is_model_ddp:
-                    torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state, 'module.')
-                serialized_value = model_state
+                serialized_value = self.get_model_state_dict()
             elif attribute_name == 'optimizers':
                 optimizer = ensure_tuple(attribute_value)[
                     0]  # Let's stop pretending. We don't support more than one optimizer.
@@ -880,30 +906,43 @@ class State(Serializable):
             elif attribute_name in _STATE_DICT_SERIALIZED_ATTRIBUTES:
                 serialized_value = {type(obj).__qualname__: obj.state_dict() for obj in ensure_tuple(attribute_value)}
             elif attribute_name == 'train_metrics':
-                serialized_value = {}
-                for k, v in attribute_value.items():
-                    # No need to use __qualname__, we already know this corresponds to
-                    # a metric object when we deserialize.
-                    # Along with the rest of a Composer checkpoint, the state_dict() and _computed attributes of
-                    # a Torchmetrics object are enough information to recreate it upon serialization. We only serialize
-                    # the minimum metric information to maximize backwards compatibility --- old checkpoints
-                    # will continue to be compatible even if other Torchmetrics attributes have changed.
-                    # metric._computed stores the cached value of the previous metric computation
-                    # We need to serialize this because it cannot always be recomputed from the state dict.
-                    # See https://torchmetrics.readthedocs.io/en/stable/pages/implement.html#torchmetrics.Metric for more details
-                    v.persistent(mode=True)
-                    serialized_value[k] = {'state_dict': v.state_dict(), '_computed': v._computed}
-            elif attribute_name == 'eval_metrics':
-                serialized_value = {}
-                for eval_key, eval_metrics in attribute_value.items():
-                    serialized_value[eval_key] = {}
-                    for k, v in eval_metrics.items():
+                if self.save_metrics and attribute_value is not None:
+                    serialized_value = {}
+                    for k, v in attribute_value.items():
+                        # No need to use __qualname__, we already know this corresponds to
+                        # a metric object when we deserialize.
+                        # Along with the rest of a Composer checkpoint, the state_dict() and _computed attributes of
+                        # a Torchmetrics object are enough information to recreate it upon serialization. We only serialize
+                        # the minimum metric information to maximize backwards compatibility --- old checkpoints
+                        # will continue to be compatible even if other Torchmetrics attributes have changed.
+                        # metric._computed stores the cached value of the previous metric computation
+                        # We need to serialize this because it cannot always be recomputed from the state dict.
+                        # See https://torchmetrics.readthedocs.io/en/stable/pages/implement.html#torchmetrics.Metric for more details
                         v.persistent(mode=True)
-                        serialized_value[eval_key][k] = {'state_dict': v.state_dict(), '_computed': v._computed}
+                        serialized_value[k] = {
+                            'state_dict': v.state_dict(),
+                            '_computed': v._computed,
+                        }
+                else:
+                    serialized_value = None
+            elif attribute_name == 'eval_metrics':
+                if self.save_metrics and attribute_value is not None:
+                    serialized_value = {}
+                    for eval_key, eval_metrics in attribute_value.items():
+                        serialized_value[eval_key] = {}
+                        for k, v in eval_metrics.items():
+                            v.persistent(mode=True)
+                            serialized_value[eval_key][k] = {
+                                'state_dict': v.state_dict(),
+                                '_computed': v._computed,
+                            }
+                else:
+                    serialized_value = None
             else:
                 serialized_value = attribute_value
 
-            state_dict[attribute_name] = serialized_value
+            if serialized_value is not None:
+                state_dict[attribute_name] = serialized_value
 
         state_dict['integrations'] = self._get_integrations_state_dict()
         state_dict['metadata'] = self._get_state_metadata()
@@ -1196,7 +1235,7 @@ class State(Serializable):
                 algorithm_passes=algorithm_passes,
             )
 
-        for attribute_name in sorted(list(state.keys())):  # Sort so all ranks load in the same order
+        for attribute_name in sorted(state.keys()):  # Sort so all ranks load in the same order
             serialized_value = state[attribute_name]
             # Skip removed attributes as well as algorithms and model, which was already loaded
             if attribute_name not in self.serialized_attributes or attribute_name == 'model':
@@ -1214,7 +1253,7 @@ class State(Serializable):
 
             # Restructure algorithms serialized_value from list to dict
             if attribute_name == 'algorithms' and isinstance(serialized_value, list):
-                serialized_value = {algo_name: algo_serialized for algo_name, algo_serialized in serialized_value}
+                serialized_value = dict(serialized_value)
 
             if attribute_name == 'dataset_state':
                 self._load_dataset_state(serialized_value)
@@ -1237,9 +1276,17 @@ class State(Serializable):
                         metric_state_dict = serialized_value[metric_name].state_dict()
                         metric_computed_field = serialized_value[metric_name]._computed
                     elif isinstance(serialized_value[metric_name], dict):
+                        # The metric tensor is saved as a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
+                        # So we have to cast it back to a torch tensor.
                         # For checkpoints saved using Composer >= 0.14
                         metric_state_dict = serialized_value[metric_name]['state_dict']
                         metric_computed_field = serialized_value[metric_name]['_computed']
+                        # Backwards compatible loading of torchmetrics from 0.16.0 which casted metric tensors to numpy
+                        if isinstance(metric_computed_field, np.ndarray):
+                            metric_computed_field = torch.from_numpy(metric_computed_field)
+                            metric_computed_device = serialized_value[metric_name].get('_computed_device', None)
+                            if metric_computed_device is not None:
+                                metric_computed_field = metric_computed_field.to(metric_computed_device)
                     else:
                         raise ValueError(
                             'Error while loading train metric. Train metric from serialization is neither a Torchmetrics Metric object nor a dictionary.'
@@ -1277,9 +1324,19 @@ class State(Serializable):
                             eval_metric_state_dict = serialized_value[eval_key][metric_name].state_dict()
                             eval_metric_computed_field = serialized_value[eval_key][metric_name]._computed
                         elif isinstance(serialized_value[eval_key][metric_name], dict):
+                            # The metric tensor is saved as a numpy array, so that FSDP doesn't mistake it for a tensor to be sharded upon load.
+                            # So we have to cast it back to a torch tensor.
                             # For checkpoints saved using Composer >= 0.14
                             eval_metric_state_dict = serialized_value[eval_key][metric_name]['state_dict']
                             eval_metric_computed_field = serialized_value[eval_key][metric_name]['_computed']
+                            # Backwards compatible loading of torchmetrics from 0.16.0 which casted metric tensors to numpy
+                            if isinstance(eval_metric_computed_field, np.ndarray):
+                                eval_metric_computed_field = torch.from_numpy(eval_metric_computed_field)
+                                eval_metric_computed_device = serialized_value[eval_key][metric_name].get(
+                                    '_computed_device', None)
+                                if eval_metric_computed_device is not None:
+                                    eval_metric_computed_field = eval_metric_computed_field.to(
+                                        eval_metric_computed_device)
                         else:
                             raise ValueError(
                                 'Error while loading evaluation metric. Evaluation metric from serialization is neither a Torchmetrics Metric object nor a dictionary.'

@@ -10,6 +10,25 @@ line_length = 120
 skip = [ "env", "wandb", "runs", "build", "node_modules" ]
 known_third_party = ["wandb"]
 
+[tool.ruff]
+select = [
+    "C4",
+    # TODO port pydocstyle
+    # "D", # pydocstyle
+    "PERF",
+]
+
+ignore = [
+    "C408",
+    "PERF2",
+    "PERF4",
+]
+exclude = [
+    "build/**",
+    "docs/**",
+    "node_modules/**",
+]
+
 # Pyright
 [tool.pyright]
 include = [
@@ -20,6 +39,7 @@ include = [
 exclude = [
     "build/**",
     "node_modules/**",
+    'composer/trainer/mosaic_fsdp_utils.py'
 ]
 # Disable checks for missing imports, as a conditional install of composer will not include them
 # Any incorrect imports will be discovered through test cases
@@ -118,6 +138,17 @@ filterwarnings = [
     'ignore:Call to deprecated create function FileDescriptor().*:DeprecationWarning:tensorboard',
     # Ignore TracerWarnings for operations potentially unsupported by model tracing
     'ignore:.*might cause the trace to be incorrect.*:Warning',
+    'ignore:save_weights_only=True only saves weights for now, but will changed to also save metadata.*:UserWarning',
+    # Ignore has_cuda is deprecated warning please use torch.backends.cuda.is_build
+    '''ignore:'has_cuda' is deprecated, please use 'torch.backends.cuda.is_built():UserWarning''',
+    # Ignore has_cudnn is deprecated warning please use torch.backends.cudnn.is_available
+    '''ignore:'has_cudnn' is deprecated, please use 'torch.backends.cudnn.is_available():UserWarning''',
+    # Ignore has_mps is deprecated warning please use torch.backends.mps.is_built
+    '''ignore:'has_mps' is deprecated, please use 'torch.backends.mps.is_built():UserWarning''',
+    # Ignore has_mkldnn is deprecated warning please use torch.backends.mkldnn.is_available
+    '''ignore:'has_mkldnn' is deprecated, please use 'torch.backends.mkldnn.is_available():UserWarning''',
+    # Ignore torch distributed deprecated warnings
+    '''ignore:torch.distributed.reduce_op is deprecated, please use torch.distributed.ReduceOp instead:UserWarning''',
 ]
 
 # Coverage

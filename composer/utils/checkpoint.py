@@ -22,7 +22,7 @@ import torch
 from composer.utils import dist, reproducibility
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist,
                                          format_name_with_dist_and_time, get_file, is_tar)
-from composer.utils.misc import is_model_deepspeed
+from composer.utils.misc import is_model_deepspeed, using_torch_2, using_torch_2_0_1
 from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
@@ -36,6 +36,7 @@ __all__ = ['load_checkpoint', 'save_checkpoint', 'download_checkpoint']
 
 _COMPOSER_STATES_FILENAME = 'composer_states.pt'
 _DEEPSPEED_TAG = 'deepspeed'  # always tag with the same, deterministic name. We'll rename the tarball to the appropriate name.
+_TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME = f'__{dist.get_global_rank()}_0.distcp'
 
 
 def _format_path_with_rank_zero(path: str) -> str:
@@ -98,6 +99,20 @@ class PartialFilePath:
                     state.run_name,
                     state.timestamp,
                 ) + extra_suffix
+
+
+def is_checkpoint_legacy_sharded(object_store: Optional[ObjectStore], source_path: str):
+    metadata_path = str(Path(source_path) / Path('.metadata'))
+    if object_store is None:
+        return not os.path.exists(metadata_path)
+    else:
+        try:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                metadata_destination = os.path.join(str(temp_dir), '.metadata')
+                object_store.download_object(object_name=metadata_path, filename=metadata_destination)
+            return False
+        except FileNotFoundError:
+            return True
 
 
 def load_checkpoint(
@@ -200,46 +215,238 @@ def load_checkpoint(
         Optional[List[Dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
             :attr:`load_weights_only` is not None. Otherwise, None.
     """
-    # Download the checkpoint to the node-local folder
-    log.debug('Loading checkpoint at %s', path)
-    # Each node gets one unique folder to store checkpoints that is shared amongst all local ranks in that node.
-    # If fsdp sharded state_dicts is enabled then EVERY rank gets a unique checkpoint folder.
-    needs_unique_checkpoint_folder = state.fsdp_sharded_state_dict_enabled or dist.get_local_rank() == 0
-    tempdir_ctx = tempfile.TemporaryDirectory() if needs_unique_checkpoint_folder else contextlib.nullcontext(None)
-    with tempdir_ctx as tempdir:
-        try:
-            # Get the path to the proper checkpoint folder corresponding to the current rank's node.
-            # If fsdp_sharded_state_dict_enabled then just use that rank's unique tempdir.
-            node_checkpoint_folder = (tempdir
-                                      if state.fsdp_sharded_state_dict_enabled else _get_local_rank_zero_path(tempdir))
-            assert node_checkpoint_folder is not None
+    using_legacy_sharded = False
+    if state.fsdp_elastic_sharded_enabled:
+        assert object_store is None or isinstance(
+            object_store,
+            ObjectStore), 'For loading sharded checkpoints load_object_store must be set with the class ObjectStore'
+        using_legacy_sharded = is_checkpoint_legacy_sharded(object_store, path)
 
-            composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = download_checkpoint(
-                path=path,
-                node_checkpoint_folder=node_checkpoint_folder,
-                object_store=object_store,
-                progress_bar=progress_bar,
-                fsdp_sharded_state_dict_enabled=state.fsdp_sharded_state_dict_enabled,
-                deepspeed_sharded_checkpoint=is_model_deepspeed(state.model),
-            )
-            rng_state_dicts = _restore_checkpoint(
-                state,
+    if state.fsdp_elastic_sharded_enabled and not using_legacy_sharded:
+        rng_state_dicts = load_sharded_checkpoint(
+            source_path=path,
+            state=state,
+            logger=logger,
+            object_store=object_store,
+            load_weights_only=load_weights_only,
+            strict_model_weights=strict_model_weights,
+            progress_bar=progress_bar,
+            ignore_keys=ignore_keys,
+            exclude_algorithms=exclude_algorithms,
+            algorithm_passes=algorithm_passes,
+        )
+    else:
+        # Download the checkpoint to the node-local folder
+        log.debug('Loading checkpoint at %s', path)
+        # Each node gets one unique folder to store checkpoints that is shared amongst all local ranks in that node.
+        # If fsdp sharded state_dicts is enabled then EVERY rank gets a unique checkpoint folder.
+        needs_unique_checkpoint_folder = state.fsdp_sharded_state_dict_enabled or dist.get_local_rank() == 0
+        tempdir_ctx = tempfile.TemporaryDirectory() if needs_unique_checkpoint_folder else contextlib.nullcontext(None)
+        with tempdir_ctx as tempdir:
+            try:
+                # Get the path to the proper checkpoint folder corresponding to the current rank's node.
+                # If fsdp_sharded_state_dict_enabled then just use that rank's unique tempdir.
+                node_checkpoint_folder = (tempdir if state.fsdp_sharded_state_dict_enabled else
+                                          _get_local_rank_zero_path(tempdir))
+                assert node_checkpoint_folder is not None
+
+                composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n = download_checkpoint(
+                    path=path,
+                    node_checkpoint_folder=node_checkpoint_folder,
+                    object_store=object_store,
+                    progress_bar=progress_bar,
+                    fsdp_sharded_state_dict_enabled=state.fsdp_sharded_state_dict_enabled,
+                    deepspeed_sharded_checkpoint=is_model_deepspeed(state.model),
+                )
+                rng_state_dicts = _restore_checkpoint(
+                    state,
+                    logger,
+                    composer_states_filepath,
+                    extracted_rank_n,
+                    extracted_checkpoint_folder,
+                    load_weights_only=load_weights_only,
+                    strict_model_weights=strict_model_weights,
+                    ignore_keys=ignore_keys,
+                    exclude_algorithms=exclude_algorithms,
+                    algorithm_passes=algorithm_passes,
+                )
+            finally:
+                # Wait for all ranks to finish restoring the checkpoint before releasing the tempdir, since tempdir can
+                # be a shared resource between nodes.
+                dist.barrier()
+        log.info('%s loaded from %s', 'Model weights' if load_weights_only else 'Trainer checkpoint', path)
+    step_to_resume_from = state.timestamp.batch.value
+    max_step_to_resume_from = state.device.tensor_to_device(torch.tensor(state.timestamp.batch.value,
+                                                                         dtype=torch.int64))
+    min_step_to_resume_from = state.device.tensor_to_device(torch.tensor(state.timestamp.batch.value,
+                                                                         dtype=torch.int64))
+    dist.all_reduce(max_step_to_resume_from, reduce_operation='MAX')
+    dist.all_reduce(min_step_to_resume_from, reduce_operation='MIN')
+    if max_step_to_resume_from.data != min_step_to_resume_from.data:
+        raise RuntimeError(
+            textwrap.dedent(
+                f'Timestamp mismatch error: batch to resume from {step_to_resume_from} is not the same on all ranks. '
+                'This usually occurs when at least one rank fails to save the last checkpoint '
+                'while using sharded checkpointing + autoresume. '
+                'Please manually resume by disabling autoresume and explicitly setting load_path '
+                'to the most recent checkpoints that all ranks have saved. '
+                'E.g. for the 10th batch: trainer = Trainer(autoresume=False, load_path="/path/to/checkpoint/ba10-rank{rank}.pt", ...). '
+                'Remember to keep the {rank} placeholder!'))
+    return rng_state_dicts
+
+
+def load_sharded_checkpoint(
+    source_path: str,
+    state: State,
+    logger: Logger,
+    object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
+    load_weights_only: bool = False,
+    strict_model_weights: bool = False,
+    progress_bar: bool = True,
+    ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
+    exclude_algorithms: Optional[List[str]] = None,
+    algorithm_passes: Optional[List[AlgorithmPass]] = None,
+) -> List[Dict]:
+
+    if not using_torch_2():
+        raise ValueError(
+            f'Sharded checkpoint loading requires torch version >= 2.0.0. You have torch version {torch.__version__}')
+
+    using_multinode = dist.get_world_size() != dist.get_local_world_size()
+    if not using_torch_2_0_1() and using_multinode:
+        raise ValueError(
+            f'Sharded checkpoint loading on >1 node requires torch version >= 2.0.1. You have torch version {torch.__version__}'
+        )
+
+    from torch.distributed import checkpoint as dist_cp
+    from torch.distributed.checkpoint.metadata import Metadata
+    from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
+    from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
+
+    # This function is used so we can figure out which ranks need to load saved rngs and which can just make their own.
+    def _get_num_ranks_that_saved_rng(metadata: Metadata):
+        rng_inds = []
+        for field_name, field_value in metadata.planner_data.items():
+            if 'rng' in field_name:
+                _, rng_rank_index, _ = field_value
+                rng_inds.append(rng_rank_index)
+        rng_inds = set(rng_inds)
+        return len(rng_inds)
+
+    # A subclass of FileSystemReader that downloads files from the object store before reading them from the local filesystem.
+    class DistCPObjectStoreReader(dist_cp.FileSystemReader):
+
+        def __init__(self, source_path: str, destination_path: str, object_store):
+            self.source_path = source_path
+            self.destination_path = destination_path
+            self.object_store = object_store
+
+            # Download metadata file.
+            Path(self.destination_path).mkdir(parents=True, exist_ok=True)
+            metadata_destination = os.path.join(self.destination_path, '.metadata')
+            if dist.get_local_rank() == 0:
+                object_store.download_object(object_name=str(Path(source_path) / Path('.metadata')),
+                                             filename=metadata_destination)
+            dist.barrier()
+
+            # FileSystemReader takes in a root directory in its constructor, which is the dir where
+            # the metadata is expected to be stored. Also, this is parent directory for any shard file relative paths
+            # specified in the metadata file.
+            super().__init__(destination_path)
+
+        def read_data(self, plan: LoadPlan, planner: LoadPlanner):
+            # 1. Download to the destination all files that this rank is responsible for.
+            for plan_item in plan.items:
+                # Each plan item has a storage index which points to the relative path of the shard file at save time.
+                relative_file_path = self.storage_data[plan_item.storage_index].relative_path
+                # Download the shard file to the relative path it's associated to and save that relative path
+                # to the root directory specified to the FileSystem reader constructor.
+                file_destination = str(Path(self.destination_path) / Path(relative_file_path))
+                # THe file could have already been downloaded as diffeent plan items can point to same file.
+                if not os.path.exists(file_destination):
+                    self.object_store.download_object(object_name=str(
+                        Path(self.source_path) / Path(relative_file_path)),
+                                                      filename=file_destination)
+
+            # 2. Wait for all ranks to finish.
+            dist.barrier()
+
+            # 3. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
+            return super().read_data(plan, planner)
+
+    # Check to make sure source_path is a directory.
+    if object_store is None:
+        if os.path.islink(source_path):
+            source_path = os.path.join(os.path.dirname(source_path), os.readlink(source_path))
+        if os.path.exists(source_path):
+            if not os.path.isdir(source_path):
+                raise ValueError(f'load_path must be a directory when using sharded state dict. Got {source_path}')
+        else:
+            raise FileNotFoundError(f'{source_path} not found!')
+
+    download_dir_context = tempfile.TemporaryDirectory if object_store is not None else contextlib.nullcontext
+
+    with download_dir_context() as temp_download_dir:
+        if object_store is not None:
+            # Get the tempfile made on local rank 0.
+            local_rank0_index = dist.get_global_rank() - dist.get_local_rank()
+            rank0_download_tempdir = str(dist.all_gather_object(temp_download_dir)[local_rank0_index])
+            storage_reader = DistCPObjectStoreReader(source_path=source_path,
+                                                     destination_path=str(
+                                                         Path(rank0_download_tempdir) / Path('checkpoints')),
+                                                     object_store=object_store)
+        else:
+            storage_reader = dist_cp.FileSystemReader(source_path)
+
+        # We need no_grad because we overwrite tensor values with set_() when we do elastic loading and we don't want the set_ op recorded in the computation graph.
+        with torch.no_grad():
+            # 1. Load model and metadata first
+            model_state_dict = None
+            if load_weights_only:
+                model_state_dict = {'state': {'model': state.get_model_state_dict()}}
+            else:
+                cur_state_dict = state.state_dict()
+                if ignore_keys:
+                    # Filter provided list of key paths
+                    if not callable(ignore_keys):
+                        ignore_keys = glob_filter(ignore_keys)
+                    # Call function to modify state_dict
+                    ignore_keys(cur_state_dict)
+                cur_state_dict.pop('optimizers')
+                model_state_dict = {'state': cur_state_dict}
+
+            dist_cp.load_state_dict(model_state_dict, storage_reader)
+
+            state.load_state_dict(
+                model_state_dict['state'],
                 logger,
-                composer_states_filepath,
-                extracted_rank_n,
-                extracted_checkpoint_folder,
-                load_weights_only=load_weights_only,
-                strict_model_weights=strict_model_weights,
-                ignore_keys=ignore_keys,
+                strict=strict_model_weights,
                 exclude_algorithms=exclude_algorithms,
                 algorithm_passes=algorithm_passes,
             )
-        finally:
-            # Wait for all ranks to finish restoring the checkpoint before releasing the tempdir, since tempdir can
-            # be a shared resource between nodes.
-            dist.barrier()
 
-    log.info('%s loaded from %s', 'Model weights' if load_weights_only else 'Trainer checkpoint', path)
+            # 2. Optionally load optimizer
+            if not load_weights_only:
+                optim_state = load_sharded_optimizer_state_dict(model_state_dict=state.state_dict()['model'],
+                                                                optimizer_key='optimizers',
+                                                                storage_reader=storage_reader)
+                state.load_optim_state(optim_state)
+
+        # 3. Optionally load RNG
+        rng_state_dicts = reproducibility.get_rng_state()
+        if not load_weights_only:
+            # If we are resuming on more ranks than were used at save time we only want to load in rngs for those ranks
+            num_ranks_that_saved_rng = _get_num_ranks_that_saved_rng(storage_reader.read_metadata())
+            rng_state_dicts_load = {}
+            rng_state_dicts_load['rng'] = rng_state_dicts[:num_ranks_that_saved_rng] if len(
+                rng_state_dicts) > num_ranks_that_saved_rng else rng_state_dicts
+            dist_cp.load_state_dict(rng_state_dicts_load, storage_reader)
+            # We also want to append newly generated rng states for the ranks that don't have an rng state to load in
+            # if we are resuming on more ranks than were used at save time.
+            if len(rng_state_dicts) > num_ranks_that_saved_rng:
+                rng_state_dicts_load['rng'].extend(rng_state_dicts[num_ranks_that_saved_rng:])
+            rng_state_dicts = rng_state_dicts_load['rng']
+
     return rng_state_dicts
 
 
@@ -528,23 +735,6 @@ def _restore_checkpoint(
             exclude_algorithms=exclude_algorithms,
             algorithm_passes=algorithm_passes,
         )
-        step_to_resume_from = state.timestamp.batch.value
-        max_step_to_resume_from = state.device.tensor_to_device(
-            torch.tensor(state.timestamp.batch.value, dtype=torch.int64))
-        min_step_to_resume_from = state.device.tensor_to_device(
-            torch.tensor(state.timestamp.batch.value, dtype=torch.int64))
-        dist.all_reduce(max_step_to_resume_from, reduce_operation='MAX')
-        dist.all_reduce(min_step_to_resume_from, reduce_operation='MIN')
-        if max_step_to_resume_from.data != min_step_to_resume_from.data:
-            raise RuntimeError(
-                textwrap.dedent(
-                    f'Timestamp mismatch error: batch to resume from {step_to_resume_from} is not the same on all ranks. '
-                    'This usually occurs when at least one rank fails to save the last checkpoint '
-                    'while using sharded checkpointing + autoresume. '
-                    'Please manually resume by disabling autoresume and explicitly setting load_path '
-                    'to the most recent checkpoints that all ranks have saved. '
-                    'E.g. for the 10th batch: trainer = Trainer(autoresume=False, load_path="/path/to/checkpoint/ba10-rank{rank}.pt", ...). '
-                    'Remember to keep the {rank} placeholder!'))
         return state_dict['rng']
 
 
@@ -555,29 +745,46 @@ def save_checkpoint(
     weights_only: bool = False,
 ) -> Union[str, None]:  # noqa: D103
 
-    log.debug('Saving checkpoint to %s', filename)
-
     is_deepspeed = is_model_deepspeed(state.model)
 
-    state_dict = {
-        'state': state.state_dict(),
-        'rng': reproducibility.get_rng_state(),
-    }
     if weights_only and not is_deepspeed:
-        state_dict['state'] = {'model': state_dict['state']['model']}
+        state_dict = {
+            'state': {
+                'model': state.get_model_state_dict(),
+                'integrations': state._get_integrations_state_dict(),
+                'metadata': state._get_state_metadata(),
+            },
+            'rng': reproducibility.get_rng_state(),
+        }
+    else:
+        state_dict = {
+            'state': state.state_dict(),
+            'rng': reproducibility.get_rng_state(),
+        }
 
     log.debug('State dict created.')
 
     # Sharded checkpoints get their own little folder.
     if state.fsdp_sharded_state_dict_enabled:
+        # To load optimizer states with torch 2.0, the optimizer state must be at the top
+        # level of the state dict because the load_sharded_optimizer_state_dict function
+        # requires a top level state dict key for the optimizer.
+        # See https://github.com/pytorch/pytorch/blob/v2.0.1/torch/distributed/checkpoint/optimizer.py#L271
+        # for more info.
+        if using_torch_2():
+            if not weights_only:
+                state_dict['optimizers'] = state_dict['state'].pop('optimizers')
+
+        # Specify save directory path and save_f
         assert state.sharded_ckpt_prefix_dir is not None
-        save_prefix_folder = state.sharded_ckpt_prefix_dir
-        # New name is now Trainer.save_folder / sharded_ckpt_prefix_dir / Trainer.save_filename
-        # e.g. path/to/my/checkpoints/ep{epoch}-ba{batch}/ep{epoch}-ba{batch}-rank{rank}.pt
-        save_filepath = Path(Path(filename).parent) / Path(save_prefix_folder) / Path(Path(filename).name)
-        # Fill in remaining placeholders.
-        save_filename = format_name_with_dist_and_time(str(save_filepath), state.run_name, state.timestamp)
-        log.debug('Saving sharded checkpoints to %s...', save_filename)
+        save_dirpath = Path(Path(filename).parent) / Path(state.sharded_ckpt_prefix_dir)
+        save_dirpath = format_name_with_dist_and_time(str(save_dirpath), state.run_name, state.timestamp)
+        # New name is now Trainer.save_folder / sharded_ckpt_prefix_dir / __{dist.get_global_rank()}_0.distcp’ if torch > 2
+        # else Trainer.save_folder / sharded_ckpt_prefix_dir / ba{batch}_rank{dist.get_global_rank()}.pt’
+        # e.g. path/to/my/checkpoints/ep1-ba2/__1_0.distcp if torch >2 else its path/to/my/checkpoints/ep1-ba2/b2-rank1.pt
+        ckpt_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME if using_torch_2() else format_name_with_dist_and_time(
+            Path(filename).name, state.run_name, state.timestamp)
+        save_filename = str(Path(save_dirpath) / Path(ckpt_filename))
     else:
         save_filename = PartialFilePath(filename).format(state, is_deepspeed)
 
@@ -585,10 +792,28 @@ def save_checkpoint(
     if dirname:
         os.makedirs(dirname, exist_ok=True)
 
-    # only rank 0 saves the state_dict unless state.fsdp_sharded_state_dict_enabled=True.
-    if dist.get_global_rank() == 0 or state.fsdp_sharded_state_dict_enabled:
+    # All ranks save for deepspeed
+    if is_deepspeed:
+        log.debug('Saving deepspeed checkpoints to %s...', save_filename)
+        if dist.get_global_rank() == 0:
+            with open(save_filename, 'wb') as f:
+                torch.save(state_dict, f)
+            if is_tar(save_filename):
+                _compress_file(save_filename, basename=_COMPOSER_STATES_FILENAME)
+
+        _save_deepspeed_model(state.deepspeed_model, save_filename)
+
+    # Sharded checkpointing for torch >=2.0 uses the torch.distributed.checkpoint module.
+    elif state.fsdp_elastic_sharded_enabled:
+        import torch.distributed.checkpoint as dist_cp
+        log.debug('Saving sharded checkpoints to %s...', save_filename)
+        dist_cp.save_state_dict(state_dict=state_dict, storage_writer=dist_cp.FileSystemWriter(dirname))
+
+    # Only rank 0 saves the state_dict unless you are using sharded checkpointing with torch <2.0
+    elif dist.get_global_rank() == 0 or state.fsdp_sharded_state_dict_enabled:
+        log_msg = f'Saving sharded checkpoints to {save_filename}...' if state.fsdp_sharded_state_dict_enabled else f'Saving monolithic checkpoint to {save_filename}'
         with open(save_filename, 'wb') as f:
-            log.debug(f'Writing checkpoint to disk at {save_filename}.')
+            log.debug(log_msg)
             torch.save(state_dict, f)
 
         log.debug(f'Global rank 0 done saving checkpoint to disk at {save_filename}.')
@@ -596,9 +821,8 @@ def save_checkpoint(
         if is_tar(save_filename):
             _compress_file(save_filename, basename=_COMPOSER_STATES_FILENAME)
 
-    # all ranks save for deepspeed
-    if is_deepspeed:
-        _save_deepspeed_model(state.deepspeed_model, save_filename)
+    else:
+        log.debug(f'Only rank 0 is saving a checkpoint, so rank {dist.get_global_rank()} skips checkpointing.')
 
     dist.barrier()  # ensure all ranks saved their files
 

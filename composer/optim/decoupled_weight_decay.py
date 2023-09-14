@@ -189,22 +189,10 @@ class DecoupledAdamW(AdamW):
     """
 
     metric_functions = {
-        'l2_norm/moment':
-            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(optim_state['exp_avg']),
-        'l2_norm/param':
-            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(param.data),
-        'l2_norm/second_moment_sqrt':
-            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(optim_state['exp_avg_sq']).sqrt(),
-        'l2_norm/update':
-            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(step_tensor),
-        'l2_norm/grad':
-            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(param.grad),
-        'cosine/update_grad':
-            lambda param, optim_state, step_tensor: torch.nn.functional.cosine_similarity(
-                param.grad.flatten(), step_tensor.flatten(), dim=0),
-        'cosine/moment_grad':
-            lambda param, optim_state, step_tensor: torch.nn.functional.cosine_similarity(
-                param.grad.flatten(), optim_state['exp_avg'].flatten(), dim=0)
+        'l2_norm/moment': lambda param, optim_state, step_tensor: torch.linalg.vector_norm(optim_state['exp_avg']),
+        'l2_norm/param': lambda param, optim_state, step_tensor: torch.linalg.vector_norm(param.data),
+        'l2_norm/update': lambda param, optim_state, step_tensor: torch.linalg.vector_norm(step_tensor),
+        'l2_norm/grad': lambda param, optim_state, step_tensor: torch.linalg.vector_norm(param.grad),
     }
 
     def __init__(self,
@@ -357,7 +345,9 @@ class DecoupledAdamW(AdamW):
         for keys in all_gathered_keys:
             all_keys.update(keys)
 
-        all_keys = sorted(all_keys, key=lambda metric: 0 if 'l2_norm' in metric else 1)
+        # Sort keys to ensure every rank has the same keys order
+        # Only L2 norm metric keys are present, can apply regular sort
+        all_keys = sorted(all_keys)
         for metric in all_keys:
             if metric.startswith('l2_norm'):
                 reduced = optimizer_metrics.get(metric, torch.tensor(0.0, device=torch.cuda.current_device()))
@@ -365,18 +355,6 @@ class DecoupledAdamW(AdamW):
                     dist.all_reduce(reduced, reduce_operation='SUM')
 
                 optimizer_metrics[metric] = math.sqrt(reduced)
-            elif metric.startswith('cosine'):
-                reduced = optimizer_metrics.get(metric, torch.tensor(0.0, device=torch.cuda.current_device()))
-                if dist.get_world_size() > 1:
-                    dist.all_reduce(reduced, reduce_operation='SUM')
-
-                _, vectors, layer = tuple(metric.split('/'))
-
-                A, B = tuple(vectors.split('_'))
-
-                A_reduced_norm = optimizer_metrics[f'l2_norm/{A}/{layer}']
-                B_reduced_norm = optimizer_metrics[f'l2_norm/{B}/{layer}']
-                optimizer_metrics[metric] = reduced / (A_reduced_norm * B_reduced_norm)
             else:
                 reduced = optimizer_metrics.get(metric, torch.tensor(0.0, device=torch.cuda.current_device()))
                 if dist.get_world_size() > 1:
@@ -387,23 +365,10 @@ class DecoupledAdamW(AdamW):
 
     def pre_reduce_metrics(self, optimizer_metrics):
         """Preprocess metrics to reduce across ranks correctly."""
-        # Sort L2 norms first so they are squared before other metrics, which depend on squared values
-        metrics = optimizer_metrics.keys()
-        metrics = sorted(metrics, key=lambda metric: 0 if 'l2_norm' in metric else 1)
-        for metric in metrics:
-            if metric.startswith('l2_norm'):
-                # L2 norms need to be squared, before they are reduced via summation
-                optimizer_metrics[metric] = optimizer_metrics[metric]**2
-            elif metric.startswith('cosine'):
-                _, vectors, layer = tuple(metric.split('/'))
-
-                A, B = tuple(vectors.split('_'))
-
-                # L2 norm would've been squared in previous branch
-                A_rank_subset_norm = math.sqrt(optimizer_metrics[f'l2_norm/{A}/{layer}'])
-                B_rank_subset_norm = math.sqrt(optimizer_metrics[f'l2_norm/{B}/{layer}'])
-
-                optimizer_metrics[metric] *= A_rank_subset_norm * B_rank_subset_norm
+        # Only L2 norm metric keys are present, can skip sorting at this stage
+        for metric in optimizer_metrics:
+            # L2 norms need to be squared, before they are reduced via summation
+            optimizer_metrics[metric] = optimizer_metrics[metric]**2
 
         return optimizer_metrics
 

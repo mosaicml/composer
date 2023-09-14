@@ -268,7 +268,7 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
     def update(self, outputs: List[str], labels: List[List[str]]):
         for sample_output, sample_labels in zip(outputs, labels):
             cleaned_sample_output = self.normalize_answer(sample_output)
-            cleaned_sample_labels = set(self.normalize_answer(label) for label in sample_labels)
+            cleaned_sample_labels = {self.normalize_answer(label) for label in sample_labels}
             if any(cleaned_sample_output.startswith(label) for label in cleaned_sample_labels):
                 self.correct += torch.tensor(1.0)
             self.total += torch.tensor(1.0)
@@ -499,6 +499,8 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
     In each case, the model constructs a given number of continuations (termed pass@K for K continuations), and each continuation is run against a set of test cases. The model is considered
     correct if at least one of the proposed continuations passes all the test cases.
 
+    Runs on AWS Lambdas by default.
+
     Adds metric state variables:
         correct (float): The number of instances where the predictions passed all the test cases.
         total (float): The number of total instances that were predicted.
@@ -516,19 +518,22 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.remote = 'CODE_EVAL_DEVICE' in os.environ and os.environ['CODE_EVAL_DEVICE'] != 'LOCAL'
+        if not 'CODE_EVAL_DEVICE' in os.environ:
+            log.info(f"'CODE_EVAL_DEVICE' env var was not set, so defaulting to 'LAMBDA' as eval device")
+            os.environ['CODE_EVAL_DEVICE'] = 'LAMBDA'
+        self.local = os.environ['CODE_EVAL_DEVICE'].upper() == 'LOCAL'
 
     def get_client(self) -> EvalClient:
         """Returns a client for the appropriate remote platform."""
         client = None
-        if not self.remote:
+        if self.local:
             warnings.warn(
                 'Running code eval locally may be insecure. Please set environment variable CODE_EVAL_DEVICE '
-                'to LAMBDA to run on remote. To use Lambdas, spin up your instance that checks code, set the ARN as '
-                'CODE_EVAL_ARN and the region as CODE_EVAL_REGION.')
+                'to LAMBDA to run on remote. To use Lambdas, spin up your instance that checks code, set the URL as '
+                'CODE_EVAL_URL and the API key as CODE_EVAL_APIKEY.')
             log.debug('Running code eval locally.')
             client = LocalEvalClient()
-        elif os.environ['CODE_EVAL_DEVICE'] == 'LAMBDA':
+        elif os.environ['CODE_EVAL_DEVICE'].upper() == 'LAMBDA':
             client = LambdaEvalClient()
 
         else:
@@ -552,6 +557,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
                 'test_inputs': List[List[str]],
                 'test_outputs': List[List[str]],
                 'entry_points': List[str],
+                'languages': List[str],
                 'generation_kwargs': Dict[str, Any]
             }
             outputs (List[str]): A list of code generations in the format of HF generate with beam search,
@@ -565,28 +571,33 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
 
         num_beams = batch['generation_kwargs']['num_beams']
         processed_outputs = [outputs[i * num_beams:(i + 1) * num_beams] for i in range(len(batch['prompts']))]
-        for sample_outputs, sample_prompt, test_inputs, test_outputs, entry_point in zip(
-                processed_outputs, batch['prompts'], batch['test_inputs'], batch['test_outputs'],
-                batch['entry_points']):
+        payloads = []
+        for sample_outputs, sample_prompt, test_inputs, test_outputs, entry_point, language in zip(
+                processed_outputs, batch['prompts'], batch['test_inputs'], batch['test_outputs'], batch['entry_points'],
+                batch['languages']):
             self.total += torch.tensor(1.0)
+            prompt_payload = []
             for code_gen in sample_outputs:
                 code_gen = re.split(r'\n[A-Za-z0-9#`]', code_gen)[0]  # remove everything after function ends
                 final_code = sample_prompt + code_gen  # combine prompt with the code generation
-                passes_all = True
+                generation_payload = []
                 for test_input, test_output in zip(test_inputs, test_outputs):
                     payload = {
                         'code': final_code,
                         'input': test_input,
                         'output': test_output,
-                        'entry_point': entry_point
+                        'entry_point': entry_point,
+                        'language': language,
                     }
-                    if not client.invoke(payload):
-                        passes_all = False
-                        break
+                    generation_payload.append(payload)
 
-                if passes_all:
-                    self.correct += torch.tensor(1.0)
-                    break
+                prompt_payload.append(generation_payload)
+            payloads.append(prompt_payload)
+
+        results = client.invoke(payloads)
+        passes = sum(
+            [any(all(generation_payload) for generation_payload in prompt_payload) for prompt_payload in results])
+        self.correct += torch.tensor(float(passes))
         client.close()  # pyright: ignore [reportOptionalMemberAccess]
 
     def compute(self):
