@@ -289,7 +289,9 @@ def test_in_context_learning_qa_cot_accuracy():
     metric.update(batch, outputs, labels)
 
     assert metric.compute() == (2 / 4)
-
+    columns, rows = metric.format_response_cache(None)
+    assert columns == ['original_model_output', 'cleaned_model_output', 'original_labels', 'cleaned_labels', 'correct']
+    assert rows == [['chain of thought ### Correct but then some more text', 'correct but then some more text', ['Correct'], {'correct'}, True], ['Incorrect', '', ['blah', 'blah2'], {'blah2', 'blah'}, False], ['chain of thought ### the CORREct with weird casing and spacing', 'correct with weird casing and spacing', ['blah', 'correct'], {'correct', 'blah'}, True], ['Correct but missing chain of thought', '', ['correct'], {'correct'}, False]]
 
 def test_in_context_learning_code_eval_accuracy(monkeypatch):
     outputs = [
