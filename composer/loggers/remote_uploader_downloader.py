@@ -24,8 +24,9 @@ import torch
 
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import (GCSObjectStore, LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, OCIObjectStore,
-                            S3ObjectStore, SFTPObjectStore, dist, format_name_with_dist, get_file, retry)
+from composer.utils import (DatabricksUnityCatalogVolume, GCSObjectStore, LibcloudObjectStore, ObjectStore,
+                            ObjectStoreTransientError, OCIObjectStore, S3ObjectStore, SFTPObjectStore, dist,
+                            format_name_with_dist, get_file, retry)
 
 if TYPE_CHECKING:
     from composer.core import State
@@ -43,6 +44,7 @@ def _build_remote_backend(remote_backend_name: str, backend_kwargs: Dict[str, An
         'sftp': SFTPObjectStore,
         'libcloud': LibcloudObjectStore,
         'gs': GCSObjectStore,
+        'uc': DatabricksUnityCatalogVolume,
     }
     remote_backend_cls = remote_backend_name_to_cls.get(remote_backend_name, None)
     if remote_backend_cls is None:

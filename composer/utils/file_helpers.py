@@ -20,7 +20,8 @@ import tqdm
 
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_callback
-from composer.utils.object_store import GCSObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore
+from composer.utils.object_store import (DatabricksUnityCatalogVolume, GCSObjectStore, ObjectStore, OCIObjectStore,
+                                         S3ObjectStore)
 
 if TYPE_CHECKING:
     from composer.core import Timestamp
@@ -349,8 +350,8 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
         return GCSObjectStore(bucket=bucket_name)
     elif backend == 'oci':
         return OCIObjectStore(bucket=bucket_name)
-    elif backend == 'ucvol':
-        return UCVolumeObjectStore(bucket=bucket_name)
+    elif backend == 'uc':
+        return DatabricksUnityCatalogVolume(bucket=bucket_name)
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
                                   's3 or one of the supported object stores')
@@ -389,7 +390,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
     elif backend == 'wandb':
         raise NotImplementedError(f'There is no implementation for WandB via URI. Please use '
                                   'WandBLogger with log_artifacts set to True')
-    elif backend == 'ucvol':
+    elif backend == 'uc':
         if 'DATABRICKS_HOST' not in os.environ or 'DATABRICKS_TOKEN' not in os.environ:
             raise ValueError(
                 'You must set the DATABRICKS_HOST and DATABRICKS_TOKEN env variable with your databricks host and token respectively'
