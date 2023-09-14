@@ -285,7 +285,7 @@ def test_in_context_learning_qa_cot_accuracy():
     ]
     labels = [['Correct'], ['blah', 'blah2'], ['blah', 'correct'], ['correct']]
     batch = {'cot_delimiter': ' ### ', 'labels': labels}
-    metric = InContextLearningQAAccuracy()
+    metric = InContextLearningQAAccuracy(cache_responses=True)
     metric.update(batch, outputs, labels)
 
     assert metric.compute() == (2 / 4)
