@@ -22,6 +22,7 @@ def get_gcs_os_from_trainer(trainer: Trainer) -> GCSObjectStore:
     return gcs_os
 
 
+@pytest.mark.gpu  # json auth is hard to set up on github actions / CPU tests
 @pytest.mark.remote
 def test_gs_object_store_integration_json_auth(expected_use_gcs_sdk_val=True, client_should_be_none=False):
     model = SimpleModel()
@@ -53,7 +54,8 @@ def test_gs_object_store_integration_json_auth(expected_use_gcs_sdk_val=True, cl
 @pytest.mark.remote
 def test_gs_object_store_integration_hmac_auth():
     with mock.patch.dict(os.environ):
-        del os.environ['GOOGLE_APPLICATION_CREDENTIALS']
+        if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ:
+            del os.environ['GOOGLE_APPLICATION_CREDENTIALS']
         test_gs_object_store_integration_json_auth(expected_use_gcs_sdk_val=False, client_should_be_none=True)
 
 
