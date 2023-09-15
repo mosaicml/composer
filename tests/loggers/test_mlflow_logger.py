@@ -305,7 +305,9 @@ def test_mlflow_log_image_works(tmp_path, device):
         def before_forward(self, state: State, logger: Logger):
             inputs = state.batch_get_item(key=0)
             images = inputs.data.cpu().numpy()
-            logger.log_images(images, step=state.timestamp.batch.value, use_table=True)
+            logger.log_images(images, step=state.timestamp.batch.value)
+            with pytest.warns(UserWarning):
+                logger.log_images(images, step=state.timestamp.batch.value, masks = 3, mask_class_labels = [1,2,3])
 
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
     experiment_name = 'mlflow_logging_test'
