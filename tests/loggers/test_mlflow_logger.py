@@ -15,7 +15,7 @@ from composer.trainer import Trainer
 from tests.common.datasets import RandomImageDataset
 from tests.common.markers import device
 from tests.common.models import SimpleConvModel
-from tests.models.test_hf_model import check_hf_tokenizer_equivalence, check_hf_model_equivalence
+from tests.models.test_hf_model import check_hf_model_equivalence, check_hf_tokenizer_equivalence
 
 
 def _get_latest_mlflow_run(experiment_name, tracking_uri=None):
@@ -241,6 +241,7 @@ def test_mlflow_log_table(tmp_path):
     table = json.load(open(table_file))
     assert table['columns'] == columns
     assert table['data'] == rows
+
 
 def test_mlflow_log_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
     mlflow = pytest.importorskip('mlflow')
