@@ -22,6 +22,7 @@ from tests.models.test_hf_model import check_hf_model_equivalence, check_hf_toke
 
 
 def _get_latest_mlflow_run(experiment_name, tracking_uri=None):
+    pytest.importorskip('mlflow')
     from mlflow import MlflowClient
 
     # NB: Convert tracking URI to string because MlflowClient doesn't support non-string
@@ -44,7 +45,7 @@ def test_mlflow_experiment_init_unspecified(monkeypatch):
 
     This mocks the mlflow library to check that the correct calls are made to set up the experiment
     """
-    import mlflow
+    mlflow = pytest.importorskip('mlflow')
     from mlflow import MlflowClient
 
     monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
@@ -109,7 +110,7 @@ def test_mlflow_experiment_init_ids(monkeypatch):
 
     This mocks the mlflow library to check that the correct calls are made to set up the experiment
     """
-    import mlflow
+    mlflow = pytest.importorskip('mlflow')
 
     monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
     monkeypatch.setattr(mlflow, 'set_experiment', MagicMock())
@@ -129,7 +130,7 @@ def test_mlflow_experiment_init_ids(monkeypatch):
 
     assert id_logger.run_name == 'dummy-run-name'  # Defaults are set, but we don't use them
     assert id_logger.experiment_name == 'my-mlflow-experiment'
-    assert mlflow.set_tracking_uri.call_count == 1 # We call this once in the init
+    assert mlflow.set_tracking_uri.call_count == 1  # We call this once in the init
     assert mlflow.set_experiment.called_with(experiment_id=mlflow_exp_id)
     assert mlflow.start_run.called_with(run_id=mlflow_run_id)
 
@@ -139,7 +140,7 @@ def test_mlflow_experiment_init_experiment_name(monkeypatch):
 
     This mocks the mlflow library to check that the correct calls are made to set up the experiment
     """
-    import mlflow
+    mlflow = pytest.importorskip('mlflow')
 
     monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
     monkeypatch.setattr(mlflow, 'set_experiment', MagicMock())
@@ -213,6 +214,8 @@ def test_mlflow_experiment_set_up(tmp_path):
 
 
 def test_mlflow_log_table(tmp_path):
+    pytest.importorskip('mlflow')
+
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
     mlflow_exp_name = 'test-log-table-exp-name'
     test_mlflow_logger = MLFlowLogger(
@@ -294,6 +297,8 @@ def test_mlflow_log_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
 
 @device('cpu')
 def test_mlflow_logging_works(tmp_path, device):
+    pytest.importorskip('mlflow')
+
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
     experiment_name = 'mlflow_logging_test'
     test_mlflow_logger = MLFlowLogger(
@@ -347,6 +352,7 @@ def test_mlflow_logging_works(tmp_path, device):
 
 @device('cpu')
 def test_mlflow_log_image_works(tmp_path, device):
+    pytest.importorskip('mlflow')
 
     class ImageLogger(Callback):
 
