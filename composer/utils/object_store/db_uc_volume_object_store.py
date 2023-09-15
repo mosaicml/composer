@@ -86,6 +86,3 @@ class DatabricksUnityCatalogVolume(ObjectStore):
 
     def get_object_size(self, object_name: str) -> int:
         pass
-
-    def get_uri(self, object_name: str) -> str:
-        return self.path
