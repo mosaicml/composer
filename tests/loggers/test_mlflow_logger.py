@@ -3,14 +3,17 @@
 
 import csv
 import json
+import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import numpy as np
 import pytest
 import yaml
 from torch.utils.data import DataLoader
 
-from composer.loggers import MLFlowLogger
+from composer.core import Callback, State
+from composer.loggers import Logger, MLFlowLogger
 from composer.trainer import Trainer
 from tests.common.datasets import RandomImageDataset
 from tests.common.markers import device
@@ -335,3 +338,53 @@ def test_mlflow_logging_works(tmp_path, device):
 
     expected_params_list = ['num_cpus_per_node', 'node_name', 'num_nodes', 'rank_zero_seed']
     assert set(expected_params_list) == set(actual_params_list)
+
+
+@device('cpu')
+def test_mlflow_log_image_works(tmp_path, device):
+
+    class ImageLogger(Callback):
+
+        def before_forward(self, state: State, logger: Logger):
+            inputs = state.batch_get_item(key=0)
+            images = inputs.data.cpu().numpy()
+            logger.log_images(images, step=state.timestamp.batch.value)
+            with pytest.warns(UserWarning):
+                logger.log_images(images,
+                                  step=state.timestamp.batch.value,
+                                  masks={'a': np.ones((2, 2))},
+                                  mask_class_labels={1: 'a'})
+
+    mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
+    experiment_name = 'mlflow_logging_test'
+    test_mlflow_logger = MLFlowLogger(tracking_uri=mlflow_uri, experiment_name=experiment_name)
+
+    dataset_size = 64
+    batch_size = 4
+    num_batches = 4
+    eval_interval = '1ba'
+
+    expected_num_ims = num_batches * batch_size
+
+    trainer = Trainer(model=SimpleConvModel(),
+                      loggers=test_mlflow_logger,
+                      train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
+                      eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
+                      max_duration=f'{num_batches}ba',
+                      eval_interval=eval_interval,
+                      callbacks=ImageLogger(),
+                      device=device)
+
+    trainer.fit()
+    test_mlflow_logger._flush()
+
+    run = _get_latest_mlflow_run(
+        experiment_name=experiment_name,
+        tracking_uri=mlflow_uri,
+    )
+    run_id = run.info.run_id
+    experiment_id = run.info.experiment_id
+
+    run_file_path = mlflow_uri / Path(experiment_id) / Path(run_id)
+    im_dir = run_file_path / Path('artifacts')
+    assert len(os.listdir(im_dir)) == expected_num_ims
