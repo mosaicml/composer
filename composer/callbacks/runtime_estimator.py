@@ -43,13 +43,13 @@ class RuntimeEstimator(Callback):
 
     The runtime estimate is logged by the :class:`.Logger` to the following key as described below.
 
-    +-----------------------------------+---------------------------------------------------------+
-    | Key                               | Logged data                                             |
-    +===================================+=========================================================+
-    | `time/remaining_estimate`         | Estimated time to completion                            |
-    +-----------------------------------+---------------------------------------------------------+
-    | `time/remaining_estimate_unit`    | Unit of time specified by user                          |
-    +-----------------------------------+---------------------------------------------------------+
+    +-----------------------------------+----------------------------------------------------------------+
+    | Key                               | Logged data                                                    |
+    +===================================+================================================================+
+    | `time/remaining_estimate`         | Estimated time to completion                                   |
+    +-----------------------------------+----------------------------------------------------------------+
+    | `time/remaining_estimate_unit`    | Unit of time specified by user (seconds, minutes, hours, days) |
+    +-----------------------------------+----------------------------------------------------------------+
 
     Args:
         skip_batches (int, optional): Number of batches to skip before starting clock to estimate
