@@ -152,6 +152,15 @@ class MLFlowLogger(LoggerDestination):
             self._optimized_mlflow_client.flush(synchronous=False)
 
     def log_model(self, flavor: str, **kwargs):
+        """Log a model to MLFlow.
+
+        Args:
+            flavor (str): The MLFlow model flavor to use. Currently only ``'transformers'`` is supported.
+            **kwargs: Keyword arguments to pass to the MLFlow model logging function.
+
+        Raises:
+            NotImplementedError: If ``flavor`` is not ``'transformers'``.
+        """
         if self._enabled:
             import mlflow
             with mlflow.start_run(run_id=self._run_id, experiment_id=self._experiment_id):
