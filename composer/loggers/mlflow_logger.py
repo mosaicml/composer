@@ -9,8 +9,9 @@ import os
 import pathlib
 import textwrap
 import time
-from typing import Any, Dict, List, Optional, Sequence, Union
 import warnings
+from typing import Any, Dict, List, Optional, Sequence, Union
+
 import numpy as np
 import torch
 
@@ -161,7 +162,8 @@ class MLFlowLogger(LoggerDestination):
     ):
         unused_args = (masks, mask_class_labels)  # Unused (only for wandb)
         if any(unused_args):
-            warnings.warn(textwrap.dedent(f"""MLFlowLogger does not support masks, class labels, or tables of images,
+            warnings.warn(
+                textwrap.dedent(f"""MLFlowLogger does not support masks, class labels, or tables of images,
                           but got masks={masks}, mask_class_labels={mask_class_labels}"""))
         if self._enabled:
             if not isinstance(images, Sequence) and images.ndim <= 3:

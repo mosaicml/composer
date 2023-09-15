@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import numpy as np
 import pytest
 import yaml
 from torch.utils.data import DataLoader
@@ -307,7 +308,10 @@ def test_mlflow_log_image_works(tmp_path, device):
             images = inputs.data.cpu().numpy()
             logger.log_images(images, step=state.timestamp.batch.value)
             with pytest.warns(UserWarning):
-                logger.log_images(images, step=state.timestamp.batch.value, masks = 3, mask_class_labels = [1,2,3])
+                logger.log_images(images,
+                                  step=state.timestamp.batch.value,
+                                  masks={'a': np.ones((2, 2))},
+                                  mask_class_labels={1: 'a'})
 
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
     experiment_name = 'mlflow_logging_test'
