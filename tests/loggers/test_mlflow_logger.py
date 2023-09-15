@@ -47,6 +47,8 @@ def test_mlflow_experiment_init_unspecified(monkeypatch):
     import mlflow
     from mlflow import MlflowClient
 
+    monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
+
     mock_state = MagicMock()
     mock_state.run_name = 'dummy-run-name'
 
@@ -64,12 +66,15 @@ def test_mlflow_experiment_init_unspecified(monkeypatch):
     ).info.run_name == unspecified.run_name)
 
 
-def test_mlflow_experiment_init_specified():
+def test_mlflow_experiment_init_specified(monkeypatch):
     """ Test that MLFlow experiment is set up correctly when all parameters are specified
 
     This mocks the mlflow library to check that the correct calls are made to set up the experiment
     """
+    mlflow = pytest.importorskip('mlflow')
     from mlflow import MlflowClient
+
+    monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
 
     mock_state = MagicMock()
     mock_state.run_name = 'dummy-run-name'  # Not used
@@ -124,7 +129,7 @@ def test_mlflow_experiment_init_ids(monkeypatch):
 
     assert id_logger.run_name == 'dummy-run-name'  # Defaults are set, but we don't use them
     assert id_logger.experiment_name == 'my-mlflow-experiment'
-    assert mlflow.set_tracking_uri.call_count == 0
+    assert mlflow.set_tracking_uri.call_count == 1 # We call this once in the init
     assert mlflow.set_experiment.called_with(experiment_id=mlflow_exp_id)
     assert mlflow.start_run.called_with(run_id=mlflow_run_id)
 
