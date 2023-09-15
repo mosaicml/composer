@@ -63,6 +63,7 @@ class MLFlowLogger(LoggerDestination):
         self._flush_interval = flush_interval
         if self._enabled:
             self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
+            mlflow.set_tracking_uri(self.tracking_uri)
             # Set up MLflow state
             self._run_id = None
             if self.experiment_name is None:
@@ -144,6 +145,15 @@ class MLFlowLogger(LoggerDestination):
                 params=hyperparameters,
             )
             self._optimized_mlflow_client.flush(synchronous=False)
+
+    def log_model(self, flavor: str, **kwargs):
+        if self._enabled:
+            import mlflow
+            with mlflow.start_run(run_id=self._run_id, experiment_id=self._experiment_id):
+                if flavor == 'transformers':
+                    mlflow.transformers.log_model(**kwargs,)
+                else:
+                    raise NotImplementedError(f'flavor {flavor} not supported.')
 
     def post_close(self):
         if self._enabled:

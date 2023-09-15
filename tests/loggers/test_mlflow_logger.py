@@ -15,6 +15,7 @@ from composer.trainer import Trainer
 from tests.common.datasets import RandomImageDataset
 from tests.common.markers import device
 from tests.common.models import SimpleConvModel
+from tests.models.test_hf_model import check_hf_tokenizer_equivalence, check_hf_model_equivalence
 
 
 def _get_latest_mlflow_run(experiment_name, tracking_uri=None):
@@ -240,6 +241,46 @@ def test_mlflow_log_table(tmp_path):
     table = json.load(open(table_file))
     assert table['columns'] == columns
     assert table['data'] == rows
+
+def test_mlflow_log_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
+    mlflow = pytest.importorskip('mlflow')
+
+    mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
+    mlflow_exp_name = 'test-log-model-exp-name'
+    test_mlflow_logger = MLFlowLogger(
+        tracking_uri=mlflow_uri,
+        experiment_name=mlflow_exp_name,
+    )
+
+    mock_state = MagicMock()
+    mock_state.run_name = 'dummy-run-name'  # this run name should be unused.
+    mock_logger = MagicMock()
+
+    test_mlflow_logger.init(state=mock_state, logger=mock_logger)
+    test_mlflow_logger.log_model(
+        flavor='transformers',
+        transformers_model={
+            'model': tiny_gpt2_model,
+            'tokenizer': tiny_gpt2_tokenizer,
+        },
+        artifact_path='my_model',
+        metadata={'task': 'llm/v1/completions'},
+        task='text-generation',
+    )
+    test_mlflow_logger._flush()
+    test_mlflow_logger.post_close()
+
+    run = _get_latest_mlflow_run(mlflow_exp_name, tracking_uri=mlflow_uri)
+    run_info = run.info
+    run_id = run_info.run_id
+    experiment_id = run_info.experiment_id
+    run_file_path = mlflow_uri / Path(experiment_id) / Path(run_id)
+
+    model_directory = run_file_path / Path('artifacts') / Path('my_model')
+    loaded_model = mlflow.transformers.load_model(model_directory, return_type='components')
+
+    check_hf_model_equivalence(loaded_model['model'], tiny_gpt2_model)
+    check_hf_tokenizer_equivalence(loaded_model['tokenizer'], tiny_gpt2_tokenizer)
 
 
 @device('cpu')
