@@ -49,6 +49,7 @@ def test_mlflow_experiment_init_unspecified(monkeypatch):
     from mlflow import MlflowClient
 
     monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
+    monkeypatch.setattr(mlflow, 'start_run', MagicMock())
 
     mock_state = MagicMock()
     mock_state.run_name = 'dummy-run-name'
@@ -76,6 +77,7 @@ def test_mlflow_experiment_init_specified(monkeypatch):
     from mlflow import MlflowClient
 
     monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
+    monkeypatch.setattr(mlflow, 'start_run', MagicMock())
 
     mock_state = MagicMock()
     mock_state.run_name = 'dummy-run-name'  # Not used
@@ -157,6 +159,8 @@ def test_mlflow_experiment_init_experiment_name(monkeypatch):
 
     assert id_logger.experiment_name == exp_name
     assert mlflow.set_experiment.called_with(experiment_name=exp_name)
+
+    id_logger.post_close()
 
 
 def test_mlflow_experiment_set_up(tmp_path):
@@ -320,6 +324,7 @@ def test_mlflow_logging_works(tmp_path, device):
                       device=device)
     trainer.fit()
     test_mlflow_logger._flush()
+    test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(
         experiment_name=experiment_name,
@@ -388,6 +393,7 @@ def test_mlflow_log_image_works(tmp_path, device):
 
     trainer.fit()
     test_mlflow_logger._flush()
+    test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(
         experiment_name=experiment_name,

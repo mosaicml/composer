@@ -60,7 +60,7 @@ class MLFlowLogger(LoggerDestination):
                                                 conda_package='mlflow',
                                                 conda_channel='conda-forge') from e
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
-
+        
         self.run_name = run_name
         self.experiment_name = experiment_name
         self._rank_zero_only = rank_zero_only
@@ -113,6 +113,7 @@ class MLFlowLogger(LoggerDestination):
                     run_name=self.run_name,
                 )
                 self._run_id = new_run.info.run_id
+            mlflow.start_run(run_id=self._run_id)
 
     def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
         if self._enabled:
@@ -163,11 +164,10 @@ class MLFlowLogger(LoggerDestination):
         """
         if self._enabled:
             import mlflow
-            with mlflow.start_run(run_id=self._run_id, experiment_id=self._experiment_id):
-                if flavor == 'transformers':
-                    mlflow.transformers.log_model(**kwargs,)
-                else:
-                    raise NotImplementedError(f'flavor {flavor} not supported.')
+            if flavor == 'transformers':
+                mlflow.transformers.log_model(**kwargs,)
+            else:
+                raise NotImplementedError(f'flavor {flavor} not supported.')
 
     def log_images(
         self,
@@ -195,10 +195,12 @@ class MLFlowLogger(LoggerDestination):
 
     def post_close(self):
         if self._enabled:
+            import mlflow
             # We use MlflowClient for run termination because MlflowAutologgingQueueingClient's
             # run termination relies on scheduling Python futures, which is not supported within
             # the Python atexit handler in which post_close() is called
             self._mlflow_client.set_terminated(self._run_id)
+            mlflow.end_run()
 
     def _flush(self):
         """Test-only method to synchronously flush all queued metrics."""
