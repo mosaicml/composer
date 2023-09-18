@@ -202,7 +202,7 @@ def _main():
         'AWS_OFI_NCCL_VERSION': '',
         'BASE_IMAGE': 'nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04',
         'CUDA_VERSION': '12.1.0',
-        'IMAGE_NAME': 'torch-nightly-2-1-0-20230827-cu121-local-nccl-2-18-1',
+        'IMAGE_NAME': 'torch-nightly-2-1-0-20230827-cu121-local-nccl-2.18.1',
         'MOFED_VERSION': '5.5-1.0.3.2',
         'PYTHON_VERSION': '3.10',
         'PYTORCH_VERSION': '2.1.0',
