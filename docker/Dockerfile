@@ -153,6 +153,16 @@ RUN apt-get update && \
 # Purge system NCCL (comes with torch)
 ######################################
 
+RUN ls /
+
+RUN ls /usr
+
+RUN ls / usr/lib
+
+RUN ls /usr/lib/x86_64-linux-gnu
+
+RUN ls /usr/lib/x86_64-linux-gnu/libnccl*
+
 RUN rm /usr/lib/x86_64-linux-gnu/libnccl.*
 
 ###############################
