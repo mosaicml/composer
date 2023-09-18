@@ -55,14 +55,11 @@ class EvalOutputLogging(Callback):
         self.print_only_incorrect = print_only_incorrect
         self.subset_sample = subset_sample
         self.tables = {}
-        self.output_directory = output_directory
+        self.output_directory = output_directory if output_directory else os.getcwd()
         self.hash = hashlib.sha256()
         self.most_recent_table_paths = None
 
     def write_tables_to_output_dir(self, state: State):
-        if self.output_directory is None:
-            return
-
         # write tmp files
         self.hash.update((str(time.time()) + str(random.randint(0, 1_000_000))).encode('utf-8'))
         tmp_dir = os.getcwd() + '/' + self.hash.hexdigest()
