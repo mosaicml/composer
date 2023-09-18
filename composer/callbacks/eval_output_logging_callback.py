@@ -69,8 +69,9 @@ class EvalOutputLogging(Callback):
         table_paths = []
         for table_name in self.tables:
             file_name = f"{table_name.replace('/', '-')}-ba{state.timestamp.batch.value}.tsv"
-            with open(f"{tmp_dir}/{file_name}", 'w') as f:
+            with open(f"{tmp_dir}/{file_name}", 'wb') as f:
                 cols, rows = self.tables[table_name]
+                rows = [[e.encode("unicode_escape") if isinstance(e, str) else e for e in row] for row in rows]
                 df = pd.DataFrame.from_records(data=rows, columns=cols)
                 df.to_csv(f, sep='\t', index=False)
                 table_paths.append(file_name)
