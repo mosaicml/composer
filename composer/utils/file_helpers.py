@@ -20,8 +20,7 @@ import tqdm
 
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_callback
-from composer.utils.object_store import (DatabricksUnityCatalogVolume, GCSObjectStore, ObjectStore, OCIObjectStore,
-                                         S3ObjectStore)
+from composer.utils.object_store import GCSObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore, UCObjectStore
 
 if TYPE_CHECKING:
     from composer.core import Timestamp
@@ -351,7 +350,7 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
     elif backend == 'oci':
         return OCIObjectStore(bucket=bucket_name)
     elif backend == 'uc':
-        return DatabricksUnityCatalogVolume(bucket=bucket_name)
+        return UCObjectStore(uri=uri)
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
                                   's3 or one of the supported object stores')
@@ -375,7 +374,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
     """
     from composer.loggers import RemoteUploaderDownloader
     existing_remote_uds = [logger_dest for logger_dest in loggers if isinstance(logger_dest, RemoteUploaderDownloader)]
-    backend, bucket_name, path = parse_uri(uri)
+    backend, bucket_name, _ = parse_uri(uri)
     if backend == '':
         return None
     for existing_remote_ud in existing_remote_uds:
@@ -391,15 +390,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
         raise NotImplementedError(f'There is no implementation for WandB via URI. Please use '
                                   'WandBLogger with log_artifacts set to True')
     elif backend == 'uc':
-        if 'DATABRICKS_HOST' not in os.environ or 'DATABRICKS_TOKEN' not in os.environ:
-            raise ValueError(
-                'You must set the DATABRICKS_HOST and DATABRICKS_TOKEN env variable with your databricks host and token respectively'
-            )
-        return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}',
-                                        backend_kwargs={
-                                            'volume_name': bucket_name,
-                                            'prefix': path,
-                                        })
+        return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}', backend_kwargs={uri: uri})
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
                                   's3 or one of the supported RemoteUploaderDownloader object stores')

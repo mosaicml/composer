@@ -12,9 +12,8 @@ from composer.utils.object_store.object_store import ObjectStore
 log = logging.getLogger(__name__)
 
 
-class DatabricksUnityCatalogVolume(ObjectStore):
-    """
-    Utility for uploading and downloading data from Databricks Unity Catalog Volumes
+class UCObjectStore(ObjectStore):
+    """Utility class for uploading and downloading data from Databricks Unity Catalog Volumes
     """
 
     def __init__(self, uri: str) -> None:
@@ -23,11 +22,9 @@ class DatabricksUnityCatalogVolume(ObjectStore):
         except ImportError as e:
             raise MissingConditionalImportError('databricks') from e
 
-        prefix = uri.lstrip('uc:/')
-        self.prefix = prefix.strip('/')
-        self.prefix += '/'
+        self.prefix = uri.removeprefix('uc:/')
 
-        if not 'DATABRICKS_HOST' not in os.environ or 'DATABRICKS_TOKEN' not in os.environ:
+        if not 'DATABRICKS_HOST' in os.environ or 'DATABRICKS_TOKEN' not in os.environ:
             # TODO: Raise a better exception here
             raise ValueError('Environment variables `DATABRICKS_HOST` and `DATABRICKS_TOKEN` '
                              'must be set to use Databricks Unity Catalog Volumes')
@@ -64,12 +61,13 @@ class DatabricksUnityCatalogVolume(ObjectStore):
         tmp_path = str(filename) + f'{uuid.uuid4()}.tmp'
 
         try:
+            from databricks.sdk.core import DatabricksError
             try:
                 uc_file = self.client.files.download(self.get_object_path(object_name))
                 with open(tmp_path, 'wb') as f:
                     f.write(uc_file.read())
                 uc_file.close()
-            except Exception as e:
+            except DatabricksError as e:
                 raise e
         except:
             # Make best effort attempt to clean up the temporary file
@@ -85,4 +83,5 @@ class DatabricksUnityCatalogVolume(ObjectStore):
                 os.rename(tmp_path, filename)
 
     def get_object_size(self, object_name: str) -> int:
-        pass
+        file_info = self.client.files.get_status(self.get_object_path(object_name))
+        return file_info.file_size
