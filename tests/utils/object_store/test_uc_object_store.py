@@ -31,8 +31,8 @@ def test_uc_object_store_without_env():
 
 
 def test_get_object_size(ws_client, uc_object_store):
-    db = pytest.importorskip('databricks.sdk')
-    ws_client.files.get_status.return_value = db.service.files.FileInfo(file_size=100)
+    db_files = pytest.importorskip('databricks.sdk.service.files')
+    ws_client.files.get_status.return_value = db_files.FileInfo(file_size=100)
     assert uc_object_store.get_object_size('train.txt') == 100
 
 
@@ -51,14 +51,17 @@ def test_upload_object(ws_client, uc_object_store, tmp_path):
 
 @pytest.mark.parametrize('result', ['success', 'file_exists', 'overwrite_file', 'error'])
 def test_download_object(ws_client, uc_object_store, tmp_path, result: str):
+
     object_name = 'remote-model.bin'
     file_content = bytes('0' * (1024 * 1024 * 1024), 'utf-8')
     file_to_download = str(tmp_path / Path('model.bin'))
 
     def generate_dummy_file(x):
+        db_files = pytest.importorskip('databricks.sdk.service.files')
         with open(file_to_download, 'wb') as fp:
             fp.write(file_content)
-        return open(file_to_download, 'rb')
+        f = open(file_to_download, 'rb')
+        return db_files.DownloadResponse(contents=f)
 
     if result == 'success':
         ws_client.files.download.side_effect = generate_dummy_file

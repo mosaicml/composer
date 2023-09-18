@@ -63,10 +63,9 @@ class UCObjectStore(ObjectStore):
         try:
             from databricks.sdk.core import DatabricksError
             try:
-                uc_file = self.client.files.download(self.get_object_path(object_name))
+                resp = self.client.files.download(self.get_object_path(object_name))
                 with open(tmp_path, 'wb') as f:
-                    f.write(uc_file.read())
-                uc_file.close()
+                    f.write(resp.contents.read())
             except DatabricksError as e:
                 raise e
         except:
