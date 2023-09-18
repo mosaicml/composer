@@ -149,22 +149,6 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-######################################
-# Purge system NCCL (comes with torch)
-######################################
-
-RUN ls /
-
-RUN ls /usr
-
-RUN ls / usr/lib
-
-RUN ls /usr/lib/x86_64-linux-gnu
-
-RUN ls /usr/lib/x86_64-linux-gnu/libnccl*
-
-RUN rm /usr/lib/x86_64-linux-gnu/libnccl.*
-
 ###############################
 # Install latest version of git
 ###############################
@@ -248,7 +232,7 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
 	        torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
             torchtext ; \
     fi
-RUN
+
 #####################################
 # Install EFA and AWS-OFI-NCCL plugin
 #####################################
@@ -295,6 +279,20 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
         /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64/mlnxofedinstall --user-space-only --without-fw-update --force && \
         rm -rf /tmp/mofed ; \
     fi
+
+######################################
+# Purge system NCCL (comes with torch)
+######################################
+
+RUN ls /
+
+RUN ls /usr
+
+RUN ls / usr/lib
+
+RUN ls /usr/lib/x86_64-linux-gnu
+
+RUN rm /usr/lib/x86_64-linux-gnu/libnccl.*
 
 #####################
 # Install NVIDIA Apex
