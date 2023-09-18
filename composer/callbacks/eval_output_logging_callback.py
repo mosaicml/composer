@@ -47,6 +47,7 @@ class EvalOutputLogging(Callback):
         self.prep_response_cache(state, True)
 
     def eval_end(self, state: State, logger: Logger) -> None:
+        tables = {}
         assert state.dataloader is not None
         assert isinstance(state.dataloader, DataLoader)
         if hasattr(state.dataloader, 'dataset') and isinstance(state.dataloader.dataset, ICLDatasetTypes):
@@ -72,4 +73,6 @@ class EvalOutputLogging(Callback):
                                 rows = random.sample(rows, min(len(rows), self.subset_sample))
 
                             logger.log_table(columns=columns, rows=rows, name=f'icl_outputs/{benchmark}')
+                            tables[f'icl_outputs/{benchmark}'] = (columns, rows)
         self.prep_response_cache(state, False)
+        return tables
