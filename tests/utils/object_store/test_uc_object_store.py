@@ -91,4 +91,4 @@ def test_download_object(ws_client, uc_object_store, tmp_path, result: str):
         ws_client.files.download.side_effect = db_core.DatabricksError
 
         with pytest.raises(db_core.DatabricksError):
-            uc_object_store.download_object(object_name, file_to_download, overwrite=True)
+            uc_object_store.download_object(object_name, file_to_download)
