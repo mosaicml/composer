@@ -22,24 +22,9 @@ from composer.callbacks.runtime_estimator import RuntimeEstimator
 from composer.callbacks.speed_monitor import SpeedMonitor
 from composer.callbacks.system_metrics_monitor import SystemMetricsMonitor
 from composer.callbacks.threshold_stopper import ThresholdStopper
-from composer.callbacks.eval_output_logging_callback import EvalOutputLogging
 
 __all__ = [
-    'ActivationMonitor',
-    'OptimizerMonitor',
-    'LRMonitor',
-    'MemoryMonitor',
-    'SpeedMonitor',
-    'CheckpointSaver',
-    'EvalOutputLogging',
-    'MLPerfCallback',
-    'EarlyStopper',
-    'ExportForInferenceCallback',
-    'ThresholdStopper',
-    'ImageVisualizer',
-    'HealthChecker',
-    'RuntimeEstimator',
-    'SystemMetricsMonitor',
-    'Generate',
-    'EvalOutputLogging'
+    'ActivationMonitor', 'OptimizerMonitor', 'LRMonitor', 'MemoryMonitor', 'SpeedMonitor', 'CheckpointSaver',
+    'EvalOutputLogging', 'MLPerfCallback', 'EarlyStopper', 'ExportForInferenceCallback', 'ThresholdStopper',
+    'ImageVisualizer', 'HealthChecker', 'RuntimeEstimator', 'SystemMetricsMonitor', 'Generate', 'EvalOutputLogging'
 ]

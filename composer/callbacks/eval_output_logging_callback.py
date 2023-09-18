@@ -3,9 +3,14 @@
 
 """Log model outputs and expected outputs during ICL evaluation."""
 
+import hashlib
+import os
 import random
-from typing import Callable
+import shutil
+import time
+from typing import Callable, Optional
 
+import pandas as pd
 from torch.utils.data import DataLoader
 
 from composer.core import Callback, State
@@ -15,10 +20,20 @@ from composer.datasets.in_context_learning_evaluation import (InContextLearningC
                                                               InContextLearningQATaskDataset,
                                                               InContextLearningSchemaTaskDataset)
 from composer.loggers import Logger
+from composer.utils import maybe_create_object_store_from_uri, parse_uri
 
 ICLDatasetTypes = (InContextLearningLMTaskDataset, InContextLearningQATaskDataset,
                    InContextLearningMultipleChoiceTaskDataset, InContextLearningSchemaTaskDataset,
                    InContextLearningCodeEvalDataset)
+
+
+def _write(destination_path, src_file):
+    obj_store = maybe_create_object_store_from_uri(destination_path)
+    _, _, save_path = parse_uri(destination_path)
+    if obj_store is not None:
+        obj_store.upload_object(object_name=save_path, filename=src_file)
+    else:
+        shutil.copy(src_file, destination_path)
 
 
 class EvalOutputLogging(Callback):
@@ -33,10 +48,42 @@ class EvalOutputLogging(Callback):
     only `subset_sample` of the outputs will be logged.
     """
 
-    def __init__(self, print_only_incorrect=False, subset_sample=-1):
+    def __init__(self,
+                 print_only_incorrect: bool = False,
+                 subset_sample: int = -1,
+                 output_directory: Optional[str] = None):
         self.print_only_incorrect = print_only_incorrect
         self.subset_sample = subset_sample
         self.tables = {}
+        self.output_directory = output_directory
+        self.hash = hashlib.sha256()
+
+    def write_tables_to_output_dir(self, state: State):
+        if self.output_directory is None:
+            return
+
+        # write tmp files
+        self.hash.update((str(time.time()) + str(random.randint(0, 1_000_000))).encode('utf-8'))
+        tmp_dir = os.getcwd() + '/' + self.hash.hexdigest()
+        if not os.path.exists(tmp_dir):
+            os.mkdir(tmp_dir)
+
+        table_paths = []
+        for table_name in self.tables:
+            file_name = f"{tmp_dir}/{table_name.replace('/', '-')}-ba{state.timestamp.batch.value}.tsv"
+            with open(file_name, 'w') as f:
+                cols, rows = self.tables[table_name]
+                df = pd.DataFrame.from_records(data=rows, columns=cols)
+                df.to_csv(f, sep='\t', index=False)
+                table_paths.append(file_name)
+
+        # copy/upload tmp files
+        for tmp_tbl_path in table_paths:
+            _write(destination_path=tmp_tbl_path.replace(tmp_dir, self.output_directory), src_file=tmp_tbl_path)
+            os.remove(tmp_tbl_path)
+
+        # delete tmp files
+        os.rmdir(tmp_dir)
 
     def prep_response_cache(self, state, cache):
         benchmark = state.dataloader_label
@@ -44,11 +91,17 @@ class EvalOutputLogging(Callback):
             if hasattr(metric, 'set_response_cache'):
                 metric.set_response_cache(cache)
 
+    def eval_after_all(self, state: State, logger: Logger) -> None:
+        self.write_tables_to_output_dir(state)
+
+    def eval_standalone_end(self, state: State, logger: Logger) -> None:
+        self.write_tables_to_output_dir(state)
+
     def eval_start(self, state: State, logger: Logger) -> None:
         self.prep_response_cache(state, True)
 
     def eval_end(self, state: State, logger: Logger) -> None:
-        
+
         assert state.dataloader is not None
         assert isinstance(state.dataloader, DataLoader)
         if hasattr(state.dataloader, 'dataset') and isinstance(state.dataloader.dataset, ICLDatasetTypes):
@@ -76,4 +129,3 @@ class EvalOutputLogging(Callback):
                             logger.log_table(columns=columns, rows=rows, name=f'icl_outputs/{benchmark}')
                             self.tables[f'icl_outputs/{benchmark}'] = (columns, rows)
         self.prep_response_cache(state, False)
-        return self.tables

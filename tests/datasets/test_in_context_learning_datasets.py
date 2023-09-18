@@ -8,6 +8,7 @@ import random
 import types
 from pathlib import Path
 
+import pandas as pd
 import pytest
 import torch
 import transformers
@@ -997,13 +998,21 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
     trainer = Trainer(model=model,
                       max_duration='1ep',
                       loggers=in_memory_logger,
-                      callbacks=EvalOutputLogging(print_only_incorrect=True, subset_sample=1))
+                      callbacks=EvalOutputLogging(print_only_incorrect=True,
+                                                  subset_sample=2,
+                                                  output_directory=str(tmp_path)))
     trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
+
     assert 'metrics/lambada/InContextLearningLMAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/lambada/InContextLearningLMAccuracy'][0][1].item() == 0
     icl_outputs = json.loads(in_memory_logger.tables['icl_outputs/lambada'])
     assert icl_outputs['columns'] == ['context_tok', 'continuation_tok_target', 'continuation_tok_pred', 'correct']
-    assert len(icl_outputs['data']) == 1
+    assert len(icl_outputs['data']) == 2
+
+    with open(str(tmp_path) + '/icl_outputs-lambada-ba0.tsv', 'r') as f:
+        df = pd.read_csv(f, sep='\t')
+    assert len(df) == 2
+    assert df.columns == ['context_tok', 'continuation_tok_target', 'continuation_tok_pred', 'correct']
 
 
 @pytest.mark.parametrize('dataset_uri', ['winograd_small.jsonl'])
