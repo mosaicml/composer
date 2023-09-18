@@ -1012,7 +1012,7 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
     with open(str(tmp_path) + '/icl_outputs-lambada-ba0.tsv', 'r') as f:
         df = pd.read_csv(f, sep='\t')
     assert len(df) == 2
-    assert df.columns == ['context_tok', 'continuation_tok_target', 'continuation_tok_pred', 'correct']
+    assert list(df.columns) == ['context_tok', 'continuation_tok_target', 'continuation_tok_pred', 'correct']
 
 
 @pytest.mark.parametrize('dataset_uri', ['winograd_small.jsonl'])

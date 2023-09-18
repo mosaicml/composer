@@ -57,6 +57,7 @@ class EvalOutputLogging(Callback):
         self.tables = {}
         self.output_directory = output_directory
         self.hash = hashlib.sha256()
+        self.most_recent_table_paths = None
 
     def write_tables_to_output_dir(self, state: State):
         if self.output_directory is None:
@@ -70,8 +71,8 @@ class EvalOutputLogging(Callback):
 
         table_paths = []
         for table_name in self.tables:
-            file_name = f"{tmp_dir}/{table_name.replace('/', '-')}-ba{state.timestamp.batch.value}.tsv"
-            with open(file_name, 'w') as f:
+            file_name = f"{table_name.replace('/', '-')}-ba{state.timestamp.batch.value}.tsv"
+            with open(f"{tmp_dir}/{file_name}", 'w') as f:
                 cols, rows = self.tables[table_name]
                 df = pd.DataFrame.from_records(data=rows, columns=cols)
                 df.to_csv(f, sep='\t', index=False)
@@ -79,11 +80,12 @@ class EvalOutputLogging(Callback):
 
         # copy/upload tmp files
         for tmp_tbl_path in table_paths:
-            _write(destination_path=tmp_tbl_path.replace(tmp_dir, self.output_directory), src_file=tmp_tbl_path)
-            os.remove(tmp_tbl_path)
+            _write(destination_path=f"{self.output_directory}/{file_name}", src_file=f"{tmp_dir}/{file_name}")
+            os.remove(f"{tmp_dir}/{file_name}")
 
         # delete tmp files
         os.rmdir(tmp_dir)
+        self.most_recent_table_paths = [f"{self.output_directory}/{file_name}" for file_name in tmp_tbl_path]
 
     def prep_response_cache(self, state, cache):
         benchmark = state.dataloader_label
