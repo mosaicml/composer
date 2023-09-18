@@ -77,12 +77,12 @@ class EvalOutputLogging(Callback):
 
         # copy/upload tmp files
         for tmp_tbl_path in table_paths:
-            _write(destination_path=f"{self.output_directory}/{file_name}", src_file=f"{tmp_dir}/{file_name}")
-            os.remove(f"{tmp_dir}/{file_name}")
+            _write(destination_path=f"{self.output_directory}/{tmp_tbl_path}", src_file=f"{tmp_dir}/{tmp_tbl_path}")
+            os.remove(f"{tmp_dir}/{tmp_tbl_path}")
 
         # delete tmp files
         os.rmdir(tmp_dir)
-        self.most_recent_table_paths = [f"{self.output_directory}/{file_name}" for file_name in tmp_tbl_path]
+        self.most_recent_table_paths = [f"{self.output_directory}/{file_name}" for file_name in table_paths]
 
     def prep_response_cache(self, state, cache):
         benchmark = state.dataloader_label
