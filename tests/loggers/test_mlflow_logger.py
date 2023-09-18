@@ -257,6 +257,7 @@ def test_mlflow_log_table(tmp_path):
     assert table['columns'] == columns
     assert table['data'] == rows
 
+
 @pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
 def test_mlflow_log_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
     mlflow = pytest.importorskip('mlflow')
