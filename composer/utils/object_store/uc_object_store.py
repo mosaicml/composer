@@ -22,7 +22,7 @@ class UCObjectStore(ObjectStore):
         except ImportError as e:
             raise MissingConditionalImportError('databricks') from e
 
-        self.prefix = uri.removeprefix('uc:/')
+        self.prefix = self._get_prefix(uri)
 
         if not 'DATABRICKS_HOST' in os.environ or 'DATABRICKS_TOKEN' not in os.environ:
             # TODO: Raise a better exception here
@@ -31,6 +31,16 @@ class UCObjectStore(ObjectStore):
 
         from databricks.sdk import WorkspaceClient
         self.client = WorkspaceClient()
+
+    @staticmethod
+    def _get_prefix(uri: str) -> str:
+        # removeprefix works only with python3.9 and above
+        if hasattr(uri, 'removeprefix'):
+            return uri.removeprefix('uc:/')
+        else:
+            if uri.startswith('uc:/'):
+                return uri[len('uc:/'):]
+            return uri
 
     def get_uri(self, object_name: str) -> str:
         return f'uc:/{self.get_object_path(object_name)}'
