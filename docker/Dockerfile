@@ -230,7 +230,7 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
         wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb && \
         dpkg -i cuda-keyring_1.0-1_all.deb && \
         apt-get update && \
-        apt install -y libnccl2=2.18.1-1+cuda12.1 libnccl-dev=2.18.1-1+cuda12.1 && \
+        apt install -y --allow-change-held-packages libnccl2=2.18.1-1+cuda12.1 libnccl-dev=2.18.1-1+cuda12.1 && \
         pip${PYTHON_VERSION} install --no-cache-dir --pre --index-url ${PYTORCH_NIGHTLY_URL} \
             torch==${PYTORCH_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
 	        torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
