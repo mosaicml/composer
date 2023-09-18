@@ -22,12 +22,18 @@ def uc_object_store(ws_client, monkeypatch):
     monkeypatch.setenv('DATABRICKS_HOST', 'test-host')
     monkeypatch.setenv('DATABRICKS_TOKEN', 'test-token')
     with mock.patch.object(db, 'WorkspaceClient', lambda: ws_client):
-        yield UCObjectStore(uri='uc://Volumes/test-volume/')
+        yield UCObjectStore(uri='dbfs:/Volumes/test-volume/')
 
 
 def test_uc_object_store_without_env():
     with pytest.raises(ValueError):
-        UCObjectStore(uri='uc://Volumes/test-volume/')
+        UCObjectStore(uri='dbfs:/Volumes/test-volume/')
+
+
+def test_uc_object_store_invalid_uri():
+    with pytest.raises(ValueError):
+        UCObjectStore(uri='dbfs:/root/')
+        UCObjectStore(uri='uc://Volumes')
 
 
 def test_get_object_size(ws_client, uc_object_store):
@@ -37,7 +43,7 @@ def test_get_object_size(ws_client, uc_object_store):
 
 
 def test_get_uri(uc_object_store):
-    assert uc_object_store.get_uri('train.txt') == 'uc://Volumes/test-volume/train.txt'
+    assert uc_object_store.get_uri('train.txt') == 'dbfs:/Volumes/test-volume/train.txt'
 
 
 def test_upload_object(ws_client, uc_object_store, tmp_path):

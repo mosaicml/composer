@@ -337,7 +337,7 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
     Returns:
         Optional[ObjectStore]: Returns an :class:`composer.utils.ObjectStore` if the URI is of a supported format, otherwise None
     """
-    backend, bucket_name, _ = parse_uri(uri)
+    backend, bucket_name, path = parse_uri(uri)
     if backend == '':
         return None
     if backend == 's3':
@@ -349,7 +349,7 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
         return GCSObjectStore(bucket=bucket_name)
     elif backend == 'oci':
         return OCIObjectStore(bucket=bucket_name)
-    elif backend == 'uc':
+    elif backend == 'dbfs' and path.startswith('Volumes/'):
         return UCObjectStore(uri=uri)
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
@@ -374,7 +374,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
     """
     from composer.loggers import RemoteUploaderDownloader
     existing_remote_uds = [logger_dest for logger_dest in loggers if isinstance(logger_dest, RemoteUploaderDownloader)]
-    backend, bucket_name, _ = parse_uri(uri)
+    backend, bucket_name, path = parse_uri(uri)
     if backend == '':
         return None
     for existing_remote_ud in existing_remote_uds:
@@ -389,7 +389,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
     elif backend == 'wandb':
         raise NotImplementedError(f'There is no implementation for WandB via URI. Please use '
                                   'WandBLogger with log_artifacts set to True')
-    elif backend == 'uc':
+    elif backend == 'dbfs' and path.startswith('Volumes/'):
         return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}', backend_kwargs={uri: uri})
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '

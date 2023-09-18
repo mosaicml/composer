@@ -14,6 +14,11 @@ log = logging.getLogger(__name__)
 
 class UCObjectStore(ObjectStore):
     """Utility class for uploading and downloading data from Databricks Unity Catalog Volumes
+
+    Args:
+        uri (str): The Databricks UC Volume URI that is of the format
+            `dbfs:/Volumes/<catalog-name>/<schema-name>/<volume-name>/path`
+
     """
 
     def __init__(self, uri: str) -> None:
@@ -22,46 +27,41 @@ class UCObjectStore(ObjectStore):
         except ImportError as e:
             raise MissingConditionalImportError('databricks') from e
 
-        self.prefix = self._get_prefix(uri)
-
-        if not 'DATABRICKS_HOST' in os.environ or 'DATABRICKS_TOKEN' not in os.environ:
-            # TODO: Raise a better exception here
+        if not 'DATABRICKS_HOST' in os.environ or not 'DATABRICKS_TOKEN' in os.environ:
             raise ValueError('Environment variables `DATABRICKS_HOST` and `DATABRICKS_TOKEN` '
                              'must be set to use Databricks Unity Catalog Volumes')
+
+        if not uri.startswith('dbfs:/Volumes'):
+            raise ValueError('Databricks Unity Catalog Volumes paths should start with "dbfs:/Volumes".')
+        self.path = uri.lstrip('dbfs:')
 
         from databricks.sdk import WorkspaceClient
         self.client = WorkspaceClient()
 
-    @staticmethod
-    def _get_prefix(uri: str) -> str:
-        # removeprefix works only with python3.9 and above
-        if hasattr(uri, 'removeprefix'):
-            return uri.removeprefix('uc:/')
-        else:
-            if uri.startswith('uc:/'):
-                return uri[len('uc:/'):]
-            return uri
-
     def get_uri(self, object_name: str) -> str:
-        return f'uc:/{self.get_object_path(object_name)}'
+        return f'dbfs:{self.get_object_path(object_name)}'
 
     def get_object_path(self, object_name: str) -> str:
-        return os.path.join(self.prefix, object_name)
+        return os.path.join(self.path, object_name)
 
-    # TODO: Figure out if / how we can use callbacks here
     def upload_object(self,
                       object_name: str,
                       filename: str | pathlib.Path,
                       callback: Callable[[int, int], None] | None = None) -> None:
+        # remove unused variable
+        del callback
+
         with open(filename, 'rb') as f:
             self.client.files.upload(self.get_object_path(object_name), f)
 
-    # TODO: Figure out if / how we can use callbacks here
     def download_object(self,
                         object_name: str,
                         filename: str | pathlib.Path,
                         overwrite: bool = False,
                         callback: Callable[[int, int], None] | None = None) -> None:
+        # remove unused variable
+        del callback
+
         if os.path.exists(filename) and not overwrite:
             raise FileExistsError(f'The file at {filename} already exists and overwrite is set to False.')
 

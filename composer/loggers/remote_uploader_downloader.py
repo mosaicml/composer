@@ -43,7 +43,7 @@ def _build_remote_backend(remote_backend_name: str, backend_kwargs: Dict[str, An
         'sftp': SFTPObjectStore,
         'libcloud': LibcloudObjectStore,
         'gs': GCSObjectStore,
-        'uc': UCObjectStore,
+        'dbfs': UCObjectStore,
     }
     remote_backend_cls = remote_backend_name_to_cls.get(remote_backend_name, None)
     if remote_backend_cls is None:
