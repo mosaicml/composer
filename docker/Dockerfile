@@ -149,6 +149,12 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+######################################
+# Purge system NCCL (comes with torch)
+######################################
+
+RUN rm /usr/lib/x86_64-linux-gnu/libnccl.*
+
 ###############################
 # Install latest version of git
 ###############################
