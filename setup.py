@@ -104,7 +104,7 @@ extra_deps['dev'] = [
     'pytest==7.4.2',
     'toml==0.10.2',
     'ipython==8.11.0',
-    'ipykernel==6.25.1',
+    'ipykernel==6.25.2',
     'jupyter==1.0.0',
     'yamllint==1.32.0',
     'recommonmark==0.7.1',
@@ -125,11 +125,11 @@ extra_deps['dev'] = [
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.16.1',
-    'traitlets==5.9.0',
+    'traitlets==5.10.0',
     'nbsphinx==0.9.1',
     'pandoc==2.3',
     'pypandoc==1.11',
-    'GitPython==3.1.35',
+    'GitPython==3.1.36',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
     'cryptography==41.0.3',
@@ -184,7 +184,7 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<4.33',
+    'transformers>=4.11,<4.34',
     'datasets>=2.4,<3',
 ]
 

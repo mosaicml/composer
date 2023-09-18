@@ -1080,9 +1080,8 @@ class Trainer:
                 loggers.append(remote_ud)
 
         # MosaicML Logger
-        if bool(os.environ.get(MOSAICML_PLATFORM_ENV_VAR,
-                               False)) and os.environ.get(MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and not any(
-                                   isinstance(x, MosaicMLLogger) for x in loggers):
+        if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and os.environ.get(
+                MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and not any(isinstance(x, MosaicMLLogger) for x in loggers):
             log.info('Detected run on MosaicML platform. Adding MosaicMLLogger to loggers.')
             mosaicml_logger = MosaicMLLogger()
             loggers.append(mosaicml_logger)
