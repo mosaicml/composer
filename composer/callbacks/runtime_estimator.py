@@ -43,11 +43,13 @@ class RuntimeEstimator(Callback):
 
     The runtime estimate is logged by the :class:`.Logger` to the following key as described below.
 
-    +-----------------------------------+---------------------------------------------------------+
-    | Key                               | Logged data                                             |
-    +===================================+=========================================================+
-    | `time/remaining_estimate`         | Estimated time to completion                            |
-    +-----------------------------------+---------------------------------------------------------+
+    +-----------------------------------+----------------------------------------------------------------+
+    | Key                               | Logged data                                                    |
+    +===================================+================================================================+
+    | `time/remaining_estimate`         | Estimated time to completion                                   |
+    +-----------------------------------+----------------------------------------------------------------+
+    | `time/remaining_estimate_unit`    | Unit of time specified by user (seconds, minutes, hours, days) |
+    +-----------------------------------+----------------------------------------------------------------+
 
     Args:
         skip_batches (int, optional): Number of batches to skip before starting clock to estimate
@@ -64,6 +66,7 @@ class RuntimeEstimator(Callback):
         self.start_dur = None
         self.train_dataloader_len = None
 
+        self.time_unit = time_unit
         self.divider = 1
         if time_unit == 'seconds':
             self.divider = 1
@@ -103,6 +106,10 @@ class RuntimeEstimator(Callback):
         if elapsed_dur is not None:
             return elapsed_dur.value
         return None
+
+    def init(self, state: State, logger: Logger) -> None:
+        if self._enabled:
+            logger.log_hyperparameters({'time/remaining_estimate_unit': self.time_unit})
 
     def batch_start(self, state: State, logger: Logger) -> None:
         if self._enabled and self.start_time is None and self.batches_left_to_skip == 0:
