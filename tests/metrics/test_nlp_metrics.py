@@ -200,11 +200,11 @@ def test_in_context_learning_lm_accuracy(tiny_gpt2_tokenizer):
     responses: list = metric.response_cache
     assert len(responses) > 1 and isinstance(responses[1], dict)
     row: dict = responses[1]  # pyright: ignore [reportGeneralTypeIssues]
-    assert tiny_gpt2_tokenizer.decode(row['context_tok'].tolist()) == 'I love to eat'
+    assert tiny_gpt2_tokenizer.decode(row['context_tok']) == 'I love to eat'
 
-    assert tiny_gpt2_tokenizer.decode(row['continuation_tok_pred'].tolist()) == '[PAD]'
+    assert tiny_gpt2_tokenizer.decode(row['continuation_tok_pred']) == '[PAD]'
 
-    assert tiny_gpt2_tokenizer.decode(row['continuation_tok_target'].tolist()) == ' pie'
+    assert tiny_gpt2_tokenizer.decode(row['continuation_tok_target']) == ' pie'
 
     columns, rows = metric.format_response_cache(tiny_gpt2_tokenizer)
     assert rows == [['The dog is', ' furry', ' furry', True], ['I love to eat', ' pie', '[PAD]', False],
@@ -406,15 +406,15 @@ def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):
     assert isinstance(metric.response_cache[-1], dict)
     last_row: dict = metric.response_cache[-1]  # pyright: ignore [reportGeneralTypeIssues]
     assert 'question_tok' in last_row
-    assert isinstance(last_row['question_tok'], torch.Tensor)
+    assert isinstance(last_row['question_tok'], list)
     assert 'selected_choice' in last_row
-    assert isinstance(last_row['selected_choice'], torch.Tensor)
+    assert isinstance(last_row['selected_choice'], list)
     assert 'correct_choice' in last_row
-    assert isinstance(last_row['correct_choice'], torch.Tensor)
+    assert isinstance(last_row['correct_choice'], list)
 
-    assert tiny_gpt2_tokenizer.decode(last_row['question_tok'].tolist()) == 'Q: How old is the earth?'
-    assert tiny_gpt2_tokenizer.decode(last_row['selected_choice'].tolist()) == ' A: 2 minutes'
-    assert tiny_gpt2_tokenizer.decode(last_row['correct_choice'].tolist()) == ' A: 4.5 billion years'
+    assert tiny_gpt2_tokenizer.decode(last_row['question_tok']) == 'Q: How old is the earth?'
+    assert tiny_gpt2_tokenizer.decode(last_row['selected_choice']) == ' A: 2 minutes'
+    assert tiny_gpt2_tokenizer.decode(last_row['correct_choice']) == ' A: 4.5 billion years'
 
     columns, rows = metric.format_response_cache(tiny_gpt2_tokenizer)
     assert rows == [['Q: How do you cook a cake?', ' A: turn on the oven', ' A: turn on the oven', True],

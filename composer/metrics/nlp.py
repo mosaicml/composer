@@ -211,8 +211,15 @@ class InContextLearningMetric(Metric):
             for row in self.response_cache:
                 assert isinstance(row, dict)
                 columns = list(row.keys())
-                row = [tokenizer.decode(r_i.tolist()) if isinstance(r_i, torch.Tensor) else r_i for r_i in row.values()]
-                rows.append(row)
+                converted_row = []
+                for r_i in row.values():
+                    if isinstance(r_i, list) and len(r_i) > 0 \
+                        and all(isinstance(r_ij, int) for r_ij in r_i) \
+                        and not all(isinstance(r_ij, bool) for r_ij in r_i):
+                        converted_row.append(tokenizer.decode(r_i))
+                    else:
+                        converted_row.append(r_i)
+                rows.append(converted_row)
 
         return columns, rows
 
@@ -363,9 +370,9 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
             if self.cache_responses:
                 assert isinstance(self.response_cache, list)
                 self.response_cache.append({
-                    'context_tok': batch['input_ids'][batch_idx][:cont_idx[0]].to('cpu'),
-                    'continuation_tok_target': cont_tok_targ.to('cpu'),
-                    'continuation_tok_pred': cont_tok_pred.to('cpu'),
+                    'context_tok': batch['input_ids'][batch_idx][:cont_idx[0]].tolist(),
+                    'continuation_tok_target': cont_tok_targ.tolist(),
+                    'continuation_tok_pred': cont_tok_pred.tolist(),
                     'correct': correct
                 })
             self.total += torch.tensor(1.0)
@@ -432,9 +439,9 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
 
                 assert isinstance(self.response_cache, list)
                 self.response_cache.append({
-                    'question_tok': question.to('cpu'),
-                    'correct_choice': correct_choice.to('cpu'),
-                    'selected_choice': selected_choice.to('cpu'),
+                    'question_tok': question.tolist(),
+                    'correct_choice': correct_choice.tolist(),
+                    'selected_choice': selected_choice.tolist(),
                     'correct': correct
                 })
             self.total += torch.tensor(1.0)
