@@ -57,7 +57,6 @@ class EvalOutputLogging(Callback):
         self.tables = {}
         self.output_directory = output_directory if output_directory else os.getcwd()
         self.hash = hashlib.sha256()
-        self.most_recent_table_paths = None
 
     def write_tables_to_output_dir(self, state: State):
         # write tmp files
@@ -83,19 +82,12 @@ class EvalOutputLogging(Callback):
 
         # delete tmp files
         os.rmdir(tmp_dir)
-        self.most_recent_table_paths = [f'{self.output_directory}/{file_name}' for file_name in table_paths]
 
     def prep_response_cache(self, state, cache):
         benchmark = state.dataloader_label
         for metric in state.eval_metrics[benchmark].values():
             if hasattr(metric, 'set_response_cache'):
                 metric.set_response_cache(cache)
-
-    def eval_after_all(self, state: State, logger: Logger) -> None:
-        self.write_tables_to_output_dir(state)
-
-    def eval_standalone_end(self, state: State, logger: Logger) -> None:
-        self.write_tables_to_output_dir(state)
 
     def eval_start(self, state: State, logger: Logger) -> None:
         self.prep_response_cache(state, True)
@@ -125,7 +117,9 @@ class EvalOutputLogging(Callback):
 
                             if self.subset_sample > 0:
                                 rows = random.sample(rows, min(len(rows), self.subset_sample))
-
                             logger.log_table(columns=columns, rows=rows, name=f'icl_outputs/{benchmark}')
                             self.tables[f'icl_outputs/{benchmark}'] = (columns, rows)
+
+        self.write_tables_to_output_dir(state)
+        del self.tables[f'icl_outputs/{benchmark}']
         self.prep_response_cache(state, False)
