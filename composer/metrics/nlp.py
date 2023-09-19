@@ -363,9 +363,9 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
             if self.cache_responses:
                 assert isinstance(self.response_cache, list)
                 self.response_cache.append({
-                    'context_tok': batch['input_ids'][batch_idx][:cont_idx[0]],
-                    'continuation_tok_target': cont_tok_targ,
-                    'continuation_tok_pred': cont_tok_pred,
+                    'context_tok': batch['input_ids'][batch_idx][:cont_idx[0]].to('cpu'),
+                    'continuation_tok_target': cont_tok_targ.to('cpu'),
+                    'continuation_tok_pred': cont_tok_pred.to('cpu'),
                     'correct': correct
                 })
             self.total += torch.tensor(1.0)
@@ -432,9 +432,9 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
 
                 assert isinstance(self.response_cache, list)
                 self.response_cache.append({
-                    'question_tok': question,
-                    'correct_choice': correct_choice,
-                    'selected_choice': selected_choice,
+                    'question_tok': question.to('cpu'),
+                    'correct_choice': correct_choice.to('cpu'),
+                    'selected_choice': selected_choice.to('cpu'),
                     'correct': correct
                 })
             self.total += torch.tensor(1.0)

@@ -69,21 +69,21 @@ class EvalOutputLogging(Callback):
         table_paths = []
         for table_name in self.tables:
             file_name = f"{table_name.replace('/', '-')}-ba{state.timestamp.batch.value}.tsv"
-            with open(f"{tmp_dir}/{file_name}", 'wb') as f:
+            with open(f'{tmp_dir}/{file_name}', 'wb') as f:
                 cols, rows = self.tables[table_name]
-                rows = [[e.encode("unicode_escape") if isinstance(e, str) else e for e in row] for row in rows]
+                rows = [[e.encode('unicode_escape') if isinstance(e, str) else e for e in row] for row in rows]
                 df = pd.DataFrame.from_records(data=rows, columns=cols)
                 df.to_csv(f, sep='\t', index=False)
                 table_paths.append(file_name)
 
         # copy/upload tmp files
         for tmp_tbl_path in table_paths:
-            _write(destination_path=f"{self.output_directory}/{tmp_tbl_path}", src_file=f"{tmp_dir}/{tmp_tbl_path}")
-            os.remove(f"{tmp_dir}/{tmp_tbl_path}")
+            _write(destination_path=f'{self.output_directory}/{tmp_tbl_path}', src_file=f'{tmp_dir}/{tmp_tbl_path}')
+            os.remove(f'{tmp_dir}/{tmp_tbl_path}')
 
         # delete tmp files
         os.rmdir(tmp_dir)
-        self.most_recent_table_paths = [f"{self.output_directory}/{file_name}" for file_name in table_paths]
+        self.most_recent_table_paths = [f'{self.output_directory}/{file_name}' for file_name in table_paths]
 
     def prep_response_cache(self, state, cache):
         benchmark = state.dataloader_label
