@@ -269,7 +269,7 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
         cot_delimiter = batch['cot_delimiter']
         for sample_output, sample_labels in zip(outputs, labels):
             if cot_delimiter is not None and len(cot_delimiter) > 0:
-                # in chain of thought, the final answer comes after the
+                # In chain of thought, the final answer comes after the
                 # explanation and is delimited by `cot_delimiter`
                 final_answer = ''
                 if cot_delimiter in sample_output:
