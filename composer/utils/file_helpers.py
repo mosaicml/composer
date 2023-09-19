@@ -393,7 +393,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
         return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}', backend_kwargs={uri: uri})
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
-                                  's3 or one of the supported RemoteUploaderDownloader object stores')
+                                  'one of the supported RemoteUploaderDownloader object stores')
 
 
 def get_file(path: str,

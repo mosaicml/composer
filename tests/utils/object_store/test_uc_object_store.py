@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 from pathlib import Path
 from unittest import mock
 from unittest.mock import ANY, MagicMock
@@ -55,7 +58,7 @@ def test_upload_object(ws_client, uc_object_store, tmp_path):
     ws_client.files.upload.assert_called_with('/Volumes/test-volume/train.txt', ANY)
 
 
-@pytest.mark.parametrize('result', ['success', 'file_exists', 'overwrite_file', 'error'])
+@pytest.mark.parametrize('result', ['success', 'file_exists', 'overwrite_file', 'not_found', 'error'])
 def test_download_object(ws_client, uc_object_store, tmp_path, result: str):
 
     object_name = 'remote-model.bin'
@@ -91,6 +94,13 @@ def test_download_object(ws_client, uc_object_store, tmp_path, result: str):
         with open(file_to_download, 'rb') as f:
             actual_content = f.readline()
         assert actual_content == file_content
+
+    elif result == 'not_found':
+        db_core = pytest.importorskip('databricks.sdk.core', reason='requires databricks')
+        ws_client.files.download.side_effect = db_core.DatabricksError('The file being accessed is not found',
+                                                                       error_code='NOT_FOUND')
+        with pytest.raises(FileNotFoundError):
+            uc_object_store.download_object(object_name, file_to_download)
 
     else:  # error
         db_core = pytest.importorskip('databricks.sdk.core', reason='requires databricks')

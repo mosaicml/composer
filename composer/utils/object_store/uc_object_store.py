@@ -1,6 +1,10 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
+"""Databricks Unity Catalog Volumes object store."""
+
 from __future__ import annotations
 
-import logging
 import os
 import pathlib
 import uuid
@@ -9,11 +13,27 @@ from typing import Callable
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
 
-log = logging.getLogger(__name__)
+__all__ = ['UCObjectStore']
+
+_NOT_FOUND_ERROR_CODE = 'NOT_FOUND'
+
+
+def _wrap_not_found_errors(uri: str, e: Exception):
+    from databricks.sdk.core import DatabricksError
+    if isinstance(e, DatabricksError):
+        if e.error_code == _NOT_FOUND_ERROR_CODE:  # type: ignore
+            raise FileNotFoundError(f'Object {uri} not found') from e
+    raise e
 
 
 class UCObjectStore(ObjectStore):
-    """Utility class for uploading and downloading data from Databricks Unity Catalog Volumes
+    """Utility class for uploading and downloading data from Databricks Unity Catalog (UC) Volumes.
+
+    .. note::
+
+        Using this object store requires setting `DATABRICKS_HOST` and `DATABRICKS_TOKEN`
+        environment variables with the right credentials to be able to access the files in
+        the unity catalog volumes.
 
     Args:
         uri (str): The Databricks UC Volume URI that is of the format
@@ -23,9 +43,9 @@ class UCObjectStore(ObjectStore):
 
     def __init__(self, uri: str) -> None:
         try:
-            import databricks
+            from databricks.sdk import WorkspaceClient
         except ImportError as e:
-            raise MissingConditionalImportError('databricks') from e
+            raise MissingConditionalImportError('databricks', conda_package='databricks-sdk>=0.8.0,<1.0') from e
 
         if not 'DATABRICKS_HOST' in os.environ or not 'DATABRICKS_TOKEN' in os.environ:
             raise ValueError('Environment variables `DATABRICKS_HOST` and `DATABRICKS_TOKEN` '
@@ -35,30 +55,62 @@ class UCObjectStore(ObjectStore):
             raise ValueError('Databricks Unity Catalog Volumes paths should start with "dbfs:/Volumes".')
         self.path = uri.lstrip('dbfs:')
 
-        from databricks.sdk import WorkspaceClient
         self.client = WorkspaceClient()
 
-    def get_uri(self, object_name: str) -> str:
-        return f'dbfs:{self.get_object_path(object_name)}'
-
-    def get_object_path(self, object_name: str) -> str:
+    def _get_object_path(self, object_name: str) -> str:
         return os.path.join(self.path, object_name)
+
+    def get_uri(self, object_name: str) -> str:
+        """Returns the URI for ``object_name``.
+
+        .. note::
+
+            This function does not check that ``object_name`` is in the object store.
+            It computes the URI statically.
+
+        Args:
+            object_name (str): The object name.
+
+        Returns:
+            str: The URI for ``object_name`` in the object store.
+        """
+        return f'dbfs:{self._get_object_path(object_name)}'
 
     def upload_object(self,
                       object_name: str,
                       filename: str | pathlib.Path,
                       callback: Callable[[int, int], None] | None = None) -> None:
+        """Upload a file from local to UC volumes.
+
+        Args:
+            object_name (str): Name of the stored object in UC volumes w.r.t. volume root.
+            filename (str | pathlib.Path): Path the the object on disk
+            callback ((int, int) -> None, optional): Unused
+        """
         # remove unused variable
         del callback
 
         with open(filename, 'rb') as f:
-            self.client.files.upload(self.get_object_path(object_name), f)
+            self.client.files.upload(self._get_object_path(object_name), f)
 
     def download_object(self,
                         object_name: str,
                         filename: str | pathlib.Path,
                         overwrite: bool = False,
                         callback: Callable[[int, int], None] | None = None) -> None:
+        """Download the given object from UC Volumes to the specified filename.
+
+        Args:
+            object_name (str): The name of the object to download i.e. path relative to the root of the volume.
+            filename (str | pathlib.Path): The local path where a the file needs to be downloaded.
+            overwrite(bool, optional): Whether to overwrite an existing file at ``filename``, if it exists.
+                (default: ``False``)
+            callback ((int) -> None, optional): Unused
+
+        Raises:
+            FileNotFoundError: If the file was not found in UC volumes.
+            DatabricksError: If there was any other error querying the Databricks UC volumes.
+        """
         # remove unused variable
         del callback
 
@@ -73,11 +125,14 @@ class UCObjectStore(ObjectStore):
         try:
             from databricks.sdk.core import DatabricksError
             try:
-                resp = self.client.files.download(self.get_object_path(object_name))
-                with open(tmp_path, 'wb') as f:
-                    f.write(resp.contents.read())
+                with self.client.files.download(self._get_object_path(object_name)).contents as resp:
+                    with open(tmp_path, 'wb') as f:
+                        # Chunk the data into multiple blocks of 64MB to avoid
+                        # OOMs when downloading really large files
+                        for chunk in iter(lambda: resp.read(64 * 1024 * 1024), b''):
+                            f.write(chunk)
             except DatabricksError as e:
-                raise e
+                _wrap_not_found_errors(self.get_uri(object_name), e)
         except:
             # Make best effort attempt to clean up the temporary file
             try:
@@ -92,5 +147,16 @@ class UCObjectStore(ObjectStore):
                 os.rename(tmp_path, filename)
 
     def get_object_size(self, object_name: str) -> int:
-        file_info = self.client.files.get_status(self.get_object_path(object_name))
+        """Get the size of the object in UC volumes in bytes.
+
+        Args:
+            object_name (str): The name of the object.
+
+        Returns:
+            int: The object size, in bytes.
+
+        Raises:
+            FileNotFoundError: If the file was not found in the object store.
+        """
+        file_info = self.client.files.get_status(self._get_object_path(object_name))
         return file_info.file_size
