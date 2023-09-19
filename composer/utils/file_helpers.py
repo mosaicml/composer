@@ -353,7 +353,7 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
         return UCObjectStore(uri=uri)
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
-                                  's3 or one of the supported object stores')
+                                  'one of the supported object stores')
 
 
 def maybe_create_remote_uploader_downloader_from_uri(
