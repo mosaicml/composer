@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import pathlib
 import uuid
-from typing import Callable
+from typing import Callable, List, Optional
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
@@ -160,3 +160,16 @@ class UCObjectStore(ObjectStore):
         """
         file_info = self.client.files.get_status(self._get_object_path(object_name))
         return file_info.file_size
+
+    def list_objects(self, prefix: Optional[str]) -> List[str]:
+        """List all objects in the object store with the given prefix.
+
+        Args:
+            prefix (str): The prefix to search for.
+
+        Returns:
+            list[str]: A list of object names that match the prefix.
+        """
+        # TODO: Implement this function once UC volumes list endpoint is available in the SDK
+        del prefix  # unused
+        raise NotImplementedError(f'{type(self).__name__}.list_objects is not implemented')
