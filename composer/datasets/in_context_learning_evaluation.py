@@ -21,7 +21,7 @@ from composer.utils import MissingConditionalImportError, dist, get_file
 if TYPE_CHECKING:
     import transformers
 
-# allow models slightly more tokens than were used in the most verbose CoT in the dataset
+# Allow models to have slightly more tokens than were used in the most verbose CoT in the dataset
 MAX_ANSWER_BUFFER_LENGTH = 10
 
 __all__ = [
