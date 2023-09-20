@@ -55,6 +55,8 @@ def test_runtime_estimator(time_unit: str):
     )
     trainer.fit()
 
+    assert in_memory_logger.hyperparameters['time/remaining_estimate_unit'] == time_unit
+
     time_remaining_calls = len(in_memory_logger.data['time/remaining_estimate'])
     _assert_no_negative_values(in_memory_logger.data['time/remaining_estimate'])
 
