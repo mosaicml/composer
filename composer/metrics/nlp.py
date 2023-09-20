@@ -295,7 +295,7 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
 
     def update(self, batch, outputs: List[str], labels: List[List[str]]):
         cot_delimiter = batch['cot_delimiter']
-        for sample_output, sample_labels in zip(outputs, labels):
+        for sample_output, sample_labels, prompt_tensor in zip(outputs, labels, batch['input_ids']):
             if cot_delimiter is not None and len(cot_delimiter) > 0:
                 # in chain of thought, the final answer comes after the
                 # explanation and is delimited by `cot_delimiter`
@@ -314,6 +314,7 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
 
             assert isinstance(self.response_cache, list)
             self.response_cache.append({
+                'prompt': prompt_tensor.tolist(),
                 'original_model_output': sample_output,
                 'cleaned_model_output': cleaned_final_answer,
                 'original_labels': sample_labels,

@@ -240,65 +240,71 @@ def test_in_context_learning_lm_ece(tiny_gpt2_tokenizer):
     assert abs(metric.compute() - 0.2) < 0.0001
 
 
-def test_in_context_learning_qa_accuracy():
+def test_in_context_learning_qa_accuracy(tiny_gpt2_tokenizer):
     outputs = ['Correct but then some more text', 'Incorrect', ' the CORREct with weird casing and spacing']
     labels = [['Correct'], ['blah', 'blah2'], ['blah', 'correct']]
-    batch = {'cot_delimiter': '', 'labels': labels}
+    batch = {'cot_delimiter': '', 'labels': labels, 'input_ids': torch.tensor(
+        [tiny_gpt2_tokenizer.encode('I am a prompt')] * 3
+    )}
     metric = InContextLearningQAAccuracy(cache_responses=True)
     metric.update(batch, outputs, labels)
 
     assert metric.compute() == (2 / 3)
     assert metric.response_cache == [{
+        'prompt':  [40, 716, 257, 6152],
         'original_model_output': 'Correct but then some more text',
         'cleaned_model_output': 'correct but then some more text',
         'original_labels': ['Correct'],
         'cleaned_labels': {'correct'},
         'correct': True
     }, {
+        'prompt':  [40, 716, 257, 6152],
         'original_model_output': 'Incorrect',
         'cleaned_model_output': 'incorrect',
         'original_labels': ['blah', 'blah2'],
         'cleaned_labels': {'blah2', 'blah'},
         'correct': False
     }, {
+        'prompt':  [40, 716, 257, 6152],
         'original_model_output': ' the CORREct with weird casing and spacing',
         'cleaned_model_output': 'correct with weird casing and spacing',
         'original_labels': ['blah', 'correct'],
         'cleaned_labels': {'correct', 'blah'},
         'correct': True
     }]
-    columns, rows = metric.format_response_cache(None)
+    columns, rows = metric.format_response_cache(tiny_gpt2_tokenizer)
     assert rows == [[
-        'Correct but then some more text', 'correct but then some more text', ['Correct'], {'correct'}, True
-    ], ['Incorrect', 'incorrect', ['blah', 'blah2'], {'blah2', 'blah'}, False],
+        'I am a prompt', 'Correct but then some more text', 'correct but then some more text', ['Correct'], {'correct'}, True
+    ], [ 'I am a prompt', 'Incorrect', 'incorrect', ['blah', 'blah2'], {'blah2', 'blah'}, False],
                     [
-                        ' the CORREct with weird casing and spacing', 'correct with weird casing and spacing',
+                         'I am a prompt', ' the CORREct with weird casing and spacing', 'correct with weird casing and spacing',
                         ['blah', 'correct'], {'blah', 'correct'}, True
                     ]]
-    assert columns == ['original_model_output', 'cleaned_model_output', 'original_labels', 'cleaned_labels', 'correct']
+    assert columns == ['prompt', 'original_model_output', 'cleaned_model_output', 'original_labels', 'cleaned_labels', 'correct']
 
 
-def test_in_context_learning_qa_cot_accuracy():
+def test_in_context_learning_qa_cot_accuracy(tiny_gpt2_tokenizer):
     outputs = [
         'chain of thought ### Correct but then some more text', 'Incorrect',
         'chain of thought ### the CORREct with weird casing and spacing', 'Correct but missing chain of thought'
     ]
     labels = [['Correct'], ['blah', 'blah2'], ['blah', 'correct'], ['correct']]
-    batch = {'cot_delimiter': ' ### ', 'labels': labels}
+    batch = {'cot_delimiter': ' ### ', 'labels': labels, 'input_ids': torch.tensor(
+        [tiny_gpt2_tokenizer.encode('I am a prompt')] * 4) }
     metric = InContextLearningQAAccuracy(cache_responses=True)
     metric.update(batch, outputs, labels)
 
     assert metric.compute() == (2 / 4)
-    columns, rows = metric.format_response_cache(None)
-    assert columns == ['original_model_output', 'cleaned_model_output', 'original_labels', 'cleaned_labels', 'correct']
+    columns, rows = metric.format_response_cache(tiny_gpt2_tokenizer)
+    assert columns == ['prompt', 'original_model_output', 'cleaned_model_output', 'original_labels', 'cleaned_labels', 'correct']
     assert rows == [[
-        'chain of thought ### Correct but then some more text', 'correct but then some more text', ['Correct'],
+        'I am a prompt', 'chain of thought ### Correct but then some more text', 'correct but then some more text', ['Correct'],
         {'correct'}, True
-    ], ['Incorrect', '', ['blah', 'blah2'], {'blah2', 'blah'}, False],
+    ], ['I am a prompt', 'Incorrect', '', ['blah', 'blah2'], {'blah2', 'blah'}, False],
                     [
-                        'chain of thought ### the CORREct with weird casing and spacing',
+                        'I am a prompt', 'chain of thought ### the CORREct with weird casing and spacing',
                         'correct with weird casing and spacing', ['blah', 'correct'], {'correct', 'blah'}, True
-                    ], ['Correct but missing chain of thought', '', ['correct'], {'correct'}, False]]
+                    ], ['I am a prompt', 'Correct but missing chain of thought', '', ['correct'], {'correct'}, False]]
 
 
 def test_in_context_learning_code_eval_accuracy(monkeypatch):
