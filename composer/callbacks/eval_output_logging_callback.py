@@ -94,7 +94,6 @@ class EvalOutputLogging(Callback):
 
     def eval_start(self, state: State, logger: Logger) -> None:
         self.prep_response_cache(state, True)
-        self.table = {}
 
     def eval_after_all(self, state: State, logger: Logger) -> None:
         self.write_tables_to_output_dir(state)
@@ -129,7 +128,7 @@ class EvalOutputLogging(Callback):
 
                             if self.subset_sample > 0:
                                 rows = random.sample(rows, min(len(rows), self.subset_sample))
-                                
+
                             for destination in logger.destinations:
                                 if not isinstance(destination, ConsoleLogger):
                                     destination.log_table(columns, rows, f'icl_outputs/{benchmark}')
