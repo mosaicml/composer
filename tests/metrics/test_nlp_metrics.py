@@ -244,28 +244,27 @@ def test_in_context_learning_qa_accuracy(tiny_gpt2_tokenizer):
     outputs = ['Correct but then some more text', 'Incorrect', ' the CORREct with weird casing and spacing']
     labels = [['Correct'], ['blah', 'blah2'], ['blah', 'correct']]
     batch = {'cot_delimiter': '', 'labels': labels, 'input_ids': torch.tensor(
-        [tiny_gpt2_tokenizer.encode('I am a prompt')] * 3
+        [tiny_gpt2_tokenizer.encode('I am a prompt<|endoftext|>')] * 3
     )}
     metric = InContextLearningQAAccuracy(cache_responses=True)
     metric.update(batch, outputs, labels)
-
     assert metric.compute() == (2 / 3)
     assert metric.response_cache == [{
-        'prompt':  [40, 716, 257, 6152],
+        'prompt':  [40, 716, 257, 6152, 50256],
         'original_model_output': 'Correct but then some more text',
         'cleaned_model_output': 'correct but then some more text',
         'original_labels': ['Correct'],
         'cleaned_labels': {'correct'},
         'correct': True
     }, {
-        'prompt':  [40, 716, 257, 6152],
+        'prompt':  [40, 716, 257, 6152, 50256],
         'original_model_output': 'Incorrect',
         'cleaned_model_output': 'incorrect',
         'original_labels': ['blah', 'blah2'],
         'cleaned_labels': {'blah2', 'blah'},
         'correct': False
     }, {
-        'prompt':  [40, 716, 257, 6152],
+        'prompt':  [40, 716, 257, 6152, 50256],
         'original_model_output': ' the CORREct with weird casing and spacing',
         'cleaned_model_output': 'correct with weird casing and spacing',
         'original_labels': ['blah', 'correct'],

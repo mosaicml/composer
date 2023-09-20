@@ -217,7 +217,7 @@ class InContextLearningMetric(Metric):
                         and all(isinstance(r_ij, int) for r_ij in r_i) \
                         and not all(isinstance(r_ij, bool) for r_ij in r_i):
                         # remove all padding tokens
-                        r_i = [t for t in r_i if t in tokenizer.all_special_ids]
+                        r_i = [t for t in r_i if t not in tokenizer.all_special_ids]
                         converted_row.append(tokenizer.decode(r_i))
                     else:
                         converted_row.append(r_i)
