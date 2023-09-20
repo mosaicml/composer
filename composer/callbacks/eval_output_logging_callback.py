@@ -11,7 +11,6 @@ import time
 from typing import Callable, Optional
 
 import pandas as pd
-from .......users.jeremy.dohmann.llmwork.composer.composer.loggers import Logger
 from torch.utils.data import DataLoader
 
 from composer.core import Callback, State
