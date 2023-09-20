@@ -218,7 +218,7 @@ extra_deps['gcs'] = [
 ]
 
 extra_deps['onnx'] = [
-    'onnx>=1.12.0,<2.0',
+    'onnx>=1.12.0,<2',
     'onnxruntime>=1.12.1,<1.16',
 ]
 
