@@ -7,7 +7,9 @@ from unittest.mock import ANY, MagicMock
 
 import pytest
 
+from composer.loggers import RemoteUploaderDownloader
 from composer.utils import UCObjectStore
+from composer.utils.object_store.object_store import ObjectStoreTransientError
 
 
 @pytest.fixture
@@ -25,18 +27,19 @@ def uc_object_store(ws_client, monkeypatch):
     monkeypatch.setenv('DATABRICKS_HOST', 'test-host')
     monkeypatch.setenv('DATABRICKS_TOKEN', 'test-token')
     with mock.patch.object(db, 'WorkspaceClient', lambda: ws_client):
-        yield UCObjectStore(uri='dbfs:/Volumes/test-volume/')
+        yield UCObjectStore(prefix='/Volumes/test-volume/')
 
 
 def test_uc_object_store_without_env():
     with pytest.raises(ValueError):
-        UCObjectStore(uri='dbfs:/Volumes/test-volume/')
+        UCObjectStore(prefix='/Volumes/test-volume/')
 
 
-def test_uc_object_store_invalid_uri():
+def test_uc_object_store_invalid_prefix():
     with pytest.raises(ValueError):
-        UCObjectStore(uri='dbfs:/root/')
-        UCObjectStore(uri='uc://Volumes')
+        UCObjectStore(prefix='/root/')
+    with pytest.raises(ValueError):
+        UCObjectStore(prefix='uc://Volumes')
 
 
 def test_get_object_size(ws_client, uc_object_store):
@@ -106,5 +109,11 @@ def test_download_object(ws_client, uc_object_store, tmp_path, result: str):
         db_core = pytest.importorskip('databricks.sdk.core', reason='requires databricks')
         ws_client.files.download.side_effect = db_core.DatabricksError
 
-        with pytest.raises(db_core.DatabricksError):
+        with pytest.raises(ObjectStoreTransientError):
             uc_object_store.download_object(object_name, file_to_download)
+
+
+def test_uc_object_store_integration(uc_object_store):
+    uri = 'dbfs:/Volumes/path/to/my/folder/'
+    rud = RemoteUploaderDownloader(bucket_uri=uri, backend_kwargs={'prefix': '/Volumes/path/to/my/folder'})
+    assert isinstance(rud.remote_backend, UCObjectStore)

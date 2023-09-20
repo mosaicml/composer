@@ -11,19 +11,19 @@ import uuid
 from typing import Callable, List, Optional
 
 from composer.utils.import_helpers import MissingConditionalImportError
-from composer.utils.object_store.object_store import ObjectStore
+from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
 
 __all__ = ['UCObjectStore']
 
 _NOT_FOUND_ERROR_CODE = 'NOT_FOUND'
 
 
-def _wrap_not_found_errors(uri: str, e: Exception):
+def _wrap_errors(uri: str, e: Exception):
     from databricks.sdk.core import DatabricksError
     if isinstance(e, DatabricksError):
         if e.error_code == _NOT_FOUND_ERROR_CODE:  # type: ignore
             raise FileNotFoundError(f'Object {uri} not found') from e
-    raise e
+    raise ObjectStoreTransientError from e
 
 
 class UCObjectStore(ObjectStore):
@@ -36,12 +36,13 @@ class UCObjectStore(ObjectStore):
         the unity catalog volumes.
 
     Args:
-        uri (str): The Databricks UC Volume URI that is of the format
-            `dbfs:/Volumes/<catalog-name>/<schema-name>/<volume-name>/path`
-
+        prefix (str): The Databricks UC Volume prefix that is of the format
+            `/Volumes/<catalog-name>/<schema-name>/<volume-name>/path`. Note that this prefix should
+            always start with /Volumes since this object store only suports Unity Catalog Volumes and
+            not other Databricks Filesystems.
     """
 
-    def __init__(self, uri: str) -> None:
+    def __init__(self, prefix: str) -> None:
         try:
             from databricks.sdk import WorkspaceClient
         except ImportError as e:
@@ -51,14 +52,14 @@ class UCObjectStore(ObjectStore):
             raise ValueError('Environment variables `DATABRICKS_HOST` and `DATABRICKS_TOKEN` '
                              'must be set to use Databricks Unity Catalog Volumes')
 
-        if not uri.startswith('dbfs:/Volumes'):
-            raise ValueError('Databricks Unity Catalog Volumes paths should start with "dbfs:/Volumes".')
-        self.path = uri.lstrip('dbfs:')
+        if not prefix.startswith('/Volumes'):
+            raise ValueError('Databricks Unity Catalog Volumes paths should start with "/Volumes".')
+        self.prefix = prefix
 
         self.client = WorkspaceClient()
 
     def _get_object_path(self, object_name: str) -> str:
-        return os.path.join(self.path, object_name)
+        return os.path.join(self.prefix, object_name)
 
     def get_uri(self, object_name: str) -> str:
         """Returns the URI for ``object_name``.
@@ -109,7 +110,7 @@ class UCObjectStore(ObjectStore):
 
         Raises:
             FileNotFoundError: If the file was not found in UC volumes.
-            DatabricksError: If there was any other error querying the Databricks UC volumes.
+            ObjectStoreTransientError: If there was any other error querying the Databricks UC volumes that should be retried.
         """
         # remove unused variable
         del callback
@@ -132,7 +133,7 @@ class UCObjectStore(ObjectStore):
                         for chunk in iter(lambda: resp.read(64 * 1024 * 1024), b''):
                             f.write(chunk)
             except DatabricksError as e:
-                _wrap_not_found_errors(self.get_uri(object_name), e)
+                _wrap_errors(self.get_uri(object_name), e)
         except:
             # Make best effort attempt to clean up the temporary file
             try:

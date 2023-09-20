@@ -349,8 +349,12 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
         return GCSObjectStore(bucket=bucket_name)
     elif backend == 'oci':
         return OCIObjectStore(bucket=bucket_name)
-    elif backend == 'dbfs' and path.startswith('Volumes/'):
-        return UCObjectStore(uri=uri)
+    elif backend == 'dbfs':
+        if path.startswith('Volumes/'):
+            return UCObjectStore(prefix=f'/{path}')
+        else:
+            raise ValueError(f'Backend dbfs does not support URI {uri}. '
+                             'Please use a URI that starts with dbfs:/Volumes/')
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
                                   'one of the supported object stores')
@@ -389,8 +393,12 @@ def maybe_create_remote_uploader_downloader_from_uri(
     elif backend == 'wandb':
         raise NotImplementedError(f'There is no implementation for WandB via URI. Please use '
                                   'WandBLogger with log_artifacts set to True')
-    elif backend == 'dbfs' and path.startswith('Volumes/'):
-        return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}', backend_kwargs={uri: uri})
+    elif backend == 'dbfs':
+        if path.startswith('Volumes/'):
+            return RemoteUploaderDownloader(bucket_uri=uri, backend_kwargs={'prefix': f'/{path}'})
+        else:
+            raise ValueError(f'Backend dbfs does not support URI {uri}. '
+                             'Please use a URI that starts with dbfs:/Volumes/')
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
                                   'one of the supported RemoteUploaderDownloader object stores')
