@@ -55,9 +55,10 @@ class EvalOutputLogging(Callback):
                  output_directory: Optional[str] = None):
         self.print_only_incorrect = print_only_incorrect
         self.subset_sample = subset_sample
-        self.tables = {}
+        self.table = {}
         self.output_directory = output_directory if output_directory else os.getcwd()
         self.hash = hashlib.sha256()
+
 
     def write_tables_to_output_dir(self, state: State):
         # write tmp files
