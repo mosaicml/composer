@@ -11,6 +11,7 @@ import time
 from typing import Callable, Optional
 
 import pandas as pd
+from .......users.jeremy.dohmann.llmwork.composer.composer.loggers import Logger
 from torch.utils.data import DataLoader
 
 from composer.core import Callback, State
@@ -58,19 +59,25 @@ class EvalOutputLogging(Callback):
         self.output_directory = output_directory if output_directory else os.getcwd()
         self.hash = hashlib.sha256()
 
-    def write_tables_to_output_dir(self, state: State, table, benchmark):
+    def write_tables_to_output_dir(self, state: State):
         # write tmp files
         self.hash.update((str(time.time()) + str(random.randint(0, 1_000_000))).encode('utf-8'))
         tmp_dir = os.getcwd() + '/' + self.hash.hexdigest()
         if not os.path.exists(tmp_dir):
             os.mkdir(tmp_dir)
 
-        file_name = f"{benchmark.replace('/', '-')}-ba{state.timestamp.batch.value}.tsv"
-        with open(f'{tmp_dir}/{file_name}', 'wb') as f:
-            cols, rows = table
+        full_df = pd.DataFrame()
+        file_name = f"eval-outputs-ba{state.timestamp.batch.value}.tsv"
+
+        for benchmark in self.table:
+            cols, rows = self.table[benchmark]
             rows = [[e.encode('unicode_escape') if isinstance(e, str) else e for e in row] for row in rows]
             df = pd.DataFrame.from_records(data=rows, columns=cols)
-            df.to_csv(f, sep='\t', index=False)
+            df['benchmark'] = benchmark
+            full_df = pd.concat([full_df, df], ignore_index=True)
+
+        with open(f'{tmp_dir}/{file_name}', 'wb') as f:
+            full_df.to_csv(f, sep='\t', index=False)
 
         # copy/upload tmp files
         _write(destination_path=f'{self.output_directory}/{file_name}', src_file=f'{tmp_dir}/{file_name}')
@@ -87,12 +94,17 @@ class EvalOutputLogging(Callback):
 
     def eval_start(self, state: State, logger: Logger) -> None:
         self.prep_response_cache(state, True)
+        self.table = {}
+
+    def eval_after_all(self, state: State, logger: Logger) -> None:
+        self.write_tables_to_output_dir(state)
+        self.table = {}
+    
 
     def eval_end(self, state: State, logger: Logger) -> None:
 
         assert state.dataloader is not None
         assert isinstance(state.dataloader, DataLoader)
-        table = None
         if hasattr(state.dataloader, 'dataset') and isinstance(state.dataloader.dataset, ICLDatasetTypes):
             assert isinstance(state.dataloader.dataset, ICLDatasetTypes)
             if hasattr(state.dataloader.dataset, 'tokenizer'):
@@ -115,7 +127,6 @@ class EvalOutputLogging(Callback):
                             if self.subset_sample > 0:
                                 rows = random.sample(rows, min(len(rows), self.subset_sample))
                             logger.log_table(columns=columns, rows=rows, name=f'icl_outputs/{benchmark}')
-                            table = (columns, rows)
+                            self.table[benchmark] = (columns, rows)
 
-        self.write_tables_to_output_dir(state, table, benchmark)
         self.prep_response_cache(state, False)
