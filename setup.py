@@ -218,8 +218,8 @@ extra_deps['gcs'] = [
 ]
 
 extra_deps['onnx'] = [
-    'onnx>=1.12.0,<1.16',
-    'onnxruntime>=1.12.1,<2',
+    'onnx>=1.12.0,<2.0',
+    'onnxruntime>=1.12.1,<1.16',
 ]
 
 extra_deps['mlflow'] = [
