@@ -6,6 +6,7 @@ from composer.utils import MosaicMLLambdaEvalClient
 
 
 # @pytest.mark.remote
+@pytest.mark.gpu  # must run on MosaicML platform
 @pytest.mark.parametrize(
     'code, result, language',
     [
