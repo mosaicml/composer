@@ -214,11 +214,13 @@ ARG PYTORCH_NIGHTLY_URL
 ARG PYTORCH_NIGHTLY_VERSION
 ARG TORCHVISION_VERSION
 ARG TORCHTEXT_VERSION
+ARG NCCL_VERSION
 
 # Set so supporting PyTorch packages such as Torchvision, Torchaudio, Torchtext pin PyTorch version
 ENV PYTORCH_VERSION=${PYTORCH_VERSION}
 ENV PYTORCH_NIGHTLY_URL=${PYTORCH_NIGHTLY_URL}
 ENV PYTORCH_NIGHTLY_VERSION=${PYTORCH_NIGHTLY_VERSION}
+ENV NCCL_VERSION=${NCCL_VERSION}
 
 RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
       CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
@@ -230,13 +232,11 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
         wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb && \
         dpkg -i cuda-keyring_1.0-1_all.deb && \
         apt-get update && \
-        apt install -y --allow-change-held-packages libnccl2=2.18.1-1+cuda12.1 libnccl-dev=2.18.1-1+cuda12.1 && \
+        apt install -y --allow-change-held-packages libnccl2=${NCCL_VERSION}-1+cuda12.0 libnccl-dev=${NCCL_VERSION}-1+cuda12.0 && \
         pip${PYTHON_VERSION} install --no-cache-dir --pre --index-url ${PYTORCH_NIGHTLY_URL} \
             torch==${PYTORCH_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
 	        torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
             torchtext ; \
-        pip install nvidia-nccl-cu12 && \
-        ldconfig -v | grep "libnccl.so" | tail -n1 | sed -r 's/^.*\.so\.//' ; \
     fi
 RUN
 #####################################

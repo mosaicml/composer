@@ -202,16 +202,17 @@ def _main():
         'AWS_OFI_NCCL_VERSION': '',
         'BASE_IMAGE': 'nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04',
         'CUDA_VERSION': '12.1.0',
-        'IMAGE_NAME': 'torch-nightly-2-1-0-20230827-cu121-local-nccl-2.18.1',
+        'IMAGE_NAME': 'torch-nightly-2-1-0-20230827-cu121',
         'MOFED_VERSION': '5.5-1.0.3.2',
         'PYTHON_VERSION': '3.10',
         'PYTORCH_VERSION': '2.1.0',
         'PYTORCH_NIGHTLY_URL': 'https://download.pytorch.org/whl/nightly/cu121',
         'PYTORCH_NIGHTLY_VERSION': 'dev20230827+cu121',
-        'TAGS': ['mosaicml/pytorch:2.1.0_cu121-nightly20230827-local-nccl-2.18.1-pip-nccl-2.18.3-python3.10-ubuntu20.04'],
+        'TAGS': ['mosaicml/pytorch:2.1.0_cu121-nightly20230827-nccl-2.18.5-python3.10-ubuntu20.04'],
         'TARGET': 'pytorch_stage',
         'TORCHTEXT_VERSION': '0.16.0',
-        'TORCHVISION_VERSION': '0.16.0'
+        'TORCHVISION_VERSION': '0.16.0',
+        'NCCL_VERSION': '2.18.5',
     }
     pytorch_entries.append(nightly_entry)
 
