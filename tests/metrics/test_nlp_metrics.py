@@ -207,7 +207,7 @@ def test_in_context_learning_lm_accuracy(tiny_gpt2_tokenizer):
     assert tiny_gpt2_tokenizer.decode(row['continuation_tok_target']) == ' pie'
 
     columns, rows = metric.format_response_cache(tiny_gpt2_tokenizer)
-    assert rows == [['The dog is', ' furry', ' furry', True], ['I love to eat', ' pie', '[PAD]', False],
+    assert rows == [['The dog is', ' furry', ' furry', True], ['I love to eat', ' pie', '', False],
                     ['I hate', ' long lines', ' long lines', True], ['The weather is', ' snowy', ' snowy', True]]
     assert columns == ['context_tok', 'continuation_tok_target', 'continuation_tok_pred', 'correct']
 

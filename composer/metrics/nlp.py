@@ -216,6 +216,8 @@ class InContextLearningMetric(Metric):
                     if isinstance(r_i, list) and len(r_i) > 0 \
                         and all(isinstance(r_ij, int) for r_ij in r_i) \
                         and not all(isinstance(r_ij, bool) for r_ij in r_i):
+                        # remove all padding tokens
+                        r_i = [t for t in r_i if t != tokenizer.pad_token_id]
                         converted_row.append(tokenizer.decode(r_i))
                     else:
                         converted_row.append(r_i)
