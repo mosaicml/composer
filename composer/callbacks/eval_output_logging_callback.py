@@ -11,6 +11,7 @@ import time
 from typing import Callable, Optional
 
 import pandas as pd
+from composer.loggers.console_logger import ConsoleLogger
 from torch.utils.data import DataLoader
 
 from composer.core import Callback, State
@@ -128,7 +129,11 @@ class EvalOutputLogging(Callback):
 
                             if self.subset_sample > 0:
                                 rows = random.sample(rows, min(len(rows), self.subset_sample))
-                            logger.log_table(columns=columns, rows=rows, name=f'icl_outputs/{benchmark}')
+                                
+                            for destination in logger.destinations:
+                                if not isinstance(destination, ConsoleLogger):
+                                    destination.log_table(columns, rows, f'icl_outputs/{benchmark}')
+
                             self.table[benchmark] = (columns, rows)
 
         self.prep_response_cache(state, False)
