@@ -11,6 +11,7 @@ import time
 from typing import Callable, Optional
 
 import pandas as pd
+from .......users.jeremy.dohmann.llmwork.composer.composer.loggers import Logger
 from torch.utils.data import DataLoader
 
 from composer.core import Callback, State
@@ -99,7 +100,10 @@ class EvalOutputLogging(Callback):
         self.write_tables_to_output_dir(state)
         self.table = {}
     
-
+    def eval_standalone_end(self, state: State, logger: Logger) -> None:
+        self.write_tables_to_output_dir(state)
+        self.table = {}
+        
     def eval_end(self, state: State, logger: Logger) -> None:
 
         assert state.dataloader is not None
