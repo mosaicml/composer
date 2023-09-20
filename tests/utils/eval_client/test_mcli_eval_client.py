@@ -5,7 +5,7 @@ import pytest
 from composer.utils import MosaicMLLambdaEvalClient
 
 
-@pytest.mark.remote
+# @pytest.mark.remote
 @pytest.mark.parametrize(
     'code, result, language',
     [
