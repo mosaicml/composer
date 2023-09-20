@@ -8,9 +8,9 @@ import os
 import re
 import string
 import warnings
-import numpy as np
 from typing import Any, Dict, List, Mapping, Union
 
+import numpy as np
 import torch
 from torch import Tensor
 from torch.nn import functional as F
@@ -580,7 +580,9 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
 
         pass_at_k = batch['pass_at_k']
         num_generations = batch['generation_kwargs']['num_return_sequences']
-        processed_outputs = [outputs[i * num_generations:(i + 1) * num_generations] for i in range(len(batch['prompts']))]
+        processed_outputs = [
+            outputs[i * num_generations:(i + 1) * num_generations] for i in range(len(batch['prompts']))
+        ]
         payloads = []
         for sample_outputs, sample_prompt, test_inputs, test_outputs, entry_point, language in zip(
                 processed_outputs, batch['prompts'], batch['test_inputs'], batch['test_outputs'], batch['entry_points'],
@@ -605,16 +607,16 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
             payloads.append(prompt_payload)
 
         results = client.invoke(payloads)
-        for prompt in results :
+        for prompt in results:
             num_correct = 0
-            for generation in prompt :
+            for generation in prompt:
                 correct = all(generation)
-                if correct :
+                if correct:
                     num_correct += 1
-              
+
             pass_at_k_rate = self.estimator(num_generations, num_correct, pass_at_k)
             self.correct += pass_at_k_rate
-    
+
         client.close()  # pyright: ignore [reportOptionalMemberAccess]
 
     def compute(self):

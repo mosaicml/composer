@@ -892,7 +892,7 @@ class InContextLearningCodeEvalDataset(Dataset):
         destination_path: str,
         code_prelimiter: str,
         fewshot_random_seed: int,
-        pass_at_k : int,
+        pass_at_k: int,
         generations_per_sample: int,
         top_p: Optional[float] = 0.95,
         top_k: Optional[int] = 40,
@@ -1042,7 +1042,7 @@ class InContextLearningCodeEvalDataset(Dataset):
             'test_inputs': test_inputs,  # list of test inputs
             'test_outputs': test_outputs,  # list of test outputs
             'languages': languages,  # list of languages
-            'pass_at_k' : self.pass_at_k,
+            'pass_at_k': self.pass_at_k,
             'generation_length': self.max_seq_len - self.max_prompt_length,
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
@@ -1104,7 +1104,7 @@ def build_icl_dataloader(
     destination_path: str,
     question_prelimiter: str = '',  # e.g. 'Question: '
     fewshot_random_seed: int = 1234,
-    pass_at_k : int = 1,
+    pass_at_k: int = 1,
     generations_per_sample: int = 1,
 ) -> DataSpec:
     if icl_task_type == 'multiple_choice':
