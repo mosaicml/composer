@@ -58,27 +58,23 @@ class EvalOutputLogging(Callback):
         self.output_directory = output_directory if output_directory else os.getcwd()
         self.hash = hashlib.sha256()
 
-    def write_tables_to_output_dir(self, state: State):
+    def write_tables_to_output_dir(self, state: State, table, benchmark):
         # write tmp files
         self.hash.update((str(time.time()) + str(random.randint(0, 1_000_000))).encode('utf-8'))
         tmp_dir = os.getcwd() + '/' + self.hash.hexdigest()
         if not os.path.exists(tmp_dir):
             os.mkdir(tmp_dir)
 
-        table_paths = []
-        for table_name in self.tables:
-            file_name = f"{table_name.replace('/', '-')}-ba{state.timestamp.batch.value}.tsv"
-            with open(f'{tmp_dir}/{file_name}', 'wb') as f:
-                cols, rows = self.tables[table_name]
-                rows = [[e.encode('unicode_escape') if isinstance(e, str) else e for e in row] for row in rows]
-                df = pd.DataFrame.from_records(data=rows, columns=cols)
-                df.to_csv(f, sep='\t', index=False)
-                table_paths.append(file_name)
+        file_name = f"{benchmark.replace('/', '-')}-ba{state.timestamp.batch.value}.tsv"
+        with open(f'{tmp_dir}/{file_name}', 'wb') as f:
+            cols, rows = table
+            rows = [[e.encode('unicode_escape') if isinstance(e, str) else e for e in row] for row in rows]
+            df = pd.DataFrame.from_records(data=rows, columns=cols)
+            df.to_csv(f, sep='\t', index=False)
 
         # copy/upload tmp files
-        for tmp_tbl_path in table_paths:
-            _write(destination_path=f'{self.output_directory}/{tmp_tbl_path}', src_file=f'{tmp_dir}/{tmp_tbl_path}')
-            os.remove(f'{tmp_dir}/{tmp_tbl_path}')
+        _write(destination_path=f'{self.output_directory}/{file_name}', src_file=f'{tmp_dir}/{file_name}')
+        os.remove(f'{tmp_dir}/{file_name}')
 
         # delete tmp files
         os.rmdir(tmp_dir)
@@ -96,6 +92,7 @@ class EvalOutputLogging(Callback):
 
         assert state.dataloader is not None
         assert isinstance(state.dataloader, DataLoader)
+        table = None
         if hasattr(state.dataloader, 'dataset') and isinstance(state.dataloader.dataset, ICLDatasetTypes):
             assert isinstance(state.dataloader.dataset, ICLDatasetTypes)
             if hasattr(state.dataloader.dataset, 'tokenizer'):
@@ -118,8 +115,7 @@ class EvalOutputLogging(Callback):
                             if self.subset_sample > 0:
                                 rows = random.sample(rows, min(len(rows), self.subset_sample))
                             logger.log_table(columns=columns, rows=rows, name=f'icl_outputs/{benchmark}')
-                            self.tables[f'icl_outputs/{benchmark}'] = (columns, rows)
+                            table = (columns, rows)
 
-        self.write_tables_to_output_dir(state)
-        del self.tables[f'icl_outputs/{benchmark}']
+        self.write_tables_to_output_dir(state, table, benchmark)
         self.prep_response_cache(state, False)
