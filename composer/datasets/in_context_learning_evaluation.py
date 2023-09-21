@@ -892,8 +892,8 @@ class InContextLearningCodeEvalDataset(Dataset):
         destination_path: str,
         code_prelimiter: str,
         fewshot_random_seed: int,
-        pass_at_k: int,
         generations_per_sample: int,
+        pass_at_k: int = 1,
         top_p: Optional[float] = 0.95,
         top_k: Optional[int] = 40,
     ):
