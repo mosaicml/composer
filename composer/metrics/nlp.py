@@ -549,7 +549,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         """
         if n - c < k:
             return 1.0
-        return 1.0 - np.prod(1.0 - k / np.arange(n - c + 1, n + 1))
+        return 1.0 - float(np.prod(1.0 - k / np.arange(n - c + 1, n + 1)))
 
     def update(self, batch: Dict[str, Any], outputs: List[str], labels: List[str]):
         """Updates the pass@k accuracy of code generation.
@@ -615,7 +615,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
                     num_correct += 1
 
             pass_at_k_rate = self.estimator(num_generations, num_correct, pass_at_k)
-            self.correct += pass_at_k_rate
+            self.correct += torch.tensor(pass_at_k_rate)
 
         client.close()  # pyright: ignore [reportOptionalMemberAccess]
 
