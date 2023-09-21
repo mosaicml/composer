@@ -663,6 +663,9 @@ def test_code_eval_split_batch(dataset_uri, tmp_path):
         assert len(split2[k]) == 2
         assert all(isinstance(val, v) for val in split1[k] + split2[k])
 
+    assert isinstance(split1['pass_at_k'], int)
+    assert isinstance(split2['pass_at_k'], int)
+
     assert isinstance(split1['generation_length'], int)
     assert isinstance(split2['generation_length'], int)
 
