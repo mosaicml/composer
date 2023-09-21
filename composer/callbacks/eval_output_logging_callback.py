@@ -126,7 +126,10 @@ class EvalOutputLogging(Callback):
                         assert isinstance(metric.format_response_cache, Callable)
                         format_response_cache: Callable = metric.format_response_cache
                         columns, rows = format_response_cache(tokenizer)
-                        print(f"DEBUG: got n={len(rows)} rows and columns={columns} for benchmark={benchmark}", flush=True)
+                        if rows is None:
+                            print(f"Got null rows for benchmark={benchmark}", flush=True)
+                        else:
+                            print(f"DEBUG: got n={len(rows)} rows and columns={columns} for benchmark={benchmark}", flush=True)
 
                         if columns is not None and rows is not None:
                             if 'correct' not in columns:
