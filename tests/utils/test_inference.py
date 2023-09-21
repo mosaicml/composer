@@ -155,7 +155,7 @@ def test_huggingface_export_for_inference_onnx(onnx_opset_version, tiny_bert_con
 
         onnx.checker.check_model(loaded_model)
 
-        ort_session = ort.InferenceSession(save_path)
+        ort_session = ort.InferenceSession(save_path, providers=['CPUExecutionProvider'])
 
         for key, value in sample_input.items():
             sample_input[key] = cpu_device.tensor_to_device(value).numpy()
@@ -217,7 +217,7 @@ def test_export_for_inference_onnx(model_cls, sample_input, onnx_opset_version, 
         loaded_model = onnx.load(save_path)
         onnx.checker.check_model(loaded_model)
 
-        ort_session = ort.InferenceSession(save_path)
+        ort_session = ort.InferenceSession(save_path, providers=['CPUExecutionProvider'])
         loaded_model_out = ort_session.run(
             None,
             {'input': cpu_device.tensor_to_device(sample_input[0]).numpy()},
@@ -355,7 +355,7 @@ def test_export_for_inference_onnx_ddp(model_cls, sample_input, onnx_opset_versi
 
             loaded_model = onnx.load(save_path)
             onnx.checker.check_model(loaded_model)
-            ort_session = ort.InferenceSession(save_path)
+            ort_session = ort.InferenceSession(save_path, providers=['CPUExecutionProvider'])
             loaded_model_out = ort_session.run(
                 None,
                 {'input': sample_input[0].numpy()},
