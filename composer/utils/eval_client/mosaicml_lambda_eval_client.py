@@ -27,7 +27,7 @@ class MosaicMLLambdaEvalClient(EvalClient):
         from composer.loggers.mosaicml_logger import \
             MOSAICML_ACCESS_TOKEN_ENV_VAR  # in-line import to avoid circular import
 
-        if MOSAICML_ACCESS_TOKEN_ENV_VAR in os.environ:
+        if MOSAICML_ACCESS_TOKEN_ENV_VAR not in os.environ:
             raise RuntimeError('Cannot use MosaicML Lambda Client Eval without setting MOSAICML_ACCESS_TOKEN_ENV_VAR.')
         log.debug('Running code eval through MosaicMLLambdaEvalClient.')
         self.backoff = backoff
