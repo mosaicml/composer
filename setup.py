@@ -101,15 +101,15 @@ extra_deps['dev'] = [
     'junitparser==3.1.0',
     'coverage[toml]==7.3.0',
     'fasteners==0.18',  # object store tests require fasteners
-    'pytest==7.4.0',
+    'pytest==7.4.2',
     'toml==0.10.2',
     'ipython==8.11.0',
-    'ipykernel==6.25.1',
+    'ipykernel==6.25.2',
     'jupyter==1.0.0',
     'yamllint==1.32.0',
     'recommonmark==0.7.1',
     'sphinx==4.4.0',
-    'pre-commit>=2.18.1,<3',
+    'pre-commit>=3.4.0,<4',
     # embedding md in rst require docutils>=0.17. See
     # https://myst-parser.readthedocs.io/en/latest/sphinx/use.html?highlight=parser#include-markdown-files-into-an-rst-file
     'docutils==0.17.1',
@@ -125,11 +125,11 @@ extra_deps['dev'] = [
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.16.1',
-    'traitlets==5.9.0',
+    'traitlets==5.10.0',
     'nbsphinx==0.9.1',
     'pandoc==2.3',
     'pypandoc==1.11',
-    'GitPython==3.1.34',
+    'GitPython==3.1.36',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
     'cryptography==41.0.3',
@@ -184,7 +184,7 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<4.33',
+    'transformers>=4.11,<4.34',
     'datasets>=2.4,<3',
 ]
 
@@ -223,7 +223,7 @@ extra_deps['onnx'] = [
 ]
 
 extra_deps['mlflow'] = [
-    'mlflow>=2.0.1,<3.0',
+    'mlflow>=2.5.0,<3.0',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']

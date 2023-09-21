@@ -7,8 +7,56 @@ from unittest.mock import MagicMock
 
 import pytest
 from botocore.exceptions import ClientError
+from torch.utils.data import DataLoader
 
+from composer.loggers import RemoteUploaderDownloader
+from composer.trainer import Trainer
 from composer.utils import GCSObjectStore
+from tests.common import RandomClassificationDataset, SimpleModel
+
+
+def get_gcs_os_from_trainer(trainer: Trainer) -> GCSObjectStore:
+    rud = [dest for dest in trainer.logger.destinations if isinstance(dest, RemoteUploaderDownloader)][0]
+    gcs_os = rud.remote_backend
+    assert isinstance(gcs_os, GCSObjectStore)
+    return gcs_os
+
+
+@pytest.mark.gpu  # json auth is hard to set up on github actions / CPU tests
+@pytest.mark.remote
+def test_gs_object_store_integration_json_auth(expected_use_gcs_sdk_val=True, client_should_be_none=False):
+    model = SimpleModel()
+    train_dataset = RandomClassificationDataset()
+    train_dataloader = DataLoader(dataset=train_dataset)
+    trainer_save = Trainer(model=model,
+                           train_dataloader=train_dataloader,
+                           save_folder='gs://mosaicml-composer-tests/checkpoints/{run_name}',
+                           save_filename='test-model.pt',
+                           max_duration='1ba')
+    run_name = trainer_save.state.run_name
+    gcs_os = get_gcs_os_from_trainer(trainer_save)
+    assert gcs_os.use_gcs_sdk == expected_use_gcs_sdk_val
+    if client_should_be_none:
+        assert gcs_os.client is None
+    else:
+        assert gcs_os.client is not None
+    trainer_save.fit()
+    trainer_save.close()
+
+    trainer_load = Trainer(model=model,
+                           train_dataloader=train_dataloader,
+                           load_path=f'gs://mosaicml-composer-tests/checkpoints/{run_name}/test-model.pt',
+                           max_duration='2ba')
+    trainer_load.fit()
+    trainer_load.close()
+
+
+@pytest.mark.remote
+def test_gs_object_store_integration_hmac_auth():
+    with mock.patch.dict(os.environ):
+        if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ:
+            del os.environ['GOOGLE_APPLICATION_CREDENTIALS']
+        test_gs_object_store_integration_json_auth(expected_use_gcs_sdk_val=False, client_should_be_none=True)
 
 
 @pytest.fixture

@@ -29,7 +29,7 @@ jobs:
             pytest_command: 'coverage run -m pytest'
             composer_package_name: 'mosaicml'
           - name: 'cpu-3.10-2.1'
-            container: mosaicml/pytorch:2.1.0_cu121-nightly20230827-python3.10-ubuntu20.04
+            container: mosaicml/pytorch:2.1.0_cu121-nightly20230903-python3.10-ubuntu20.04
             markers: 'not daily and (remote or not remote) and not gpu and not vision and not doctest'
             pytest_command: 'coverage run -m pytest'
             composer_package_name: 'mosaicml'
@@ -92,6 +92,8 @@ jobs:
       code-eval-device: ${{ secrets.CODE_EVAL_DEVICE }}
       code-eval-url: ${{ secrets.CODE_EVAL_URL }}
       code-eval-apikey: ${{ secrets.CODE_EVAL_APIKEY }}
+      gcs-key: ${{ secrets.GCS_KEY }}
+      gcs-secret: ${{ secrets.GCS_SECRET }}
   coverage:
     uses: ./.github/workflows/coverage.yaml
     name: Coverage Results
