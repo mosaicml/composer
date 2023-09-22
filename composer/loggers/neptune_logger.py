@@ -36,9 +36,9 @@ class NeptuneLogger(LoggerDestination):
             environment variable NEPTUNE_API_TOKEN will be used.
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process.
             (default: ``True``).
-        log_artifacts (bool, optional): Whether the logger should upload artifacts to Neptune.ai.
+        upload_artifacts (bool, optional): Whether the logger should upload artifacts to Neptune.ai.
             (default: ``False``).
-        base_namespace (str): The name of the base namespace to log the metadata to.
+        base_namespace (str, optional): The name of the base namespace to log the metadata to. (default: "training")
         neptune_kwargs (Dict[str, Any], optional): Any additional kwargs to neptune.init_run
             function. (For help see `Run documentation <https://docs.neptune.ai/api/neptune/#init_run>`_)
     """
