@@ -227,5 +227,4 @@ class NeptuneLogger(LoggerDestination):
             return
 
         if self._neptune_run:
-            self._neptune_run.sync()
             self._neptune_run.stop()
