@@ -206,7 +206,7 @@ class InContextLearningMetric(Metric):
     def format_response_cache(self, tokenizer):
         columns, rows = None, None
         assert isinstance(self.response_cache, list)
-        print(f"Formatting response cache: {self.cache_responses} and {en(self.response_cache)}")
+        print(f"Formatting response cache: {self.cache_responses} and {len(self.response_cache)}")
         if self.cache_responses and len(self.response_cache) > 0:
             rows = []
             for row in self.response_cache:
