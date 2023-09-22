@@ -121,7 +121,9 @@ class NeptuneLogger(LoggerDestination):
 
         assert self._base_handler is not None
 
-        self._base_handler[NeptuneLogger.METRIC_NAMESPACE].append(metrics, step=step)
+        from neptune.utils import stringify_unsupported
+
+        self._base_handler[NeptuneLogger.METRIC_NAMESPACE].append(stringify_unsupported(metrics), step=step)
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]) -> None:
         if not self._enabled:
