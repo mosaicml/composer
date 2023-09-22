@@ -53,7 +53,7 @@ class NeptuneLogger(LoggerDestination):
         project: Optional[str] = None,
         api_token: Optional[str] = None,
         rank_zero_only: bool = True,
-        log_artifacts: bool = False,
+        upload_artifacts: bool = False,
         base_namespace: str = 'training',
         **neptune_kwargs,
     ) -> None:
@@ -67,7 +67,7 @@ class NeptuneLogger(LoggerDestination):
         verify_type('project', project, (str, type(None)))
         verify_type('api_token', api_token, (str, type(None)))
         verify_type('rank_zero_only', rank_zero_only, bool)
-        verify_type('log_artifacts', log_artifacts, bool)
+        verify_type('upload_artifacts', upload_artifacts, bool)
         verify_type('base_namespace', base_namespace, str)
 
         if not base_namespace:
@@ -76,7 +76,7 @@ class NeptuneLogger(LoggerDestination):
         self._project = project
         self._api_token = api_token
         self._rank_zero_only = rank_zero_only
-        self._log_artifacts = log_artifacts
+        self._upload_artifacts = upload_artifacts
         self._base_namespace = base_namespace
         self._neptune_kwargs = neptune_kwargs
 
@@ -145,7 +145,7 @@ class NeptuneLogger(LoggerDestination):
 
     def can_upload_files(self) -> bool:
         """Whether the logger supports uploading files."""
-        return True
+        return self._enabled and self._upload_artifacts
 
     def upload_file(
         self,
@@ -155,7 +155,7 @@ class NeptuneLogger(LoggerDestination):
         *,
         overwrite: bool = False,
     ):
-        if not self._enabled or not self._log_artifacts:
+        if not self.can_upload_files():
             return
 
         assert self._neptune_run is not None
@@ -226,6 +226,6 @@ class NeptuneLogger(LoggerDestination):
         if not self._enabled:
             return
 
-        assert self._neptune_run is not None
-        self._neptune_run.sync()
-        self._neptune_run.stop()
+        if self._neptune_run:
+            self._neptune_run.sync()
+            self._neptune_run.stop()
