@@ -919,8 +919,15 @@ class InContextLearningCodeEvalDataset(Dataset):
                     'test_outputs': examples['test_outputs'],
                     'language': examples['language'],
                 }))
+
+        if generations_per_sample < pass_at_k:
+            raise ValueError(
+                f'Invalid for generations_per_sample ({generations_per_sample}) to be less than pass_at_k ({pass_at_k}) for code evaluation.'
+            )
+
         self.pass_at_k = pass_at_k
         self.generations_per_sample = generations_per_sample
+
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
