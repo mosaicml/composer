@@ -922,7 +922,7 @@ class InContextLearningCodeEvalDataset(Dataset):
 
         if generations_per_sample < pass_at_k:
             raise ValueError(
-                f'Invalid for generations_per_sample ({generations_per_sample}) to be less than pass_at_k ({pass_at_k}) for code evaluation.'
+                f'generations_per_sample ({generations_per_sample}) must be greater than or equal to pass_at_k ({pass_at_k}) for code evaluation.'
             )
 
         self.pass_at_k = pass_at_k
