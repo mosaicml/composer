@@ -80,14 +80,14 @@ install_requires = [
     'torchvision>=0.13.1,<0.17',
     'torch>=1.13.1,<2.1.1',
     'requests>=2.26.0,<3',
-    'numpy>=1.21.5,<1.26.0',
+    'numpy>=1.21.5,<1.27.0',
     'psutil>=5.8.0,<6',
     'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<10',
     'packaging>=21.3.0,<23',
     'importlib-metadata>=5.0.0,<7',
-    'mosaicml-cli>=0.4.12,<0.6',
+    'mosaicml-cli>=0.5.8,<0.6',
 ]
 extra_deps = {}
 
@@ -129,10 +129,10 @@ extra_deps['dev'] = [
     'nbsphinx==0.9.1',
     'pandoc==2.3',
     'pypandoc==1.11',
-    'GitPython==3.1.36',
+    'GitPython==3.1.37',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
-    'cryptography==41.0.3',
+    'cryptography==41.0.4',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
 ]
