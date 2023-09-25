@@ -90,7 +90,6 @@ jobs:
           name: coverage-${{ github.sha }}-${{ inputs.name }}
           path: .coverage
       - name: Notify slack fail
-        if: failure() && !cancelled() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && (github.event_name != 'pull_request' || github.event_name != 'pull_request_target')
         env:
           SLACK_BOT_TOKEN: ${{ secrets.slack-notifications-bot-token }}
         uses: voxmedia/github-action-slack-notify-build@v1
