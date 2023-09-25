@@ -1159,7 +1159,7 @@ class Trainer:
             self.local_hparams = extract_hparams(locals())
             self.logger.log_hyperparameters(self.local_hparams)
 
-        # Log composer version.
+        # Log composer version
         composer_env_dict = get_composer_env_dict()
         self.logger.log_hyperparameters({'composer_version': composer_env_dict['composer_version']})
         self.logger.log_hyperparameters({'composer_commit_hash': str(composer_env_dict['composer_commit_hash'])})
