@@ -196,7 +196,8 @@ class LanguagePerplexity(LanguageCrossEntropy):
 class InContextLearningMetric(Metric):
 
     def __init__(self, dist_sync_on_step=False, cache_responses=False):
-        super().__init__(dist_sync_fn=torch.distributed.all_gather_object, dist_sync_on_step=dist_sync_on_step)
+        gather_tensor_and_object = lambda object_list, obj: torch.distributed.all_gather_object( object_list, obj) if isinstance(obj, list) else torch.distributed.all_gather( object_list, obj)
+        super().__init__(dist_sync_fn=gather_tensor_and_object, dist_sync_on_step=dist_sync_on_step)
         self.add_state('response_cache', default=[], dist_reduce_fx=None)
         self.cache_responses = cache_responses
 
