@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 import mcli
 import torch
 
+from composer._version import __version__ as composer_version
 from composer.loggers import Logger
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
@@ -88,6 +89,8 @@ class MosaicMLLogger(LoggerDestination):
         self._log_metadata(metrics)
 
     def after_load(self, state: State, logger: Logger) -> None:
+        # Log composer version
+        self._log_metadata({'composer_version': composer_version})
         # Log WandB run URL if it exists. Must run on after_load as WandB is setup on event init
         for callback in state.callbacks:
             if isinstance(callback, WandBLogger):
