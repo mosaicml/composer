@@ -33,6 +33,7 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
+from composer._version import __version__ as composer_version
 from composer.callbacks import CheckpointSaver, OptimizerMonitor
 from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException, Callback, DataSpec, Engine, Evaluator,
                            Event, Precision, PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode,
@@ -1158,6 +1159,9 @@ class Trainer:
         if self.auto_log_hparams:
             self.local_hparams = extract_hparams(locals())
             self.logger.log_hyperparameters(self.local_hparams)
+        
+        # Log composer version.
+        self.logger.log_hyperparameters({'composer_version': composer_version})
 
         # Log gpus and nodes.
         device_name = self.state.device.__class__.__name__.lstrip('Device').lower()

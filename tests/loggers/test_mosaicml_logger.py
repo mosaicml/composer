@@ -9,7 +9,7 @@ import pytest
 import torch
 from torch.utils.data import DataLoader
 
-import composer
+from composer._version import __version__ as composer_version
 from composer.core import Callback
 from composer.loggers import WandBLogger
 from composer.loggers.mosaicml_logger import (MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR, MosaicMLLogger,
@@ -114,12 +114,10 @@ def test_metric_partial_filtering(monkeypatch):
 
 
 def test_logged_composer_version(monkeypatch):
-    mocked_composer_version = '0.15.0'
     mock_mapi = MockMAPI()
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
     run_name = 'small_chungus'
     monkeypatch.setenv('RUN_NAME', run_name)
-    monkeypatch.setattr(composer, '__version__', mocked_composer_version)
 
     Trainer(
         model=SimpleModel(),
@@ -129,7 +127,7 @@ def test_logged_composer_version(monkeypatch):
         loggers=MosaicMLLogger(ignore_keys=['loss', 'accuracy']),
     )
     assert 'mosaicml/composer_version' in mock_mapi.run_metadata[run_name]
-    assert mocked_composer_version in mock_mapi.run_metadata[run_name]['mosaicml/composer_version']
+    assert composer_version == mock_mapi.run_metadata[run_name]['mosaicml/composer_version']
 
 
 def test_metric_full_filtering(monkeypatch):
