@@ -16,7 +16,7 @@ from torch import Tensor
 from torch.nn import functional as F
 from torchmetrics import Metric
 
-from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient
+from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient, MosaicMLLambdaEvalClient
 
 log = logging.getLogger(__name__)
 
@@ -519,28 +519,36 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
+
+        self.eval_device = 'LAMBDA'
         if not 'CODE_EVAL_DEVICE' in os.environ:
-            log.info(f"'CODE_EVAL_DEVICE' env var was not set, so defaulting to 'LAMBDA' as eval device")
-            os.environ['CODE_EVAL_DEVICE'] = 'LAMBDA'
-        self.local = os.environ['CODE_EVAL_DEVICE'].upper() == 'LOCAL'
+            if 'MOSAICML_PLATFORM' in os.environ:
+                log.info('Defaulting to MOSAICML evaluation on the MosaicML Platform')
+                self.eval_device = 'MOSAICML'
+            else:
+                log.info(f"'CODE_EVAL_DEVICE' env var was not set, so defaulting to 'LAMBDA' as eval device")
+                os.environ['CODE_EVAL_DEVICE'] = 'LAMBDA'
+        else:
+            self.eval_device = os.environ['CODE_EVAL_DEVICE'].upper()
 
     def get_client(self) -> EvalClient:
         """Returns a client for the appropriate remote platform."""
         client = None
-        if self.local:
+        if self.eval_device == 'LOCAL':
             warnings.warn(
                 'Running code eval locally may be insecure. Please set environment variable CODE_EVAL_DEVICE '
                 'to LAMBDA to run on remote. To use Lambdas, spin up your instance that checks code, set the URL as '
                 'CODE_EVAL_URL and the API key as CODE_EVAL_APIKEY.')
             log.debug('Running code eval locally.')
             client = LocalEvalClient()
-        elif os.environ['CODE_EVAL_DEVICE'].upper() == 'LAMBDA':
+        elif self.eval_device == 'LAMBDA':
             client = LambdaEvalClient()
-
+        elif self.eval_device == 'MOSAICML':
+            client = MosaicMLLambdaEvalClient()
         else:
             raise Exception(
-                'Remote platforms apart from Lambdas are not yet supported. Please set environment variable '
-                'CODE_EVAL_DEVICE to LOCAL or LAMBDA.')
+                'Remote platforms apart from Lambdas/MOSAICML are not yet supported. Please set environment variable '
+                'CODE_EVAL_DEVICE to LOCAL or LAMBDA, or run on the MosaicML Platform.')
         return client
 
     def estimator(self, n: int, c: int, k: int) -> float:
