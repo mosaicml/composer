@@ -66,7 +66,7 @@ def check_batch_reshaping(before, after, length):
             0, :input_ids_after_shape[1]]), 'Sequence reshaping should not change the token order.'
 
     for k in after.keys():
-        assert k in before, 'No keys should be added during sequence reshaping.'
+        assert k not in before, 'No keys should be added during sequence reshaping.'
 
 
 def encountered_alibi_warning(caplog):
