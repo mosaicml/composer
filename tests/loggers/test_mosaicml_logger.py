@@ -9,13 +9,12 @@ import pytest
 import torch
 from torch.utils.data import DataLoader
 
-from composer._version import __version__ as composer_version
 from composer.core import Callback
 from composer.loggers import WandBLogger
 from composer.loggers.mosaicml_logger import (MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR, MosaicMLLogger,
                                               format_data_to_json_serializable)
 from composer.trainer import Trainer
-from composer.utils import dist
+from composer.utils import dist, get_composer_env_dict
 from tests.callbacks.callback_settings import get_cb_kwargs, get_cb_model_and_datasets, get_cbs_and_marks
 from tests.common import RandomClassificationDataset, SimpleModel
 from tests.common.markers import world_size
@@ -126,9 +125,11 @@ def test_logged_composer_version(monkeypatch):
         max_duration='1ep',
         loggers=MosaicMLLogger(ignore_keys=['loss', 'accuracy']),
     )
-    assert 'mosaicml/composer_version' in mock_mapi.run_metadata[run_name]
+    composer_env_dict = get_composer_env_dict()
+    composer_version = composer_env_dict['composer_version']
+    composer_commit_hash = str(composer_env_dict['composer_commit_hash'])
     assert composer_version == mock_mapi.run_metadata[run_name]['mosaicml/composer_version']
-
+    assert composer_commit_hash == mock_mapi.run_metadata[run_name]['mosaicml/composer_commit_hash']
 
 def test_metric_full_filtering(monkeypatch):
     mock_mapi = MockMAPI()

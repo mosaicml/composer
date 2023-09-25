@@ -33,7 +33,6 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
-from composer._version import __version__ as composer_version
 from composer.callbacks import CheckpointSaver, OptimizerMonitor
 from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException, Callback, DataSpec, Engine, Evaluator,
                            Event, Precision, PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode,
@@ -52,10 +51,10 @@ from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.dist_strategy import (DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module,
                                             set_fsdp_default)
 from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectStore, Transform, checkpoint, dist,
-                            ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist, get_device,
-                            get_file, is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
-                            maybe_create_remote_uploader_downloader_from_uri, model_eval_mode, parse_uri,
-                            reproducibility, using_torch_2)
+                            ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist,
+                            get_composer_env_dict, get_device, get_file, is_tpu_installed, map_collection,
+                            maybe_create_object_store_from_uri, maybe_create_remote_uploader_downloader_from_uri,
+                            model_eval_mode, parse_uri, reproducibility, using_torch_2)
 from composer.utils.misc import is_model_deepspeed
 
 if is_tpu_installed():
@@ -1161,7 +1160,9 @@ class Trainer:
             self.logger.log_hyperparameters(self.local_hparams)
 
         # Log composer version.
-        self.logger.log_hyperparameters({'composer_version': composer_version})
+        composer_env_dict = get_composer_env_dict()
+        self.logger.log_hyperparameters({'composer_version': composer_env_dict['composer_version']})
+        self.logger.log_hyperparameters({'composer_commit_hash': str(composer_env_dict['composer_commit_hash'])})
 
         # Log gpus and nodes.
         device_name = self.state.device.__class__.__name__.lstrip('Device').lower()
