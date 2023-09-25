@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Union
 
 import numpy as np
 import torch
-from neptune.internal.utils import verify_type
 
 from composer._version import __version__
 from composer.loggers import LoggerDestination
@@ -59,6 +58,7 @@ class NeptuneLogger(LoggerDestination):
     ) -> None:
         try:
             from neptune import Run
+            from neptune.internal.utils import verify_type
         except ImportError as e:
             raise MissingConditionalImportError(extra_deps_group='neptune',
                                                 conda_package='neptune',
