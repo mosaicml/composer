@@ -1009,7 +1009,7 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
     assert icl_outputs['columns'] == ['context_tok', 'continuation_tok_target', 'continuation_tok_pred', 'correct']
     assert len(icl_outputs['data']) == 2
 
-    with open(str(tmp_path) + '/icl_outputs-lambada-ba0.tsv', 'r') as f:
+    with open(str(tmp_path) + '/eval-outputs-ba0.tsv', 'r') as f:
         df = pd.read_csv(f, sep='\t')
     assert len(df) == 2
     assert list(df.columns) == ['context_tok', 'continuation_tok_target', 'continuation_tok_pred', 'correct']
@@ -1193,11 +1193,17 @@ def test_qa_task_evaluation_opt_tokenizer(device, world_size, num_fewshot, datas
         use_logits=True,
     )
 
-    trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
+    trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger, callbacks=EvalOutputLogging(print_only_incorrect=True,
+                                                  subset_sample=2,
+                                                  output_directory=str(tmp_path)))
 
     trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
     assert 'metrics/triviaqa/InContextLearningQAAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/triviaqa/InContextLearningQAAccuracy'][0][1].item() == 0
+    icl_outputs = json.loads(in_memory_logger.tables['icl_outputs/triviaqa'])
+    assert icl_outputs['columns'] == ['prompt', 'original_model_output', 'cleaned_model_output', 'original_labels', 'cleaned_labels', 'correct']
+    assert len(icl_outputs['data']) == 2
+
 
 
 @pytest.mark.parametrize('dataset_uri', ['gsm8k_small.jsonl'])
