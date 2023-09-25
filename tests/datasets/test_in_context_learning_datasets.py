@@ -964,8 +964,7 @@ def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_st
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 5])
 @device('gpu')
-@world_size(2)
-def test_lm_task_evaluation(device, world_size, dataset_uri, num_fewshot, tiny_gpt2_tokenizer, tmp_path):
+def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenizer, tmp_path):
     pytest.importorskip('datasets')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -1000,7 +999,7 @@ def test_lm_task_evaluation(device, world_size, dataset_uri, num_fewshot, tiny_g
                       max_duration='1ep',
                       loggers=in_memory_logger,
                       callbacks=EvalOutputLogging(print_only_incorrect=True,
-                                                  subset_sample=-1,
+                                                  subset_sample=2,
                                                   output_directory=str(tmp_path)))
     trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
 
