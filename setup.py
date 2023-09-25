@@ -100,7 +100,7 @@ extra_deps['dev'] = [
     'custom_inherit==2.4.1',
     'junitparser==3.1.0',
     'coverage[toml]==7.3.0',
-    'fasteners==0.18',  # object store tests require fasteners
+    'fasteners==0.19',  # object store tests require fasteners
     'pytest==7.4.2',
     'toml==0.10.2',
     'ipython==8.11.0',
