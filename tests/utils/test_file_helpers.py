@@ -304,8 +304,8 @@ def test_maybe_create_object_store_from_uri(monkeypatch):
     with pytest.raises(NotImplementedError):
         maybe_create_object_store_from_uri('ms://bucket/checkpoint/for/my/model.pt')
 
-    maybe_create_object_store_from_uri('dbfs:/Volumes/checkpoint/for/my/model.pt')
-    mock_uc_obj.assert_called_once_with(prefix='/Volumes/checkpoint/for/my/model.pt')
+    maybe_create_object_store_from_uri('dbfs:/Volumes/catalog/schema/volume/checkpoint/model.pt')
+    mock_uc_obj.assert_called_once_with(path='Volumes/catalog/schema/volume/checkpoint/model.pt')
 
     with pytest.raises(ValueError):
         maybe_create_object_store_from_uri('dbfs:/checkpoint/for/my/model.pt')
@@ -351,7 +351,7 @@ def test_maybe_create_remote_uploader_downloader_from_uri(monkeypatch):
         m.setattr(loggers, 'RemoteUploaderDownloader', mock_remote_ud)
         maybe_create_remote_uploader_downloader_from_uri('dbfs:/Volumes/checkpoint/for/my/model.pt', loggers=[])
         mock_remote_ud.assert_called_once_with(bucket_uri='dbfs:/Volumes/checkpoint/for/my/model.pt',
-                                               backend_kwargs={'prefix': '/Volumes/checkpoint/for/my/model.pt'})
+                                               backend_kwargs={'path': 'Volumes/checkpoint/for/my/model.pt'})
 
     with pytest.raises(ValueError):
         maybe_create_remote_uploader_downloader_from_uri('dbfs:/checkpoint/for/my/model.pt', loggers=[])
