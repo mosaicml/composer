@@ -8,7 +8,7 @@ import os
 import re
 import string
 import warnings
-from typing import Any, Dict, List, Mapping, Union
+from typing import Any, Callable, Dict, List, Optional, Mapping, Union
 
 import torch
 from torch import Tensor
