@@ -1911,6 +1911,7 @@ class Trainer:
         # log computed metrics
         computed_metrics = {}
         for metric_name, metric in metrics.items():
+            breakpoint()
             computed_metrics[metric_name] = metric.compute()
 
         self.logger.log_metrics(
