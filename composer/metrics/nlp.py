@@ -200,7 +200,7 @@ class InContextLearningMetric(Metric):
         self.add_state('response_cache', default=[], dist_reduce_fx=None)
         self.cache_responses = cache_responses
 
-    def gather_non_tensor_state(result, group= None):
+    def gather_non_tensor_state(self, result, group=None):
         breakpoint()
 
     def set_response_cache(self, cache: bool):
