@@ -36,13 +36,14 @@ class UCObjectStore(ObjectStore):
         the unity catalog volumes.
 
     Args:
-        prefix (str): The Databricks UC Volume prefix that is of the format
-            `/Volumes/<catalog-name>/<schema-name>/<volume-name>/path`. Note that this prefix should
-            always start with /Volumes since this object store only suports Unity Catalog Volumes and
+        path (str): The Databricks UC Volume path that is of the format
+            `Volumes/<catalog-name>/<schema-name>/<volume-name>/path/to/folder`.
+            Note that this prefix should always start with /Volumes and adhere to the above format
+            since this object store only suports Unity Catalog Volumes and
             not other Databricks Filesystems.
     """
 
-    def __init__(self, prefix: str) -> None:
+    def __init__(self, path: str) -> None:
         try:
             from databricks.sdk import WorkspaceClient
         except ImportError as e:
@@ -51,15 +52,29 @@ class UCObjectStore(ObjectStore):
         if not 'DATABRICKS_HOST' in os.environ or not 'DATABRICKS_TOKEN' in os.environ:
             raise ValueError('Environment variables `DATABRICKS_HOST` and `DATABRICKS_TOKEN` '
                              'must be set to use Databricks Unity Catalog Volumes')
-
-        if not prefix.startswith('/Volumes'):
-            raise ValueError('Databricks Unity Catalog Volumes paths should start with "/Volumes".')
-        self.prefix = prefix
-
+        self.prefix = self._parse_prefix(path)
         self.client = WorkspaceClient()
 
+    @staticmethod
+    def _parse_prefix(path: str) -> str:
+        path = os.path.normpath(path)
+        if not path.startswith('Volumes'):
+            raise ValueError('Databricks Unity Catalog Volumes paths should start with "/Volumes".')
+
+        dirs = path.split(os.sep)
+        if len(dirs) < 4:
+            raise ValueError(f'Databricks Unity Catalog Volumes path expected to be of the format '
+                             '`Volumes/<catalog-name>/<schema-name>/<volume-name>/<optional-path>`. '
+                             f'Found path={path}')
+
+        # The first 4 dirs form the prefix
+        return os.path.join(*dirs[:4])
+
     def _get_object_path(self, object_name: str) -> str:
-        return os.path.join(self.prefix, object_name)
+        # convert object name to relative path if prefix is included
+        if os.path.commonprefix([object_name, self.prefix]) == self.prefix:
+            object_name = os.path.relpath(object_name, start=self.prefix)
+        return os.path.join('/', self.prefix, object_name)
 
     def get_uri(self, object_name: str) -> str:
         """Returns the URI for ``object_name``.
@@ -90,7 +105,6 @@ class UCObjectStore(ObjectStore):
         """
         # remove unused variable
         del callback
-
         with open(filename, 'rb') as f:
             self.client.files.upload(self._get_object_path(object_name), f)
 
@@ -159,8 +173,12 @@ class UCObjectStore(ObjectStore):
         Raises:
             FileNotFoundError: If the file was not found in the object store.
         """
-        file_info = self.client.files.get_status(self._get_object_path(object_name))
-        return file_info.file_size
+        from databricks.sdk.core import DatabricksError
+        try:
+            file_info = self.client.files.get_status(self._get_object_path(object_name))
+            return file_info.file_size
+        except DatabricksError as e:
+            _wrap_errors(self.get_uri(object_name), e)
 
     def list_objects(self, prefix: Optional[str]) -> List[str]:
         """List all objects in the object store with the given prefix.

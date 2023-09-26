@@ -6,10 +6,13 @@ from unittest import mock
 from unittest.mock import ANY, MagicMock
 
 import pytest
+from torch.utils.data import DataLoader
 
 from composer.loggers import RemoteUploaderDownloader
+from composer.trainer import Trainer
 from composer.utils import UCObjectStore
 from composer.utils.object_store.object_store import ObjectStoreTransientError
+from tests.common import RandomClassificationDataset, SimpleModel
 
 
 @pytest.fixture
@@ -27,29 +30,59 @@ def uc_object_store(ws_client, monkeypatch):
     monkeypatch.setenv('DATABRICKS_HOST', 'test-host')
     monkeypatch.setenv('DATABRICKS_TOKEN', 'test-token')
     with mock.patch.object(db, 'WorkspaceClient', lambda: ws_client):
-        yield UCObjectStore(prefix='/Volumes/test-volume/')
+        yield UCObjectStore(path='Volumes/catalog/schema/volume/path/')
+
+
+@pytest.mark.remote  # databricks auth is hard to set up on github actions
+def test_uc_object_store_integration():
+    model = SimpleModel()
+    train_dataset = RandomClassificationDataset()
+    train_dataloader = DataLoader(dataset=train_dataset)
+    trainer_save = Trainer(model=model,
+                           train_dataloader=train_dataloader,
+                           save_folder='dbfs:/Volumes/ml/mosaicml/test-volume/checkpoints/{run_name}',
+                           save_filename='test-model.pt',
+                           max_duration='1ba')
+    run_name = trainer_save.state.run_name
+    trainer_save.fit()
+    trainer_save.close()
+
+    trainer_load = Trainer(model=model,
+                           train_dataloader=train_dataloader,
+                           load_path=f'dbfs:/Volumes/ml/mosaicml/test-volume/checkpoints/{run_name}/test-model.pt',
+                           max_duration='2ba')
+    trainer_load.fit()
+    trainer_load.close()
 
 
 def test_uc_object_store_without_env():
     with pytest.raises(ValueError):
-        UCObjectStore(prefix='/Volumes/test-volume/')
+        UCObjectStore(path='Volumes/test-volume/')
 
 
 def test_uc_object_store_invalid_prefix():
     with pytest.raises(ValueError):
-        UCObjectStore(prefix='/root/')
+        UCObjectStore(path='root/')
     with pytest.raises(ValueError):
-        UCObjectStore(prefix='uc://Volumes')
+        UCObjectStore(path='uc://Volumes')
+    with pytest.raises(ValueError):
+        UCObjectStore(path='Volumes/catalog/schema/')
 
 
-def test_get_object_size(ws_client, uc_object_store):
-    db_files = pytest.importorskip('databricks.sdk.service.files')
-    ws_client.files.get_status.return_value = db_files.FileInfo(file_size=100)
-    assert uc_object_store.get_object_size('train.txt') == 100
+@pytest.mark.parametrize('result', ['success', 'not_found'])
+def test_get_object_size(ws_client, uc_object_store, result: str):
+    if result == 'success':
+        db_files = pytest.importorskip('databricks.sdk.service.files')
+        ws_client.files.get_status.return_value = db_files.FileInfo(file_size=100)
+        assert uc_object_store.get_object_size('train.txt') == 100
+    else:  # not_found
+        pass
 
 
 def test_get_uri(uc_object_store):
-    assert uc_object_store.get_uri('train.txt') == 'dbfs:/Volumes/test-volume/train.txt'
+    assert uc_object_store.get_uri('train.txt') == 'dbfs:/Volumes/catalog/schema/volume/train.txt'
+    assert uc_object_store.get_uri('Volumes/catalog/schema/volume/checkpoint/model.bin'
+                                  ) == 'dbfs:/Volumes/catalog/schema/volume/checkpoint/model.bin'
 
 
 def test_upload_object(ws_client, uc_object_store, tmp_path):
@@ -58,7 +91,7 @@ def test_upload_object(ws_client, uc_object_store, tmp_path):
         f.write(bytes(range(20)))
 
     uc_object_store.upload_object(object_name='train.txt', filename=file_to_upload)
-    ws_client.files.upload.assert_called_with('/Volumes/test-volume/train.txt', ANY)
+    ws_client.files.upload.assert_called_with('/Volumes/catalog/schema/volume/train.txt', ANY)
 
 
 @pytest.mark.parametrize('result', ['success', 'file_exists', 'overwrite_file', 'not_found', 'error'])
@@ -78,7 +111,7 @@ def test_download_object(ws_client, uc_object_store, tmp_path, result: str):
     if result == 'success':
         ws_client.files.download.side_effect = generate_dummy_file
         uc_object_store.download_object(object_name, filename=file_to_download)
-        ws_client.files.download.assert_called_with('/Volumes/test-volume/remote-model.bin')
+        ws_client.files.download.assert_called_with('/Volumes/catalog/schema/volume/remote-model.bin')
 
     elif result == 'file_exists':
         with open(file_to_download, 'wb') as fp:
@@ -91,7 +124,7 @@ def test_download_object(ws_client, uc_object_store, tmp_path, result: str):
             fp.write(bytes('1' * (1024 * 1024 * 1024), 'utf-8'))
         ws_client.files.download.side_effect = generate_dummy_file
         uc_object_store.download_object(object_name, file_to_download, overwrite=True)
-        ws_client.files.download.assert_called_with('/Volumes/test-volume/remote-model.bin')
+        ws_client.files.download.assert_called_with('/Volumes/catalog/schema/volume/remote-model.bin')
 
         # verify that the file was actually overwritten
         with open(file_to_download, 'rb') as f:
@@ -113,7 +146,7 @@ def test_download_object(ws_client, uc_object_store, tmp_path, result: str):
             uc_object_store.download_object(object_name, file_to_download)
 
 
-def test_uc_object_store_integration(uc_object_store):
+def test_uc_object_store_with_remote_ud(uc_object_store):
     uri = 'dbfs:/Volumes/path/to/my/folder/'
-    rud = RemoteUploaderDownloader(bucket_uri=uri, backend_kwargs={'prefix': '/Volumes/path/to/my/folder'})
+    rud = RemoteUploaderDownloader(bucket_uri=uri, backend_kwargs={'path': 'Volumes/catalog/schema/volume/path'})
     assert isinstance(rud.remote_backend, UCObjectStore)

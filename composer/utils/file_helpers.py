@@ -351,7 +351,7 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
         return OCIObjectStore(bucket=bucket_name)
     elif backend == 'dbfs':
         if path.startswith('Volumes/'):
-            return UCObjectStore(prefix=f'/{path}')
+            return UCObjectStore(path=path)
         else:
             raise ValueError(f'Backend dbfs does not support URI {uri}. '
                              'Please use a URI that starts with dbfs:/Volumes/')
@@ -395,7 +395,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
                                   'WandBLogger with log_artifacts set to True')
     elif backend == 'dbfs':
         if path.startswith('Volumes/'):
-            return RemoteUploaderDownloader(bucket_uri=uri, backend_kwargs={'prefix': f'/{path}'})
+            return RemoteUploaderDownloader(bucket_uri=uri, backend_kwargs={'path': path})
         else:
             raise ValueError(f'Backend dbfs does not support URI {uri}. '
                              'Please use a URI that starts with dbfs:/Volumes/')
