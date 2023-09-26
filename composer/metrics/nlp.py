@@ -198,6 +198,7 @@ class InContextLearningMetric(Metric):
     def __init__(self, dist_sync_on_step=False, cache_responses=False): 
         super().__init__(dist_sync_fn=self.gather_non_tensor_state, dist_sync_on_step=dist_sync_on_step)
         self.add_state('response_cache', default=[], dist_reduce_fx=None)
+        print(f"reductions={self._reductions}")
         self.cache_responses = cache_responses
 
     def gather_non_tensor_state(self, result, group=None):
@@ -248,6 +249,17 @@ class InContextLearningMetric(Metric):
             NotImplementedError: Abstract method must be implemented by subclasses
         """
         raise NotImplementedError
+
+    def compute(self):
+        world_size = torch.distributed.get_world_size(group)
+        torch.distributed.barrier(group=group)
+        gathered_response_cache =[[]] * world_size
+        torch.distributed.all_gather_object(gathered_response_cache, self.response_cache)
+        print(len(gathered_response_cache))
+        print([len(x) for x in gathered_response_cache])
+        flattened_gathered_response_cache = [item for row in gathered_response_cache for item in row]
+        print(len(flattened_gathered_response_cache))
+        self.response_cache = flattened_gathered_response_cache
 
 
 class InContextLearningQAAccuracy(InContextLearningMetric):
@@ -336,6 +348,7 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
             self.total += torch.tensor(1.0)
 
     def compute(self):
+        super().compute()
         assert isinstance(self.correct, Tensor)
         assert isinstance(self.total, Tensor)
         return self.correct / self.total
@@ -391,11 +404,9 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
             self.total += torch.tensor(1.0)
 
     def compute(self):
+        super().compute()
         assert isinstance(self.correct, Tensor)
         assert isinstance(self.total, Tensor)
-
-
-        print(f"In compute, have len(response_cache)={len(self.response_cache)}", flush=True)
         return self.correct / self.total
 
 
@@ -463,6 +474,7 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
             self.total += torch.tensor(1.0)
 
     def compute(self):
+        super().compute()
         assert isinstance(self.correct, Tensor)
         assert isinstance(self.total, Tensor)
         return self.correct.float() / self.total
@@ -707,6 +719,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         client.close()  # pyright: ignore [reportOptionalMemberAccess]
 
     def compute(self):
+        super().compute()
         assert isinstance(self.correct, Tensor)
         assert isinstance(self.total, Tensor)
         return self.correct / self.total
