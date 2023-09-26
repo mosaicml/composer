@@ -52,11 +52,22 @@ class UCObjectStore(ObjectStore):
         if not 'DATABRICKS_HOST' in os.environ or not 'DATABRICKS_TOKEN' in os.environ:
             raise ValueError('Environment variables `DATABRICKS_HOST` and `DATABRICKS_TOKEN` '
                              'must be set to use Databricks Unity Catalog Volumes')
-        self.prefix = self._parse_prefix(path)
+        self.prefix = self._parse_path(path)
         self.client = WorkspaceClient()
 
     @staticmethod
-    def _parse_prefix(path: str) -> str:
+    def _parse_path(path: str) -> str:
+        """Parses the given path to extract the UC Volume prefix from the path.
+
+        .. note::
+
+            This function only uses the first 4 directories from the path to construct the
+            UC Volumes prefix and will ignore the rest of the directories in the path
+
+        Args:
+            path (str): The Databricks UC Volume path of the format
+            `Volumes/<catalog-name>/<schema-name>/<volume-name>/path/to/folder`.
+        """
         path = os.path.normpath(path)
         if not path.startswith('Volumes'):
             raise ValueError('Databricks Unity Catalog Volumes paths should start with "/Volumes".')
@@ -71,6 +82,12 @@ class UCObjectStore(ObjectStore):
         return os.path.join(*dirs[:4])
 
     def _get_object_path(self, object_name: str) -> str:
+        """Return the absolute Single Path Namespace for the given object_name.
+
+        Args:
+            object_name (str): Absolute or relative path of the object w.r.t. the
+            UC Volumes root.
+        """
         # convert object name to relative path if prefix is included
         if os.path.commonprefix([object_name, self.prefix]) == self.prefix:
             object_name = os.path.relpath(object_name, start=self.prefix)
