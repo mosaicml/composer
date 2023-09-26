@@ -26,7 +26,7 @@ def test_neptune_logger() -> NeptuneLogger:
         api_token=neptune_api_token,
         rank_zero_only=False,
         mode='debug',
-        log_artifacts=True,
+        upload_artifacts=True,
     )
 
     return neptune_logger
@@ -78,6 +78,8 @@ def test_neptune_logging(device, test_neptune_logger):
     assert test_neptune_logger.base_handler['hyperparameters/num_nodes'].fetch() == 1
 
 
+@pytest.mark.gpu
+@pytest.mark.world_size(1, 2)
 def test_upload_and_download_file(test_neptune_logger, tmp_path, dummy_state):
     neptune_artifact_name = 'test-neptune-artifact-' + str(uuid.uuid4())
     tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
