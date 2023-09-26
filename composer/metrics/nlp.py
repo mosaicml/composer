@@ -206,7 +206,6 @@ class InContextLearningMetric(Metric):
     def format_response_cache(self, tokenizer):
         columns, rows = None, None
         assert isinstance(self.response_cache, list)
-        print(f"Formatting response cache: {self.cache_responses} and {len(self.response_cache)}")
         if self.cache_responses and len(self.response_cache) > 0:
             rows = []
             for row in self.response_cache:
@@ -252,10 +251,7 @@ class InContextLearningMetric(Metric):
         torch.distributed.barrier(group=group)
         gathered_response_cache =[[]] * world_size
         torch.distributed.all_gather_object(gathered_response_cache, self.response_cache)
-        print(len(gathered_response_cache))
-        print([len(x) for x in gathered_response_cache])
         flattened_gathered_response_cache = [item for row in gathered_response_cache for item in row]
-        print(len(flattened_gathered_response_cache))
         setattr(self, 'response_cache', flattened_gathered_response_cache)
 
         super().sync(

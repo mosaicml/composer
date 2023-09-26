@@ -70,15 +70,12 @@ class EvalOutputLogging(Callback):
         full_df = pd.DataFrame()
         file_name = f"eval-outputs-ba{state.timestamp.batch.value}.tsv"
 
-        print(f"DEBUG: ran all evals, got table keys={self.table.keys()}")
         for benchmark in self.table:
             cols, rows = self.table[benchmark]
             rows = [[e.encode('unicode_escape') if isinstance(e, str) else e for e in row] for row in rows]
             df = pd.DataFrame.from_records(data=rows, columns=cols)
             df['benchmark'] = benchmark
-            print(f"DEBUG: got n={len(df)} rows and columns={list(df.columns)}for benchmark={benchmark}")
             full_df = pd.concat([full_df, df], ignore_index=True)
-        print(f"DEBUG: got total rows={len(full_df)}")
         
         
 
@@ -118,7 +115,6 @@ class EvalOutputLogging(Callback):
             if hasattr(state.dataloader.dataset, 'tokenizer'):
                 tokenizer = state.dataloader.dataset.tokenizer
                 benchmark = state.dataloader_label
-                print(f"DEBUG: benchmark={benchmark}", flush=True)
                 assert benchmark is not None
                 assert isinstance(benchmark, str)
                 for metric in state.eval_metrics[benchmark].values():
@@ -126,11 +122,7 @@ class EvalOutputLogging(Callback):
                         assert isinstance(metric.format_response_cache, Callable)
                         format_response_cache: Callable = metric.format_response_cache
                         columns, rows = format_response_cache(tokenizer)
-                        if rows is None:
-                            print(f"Got null rows for benchmark={benchmark}", flush=True)
-                        else:
-                            print(f"DEBUG: got n={len(rows)} rows and columns={columns} for benchmark={benchmark}", flush=True)
-
+                       
                         if columns is not None and rows is not None:
                             if 'correct' not in columns:
                                 raise ValueError(f"{type(metric)}'s response cache should have column named `correct`")
@@ -146,5 +138,4 @@ class EvalOutputLogging(Callback):
                                     destination.log_table(columns, rows, f'icl_outputs/{benchmark}')
 
                             self.table[benchmark] = (columns, rows)
-        print(f'DEBUG: eval end for benchmark={benchmark}, table has keys {self.table.keys()}')
         self.prep_response_cache(state, False)
