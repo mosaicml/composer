@@ -331,7 +331,7 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
                 'cleaned_model_output': cleaned_final_answer,
                 'original_labels': sample_labels,
                 'cleaned_labels': cleaned_sample_labels,
-                'correct': correct
+                'correct': torch.tensor(correct)
             })
             self.total += torch.tensor(1.0)
 
