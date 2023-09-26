@@ -196,20 +196,10 @@ class LanguagePerplexity(LanguageCrossEntropy):
 class InContextLearningMetric(Metric):
 
     def __init__(self, dist_sync_on_step=False, cache_responses=False): 
-        super().__init__(dist_sync_fn=self.gather_non_tensor_state, dist_sync_on_step=dist_sync_on_step)
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('response_cache', default=[], dist_reduce_fx=None)
-        print(f"reductions={self._reductions}")
         self.cache_responses = cache_responses
-
-    def gather_non_tensor_state(self, result, group=None):
-        if isinstance(result, torch.Tensor):
-            gathered_tensors = gather_all_tensors(result, group)
-            print(f"Gathered tensors: {gathered_tensors}")
-            return gathered_tensors
-        else:
-            print(result)
-            breakpoint()
-
+  
     def set_response_cache(self, cache: bool):
         self.cache_responses = cache
 
@@ -343,7 +333,7 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
                 'cleaned_model_output': cleaned_final_answer,
                 'original_labels': sample_labels,
                 'cleaned_labels': cleaned_sample_labels,
-                'correct': torch.tensor(correct)
+                'correct': correct
             })
             self.total += torch.tensor(1.0)
 
