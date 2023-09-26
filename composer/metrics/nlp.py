@@ -14,7 +14,7 @@ import torch
 from torch import Tensor
 from torch.nn import functional as F
 from torchmetrics import Metric
-
+from torchmetrics.utilities.distributed import gather_all_tensors
 from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient
 
 log = logging.getLogger(__name__)
@@ -201,7 +201,13 @@ class InContextLearningMetric(Metric):
         self.cache_responses = cache_responses
 
     def gather_non_tensor_state(self, result, group=None):
-        breakpoint()
+        if isinstance(result, torch.Tensor):
+            gathered_tensors = gather_all_tensors(result, group)
+            print(f"Gathered tensors: {gathered_tensors}")
+            return gathered_tensors
+        else:
+            print(result)
+            breakpoint()
 
     def set_response_cache(self, cache: bool):
         self.cache_responses = cache
