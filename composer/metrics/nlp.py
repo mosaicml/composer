@@ -247,8 +247,8 @@ class InContextLearningMetric(Metric):
         should_sync: bool = True,
         distributed_available: Optional[Callable] = None,
     )
-
-        world_size = torch.distributed.get_world_size(process_group or self.process_group)
+        group = process_group or self.process_group
+        world_size = torch.distributed.get_world_size(group)
         torch.distributed.barrier(group=group)
         gathered_response_cache =[[]] * world_size
         torch.distributed.all_gather_object(gathered_response_cache, self.response_cache)
@@ -257,7 +257,7 @@ class InContextLearningMetric(Metric):
         flattened_gathered_response_cache = [item for row in gathered_response_cache for item in row]
         print(len(flattened_gathered_response_cache))
         setattr(self, 'response_cache', flattened_gathered_response_cache)
-        
+
         super().sync(
             dist_sync_fn,
             process_group,
