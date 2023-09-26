@@ -246,7 +246,7 @@ class InContextLearningMetric(Metric):
         process_group: Optional[Any] = None,
         should_sync: bool = True,
         distributed_available: Optional[Callable] = None,
-    )
+    ):
         group = process_group or self.process_group
         world_size = torch.distributed.get_world_size(group)
         torch.distributed.barrier(group=group)
