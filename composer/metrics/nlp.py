@@ -240,8 +240,15 @@ class InContextLearningMetric(Metric):
         """
         raise NotImplementedError
 
-    def compute(self):
-        world_size = torch.distributed.get_world_size(group)
+    def sync(
+        self,
+        dist_sync_fn: Optional[Callable] = None,
+        process_group: Optional[Any] = None,
+        should_sync: bool = True,
+        distributed_available: Optional[Callable] = None,
+    )
+
+        world_size = torch.distributed.get_world_size(process_group or self.process_group)
         torch.distributed.barrier(group=group)
         gathered_response_cache =[[]] * world_size
         torch.distributed.all_gather_object(gathered_response_cache, self.response_cache)
@@ -249,7 +256,14 @@ class InContextLearningMetric(Metric):
         print([len(x) for x in gathered_response_cache])
         flattened_gathered_response_cache = [item for row in gathered_response_cache for item in row]
         print(len(flattened_gathered_response_cache))
-        self.response_cache = flattened_gathered_response_cache
+        setattr(self, 'response_cache', flattened_gathered_response_cache)
+        
+        super().sync(
+            dist_sync_fn,
+            process_group,
+            should_sync,
+            distributed_available,
+        )
 
 
 class InContextLearningQAAccuracy(InContextLearningMetric):
