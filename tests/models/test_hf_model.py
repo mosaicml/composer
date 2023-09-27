@@ -265,6 +265,10 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
 def check_hf_model_equivalence(model1, model2):
     expected_model_config_dict = model1.config.to_dict()
     new_model_config_dict = model2.config.to_dict()
+
+    # _name_or_path is different depending on where the model was loaded from, so don't compare it
+    expected_model_config_dict.pop('_name_or_path')
+    new_model_config_dict.pop('_name_or_path')
     assert expected_model_config_dict == new_model_config_dict
     assert sum(p.numel() for p in model1.parameters()) == sum(p.numel() for p in model2.parameters())
     assert all(type(module1) == type(module2) for module1, module2 in zip(model1.modules(), model2.modules()))
