@@ -33,7 +33,8 @@ def uc_object_store(ws_client, monkeypatch):
         yield UCObjectStore(path='Volumes/catalog/schema/volume/path/')
 
 
-@pytest.mark.remote  # databricks auth is hard to set up on github actions
+@pytest.mark.skip  # TODO: setup databricks auth on github actions
+@pytest.mark.remote
 def test_uc_object_store_integration():
     model = SimpleModel()
     train_dataset = RandomClassificationDataset()

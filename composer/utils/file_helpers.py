@@ -350,11 +350,9 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
     elif backend == 'oci':
         return OCIObjectStore(bucket=bucket_name)
     elif backend == 'dbfs':
-        if path.startswith('Volumes/'):
-            return UCObjectStore(path=path)
-        else:
-            raise ValueError(f'Backend dbfs does not support URI {uri}. '
-                             'Please use a URI that starts with dbfs:/Volumes/')
+        # validate if the path conforms to the requirements for UC volume paths
+        UCObjectStore.validate_path(path)
+        return UCObjectStore(path=path)
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
                                   'one of the supported object stores')
@@ -394,11 +392,9 @@ def maybe_create_remote_uploader_downloader_from_uri(
         raise NotImplementedError(f'There is no implementation for WandB via URI. Please use '
                                   'WandBLogger with log_artifacts set to True')
     elif backend == 'dbfs':
-        if path.startswith('Volumes/'):
-            return RemoteUploaderDownloader(bucket_uri=uri, backend_kwargs={'path': path})
-        else:
-            raise ValueError(f'Backend dbfs does not support URI {uri}. '
-                             'Please use a URI that starts with dbfs:/Volumes/')
+        # validate if the path conforms to the requirements for UC volume paths
+        UCObjectStore.validate_path(path)
+        return RemoteUploaderDownloader(bucket_uri=uri, backend_kwargs={'path': path})
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
                                   'one of the supported RemoteUploaderDownloader object stores')

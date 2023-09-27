@@ -16,6 +16,7 @@ from composer.utils.file_helpers import (ensure_folder_has_no_conflicting_files,
                                          format_name_with_dist, format_name_with_dist_and_time, get_file, is_tar,
                                          maybe_create_object_store_from_uri,
                                          maybe_create_remote_uploader_downloader_from_uri, parse_uri)
+from composer.utils.object_store import UCObjectStore
 from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
 from tests.common.markers import world_size
 from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
@@ -285,6 +286,8 @@ def test_maybe_create_object_store_from_uri(monkeypatch):
     mock_gs_obj = MagicMock()
     monkeypatch.setattr(file_helpers, 'GCSObjectStore', mock_gs_obj)
     mock_uc_obj = MagicMock()
+    # un-mock the static method that validates the path
+    mock_uc_obj.validate_path.side_effect = UCObjectStore.validate_path
     monkeypatch.setattr(file_helpers, 'UCObjectStore', mock_uc_obj)
 
     assert maybe_create_object_store_from_uri('checkpoint/for/my/model.pt') is None

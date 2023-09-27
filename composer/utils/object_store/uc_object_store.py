@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import pathlib
 import uuid
@@ -12,6 +13,8 @@ from typing import Callable, List, Optional
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
+
+log = logging.getLogger(__name__)
 
 __all__ = ['UCObjectStore']
 
@@ -52,11 +55,11 @@ class UCObjectStore(ObjectStore):
         if not 'DATABRICKS_HOST' in os.environ or not 'DATABRICKS_TOKEN' in os.environ:
             raise ValueError('Environment variables `DATABRICKS_HOST` and `DATABRICKS_TOKEN` '
                              'must be set to use Databricks Unity Catalog Volumes')
-        self.prefix = self._parse_path(path)
+        self.prefix = self.validate_path(path)
         self.client = WorkspaceClient()
 
     @staticmethod
-    def _parse_path(path: str) -> str:
+    def validate_path(path: str) -> str:
         """Parses the given path to extract the UC Volume prefix from the path.
 
         .. note::
