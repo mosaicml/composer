@@ -115,7 +115,6 @@ def get_cpu_offload(cpu_offload=False):
 
 
 def _get_process_group(pg, process_group_cache=None):
-    print(f'Fetching PG: {pg} from cache: {process_group_cache}')
     """Helper function for configuring and/or retrieving process groups."""
     warnings.warn(f'Instantiating FSDP with custom process groups is an experimental feature.')
 
@@ -156,7 +155,6 @@ def _get_process_group(pg, process_group_cache=None):
     else:
         raise ValueError(f'Unsure how to setup process_group={pg}')
 
-    print(f'\tRanks: {ranks}')
     if process_group_cache is not None and ranks in process_group_cache:
         warnings.warn(
             f'On rank={dist.get_global_rank()} using cached progress group with {ranks=}. ' +
