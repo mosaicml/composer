@@ -332,6 +332,9 @@ def test_fsdp_mixed_with_sync(world_size, tmp_path: pathlib.Path, sync_module_st
                      r'ignore:MosaicMLLogger is not in the state_dict. Its state will not be restored.:UserWarning')),
     pytest.param('0.15.1',
                  marks=pytest.mark.filterwarnings(
+                     r'ignore:MosaicMLLogger is not in the state_dict. Its state will not be restored.:UserWarning')),
+    pytest.param('0.16.0',
+                 marks=pytest.mark.filterwarnings(
                      r'ignore:MosaicMLLogger is not in the state_dict. Its state will not be restored.:UserWarning'))
 ])
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
