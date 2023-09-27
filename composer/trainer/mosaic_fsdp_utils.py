@@ -699,7 +699,7 @@ def _custom_recursive_wrap_t2p1p0(
 
         module_kwargs = auto_wrap_policy(module=module, recurse=False, nonwrapped_numel=remainder)
         import inspect
-        print(f'Wrap source fn: {inspect.getsource(auto_wrap_policy)}')
+        print(f'Wrap source fn: {inspect.getsource(auto_wrap_policy.func)}')
         print(f'RAW module kwargs: {module_kwargs} module: {module}')
         if not only_wrap_children and module_kwargs:
             # CHANGE: We modify the original code to support custom FSDP kwargs and add
