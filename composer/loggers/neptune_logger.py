@@ -102,14 +102,12 @@ class NeptuneLogger(LoggerDestination):
     def init(self, state: 'State', logger: 'Logger') -> None:
         del logger  # unused
 
-        tags = [state.run_name]
-
         if not self._rank_zero_only:
-            tags.append(f'rank{dist.get_global_rank()}')
+            self._base_handler["rank"] = dist.get_global_rank()
 
         if self._enabled:
             assert self._neptune_run is not None
-            self._neptune_run['sys/tags'].add(tags)
+            self._neptune_run['sys/name'] = state.run_name
             self._neptune_run[self.INTEGRATION_VERSION_KEY] = __version__
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
