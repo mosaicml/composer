@@ -11,7 +11,7 @@ from packaging import version
 from torch.distributed._shard.sharding_spec import ChunkShardingSpec
 from torch.distributed.fsdp import FullyShardedDataParallel
 
-from composer.trainer.mosaic_fsdp_utils import build_metadata, custom_auto_wrap_t1p13p1, shard
+from composer.trainer.mosaic_fsdp_utils import build_metadata, custom_auto_wrap_t1p13p1
 
 
 def patch_pytorch():
@@ -37,7 +37,6 @@ def patch_pytorch():
 
         # Monkey patch sharding method
         ChunkShardingSpec.build_metadata = build_metadata
-        ChunkShardingSpec.shard = shard
 
     elif version.parse(torch.__version__) < version.parse('2.1.1'):
         # Monkey path for torch < 2.1.1 ie torch == 2.1.0
@@ -48,7 +47,6 @@ def patch_pytorch():
 
         # Monkey patch sharding method
         ChunkShardingSpec.build_metadata = build_metadata
-        ChunkShardingSpec.shard = shard
 
     elif version.parse(torch.__version__) >= version.parse('2.1.1'):
         raise NotImplementedError(f'FullyShardedDataParallel is not supported for torch >= 2.2.0')
