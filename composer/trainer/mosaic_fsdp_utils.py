@@ -718,7 +718,7 @@ def _custom_recursive_wrap_t2p1p0(
                         f'FSDP with custom process groups cannot use `use_orig_params: True` when using meta init.')
 
             # Leaf node or final wrapping of the remainder both happen here.
-            return _wrap(module, wrapper_cls, **kwargs), nonwrapped_numel
+            return _wrap(module, wrapper_cls, **final_kwargs), nonwrapped_numel
         else:
             return module, total_wrapped_numel
     return module, 0
