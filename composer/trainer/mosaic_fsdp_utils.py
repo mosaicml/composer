@@ -729,7 +729,8 @@ if version.parse(torch.__version__) > version.parse('2.0.2') and version.parse(
         nonwrapped_numel: int,
         policies,
     ) -> bool:
-        """
+        """Modified version of `_or_policy` from FSDP.
+
         A policy that wraps ``module`` if any policy in the passed in iterable of
         ``policies`` returns something truthy. The result does not have to be ``True``
         and can be, for example, a dictionary of kwargs to override wrapping.
