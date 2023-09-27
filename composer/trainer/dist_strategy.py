@@ -446,10 +446,10 @@ def prepare_fsdp_module(
                 should_be_wrapped = False
                 if hasattr(module, '_fsdp_wrap'):
                     should_be_wrapped = bool(module._fsdp_wrap)
-                    print(f'FSDP Wrap bool: {should_be_wrapped}')
+                    print(f'FSDP Wrap bool: {should_be_wrapped} module: {module}')
                 elif hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
                     should_be_wrapped = obj.fsdp_wrap_fn(module)
-                    print(f'FSDP Wrap kwargs: {should_be_wrapped}')
+                    print(f'FSDP Wrap kwargs: {should_be_wrapped} module: {module}')
 
                 if should_be_wrapped and auto_microbatching:
                     module.register_forward_hook(sync_hook)
