@@ -10,8 +10,8 @@
     <!-- SETUPTOOLS_LONG_DESCRIPTION_HIDE_END -->
 </p>
 
-<h2><p align="center">A PyTorch Library for Efficient Neural Network Training</p></h2>
-<h3><p align="center">Train Faster, Reduce Cost, Get Better Models</p></h3>
+<h2><p align="center">Supercharge your Model Training</p></h2>
+<h3><p align="center">Deep Learning Framework for Training at Scale</p></h3>
 
 <h4><p align='center'>
 <a href="https://www.mosaicml.com">[Website]</a>
