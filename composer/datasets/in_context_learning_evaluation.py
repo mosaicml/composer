@@ -128,6 +128,17 @@ class InContextLearningQATaskDataset(Dataset):
         fewshot_random_seed (int): Random seed to use for fewshot sampling
     """
 
+    @classmethod
+    def read_dataset(cls, dataset):
+        return list(
+            dataset.map(
+                lambda examples: {
+                    'context': examples['context'],
+                    'answer': examples['answer'],
+                    'aliases': set([examples['answer']] + examples.get('aliases', [])),
+                    'chain_of_thought': examples.get('chain_of_thought', '')
+                }))
+
     def __init__(
         self,
         dataset_uri: str,
@@ -153,14 +164,7 @@ class InContextLearningQATaskDataset(Dataset):
             if dist.get_local_rank() == 0:
                 get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
-        self.samples = list(
-            dataset.map(
-                lambda examples: {
-                    'context': examples['context'],
-                    'answer': examples['answer'],
-                    'aliases': [examples['answer']] + examples.get('aliases', []),
-                    'chain_of_thought': examples.get('chain_of_thought', '')
-                }))
+        self.samples = InContextLearningQATaskDataset.read_dataset(dataset)
         self.samples = strip_data(self.samples)
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
@@ -170,6 +174,27 @@ class InContextLearningQATaskDataset(Dataset):
         fewshot_rng = random.Random(fewshot_random_seed)
         self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
                                                   question_prelimiter, cot_delimiter, fewshot_rng)
+
+    def _format_prompt_and_fewshot(self, num_fewshot: int, prompt_string: str, example_delimiter: str,
+                                   continuation_delimiter: str, question_prelimiter: str, cot_delimiter: str,
+                                   fewshot_rng: random.Random, sample_idx: int):
+        prompt_and_fewshot = prompt_string
+
+        if num_fewshot > 0:
+            fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx, fewshot_rng)
+            for fewshot_idx in fewshot_idxs:
+                context = self.samples[fewshot_idx]['context']
+                chain_of_thought = self.samples[fewshot_idx].get('chain_of_thought', '')
+                answer = self.samples[fewshot_idx]['answer']
+
+                if len(chain_of_thought) == 0:
+                    cot_delimiter = ''
+                context = f'{question_prelimiter}{context}'
+                if len(prompt_and_fewshot) > 0:
+                    context = f'{example_delimiter}{context}'
+                prompt_and_fewshot += f'{context}{continuation_delimiter}{chain_of_thought}{cot_delimiter}{answer}'
+
+        return prompt_and_fewshot
 
     def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
                       question_prelimiter: str, cot_delimiter: str, fewshot_rng: random.Random):
@@ -196,24 +221,13 @@ class InContextLearningQATaskDataset(Dataset):
         for sample_idx in tqdm(range(len(self.samples))):
             encoded_example = {}
 
-            preamble = prompt_string
-
-            if num_fewshot > 0:
-                fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx, fewshot_rng)
-                for fewshot_idx in fewshot_idxs:
-                    ctxt, cot, cont = (self.samples[fewshot_idx]['context'],
-                                       self.samples[fewshot_idx].get('chain_of_thought',
-                                                                     ''), self.samples[fewshot_idx]['answer'])
-                    if len(cot) == 0:
-                        cot_delimiter = ''
-                    ctxt = f'{question_prelimiter}{ctxt}'
-                    if len(preamble) > 0:
-                        ctxt = f'{example_delimiter}{ctxt}'
-                    preamble += f'{ctxt}{continuation_delimiter}{cot}{cot_delimiter}{cont}'
+            prompt_and_fewshot = self._format_prompt_and_fewshot(num_fewshot, prompt_string, example_delimiter,
+                                                                 continuation_delimiter, question_prelimiter,
+                                                                 cot_delimiter, fewshot_rng, sample_idx)
 
             ctxt = self.samples[sample_idx]['context']
             ctxt = f'{question_prelimiter}{ctxt}'
-            if len(preamble) > 0:
+            if len(prompt_and_fewshot) > 0:
                 ctxt = f'{example_delimiter}{ctxt}'
 
             # rstrip the continuation delimiter, because the prompt ending in a space results in degenerate output
@@ -221,7 +235,7 @@ class InContextLearningQATaskDataset(Dataset):
             ctxt = f'{ctxt}{continuation_delimiter_stripped}'
 
             # If the preamble is empty then this will be a 0-length list, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
-            encoded_example['preamble'] = self.tokenizer(preamble)
+            encoded_example['preamble'] = self.tokenizer(prompt_and_fewshot)
             # If there is an EOS token added, we need to remove it so it is not in the middle of the prompt
             if self.tokenizer.eos_token_id is not None and len(
                     encoded_example['preamble']
@@ -229,7 +243,7 @@ class InContextLearningQATaskDataset(Dataset):
                 encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
 
             encoded_example['context'] = self.tokenizer(ctxt, add_special_tokens=False)
-            encoded_example['aliases'] = list(set(self.samples[sample_idx]['aliases']))
+            encoded_example['aliases'] = list(self.samples[sample_idx]['aliases'])
             encoded_example['cot_delimiter'] = cot_delimiter
             examples.append(encoded_example)
             for answer in self.samples[sample_idx]['aliases']:
