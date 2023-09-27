@@ -60,6 +60,7 @@ We recommend using Composer to speedup your experimentation workflow if you’re
 Composer is heavily used by the MosaicML research team to train state-of-the-art models like MPT, and we open-sourced this library to enable the ML community to do the same. This framework is used by organizations in both the tech industry and the academic sphere and is continually updated with new features, bug fixes, and stability improvements for production workloads.  
 
 # **🔑 Key Features**
+![key features](https://github.com/mosaicml/composer/assets/11001185/8af32018-2315-406a-9372-53e05b30c62a)
 
 We designed Composer from the ground up for modern deep learning workloads. Gone are the days of AlexNet and ResNet, when state-of-the-art models could be trained on a couple of desktop GPUs. Today, developing the latest and greatest deep learning models often requires cluster-scale hardware — but with Composer’s help, you’ll hardly notice the difference.
 
