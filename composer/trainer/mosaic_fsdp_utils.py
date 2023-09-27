@@ -8,9 +8,11 @@
 
 import functools
 import inspect
+import logging
+import math
 import warnings
 from functools import partial
-from typing import Any, Callable, Dict, Iterable, Optional, Set, Tuple, Union, cast
+from typing import Any, Callable, Dict, Iterable, Optional, Set, Tuple, Union, cast, no_type_check
 
 import torch
 from torch.distributed._shard.sharding_spec._internals import (
@@ -19,12 +21,22 @@ from torch.distributed._shard.sharding_spec._internals import (
 )
 import torch.distributed._shard.sharded_tensor.metadata as sharded_tensor_meta
 import torch.nn as nn
+import torch.nn.functional as F
 from packaging import version
 from torch import distributed
 from torch.distributed import ProcessGroup
 from torch.distributed._shard.sharding_spec import ShardMetadata
+from torch.distributed._tensor import Replicate
 from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
                                     ShardingStrategy)
+from torch.distributed.fsdp._common_utils import (
+    _FSDPState, _has_fsdp_params,
+    _is_composable, FSDP_PREFIX)
+from torch.distributed.fsdp._runtime_utils import (
+    _lazy_init,)
+from torch.distributed.fsdp._state_dict_utils import _enter_unshard_params_ctx
+from torch.distributed.fsdp._fsdp_extensions import _ext_pre_load_state_dict_transform
+from torch.distributed.utils import _replace_by_prefix
 
 from composer.core import Precision
 from composer.utils import dist
@@ -40,6 +52,8 @@ BACKWARD_PREFETCH_MAP = {
     'BACKWARD_PRE': BackwardPrefetch.BACKWARD_PRE,
     'BACKWARD_POST': BackwardPrefetch.BACKWARD_POST,
 }
+
+logger = logging.getLogger(__name__)
 
 
 def _get_torch_dtype(dtype: Union[Precision, str]):
@@ -948,3 +962,111 @@ def build_metadata(self,
         tensor_sizes,
         tensor_properties
     )
+
+
+@no_type_check
+def _sharded_pre_load_state_dict_hook(
+    module: nn.Module,
+    fsdp_state: _FSDPState,
+    state_dict: Dict[str, Any],
+    prefix: str,
+) -> None:
+    """
+    Adds nightly change for partial state dict error handling.
+
+    https://github.com/pytorch/pytorch/blob/0511df0ee9edeb5c2613805ccfb49beb323b87f9/torch/distributed/fsdp/_state_dict_utils.py#L607-L615
+
+    The hook combines the unflattened, sharded parameters (ShardedTensor) to
+    a new FlatParameter and shards the new FlatParameter to the local chunk.
+    """
+    from torch.distributed.distributed_c10d import _get_pg_default_device
+    from torch.distributed.fsdp._common_utils import _module_handle
+    from torch.distributed.fsdp._state_dict_utils import _param_name_infos
+
+    _lazy_init(fsdp_state, module)
+    if not _is_composable(fsdp_state):
+        _replace_by_prefix(state_dict, prefix, prefix + f"{FSDP_PREFIX}")
+    if not _has_fsdp_params(fsdp_state, module):
+        return
+
+    handle = _module_handle(fsdp_state, module)
+    if not handle.uses_sharded_strategy:
+        raise RuntimeError(
+            "load_sharded_state_dict can only be called when parameters "
+            "are flattened and sharded."
+        )
+
+    device = fsdp_state.compute_device
+    for fqn, _, _ in _param_name_infos(module, fsdp_state):
+        if not _is_composable(fsdp_state):
+            fqn_from_global_root = f"{prefix}{FSDP_PREFIX}{fqn}"
+        else:
+            fqn_from_global_root = f"{prefix}{fqn}"
+        try:
+            param = state_dict.pop(fqn_from_global_root)
+        except KeyError:
+            logger.warning(
+                f"Did not find param with FQN {fqn_from_global_root}, skipping it. "  # noqa: G004
+                "The weight will not be filled if you expect it to be."
+            )
+            continue  # TODO: Improve unittesting for state_dict finetuning
+            # cases: https://github.com/pytorch/pytorch/issues/109134
+
+        if not fsdp_state._state_dict_config.use_dtensor:
+            # All-gather the param (ShardedTensor)
+            param, shards = _ext_pre_load_state_dict_transform(param)
+
+            assert len(shards) < 2, (
+                "Expects 0 or 1 shard per rank "
+                f"but got {len(shards)} shards on rank {fsdp_state.rank}."
+            )
+            param_numel = param.size().numel()
+            dim_0_size = param.size()[0]
+            chunk_size = (
+                math.ceil(dim_0_size / fsdp_state.world_size)
+                * param_numel
+                // dim_0_size
+            )
+            if len(shards) == 1:
+                local_tensor = shards[0].tensor.flatten()
+                pg_device = _get_pg_default_device(fsdp_state.process_group)
+                if local_tensor.device.type != pg_device.type:
+                    local_tensor = local_tensor.to(pg_device)
+                num_padding = chunk_size - local_tensor.numel()
+                if num_padding > 0:
+                    local_tensor = F.pad(local_tensor, [0, num_padding])
+            else:
+                local_tensor = torch.zeros(chunk_size, dtype=param.dtype, device=device)
+            tensor = torch.empty(
+                chunk_size * fsdp_state.world_size,
+                dtype=local_tensor.dtype,
+                device=device,
+            )
+            if local_tensor.is_cpu:
+                # Tensor could be on FSDP GPU compute device, while local_tensor is on CPU.
+                # Convert to CPU so all_gather can work.
+                tensor_dev = tensor.device
+                tensor = tensor.cpu()
+                tensor_list = list(
+                    torch.chunk(tensor, torch.distributed.get_world_size(fsdp_state.process_group))
+                )
+                torch.distributed.all_gather(
+                    tensor_list, local_tensor, group=fsdp_state.process_group
+                )
+                tensor.to(tensor_dev)
+            else:
+                torch.distributed.all_gather_into_tensor(
+                    tensor, local_tensor, group=fsdp_state.process_group
+                )
+            tensor = tensor.narrow(0, 0, param_numel).reshape(param.size())
+            state_dict[fqn_from_global_root] = tensor
+        else:
+            if param.device != fsdp_state._device_mesh.device_type:
+                param = param.to(fsdp_state._device_mesh.device_type)
+
+            param = param.redistribute(
+                device_mesh=param.device_mesh, placements=[Replicate()]
+            )
+            state_dict[fqn_from_global_root] = param.to_local()
+
+    _enter_unshard_params_ctx(module, fsdp_state, writeback=True)

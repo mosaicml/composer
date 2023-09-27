@@ -10,8 +10,13 @@ import torch
 from packaging import version
 from torch.distributed._shard.sharding_spec import ChunkShardingSpec
 from torch.distributed.fsdp import FullyShardedDataParallel
+from torch.distributed.fsdp import _state_dict_utils
 
-from composer.trainer.mosaic_fsdp_utils import build_metadata, custom_auto_wrap_t1p13p1
+from composer.trainer.mosaic_fsdp_utils import (
+    _sharded_pre_load_state_dict_hook,
+    build_metadata,
+    custom_auto_wrap_t1p13p1,
+)
 
 
 def patch_pytorch():
@@ -33,6 +38,7 @@ def patch_pytorch():
 
         # Monkey patch __init__ where __init__ calls the custom _auto_wrap fn
         from composer.trainer.mosaic_fsdp_utils import init_fn_t2p0p1
+
         FullyShardedDataParallel.__init__ = init_fn_t2p0p1  # type: ignore
 
         # Monkey patch sharding method
@@ -43,10 +49,18 @@ def patch_pytorch():
 
         # Monkey patch __init__ where __init__ calls the custom _auto_wrap fn
         from composer.trainer.mosaic_fsdp_utils import init_fn_t2p1p0
+
         FullyShardedDataParallel.__init__ = init_fn_t2p1p0  # type: ignore
 
         # Monkey patch sharding method
         ChunkShardingSpec.build_metadata = build_metadata
 
+        # Monkey patch partial state dict handling
+        _state_dict_utils._sharded_pre_load_state_dict_hook = (
+            _sharded_pre_load_state_dict_hook
+        )
+
     elif version.parse(torch.__version__) >= version.parse('2.1.1'):
-        raise NotImplementedError(f'FullyShardedDataParallel is not supported for torch >= 2.2.0')
+        raise NotImplementedError(
+            f'FullyShardedDataParallel is not supported for torch >= 2.2.0'
+        )
