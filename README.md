@@ -77,7 +77,7 @@ Whether you’re training on 1 GPU or 512 GPUs, 50MB or 10TB of data - Composer 
 
 Other high-level deep learning trainers provide simplicity at the cost of rigidity. When you want to add your own features, their abstractions get in your way. Composer, on the other hand, provides simple ways for you to customize our Trainer to your needs.
 
-![Custom Callbacks.png](Composer%20README%20Draft%205d30690d40f04cdf8528f749e98782bf/Custom_Callbacks.png)
+![Custom Callbacks.png]((docs/source/_static/images/training_loop.png))
 
 ***Fig. 1:** Composer’s training loop has a series of events that occur at each stage in the training process. Callbacks are functions that users write to run at specific events. For example, our [Learning Rate Monitor Callback](https://docs.mosaicml.com/projects/composer/en/stable/api_reference/generated/composer.callbacks.LRMonitor.html#composer.callbacks.LRMonitor) logs the learning rate at every BATCH_END event.*
 
