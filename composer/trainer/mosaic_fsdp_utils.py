@@ -698,17 +698,16 @@ def _custom_recursive_wrap_t2p1p0(
         remainder = nonwrapped_numel - total_wrapped_numel
 
         module_kwargs = auto_wrap_policy(module=module, recurse=False, nonwrapped_numel=remainder)
-        import inspect
-        print(f'Wrap source fn: {inspect.getsource(auto_wrap_policy.func)}')
-        print(f'RAW module kwargs: {module_kwargs} module: {module}')
+        print(f'Raw module kwargs: {module_kwargs}')
         if not only_wrap_children and module_kwargs:
             # CHANGE: We modify the original code to support custom FSDP kwargs and add
             # the process_group_cache to avoid instantiating a new process group.
             module_kwargs = module_kwargs if isinstance(module_kwargs, dict) else {}
-            print(f'Module Kwargs: {module_kwargs} PG Cache: {process_group_cache}')
+            print(f'\tModule Kwargs: {module_kwargs} PG Cache: {process_group_cache}')
             module_kwargs = _set_custom_fsdp_module_kwargs(module_kwargs, process_group_cache)
 
             final_kwargs = {**kwargs, **module_kwargs}
+            print(f'\tFinal kwargs: {final_kwargs}')
 
             if final_kwargs.get('process_group', None) is not None:
                 _pg_ranks = distributed.get_process_group_ranks(final_kwargs['process_group'])
