@@ -76,8 +76,14 @@ def test_get_object_size(ws_client, uc_object_store, result: str):
         db_files = pytest.importorskip('databricks.sdk.service.files')
         ws_client.files.get_status.return_value = db_files.FileInfo(file_size=100)
         assert uc_object_store.get_object_size('train.txt') == 100
-    else:  # not_found
-        pass
+    elif result == 'not_found':
+        db_core = pytest.importorskip('databricks.sdk.core', reason='requires databricks')
+        ws_client.files.get_status.side_effect = db_core.DatabricksError('The file being accessed is not found',
+                                                                         error_code='NOT_FOUND')
+        with pytest.raises(FileNotFoundError):
+            uc_object_store.get_object_size('train.txt')
+    else:
+        raise NotImplementedError(f'Test for result={result} is not implemented.')
 
 
 def test_get_uri(uc_object_store):
@@ -99,10 +105,10 @@ def test_upload_object(ws_client, uc_object_store, tmp_path):
 def test_download_object(ws_client, uc_object_store, tmp_path, result: str):
 
     object_name = 'remote-model.bin'
-    file_content = bytes('0' * (1024 * 1024 * 1024), 'utf-8')
+    file_content = bytes('0' * (100), 'utf-8')
     file_to_download = str(tmp_path / Path('model.bin'))
 
-    def generate_dummy_file(x):
+    def generate_dummy_file(_):
         db_files = pytest.importorskip('databricks.sdk.service.files')
         with open(file_to_download, 'wb') as fp:
             fp.write(file_content)
@@ -116,13 +122,13 @@ def test_download_object(ws_client, uc_object_store, tmp_path, result: str):
 
     elif result == 'file_exists':
         with open(file_to_download, 'wb') as fp:
-            fp.write(bytes('1' * (1024 * 1024 * 1024), 'utf-8'))
+            fp.write(bytes('1' * (100), 'utf-8'))
         with pytest.raises(FileExistsError):
             uc_object_store.download_object(object_name, file_to_download)
 
     elif result == 'overwrite_file':
         with open(file_to_download, 'wb') as fp:
-            fp.write(bytes('1' * (1024 * 1024 * 1024), 'utf-8'))
+            fp.write(bytes('1' * (100), 'utf-8'))
         ws_client.files.download.side_effect = generate_dummy_file
         uc_object_store.download_object(object_name, file_to_download, overwrite=True)
         ws_client.files.download.assert_called_with('/Volumes/catalog/schema/volume/remote-model.bin')
@@ -139,12 +145,14 @@ def test_download_object(ws_client, uc_object_store, tmp_path, result: str):
         with pytest.raises(FileNotFoundError):
             uc_object_store.download_object(object_name, file_to_download)
 
-    else:  # error
+    elif result == 'error':
         db_core = pytest.importorskip('databricks.sdk.core', reason='requires databricks')
         ws_client.files.download.side_effect = db_core.DatabricksError
 
         with pytest.raises(ObjectStoreTransientError):
             uc_object_store.download_object(object_name, file_to_download)
+    else:
+        raise NotImplementedError(f'Test for result={result} is not implemented.')
 
 
 def test_uc_object_store_with_remote_ud(uc_object_store):
