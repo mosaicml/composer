@@ -84,7 +84,7 @@ Other high-level deep learning trainers provide simplicity at the cost of rigidi
 - [**Callbacks**](https://docs.mosaicml.com/projects/composer/en/stable/trainer/callbacks.html): Composer’s callback system allows you to insert custom logic at any point in the training loop. We’ve written callbacks to monitor memory usage, log and visualize images, and estimate your model’s remaining training time, to name a few. This feature is popular among researchers who want to implement and experiment with custom training techniques.
 - [**Speedup algorithms**](https://docs.mosaicml.com/projects/composer/en/stable/examples/custom_speedup_methods.html): We draw from the latest research to create a collection of algorithmic speedups. Stack these speedups into MosaicML recipes to boost your training speeds. Our team has open-sourced the optimal combinations of speedups for different types of models.
     - **8x speedup: Stable Diffusion**
-        - $200k original SD2 cost —> $50k ([Blog](https://www.notion.so/Composer-README-Draft-5d30690d40f04cdf8528f749e98782bf?pvs=21))
+        - $200k original SD2 cost —> $50k ([Blog](https://www.mosaicml.com/blog/diffusion))
     - **7x speedup: ResNet-50 on ImageNet**
         - 3h33m —> 25m on 8xA100 ([Blog](https://www.mosaicml.com/blog/mosaic-resnet))
     - **8.8x speedup: BERT-Base Pretraining**
