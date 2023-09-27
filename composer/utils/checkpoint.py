@@ -406,14 +406,15 @@ def load_sharded_checkpoint(
                 model_state_dict = {'state': {'model': state.get_model_state_dict()}}
             else:
                 cur_state_dict = state.state_dict()
-                if ignore_keys:
-                    # Filter provided list of key paths
-                    if not callable(ignore_keys):
-                        ignore_keys = glob_filter(ignore_keys)
-                    # Call function to modify state_dict
-                    ignore_keys(cur_state_dict)
                 cur_state_dict.pop('optimizers')
                 model_state_dict = {'state': cur_state_dict}
+
+            if ignore_keys:
+                # Filter provided list of key paths
+                if not callable(ignore_keys):
+                    ignore_keys = glob_filter(ignore_keys)
+                # Call function to modify state_dict
+                ignore_keys(model_state_dict)
 
             dist_cp.load_state_dict(model_state_dict, storage_reader)
 
