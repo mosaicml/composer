@@ -122,7 +122,7 @@ def validate_save_planner(save_planner: Optional[Any]) -> None:
     """
     from torch.distributed.checkpoint.planner import SavePlanner
 
-    if not isinstance(save_planner, SavePlanner):
+    if save_planner is not None and not isinstance(save_planner, SavePlanner):
         raise ValueError(
             (
                 f'save_planner {type(save_planner)} is not a '
@@ -139,7 +139,7 @@ def validate_load_planner(load_planner: Optional[Any]) -> None:
     """
     from torch.distributed.checkpoint.planner import LoadPlanner
 
-    if not isinstance(load_planner, LoadPlanner):
+    if load_planner is not None and not isinstance(load_planner, LoadPlanner):
         raise ValueError(
             (
                 f'load_planner {type(load_planner)} is not a '
