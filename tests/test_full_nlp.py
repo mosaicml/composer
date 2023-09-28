@@ -172,7 +172,8 @@ def inference_test_helper(finetuning_output_path, rud, finetuning_model, algorit
         ort = pytest.importorskip('onnxruntime')
         loaded_inference_model = onnx.load(str(tmp_path / 'inference_checkpoints' / 'exported_model.onnx'))
         onnx.checker.check_model(loaded_inference_model)
-        ort_session = ort.InferenceSession(str(tmp_path / 'inference_checkpoints' / 'exported_model.onnx'))
+        ort_session = ort.InferenceSession(str(tmp_path / 'inference_checkpoints' / 'exported_model.onnx'),
+                                           providers=['CPUExecutionProvider'])
 
         for key, value in copied_batch.items():
             copied_batch[key] = value.numpy()

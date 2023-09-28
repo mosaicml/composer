@@ -727,6 +727,9 @@ def test_code_eval_split_batch(dataset_uri, tmp_path):
         assert len(split2[k]) == 2
         assert all(isinstance(val, v) for val in split1[k] + split2[k])
 
+    assert isinstance(split1['pass_at_k'], int)
+    assert isinstance(split2['pass_at_k'], int)
+
     assert isinstance(split1['generation_length'], int)
     assert isinstance(split2['generation_length'], int)
 
@@ -868,6 +871,33 @@ def test_code_eval_test_cases(dataset_uri, tmp_path):
         for test_input, test_output in zip(inputs, outputs):
             result = mod.__dict__[entry_point](*eval(test_input))
             assert result == eval(test_output)
+
+
+@pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
+def test_code_eval_pass_at_k_validity(dataset_uri, tmp_path):
+    pytest.importorskip('datasets')
+
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+
+    tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b')
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    batch_size = 9
+    seqlen = 2048
+
+    with pytest.raises(ValueError, match=r'.* pass_at_k .*'):
+        get_icl_task_dataloader('code_evaluation',
+                                dataset_uri,
+                                tokenizer,
+                                batch_size,
+                                max_seq_len=seqlen,
+                                pad_tok_id=tokenizer.eos_token_id,
+                                num_fewshot=0,
+                                prompt_string='',
+                                example_delimiter='\n',
+                                question_prelimiter='Code start: \n',
+                                destination_path=str(tmp_path / f'icl_.jsonl'),
+                                pass_at_k=10,
+                                generations_per_sample=1)
 
 
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])

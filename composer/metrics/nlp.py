@@ -10,12 +10,13 @@ import string
 import warnings
 from typing import Any, Dict, List, Mapping, Optional, Union
 
+import numpy as np
 import torch
 from torch import Tensor
 from torch.nn import functional as F
 from torchmetrics import Metric
 
-from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient
+from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient, MosaicMLLambdaEvalClient
 
 log = logging.getLogger(__name__)
 
@@ -526,29 +527,49 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
+
+        self.eval_device = 'LAMBDA'
         if not 'CODE_EVAL_DEVICE' in os.environ:
-            log.info(f"'CODE_EVAL_DEVICE' env var was not set, so defaulting to 'LAMBDA' as eval device")
-            os.environ['CODE_EVAL_DEVICE'] = 'LAMBDA'
-        self.local = os.environ['CODE_EVAL_DEVICE'].upper() == 'LOCAL'
+            if 'MOSAICML_PLATFORM' in os.environ:
+                log.info('Defaulting to MOSAICML evaluation on the MosaicML Platform')
+                self.eval_device = 'MOSAICML'
+            else:
+                log.info(f"'CODE_EVAL_DEVICE' env var was not set, so defaulting to 'LAMBDA' as eval device")
+                os.environ['CODE_EVAL_DEVICE'] = 'LAMBDA'
+        else:
+            self.eval_device = os.environ['CODE_EVAL_DEVICE'].upper()
 
     def get_client(self) -> EvalClient:
         """Returns a client for the appropriate remote platform."""
         client = None
-        if self.local:
+        if self.eval_device == 'LOCAL':
             warnings.warn(
                 'Running code eval locally may be insecure. Please set environment variable CODE_EVAL_DEVICE '
                 'to LAMBDA to run on remote. To use Lambdas, spin up your instance that checks code, set the URL as '
                 'CODE_EVAL_URL and the API key as CODE_EVAL_APIKEY.')
             log.debug('Running code eval locally.')
             client = LocalEvalClient()
-        elif os.environ['CODE_EVAL_DEVICE'].upper() == 'LAMBDA':
+        elif self.eval_device == 'LAMBDA':
             client = LambdaEvalClient()
-
+        elif self.eval_device == 'MOSAICML':
+            client = MosaicMLLambdaEvalClient()
         else:
             raise Exception(
-                'Remote platforms apart from Lambdas are not yet supported. Please set environment variable '
-                'CODE_EVAL_DEVICE to LOCAL or LAMBDA.')
+                'Remote platforms apart from Lambdas/MOSAICML are not yet supported. Please set environment variable '
+                'CODE_EVAL_DEVICE to LOCAL or LAMBDA, or run on the MosaicML Platform.')
         return client
+
+    def estimator(self, n: int, c: int, k: int) -> float:
+        """Computes the pass@k metric.
+
+        Given the number of generated samples, n, the number of correct samples, c, and the k of interest,
+        this function calculates pass@k as 1 - comb(n - c, k) / comb(n, k) as per the definition of
+        pass@k in the HumanEval paper (https://arxiv.org/abs/2107.03374) and it's associated implementation:
+        https://github.com/openai/human-eval.
+        """
+        if n - c < k:
+            return 1.0
+        return 1.0 - float(np.prod(1.0 - k / np.arange(n - c + 1, n + 1)))
 
     def update(self, batch: Dict[str, Any], outputs: List[str], labels: List[str]):
         """Updates the pass@k accuracy of code generation.
@@ -577,8 +598,11 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         del labels  # never used
         client = self.get_client()
 
-        num_beams = batch['generation_kwargs']['num_beams']
-        processed_outputs = [outputs[i * num_beams:(i + 1) * num_beams] for i in range(len(batch['prompts']))]
+        pass_at_k = batch['pass_at_k']
+        num_generations = batch['generation_kwargs']['num_return_sequences']
+        processed_outputs = [
+            outputs[i * num_generations:(i + 1) * num_generations] for i in range(len(batch['prompts']))
+        ]
         payloads = []
         for sample_outputs, sample_prompt, test_inputs, test_outputs, entry_point, language in zip(
                 processed_outputs, batch['prompts'], batch['test_inputs'], batch['test_outputs'], batch['entry_points'],
@@ -603,9 +627,16 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
             payloads.append(prompt_payload)
 
         results = client.invoke(payloads)
-        passes = sum(
-            [any(all(generation_payload) for generation_payload in prompt_payload) for prompt_payload in results])
-        self.correct += torch.tensor(float(passes))
+        for prompt in results:
+            num_correct = 0
+            for generation in prompt:
+                correct = all(generation)
+                if correct:
+                    num_correct += 1
+
+            pass_at_k_rate = self.estimator(num_generations, num_correct, pass_at_k)
+            self.correct += torch.tensor(pass_at_k_rate)
+
         client.close()  # pyright: ignore [reportOptionalMemberAccess]
 
     def compute(self):

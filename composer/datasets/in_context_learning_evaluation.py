@@ -927,6 +927,7 @@ class InContextLearningCodeEvalDataset(Dataset):
         code_prelimiter: str,
         fewshot_random_seed: int,
         generations_per_sample: int,
+        pass_at_k: int = 1,
         top_p: Optional[float] = 0.95,
         top_k: Optional[int] = 40,
     ):
@@ -952,7 +953,15 @@ class InContextLearningCodeEvalDataset(Dataset):
                     'test_outputs': examples['test_outputs'],
                     'language': examples['language'],
                 }))
+
+        if generations_per_sample < pass_at_k:
+            raise ValueError(
+                f'generations_per_sample ({generations_per_sample}) must be greater than or equal to pass_at_k ({pass_at_k}) for code evaluation.'
+            )
+
+        self.pass_at_k = pass_at_k
         self.generations_per_sample = generations_per_sample
+
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
@@ -1074,10 +1083,11 @@ class InContextLearningCodeEvalDataset(Dataset):
             'test_inputs': test_inputs,  # list of test inputs
             'test_outputs': test_outputs,  # list of test outputs
             'languages': languages,  # list of languages
+            'pass_at_k': self.pass_at_k,
             'generation_length': self.max_seq_len - self.max_prompt_length,
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
-                'num_beams': self.generations_per_sample,  # change strategy to beam search
+                'num_beams': 1,  # single beam
                 'num_return_sequences': self.generations_per_sample,  # how many gens per prompt
                 'do_sample': True,
                 'top_p': self.top_p,
@@ -1096,7 +1106,7 @@ class InContextLearningCodeEvalDataset(Dataset):
         # Don't split kwargs that don't change
         # Normally split torch tensors
         # List split lists of strings
-        no_split = ['mode', 'generation_length', 'generation_kwargs']
+        no_split = ['mode', 'generation_length', 'pass_at_k', 'generation_kwargs']
         normal_split = ['input_ids', 'attention_mask']
         list_split = [
             'labels', 'tests', 'canonical_solutions', 'entry_points', 'test_inputs', 'test_outputs', 'prompts',
@@ -1136,6 +1146,7 @@ def build_icl_dataloader(
     question_prelimiter: str = '',  # e.g. 'Question: '
     cot_delimiter: str = '',
     fewshot_random_seed: int = 1234,
+    pass_at_k: int = 1,
     generations_per_sample: int = 1,
 ) -> DataSpec:
     if icl_task_type == 'multiple_choice':
@@ -1201,6 +1212,7 @@ def build_icl_dataloader(
                                                    destination_path=destination_path,
                                                    code_prelimiter=question_prelimiter,
                                                    fewshot_random_seed=fewshot_random_seed,
+                                                   pass_at_k=pass_at_k,
                                                    generations_per_sample=generations_per_sample)
         effective_batchsize = batch_size
     else:
@@ -1284,6 +1296,7 @@ def get_icl_task_dataloader(
         destination_path: str = '',
         question_prelimiter: str = '',  # e.g. 'Question: '
         fewshot_random_seed: int = 1234,
+        pass_at_k: int = 1,
         generations_per_sample: int = 1,
         cot_delimiter: str = '',
         has_categories: bool = False) -> Union[DataSpec, Dict[str, DataSpec]]:
@@ -1354,6 +1367,7 @@ def get_icl_task_dataloader(
                 question_prelimiter,
                 cot_delimiter,
                 fewshot_random_seed,
+                pass_at_k,
                 generations_per_sample,
             )
         return result_dls
@@ -1373,5 +1387,6 @@ def get_icl_task_dataloader(
             question_prelimiter,
             cot_delimiter,
             fewshot_random_seed,
+            pass_at_k,
             generations_per_sample,
         )

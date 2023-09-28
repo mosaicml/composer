@@ -265,10 +265,13 @@ def test_in_context_learning_code_eval_accuracy(monkeypatch):
     languages = ['python', 'python', 'python']
     monkeypatch.setenv('CODE_EVAL_DEVICE', 'LOCAL')
     batch = {
+        # This tests deterministic beam search rather than sampling
         'generation_kwargs': {
-            'num_beams': 2
+            'num_beams': 1,
+            'num_return_sequences': 2
         },
         'prompts': prompts,
+        'pass_at_k': 1,
         'entry_points': entry_points,
         'test_inputs': test_inputs,
         'test_outputs': test_outputs,
@@ -277,7 +280,12 @@ def test_in_context_learning_code_eval_accuracy(monkeypatch):
     metric = InContextLearningCodeEvalAccuracy()
     metric.update(batch, outputs, labels)
 
-    assert metric.compute() == (2 / 3)
+    # pass@1 values
+    #   program 1: 0
+    #   program 2: 1
+    #   program 3: .5
+    # mean: 0.5
+    assert metric.compute() == 0.5
 
 
 def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):
