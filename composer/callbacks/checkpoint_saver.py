@@ -12,7 +12,7 @@ import shutil
 import tempfile
 import textwrap
 from pathlib import Path
-from typing import Callable, List, Optional, Union
+from typing import Any, Callable, List, Optional, Union
 
 from composer.callbacks.utils import create_interval_scheduler
 from composer.core import Callback, Event, State, Time

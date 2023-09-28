@@ -5,14 +5,19 @@
 
 import socket
 from contextlib import contextmanager
-from typing import Type
+from typing import Any, Optional, Type
 
 import torch
 from packaging import version
 from torch.nn.parallel import DistributedDataParallel
 
 __all__ = [
-    'is_model_deepspeed', 'is_model_fsdp', 'is_notebook', 'warning_on_one_line', 'get_free_tcp_port', 'model_eval_mode'
+    'is_model_deepspeed',
+    'is_model_fsdp',
+    'is_notebook',
+    'warning_on_one_line',
+    'get_free_tcp_port',
+    'model_eval_mode',
 ]
 
 
@@ -51,13 +56,20 @@ def is_model_fsdp(model: torch.nn.Module) -> bool:
 def is_notebook():
     """Whether Composer is running in a IPython/Jupyter Notebook."""
     try:
-        __IPYTHON__  #type: ignore
+        __IPYTHON__  # type: ignore
         return True
     except NameError:
         return False
 
 
-def warning_on_one_line(message: str, category: Type[Warning], filename: str, lineno: int, file=None, line=None):
+def warning_on_one_line(
+    message: str,
+    category: Type[Warning],
+    filename: str,
+    lineno: int,
+    file=None,
+    line=None,
+):
     """Force Python warnings to consolidate into one line."""
     # From https://stackoverflow.com/questions/26430861/make-pythons-warnings-warn-not-mention-itself
     return f'{category.__name__}: {message} (source: {filename}:{lineno})\n'
@@ -100,3 +112,37 @@ def using_torch_2_0_1() -> bool:
         bool: Return True if current version is greater than or equal to 2.0.1 else False
     """
     return version.parse(torch.__version__) >= version.parse('2.0.1')
+
+
+def validate_save_planner(save_planner: Optional[Any]) -> None:
+    """Checks that ``save_planner`` is an instance of a :class:`~torch.distributed.checkpoint.planner.SavePlanner`.
+
+    Raises:
+        ValueError: If ``save_planner`` is not a :class:`~torch.distributed.checkpoint.planner.SavePlanner`.
+    """
+    from torch.distributed.checkpoint.planner import SavePlanner
+
+    if save_planner is not None and not isinstance(save_planner, SavePlanner):
+        raise ValueError(
+            (
+                f'save_planner {type(save_planner)} is not a '
+                'torch.distributed.checkpoint.planner.SavePlanner'
+            )
+        )
+
+
+def validate_load_planner(load_planner: Optional[Any]) -> None:
+    """Checks that ``load_planner`` is an instance of a :class:`~torch.distributed.checkpoint.planner.LoadPlanner`.
+
+    Raises:
+        ValueError: If ``load_planner`` is not a :class:`~torch.distributed.checkpoint.planner.LoadPlanner`.
+    """
+    from torch.distributed.checkpoint.planner import LoadPlanner
+
+    if load_planner is not None and not isinstance(load_planner, LoadPlanner):
+        raise ValueError(
+            (
+                f'load_planner {type(load_planner)} is not a '
+                'torch.distributed.checkpoint.planner.LoadPlanner'
+            )
+        )
