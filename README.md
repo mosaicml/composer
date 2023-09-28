@@ -185,7 +185,7 @@ If you have any questions, please feel free to reach out to us on our [Communi
 
 Composer can be used on its own, but for the smoothest experience we recommend using it in combination with other components of the MosaicML ecosystem:
 
-![MosaicMLGenerativeAIStack 1.png](Composer%20README%20Draft%205d30690d40f04cdf8528f749e98782bf/MosaicMLGenerativeAIStack_1.png)
+![We recommend that you train models with Composer, MosaicML StreamingDatasets, and the MosaicML platform.](docs/source/_static/images/ecosystem.png)
 
 - [**MosaicML platform](https://www.mosaicml.com/training) (MCLI)**- Our proprietary Command Line Interface (CLI) and Python SDK for orchestrating, scaling, and monitoring the GPU nodes and container images executing training and deployment. Used by our customers for training their own Generative AI models.
     - ****To get started, [sign up here](https://www.mosaicml.com/get-started?utm_source=blog&utm_medium=referral&utm_campaign=llama2) to apply for access and check out our [Training](https://www.mosaicml.com/training) and [Inference](https://www.mosaicml.com/inference) product pages**
