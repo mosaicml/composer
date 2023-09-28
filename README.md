@@ -18,7 +18,7 @@
 - <a href="https://docs.mosaicml.com/projects/composer/en/stable/getting_started/installation.html">[Getting Started]</a>
 - <a href="https://docs.mosaicml.com/projects/composer/">[Docs]</a>
 - <a href="https://docs.mosaicml.com/projects/composer/en/stable/method_cards/methods_overview.html">[Methods]</a>
-- <a href="https://www.mosaicml.com/team">[We're Hiring!]</a>
+- <a href="https://www.mosaicml.com/careers">[We're Hiring!]</a>
 </p></h4>
 
 <p align="center">
@@ -61,6 +61,7 @@ Composer is heavily used by the MosaicML research team to train state-of-the-art
 
 # **🔑 Key Features**
 ![key features](https://github.com/mosaicml/composer/assets/11001185/8af32018-2315-406a-9372-53e05b30c62a)
+![Composer is to give you better workflows with the ability to maximize scale and customizability.](docs/source/_static/images/key_features.png)
 
 We designed Composer from the ground up for modern deep learning workloads. Gone are the days of AlexNet and ResNet, when state-of-the-art models could be trained on a couple of desktop GPUs. Today, developing the latest and greatest deep learning models often requires cluster-scale hardware — but with Composer’s help, you’ll hardly notice the difference.
 
