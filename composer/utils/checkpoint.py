@@ -20,9 +20,20 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Un
 import torch
 
 from composer.utils import dist, reproducibility
-from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist,
-                                         format_name_with_dist_and_time, get_file, is_tar)
-from composer.utils.misc import is_model_deepspeed, using_torch_2, using_torch_2_0_1
+from composer.utils.file_helpers import (
+    FORMAT_NAME_WITH_DIST_AND_TIME_TABLE,
+    format_name_with_dist,
+    format_name_with_dist_and_time,
+    get_file,
+    is_tar,
+)
+from composer.utils.misc import (
+    is_model_deepspeed,
+    using_torch_2,
+    using_torch_2_0_1,
+    validate_load_planner,
+    validate_save_planner,
+)
 from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
@@ -126,6 +137,7 @@ def load_checkpoint(
     ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
     exclude_algorithms: Optional[List[str]] = None,
     algorithm_passes: Optional[List[AlgorithmPass]] = None,
+    load_planner: Optional[Any] = None,
 ):
     """Load a checkpoint from a local file, URI, or cloud object store into ``state``.
 
@@ -210,6 +222,7 @@ def load_checkpoint(
             (default: ``None``)
         algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
             to sort them into the correct order. (default: ``None``)
+        load_planner (LoadPlanner, optional): A :class:`~torch.distributed.checkpoint.planner.LoadPlanner`. (default: ``None``)
 
     Returns:
         Optional[List[Dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
@@ -234,6 +247,7 @@ def load_checkpoint(
             ignore_keys=ignore_keys,
             exclude_algorithms=exclude_algorithms,
             algorithm_passes=algorithm_passes,
+            load_planner=load_planner,
         )
     else:
         # Download the checkpoint to the node-local folder
@@ -306,6 +320,7 @@ def load_sharded_checkpoint(
     ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
     exclude_algorithms: Optional[List[str]] = None,
     algorithm_passes: Optional[List[AlgorithmPass]] = None,
+    load_planner: Optional[Any] = None,
 ) -> List[Dict]:
 
     if not using_torch_2():
@@ -317,6 +332,8 @@ def load_sharded_checkpoint(
         raise ValueError(
             f'Sharded checkpoint loading on >1 node requires torch version >= 2.0.1. You have torch version {torch.__version__}'
         )
+
+    validate_load_planner(load_planner)
 
     from torch.distributed import checkpoint as dist_cp
     from torch.distributed.checkpoint.metadata import Metadata
@@ -415,7 +432,11 @@ def load_sharded_checkpoint(
                 cur_state_dict.pop('optimizers')
                 model_state_dict = {'state': cur_state_dict}
 
-            dist_cp.load_state_dict(model_state_dict, storage_reader)
+            dist_cp.load_state_dict(
+                state_dict=model_state_dict,
+                storage_reader=storage_reader,
+                planner=load_planner
+            )
 
             state.load_state_dict(
                 model_state_dict['state'],
@@ -440,7 +461,11 @@ def load_sharded_checkpoint(
             rng_state_dicts_load = {}
             rng_state_dicts_load['rng'] = rng_state_dicts[:num_ranks_that_saved_rng] if len(
                 rng_state_dicts) > num_ranks_that_saved_rng else rng_state_dicts
-            dist_cp.load_state_dict(rng_state_dicts_load, storage_reader)
+            dist_cp.load_state_dict(
+                state_dict=rng_state_dicts_load,
+                storage_reader=storage_reader,
+                planner=load_planner
+            )
             # We also want to append newly generated rng states for the ranks that don't have an rng state to load in
             # if we are resuming on more ranks than were used at save time.
             if len(rng_state_dicts) > num_ranks_that_saved_rng:
@@ -743,7 +768,73 @@ def save_checkpoint(
     filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
     *,
     weights_only: bool = False,
+    save_planner: Optional[Any] = None,
 ) -> Union[str, None]:  # noqa: D103
+    __doc__ = f"""Checkpoint the training ``state``.
+
+    Args:
+        state (State): The training state.
+        logger (Logger): The logger.
+        filename (str): A format string describing how to name checkpoints.
+            (default: ``'ep{{epoch}}-ba{{batch}}-rank{{rank}}'``)
+
+            The following format variables are available:
+
+            {textwrap.indent(FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, prefix='        ')}
+
+            .. note::
+
+                *   By default, only the rank zero process will save a checkpoint file.
+
+                *   When using DeepSpeed, each rank will save a checkpoint file in tarball format. DeepSpeed
+                    requires tarball format, as it saves model and optimizer states in separate files.
+                    Ensure that ``'{{rank}}'`` appears within the ``filename``. Otherwise, multiple ranks
+                    may attempt to write to the same file(s), leading to corrupted checkpoints. If no tarball file
+                    extension is specified, ``.tar`` will be used.
+
+                *   To use compression (regardless of whether DeepSpeed is enabled), set the file extension
+                    to ``'.tar.gz'``, ``'.tgz'``, ``'.tar.bzip'``, or ``'.tar.lzma'`` (depending on the desired
+                    compression algorithm).
+
+            .. warning::
+
+                Using compression will block the training loop while checkpoints are being compressed. As such, we
+                recommend saving checkpoints without compression.
+
+            Consider the following scenario, where:
+
+            *   The default ``name='ep{{epoch}}-ba{{batch}}-rank{{rank}}'`` is used.
+            *   The current epoch count is ``1``.
+            *   The current batch count is ``42``.
+
+            When DeepSpeed is not being used, the rank zero process will save the checkpoint to ``'ep1-ba42-rank0'``.
+            When DeepSpeed is being used, each rank (process) will save checkpoints to::
+
+                ep1-ba42-rank0.tar
+                ep1-ba42-rank1.tar
+                ep1-ba42-rank2.tar
+                ...
+
+        weights_only (bool, optional): If ``True``, save only the model weights instead of the entire training state.
+            (default: ``False``)
+
+            .. note::
+
+                When using DeepSpeed, this parameter must be ``False``. Weights-only checkpointing is not currently
+                compatible with DeepSpeed,
+
+        Returns:
+            List[pathlib.Path]: The list of checkpoint files saved, indexed by the rank of the process.
+
+            .. note::
+
+                When using DeepSpeed, each process (rank) saves its own checkpoint file.
+                When doing multi-node training, the filepaths are valid only on each process's node;
+                Composer does not move checkpoint files between nodes.
+
+                Otherwise, when not using DeepSpeed, each list will contain only one filepath,
+                since only the rank zero process saves checkpoints.
+    """
 
     is_deepspeed = is_model_deepspeed(state.model)
 
@@ -805,9 +896,16 @@ def save_checkpoint(
 
     # Sharded checkpointing for torch >=2.0 uses the torch.distributed.checkpoint module.
     elif state.fsdp_elastic_sharded_enabled:
+        validate_save_planner(save_planner)
+
         import torch.distributed.checkpoint as dist_cp
+
         log.debug('Saving sharded checkpoints to %s...', save_filename)
-        dist_cp.save_state_dict(state_dict=state_dict, storage_writer=dist_cp.FileSystemWriter(dirname))
+        dist_cp.save_state_dict(
+            state_dict=state_dict,
+            storage_writer=dist_cp.FileSystemWriter(dirname),
+            planner=save_planner
+        )
 
     # Only rank 0 saves the state_dict unless you are using sharded checkpointing with torch <2.0
     elif dist.get_global_rank() == 0 or state.fsdp_sharded_state_dict_enabled:
@@ -864,70 +962,3 @@ def _save_deepspeed_model(model, filename: str):
 
         with tarfile.open(filename, write_mode) as tar:
             tar.add(tmpdir, arcname='')
-
-
-save_checkpoint.__doc__ = f"""Checkpoint the training ``state``.
-
-Args:
-    state (State): The training state.
-    logger (Logger): The logger.
-    filename (str): A format string describing how to name checkpoints.
-        (default: ``'ep{{epoch}}-ba{{batch}}-rank{{rank}}'``)
-
-        The following format variables are available:
-
-        {textwrap.indent(FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, prefix='        ')}
-
-        .. note::
-
-            *   By default, only the rank zero process will save a checkpoint file.
-
-            *   When using DeepSpeed, each rank will save a checkpoint file in tarball format. DeepSpeed
-                requires tarball format, as it saves model and optimizer states in separate files.
-                Ensure that ``'{{rank}}'`` appears within the ``filename``. Otherwise, multiple ranks
-                may attempt to write to the same file(s), leading to corrupted checkpoints. If no tarball file
-                extension is specified, ``.tar`` will be used.
-
-            *   To use compression (regardless of whether DeepSpeed is enabled), set the file extension
-                to ``'.tar.gz'``, ``'.tgz'``, ``'.tar.bzip'``, or ``'.tar.lzma'`` (depending on the desired
-                compression algorithm).
-
-        .. warning::
-
-            Using compression will block the training loop while checkpoints are being compressed. As such, we
-            recommend saving checkpoints without compression.
-
-        Consider the following scenario, where:
-
-        *   The default ``name='ep{{epoch}}-ba{{batch}}-rank{{rank}}'`` is used.
-        *   The current epoch count is ``1``.
-        *   The current batch count is ``42``.
-
-        When DeepSpeed is not being used, the rank zero process will save the checkpoint to ``'ep1-ba42-rank0'``.
-        When DeepSpeed is being used, each rank (process) will save checkpoints to::
-
-            ep1-ba42-rank0.tar
-            ep1-ba42-rank1.tar
-            ep1-ba42-rank2.tar
-            ...
-
-    weights_only (bool, optional): If ``True``, save only the model weights instead of the entire training state.
-        (default: ``False``)
-
-        .. note::
-
-            When using DeepSpeed, this parameter must be ``False``. Weights-only checkpointing is not currently
-            compatible with DeepSpeed,
-
-    Returns:
-        List[pathlib.Path]: The list of checkpoint files saved, indexed by the rank of the process.
-
-        .. note::
-
-            When using DeepSpeed, each process (rank) saves its own checkpoint file.
-            When doing multi-node training, the filepaths are valid only on each process's node;
-            Composer does not move checkpoint files between nodes.
-
-            Otherwise, when not using DeepSpeed, each list will contain only one filepath,
-            since only the rank zero process saves checkpoints.
-"""

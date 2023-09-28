@@ -660,6 +660,7 @@ class Trainer:
             Example 2: ``load_exclude_algorithms = ["FusedLayerNorm", "Alibi"]`` would exclude FusedLayerNorm and Alibi from loading.
 
             (default: ``None``)
+        load_planner (LoadPlanner, optional): A :class:`~torch.distributed.checkpoint.planner.LoadPlanner`. (default: ``None``)
         save_folder (str, optional): Format string for the folder where checkpoints are saved.
             If ``None``, checkpoints will not be saved. Can also be a URI for S3 paths only.
             In the case of an S3 URI, the appropriate `~.RemoteUploader` object will be created
@@ -709,6 +710,7 @@ class Trainer:
         save_metrics (bool, optional): Whether to save the metrics. By default, metrics are not saved to checkpoint
             as state usually does not need to be preserved and inconsistent state can cause issues when loading.
             (default: ``False``)
+        save_planner (SavePlanner, optional): A :class:`~torch.distributed.checkpoint.planner.SavePlanner`. (default: ``None``)
         autoresume (bool, optional): Whether or not to enable autoresume, which allows for stopping and resuming
             training. This allows use of spot instances, as the training run is now fault tolerant.  This parameter
             requires ``save_folder`` and ``run_name`` to be specified and ``save_overwrite`` to be ``False``.
@@ -854,6 +856,7 @@ class Trainer:
         load_progress_bar: bool = True,
         load_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
         load_exclude_algorithms: Optional[List[str]] = None,
+        load_planner: Optional[Any] = None,
 
         # Save Checkpoint
         save_folder: Optional[str] = None,
@@ -864,6 +867,7 @@ class Trainer:
         save_weights_only: bool = False,
         save_num_checkpoints_to_keep: int = -1,
         save_metrics: bool = False,
+        save_planner: Optional[Any] = None,
 
         # Graceful Resumption
         autoresume: bool = False,
@@ -1140,6 +1144,7 @@ class Trainer:
                 latest_remote_file_name=latest_remote_file_name,
                 overwrite=save_overwrite,
                 weights_only=save_weights_only,
+                save_planner=save_planner,
                 save_interval=save_interval,
                 num_checkpoints_to_keep=save_num_checkpoints_to_keep,
             )
@@ -1425,6 +1430,7 @@ class Trainer:
                 ignore_keys=load_ignore_keys,
                 exclude_algorithms=load_exclude_algorithms,
                 algorithm_passes=self.engine.algorithm_passes,
+                load_planner=load_planner,
             )
             self.state.run_name = run_name
 
@@ -3061,12 +3067,14 @@ class Trainer:
         name: str = 'ep{epoch}-ba{batch}-rank{rank}',
         *,
         weights_only: bool = False,
+        save_planner: Optional[Any] = None,
     ):
         """Checkpoint the training :class:`~.State`.
 
         Args:
             name (str, optional): See :func:`.save_checkpoint`.
             weights_only (bool, optional): See :func:`.save_checkpoint`.
+            save_planner (SavePlanner, optional): See :func:`.save_checkpoint`.
 
         Returns:
             str or None: See :func:`.save_checkpoint`.
@@ -3075,6 +3083,7 @@ class Trainer:
             state=self.state,
             filename=name,
             weights_only=weights_only,
+            save_planner=save_planner,
         )
 
     def save_checkpoint_to_save_folder(self):

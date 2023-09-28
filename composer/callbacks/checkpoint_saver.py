@@ -12,7 +12,7 @@ import shutil
 import tempfile
 import textwrap
 from pathlib import Path
-from typing import Callable, List, Optional, Union
+from typing import Any, Callable, List, Optional, Union
 
 from composer.callbacks.utils import create_interval_scheduler
 from composer.core import Callback, Event, State, Time
@@ -203,6 +203,8 @@ class CheckpointSaver(Callback):  # noqa: D101
         weights_only (bool): If ``True``, save only the model weights instead of the entire training state.
             This parameter must be ``False`` when using DeepSpeed. Default: ``False``.
 
+        save_planner (SavePlanner, optional): A :class:`~torch.distributed.checkpoint.planner.SavePlanner`. (default: ``None``)
+
 
         num_checkpoints_to_keep (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
             are removed first. Set to ``-1`` to keep all checkpoints locally. Default: ``-1``.
@@ -244,6 +246,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         overwrite: bool = False,
         num_checkpoints_to_keep: int = -1,
         weights_only: bool = False,
+        save_planner: Optional[Any] = None
     ):
         folder = str(folder)
         filename = str(filename)
@@ -267,6 +270,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.saved_checkpoints: List[str] = []
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
         self.weights_only = weights_only
+        self.save_planner = save_planner
 
         self.start_batch = None
 
@@ -333,6 +337,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             state=state,
             filename=filename_with_placeholders,
             weights_only=self.weights_only,
+            save_planner=self.save_planner
         )
         log.debug(f'Checkpoint locally saved to {saved_path}')
 
