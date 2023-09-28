@@ -474,8 +474,7 @@ class HuggingFaceModel(ComposerModel):
             metric.update(batch=batch, outputs=outputs, labels=self.labels)  # pyright: ignore [reportGeneralTypeIssues]
         elif isinstance(metric, InContextLearningMetric):
             assert self.labels is not None
-            metric.update(batch=batch, output_logits=outputs,
-                          labels=self.labels)  # pyright: ignore [reportGeneralTypeIssues]
+            metric.update(batch, outputs, self.labels)  # pyright: ignore [reportGeneralTypeIssues]
         else:
             metric.update(outputs, self.labels)  # pyright: ignore [reportGeneralTypeIssues]
 
