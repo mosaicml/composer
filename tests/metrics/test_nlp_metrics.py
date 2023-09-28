@@ -238,7 +238,8 @@ def test_in_context_learning_qa_accuracy():
 def test_in_context_learning_qa_cot_accuracy():
     outputs = [
         'chain of thought ### Correct but then some more text', 'Incorrect',
-        'chain of thought ### the CORREct with weird casing and spacing', 'Correct but missing chain of thought'
+        'chain of thought ### the CORREct with weird casing and spacing',
+        'incorrect chain of thought delimiter ## Correct but wrong delimiter'
     ]
     labels = [['Correct'], ['blah', 'blah2'], ['blah', 'correct'], ['correct']]
     batch = {'cot_delimiter': ' ### ', 'labels': labels}
