@@ -147,6 +147,127 @@ class Logger:
                 return True
         return False
 
+    def _get_logger_destination(self, logger_type) -> Optional[Union[LoggerDestination, Sequence[LoggerDestination]]]:
+        """Returns instances of the specified logger destination, if it/they exist."""
+        # Check every time just in case user appended to destinations list later.
+        logger_destinations = [destination for destination in self.destinations if isinstance(destination, logger_type)]
+        if len(logger_destinations) == 1:
+            return logger_destinations[0]
+        elif len(logger_destinations) > 1:
+            return logger_destinations
+        else:  # length is 0
+            return None
+
+    @property
+    def wandb(self):
+        """Returns instances of the :class:`~.WandBLogger` destination, if it/they exist.
+
+        Returns:
+            Optional[Union[WandBLogger, Sequence[WandBLogger]]]: The WandBLogger instance(s), if it/they exist.
+        """
+        from composer.loggers.wandb_logger import WandBLogger
+        return self._get_logger_destination(WandBLogger)
+
+    @property
+    def mlflow(self):
+        """Returns instances of the :class:`~.MLFlowLogger` destination, if it/they exist.
+
+        Returns:
+            Optional[Union[MLFlowLogger, Sequence[MLFlowLogger]]]: The MLFlowLogger instance(s), if it/they exist.
+        """
+        from composer.loggers.mlflow_logger import MLFlowLogger
+        return self._get_logger_destination(MLFlowLogger)
+
+    @property
+    def remote_uploader_downloader(self):
+        """Returns instances of the :class:`~.RemoteUploaderDownloader` destination, if it/they exist.
+
+        Returns:
+            Optional[Union[RemoteUploaderDownloader, Sequence[RemoteUploaderDownloader]]]: The RemoteUploaderDownloader instance(s), if it/they exist.
+        """
+        from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
+        return self._get_logger_destination(RemoteUploaderDownloader)
+
+    @property
+    def mosaicml(self):
+        """Returns instances of the :class:`~.MosaicMLLogger` destination, if it/they exist.
+
+        Returns:
+            Optional[Union[MosaicMLLogger, Sequence[MosaicMLLogger]]]: The MosaicMLLogger instance(s), if it/they exist.
+        """
+        from composer.loggers.mosaicml_logger import MosaicMLLogger
+        return self._get_logger_destination(MosaicMLLogger)
+
+    @property
+    def slack(self):
+        """Returns instances of the :class:`~.SlackLogger` destination, if it/they exist.
+
+        Returns:
+            Optional[Union[SlackLogger, Sequence[SlackLogger]]]: The SlackLogger instance(s), if it/they exist.
+        """
+        from composer.loggers.slack_logger import SlackLogger
+        return self._get_logger_destination(SlackLogger)
+
+    @property
+    def console(self):
+        """Returns instances of the :class:`~.ConsoleLogger` destination, if it/they exist.
+
+        Returns:
+            Optional[Union[ConsoleLogger, Sequence[ConsoleLogger]]]: The ConsoleLogger instance(s), if it/they exist.
+        """
+        from composer.loggers.console_logger import ConsoleLogger
+        return self._get_logger_destination(ConsoleLogger)
+
+    @property
+    def file(self):
+        """Returns instances of the :class:`~.FileLogger` destination, if it/they exist.
+
+        Returns:
+            Optional[Union[FileLogger, Sequence[FileLogger]]]: The FileLogger instance(s), if it/they exist.
+        """
+        from composer.loggers.file_logger import FileLogger
+        return self._get_logger_destination(FileLogger)
+
+    @property
+    def in_memory(self):
+        """Returns instances of the :class:`~.InMemoryLogger` destination, if it/they exist.
+
+        Returns:
+            Optional[Union[InMemoryLogger, Sequence[InMemoryLogger]]]: The InMemoryLogger instance(s), if it/they exist.
+        """
+        from composer.loggers.in_memory_logger import InMemoryLogger
+        return self._get_logger_destination(InMemoryLogger)
+
+    @property
+    def progress_bar(self):
+        """Returns instances of the :class:`~.ProgressBarLogger` destination, if it/they exist.
+
+        Returns:
+            Optional[Union[ProgressBarLogger, Sequence[ProgressBarLogger]]]: The ProgressBarLogger instance(s), if it/they exist.
+        """
+        from composer.loggers.progress_bar_logger import ProgressBarLogger
+        return self._get_logger_destination(ProgressBarLogger)
+
+    @property
+    def tensorboard(self):
+        """Returns instances of the :class:`~.TensorboardLogger` destination, if it/they exist.
+
+        Returns:
+            Optional[Union[TensorboardLogger, Sequence[TensorboardLogger]]]: The TensorboardLogger instance(s), if it/they exist.
+        """
+        from composer.loggers.tensorboard_logger import TensorboardLogger
+        return self._get_logger_destination(TensorboardLogger)
+
+    @property
+    def cometml(self):
+        """Returns instances of the :class:`~.CometMLLogger` destination, if it/they exist.
+
+        Returns:
+            Optional[Union[CometMLLogger, Sequence[CometMLLogger]]]: The CometMLLogger instance(s), if it/they exist.
+        """
+        from composer.loggers.cometml_logger import CometMLLogger
+        return self._get_logger_destination(CometMLLogger)
+
 
 def format_log_data_value(data: Any) -> str:
     """Recursively formats a given log data value into a string.
