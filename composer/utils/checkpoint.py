@@ -137,7 +137,6 @@ def load_checkpoint(
     ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
     exclude_algorithms: Optional[List[str]] = None,
     algorithm_passes: Optional[List[AlgorithmPass]] = None,
-    load_planner: Optional[Any] = None,
 ):
     """Load a checkpoint from a local file, URI, or cloud object store into ``state``.
 
@@ -222,7 +221,6 @@ def load_checkpoint(
             (default: ``None``)
         algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
             to sort them into the correct order. (default: ``None``)
-        load_planner (LoadPlanner, optional): A :class:`~torch.distributed.checkpoint.planner.LoadPlanner`. (default: ``None``)
 
     Returns:
         Optional[List[Dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
@@ -247,7 +245,6 @@ def load_checkpoint(
             ignore_keys=ignore_keys,
             exclude_algorithms=exclude_algorithms,
             algorithm_passes=algorithm_passes,
-            load_planner=load_planner,
         )
     else:
         # Download the checkpoint to the node-local folder
@@ -320,7 +317,6 @@ def load_sharded_checkpoint(
     ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
     exclude_algorithms: Optional[List[str]] = None,
     algorithm_passes: Optional[List[AlgorithmPass]] = None,
-    load_planner: Optional[Any] = None,
 ) -> List[Dict]:
 
     if not using_torch_2():
@@ -333,6 +329,7 @@ def load_sharded_checkpoint(
             f'Sharded checkpoint loading on >1 node requires torch version >= 2.0.1. You have torch version {torch.__version__}'
         )
 
+    load_planner = state.fsdp_config['load_planner']
     validate_load_planner(load_planner)
 
     from torch.distributed import checkpoint as dist_cp
@@ -768,7 +765,6 @@ def save_checkpoint(
     filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
     *,
     weights_only: bool = False,
-    save_planner: Optional[Any] = None,
 ) -> Union[str, None]:  # noqa: D103
     __doc__ = f"""Checkpoint the training ``state``.
 
@@ -896,7 +892,7 @@ def save_checkpoint(
 
     # Sharded checkpointing for torch >=2.0 uses the torch.distributed.checkpoint module.
     elif state.fsdp_elastic_sharded_enabled:
-        validate_save_planner(save_planner)
+        validate_save_planner(state.fsdp_config['save_planner'])
 
         import torch.distributed.checkpoint as dist_cp
 
@@ -904,7 +900,7 @@ def save_checkpoint(
         dist_cp.save_state_dict(
             state_dict=state_dict,
             storage_writer=dist_cp.FileSystemWriter(dirname),
-            planner=save_planner
+            planner=state.fsdp_config['save_planner']
         )
 
     # Only rank 0 saves the state_dict unless you are using sharded checkpointing with torch <2.0
