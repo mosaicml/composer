@@ -775,7 +775,6 @@ if version.parse(torch.__version__) > version.parse('2.0.2') and version.parse(
         if isinstance(policy, _Policy):
             root_kwargs['auto_wrap_policy' if is_wrapper else 'policy'] = None
             target_module_to_kwargs = policy._run_policy(root_module, ignored_modules, root_kwargs)
-
             if mixed_precision is not None:
                 target_module_to_kwargs = _run_mixed_precision_override_policy(
                     root_module,
@@ -794,9 +793,6 @@ if version.parse(torch.__version__) > version.parse('2.0.2') and version.parse(
                 ignored_params,
                 use_orig_params,
             )
-            print(f'fffff FSDP: root_module= {root_module.__class__}')
-            for k, v in target_module_to_kwargs.items():
-                print(f'fffff k={k.__class__}, v={v}')
             wrap_fn = _construct_wrap_fn(root_module, target_module_to_kwargs, fsdp_fn)
             _post_order_apply(root_module, wrap_fn)
             return
