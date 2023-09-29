@@ -172,6 +172,35 @@ Once you’ve completed the Quick Start, you can go through the below tutorials 
 
 If you have any questions, please feel free to reach out to us on our [Community Slack](https://mosaicml.me/slack)!
 
+Here are some resources actively maintained by the Composer community to help you get started:
+<table>
+<thead>
+  <tr>
+      <th><b>Resource</b></th>
+      <th><b>Details</b></th>
+  </tr>
+</thead>
+<tbody>
+    <tr>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/finetune_huggingface.ipynb" target="_blank" rel="noopener noreferrer">Training BERTs with Composer and 🤗 </a></td>
+    <td>A Colab Notebook showing how to train BERT models with Composer and 🤗!</td>
+  </tr>
+  <tr>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/getting_started.ipynb](https://github.com/mosaicml/llm-foundry/blob/main/TUTORIAL.md)" target="_blank" rel="noopener noreferrer">Getting started with our Trainer</a></td>
+    <td>A tutorial from MosaicML’s LLM Foundry, using MosaicML Composer, StreamingDataset, and MCLI on training and evaluating LLMs.</td>
+  </tr>
+  <tr>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/functional_api.ipynb" target="_blank" rel="noopener noreferrer">Getting started with our Functional API</a></td>
+    <td>A Colab Notebook showing how to use our Functional API</td>
+  </tr>
+  <tr>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/custom_speedup_methods.ipynb" target="_blank" rel="noopener noreferrer">Building Speedup Methods</a></td>
+    <td>A Colab Notebook showing how to build new training modifications on top of Composer</td>
+  </tr>
+  
+</tbody>
+</table>
+
 | Resource | Details |
 | --- | --- |
 | <Custom Callback Colab> | A Colab Notebook showing how to write custom callbacks in detail. |
@@ -198,7 +227,7 @@ Composer can be used on its own, but for the smoothest experience we recommend u
 
 Here are some projects and experiments that used Composer. Got something to add? Share in our [Community Slack](https://mosaicml.me/slack)!
 
-- **MPT Foundation Series:** Commercially usable open source LLMs, optimized for fast training and inference and trained with Composer.
+- [**MPT Foundation Series:**](wwww.mosaicml.com/mpt) Commercially usable open source LLMs, optimized for fast training and inference and trained with Composer.
     - [MPT-7B Blog](https://www.mosaicml.com/blog/mpt-7b)
     - [MPT-7B-8k Blog](https://www.mosaicml.com/blog/long-context-mpt-7b-8k)
     - [MPT-30B Blog](https://www.mosaicml.com/blog/mpt-30b)
