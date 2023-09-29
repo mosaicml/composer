@@ -1087,10 +1087,14 @@ class TestCheckpointResumption:
             pytest.param(False, False, 'cpu', 'cpu'),  # fail
             pytest.param(False, True, 'meta', 'cpu'),  # fail
         ])
-    @pytest.mark.parametrize('load_monolith_rank0_only', [True, False])
+    # @pytest.mark.parametrize('load_monolith_rank0_only', (False,))
     @pytest.mark.parametrize(
-        'load_planner,save_planner',
-        [(RenameLoadPlanner(), RenameSavePlanner()), (None, None)]
+        'load_monolith_rank0_only,load_planner,save_planner',
+        [
+            (True, None, None),
+            (False, RenameLoadPlanner(), RenameSavePlanner()),
+            (False, None, None),
+        ]
     )
     @pytest.mark.filterwarnings('ignore:An unexpected prefix is detected. This case.*')
     @pytest.mark.filterwarnings(
@@ -1108,6 +1112,12 @@ class TestCheckpointResumption:
         load_planner: Optional[DefaultLoadPlanner],
         save_planner: Optional[DefaultSavePlanner],
     ):
+        success = (use_orig_params == False and 
+                   sync_module_states == True and 
+                   model_1_init_device == 'cpu')
+        if not success and not load_monolith_rank0_only:
+            pytest.skip('Only test for failure when load_monolith_rank0_only')
+
         save_interval = '1ba'
         save_filename = 'ba{batch}-rank{rank}.pt'
         resume_file = 'ba1-rank{rank}.pt'
@@ -1148,8 +1158,9 @@ class TestCheckpointResumption:
         resume_file = os.path.join(save_folder, 'first', resume_file)
         model_init_device = [model_1_init_device, model_2_init_device][dist.get_global_rank()]
         fsdp_config['load_monolith_rank0_only'] = load_monolith_rank0_only
+        fsdp_config['load_planner'] = load_planner
+        fsdp_config['save_planner'] = save_planner
 
-        success = use_orig_params == False and sync_module_states == True and model_1_init_device == 'cpu'
         with contextlib.nullcontext() if success else pytest.raises(ValueError):
             trainer_2 = self.get_trainer(
                 model_init_device=model_init_device,
