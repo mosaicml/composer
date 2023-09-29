@@ -937,6 +937,7 @@ def _save_deepspeed_model(model, filename: str):
         with tarfile.open(filename, write_mode) as tar:
             tar.add(tmpdir, arcname='')
 
+
 save_checkpoint.__doc__ = f"""Checkpoint the training ``state``.
 
 Args:
