@@ -80,7 +80,7 @@ jobs:
 
           # Necessary to run git diff for doctests
           git config --global --add safe.directory /__w/composer/composer
-
+          python -m pip install psutil
           make test PYTEST='${{ inputs.pytest-command }}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
           make test-dist PYTEST='${{ inputs.pytest-command }}' EXTRA_ARGS="$COMMON_ARGS" WORLD_SIZE=2
 
@@ -91,10 +91,14 @@ jobs:
         with:
           name: disk-space-report
           path: /tmp/disk_space_report.txt
+          if-no-files-found: error
+          retention-days: 90
       - uses: actions/upload-artifact@v3
         with:
           name: coverage-${{ github.sha }}-${{ inputs.name }}
           path: .coverage
+          if-no-files-found: error
+          retention-days: 90
       - name: Notify slack fail
         if: failure() && !cancelled() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && (github.event_name != 'pull_request' || github.event_name != 'pull_request_target')
         env:

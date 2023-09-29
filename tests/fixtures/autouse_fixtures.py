@@ -15,7 +15,7 @@ import tqdm.std
 import composer
 from composer.devices import DeviceCPU, DeviceGPU
 from composer.utils import dist, reproducibility
-
+import psutil
 
 @pytest.fixture(autouse=True)
 def disable_tokenizer_parallelism():
@@ -41,15 +41,19 @@ def disk_space_recorder(request):
     record_disk_space(disk_space_before, disk_space_after, request.node.name)
 
 def get_disk_space():
-    # Adjust the command if necessary based on your OS
-    result = subprocess.run(['df', '-h', '/'], capture_output=True, text=True)
-    return result.stdout
-
+    # Using psutil to get disk space
+    return psutil.disk_usage('/')
+    
 def record_disk_space(before, after, test_name):
+    change_in_free_space_bytes = before.free - after.free
+    change_in_free_space_megabytes = change_in_free_space_bytes // (1024 * 1024)
     with open('/tmp/disk_space_report.txt', 'a') as file:
         file.write(f'Test: {test_name}\n')
-        file.write(f'Disk space before: {before}')
-        file.write(f'Disk space after: {after}\n')
+        file.write(f'Disk space before: total: {before.total} bytes, ussed: {before.used} bytes, free: {before.free} bytes\n')
+        file.write(f'Disk space after: total: {after.total} bytes, used: {after.used} bytes, free: {after.free} bytes\n')
+        file.write(f'Change in free space: {change_in_free_space_bytes} bytes ({change_in_free_space_megabytes:.2f} MB)\n')
+        if abs(change_in_free_space_megabytes) >= 1:
+            file.write(f'Notice: Test {test_name} free disk space changed by 1 MB or more\n')
 
 @pytest.fixture(autouse=True)
 def clear_cuda_cache(request):
