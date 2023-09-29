@@ -201,15 +201,6 @@ Here are some resources actively maintained by the Composer community to help yo
 </tbody>
 </table>
 
-| Resource | Details |
-| --- | --- |
-| <Custom Callback Colab> | A Colab Notebook showing how to write custom callbacks in detail. |
-| https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/finetune_huggingface.ipynb | A Colab Notebook showing how to train BERT models with Composer and 🤗! |
-| https://github.com/mosaicml/llm-foundry/blob/main/TUTORIAL.md | A tutorial from MosaicML’s LLM Foundry, using MosaicML Composer, StreamingDataset, and MCLI on training and evaluating LLMs.  |
-| https://www.notion.so/https-docs-mosaicml-com-projects-mcli-en-latest-inference_getting_started-environment_setup-html-r-2fb9772c14e8465c88af2dc6afc40d47?pvs=21 | A tutorial is to illustrating a path from working in PyTorch Lightning to working in Composer. |
-| https://docs.mosaicml.com/projects/composer/en/stable/examples/finetune_huggingface.html | Want to use Hugging Face models with Composer? No problem. Here, we’ll walk through using Composer to fine-tune a pretrained Hugging Face BERT model. |
-| https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/custom_speedup_methods.ipynb | A Colab Notebook showing how to build new training modifications on top of Composer |
-
 # 🛠️ For Best Results, Use with the MosaicML Ecosystem
 
 Composer can be used on its own, but for the smoothest experience we recommend using it in combination with other components of the MosaicML ecosystem:
