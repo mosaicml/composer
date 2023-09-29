@@ -253,7 +253,6 @@ P.S.: [We're hiring](https://www.mosaicml.com/careers)!
     - We recommend you use alternative libraries for if you want to train these types of models - a lot of assumptions we made when designing Composer are suboptimal for GNNs, RL, and GANs
 
 # ✍️ Citation
-
 ```
 @misc{mosaicml2022composer,
     author = {The Mosaic ML Team},
