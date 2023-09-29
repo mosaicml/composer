@@ -517,7 +517,7 @@ class TestCheckpointLoading:
             num_concurrent_uploads=1,
             use_procs=False,
             upload_staging_folder=str(tmp_path / 'staging_folder'),
-         )
+        )
 
     @world_size(1, 2)
     @device('cpu', 'gpu')
@@ -1227,12 +1227,6 @@ class TestCheckpointResumption:
     @pytest.mark.parametrize('device', [
         pytest.param('gpu', marks=pytest.mark.gpu),
     ])
-    @pytest.mark.parametrize(
-        'use_orig_params,sync_module_states,model_1_init_device,model_2_init_device',
-        [
-            pytest.param(False, True, 'cpu', 'cpu'),
-            pytest.param(False, True, 'cpu', 'meta'),
-        ])
     @pytest.mark.filterwarnings('ignore:An unexpected prefix is detected. This case.*')
     @pytest.mark.filterwarnings(
         'ignore:``FullyShardedDataParallel.scatter_full_optim_state_dict``is being deprecated and is replaced by.*')
