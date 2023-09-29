@@ -938,47 +938,67 @@ def _save_deepspeed_model(model, filename: str):
             tar.add(tmpdir, arcname='')
 
 save_checkpoint.__doc__ = f"""Checkpoint the training ``state``.
+
 Args:
     state (State): The training state.
     logger (Logger): The logger.
     filename (str): A format string describing how to name checkpoints.
         (default: ``'ep{{epoch}}-ba{{batch}}-rank{{rank}}'``)
+
         The following format variables are available:
+
         {textwrap.indent(FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, prefix='        ')}
+
         .. note::
+
             *   By default, only the rank zero process will save a checkpoint file.
+
             *   When using DeepSpeed, each rank will save a checkpoint file in tarball format. DeepSpeed
                 requires tarball format, as it saves model and optimizer states in separate files.
                 Ensure that ``'{{rank}}'`` appears within the ``filename``. Otherwise, multiple ranks
                 may attempt to write to the same file(s), leading to corrupted checkpoints. If no tarball file
                 extension is specified, ``.tar`` will be used.
+
             *   To use compression (regardless of whether DeepSpeed is enabled), set the file extension
                 to ``'.tar.gz'``, ``'.tgz'``, ``'.tar.bzip'``, or ``'.tar.lzma'`` (depending on the desired
                 compression algorithm).
+
         .. warning::
+
             Using compression will block the training loop while checkpoints are being compressed. As such, we
             recommend saving checkpoints without compression.
+
         Consider the following scenario, where:
+
         *   The default ``name='ep{{epoch}}-ba{{batch}}-rank{{rank}}'`` is used.
         *   The current epoch count is ``1``.
         *   The current batch count is ``42``.
+
         When DeepSpeed is not being used, the rank zero process will save the checkpoint to ``'ep1-ba42-rank0'``.
         When DeepSpeed is being used, each rank (process) will save checkpoints to::
+
             ep1-ba42-rank0.tar
             ep1-ba42-rank1.tar
             ep1-ba42-rank2.tar
             ...
+
     weights_only (bool, optional): If ``True``, save only the model weights instead of the entire training state.
         (default: ``False``)
+
         .. note::
+
             When using DeepSpeed, this parameter must be ``False``. Weights-only checkpointing is not currently
             compatible with DeepSpeed,
+
     Returns:
         List[pathlib.Path]: The list of checkpoint files saved, indexed by the rank of the process.
+
         .. note::
+
             When using DeepSpeed, each process (rank) saves its own checkpoint file.
             When doing multi-node training, the filepaths are valid only on each process's node;
             Composer does not move checkpoint files between nodes.
+
             Otherwise, when not using DeepSpeed, each list will contain only one filepath,
             since only the rank zero process saves checkpoints.
 """
