@@ -266,7 +266,7 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
 
         return white_space_fix(remove_articles(handle_punc(lower(replace_underscore(answer))))).strip()
 
-    def update(self, outputs: list[str], labels: list[list[str]], batch: Optional[dict[str, Any]] = None):
+    def update(self, outputs: List[str], labels: List[List[str]], batch: Optional[Dict[str, Any]] = None):
         if batch is None:
             batch = {}
         cot_delimiter = batch.get('cot_delimiter', '')
