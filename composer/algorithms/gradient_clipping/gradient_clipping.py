@@ -14,7 +14,6 @@ from packaging import version
 from composer.core import Algorithm, Event, State
 from composer.loggers import Logger
 from composer.models import ComposerModel
-from composer.utils import using_torch_2
 
 log = logging.getLogger(__name__)
 
