@@ -221,7 +221,7 @@ Composer can be used on its own, but for the smoothest experience we recommend u
 
 Here are some projects and experiments that used Composer. Got something to add? Share in our [Community Slack](https://mosaicml.me/slack)!
 
-- [**MPT Foundation Series:**](wwww.mosaicml.com/mpt) Commercially usable open source LLMs, optimized for fast training and inference and trained with Composer.
+- [**MPT Foundation Series:**](https://www.mosaicml.com/mpt) Commercially usable open source LLMs, optimized for fast training and inference and trained with Composer.
     - [MPT-7B Blog](https://www.mosaicml.com/blog/mpt-7b)
     - [MPT-7B-8k Blog](https://www.mosaicml.com/blog/long-context-mpt-7b-8k)
     - [MPT-30B Blog](https://www.mosaicml.com/blog/mpt-30b)
