@@ -5,7 +5,7 @@
 
 import socket
 from contextlib import contextmanager
-from typing import Any, Optional, Type
+from typing import Type
 
 import torch
 from packaging import version
