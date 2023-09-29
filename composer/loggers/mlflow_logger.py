@@ -44,6 +44,11 @@ class MLFlowLogger(LoggerDestination):
             logging batches of metrics. Any metrics that are recorded by Composer during
             this interval are enqueued, and the queue is flushed when the interval elapses
             (default: ``10``).
+        model_registry_prefix (str, optional): The prefix to use when registering models.
+            If registering to Unity Catalog, must be in the format ``{catalog_name}.{schema_name}``.
+            (default: empty string)
+        model_registry_uri (str, optional): The URI of the model registry to use. If not set, will
+            default to ``databricks-uc``.
     """
 
     def __init__(
@@ -53,6 +58,8 @@ class MLFlowLogger(LoggerDestination):
         tracking_uri: Optional[Union[str, pathlib.Path]] = None,
         rank_zero_only: bool = True,
         flush_interval: int = 10,
+        model_registry_prefix: str = '',
+        model_registry_uri: str = 'databricks-uc',
     ) -> None:
         try:
             import mlflow
@@ -66,12 +73,22 @@ class MLFlowLogger(LoggerDestination):
 
         self.run_name = run_name
         self.experiment_name = experiment_name
+        self.model_registry_prefix = model_registry_prefix
+        self.model_registry_uri = model_registry_uri
+        if self.model_registry_uri == 'databricks-uc':
+            if len(self.model_registry_prefix.split('.')) != 2:
+                raise ValueError(
+                    f'When registering to Unity Catalog, model_registry_prefix must be in the format ' + 
+                    f'{{catalog_name}}.{{schema_name}}, but got {self.model_registry_prefix}'
+                )
+
         self._rank_zero_only = rank_zero_only
         self._last_flush_time = time.time()
         self._flush_interval = flush_interval
         if self._enabled:
             self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
             mlflow.set_tracking_uri(self.tracking_uri)
+            mlflow.set_registry_uri(self.model_registry_uri)
             # Set up MLflow state
             self._run_id = None
             if self.experiment_name is None:
@@ -159,13 +176,12 @@ class MLFlowLogger(LoggerDestination):
                        model_uri: str,
                        name: str,
                        await_registration_for: Optional[int] = 300,
-                       tags: Optional[Dict[str, Any]] = None,
-                       registry_uri: str = 'databricks-uc') -> 'ModelVersion':
+                       tags: Optional[Dict[str, Any]] = None,) -> 'ModelVersion':
         """Register a model to model registry.
 
         Args:
             model_uri (str): The URI of the model to register.
-            name (str): The name of the model to register.
+            name (str): The name of the model to register. Will be appended to ``model_registry_prefix``.
             await_registration_for (Optional[int], optional): The number of seconds to wait for the model to be registered.
                 Defaults to 300.
             tags (Dict[str, Any], optional): A dictionary of tags to add to the model. Defaults to None.
@@ -176,17 +192,12 @@ class MLFlowLogger(LoggerDestination):
             ModelVersion: The registered model.
         """
         if self._enabled:
-            if registry_uri == 'databricks-uc':
-                if len(name.split('.')) != 3:
-                    raise ValueError(
-                        f'Expected name to be in the format {{catalog_name}}.{{schema_name}}.{{model_name}}", but got {name}'
-                    )
+            full_name = f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name
 
             import mlflow
-            mlflow.set_registry_uri(registry_uri)
             return mlflow.register_model(
                 model_uri=model_uri,
-                name=name,
+                name=full_name,
                 await_registration_for=await_registration_for,
                 tags=tags,
             )

@@ -349,6 +349,7 @@ def test_mlflow_register_model(tmp_path, monkeypatch):
     test_mlflow_logger = MLFlowLogger(
         tracking_uri=mlflow_uri,
         experiment_name=mlflow_exp_name,
+        model_registry_prefix='my_catalog.my_schema',
     )
 
     mock_state = MagicMock()
@@ -360,7 +361,7 @@ def test_mlflow_register_model(tmp_path, monkeypatch):
 
     test_mlflow_logger.register_model(
         model_uri=local_mlflow_save_path,
-        name='my_catalog.my_schema.my_model',
+        name='my_model',
     )
 
     assert mlflow.register_model.called_with(model_uri=local_mlflow_save_path,
@@ -386,7 +387,10 @@ def test_mlflow_register_model_non_databricks(tmp_path, monkeypatch):
     test_mlflow_logger = MLFlowLogger(
         tracking_uri=mlflow_uri,
         experiment_name=mlflow_exp_name,
+        model_registry_uri='my_registry_uri',
     )
+
+    assert mlflow.get_registry_uri() == 'my_registry_uri'
 
     mock_state = MagicMock()
     mock_state.run_name = 'dummy-run-name'  # this run name should be unused.
@@ -398,7 +402,6 @@ def test_mlflow_register_model_non_databricks(tmp_path, monkeypatch):
     test_mlflow_logger.register_model(
         model_uri=local_mlflow_save_path,
         name='my_model',
-        registry_uri='my_registry_uri',
     )
 
     assert mlflow.register_model.called_with(model_uri=local_mlflow_save_path,
@@ -406,7 +409,6 @@ def test_mlflow_register_model_non_databricks(tmp_path, monkeypatch):
                                              await_registration_for=300,
                                              tags=None,
                                              registry_uri='my_registry_uri')
-    assert mlflow.get_registry_uri() == 'my_registry_uri'
 
     test_mlflow_logger._flush()
     test_mlflow_logger.post_close()
@@ -421,26 +423,11 @@ def test_mlflow_register_uc_error(tmp_path, monkeypatch):
 
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
     mlflow_exp_name = 'test-log-model-exp-name'
-    test_mlflow_logger = MLFlowLogger(
-        tracking_uri=mlflow_uri,
-        experiment_name=mlflow_exp_name,
-    )
-
-    mock_state = MagicMock()
-    mock_state.run_name = 'dummy-run-name'  # this run name should be unused.
-    mock_logger = MagicMock()
-
-    local_mlflow_save_path = str(tmp_path / Path('my_model_local'))
-    test_mlflow_logger.init(state=mock_state, logger=mock_logger)
-
-    with pytest.raises(ValueError, match='Expected name to be in the format'):
-        test_mlflow_logger.register_model(
-            model_uri=local_mlflow_save_path,
-            name='my_model',
+    with pytest.raises(ValueError, match='When registering to Unity Catalog'):
+        _ = MLFlowLogger(
+            tracking_uri=mlflow_uri,
+            experiment_name=mlflow_exp_name,
         )
-
-    test_mlflow_logger._flush()
-    test_mlflow_logger.post_close()
 
 
 @device('cpu')
