@@ -704,17 +704,8 @@ def _custom_recursive_wrap_t2p1p0(
 
             final_kwargs = {**kwargs, **module_kwargs}
 
-            print(f'{"-"*10} module: {module.__class__} {"-"*10}')
-            for k in final_kwargs:
-                print(k, final_kwargs[k])
-                if k == 'process_group' and final_kwargs[k] is not None:
-                    print(f'process_group_ranks: {distributed.get_process_group_ranks(final_kwargs[k])}')
-            print('-'*30)
-
             if final_kwargs.get('process_group', None) is not None:
                 _pg_ranks = distributed.get_process_group_ranks(final_kwargs['process_group'])
-                # if len(_pg_ranks) == 1:
-                    # del final_kwargs['process_group']
                 _meta_init = any(p.device.type == 'meta' for p in module.parameters())
                 if _meta_init and len(_pg_ranks) != dist.get_world_size() and final_kwargs.get('use_orig_params'):
                     raise NotImplementedError(

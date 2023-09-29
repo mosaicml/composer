@@ -27,6 +27,7 @@ log = logging.getLogger(__name__)
 
 process_group_cache = {}
 
+
 class DDPSyncStrategy(StringEnum):
     """How and when gradient synchronization should happen.
 
@@ -459,6 +460,7 @@ def prepare_fsdp_module(
 
                 def _auto_wrap_policy_new(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
                     return __auto_wrap_policy(module, recurse, nonwrapped_numel)
+
                 from torch.distributed.fsdp.wrap import CustomPolicy
 
                 def lambda_fn(module: torch.nn.Module) -> Union[bool, dict]:
@@ -474,6 +476,7 @@ def prepare_fsdp_module(
                         module.register_forward_hook(sync_hook)
                         module.register_full_backward_hook(sync_hook)
                     return ret
+
                 policy = CustomPolicy(lambda_fn)
                 _auto_wrap_policy = policy
 
