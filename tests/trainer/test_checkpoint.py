@@ -1087,14 +1087,6 @@ class TestCheckpointResumption:
             pytest.param(False, False, 'cpu', 'cpu'),  # fail
             pytest.param(False, True, 'meta', 'cpu'),  # fail
         ])
-    @pytest.mark.parametrize(
-        'load_monolith_rank0_only,load_planner,save_planner',
-        [
-            (True, None, None),
-            (False, RenameLoadPlanner(), RenameSavePlanner()),
-            (False, None, None),
-        ]
-    )
     @pytest.mark.filterwarnings('ignore:An unexpected prefix is detected. This case.*')
     @pytest.mark.filterwarnings(
         'ignore:``FullyShardedDataParallel.scatter_full_optim_state_dict``is being deprecated and is replaced by.*')
@@ -1107,16 +1099,7 @@ class TestCheckpointResumption:
         model_1_init_device: str,
         model_2_init_device: str,
         tmp_path: pathlib.Path,
-        load_monolith_rank0_only: bool,
-        load_planner: Optional[DefaultLoadPlanner],
-        save_planner: Optional[DefaultSavePlanner],
     ):
-        success = (use_orig_params == False and 
-                   sync_module_states == True and 
-                   model_1_init_device == 'cpu')
-        if not success and not load_monolith_rank0_only:
-            pytest.skip('Only test for failure when load_monolith_rank0_only')
-
         save_interval = '1ba'
         save_filename = 'ba{batch}-rank{rank}.pt'
         resume_file = 'ba1-rank{rank}.pt'
@@ -1156,10 +1139,11 @@ class TestCheckpointResumption:
 
         resume_file = os.path.join(save_folder, 'first', resume_file)
         model_init_device = [model_1_init_device, model_2_init_device][dist.get_global_rank()]
-        fsdp_config['load_monolith_rank0_only'] = load_monolith_rank0_only
-        fsdp_config['load_planner'] = load_planner
-        fsdp_config['save_planner'] = save_planner
+        fsdp_config['load_monolith_rank0_only'] = True
 
+        success = (use_orig_params == False and 
+                   sync_module_states == True and 
+                   model_1_init_device == 'cpu')
         with contextlib.nullcontext() if success else pytest.raises(ValueError):
             trainer_2 = self.get_trainer(
                 model_init_device=model_init_device,
@@ -1246,11 +1230,8 @@ class TestCheckpointResumption:
     @pytest.mark.parametrize(
         'use_orig_params,sync_module_states,model_1_init_device,model_2_init_device',
         [
-            pytest.param(False, True, 'cpu', 'cpu'),  # success
-            pytest.param(False, True, 'cpu', 'meta'),  # success
-            pytest.param(True, True, 'cpu', 'cpu'),  # fail
-            pytest.param(False, False, 'cpu', 'cpu'),  # fail
-            pytest.param(False, True, 'meta', 'cpu'),  # fail
+            pytest.param(False, True, 'cpu', 'cpu'),
+            pytest.param(False, True, 'cpu', 'meta'),
         ])
     @pytest.mark.filterwarnings('ignore:An unexpected prefix is detected. This case.*')
     @pytest.mark.filterwarnings(
@@ -1273,8 +1254,6 @@ class TestCheckpointResumption:
             'use_orig_params': use_orig_params,
             'sync_module_states': sync_module_states,
             'state_dict_type': 'full',
-            'load_planner': RenameLoadPlanner(),
-            'save_planner': RenameSavePlanner(),
         }
 
         # All ranks use rank 0 folder
@@ -1306,10 +1285,10 @@ class TestCheckpointResumption:
 
         resume_file = os.path.join(save_folder, 'first', resume_file)
         model_init_device = [model_1_init_device, model_2_init_device][dist.get_global_rank()]
-        fsdp_config['load_monolith_rank0_only'] = True
+        fsdp_config['load_planner'] = RenameLoadPlanner()
+        fsdp_config['save_planner'] = RenameSavePlanner()
 
-        success = use_orig_params == False and sync_module_states == True and model_1_init_device == 'cpu'
-        with contextlib.nullcontext() if success else pytest.raises(ValueError):
+        with contextlib.nullcontext():
             trainer_2 = self.get_trainer(
                 model_init_device=model_init_device,
                 save_folder=os.path.join(save_folder, 'second'),
