@@ -236,7 +236,7 @@ Composer is part of the broader Machine Learning community, and we welcome any c
 
 To start contributing, see our [Contributing](https://github.com/mosaicml/composer/blob/dev/CONTRIBUTING.md) page.
 
-P.S.: [We're hiring](https://mosaicml.com/jobs)!
+P.S.: [We're hiring](https://www.mosaicml.com/careers)!
 
 # ❓FAQ
 
