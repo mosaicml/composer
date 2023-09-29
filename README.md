@@ -185,7 +185,7 @@ Here are some resources actively maintained by the Composer community to help yo
     <td>A Colab Notebook showing how to train BERT models with Composer and 🤗!</td>
   </tr>
   <tr>
-    <td><a href="https://github.com/mosaicml/llm-foundry/blob/main/TUTORIAL.md)" target="_blank" rel="noopener noreferrer">Pretraining and Finetuning an LLM Tutorial</a></td>
+    <td><a href="https://github.com/mosaicml/llm-foundry/blob/main/TUTORIAL.md" target="_blank" rel="noopener noreferrer">Pretraining and Finetuning an LLM Tutorial</a></td>
     <td>A tutorial from MosaicML’s LLM Foundry, using MosaicML Composer, StreamingDataset, and MCLI on training and evaluating LLMs.</td>
   </tr>
   <tr>
