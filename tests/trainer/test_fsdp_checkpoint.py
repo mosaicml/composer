@@ -86,6 +86,8 @@ class FSDPConfig:
     sync_module_states: bool = True
     use_orig_params: bool = False
     load_fsdp_monolith_rank0_only: bool = False
+    save_planner: Optional[Any] = None
+    load_planner: Optional[Any] = None
 
 
 def get_trainer(
@@ -921,3 +923,246 @@ def test_cleanup_sharded_checkpoints(
         non_elastic_file_list = {save_filename.format(rank=rank) for rank in range(dist.get_world_size())}
         file_list = elastic_file_list if using_torch_2() else non_elastic_file_list
         assert set(os.listdir(full_path_ckpt_dir)) == file_list
+
+
+@pytest.mark.gpu
+@world_size(2)
+@pytest.mark.parametrize('weights_only', [False, True])
+@pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
+@pytest.mark.parametrize('state_dict_type', ['sharded'])
+@pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
+@pytest.mark.parametrize('use_remote', [pytest.param(True, marks=pytest.mark.remote), False])
+@pytest.mark.parametrize('autoresume', [True, False])
+@pytest.mark.parametrize('planner', [None, 'rename'])
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'),
+                    reason='requires PyTorch 2.0 or higher')
+@pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
+@pytest.mark.filterwarnings(
+    r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning'
+)
+def test_fsdp_planner(
+    world_size,
+    tmp_path: pathlib.Path,
+    state_dict_type: str,
+    autoresume: bool,
+    precision: str,
+    optimizer: str,
+    weights_only: bool,
+    planner: Optional[str],
+    use_remote,
+    s3_bucket,
+    s3_ephemeral_prefix,
+    request
+):
+    if weights_only and autoresume:
+        pytest.xfail('Weights only with autoresume is not supported')
+    if state_dict_type == 'local' and using_torch_2():
+        pytest.xfail(
+            ('Loading a state_dict_type="local" checkpoint with strict=True '
+            'errors out. See https://github.com/pytorch/pytorch/issues/102667 '
+            'for more info')
+        )
+
+    from torch.distributed.checkpoint._nested_dict import flatten_state_dict
+    from torch.distributed.checkpoint._sharded_tensor_utils import (
+        _flatten_sharded_tensors,
+    )
+    from torch.distributed.checkpoint.default_planner import (
+        DefaultLoadPlanner,
+        DefaultSavePlanner,
+    )
+    from torch.distributed.checkpoint.metadata import Metadata, STATE_DICT_TYPE
+
+    class RenameSavePlanner(DefaultSavePlanner):
+        def set_up_planner(
+                self,
+                state_dict: STATE_DICT_TYPE,
+                is_coordinator: bool
+            ) -> None:
+            assert self.flatten_state_dict
+            assert self.flatten_sharded_tensors
+            print(f'set_up_planner: {state_dict.keys()=}')
+            # suffix all keys with `foo_``
+            foo_state_dict = {k: v for k, v in state_dict.items()}
+            print(f'{foo_state_dict["state"]["model"].keys()=}')
+            foo_state_dict['state']['model'] = {
+                k.replace(
+                    '_fsdp_wrapped_module.', ''
+                ) + '_foo': v for k, v in foo_state_dict['state']['model'].items()
+            }
+            print(f'{foo_state_dict["state"]["model"].keys()=}')
+
+            if 'optimizers' in foo_state_dict:
+
+                # optimizers = {}
+                # for optimizer in foo_state_dict['optimizers'].keys():
+                #     optimizers[optimizer] = foo_state_dict['optimizers'][optimizer]
+                #     renamed_optimizers = {}
+                #     for k, v in foo_state_dict['optimizers'][optimizer]['state'].items():
+                #         replace_key = k + '_foo'
+                #         renamed_optimizers[replace_key] = v
+                #     optimizers[optimizer]['state'] = renamed_optimizers
+                # foo_state_dict['optimizers'] = optimizers
+
+
+
+                # for optimizer in foo_state_dict['optimizers'].keys():
+                #     param_groups = foo_state_dict['optimizers'][optimizer]['param_groups']
+                #     foo_state_dict['optimizers'] = {optimizer: {'state': {}}}
+                #     foo_state_dict['optimizers'][optimizer]['param_groups'] = param_groups
+                #     foo_state_dict['optimizers'][optimizer]['state'] = {
+                #         k + '_foo': v for k, v in foo_state_dict['optimizers'][optimizer]['state'].items()
+                #     }
+                for optimizer in foo_state_dict['optimizers'].keys():
+                    foo_state_dict['optimizers'][optimizer]['state'] = {
+                        k + '_foo': v for k, v in foo_state_dict['optimizers'][optimizer]['state'].items()
+                    }
+                    print(f'{foo_state_dict["optimizers"][optimizer]["state"].items()=}')
+                    print(f'{foo_state_dict["optimizers"][optimizer]["param_groups"]=}')
+            super().set_up_planner(foo_state_dict, is_coordinator)
+
+    class RenameLoadPlanner(DefaultLoadPlanner):
+        def set_up_planner(
+                self,
+                state_dict: STATE_DICT_TYPE,
+                metadata: Metadata,
+                is_coordinator: bool
+            ) -> None:
+            if 'state' not in state_dict:
+                super().set_up_planner(state_dict, metadata, is_coordinator)
+                return
+
+            assert self.flatten_state_dict
+            assert self.flatten_sharded_tensors
+            self.original_state_dict = state_dict
+
+            state_dict = {
+                'state': {
+                    'model': {
+                        k: v for k, v in state_dict['state']['model'].items()
+                    },
+                },
+            }
+            state_dict['state']['model'] = {k + '_foo': v for k, v in state_dict['state']['model'].items()}
+
+            print(f'RenameLoadPlanner: {state_dict["state"]["model"].keys()=}')
+            if self.flatten_sharded_tensors:
+                state_dict = _flatten_sharded_tensors(state_dict)
+            if self.flatten_state_dict:
+                state_dict, self.mappings = flatten_state_dict(state_dict)
+            self.state_dict = state_dict
+            self.metadata = metadata
+            self.is_coordinator = is_coordinator
+
+        # def load_bytes(self, read_item, value):
+        #     # Remove the "foo_" suffix
+        #     print(f'{read_item.dest_index.fqn=}')
+        #     self.original_state_dict[read_item.dest_index.fqn[:4]] = torch.load(value)
+
+    save_planner = planner
+    load_planner = planner
+    if planner == 'rename':
+        # from composer.utils.planner import RankLoadPlanner, RankSavePlanner
+        # save_planner = RankSavePlanner(SimpleMLP())
+        # load_planner = RankLoadPlanner(SimpleMLP())
+        save_planner = RenameSavePlanner()
+        load_planner = RenameLoadPlanner()
+
+    if autoresume:
+        local_run_name = f'my-cool-autoresume-run-{uuid.uuid1()}'
+        run_name = dist.all_gather_object(local_run_name)[0]
+    else:
+        run_name = None
+
+    if use_remote:
+        save_folder = f's3://{s3_bucket}/{s3_ephemeral_prefix}/checkpoints/{{run_name}}'
+    else:
+        tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
+        save_folder = os.path.join(tmp_paths[0], 'checkpoints', '{run_name}')
+
+    save_filename = 'ba{batch}-rank{rank}.pt'
+
+    fsdp_config = FSDPConfig(
+        state_dict_type=state_dict_type,
+        load_planner=load_planner,
+        save_planner=save_planner,
+    )
+
+    trainer1 = get_trainer(
+        save_folder=str(save_folder),
+        save_filename=save_filename,
+        run_name=run_name,
+        precision=precision,
+        autoresume=autoresume,
+        optimizer=optimizer,
+        max_duration='2ba',
+        save_interval='2ba',
+        save_weights_only=weights_only,
+        fsdp_config=fsdp_config,
+    )
+    run_name = trainer1.state.run_name
+    trainer1.fit()
+    rng1 = get_rng_state()
+    state_dict_from_trainer1_ba2 = trainer1.state.state_dict()
+    trainer1.close()
+
+    if use_remote:
+        load_path = 's3://' + save_folder.strip('s3://').format(run_name=run_name) + '/ba2'
+        object_store = S3ObjectStore(bucket=f'{s3_bucket}')
+    else:
+        object_store = None
+        load_path = str(save_folder.format(run_name=run_name) / pathlib.Path('ba2'))
+
+    if not using_torch_2():
+        load_filename = f"{save_filename.format(batch=2, rank='{rank}')}"
+        assert load_filename == 'ba2-rank{rank}.pt'
+        load_path += '/' + load_filename
+        assert is_checkpoint_legacy_sharded(
+            object_store=object_store,
+            source_path=load_path.replace(f's3://{s3_bucket}/', ''),
+        )
+    else:
+        assert not is_checkpoint_legacy_sharded(
+            object_store=object_store,
+            source_path=load_path.replace(f's3://{s3_bucket}/', ''),
+        )
+
+    if autoresume:
+        load_path = None
+    trainer2 = get_trainer(
+        save_folder=str(save_folder),
+        save_filename=save_filename,
+        load_path=load_path,
+        precision=precision,
+        autoresume=autoresume,
+        run_name=run_name,
+        max_duration='4ba',
+        save_interval='4ba',
+        optimizer=optimizer,
+        load_weights_only=weights_only,
+        fsdp_config=fsdp_config,
+    )
+    state_dict_from_trainer2 = trainer2.state.state_dict()
+    rng2 = trainer2._rng_state
+    # Compare saved state and loaded state for both ranks.
+    _compare_model_params_between_state_dicts(
+        state_dict_from_trainer1_ba2,
+        state_dict_from_trainer2,
+    )
+    if not weights_only:
+        _compare_rng_states_between_trainers(rng1, rng2)
+        _compare_optims_between_state_dicts(
+            state_dict_from_trainer1_ba2,
+            state_dict_from_trainer2,
+        )
+        _compare_metrics_between_state_dicts(
+            state_dict_from_trainer1_ba2,
+            state_dict_from_trainer2,
+        )
+        # _compare_timestamps_between_state_dicts(
+        #     state_dict_from_trainer1_ba2,
+        #     state_dict_from_trainer2,
+        # )
+
+    trainer2.fit()
+    trainer2.close()

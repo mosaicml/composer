@@ -28,10 +28,11 @@ from composer.metrics import MAP
 from composer.optim import ExponentialScheduler
 from composer.trainer import trainer
 from composer.trainer.trainer import Trainer
-from composer.utils import dist, is_tar
+from composer.utils import dist, is_tar, using_torch_2
 from composer.utils.checkpoint import glob_filter
 from composer.utils.object_store.object_store import ObjectStore
 from composer.utils.object_store.s3_object_store import S3ObjectStore
+
 from tests.common import (RandomClassificationDataset, RandomImageDataset, RandomTextLMDataset, SimpleConvModel,
                           SimpleModel, SimpleTransformerMaskedLM, deep_compare, device)
 from tests.common.markers import world_size
@@ -50,6 +51,37 @@ class DummyStatefulCallback(Callback):
 
     def load_state_dict(self, state: Dict[str, Any]) -> None:
         self.random_value = state['random_value']
+
+if using_torch_2():
+    from torch.distributed.checkpoint.default_planner import DefaultLoadPlanner, DefaultSavePlanner
+    from torch.distributed.checkpoint.metadata import Metadata, STATE_DICT_TYPE
+    class RenameSavePlanner(DefaultSavePlanner):
+        def set_up_planner(
+                self,
+                state_dict: STATE_DICT_TYPE,
+                is_coordinator: bool
+            ) -> None:
+            # prefix all keys with `foo_``
+            super().set_up_planner(
+                self,
+                {"foo_" + k: v for k, v in state_dict.items()},
+                is_coordinator
+            )
+
+    class RenameLoadPlanner(DefaultLoadPlanner):
+        def set_up_planner(
+                self,
+                state_dict: STATE_DICT_TYPE,
+                metadata: Metadata,
+                is_coordinator: bool
+            ) -> None:
+            del metadata
+            self.original_state_dict = state_dict
+            super().set_up_planner(
+                self,
+                {"foo_" + k: v for k, v in state_dict.items()},
+                is_coordinator
+            )
 
 
 def _load_checkpoint(filename: Union[str, pathlib.Path]):
@@ -1111,7 +1143,9 @@ class TestCheckpointResumption:
         model_init_device = [model_1_init_device, model_2_init_device][dist.get_global_rank()]
         fsdp_config['load_monolith_rank0_only'] = True
 
-        success = use_orig_params == False and sync_module_states == True and model_1_init_device == 'cpu'
+        success = (use_orig_params == False and 
+                   sync_module_states == True and 
+                   model_1_init_device == 'cpu')
         with contextlib.nullcontext() if success else pytest.raises(ValueError):
             trainer_2 = self.get_trainer(
                 model_init_device=model_init_device,
@@ -1188,6 +1222,81 @@ class TestCheckpointResumption:
 
         files = os.listdir(save_folder)
         assert len(files) == expected_num_files
+
+    @pytest.importorskip('torch', minversion='2')
+    @pytest.mark.parametrize('world_size', [
+        pytest.param(2, marks=pytest.mark.world_size(2)),
+    ])
+    @pytest.mark.parametrize('device', [
+        pytest.param('gpu', marks=pytest.mark.gpu),
+    ])
+    @pytest.mark.filterwarnings('ignore:An unexpected prefix is detected. This case.*')
+    @pytest.mark.filterwarnings(
+        'ignore:``FullyShardedDataParallel.scatter_full_optim_state_dict``is being deprecated and is replaced by.*')
+    def test_fsdp_planner(
+        self,
+        device: str,
+        world_size: int,
+        tmp_path: pathlib.Path,
+    ):
+        save_interval = '1ba'
+        save_filename = 'ba{batch}-rank{rank}.pt'
+        resume_file = 'ba1-rank{rank}.pt'
+        final_checkpoint = 'latest-rank{rank}.pt'
+        fsdp_config = {
+            'load_planner': RenameLoadPlanner(),
+            'save_planner': RenameSavePlanner()
+        }
+
+        # All ranks use rank 0 folder
+        tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
+        save_folder = pathlib.Path(tmp_paths[0])
+
+        trainer_1 = self.get_trainer(
+            save_folder=os.path.join(save_folder, 'first'),
+            save_filename=save_filename,
+            save_interval=save_interval,
+            eval_interval=save_interval,
+            fsdp_config=fsdp_config,
+            device=device,
+            precision='amp_fp16',
+            max_duration='1ep',
+            train_subset_num_batches=2,
+        )
+
+        trainer_1.fit()
+        trainer_1.close()
+
+        self._assert_expected_num_checkpoints(
+            save_folder=os.path.join(save_folder, 'first'),
+            save_interval=save_interval,
+            num_epochs=1,  # set in get_trainer()
+            num_batches_per_epoch=2,  # set in get_trainer()
+            is_deepspeed=False,
+        )
+
+        resume_file = os.path.join(save_folder, 'first', resume_file)
+
+        with contextlib.nullcontext():
+            trainer_2 = self.get_trainer(
+                save_folder=os.path.join(save_folder, 'second'),
+                save_filename=save_filename,
+                save_interval=save_interval,
+                eval_interval=save_interval,
+                fsdp_config=fsdp_config,
+                device=device,
+                precision='amp_fp16',
+                max_duration='1ep',
+                train_subset_num_batches=2,
+                load_path=resume_file,  # <-- resume training from file
+            )
+            trainer_2.fit()
+            trainer_2.close()
+
+            _assert_checkpoints_equivalent(
+                save_folder / 'first' / final_checkpoint,
+                save_folder / 'second' / final_checkpoint,
+            )
 
 
 @pytest.mark.parametrize('world_size', [
