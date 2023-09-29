@@ -350,6 +350,7 @@ def test_mlflow_register_model(tmp_path, monkeypatch):
         tracking_uri=mlflow_uri,
         experiment_name=mlflow_exp_name,
         model_registry_prefix='my_catalog.my_schema',
+        model_registry_uri='databricks-uc',
     )
 
     mock_state = MagicMock()
@@ -427,6 +428,7 @@ def test_mlflow_register_uc_error(tmp_path, monkeypatch):
         _ = MLFlowLogger(
             tracking_uri=mlflow_uri,
             experiment_name=mlflow_exp_name,
+            model_registry_uri='databricks-uc',
         )
 
 

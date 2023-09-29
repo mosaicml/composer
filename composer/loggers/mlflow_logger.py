@@ -47,8 +47,8 @@ class MLFlowLogger(LoggerDestination):
         model_registry_prefix (str, optional): The prefix to use when registering models.
             If registering to Unity Catalog, must be in the format ``{catalog_name}.{schema_name}``.
             (default: empty string)
-        model_registry_uri (str, optional): The URI of the model registry to use. If not set, will
-            default to ``databricks-uc``.
+        model_registry_uri (str, optional): The URI of the model registry to use. To register models
+            to Unity Catalog, set to ``databricks-uc``. (default: None)
     """
 
     def __init__(
@@ -59,7 +59,7 @@ class MLFlowLogger(LoggerDestination):
         rank_zero_only: bool = True,
         flush_interval: int = 10,
         model_registry_prefix: str = '',
-        model_registry_uri: str = 'databricks-uc',
+        model_registry_uri: Optional[str] = None,
     ) -> None:
         try:
             import mlflow
@@ -86,7 +86,9 @@ class MLFlowLogger(LoggerDestination):
         if self._enabled:
             self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
             mlflow.set_tracking_uri(self.tracking_uri)
-            mlflow.set_registry_uri(self.model_registry_uri)
+
+            if self.model_registry_uri is not None:
+                mlflow.set_registry_uri(self.model_registry_uri)
             # Set up MLflow state
             self._run_id = None
             if self.experiment_name is None:
