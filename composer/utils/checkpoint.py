@@ -765,7 +765,7 @@ def save_checkpoint(
     filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
     *,
     weights_only: bool = False,
-) -> Union[str, None]:  # noqa: D103
+) -> Union[str, None]:  # noqa: D101
     __doc__ = f"""Checkpoint the training ``state``.
 
     Args:
