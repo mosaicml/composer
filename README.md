@@ -226,7 +226,7 @@ Here are some projects and experiments that used Composer. Got something to add?
     - [MPT-7B-8k Blog](https://www.mosaicml.com/blog/long-context-mpt-7b-8k)
     - [MPT-30B Blog](https://www.mosaicml.com/blog/mpt-30b)
 - [**Mosaic Diffusion Models**](https://www.mosaicml.com/blog/training-stable-diffusion-from-scratch-costs-160k): see how we trained a stable diffusion model from scratch for <$50k
-- [**replit-code-v1-3b](https://huggingface.co/replit/replit-code-v1-3b):** A 2.7B Causal Language Model focused on **Code Completion,** trained by Replit on the MosaicML platform in 10 days.
+- [**replit-code-v1-3b**](https://huggingface.co/replit/replit-code-v1-3b): A 2.7B Causal Language Model focused on **Code Completion,** trained by Replit on the MosaicML platform in 10 days.
 - **BabyLLM:** the first LLM to support both Arabic and English. This 7B model was trained by MetaDialog on the world’s largest Arabic/English dataset to improve customer support workflows ([Blog](https://blogs.nvidia.com/blog/2023/08/31/generative-ai-startups-africa-middle-east/))
 - [**BioMedLM**](https://www.mosaicml.com/blog/introducing-pubmed-gpt): a domain-specific LLM for Bio Medicine built by MosaicML and [Stanford CRFM](https://crfm.stanford.edu/)
 
