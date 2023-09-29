@@ -647,8 +647,6 @@ def glob_filter(exclude_globs: List[str]) -> Callable[[Dict], None]:
     return filter_func
 
 
-
-
 def _validate_save_planner(save_planner: Optional[Any]) -> None:
     """Checks that ``save_planner`` is an instance of a :class:`~torch.distributed.checkpoint.planner.SavePlanner`.
 
@@ -689,7 +687,6 @@ def _validate_load_planner(load_planner: Optional[Any]) -> None:
                 'torch.distributed.checkpoint.planner.LoadPlanner'
             )
         )
-
 
 
 def safe_torch_load(
