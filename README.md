@@ -254,10 +254,10 @@ P.S.: [We're hiring](https://www.mosaicml.com/careers)!
 
 # ✍️ Citation
 
-`@misc{mosaicml2022composer,
+```@misc{mosaicml2022composer,
     author = {The Mosaic ML Team},
     title = {composer},
     year = {2021},
     howpublished = {\url{https://github.com/mosaicml/composer/}},
-}`
+}```
 
