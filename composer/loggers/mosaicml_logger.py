@@ -42,6 +42,9 @@ class MosaicMLLogger(LoggerDestination):
     Logs metrics to the MosaicML platform. Logging only happens on rank 0 every ``log_interval``
     seconds to avoid performance issues.
 
+    When running on the MosaicML platform, the logger is automatically enabled by Trainer. To disable,
+    the environment variable 'MOSAICML_PLATFORM' can be set to False.
+
     Args:
         log_interval (int, optional): Buffer log calls more frequent than ``log_interval`` seconds
             to avoid performance issues. Defaults to 60.
@@ -65,7 +68,9 @@ class MosaicMLLogger(LoggerDestination):
         self.ignore_keys = ignore_keys
         self._enabled = dist.get_global_rank() == 0
         if self._enabled:
+            self.allowed_fails_left = 3
             self.time_last_logged = 0
+            self.time_failed_count_adjusted = 0
             self.buffered_metadata: Dict[str, Any] = {}
 
             self.run_name = os.environ.get(RUN_NAME_ENV_VAR)
@@ -124,8 +129,17 @@ class MosaicMLLogger(LoggerDestination):
                 mcli.update_run_metadata(self.run_name, self.buffered_metadata)
                 self.buffered_metadata = {}
                 self.time_last_logged = time.time()
-            except mcli.MAPIException as e:
+                # If we have not failed in the last hour, increase the allowed fails. This increases
+                # robustness to transient network issues.
+                if time.time() - self.time_failed_count_adjusted > 3600 and self.allowed_fails_left < 3:
+                    self.allowed_fails_left += 1
+                    self.time_failed_count_adjusted = time.time()
+            except Exception as e:
                 log.error(f'Failed to log metadata to Mosaic with error: {e}')
+                self.allowed_fails_left -= 1
+                self.time_failed_count_adjusted = time.time()
+                if self.allowed_fails_left <= 0:
+                    self._enabled = False
 
 
 def format_data_to_json_serializable(data: Any):

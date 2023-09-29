@@ -77,17 +77,17 @@ install_requires = [
     'tqdm>=4.62.3,<5',
     'torchmetrics>=0.10.0,<1.1',
     'torch_optimizer>=0.3.0,<0.4',
-    'torchvision>=0.13.1,<0.16',
-    'torch>=1.13.1,<2.1',
+    'torchvision>=0.13.1,<0.17',
+    'torch>=1.13.1,<2.1.1',
     'requests>=2.26.0,<3',
-    'numpy>=1.21.5,<1.26.0',
+    'numpy>=1.21.5,<1.27.0',
     'psutil>=5.8.0,<6',
     'coolname>=1.1.0,<3',
     'tabulate==0.9.0',  # for auto-generating tables
     'py-cpuinfo>=8.0.0,<10',
     'packaging>=21.3.0,<23',
     'importlib-metadata>=5.0.0,<7',
-    'mosaicml-cli>=0.4.12,<0.5',
+    'mosaicml-cli>=0.5.8,<0.6',
 ]
 extra_deps = {}
 
@@ -99,17 +99,17 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
     'junitparser==3.1.0',
-    'coverage[toml]==7.2.7',
+    'coverage[toml]==7.3.0',
     'fasteners==0.18',  # object store tests require fasteners
-    'pytest==7.4.0',
+    'pytest==7.4.2',
     'toml==0.10.2',
     'ipython==8.11.0',
-    'ipykernel==6.24.0',
+    'ipykernel==6.25.2',
     'jupyter==1.0.0',
     'yamllint==1.32.0',
     'recommonmark==0.7.1',
     'sphinx==4.4.0',
-    'pre-commit>=2.18.1,<3',
+    'pre-commit>=3.4.0,<4',
     # embedding md in rst require docutils>=0.17. See
     # https://myst-parser.readthedocs.io/en/latest/sphinx/use.html?highlight=parser#include-markdown-files-into-an-rst-file
     'docutils==0.17.1',
@@ -125,20 +125,23 @@ extra_deps['dev'] = [
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.16.1',
-    'traitlets==5.9.0',
+    'traitlets==5.10.0',
     'nbsphinx==0.9.1',
     'pandoc==2.3',
     'pypandoc==1.11',
-    'GitPython==3.1.31',
+    'GitPython==3.1.37',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
-    'cryptography==38.0.4',
+    'cryptography==41.0.4',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
-    'identify==2.5.25'
 ]
 
 extra_deps['health_checker'] = {
+    'pynvml>=11.5.0,<12',
+}
+
+extra_deps['system_metrics_monitor'] = {
     'pynvml>=11.5.0,<12',
 }
 
@@ -181,7 +184,7 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<4.32',
+    'transformers>=4.11,<4.34',
     'datasets>=2.4,<3',
 ]
 
@@ -210,16 +213,22 @@ extra_deps['oci'] = [
     'oci>=2.88.2,<3.0.0',
 ]
 
+extra_deps['gcs'] = [
+    'google-cloud-storage>=2.0.0,<3.0',
+]
+
 extra_deps['onnx'] = [
     'onnx>=1.12.0,<2',
     'onnxruntime>=1.12.1,<2',
 ]
 
 extra_deps['mlflow'] = [
-    'mlflow>=2.0.1,<3.0',
+    'mlflow>=2.5.0,<3.0',
 ]
 
-extra_deps['all'] = set(dep for deps in extra_deps.values() for dep in deps)
+extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
+
+extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
 composer_data_files = ['py.typed']
 composer_data_files += package_files('composer', 'yamls', '.yaml')

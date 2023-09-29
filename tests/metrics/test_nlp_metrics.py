@@ -1,9 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-'do a backflip'  # Copyright 2022 MosaicML Composer authors
-# SPDX-License-Identifier: Apache-2.0
-
 import math
 
 import pytest
@@ -238,7 +235,7 @@ def test_in_context_learning_qa_accuracy():
     assert metric.compute() == (2 / 3)
 
 
-def test_in_context_learning_code_eval_accuracy():
+def test_in_context_learning_code_eval_accuracy(monkeypatch):
     outputs = [
         '    return 1 if n <= 1 else fib(n - 1) + fib(n - 1)',  # incorrect
         '   if n <= 1:\n        return 1\n    return fib(n-1) + fib(n-2)',  # incorrect spacing
@@ -252,20 +249,30 @@ def test_in_context_learning_code_eval_accuracy():
     entry_points = ['fib', 'multiply_by_two', 'add_one']
     test_inputs = [['(1,)', '(2,)', '(4,)'], ['(1,)', '(2,)', '(4,)'], ['(1,)', '(2,)', '(4,)']]
     test_outputs = [['1', '2', '5'], ['2', '4', '8'], ['2', '3', '5']]
-
+    languages = ['python', 'python', 'python']
+    monkeypatch.setenv('CODE_EVAL_DEVICE', 'LOCAL')
     batch = {
+        # This tests deterministic beam search rather than sampling
         'generation_kwargs': {
-            'num_beams': 2
+            'num_beams': 1,
+            'num_return_sequences': 2
         },
         'prompts': prompts,
+        'pass_at_k': 1,
         'entry_points': entry_points,
         'test_inputs': test_inputs,
-        'test_outputs': test_outputs
+        'test_outputs': test_outputs,
+        'languages': languages,
     }
     metric = InContextLearningCodeEvalAccuracy()
     metric.update(batch, outputs, labels)
 
-    assert metric.compute() == (2 / 3)
+    # pass@1 values
+    #   program 1: 0
+    #   program 2: 1
+    #   program 3: .5
+    # mean: 0.5
+    assert metric.compute() == 0.5
 
 
 def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):

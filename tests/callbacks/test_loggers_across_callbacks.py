@@ -5,14 +5,12 @@ import os
 from typing import Type
 
 import pytest
-from torch.utils.data import DataLoader
 
 from composer.core import Callback
 from composer.loggers import ConsoleLogger, LoggerDestination, ProgressBarLogger, SlackLogger
 from composer.loggers.remote_uploader_downloader import RemoteUploaderDownloader
 from composer.trainer import Trainer
-from tests.callbacks.callback_settings import get_cb_kwargs, get_cbs_and_marks
-from tests.common import RandomClassificationDataset, SimpleModel
+from tests.callbacks.callback_settings import get_cb_kwargs, get_cb_model_and_datasets, get_cbs_and_marks
 
 
 @pytest.mark.parametrize('logger_cls', get_cbs_and_marks(loggers=True))
@@ -28,9 +26,10 @@ def test_loggers_on_callbacks(logger_cls: Type[LoggerDestination], callback_cls:
     logger = logger_cls(**logger_kwargs)
     callback_kwargs = get_cb_kwargs(callback_cls)
     callback = callback_cls(**callback_kwargs)
+    model, train_dataloader, _ = get_cb_model_and_datasets(callback)
     trainer = Trainer(
-        model=SimpleModel(),
-        train_dataloader=DataLoader(RandomClassificationDataset()),
+        model=model,
+        train_dataloader=train_dataloader,
         train_subset_num_batches=2,
         max_duration='1ep',
         callbacks=callback,

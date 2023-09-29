@@ -5,10 +5,11 @@
 import json
 import logging
 import os
-from typing import Dict
+from typing import Dict, List
+
+import requests
 
 from composer.utils.eval_client.eval_client import EvalClient
-from composer.utils.import_helpers import MissingConditionalImportError
 
 __all__ = ['LambdaEvalClient']
 log = logging.getLogger(__name__)
@@ -18,30 +19,28 @@ class LambdaEvalClient(EvalClient):
     """Utility for creating a client for and invoking an AWS Lambda."""
 
     def __init__(self) -> None:
-        """Initialize the LambdaEvalClient by attempting to create a boto3 client.
+        """Checks that the requisite environment variables are in the EvalClient.
 
-        Uses CODE_EVAL_ARN and CODE_EVAL_REGION environment variables for boto3 env vars.
+        There must be CODE_EVAL_URL for the URL of the lambda API and CODE_EVAL_APIKEY
+        for the API key of the lambda API.
         """
-        if 'CODE_EVAL_ARN' not in os.environ or 'CODE_EVAL_REGION' not in os.environ:
-            raise Exception('Please set environment variable CODE_EVAL_ARN to the ARN of the lambda function '
-                            'and CODE_EVAL_REGION to the region of the lambda function.')
-        try:
-            import boto3
-        except ImportError as e:
-            raise MissingConditionalImportError('streaming', 'boto3') from e
+        if 'CODE_EVAL_URL' not in os.environ or 'CODE_EVAL_APIKEY' not in os.environ:
+            raise Exception('Please set environment variable CODE_EVAL_URL to the URL of the lambda API '
+                            'and CODE_EVAL_APIKEY to the API key of the API gateway.')
         log.debug('Running code eval on lambda.')
-        self.client = boto3.Session().client('lambda', region_name=os.environ['CODE_EVAL_REGION'])
 
-    def invoke(self, payload: Dict[str, str]) -> bool:
+    def invoke(self, payload: List[List[List[Dict[str, str]]]]) -> List[List[List[bool]]]:
+        """Invoke a batch of provided payloads for code evaluations."""
+        ret = [[[self.invoke_helper(test_case)
+                 for test_case in generation_group]
+                for generation_group in prompt_group]
+               for prompt_group in payload]
+        return ret
+
+    def invoke_helper(self, payload: Dict[str, str]) -> bool:
         """Invoke a provided dictionary payload to the client."""
-        response = self.client.invoke(
-            FunctionName=os.environ['CODE_EVAL_ARN'],
-            InvocationType='RequestResponse',
-            LogType='None',
-            Payload=bytes(json.dumps(payload), 'utf-8'),
-        )
-        response = json.load(response['Payload'])
+        response = requests.post(os.environ['CODE_EVAL_URL'],
+                                 data=json.dumps(payload),
+                                 headers={'x-api-key': os.environ['CODE_EVAL_APIKEY']})
+        response = response.json()
         return 'statusCode' in response and response['statusCode'] == 200
-
-    def close(self):
-        self.client.close()
