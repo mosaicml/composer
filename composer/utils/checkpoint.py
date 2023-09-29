@@ -31,8 +31,6 @@ from composer.utils.misc import (
     is_model_deepspeed,
     using_torch_2,
     using_torch_2_0_1,
-    validate_load_planner,
-    validate_save_planner,
 )
 from composer.utils.object_store import ObjectStore
 
@@ -330,7 +328,7 @@ def load_sharded_checkpoint(
         )
 
     load_planner = state.fsdp_config['load_planner']
-    validate_load_planner(load_planner)
+    _validate_load_planner(load_planner)
 
     from torch.distributed import checkpoint as dist_cp
     from torch.distributed.checkpoint.metadata import Metadata
@@ -649,6 +647,51 @@ def glob_filter(exclude_globs: List[str]) -> Callable[[Dict], None]:
     return filter_func
 
 
+
+
+def _validate_save_planner(save_planner: Optional[Any]) -> None:
+    """Checks that ``save_planner`` is an instance of a :class:`~torch.distributed.checkpoint.planner.SavePlanner`.
+
+    TODO(GRT-2456): Remove validation once we deprecate torch 1.13 and can use
+    type hints.
+
+    Raises:
+        ValueError: If ``save_planner`` is not a
+            :class:`~torch.distributed.checkpoint.planner.SavePlanner`.
+    """
+    from torch.distributed.checkpoint.planner import SavePlanner
+
+    if save_planner is not None and not isinstance(save_planner, SavePlanner):
+        raise ValueError(
+            (
+                f'save_planner {type(save_planner)} is not a '
+                'torch.distributed.checkpoint.planner.SavePlanner'
+            )
+        )
+
+
+def _validate_load_planner(load_planner: Optional[Any]) -> None:
+    """Checks that ``load_planner`` is an instance of a :class:`~torch.distributed.checkpoint.planner.LoadPlanner`.
+
+    TODO(GRT-2456): Remove validation once we deprecate torch 1.13 and can use
+    type hints.
+
+    Raises:
+        ValueError: If ``load_planner`` is not a
+            :class:`~torch.distributed.checkpoint.planner.LoadPlanner`.
+    """
+    from torch.distributed.checkpoint.planner import LoadPlanner
+
+    if load_planner is not None and not isinstance(load_planner, LoadPlanner):
+        raise ValueError(
+            (
+                f'load_planner {type(load_planner)} is not a '
+                'torch.distributed.checkpoint.planner.LoadPlanner'
+            )
+        )
+
+
+
 def safe_torch_load(
     composer_states_filepath: Union[Path, str],
     map_location: str = 'cpu',
@@ -827,7 +870,7 @@ def save_checkpoint(
 
     # Sharded checkpointing for torch >=2.0 uses the torch.distributed.checkpoint module.
     elif state.fsdp_elastic_sharded_enabled:
-        validate_save_planner(state.fsdp_config['save_planner'])
+        _validate_save_planner(state.fsdp_config['save_planner'])
 
         import torch.distributed.checkpoint as dist_cp
 
