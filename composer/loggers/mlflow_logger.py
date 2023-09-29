@@ -77,10 +77,8 @@ class MLFlowLogger(LoggerDestination):
         self.model_registry_uri = model_registry_uri
         if self.model_registry_uri == 'databricks-uc':
             if len(self.model_registry_prefix.split('.')) != 2:
-                raise ValueError(
-                    f'When registering to Unity Catalog, model_registry_prefix must be in the format ' + 
-                    f'{{catalog_name}}.{{schema_name}}, but got {self.model_registry_prefix}'
-                )
+                raise ValueError(f'When registering to Unity Catalog, model_registry_prefix must be in the format ' +
+                                 f'{{catalog_name}}.{{schema_name}}, but got {self.model_registry_prefix}')
 
         self._rank_zero_only = rank_zero_only
         self._last_flush_time = time.time()
@@ -172,11 +170,13 @@ class MLFlowLogger(LoggerDestination):
             )
             self._optimized_mlflow_client.flush(synchronous=False)
 
-    def register_model(self,
-                       model_uri: str,
-                       name: str,
-                       await_registration_for: Optional[int] = 300,
-                       tags: Optional[Dict[str, Any]] = None,) -> 'ModelVersion':
+    def register_model(
+        self,
+        model_uri: str,
+        name: str,
+        await_registration_for: Optional[int] = 300,
+        tags: Optional[Dict[str, Any]] = None,
+    ) -> 'ModelVersion':
         """Register a model to model registry.
 
         Args:
