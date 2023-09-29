@@ -299,7 +299,8 @@ def test_mlflow_log_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
     check_hf_model_equivalence(loaded_model['model'], tiny_gpt2_model)
     check_hf_tokenizer_equivalence(loaded_model['tokenizer'], tiny_gpt2_tokenizer)
 
-@pytest.mark.filterwarnings("ignore:.*Setuptools is replacing distutils.*:UserWarning")
+
+@pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
 @pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
 def test_mlflow_save_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
     mlflow = pytest.importorskip('mlflow')
@@ -314,7 +315,7 @@ def test_mlflow_save_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
     mock_state = MagicMock()
     mock_state.run_name = 'dummy-run-name'  # this run name should be unused.
     mock_logger = MagicMock()
-    
+
     local_mlflow_save_path = str(tmp_path / Path('my_model_local'))
     test_mlflow_logger.init(state=mock_state, logger=mock_logger)
     test_mlflow_logger.save_model(
@@ -335,7 +336,8 @@ def test_mlflow_save_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
     check_hf_model_equivalence(loaded_model['model'], tiny_gpt2_model)
     check_hf_tokenizer_equivalence(loaded_model['tokenizer'], tiny_gpt2_tokenizer)
 
-@pytest.mark.filterwarnings("ignore:.*Setuptools is replacing distutils.*:UserWarning")
+
+@pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
 @pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
 def test_mlflow_register_model(tmp_path, monkeypatch):
     mlflow = pytest.importorskip('mlflow')
@@ -352,7 +354,7 @@ def test_mlflow_register_model(tmp_path, monkeypatch):
     mock_state = MagicMock()
     mock_state.run_name = 'dummy-run-name'  # this run name should be unused.
     mock_logger = MagicMock()
-    
+
     local_mlflow_save_path = str(tmp_path / Path('my_model_local'))
     test_mlflow_logger.init(state=mock_state, logger=mock_logger)
 
@@ -361,19 +363,18 @@ def test_mlflow_register_model(tmp_path, monkeypatch):
         name='my_catalog.my_schema.my_model',
     )
 
-    assert mlflow.register_model.called_with(
-        model_uri=local_mlflow_save_path,
-        name='my_catalog.my_schema.my_model',
-        await_registration_for=300,
-        tags=None,
-        registry_uri='databricks-uc'
-    )
+    assert mlflow.register_model.called_with(model_uri=local_mlflow_save_path,
+                                             name='my_catalog.my_schema.my_model',
+                                             await_registration_for=300,
+                                             tags=None,
+                                             registry_uri='databricks-uc')
     assert mlflow.get_registry_uri() == 'databricks-uc'
 
     test_mlflow_logger._flush()
     test_mlflow_logger.post_close()
 
-@pytest.mark.filterwarnings("ignore:.*Setuptools is replacing distutils.*:UserWarning")
+
+@pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
 @pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
 def test_mlflow_register_model_non_databricks(tmp_path, monkeypatch):
     mlflow = pytest.importorskip('mlflow')
@@ -390,7 +391,7 @@ def test_mlflow_register_model_non_databricks(tmp_path, monkeypatch):
     mock_state = MagicMock()
     mock_state.run_name = 'dummy-run-name'  # this run name should be unused.
     mock_logger = MagicMock()
-    
+
     local_mlflow_save_path = str(tmp_path / Path('my_model_local'))
     test_mlflow_logger.init(state=mock_state, logger=mock_logger)
 
@@ -400,19 +401,18 @@ def test_mlflow_register_model_non_databricks(tmp_path, monkeypatch):
         registry_uri='my_registry_uri',
     )
 
-    assert mlflow.register_model.called_with(
-        model_uri=local_mlflow_save_path,
-        name='my_model',
-        await_registration_for=300,
-        tags=None,
-        registry_uri='my_registry_uri'
-    )
+    assert mlflow.register_model.called_with(model_uri=local_mlflow_save_path,
+                                             name='my_model',
+                                             await_registration_for=300,
+                                             tags=None,
+                                             registry_uri='my_registry_uri')
     assert mlflow.get_registry_uri() == 'my_registry_uri'
 
     test_mlflow_logger._flush()
     test_mlflow_logger.post_close()
 
-@pytest.mark.filterwarnings("ignore:.*Setuptools is replacing distutils.*:UserWarning")
+
+@pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
 @pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
 def test_mlflow_register_uc_error(tmp_path, monkeypatch):
     mlflow = pytest.importorskip('mlflow')
@@ -429,7 +429,7 @@ def test_mlflow_register_uc_error(tmp_path, monkeypatch):
     mock_state = MagicMock()
     mock_state.run_name = 'dummy-run-name'  # this run name should be unused.
     mock_logger = MagicMock()
-    
+
     local_mlflow_save_path = str(tmp_path / Path('my_model_local'))
     test_mlflow_logger.init(state=mock_state, logger=mock_logger)
 
@@ -441,6 +441,7 @@ def test_mlflow_register_uc_error(tmp_path, monkeypatch):
 
     test_mlflow_logger._flush()
     test_mlflow_logger.post_close()
+
 
 @device('cpu')
 def test_mlflow_logging_works(tmp_path, device):

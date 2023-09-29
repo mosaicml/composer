@@ -10,7 +10,7 @@ import pathlib
 import textwrap
 import time
 import warnings
-from typing import Any, Dict, List, Optional, Sequence, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -155,13 +155,12 @@ class MLFlowLogger(LoggerDestination):
             )
             self._optimized_mlflow_client.flush(synchronous=False)
 
-    def register_model(
-        self,
-        model_uri: str,
-        name: str,
-        await_registration_for: Optional[int] = 300,
-        tags: Optional[Dict[str, Any]] = None,
-        registry_uri: str = 'databricks-uc') -> 'ModelVersion':
+    def register_model(self,
+                       model_uri: str,
+                       name: str,
+                       await_registration_for: Optional[int] = 300,
+                       tags: Optional[Dict[str, Any]] = None,
+                       registry_uri: str = 'databricks-uc') -> 'ModelVersion':
         """Register a model to model registry.
 
         Args:
@@ -179,7 +178,9 @@ class MLFlowLogger(LoggerDestination):
         if self._enabled:
             if registry_uri == 'databricks-uc':
                 if len(name.split('.')) != 3:
-                    raise ValueError(f'Expected name to be in the format {{catalog_name}}.{{schema_name}}.{{model_name}}", but got {name}')
+                    raise ValueError(
+                        f'Expected name to be in the format {{catalog_name}}.{{schema_name}}.{{model_name}}", but got {name}'
+                    )
 
             import mlflow
             mlflow.set_registry_uri(registry_uri)
