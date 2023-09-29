@@ -83,6 +83,8 @@ class FSDPConfig:
     sync_module_states: bool = True
     use_orig_params: bool = False
     load_fsdp_monolith_rank0_only: bool = False
+    save_planner: Optional[Any] = None
+    load_planner: Optional[Any] = None
 
 
 def get_trainer(
@@ -895,3 +897,132 @@ def test_cleanup_sharded_checkpoints(
         non_elastic_file_list = {save_filename.format(rank=rank) for rank in range(dist.get_world_size())}
         file_list = elastic_file_list if using_torch_2() else non_elastic_file_list
         assert set(os.listdir(full_path_ckpt_dir)) == file_list
+
+
+@pytest.mark.gpu
+@world_size(2)
+@pytest.mark.parametrize('weights_only', [False, True])
+@pytest.mark.parametrize('planner', [None, 'rename'])
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2.0 or higher')
+@pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
+def test_fsdp_planner(
+    world_size,
+    tmp_path: pathlib.Path,
+    weights_only: bool,
+    planner: Optional[str],
+):
+
+    from torch.distributed.checkpoint._nested_dict import flatten_state_dict
+    from torch.distributed.checkpoint._sharded_tensor_utils import _flatten_sharded_tensors
+    from torch.distributed.checkpoint.default_planner import DefaultLoadPlanner, DefaultSavePlanner
+    from torch.distributed.checkpoint.metadata import STATE_DICT_TYPE, Metadata
+
+    class RenameSavePlanner(DefaultSavePlanner):
+
+        def set_up_planner(
+            self,
+            state_dict: STATE_DICT_TYPE,
+            is_coordinator: bool,
+        ) -> None:
+            # suffix all keys with `foo_``
+            state_dict['state']['model'] = {k + '_foo': v for k, v in state_dict['state']['model'].items()}
+
+            super().set_up_planner(state_dict, is_coordinator)
+
+    class RenameLoadPlanner(DefaultLoadPlanner):
+
+        def set_up_planner(
+            self,
+            state_dict: STATE_DICT_TYPE,
+            metadata: Metadata,
+            is_coordinator: bool,
+        ) -> None:
+            if 'state' not in state_dict:
+                super().set_up_planner(state_dict, metadata, is_coordinator)
+                return
+
+            self.original_state_dict = state_dict
+
+            state_dict = dict(state_dict.items())
+            state_dict['state'] = dict(state_dict['state'].items())
+            state_dict['state']['model'] = {k + '_foo': v for k, v in state_dict['state']['model'].items()}
+
+            if self.flatten_sharded_tensors:
+                state_dict = _flatten_sharded_tensors(state_dict)
+
+            if self.flatten_state_dict:
+                state_dict, self.mappings = flatten_state_dict(state_dict)
+
+            self.state_dict = state_dict
+            self.metadata = metadata
+            self.is_coordinator = is_coordinator
+
+    save_planner = planner
+    load_planner = planner
+    if planner == 'rename':
+        save_planner = RenameSavePlanner()
+        load_planner = RenameLoadPlanner()
+
+    tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
+    save_folder = os.path.join(tmp_paths[0], 'checkpoints', '{run_name}')
+
+    fsdp_config = FSDPConfig(
+        state_dict_type='sharded',
+        load_planner=load_planner,
+        save_planner=save_planner,
+    )
+
+    trainer1 = get_trainer(
+        save_folder=str(save_folder),
+        max_duration='2ba',
+        save_interval='2ba',
+        save_weights_only=weights_only,
+        fsdp_config=fsdp_config,
+    )
+    run_name = trainer1.state.run_name
+    trainer1.fit()
+    rng1 = get_rng_state()
+    state_dict_from_trainer1_ba2 = trainer1.state.state_dict()
+    trainer1.close()
+
+    load_path = str(save_folder.format(run_name=run_name) / pathlib.Path('ba2'))
+
+    assert not is_checkpoint_legacy_sharded(
+        object_store=None,
+        source_path=load_path,
+    )
+
+    trainer2 = get_trainer(
+        save_folder=str(save_folder),
+        load_path=load_path,
+        run_name=run_name,
+        max_duration='4ba',
+        save_interval='4ba',
+        load_weights_only=weights_only,
+        fsdp_config=fsdp_config,
+    )
+    state_dict_from_trainer2 = trainer2.state.state_dict()
+    rng2 = trainer2._rng_state
+    # Compare saved state and loaded state for both ranks.
+    _compare_model_params_between_state_dicts(
+        state_dict_from_trainer1_ba2,
+        state_dict_from_trainer2,
+    )
+    if not weights_only:
+        _compare_rng_states_between_trainers(rng1, rng2)
+        _compare_optims_between_state_dicts(
+            state_dict_from_trainer1_ba2,
+            state_dict_from_trainer2,
+        )
+        _compare_metrics_between_state_dicts(
+            state_dict_from_trainer1_ba2,
+            state_dict_from_trainer2,
+        )
+        _compare_timestamps_between_state_dicts(
+            state_dict_from_trainer1_ba2,
+            state_dict_from_trainer2,
+        )
+
+    trainer2.fit()
+    trainer2.close()
