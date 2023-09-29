@@ -17,7 +17,6 @@
 <a href="https://www.mosaicml.com">[Website]</a>
 - <a href="https://docs.mosaicml.com/projects/composer/en/stable/getting_started/installation.html">[Getting Started]</a>
 - <a href="https://docs.mosaicml.com/projects/composer/">[Docs]</a>
-- <a href="https://docs.mosaicml.com/projects/composer/en/stable/method_cards/methods_overview.html">[Methods]</a>
 - <a href="https://www.mosaicml.com/careers">[We're Hiring!]</a>
 </p></h4>
 
