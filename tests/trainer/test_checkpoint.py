@@ -1087,7 +1087,6 @@ class TestCheckpointResumption:
             pytest.param(False, False, 'cpu', 'cpu'),  # fail
             pytest.param(False, True, 'meta', 'cpu'),  # fail
         ])
-    # @pytest.mark.parametrize('load_monolith_rank0_only', (False,))
     @pytest.mark.parametrize(
         'load_monolith_rank0_only,load_planner,save_planner',
         [
