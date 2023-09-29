@@ -4,6 +4,7 @@
 import gc
 import logging
 import os
+import subprocess
 import pathlib
 
 import mcli
@@ -27,6 +28,28 @@ def disable_tokenizer_parallelism():
     """
     os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
+
+@pytest.fixture(scope='function', autouse=True)
+def disk_space_recorder(request):
+    """This fixture records the disk space of each individual pytest function to help us debug when tests run out of disk space."""
+    # Get the disk space before the test
+    disk_space_before = get_disk_space()
+    yield
+    # Get the disk space after the test
+    disk_space_after = get_disk_space()
+    # Record the disk space to a file
+    record_disk_space(disk_space_before, disk_space_after, request.node.name)
+
+def get_disk_space():
+    # Adjust the command if necessary based on your OS
+    result = subprocess.run(['df', '-h', '/'], capture_output=True, text=True)
+    return result.stdout
+
+def record_disk_space(before, after, test_name):
+    with open('/tmp/disk_space_report.txt', 'a') as file:
+        file.write(f'Test: {test_name}\n')
+        file.write(f'Disk space before: {before}')
+        file.write(f'Disk space after: {after}\n')
 
 @pytest.fixture(autouse=True)
 def clear_cuda_cache(request):
