@@ -172,13 +172,20 @@ def is_model_fsdp(model: torch.nn.Module) -> bool:
 def is_notebook():
     """Whether Composer is running in a IPython/Jupyter Notebook."""
     try:
-        __IPYTHON__  #type: ignore
+        __IPYTHON__  # type: ignore
         return True
     except NameError:
         return False
 
 
-def warning_on_one_line(message: str, category: Type[Warning], filename: str, lineno: int, file=None, line=None):
+def warning_on_one_line(
+    message: str,
+    category: Type[Warning],
+    filename: str,
+    lineno: int,
+    file=None,
+    line=None,
+):
     """Force Python warnings to consolidate into one line."""
     # From https://stackoverflow.com/questions/26430861/make-pythons-warnings-warn-not-mention-itself
     return f'{category.__name__}: {message} (source: {filename}:{lineno})\n'
