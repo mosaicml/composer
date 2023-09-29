@@ -461,24 +461,28 @@ def prepare_fsdp_module(
                 def _auto_wrap_policy_new(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
                     return __auto_wrap_policy(module, recurse, nonwrapped_numel)
 
-                from torch.distributed.fsdp.wrap import CustomPolicy
+                if version.parse(torch.__version__) > version.parse('2.0.1-rc4'):
+                    # CustomPolicy is only supported in torch v2.1.0-rc1 or higher
+                    from torch.distributed.fsdp.wrap import CustomPolicy
 
-                def lambda_fn(module: torch.nn.Module) -> Union[bool, dict]:
-                    ret = False
-                    if hasattr(module, '_fsdp_wrap'):
-                        ret = bool(module._fsdp_wrap)
-                    elif hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
-                        ret = obj.fsdp_wrap_fn(module)
-                        from composer.trainer.mosaic_fsdp_utils import _set_custom_fsdp_module_kwargs
-                        if isinstance(ret, dict):
-                            ret = _set_custom_fsdp_module_kwargs(ret, process_group_cache)
-                    if ret and auto_microbatching:
-                        module.register_forward_hook(sync_hook)
-                        module.register_full_backward_hook(sync_hook)
-                    return ret
+                    def lambda_fn(module: torch.nn.Module) -> Union[bool, dict]:
+                        ret = False
+                        if hasattr(module, '_fsdp_wrap'):
+                            ret = bool(module._fsdp_wrap)
+                        elif hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
+                            ret = obj.fsdp_wrap_fn(module)
+                            from composer.trainer.mosaic_fsdp_utils import _set_custom_fsdp_module_kwargs
+                            if isinstance(ret, dict):
+                                ret = _set_custom_fsdp_module_kwargs(ret, process_group_cache)
+                        if ret and auto_microbatching:
+                            module.register_forward_hook(sync_hook)
+                            module.register_full_backward_hook(sync_hook)
+                        return ret
 
-                policy = CustomPolicy(lambda_fn)
-                _auto_wrap_policy = policy
+                    policy = CustomPolicy(lambda_fn)
+                    _auto_wrap_policy = policy
+                else:
+                    __auto_wrap_policy = _auto_wrap_policy_new
 
             else:
 
