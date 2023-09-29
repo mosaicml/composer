@@ -186,12 +186,16 @@ Here are some resources actively maintained by the Composer community to help yo
     <td>A Colab Notebook showing how to train BERT models with Composer and 🤗!</td>
   </tr>
   <tr>
-    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/getting_started.ipynb](https://github.com/mosaicml/llm-foundry/blob/main/TUTORIAL.md)" target="_blank" rel="noopener noreferrer">Getting started with our Trainer</a></td>
+    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/getting_started.ipynb](https://github.com/mosaicml/llm-foundry/blob/main/TUTORIAL.md)" target="_blank" rel="noopener noreferrer">Pretraining and Finetuning an LLM Tutorial</a></td>
     <td>A tutorial from MosaicML’s LLM Foundry, using MosaicML Composer, StreamingDataset, and MCLI on training and evaluating LLMs.</td>
   </tr>
   <tr>
-    <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/functional_api.ipynb" target="_blank" rel="noopener noreferrer">Getting started with our Functional API</a></td>
-    <td>A Colab Notebook showing how to use our Functional API</td>
+    <td><a href="https://docs.mosaicml.com/projects/composer/en/stable/examples/migrate_from_ptl.html" target="_blank" rel="noopener noreferrer">Migrating from PyTorch Lightning</a></td>
+    <td>A tutorial is to illustrating a path from working in PyTorch Lightning to working in Composer.</td>
+  </tr>
+  <tr>
+    <td><a href="https://docs.mosaicml.com/projects/composer/en/stable/examples/finetune_huggingface.html" target="_blank" rel="noopener noreferrer">Finetuning and Pretraining HuggingFace Models</a></td>
+    <td>Want to use Hugging Face models with Composer? No problem. Here, we’ll walk through using Composer to fine-tune a pretrained Hugging Face BERT model.</td>
   </tr>
   <tr>
     <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/custom_speedup_methods.ipynb" target="_blank" rel="noopener noreferrer">Building Speedup Methods</a></td>
