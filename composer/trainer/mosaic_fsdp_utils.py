@@ -704,8 +704,17 @@ def _custom_recursive_wrap_t2p1p0(
 
             final_kwargs = {**kwargs, **module_kwargs}
 
+            print(f'{"-"*10} module: {module.__class__} {"-"*10}')
+            for k in final_kwargs:
+                print(k, final_kwargs[k])
+                if k == 'process_group' and final_kwargs[k] is not None:
+                    print(f'process_group_ranks: {distributed.get_process_group_ranks(final_kwargs[k])}')
+            print('-'*30)
+
             if final_kwargs.get('process_group', None) is not None:
                 _pg_ranks = distributed.get_process_group_ranks(final_kwargs['process_group'])
+                # if len(_pg_ranks) == 1:
+                    # del final_kwargs['process_group']
                 _meta_init = any(p.device.type == 'meta' for p in module.parameters())
                 if _meta_init and len(_pg_ranks) != dist.get_world_size() and final_kwargs.get('use_orig_params'):
                     raise NotImplementedError(
@@ -775,6 +784,7 @@ if version.parse(torch.__version__) > version.parse('2.0.2') and version.parse(
         if isinstance(policy, _Policy):
             root_kwargs['auto_wrap_policy' if is_wrapper else 'policy'] = None
             target_module_to_kwargs = policy._run_policy(root_module, ignored_modules, root_kwargs)
+
             if mixed_precision is not None:
                 target_module_to_kwargs = _run_mixed_precision_override_policy(
                     root_module,
@@ -793,6 +803,9 @@ if version.parse(torch.__version__) > version.parse('2.0.2') and version.parse(
                 ignored_params,
                 use_orig_params,
             )
+            print(f'fffff FSDP: root_module= {root_module.__class__}')
+            for k, v in target_module_to_kwargs.items():
+                print(f'fffff k={k.__class__}, v={v}')
             wrap_fn = _construct_wrap_fn(root_module, target_module_to_kwargs, fsdp_fn)
             _post_order_apply(root_module, wrap_fn)
             return

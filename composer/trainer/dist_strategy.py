@@ -25,6 +25,7 @@ __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare
 
 log = logging.getLogger(__name__)
 
+process_group_cache = {}
 
 class DDPSyncStrategy(StringEnum):
     """How and when gradient synchronization should happen.
@@ -458,8 +459,23 @@ def prepare_fsdp_module(
 
                 def _auto_wrap_policy_new(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
                     return __auto_wrap_policy(module, recurse, nonwrapped_numel)
+                from torch.distributed.fsdp.wrap import CustomPolicy
 
-                _auto_wrap_policy = _auto_wrap_policy_new
+                def lambda_fn(module: torch.nn.Module) -> Union[bool, dict]:
+                    ret = False
+                    if hasattr(module, '_fsdp_wrap'):
+                        ret = bool(module._fsdp_wrap)
+                    elif hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
+                        ret = obj.fsdp_wrap_fn(module)
+                        from composer.trainer.mosaic_fsdp_utils import _set_custom_fsdp_module_kwargs
+                        if isinstance(ret, dict):
+                            ret = _set_custom_fsdp_module_kwargs(ret, process_group_cache)
+                    if ret and auto_microbatching:
+                        module.register_forward_hook(sync_hook)
+                        module.register_full_backward_hook(sync_hook)
+                    return ret
+                policy = CustomPolicy(lambda_fn)
+                _auto_wrap_policy = policy
 
             else:
 
