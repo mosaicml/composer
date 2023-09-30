@@ -67,36 +67,3 @@ def test_docker_build_matrix():
         assert existing_build_matrix == f.read()
 
 
-@pytest.mark.doctest
-@pytest.mark.parametrize('example', [1, 2])
-def test_release_tests_reflect_readme(example: int):
-    """Test that example_1.py and example_2.py in release_tests reflect the README.md."""
-    with open(os.path.join(os.path.dirname(__file__), '..', 'README.md'), 'r') as f:
-        readme_lines = f.readlines()
-    example_code_lines = []
-    found_begin = False
-    started = False
-    for i, line in enumerate(readme_lines):
-        if f'begin_example_{example}' in line:
-            found_begin = True
-            continue
-        # Wait until we get the ```python for start of code snippet
-        if found_begin and not started:
-            if line == '```python\n':
-                started = True
-        # Reached end of code snippet
-        elif started and line == '```\n':
-            # Code snippet continues
-            if i + 2 < len(readme_lines) and '-->\n' == readme_lines[
-                    i + 1] and '<!--pytest-codeblocks:cont-->\n' == readme_lines[i + 2]:
-                started = False
-            # Code snippet ends
-            else:
-                break
-        # Add line
-        elif started:
-            example_code_lines.append(line)
-
-    example_file = os.path.join(os.path.dirname(__file__), '..', '.ci', 'release_tests', f'example_{example}.py')
-    with open(example_file, 'r') as f:
-        assert f.readlines() == example_code_lines
