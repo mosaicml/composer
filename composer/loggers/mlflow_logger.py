@@ -68,6 +68,7 @@ class MLFlowLogger(LoggerDestination):
         self._flush_interval = flush_interval
         if self._enabled:
             self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
+            mlflow.set_tracking_uri(self.tracking_uri)
             # Set up MLflow state
             self._run_id = None
             if self.experiment_name is None:
@@ -112,6 +113,7 @@ class MLFlowLogger(LoggerDestination):
                     run_name=self.run_name,
                 )
                 self._run_id = new_run.info.run_id
+            mlflow.start_run(run_id=self._run_id)
 
     def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
         if self._enabled:
@@ -150,6 +152,23 @@ class MLFlowLogger(LoggerDestination):
             )
             self._optimized_mlflow_client.flush(synchronous=False)
 
+    def log_model(self, flavor: str, **kwargs):
+        """Log a model to MLFlow.
+
+        Args:
+            flavor (str): The MLFlow model flavor to use. Currently only ``'transformers'`` is supported.
+            **kwargs: Keyword arguments to pass to the MLFlow model logging function.
+
+        Raises:
+            NotImplementedError: If ``flavor`` is not ``'transformers'``.
+        """
+        if self._enabled:
+            import mlflow
+            if flavor == 'transformers':
+                mlflow.transformers.log_model(**kwargs,)
+            else:
+                raise NotImplementedError(f'flavor {flavor} not supported.')
+
     def log_images(
         self,
         images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
@@ -176,10 +195,13 @@ class MLFlowLogger(LoggerDestination):
 
     def post_close(self):
         if self._enabled:
+            import mlflow
+
             # We use MlflowClient for run termination because MlflowAutologgingQueueingClient's
             # run termination relies on scheduling Python futures, which is not supported within
             # the Python atexit handler in which post_close() is called
             self._mlflow_client.set_terminated(self._run_id)
+            mlflow.end_run()
 
     def _flush(self):
         """Test-only method to synchronously flush all queued metrics."""
