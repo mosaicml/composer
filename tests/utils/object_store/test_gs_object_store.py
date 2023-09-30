@@ -114,7 +114,7 @@ def test_download_object(gs_object_store, monkeypatch, tmp_path, result: str):
 
     def generate_dummy_file(x):
         with open(x, 'wb') as fp:
-            fp.write(bytes('0' * (100), 'utf-8'))
+            fp.write(bytes('0' * (1024 * 1024 * 1024), 'utf-8'))
 
     monkeypatch.setattr(gs_object_store.bucket, 'blob', mock.MagicMock(return_value=mock_blob))
     mock_blob.download_to_filename.side_effect = generate_dummy_file
