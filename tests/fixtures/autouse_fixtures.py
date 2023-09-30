@@ -4,13 +4,15 @@
 import gc
 import logging
 import os
-import subprocess
 import pathlib
 
 import mcli
 import pytest
 import torch
 import tqdm.std
+import inspect
+import shutil
+from pathlib import Path
 
 import composer
 from composer.devices import DeviceCPU, DeviceGPU
@@ -27,6 +29,19 @@ def disable_tokenizer_parallelism():
                 - Explicitly set the environment variable TOKENIZERS_PARALLELISM=(true | false)
     """
     os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+
+@pytest.fixture(scope='function', autouse=True)
+def delete_tmp_path(request, tmp_path):
+    """ This fixture clears the function's tmp path if it exists. """
+    # Store the path of the temporary directory
+    tmp_dir_path = tmp_path
+
+    # Yield control to the test function
+    yield
+
+    # Delete the temporary directory after the test function completes
+    if tmp_dir_path.exists():
+        shutil.rmtree(tmp_dir_path)
 
 
 @pytest.fixture(scope='function', autouse=True)
