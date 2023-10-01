@@ -49,6 +49,8 @@ def apply_gradient_clipping(model: Union[ComposerModel, torch.nn.Module], clippi
                     module.clip_grad_norm_(max_norm=clipping_threshold)
                 elif clipping_type == 'value':
                     module.clip_grad_norm_(max_norm=clipping_threshold, norm_type=float('inf'))
+                else:
+                    raise ValueError(f"clipping type must be 'norm' or 'value' with FSDP not {clipping_type}")
     else:
         parameters = model.parameters()
         if clipping_type == 'adaptive':
