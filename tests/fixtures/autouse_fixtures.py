@@ -15,6 +15,7 @@ import composer
 from composer.devices import DeviceCPU, DeviceGPU
 from composer.utils import dist, reproducibility
 
+
 @pytest.fixture(autouse=True)
 def disable_tokenizer_parallelism():
     """This fixture prevents the below warning from appearing in tests:

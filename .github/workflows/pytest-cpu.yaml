@@ -97,4 +97,3 @@ jobs:
           channel: composer-issues
           status: FAILED
           color: danger
-  
