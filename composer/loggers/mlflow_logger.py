@@ -10,7 +10,7 @@ import pathlib
 import textwrap
 import time
 import warnings
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -19,6 +19,9 @@ from composer.core.state import State
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import MissingConditionalImportError, dist
+
+if TYPE_CHECKING:
+    from mlflow import ModelVersion
 
 __all__ = ['MLFlowLogger']
 
@@ -41,6 +44,11 @@ class MLFlowLogger(LoggerDestination):
             logging batches of metrics. Any metrics that are recorded by Composer during
             this interval are enqueued, and the queue is flushed when the interval elapses
             (default: ``10``).
+        model_registry_prefix (str, optional): The prefix to use when registering models.
+            If registering to Unity Catalog, must be in the format ``{catalog_name}.{schema_name}``.
+            (default: empty string)
+        model_registry_uri (str, optional): The URI of the model registry to use. To register models
+            to Unity Catalog, set to ``databricks-uc``. (default: None)
     """
 
     def __init__(
@@ -50,6 +58,8 @@ class MLFlowLogger(LoggerDestination):
         tracking_uri: Optional[Union[str, pathlib.Path]] = None,
         rank_zero_only: bool = True,
         flush_interval: int = 10,
+        model_registry_prefix: str = '',
+        model_registry_uri: Optional[str] = None,
     ) -> None:
         try:
             import mlflow
@@ -63,12 +73,22 @@ class MLFlowLogger(LoggerDestination):
 
         self.run_name = run_name
         self.experiment_name = experiment_name
+        self.model_registry_prefix = model_registry_prefix
+        self.model_registry_uri = model_registry_uri
+        if self.model_registry_uri == 'databricks-uc':
+            if len(self.model_registry_prefix.split('.')) != 2:
+                raise ValueError(f'When registering to Unity Catalog, model_registry_prefix must be in the format ' +
+                                 f'{{catalog_name}}.{{schema_name}}, but got {self.model_registry_prefix}')
+
         self._rank_zero_only = rank_zero_only
         self._last_flush_time = time.time()
         self._flush_interval = flush_interval
         if self._enabled:
             self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
             mlflow.set_tracking_uri(self.tracking_uri)
+
+            if self.model_registry_uri is not None:
+                mlflow.set_registry_uri(self.model_registry_uri)
             # Set up MLflow state
             self._run_id = None
             if self.experiment_name is None:
@@ -151,6 +171,55 @@ class MLFlowLogger(LoggerDestination):
                 params=hyperparameters,
             )
             self._optimized_mlflow_client.flush(synchronous=False)
+
+    def register_model(
+        self,
+        model_uri: str,
+        name: str,
+        await_registration_for: Optional[int] = 300,
+        tags: Optional[Dict[str, Any]] = None,
+    ) -> 'ModelVersion':
+        """Register a model to model registry.
+
+        Args:
+            model_uri (str): The URI of the model to register.
+            name (str): The name of the model to register. Will be appended to ``model_registry_prefix``.
+            await_registration_for (Optional[int], optional): The number of seconds to wait for the model to be registered.
+                Defaults to 300.
+            tags (Dict[str, Any], optional): A dictionary of tags to add to the model. Defaults to None.
+            registry_uri (str, optional): The URI of the model registry. Defaults to 'databricks-uc' which will register to
+                the Databricks Unity Catalog.
+
+        Returns:
+            ModelVersion: The registered model.
+        """
+        if self._enabled:
+            full_name = f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name
+
+            import mlflow
+            return mlflow.register_model(
+                model_uri=model_uri,
+                name=full_name,
+                await_registration_for=await_registration_for,
+                tags=tags,
+            )
+
+    def save_model(self, flavor: str, **kwargs):
+        """Save a model to MLFlow.
+
+        Args:
+            flavor (str): The MLFlow model flavor to use. Currently only ``'transformers'`` is supported.
+            **kwargs: Keyword arguments to pass to the MLFlow model saving function.
+
+        Raises:
+            NotImplementedError: If ``flavor`` is not ``'transformers'``.
+        """
+        if self._enabled:
+            import mlflow
+            if flavor == 'transformers':
+                mlflow.transformers.save_model(**kwargs,)
+            else:
+                raise NotImplementedError(f'flavor {flavor} not supported.')
 
     def log_model(self, flavor: str, **kwargs):
         """Log a model to MLFlow.
