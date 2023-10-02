@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     import transformers
 
 # Allow models to have slightly more tokens than were used in the most verbose CoT in the dataset
-MAX_ANSWER_BUFFER_LENGTH = 10
+_MAX_ANSWER_BUFFER_LENGTH = 10
 
 __all__ = [
     'InContextLearningLMTaskDataset',
