@@ -30,6 +30,7 @@ from composer.trainer import trainer
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, is_tar
 from composer.utils.checkpoint import glob_filter
+from composer.utils.planner import RankLoadPlanner, RankSavePlanner
 from composer.utils.object_store.object_store import ObjectStore
 from composer.utils.object_store.s3_object_store import S3ObjectStore
 from torch.distributed.checkpoint.default_planner import DefaultLoadPlanner, DefaultSavePlanner
@@ -933,15 +934,20 @@ class TestCheckpointLoading:
 
 class TestCheckpointResumption:
 
+    def _get_model(self, model_init_device='cpu'):
+        model = SimpleModel()
+        model.fc1.to(model_init_device)
+        model.fc2.to(model_init_device)
+        return model
+
     def get_trainer(self,
-                    model_init_device='cpu',
+                    model=None,
                     precision='fp32',
                     max_duration='2ep',
                     train_subset_num_batches=5,
                     **kwargs):
-        model = SimpleModel()
-        model.fc1.to(model_init_device)
-        model.fc2.to(model_init_device)
+        if model is None:
+            model = self._get_model()
         optimizer = torch.optim.Adam(model.parameters())
 
         train_dataset = RandomClassificationDataset(size=24)
@@ -1146,7 +1152,7 @@ class TestCheckpointResumption:
                    model_1_init_device == 'cpu')
         with contextlib.nullcontext() if success else pytest.raises(ValueError):
             trainer_2 = self.get_trainer(
-                model_init_device=model_init_device,
+                model=self._get_model(model_init_device),
                 save_folder=os.path.join(save_folder, 'second'),
                 save_filename=save_filename,
                 save_interval=save_interval,
@@ -1284,7 +1290,86 @@ class TestCheckpointResumption:
 
         with contextlib.nullcontext():
             trainer_2 = self.get_trainer(
-                model_init_device=model_init_device,
+                model=self._get_model(model_init_device),
+                save_folder=os.path.join(save_folder, 'second'),
+                save_filename=save_filename,
+                save_interval=save_interval,
+                eval_interval=save_interval,
+                fsdp_config=fsdp_config,
+                device=device,
+                precision='amp_fp16',
+                max_duration='1ep',
+                train_subset_num_batches=2,
+                load_path=resume_file,  # <-- resume training from file
+            )
+            trainer_2.fit()
+            trainer_2.close()
+
+            _assert_checkpoints_equivalent(
+                save_folder / 'first' / final_checkpoint,
+                save_folder / 'second' / final_checkpoint,
+            )
+
+    @pytest.mark.parametrize('world_size', [
+        pytest.param(2, marks=pytest.mark.world_size(2)),
+    ])
+    @pytest.mark.parametrize('device', [
+        pytest.param('gpu', marks=pytest.mark.gpu),
+    ])
+    @pytest.mark.filterwarnings('ignore:An unexpected prefix is detected. This case.*')
+    @pytest.mark.filterwarnings(
+        'ignore:``FullyShardedDataParallel.scatter_full_optim_state_dict``is being deprecated and is replaced by.*')
+    def test_fsdp_rank_planner(
+        self,
+        device: str,
+        world_size: int,
+        tmp_path: pathlib.Path,
+    ):
+        save_interval = '1ba'
+        save_filename = 'ba{batch}-rank{rank}.pt'
+        resume_file = 'ba1-rank{rank}.pt'
+        final_checkpoint = 'latest-rank{rank}.pt'
+        model = self._get_model()
+        fsdp_config = {
+            'use_orig_params': False,
+            'state_dict_type': 'full',
+            'load_planner': RankLoadPlanner(model),
+            'save_planner': RankSavePlanner(model),
+        }
+
+        # All ranks use rank 0 folder
+        tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
+        save_folder = pathlib.Path(tmp_paths[0])
+
+        trainer_1 = self.get_trainer(
+            model=copy.deepcopy(model),
+            save_folder=os.path.join(save_folder, 'first'),
+            save_filename=save_filename,
+            save_interval=save_interval,
+            eval_interval=save_interval,
+            fsdp_config=fsdp_config,
+            device=device,
+            precision='amp_fp16',
+            max_duration='1ep',
+            train_subset_num_batches=2,
+        )
+
+        trainer_1.fit()
+        trainer_1.close()
+
+        self._assert_expected_num_checkpoints(
+            save_folder=os.path.join(save_folder, 'first'),
+            save_interval=save_interval,
+            num_epochs=1,  # set in get_trainer()
+            num_batches_per_epoch=2,  # set in get_trainer()
+            is_deepspeed=False,
+        )
+
+        resume_file = os.path.join(save_folder, 'first', resume_file)
+
+        with contextlib.nullcontext():
+            trainer_2 = self.get_trainer(
+                model=copy.deepcopy(model),
                 save_folder=os.path.join(save_folder, 'second'),
                 save_filename=save_filename,
                 save_interval=save_interval,
