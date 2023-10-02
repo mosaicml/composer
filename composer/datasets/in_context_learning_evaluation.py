@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import os
 import random
-from typing import TYPE_CHECKING, Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import torch
 import transformers
@@ -128,16 +128,16 @@ class InContextLearningQATaskDataset(Dataset):
         fewshot_random_seed (int): Random seed to use for fewshot sampling
     """
 
-    @classmethod
-    def read_dataset(cls, dataset):
-        return list(
-            dataset.map(
-                lambda examples: {
-                    'context': examples['context'],
-                    'answer': examples['answer'],
-                    'aliases': set([examples['answer']] + examples.get('aliases', [])),
-                    'chain_of_thought': examples.get('chain_of_thought', '')
-                }))
+    def read_dataset(self, dataset: Dataset) -> List[Dict[str, str]]:
+        result = []
+        for example in dataset:
+            result.append({
+                'context': example['context'],
+                'answer': example['answer'],
+                'aliases': set([example['answer']] + example.get('aliases', [])),
+                'chain_of_thought': example.get('chain_of_thought', '')
+            })
+        return result
 
     def __init__(
         self,
@@ -164,7 +164,7 @@ class InContextLearningQATaskDataset(Dataset):
             if dist.get_local_rank() == 0:
                 get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
-        self.samples = InContextLearningQATaskDataset.read_dataset(dataset)
+        self.samples = self.read_dataset(dataset)
         self.samples = strip_data(self.samples)
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
@@ -173,11 +173,20 @@ class InContextLearningQATaskDataset(Dataset):
         self.max_answer_length = 0
         fewshot_rng = random.Random(fewshot_random_seed)
         self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
-                                                  question_prelimiter, cot_delimiter, fewshot_rng)
+                                                  question_prelimiter, fewshot_rng, cot_delimiter)
 
     def _format_prompt_and_fewshot(self, num_fewshot: int, prompt_string: str, example_delimiter: str,
                                    continuation_delimiter: str, question_prelimiter: str, cot_delimiter: str,
-                                   fewshot_rng: random.Random, sample_idx: int):
+                                   fewshot_rng: random.Random, sample_idx: int) -> str:
+        """Formats the prompt fewshot examples for test sample `sample_idx`.
+
+        Randomly select `num_fewshot` samples from the dataset (not including the sample at `sample_idx`) and format
+        them each as follows `{example_delimiter}{question_prelimiter}{context}{continuation_delimiter}{chain_of_thought}{cot_delimiter}{answer}`.
+
+        `chain_of_thought` will default to empty if not present in the dataset but `context` and `answer` must be present.
+
+        Returns the formatted prompt_string + concatenated list of formatted few shot examples.
+        """
         prompt_and_fewshot = prompt_string
 
         if num_fewshot > 0:
@@ -196,8 +205,14 @@ class InContextLearningQATaskDataset(Dataset):
 
         return prompt_and_fewshot
 
-    def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
-                      question_prelimiter: str, cot_delimiter: str, fewshot_rng: random.Random):
+    def prep_examples(self,
+                      num_fewshot: int,
+                      prompt_string: str,
+                      example_delimiter: str,
+                      continuation_delimiter: str,
+                      question_prelimiter: str,
+                      fewshot_rng: random.Random,
+                      cot_delimiter: str = ''):
         """Prepares a set of language modeling tasks into tokenized format with prompt and fewshot examples.
 
         Each task consists of a context and a continuation as well as an optional prompt and optional list of
@@ -209,8 +224,9 @@ class InContextLearningQATaskDataset(Dataset):
             example_delimiter (str): The delimiter used to separate each individual context/continuation pair
             continuation_delimiter (str): The delimiter used to separate each context from its continuation
             question_prelimiter (str): The text to prepend to each question
-            cot_delimiter (str): The delimiter used to separate the chain-of-thought (if present) from the final model response.
             fewshot_rng (random.Random): Random number generator to use for fewshot sampling
+            cot_delimiter (str): The delimiter used to separate the chain-of-thought (if present) from the final model response.
+
 
         Returns:
             dict: Contains the context, the continuation, and the preamble (prompt + fewshot examples)
@@ -253,7 +269,7 @@ class InContextLearningQATaskDataset(Dataset):
             if len(self.samples[sample_idx]['chain_of_thought']) > 0:
                 has_cot = True
 
-        self.max_answer_length = max_answer_length + (MAX_ANSWER_BUFFER_LENGTH if has_cot else 0)
+        self.max_answer_length = max_answer_length + (_MAX_ANSWER_BUFFER_LENGTH if has_cot else 0)
         return examples
 
     def __getitem__(self, index):
