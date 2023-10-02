@@ -10,7 +10,7 @@ from composer.callbacks.activation_monitor import ActivationMonitor
 from composer.callbacks.checkpoint_saver import CheckpointSaver
 from composer.callbacks.early_stopper import EarlyStopper
 from composer.callbacks.export_for_inference import ExportForInferenceCallback
-from composer.composer.callbacks.free_outputs import FreeOutputs
+from composer.callbacks.free_outputs import FreeOutputs
 from composer.callbacks.generate import Generate
 from composer.callbacks.health_checker import HealthChecker
 from composer.callbacks.image_visualizer import ImageVisualizer
