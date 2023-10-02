@@ -439,7 +439,7 @@ def prepare_fsdp_module(
                         'This leaves parameters without initialization. Please add a ``param_init_fn`` or ``reset_parameters`` '
                         f'to module `{obj_name}`.')
 
-            if version.parse(torch.__version__) > version.parse('2.0.1-rc4'):
+            if version.parse(torch.__version__) > version.parse('2.1.0.dev'):
                 # CustomPolicy is only supported in torch v2.1.0-rc1 or higher
                 from torch.distributed.fsdp.wrap import CustomPolicy
 
