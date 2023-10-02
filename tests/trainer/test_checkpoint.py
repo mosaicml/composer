@@ -30,6 +30,7 @@ from composer.trainer import trainer
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, is_tar
 from composer.utils.checkpoint import glob_filter
+from composer.utils.planner import RankLoadPlanner, RankSavePlanner
 from composer.utils.object_store.object_store import ObjectStore
 from composer.utils.object_store.s3_object_store import S3ObjectStore
 from tests.common import (RandomClassificationDataset, RandomImageDataset, RandomTextLMDataset, SimpleConvModel,
@@ -941,15 +942,20 @@ class TestCheckpointLoading:
 
 class TestCheckpointResumption:
 
+    def _get_model(self, model_init_device='cpu'):
+        model = SimpleModel()
+        model.fc1.to(model_init_device)
+        model.fc2.to(model_init_device)
+        return model
+
     def get_trainer(self,
-                    model_init_device='cpu',
+                    model=None,
                     precision='fp32',
                     max_duration='2ep',
                     train_subset_num_batches=5,
                     **kwargs):
-        model = SimpleModel()
-        model.fc1.to(model_init_device)
-        model.fc2.to(model_init_device)
+        if model is None:
+            model = self._get_model()
         optimizer = torch.optim.Adam(model.parameters())
 
         train_dataset = RandomClassificationDataset(size=24)
@@ -1152,7 +1158,7 @@ class TestCheckpointResumption:
         success = use_orig_params == False and sync_module_states == True and model_1_init_device == 'cpu'
         with contextlib.nullcontext() if success else pytest.raises(ValueError):
             trainer_2 = self.get_trainer(
-                model_init_device=model_init_device,
+                model=self._get_model(model_init_device),
                 save_folder=os.path.join(save_folder, 'second'),
                 save_filename=save_filename,
                 save_interval=save_interval,
