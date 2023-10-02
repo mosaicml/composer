@@ -40,8 +40,6 @@ class MockArtifact:
 def test_wandb_logger(tmp_path, dummy_state):
     pytest.importorskip('wandb', reason='wandb is optional')
     os.environ['WANDB_DIR'] = str(tmp_path)
-    if not tmp_path.exists():
-        tmp_path.mkdir()
     os.environ['WANDB_MODE'] = 'offline'
     dummy_state.run_name = 'wandb-test-log-image'
     logger = Logger(dummy_state, [])
