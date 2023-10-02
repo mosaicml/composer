@@ -277,7 +277,7 @@ class InContextLearningQATaskDataset(Dataset):
             inputs.append(inp)
             answers.append(aliases)
 
-            # we will search for the answer within the portion of the model response
+            # We will search for the answer within the portion of the model response
             # beginning with `cot_delimiter`
             cot_delimiter = sample['cot_delimiter']
 
