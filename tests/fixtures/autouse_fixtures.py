@@ -30,19 +30,6 @@ def disable_tokenizer_parallelism():
     """
     os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
-@pytest.fixture(scope='function', autouse=True)
-def delete_tmp_path(request, tmp_path):
-    """ This fixture clears the function's tmp path if it exists. """
-    # Store the path of the temporary directory
-    tmp_dir_path = tmp_path
-
-    # Yield control to the test function
-    yield
-
-    # Delete the temporary directory after the test function completes
-    if tmp_dir_path.exists():
-        shutil.rmtree(tmp_dir_path)
-
 
 @pytest.fixture(scope='function', autouse=True)
 def disk_space_recorder(request):
