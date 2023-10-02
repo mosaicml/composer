@@ -441,7 +441,7 @@ def prepare_fsdp_module(
 
             if version.parse(torch.__version__) > version.parse('2.1.0.dev'):
                 # CustomPolicy is only supported in torch v2.1.0-rc1 or higher
-                from torch.distributed.fsdp.wrap import CustomPolicy
+                from torch.distributed.fsdp.wrap import CustomPolicy  # type: ignore
 
                 def lambda_fn(module: torch.nn.Module) -> Union[bool, dict]:
                     ret = False
