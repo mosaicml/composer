@@ -226,6 +226,6 @@ def get_cb_model_and_datasets(cb: Callback,
                 dummy_gpt_lm_dataloader(size=dl_size))
     model = SimpleModel()
     if isinstance(cb, FreeOutputs):
-        model.train_metrics = None
+        model.get_metrics = lambda is_train=False: {}
     return (model, DataLoader(RandomClassificationDataset(size=dl_size), **default_dl_kwargs),
             DataLoader(RandomClassificationDataset(size=dl_size), **default_dl_kwargs))
