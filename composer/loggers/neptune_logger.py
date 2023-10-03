@@ -1,7 +1,7 @@
 # Copyright 2023 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Log to `Neptune.ai <https://neptune.ai/>`_."""
+"""Log training metadata to [neptune.ai](https://neptune.ai/)."""
 
 __all__ = ['NeptuneLogger']
 
@@ -23,20 +23,38 @@ if TYPE_CHECKING:
 
 
 class NeptuneLogger(LoggerDestination):
-    """LoggerDestination implementation that sends the logs to Neptune.ai.
+    """LoggerDestination implementation that sends the logs to Neptune.
 
     Args:
-        project (str, optional): The name of your Neptune project. If nothing is
-            specified, environment variable NEPTUNE_PROJECT will be used.
-        api_token (str, optional): Your Neptune.ai api key. If nothing is specified,
-            environment variable NEPTUNE_API_TOKEN will be used.
-        rank_zero_only (bool, optional): Whether to log only on the rank-zero process.
-            (default: ``True``).
-        upload_artifacts (bool, optional): Whether the logger should upload artifacts to Neptune.ai.
-            (default: ``False``).
-        base_namespace (str, optional): The name of the base namespace to log the metadata to. (default: "training")
-        neptune_kwargs (Dict[str, Any], optional): Any additional kwargs to neptune.init_run
-            function. (For help see `Run documentation <https://docs.neptune.ai/api/neptune/#init_run>`_)
+        project (str, optional): The name of your Neptune project, in the form `workspace-name/project-name`.
+            If you leave it empty, the NEPTUNE_PROJECT environment variable will be used.
+        api_token (str, optional): Your Neptune API token. You can leave out this argument if you save your token to the
+            NEPTUNE_API_TOKEN environment variable (recommended).
+            You can find your API token in the user menu of the Neptune web app.
+        rank_zero_only (bool, optional): Whether to log only on the rank-zero process. Default: ``True``.
+        upload_artifacts (bool, optional): Whether the logger should upload artifacts to Neptune. Default: ``False``.
+        base_namespace (str, optional): The name of the base namespace to log the metadata to. Default: "training".
+        neptune_kwargs (Dict[str, Any], optional): Any additional keyword arguments to the neptune.init_run()
+            function. For options, see the [Run API reference](https://docs.neptune.ai/api/neptune/#init_run) in the
+            Neptune docs.
+
+    Example:
+        Default Neptune logger:
+        >>> from composer.loggers import NeptuneLogger
+        >>> neptune_logger = NeptuneLogger()
+        >>> trainer = Trainer(loggers=neptune_logger, ...)
+        >>> trainer.fit()
+
+        More options:
+        >>> neptune_logger = NeptuneLogger(
+        ...     project="ml-team/classification",
+        ...     upload_artifacts=True,
+        ...     dependencies="infer",  # Neptune Run kwarg
+        )
+        >>> trainer = Trainer(loggers=neptune_logger, ...)
+        >>> trainer.fit()
+
+    For more, see the [Neptune-Composer integration guide](https://docs.neptune.ai/integrations/composer/).
     """
     METRIC_NAMESPACE = 'metrics'
     HYPERPARAM_NAMESPACE = 'hyperparameters'
@@ -93,6 +111,18 @@ class NeptuneLogger(LoggerDestination):
 
     @property
     def neptune_run(self):
+        """Gets the Neptune run object from a NeptuneLogger instance.
+
+        You can log additional metadata to the run by accessing a path inside the run and assigning metadata to it
+        with "=" or [Neptune logging methods](https://docs.neptune.ai/logging/methods/).
+
+        Example:
+            >>> neptune_logger = NeptuneLogger()
+            >>> trainer = Trainer(loggers=neptune_logger, ...)
+            >>> trainer.fit()
+            >>> neptune_logger.neptune_run["some_metric"] = 1
+            >>> trainer.close()
+        """
         return self._neptune_run
 
     @property
