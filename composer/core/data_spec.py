@@ -250,9 +250,9 @@ class DataSpec:
                 elif isinstance(t, list):
                     dim0_sizes.append(len(t))
                 else:
-                    raise ValueError('Unable to determine the batch size, batch contains'
-                                     f'an element of type {type(t)}, which does not have a'
-                                     'shape. Please use a DataSpec and provide a'
+                    raise ValueError('Unable to determine the batch size as batch is a dict '
+                                     f'with an element of type {type(t)} which is not Tensor '
+                                     'or list. Please use a DataSpec and provide a '
                                      '`get_num_samples_in_batch(your_batch) -> int` method.')
 
         if len(set(dim0_sizes)) == 1:
