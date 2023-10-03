@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import math
 import textwrap
 import warnings
 from typing import Any, Callable, Dict, Iterable, List, Optional, Union
@@ -13,97 +12,10 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Union
 from composer.core.data_spec import DataSpec, ensure_data_spec
 from composer.core.event import Event
 from composer.core.state import State
-from composer.core.time import Time, TimeUnit
+from composer.core.time import Time
 from composer.devices import Device, DeviceGPU
 
-__all__ = ['Evaluator', 'evaluate_periodically', 'ensure_evaluator', 'validate_eval_automicrobatching']
-
-
-def evaluate_periodically(eval_interval: Union[str, Time, int], eval_at_fit_end: bool = True):
-    """Helper function to generate an evaluation interval callable.
-
-    Args:
-        eval_interval (str | Time | int): A :class:`.Time` instance or time string, or integer in epochs,
-            representing how often to evaluate. Set to ``0`` to disable evaluation.
-        eval_at_fit_end (bool): Whether to evaluate at the end of training, regardless of `eval_interval`.
-            Default: True
-    Returns:
-        (State, Event) -> bool: A callable for the ``eval_interval`` argument of an
-            :class:`.Evaluator`.
-    """
-    if isinstance(eval_interval, int):
-        eval_interval = Time(eval_interval, TimeUnit.EPOCH)
-    if isinstance(eval_interval, str):
-        eval_interval = Time.from_timestring(eval_interval)
-
-    last_batch_seen = -1
-
-    def should_eval(state: State, event: Event):
-        # `TimeUnit.Duration` value is a float from `[0.0, 1.0)`
-        if not eval_interval.unit == TimeUnit.DURATION and int(eval_interval) <= 0:
-            return False
-        nonlocal last_batch_seen  # required to use the last_batch_seen from the outer function scope
-
-        # if requested, evaluate at the end of training, as long as the length of training is specified.
-        if eval_at_fit_end and event == Event.FIT_END and state.timestamp.batch != last_batch_seen:
-            return True
-
-        # Previous timestamp will only be None if training has not started, but we are returning False
-        # in this case, just to be safe
-        if state.previous_timestamp is None:
-            return False
-
-        if eval_interval.unit in {TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE}:
-            previous_count = state.previous_timestamp.get(eval_interval.unit)
-            count = state.timestamp.get(eval_interval.unit)
-        # If the eval_interval is a duration, we will track progress in terms of the unit of max_duration
-        elif eval_interval.unit == TimeUnit.DURATION:
-            assert state.max_duration is not None
-            previous_count = state.previous_timestamp.get(state.max_duration.unit)
-            count = state.timestamp.get(state.max_duration.unit)
-        else:
-            raise ValueError(f'Invalid eval_interval unit: {eval_interval.unit}')
-
-        threshold_passed = math.floor(previous_count / eval_interval.value) != math.floor(count / eval_interval.value)
-
-        if eval_interval.unit == TimeUnit.EPOCH and event == Event.EPOCH_END and threshold_passed:
-            last_batch_seen = state.timestamp.batch
-            return True
-        elif eval_interval.unit in {TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE
-                                   } and event == Event.BATCH_END and threshold_passed:
-            last_batch_seen = state.timestamp.batch
-            return True
-        elif eval_interval.unit == TimeUnit.DURATION:
-            assert state.max_duration is not None, 'max_duration should not be None'
-            if state.dataloader_len is None:
-                raise RuntimeError(
-                    f'Evaluation interval of type `dur` or {TimeUnit.DURATION} requires the dataloader to be sized.')
-            if state.max_duration.unit == TimeUnit.EPOCH and int(
-                    state.timestamp.batch) % math.ceil(state.max_duration.value * float(eval_interval) *
-                                                       state.dataloader_len) == 0 and event == Event.BATCH_END:
-                last_batch_seen = state.timestamp.batch
-                return True
-            elif state.max_duration.unit == TimeUnit.BATCH and int(state.timestamp.batch) % math.ceil(
-                    state.max_duration.value * eval_interval.value) == 0 and event == Event.BATCH_END:
-                last_batch_seen = state.timestamp.batch
-                return True
-            elif state.max_duration.unit == TimeUnit.SAMPLE and event == Event.BATCH_END:
-                samples_per_interval = math.ceil(state.max_duration.value * eval_interval)
-                threshold_passed = math.floor(previous_count / samples_per_interval) != math.floor(
-                    count / samples_per_interval)
-                if threshold_passed:
-                    last_batch_seen = state.timestamp.batch
-                    return True
-            elif state.max_duration.unit == TimeUnit.TOKEN and event == Event.BATCH_END:
-                tokens_per_interval = math.ceil(state.max_duration.value * eval_interval)
-                threshold_passed = math.floor(previous_count / tokens_per_interval) != math.floor(
-                    count / tokens_per_interval)
-                if threshold_passed:
-                    last_batch_seen = state.timestamp.batch
-                    return True
-        return False
-
-    return should_eval
+__all__ = ['Evaluator', 'ensure_evaluator', 'validate_eval_automicrobatching']
 
 
 class Evaluator:
@@ -195,10 +107,11 @@ class Evaluator:
 
     @eval_interval.setter
     def eval_interval(self, eval_interval: Optional[Union[int, str, Time, Callable[[State, Event], bool]]]):
+        from composer.callbacks.utils import create_interval_scheduler
         if eval_interval is None:
             self._eval_interval = None
         elif not callable(eval_interval):
-            self._eval_interval = evaluate_periodically(eval_interval)
+            self._eval_interval = create_interval_scheduler(eval_interval, checkpoint_events=False, final_events={Event.FIT_END})
         else:
             self._eval_interval = eval_interval
 

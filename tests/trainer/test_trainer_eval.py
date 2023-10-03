@@ -9,8 +9,9 @@ from typing import Callable, Optional, Union
 import pytest
 from torch.utils.data import DataLoader
 
+from composer.callbacks.utils import create_interval_scheduler
 from composer.core import Algorithm, Event
-from composer.core.evaluator import Evaluator, evaluate_periodically
+from composer.core.evaluator import Evaluator
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
 from composer.trainer import Trainer
@@ -462,9 +463,11 @@ def test_eval_at_fit_end(eval_interval: Union[str, Time, int], max_duration: str
         metric_names=['MulticlassAccuracy'],
     )
 
-    evaluator.eval_interval = evaluate_periodically(
+    evaluator.eval_interval = create_interval_scheduler(
         eval_interval=eval_interval,
         eval_at_fit_end=eval_at_fit_end,
+        checkpoint_events=False,
+        final_events={Event.FIT_END}
     )
 
     trainer = Trainer(
