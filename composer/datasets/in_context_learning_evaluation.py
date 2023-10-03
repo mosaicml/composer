@@ -128,7 +128,7 @@ class InContextLearningQATaskDataset(Dataset):
         fewshot_random_seed (int): Random seed to use for fewshot sampling
     """
 
-    def read_dataset(self, dataset: Dataset) -> List[Dict[str, str]]:
+    def _read_dataset(self, dataset: Dataset) -> List[Dict[str, str]]:
         result = []
         for example in dataset:
             result.append({
@@ -164,7 +164,7 @@ class InContextLearningQATaskDataset(Dataset):
             if dist.get_local_rank() == 0:
                 get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
-        self.samples = self.read_dataset(dataset)
+        self.samples = self._read_dataset(dataset)
         self.samples = strip_data(self.samples)
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
@@ -172,8 +172,9 @@ class InContextLearningQATaskDataset(Dataset):
         self.padding_side = 'left'
         self.max_answer_length = 0
         fewshot_rng = random.Random(fewshot_random_seed)
-        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
-                                                  question_prelimiter, fewshot_rng, cot_delimiter)
+        self.encoded_dataset = self._prep_examples(num_fewshot, prompt_string, example_delimiter,
+                                                   continuation_delimiter, question_prelimiter, fewshot_rng,
+                                                   cot_delimiter)
 
     def _format_prompt_and_fewshot(self, num_fewshot: int, prompt_string: str, example_delimiter: str,
                                    continuation_delimiter: str, question_prelimiter: str, cot_delimiter: str,
@@ -205,14 +206,14 @@ class InContextLearningQATaskDataset(Dataset):
 
         return prompt_and_fewshot
 
-    def prep_examples(self,
-                      num_fewshot: int,
-                      prompt_string: str,
-                      example_delimiter: str,
-                      continuation_delimiter: str,
-                      question_prelimiter: str,
-                      fewshot_rng: random.Random,
-                      cot_delimiter: str = ''):
+    def _prep_examples(self,
+                       num_fewshot: int,
+                       prompt_string: str,
+                       example_delimiter: str,
+                       continuation_delimiter: str,
+                       question_prelimiter: str,
+                       fewshot_rng: random.Random,
+                       cot_delimiter: str = '') -> List[Dict[str, Any]]:
         """Prepares a set of language modeling tasks into tokenized format with prompt and fewshot examples.
 
         Each task consists of a context and a continuation as well as an optional prompt and optional list of
