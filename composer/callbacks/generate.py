@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Periodically log generations from a set of prompts."""
+
 from typing import Any, List, Optional, Union, cast
 
 from composer.callbacks.utils import create_interval_scheduler
