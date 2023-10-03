@@ -95,6 +95,8 @@ def export_for_inference(
     load_path: Optional[str] = None,
     load_object_store: Optional[ObjectStore] = None,
     load_strict: bool = False,
+    input_names: Optional[Sequence[str]] = None,
+    output_names: Optional[Sequence[str]] = None,
 ) -> None:
     """Export a model for inference.
 
@@ -132,6 +134,10 @@ def export_for_inference(
             Otherwise, if the checkpoint is a local filepath, set to ``None``. (default: ``None``)
         load_strict (bool): Whether the keys (i.e., model parameter names) in the model state dict should
             perfectly match the keys in the model instance. (default: ``False``)
+        input_names (Sequence[str], optional): names to assign to the input nodes of the graph, in order. If set
+            to ``None``, the keys from the `sample_input` will be used. Fallbacks to ``["input"]``.
+        output_names (Sequence[str], optional): names to assign to the output nodes of the graph, in order. It set
+            to ``None``, it defaults to ``["output"]``.
 
     Returns:
         None
@@ -224,25 +230,29 @@ def export_for_inference(
                 if sample_input is None:
                     raise ValueError(f'sample_input argument is required for onnx export')
 
-                input_names = []
+                if input_names is None:
+                    input_names = []
 
-                # assert statement for pyright error: Cannot access member "keys" for type "Tensor"
-                assert isinstance(sample_input, tuple)
-                # Extract input names from sample_input if it contains dicts
-                for i in range(len(sample_input)):
-                    if isinstance(sample_input[i], dict):
-                        input_names += list(sample_input[i].keys())
+                    # assert statement for pyright error: Cannot access member "keys" for type "Tensor"
+                    assert isinstance(sample_input, tuple)
+                    # Extract input names from sample_input if it contains dicts
+                    for i in range(len(sample_input)):
+                        if isinstance(sample_input[i], dict):
+                            input_names += list(sample_input[i].keys())
 
-                # Default input name if no dict present
-                if input_names == []:
-                    input_names = ['input']
+                    # Default input name if no dict present
+                    if input_names == []:
+                        input_names = ['input']
+
+                if output_names is None:
+                    output_names = ['output']
 
                 torch.onnx.export(
                     model,
                     sample_input,
                     local_save_path,
                     input_names=input_names,
-                    output_names=['output'],
+                    output_names=output_names,
                     dynamic_axes=dynamic_axes,
                     opset_version=onnx_opset_version,
                 )
@@ -260,6 +270,8 @@ def export_with_logger(
     save_object_store: Optional[ObjectStore] = None,
     sample_input: Optional[Any] = None,
     transforms: Optional[Sequence[Transform]] = None,
+    input_names: Optional[Sequence[str]] = None,
+    output_names: Optional[Sequence[str]] = None,
 ) -> None:
     """Helper method for exporting a model for inference.
 
@@ -289,6 +301,10 @@ def export_with_logger(
         transforms (Sequence[Transform], optional): transformations (usually optimizations) that should
             be applied to the model. Each Transform should be a callable that takes a model and returns a modified model.
             ``transforms`` are applied after ``surgery_algs``. (default: ``None``)
+        input_names (Sequence[str], optional): names to assign to the input nodes of the graph, in order. If set
+            to ``None``, the keys from the `sample_input` will be used. Fallbacks to ``["input"]``.
+        output_names (Sequence[str], optional): names to assign to the output nodes of the graph, in order. It set
+            to ``None``, it defaults to ``["output"]``.
 
     Returns:
         None
@@ -300,7 +316,9 @@ def export_with_logger(
                                  save_format=save_format,
                                  save_path=temp_local_save_path,
                                  sample_input=sample_input,
-                                 transforms=transforms)
+                                 transforms=transforms,
+                                 input_names=input_names,
+                                 output_names=output_names)
             logger.upload_file(remote_file_name=save_path, file_path=temp_local_save_path)
     else:
         export_for_inference(model=model,
@@ -308,4 +326,6 @@ def export_with_logger(
                              save_path=save_path,
                              save_object_store=save_object_store,
                              sample_input=sample_input,
-                             transforms=transforms)
+                             transforms=transforms,
+                             input_names=input_names,
+                             output_names=output_names)

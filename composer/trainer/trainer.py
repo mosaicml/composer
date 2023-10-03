@@ -3099,6 +3099,8 @@ class Trainer:
         save_object_store: Optional[ObjectStore] = None,
         sample_input: Optional[Any] = None,
         transforms: Optional[Sequence[Transform]] = None,
+        input_names: Optional[Sequence[str]] = None,
+        output_names: Optional[Sequence[str]] = None,
     ):
         """Export a model for inference.
 
@@ -3117,6 +3119,10 @@ class Trainer:
                 should accept the ``sample_input`` as is. (default: ``None``)
             transforms (Sequence[Transform], optional): transformations (usually optimizations) that should
                 be applied to the model. Each Transform should be a callable that takes a model and returns a modified model.
+            input_names (Sequence[str], optional): names to assign to the input nodes of the graph, in order. If set
+                to ``None``, the keys from the `sample_input` will be used. Fallbacks to ``["input"]``.
+            output_names (Sequence[str], optional): names to assign to the output nodes of the graph, in order. It set
+                to ``None``, it defaults to ``["output"]``.
 
         Returns:
             None
@@ -3132,4 +3138,6 @@ class Trainer:
                            logger=self.logger,
                            save_object_store=save_object_store,
                            sample_input=(sample_input, {}),
-                           transforms=transforms)
+                           transforms=transforms,
+                           input_names=input_names,
+                           output_names=output_names)
