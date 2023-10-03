@@ -251,9 +251,9 @@ class DataSpec:
                     dim0_sizes.append(len(t))
                 else:
                     raise ValueError('Unable to determine the batch size, batch contains'
-                                         f'an element of type {type(t)}, which does not have a'
-                                         'shape. Please use a DataSpec and provide a'
-                                         '`get_num_samples_in_batch(your_batch) -> int` method.')
+                                     f'an element of type {type(t)}, which does not have a'
+                                     'shape. Please use a DataSpec and provide a'
+                                     '`get_num_samples_in_batch(your_batch) -> int` method.')
 
         if len(set(dim0_sizes)) == 1:
             return dim0_sizes[0]
