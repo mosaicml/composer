@@ -131,6 +131,7 @@ To simplify the environment setup for Composer, we also provide a set of [pre-bu
 
 Here is a code snippet demonstrating our Trainer on the MNIST dataset.
 
+<!--pytest.mark.filterwarnings(r'ignore:Some targets have less than 1 total probability:UserWarning')-->
 ```python
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
