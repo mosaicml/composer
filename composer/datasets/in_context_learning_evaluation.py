@@ -290,7 +290,7 @@ class InContextLearningQATaskDataset(Dataset):
         return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
 
 
-class InContextLearningCodeTracingTaskDataset(Dataset):
+class InContextLearningExecutionPredictionTaskDataset(Dataset):
     """A dataset that construct batches for in-context learning code tracing evaluation
 
     Args:
@@ -308,19 +308,19 @@ class InContextLearningCodeTracingTaskDataset(Dataset):
         fewshot_random_seed (int): Random seed used to select fewshot examples
     """
 
-    def __init__(
-        self,
-        dataset_uri: str,
-        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
-        max_seq_len: int,
-        pad_tok_id: int,
-        num_fewshot: int,
-        prompt_string: str,
-        example_delimiter: str,
-        continuation_delimiter: str,
-        destination_path: str,
-        fewshot_random_seed: int,
-    ):
+    def __init__(self,
+                 dataset_uri: str,
+                 tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
+                 max_seq_len: int,
+                 pad_tok_id: int,
+                 num_fewshot: int,
+                 prompt_string: str,
+                 example_delimiter: str,
+                 destination_path: str,
+                 fewshot_random_seed: int,
+                 fn_delimiter: str = '',
+                 output_delimiter: str = '',
+                 input_delimiter: str = ''):
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
         except ImportError as e:
@@ -345,17 +345,17 @@ class InContextLearningCodeTracingTaskDataset(Dataset):
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
         fewshot_rng = random.Random(fewshot_random_seed)
-        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
-                                                  fewshot_rng)
+        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, fn_delimiter,
+                                                  output_delimiter, input_delimiter, fewshot_rng)
 
     @staticmethod
     def stringify_input(input_tuple):
         tup = eval(input_tuple)
-        res = '\t'.join([f'arg_{i}={json.dumps(x)}' for i, x in enumerate(tup)])
+        res = '{' + ', '.join([f'arg_{i}: {json.dumps(x)}' for i, x in enumerate(tup)]) + '}'
         return res
 
-    def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
-                      fewshot_rng: random.Random):
+    def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, fn_delimiter: str,
+                      output_delimiter: str, input_delimiter: str, fewshot_rng: random.Random):
         """Prepares a set of language modeling tasks into tokenized format with prompt and fewshot examples.
 
         Each task consists of a context and a continuation as well as an optional prompt and optional list of
@@ -387,7 +387,7 @@ class InContextLearningCodeTracingTaskDataset(Dataset):
                         self.samples[fewshot_idx]['test_outputs'],
                     )
                     test_idx = random.choice(range(0, len(test_in)))
-                    example = f"""{example_delimiter}\n{prompt}\n{soln}\n####\nEntry point: {entry_point}\nInputs: {self.stringify_input(test_in[test_idx])}\nOutputs: {test_out[test_idx]}\n####\n"""
+                    example = f"""{example_delimiter}{prompt}{soln}{fn_delimiter}{entry_point}{input_delimiter}{self.stringify_input(test_in[test_idx])}{output_delimiter}{test_out[test_idx]}"""
 
                     preamble += example
 
@@ -398,10 +398,10 @@ class InContextLearningCodeTracingTaskDataset(Dataset):
                 self.samples[sample_idx]['test_inputs'],
                 self.samples[sample_idx]['test_outputs'],
             )
-
+            
             for inp, out in zip(test_in, test_out):
                 encoded_example = {}
-                context = f"""{example_delimiter}\n{prompt}\n{soln}\n####\nEntry point: {entry_point}\nInputs: {self.stringify_input(inp)}\nOutputs:"""
+                context = f"""{example_delimiter}{prompt}{soln}{fn_delimiter}{entry_point}{input_delimiter}{self.stringify_input(inp)}{output_delimiter}"""
                 out = f' {out}'
                 encoded_example['preamble'] = self.tokenizer(
                     preamble
@@ -1259,22 +1259,24 @@ class InContextLearningCodeEvalDataset(Dataset):
 
 
 def build_icl_dataloader(
-    icl_task_type: str,
-    dataset_uri: str,
-    tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
-    batch_size: int,
-    max_seq_len: int,
-    pad_tok_id: int,
-    num_fewshot: int,
-    prompt_string: str,  # e.g. 'translate english to french:'
-    example_delimiter: str,  # e.g. '\n'
-    continuation_delimiter: str,  # e.g. ''
-    destination_path: str,
-    question_prelimiter: str = '',  # e.g. 'Question: '
-    fewshot_random_seed: int = 1234,
-    pass_at_k: int = 1,
-    generations_per_sample: int = 1,
-) -> DataSpec:
+        icl_task_type: str,
+        dataset_uri: str,
+        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
+        batch_size: int,
+        max_seq_len: int,
+        pad_tok_id: int,
+        num_fewshot: int,
+        prompt_string: str,  # e.g. 'translate english to french:'
+        example_delimiter: str,  # e.g. '\n'
+        continuation_delimiter: str,  # e.g. ''
+        destination_path: str,
+        question_prelimiter: str = '',  # e.g. 'Question: '
+        fewshot_random_seed: int = 1234,
+        pass_at_k: int = 1,
+        generations_per_sample: int = 1,
+        extra_delimiters: Optional[dict] = None) -> DataSpec:
+    if extra_delimiters is None:
+        extra_delimiters = {}
     if icl_task_type == 'multiple_choice':
         dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri,
                                                              tokenizer,
@@ -1340,17 +1342,17 @@ def build_icl_dataloader(
                                                    pass_at_k=pass_at_k,
                                                    generations_per_sample=generations_per_sample)
         effective_batchsize = batch_size
-    elif icl_task_type == 'code_tracing':
-        dataset = InContextLearningCodeTracingTaskDataset(dataset_uri,
-                                                          tokenizer,
-                                                          max_seq_len,
-                                                          pad_tok_id,
-                                                          num_fewshot,
-                                                          prompt_string,
-                                                          example_delimiter,
-                                                          continuation_delimiter,
-                                                          destination_path=destination_path,
-                                                          fewshot_random_seed=fewshot_random_seed)
+    elif icl_task_type == 'code_execution_prediction':
+        dataset = InContextLearningExecutionPredictionTaskDataset(dataset_uri,
+                                                                  tokenizer,
+                                                                  max_seq_len,
+                                                                  pad_tok_id,
+                                                                  num_fewshot,
+                                                                  prompt_string,
+                                                                  example_delimiter,
+                                                                  destination_path=destination_path,
+                                                                  fewshot_random_seed=fewshot_random_seed,
+                                                                  **extra_delimiters)
         effective_batchsize = batch_size
     else:
         raise Exception(f'Unrecognized ICL task type: {icl_task_type}')
@@ -1435,7 +1437,8 @@ def get_icl_task_dataloader(
         fewshot_random_seed: int = 1234,
         pass_at_k: int = 1,
         generations_per_sample: int = 1,
-        has_categories: bool = False) -> Union[DataSpec, Dict[str, DataSpec]]:
+        has_categories: bool = False,
+        extra_delimiters: Optional[dict] = None) -> Union[DataSpec, Dict[str, DataSpec]]:
     """This constructs a dataloader (or dataloaders if has_categories is True) capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
 
     >>> dl = get_icl_task_dataloader(
@@ -1488,39 +1491,15 @@ def get_icl_task_dataloader(
         categories = sorted(output_files.keys())
         for category in categories:
             partition_uri = output_files[category]
-            result_dls[category] = build_icl_dataloader(
-                icl_task_type,
-                partition_uri,
-                tokenizer,
-                batch_size,
-                max_seq_len,
-                pad_tok_id,
-                num_fewshot,
-                prompt_string,
-                example_delimiter,
-                continuation_delimiter,
-                partition_uri + '_tmp',
-                question_prelimiter,
-                fewshot_random_seed,
-                pass_at_k,
-                generations_per_sample,
-            )
+            result_dls[category] = build_icl_dataloader(icl_task_type, partition_uri, tokenizer, batch_size,
+                                                        max_seq_len, pad_tok_id, num_fewshot, prompt_string,
+                                                        example_delimiter, continuation_delimiter,
+                                                        partition_uri + '_tmp', question_prelimiter,
+                                                        fewshot_random_seed, pass_at_k, generations_per_sample,
+                                                        extra_delimiters)
         return result_dls
     else:
-        return build_icl_dataloader(
-            icl_task_type,
-            dataset_uri,
-            tokenizer,
-            batch_size,
-            max_seq_len,
-            pad_tok_id,
-            num_fewshot,
-            prompt_string,
-            example_delimiter,
-            continuation_delimiter,
-            destination_path,
-            question_prelimiter,
-            fewshot_random_seed,
-            pass_at_k,
-            generations_per_sample,
-        )
+        return build_icl_dataloader(icl_task_type, dataset_uri, tokenizer, batch_size, max_seq_len, pad_tok_id,
+                                    num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
+                                    destination_path, question_prelimiter, fewshot_random_seed, pass_at_k,
+                                    generations_per_sample, extra_delimiters)

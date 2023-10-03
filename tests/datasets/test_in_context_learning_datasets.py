@@ -19,8 +19,7 @@ from composer.datasets.in_context_learning_evaluation import (InContextLearningC
                                                               _get_fewshot_sample_idxs, _make_padded_input,
                                                               get_icl_task_dataloader)
 from composer.loggers import InMemoryLogger
-from composer.metrics import (InContextLearningCodeTracingAveragePassRate, InContextLearningCodeTracingFullPassRate,
-                              InContextLearningCodeEvalAccuracy, InContextLearningLMAccuracy,
+from composer.metrics import (InContextLearningCodeEvalAccuracy, InContextLearningLMAccuracy,
                               InContextLearningMultipleChoiceAccuracy, InContextLearningQAAccuracy)
 from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
@@ -835,6 +834,97 @@ def test_code_eval_pass_at_k_validity(dataset_uri, tmp_path):
                                 destination_path=str(tmp_path / f'icl_.jsonl'),
                                 pass_at_k=10,
                                 generations_per_sample=1)
+
+
+@pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
+@pytest.mark.parametrize('num_fewshot', [2])
+def test_code_execution_prediction_task_dataloader(dataset_uri, tmp_path, num_fewshot):
+    pytest.importorskip('datasets')
+
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+
+    tokenizer = AutoTokenizer.from_pretrained('mosaicml/mpt-7b')
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    batch_size = 9
+    seqlen = 2048
+
+    prompt_string = """Below is a list of code snippets, followed by a python function indicated by `python_fn`, a dictionary of arguments indicated by `inputs`, and the model outputs indicated by `outputs`. Your task is to predict the outputs that would be obtained from executing the final `python_fn` on the `inputs`.\n"""
+
+    dl = get_icl_task_dataloader('code_execution_prediction',
+                                 dataset_uri,
+                                 tokenizer,
+                                 batch_size,
+                                 max_seq_len=seqlen,
+                                 pad_tok_id=tokenizer.eos_token_id,
+                                 num_fewshot=num_fewshot,
+                                 prompt_string=prompt_string,
+                                 example_delimiter='\n\n####\n\n',
+                                 destination_path=str(tmp_path / f'icl_{num_fewshot}.jsonl'),
+                                 extra_delimiters={
+                                     'fn_delimiter': '\n####\n\npython_fn=',
+                                     'input_delimiter': '\ninputs=',
+                                     'output_delimiter': '\noutputs='
+                                 })
+    assert isinstance(dl, DataSpec)
+
+    assert isinstance(dl.dataloader, DataLoader)  # pyright
+    batch = next(dl.dataloader._get_iterator())
+
+    max_prompt_length = 0
+    if isinstance(dl.dataloader.dataset, InContextLearningCodeEvalDataset):
+        max_prompt_length = dl.dataloader.dataset.max_prompt_length
+    assert tuple(batch['input_ids'].shape) == (batch_size, max_prompt_length)
+    assert tuple(batch['attention_mask'].shape) == (batch_size, max_prompt_length)
+    assert batch['mode'] == 'generate'
+    # the maximum generation length from the small test data
+    assert batch['generation_length'] == seqlen - max_prompt_length
+    assert any(item[0] != tokenizer.eos_token_id for item in batch['input_ids'])  # longest should be pushed left
+
+    decoded_batch = tokenizer.batch_decode(batch['input_ids'])
+    assert all(item.count('Code start: \n') == num_fewshot + 1 for item in decoded_batch)
+
+    if len(prompt_string) > 0:
+        assert all(item.count('Please code:\n') == 1 for item in decoded_batch)
+
+    assert batch['labels'] == [
+        "    result = []\n    current_string = []\n    current_depth = 0\n\n    for c in paren_string:\n        if c == '(':\n            current_depth += 1\n            current_string.append(c)\n        elif c == ')':\n            current_depth -= 1\n            current_string.append(c)\n\n            if current_depth == 0:\n                result.append(''.join(current_string))\n                current_string.clear()\n\n    return result\n",
+        '    for idx, elem in enumerate(numbers):\n        for idx2, elem2 in enumerate(numbers):\n            if idx != idx2:\n                distance = abs(elem - elem2)\n                if distance < threshold:\n                    return True\n\n    return False\n',
+        '    return number % 1.0\n',
+        '    balance = 0\n\n    for op in operations:\n        balance += op\n        if balance < 0:\n            return True\n\n    return False\n',
+        '    mean = sum(numbers) / len(numbers)\n    return sum(abs(x - mean) for x in numbers) / len(numbers)\n',
+        '    if not numbers:\n        return []\n\n    result = []\n\n    for n in numbers[:-1]:\n        result.append(n)\n        result.append(delimeter)\n\n    result.append(numbers[-1])\n\n    return result\n',
+        "    def parse_paren_group(s):\n        depth = 0\n        max_depth = 0\n        for c in s:\n            if c == '(':\n                depth += 1\n                max_depth = max(depth, max_depth)\n            else:\n                depth -= 1\n\n        return max_depth\n\n    return [parse_paren_group(x) for x in paren_string.split(' ') if x]\n",
+        '    return [x for x in strings if substring in x]\n',
+        '    sum_value = 0\n    prod_value = 1\n\n    for n in numbers:\n        sum_value += n\n        prod_value *= n\n    return sum_value, prod_value\n'
+    ]
+
+    assert decoded_batch[0].endswith(
+        "Code start: \nfrom typing import List\n\n\ndef separate_paren_groups(paren_string: str) -> List[str]:\n    \"\"\" Input to this function is a string containing multiple groups of nested parentheses. Your goal is to\n    separate those group into separate strings and return the list of those.\n    Separate groups are balanced (each open brace is properly closed) and not nested within each other\n    Ignore any spaces in the input string.\n    >>> separate_paren_groups('( ) (( )) (( )( ))')\n    ['()', '(())', '(()())']\n    \"\"\"\n"
+    )
+    assert decoded_batch[1].endswith(
+        "Code start: \nfrom typing import List\n\n\ndef has_close_elements(numbers: List[float], threshold: float) -> bool:\n    \"\"\" Check if in given list of numbers, are any two numbers closer to each other than\n    given threshold.\n    >>> has_close_elements([1.0, 2.0, 3.0], 0.5)\n    False\n    >>> has_close_elements([1.0, 2.8, 3.0, 4.0, 5.0, 2.0], 0.3)\n    True\n    \"\"\"\n"
+    )
+    assert decoded_batch[2].endswith(
+        "Code start: \n\n\ndef truncate_number(number: float) -> float:\n    \"\"\" Given a positive floating point number, it can be decomposed into\n    and integer part (largest integer smaller than given number) and decimals\n    (leftover part always smaller than 1).\n\n    Return the decimal part of the number.\n    >>> truncate_number(3.5)\n    0.5\n    \"\"\"\n"
+    )
+    assert decoded_batch[3].endswith(
+        "Code start: \nfrom typing import List\n\n\ndef below_zero(operations: List[int]) -> bool:\n    \"\"\" You're given a list of deposit and withdrawal operations on a bank account that starts with\n    zero balance. Your task is to detect if at any point the balance of account fallls below zero, and\n    at that point function should return True. Otherwise it should return False.\n    >>> below_zero([1, 2, 3])\n    False\n    >>> below_zero([1, 2, -4, 5])\n    True\n    \"\"\"\n"
+    )
+    assert decoded_batch[4].endswith(
+        "Code start: \nfrom typing import List\n\n\ndef mean_absolute_deviation(numbers: List[float]) -> float:\n    \"\"\" For a given list of input numbers, calculate Mean Absolute Deviation\n    around the mean of this dataset.\n    Mean Absolute Deviation is the average absolute difference between each\n    element and a centerpoint (mean in this case):\n    MAD = average | x - x_mean |\n    >>> mean_absolute_deviation([1.0, 2.0, 3.0, 4.0])\n    1.0\n    \"\"\"\n"
+    )
+    assert decoded_batch[5].endswith(
+        "Code start: \nfrom typing import List\n\n\ndef intersperse(numbers: List[int], delimeter: int) -> List[int]:\n    \"\"\" Insert a number 'delimeter' between every two consecutive elements of input list `numbers'\n    >>> intersperse([], 4)\n    []\n    >>> intersperse([1, 2, 3], 4)\n    [1, 4, 2, 4, 3]\n    \"\"\"\n"
+    )
+    assert decoded_batch[6].endswith(
+        "Code start: \nfrom typing import List\n\n\ndef parse_nested_parens(paren_string: str) -> List[int]:\n    \"\"\" Input to this function is a string represented multiple groups for nested parentheses separated by spaces.\n    For each of the group, output the deepest level of nesting of parentheses.\n    E.g. (()()) has maximum two levels of nesting while ((())) has three.\n\n    >>> parse_nested_parens('(()()) ((())) () ((())()())')\n    [2, 3, 1, 3]\n    \"\"\"\n"
+    )
+    assert decoded_batch[7].endswith(
+        "Code start: \nfrom typing import List\n\n\ndef filter_by_substring(strings: List[str], substring: str) -> List[str]:\n    \"\"\" Filter an input list of strings only for ones that contain given substring\n    >>> filter_by_substring([], 'a')\n    []\n    >>> filter_by_substring(['abc', 'bacd', 'cde', 'array'], 'a')\n    ['abc', 'bacd', 'array']\n    \"\"\"\n"
+    )
+    assert decoded_batch[8].endswith(
+        "from typing import List, Tuple\n\n\ndef sum_product(numbers: List[int]) -> Tuple[int, int]:\n    \"\"\" For a given list of integers, return a tuple consisting of a sum and a product of all the integers in a list.\n    Empty sum should be equal to 0 and empty product should be equal to 1.\n    >>> sum_product([])\n    (0, 1)\n    >>> sum_product([1, 2, 3, 4])\n    (10, 24)\n    \"\"\"\n"
+    )
 
 
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])

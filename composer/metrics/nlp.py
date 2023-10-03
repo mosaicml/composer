@@ -8,7 +8,7 @@ import os
 import re
 import string
 import warnings
-from typing import Any, Dict, List, Mapping, Optional, Union
+from typing import Any, Dict, List, Mapping, Union
 
 import numpy as np
 import torch
@@ -21,10 +21,13 @@ from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalCl
 log = logging.getLogger(__name__)
 
 __all__ = [
-    'Perplexity', 'InContextLearningLMAccuracy', 'InContextLearningMultipleChoiceAccuracy',
-    'InContextLearningQAAccuracy', 'BinaryF1Score', 'HFCrossEntropy', 'LanguageCrossEntropy', 'MaskedAccuracy',
-    'LanguagePerplexity', 'InContextLearningLMExpectedCalibrationError', 'InContextLearningMCExpectedCalibrationError',
-    'InContextLearningCodeTracingFullPassRate', 'InContextLearningCodeTracingAveragePassRate'
+    'InContextLearningLMAccuracy',
+    'InContextLearningMultipleChoiceAccuracy',
+    'InContextLearningQAAccuracy',
+    'LanguageCrossEntropy',
+    'MaskedAccuracy',
+    'InContextLearningLMExpectedCalibrationError',
+    'InContextLearningMCExpectedCalibrationError',
     'InContextLearningLMAccuracy',
     'InContextLearningMultipleChoiceAccuracy',
     'InContextLearningQAAccuracy',
@@ -315,58 +318,6 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
-        for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
-            cont_tok_pred = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
-            cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
-
-            self.correct += (cont_tok_pred == cont_tok_targ).all().int()
-            self.total += torch.tensor(1.0)
-
-    def compute(self):
-        assert isinstance(self.correct, Tensor)
-        assert isinstance(self.total, Tensor)
-        return self.correct / self.total
-
-
-class InContextLearningCodeTracingFullPassRate(InContextLearningMetric):
-
-    # Make torchmetrics call update only once
-    full_state_update = False
-
-    def __init__(self, dist_sync_on_step: bool = False):
-        # state from multiple processes
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
-        self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
-
-    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
-        breakpoint()
-        for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
-            cont_tok_pred = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
-            cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
-
-            self.correct += (cont_tok_pred == cont_tok_targ).all().int()
-            self.total += torch.tensor(1.0)
-
-    def compute(self):
-        assert isinstance(self.correct, Tensor)
-        assert isinstance(self.total, Tensor)
-        return self.correct / self.total
-
-
-class InContextLearningCodeTracingAveragePassRate(InContextLearningMetric):
-
-    # Make torchmetrics call update only once
-    full_state_update = False
-
-    def __init__(self, dist_sync_on_step: bool = False):
-        # state from multiple processes
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
-        self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
-
-    def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
-        breakpoint()
         for batch_idx, cont_idx in enumerate(batch['continuation_indices']):
             cont_tok_pred = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
             cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
