@@ -11,8 +11,9 @@ import composer.callbacks
 import composer.loggers
 import composer.profiler
 from composer import Callback
-from composer.callbacks import (EarlyStopper, ExportForInferenceCallback, Generate, HealthChecker, ImageVisualizer,
-                                MemoryMonitor, MLPerfCallback, SpeedMonitor, SystemMetricsMonitor, ThresholdStopper)
+from composer.callbacks import (EarlyStopper, ExportForInferenceCallback, FreeOutputs, Generate, HealthChecker,
+                                ImageVisualizer, MemoryMonitor, MLPerfCallback, SpeedMonitor, SystemMetricsMonitor,
+                                ThresholdStopper)
 from composer.loggers import (CometMLLogger, ConsoleLogger, LoggerDestination, MLFlowLogger, ProgressBarLogger,
                               RemoteUploaderDownloader, TensorboardLogger, WandBLogger)
 from composer.models.base import ComposerModel
@@ -223,5 +224,8 @@ def get_cb_model_and_datasets(cb: Callback,
             )
         return (configure_tiny_gpt2_hf_model(), dummy_gpt_lm_dataloader(size=dl_size),
                 dummy_gpt_lm_dataloader(size=dl_size))
-    return (SimpleModel(), DataLoader(RandomClassificationDataset(size=dl_size), **default_dl_kwargs),
+    model = SimpleModel()
+    if isinstance(cb, FreeOutputs):
+        model.get_metrics = lambda is_train=False: {}
+    return (model, DataLoader(RandomClassificationDataset(size=dl_size), **default_dl_kwargs),
             DataLoader(RandomClassificationDataset(size=dl_size), **default_dl_kwargs))
