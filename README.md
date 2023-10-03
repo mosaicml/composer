@@ -44,9 +44,9 @@
 
 # **👋 Welcome**
 
-Composer is an open-source deep learning training library by [MosaicML](https://www.mosaicml.com/). Built on top of PyTorch, the Composer library makes it easier to implement distributed training workflows on large-scale clusters. 
+Composer is an open-source deep learning training library by [MosaicML](https://www.mosaicml.com/). Built on top of PyTorch, the Composer library makes it easier to implement distributed training workflows on large-scale clusters.
 
-We built Composer to be **optimized for scalability and usability**, integrating best practices for efficient, multi-node training. By abstracting away low-level complexities like parallelism techniques, distributed data loading, and memory optimization, you can focus on training modern ML models and running experiments without slowing down. 
+We built Composer to be **optimized for scalability and usability**, integrating best practices for efficient, multi-node training. By abstracting away low-level complexities like parallelism techniques, distributed data loading, and memory optimization, you can focus on training modern ML models and running experiments without slowing down.
 
 We recommend using Composer to speedup your experimentation workflow if you’re training neural networks of any size, including:
 
@@ -56,18 +56,18 @@ We recommend using Composer to speedup your experimentation workflow if you’re
 - Transformer-based models
 - Convolutional Neural Networks (CNNs)
 
-Composer is heavily used by the MosaicML research team to train state-of-the-art models like MPT, and we open-sourced this library to enable the ML community to do the same. This framework is used by organizations in both the tech industry and the academic sphere and is continually updated with new features, bug fixes, and stability improvements for production workloads.  
+Composer is heavily used by the MosaicML research team to train state-of-the-art models like MPT, and we open-sourced this library to enable the ML community to do the same. This framework is used by organizations in both the tech industry and the academic sphere and is continually updated with new features, bug fixes, and stability improvements for production workloads.
 
 # **🔑 Key Features**
 ![Composer is to give you better workflows with the ability to maximize scale and customizability.](docs/source/_static/images/key_features.png)
 
 We designed Composer from the ground up for modern deep learning workloads. Gone are the days of AlexNet and ResNet, when state-of-the-art models could be trained on a couple of desktop GPUs. Today, developing the latest and greatest deep learning models often requires cluster-scale hardware — but with Composer’s help, you’ll hardly notice the difference.
 
-The heart of Composer is our Trainer abstraction: a highly optimized PyTorch training loop designed to allow both you and your model to iterate faster. Our trainer has simple ways for you to configure your parallelization scheme, data loaders, metrics, loggers, and more. 
+The heart of Composer is our Trainer abstraction: a highly optimized PyTorch training loop designed to allow both you and your model to iterate faster. Our trainer has simple ways for you to configure your parallelization scheme, data loaders, metrics, loggers, and more.
 
 ## Scalability
 
-Whether you’re training on 1 GPU or 512 GPUs, 50MB or 10TB of data - Composer is built to keep your workflow simple. 
+Whether you’re training on 1 GPU or 512 GPUs, 50MB or 10TB of data - Composer is built to keep your workflow simple.
 
 - [**FSDP**](https://docs.mosaicml.com/projects/composer/en/stable/notes/distributed_training.html#fullyshardeddataparallel-fsdp): For large models that are too large to fit on GPUs, Composer has integrated PyTorch [FullyShardedDataParallelism](https://docs.mosaicml.com/projects/composer/en/stable/notes/distributed_training.html#fullyshardeddataparallel-fsdp) into our trainer and made it simple to efficiently parallelize custom models. We’ve found FSDP is competitive performance-wise with much more complex parallelism strategies. Alternatively, Composer also supports standard PyTorch distributed data parallelism (DDP) and Deepspeed execution.
 - [**Elastic sharded checkpointing**](https://docs.mosaicml.com/projects/composer/en/stable/notes/distributed_training.html#saving-and-loading-sharded-checkpoints-with-fsdp): Save on eight GPUs, resume on sixteen. Composer supports elastic sharded checkpointing, so you never have to worry if your sharded saved state is compatible with your new hardware setup.
@@ -102,7 +102,7 @@ Composer is built to automate away low-level pain points and headaches so you ca
 
 ## Integrations
 
-Integrate with the tools you know and love for experiment tracking and data streaming. 
+Integrate with the tools you know and love for experiment tracking and data streaming.
 
 - **Cloud integrations**: Our Checkpointing and logging features have first-class support for remote storage and loading from Cloud bucket (OCI, GCP, AWS S3).
 - **********Experiment tracking:********** Weights and Biases, MLFlow, and CometML — the choice is yours, easily log your data to your favorite platform.
@@ -111,11 +111,11 @@ Integrate with the tools you know and love for experiment tracking and data stre
 
 ## **📍**Prerequisites
 
-Composer is designed for users who are comfortable with Python and have basic familiarity with deep learning fundamentals and PyTorch. 
+Composer is designed for users who are comfortable with Python and have basic familiarity with deep learning fundamentals and PyTorch.
 
-**********************************************Software requirements:**********************************************  A recent version of PyTorch.  
+**********************************************Software requirements:**********************************************  A recent version of PyTorch.
 
-**********************************************Hardware requirements:**********************************************  System with CUDA-compatible GPUs (AMD + RoCM coming soon!). Composer can run on CPUs, but for full benefits, we recommend using it on hardware accelerators. 
+**********************************************Hardware requirements:**********************************************  System with CUDA-compatible GPUs (AMD + RoCM coming soon!). Composer can run on CPUs, but for full benefits, we recommend using it on hardware accelerators.
 
 ## **💾 Installation**
 
@@ -129,7 +129,7 @@ To simplify the environment setup for Composer, we also provide a set of [pre-bu
 
 ## **🏁 Quick Start**
 
-Here is a code snippet demonstrating our Trainer on the MNIST dataset. 
+Here is a code snippet demonstrating our Trainer on the MNIST dataset.
 
 ```python
 from torchvision import datasets, transforms
@@ -147,7 +147,7 @@ trainer = Trainer(
     model=mnist_model(num_classes=10),
     train_dataloader=train_dataloader,
     max_duration="2ep",
-    algorithms=[ 
+    algorithms=[
         LabelSmoothing(smoothing=0.1),
         CutMix(alpha=1.0),
         ChannelsLast(),
@@ -200,7 +200,7 @@ Here are some resources actively maintained by the Composer community to help yo
     <td><a href="https://colab.research.google.com/github/mosaicml/composer/blob/dev/examples/custom_speedup_methods.ipynb" target="_blank" rel="noopener noreferrer">Building Speedup Methods</a></td>
     <td>A Colab Notebook showing how to build new training modifications on top of Composer</td>
   </tr>
-  
+
 </tbody>
 </table>
 
@@ -232,7 +232,7 @@ Here are some projects and experiments that used Composer. Got something to add?
 
 # 💫 Contributors
 
-Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, or issues! 
+Composer is part of the broader Machine Learning community, and we welcome any contributions, pull requests, or issues!
 
 To start contributing, see our [Contributing](https://github.com/mosaicml/composer/blob/dev/CONTRIBUTING.md) page.
 

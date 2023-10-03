@@ -3,14 +3,14 @@
 Composer
 ========
 
-`Composer <https://github.com/mosaicml/composer>`_  is an open-source deep learning training 
+`Composer <https://github.com/mosaicml/composer>`_  is an open-source deep learning training
 library by [MosaicML](https://www.mosaicml.com/). Built on top of PyTorch, the Composer library
-makes it easier to implement distributed training workflows on large-scale clusters. 
+makes it easier to implement distributed training workflows on large-scale clusters.
 
 We built Composer to be **optimized for scalability and usability**, integrating best practices
 for efficient, multi-node training. By abstracting away low-level complexities like parallelism
 techniques, distributed data loading, and memory optimization, you can focus on training modern
-ML models and running experiments without slowing down. 
+ML models and running experiments without slowing down.
 
 We recommend using Composer to speedup your experimentation workflow if you're training neural
 networks of any size, including:
@@ -21,10 +21,10 @@ networks of any size, including:
 - Transformer-based models
 - Convolutional Neural Networks (CNNs)
 
-Composer is heavily used by the MosaicML research team to train state-of-the-art models like MPT, 
+Composer is heavily used by the MosaicML research team to train state-of-the-art models like MPT,
 and we open-sourced this library to enable the ML community to do the same. This framework is used
 by organizations in both the tech industry and the academic sphere and is continually updated with
-new features, bug fixes, and stability improvements for production workloads.  
+new features, bug fixes, and stability improvements for production workloads.
 
 If you have any questions, please feel free to reach out to us on `Twitter`_, `Email`_, or `Slack`_!
 

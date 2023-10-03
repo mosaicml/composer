@@ -65,5 +65,3 @@ def test_docker_build_matrix():
 
     with open(os.path.join(docker_folder, 'build_matrix.yaml'), 'r') as f:
         assert existing_build_matrix == f.read()
-
-
