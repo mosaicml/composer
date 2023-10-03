@@ -860,8 +860,9 @@ class InContextLearningCodeEvalDataset(Dataset):
     - test: the checker code that will run to completion if the code generation is valid and otherwise throw assertion
     - test_inputs: list of test inputs
     - test_outputs: list of test outputs
+    - language: the language of the code snippet
     Args:
-	dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
+        dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
         supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "task_id",
         "prompt", "entry_point", "canonical_solution", "test", "test_inputs", and "test_outputs". See tests/datasets/local_data/human_eval_small.jsonl.
         tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to map between strings and token ids
@@ -892,6 +893,7 @@ class InContextLearningCodeEvalDataset(Dataset):
         code_prelimiter: str,
         fewshot_random_seed: int,
         generations_per_sample: int,
+        pass_at_k: int = 1,
         top_p: Optional[float] = 0.95,
         top_k: Optional[int] = 40,
     ):
@@ -915,8 +917,17 @@ class InContextLearningCodeEvalDataset(Dataset):
                     'entry_point': examples['entry_point'],
                     'test_inputs': examples['test_inputs'],
                     'test_outputs': examples['test_outputs'],
+                    'language': examples['language'],
                 }))
+
+        if generations_per_sample < pass_at_k:
+            raise ValueError(
+                f'generations_per_sample ({generations_per_sample}) must be greater than or equal to pass_at_k ({pass_at_k}) for code evaluation.'
+            )
+
+        self.pass_at_k = pass_at_k
         self.generations_per_sample = generations_per_sample
+
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
@@ -982,6 +993,7 @@ class InContextLearningCodeEvalDataset(Dataset):
             encoded_example['entry_point'] = self.samples[sample_idx]['entry_point']
             encoded_example['test_inputs'] = self.samples[sample_idx]['test_inputs']
             encoded_example['test_outputs'] = self.samples[sample_idx]['test_outputs']
+            encoded_example['language'] = self.samples[sample_idx]['language']
 
             examples.append(encoded_example)
             max_prompt_length = max(
@@ -998,11 +1010,19 @@ class InContextLearningCodeEvalDataset(Dataset):
         return len(self.encoded_dataset)
 
     def collate_fn(self, data):
-        inputs, prompts, tests, canonical_solutions, entry_points, test_inputs, test_outputs = [], [], [], [], [], [], []
+        inputs, prompts, tests, canonical_solutions, entry_points, test_inputs, test_outputs, languages = [], [], [], [], [], [], [], []
         for sample in data:
-            preamble, prompt, text_prompt, canonical_solution, test, entry_point, test_input, test_output = (
-                sample['preamble'], sample['prompt'], sample['prompt_text'], sample['canonical_solution'],
-                sample['test'], sample['entry_point'], sample['test_inputs'], sample['test_outputs'])
+            preamble, prompt, text_prompt, canonical_solution, test, entry_point, test_input, test_output, language = (
+                sample['preamble'],
+                sample['prompt'],
+                sample['prompt_text'],
+                sample['canonical_solution'],
+                sample['test'],
+                sample['entry_point'],
+                sample['test_inputs'],
+                sample['test_outputs'],
+                sample['language'],
+            )
             context_enc = preamble['input_ids'] + prompt['input_ids']
             inp, _ = _make_padded_input(context_enc, [],
                                         self.max_prompt_length,
@@ -1016,6 +1036,7 @@ class InContextLearningCodeEvalDataset(Dataset):
             entry_points.append(entry_point)
             test_inputs.append(test_input)
             test_outputs.append(test_output)
+            languages.append(language)
 
         batch = {
             'input_ids': torch.stack(inputs),
@@ -1027,10 +1048,12 @@ class InContextLearningCodeEvalDataset(Dataset):
             'entry_points': entry_points,  # list of entry points
             'test_inputs': test_inputs,  # list of test inputs
             'test_outputs': test_outputs,  # list of test outputs
+            'languages': languages,  # list of languages
+            'pass_at_k': self.pass_at_k,
             'generation_length': self.max_seq_len - self.max_prompt_length,
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
-                'num_beams': self.generations_per_sample,  # change strategy to beam search
+                'num_beams': 1,  # single beam
                 'num_return_sequences': self.generations_per_sample,  # how many gens per prompt
                 'do_sample': True,
                 'top_p': self.top_p,
@@ -1049,10 +1072,11 @@ class InContextLearningCodeEvalDataset(Dataset):
         # Don't split kwargs that don't change
         # Normally split torch tensors
         # List split lists of strings
-        no_split = ['mode', 'generation_length', 'generation_kwargs']
+        no_split = ['mode', 'generation_length', 'pass_at_k', 'generation_kwargs']
         normal_split = ['input_ids', 'attention_mask']
         list_split = [
-            'labels', 'tests', 'canonical_solutions', 'entry_points', 'test_inputs', 'test_outputs', 'prompts'
+            'labels', 'tests', 'canonical_solutions', 'entry_points', 'test_inputs', 'test_outputs', 'prompts',
+            'languages'
         ]
         chunked = {}
         for k, v in batch.items():
@@ -1087,6 +1111,7 @@ def build_icl_dataloader(
     destination_path: str,
     question_prelimiter: str = '',  # e.g. 'Question: '
     fewshot_random_seed: int = 1234,
+    pass_at_k: int = 1,
     generations_per_sample: int = 1,
 ) -> DataSpec:
     if icl_task_type == 'multiple_choice':
@@ -1151,6 +1176,7 @@ def build_icl_dataloader(
                                                    destination_path=destination_path,
                                                    code_prelimiter=question_prelimiter,
                                                    fewshot_random_seed=fewshot_random_seed,
+                                                   pass_at_k=pass_at_k,
                                                    generations_per_sample=generations_per_sample)
         effective_batchsize = batch_size
     else:
@@ -1234,6 +1260,7 @@ def get_icl_task_dataloader(
         destination_path: str = '',
         question_prelimiter: str = '',  # e.g. 'Question: '
         fewshot_random_seed: int = 1234,
+        pass_at_k: int = 1,
         generations_per_sample: int = 1,
         has_categories: bool = False) -> Union[DataSpec, Dict[str, DataSpec]]:
     """This constructs a dataloader (or dataloaders if has_categories is True) capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
@@ -1302,6 +1329,7 @@ def get_icl_task_dataloader(
                 partition_uri + '_tmp',
                 question_prelimiter,
                 fewshot_random_seed,
+                pass_at_k,
                 generations_per_sample,
             )
         return result_dls
@@ -1320,5 +1348,6 @@ def get_icl_task_dataloader(
             destination_path,
             question_prelimiter,
             fewshot_random_seed,
+            pass_at_k,
             generations_per_sample,
         )

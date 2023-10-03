@@ -475,7 +475,7 @@ class CosineAnnealingWarmRestartsScheduler(ComposerScheduler):
 class PolynomialScheduler(ComposerScheduler):
     r"""Sets the learning rate to be proportional to a power of the fraction of training time left.
 
-    Specifially, the learning rate multiplier :math:`\alpha` can be expressed as:
+    Specifically, the learning rate multiplier :math:`\alpha` can be expressed as:
 
     .. math::
         \alpha(t) = \alpha_f + (1 - \alpha_f) \times (1 - \tau) ^ {\kappa}
@@ -508,6 +508,22 @@ class PolynomialScheduler(ComposerScheduler):
         coeff = (1 - frac_of_total)**self.power
         current_factor = self.alpha_f + coeff * (1.0 - self.alpha_f)
         return current_factor
+
+
+def _raise_if_warmup_and_max_duration_incompatible(t_warmup: Union[str, Time], t_max: Union[str, Time]):
+    if isinstance(t_warmup, str):
+        t_warmup = Time.from_timestring(t_warmup)
+    if isinstance(t_max, str):
+        t_max = Time.from_timestring(t_max)
+    units_same = t_warmup.unit == t_max.unit
+    warmup_is_dur = t_warmup.unit == TimeUnit('dur')
+    batches_vs_epochs = (t_warmup.unit == TimeUnit('ba') and
+                         t_max.unit == TimeUnit('ep')) or (t_warmup.unit == TimeUnit('ep') and
+                                                           t_max.unit == TimeUnit('ba'))
+    if not units_same and not warmup_is_dur and not batches_vs_epochs:
+        raise ValueError(f'Cannot use warmup scheduler with max_duration {t_max} and warmup {t_warmup}. '
+                         't_warmup units must be the same as max_duration units, warmup must be in units "dur", '
+                         'max_duration must be "ba" and t_warmup "ep", or max_duration must be "ep" and t_warmup "ba".')
 
 
 class MultiStepWithWarmupScheduler(ComposerScheduler):
@@ -558,6 +574,8 @@ class MultiStepWithWarmupScheduler(ComposerScheduler):
         self.step_scheduler = MultiStepScheduler(milestones=milestones, gamma=gamma)
 
     def __call__(self, state: State, ssr: float = 1.0):
+        assert state.max_duration is not None, 'max_duration should be set whenever schedulers are invoked'
+        _raise_if_warmup_and_max_duration_incompatible(self.t_warmup, state.max_duration)
         t_warmup = _convert_time(self.t_warmup, state)
         if t_warmup.value == 0:
             warnings.warn(
@@ -639,7 +657,7 @@ class LinearWithWarmupScheduler(ComposerScheduler):
             \alpha_i + (alpha_f - \alpha_i) \times \tau_w & \text{otherwise}
         \end{cases}
 
-    Given :math:`\tau_w`, the fraction of post-warmup time elpased (clipped to the interval :math:`[0, 1]`), as:
+    Given :math:`\tau_w`, the fraction of post-warmup time elapsed (clipped to the interval :math:`[0, 1]`), as:
 
     .. math::
         \tau_w = (t - t_{warmup}) / t_{max}
@@ -676,6 +694,8 @@ class LinearWithWarmupScheduler(ComposerScheduler):
         self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=alpha_i, t_max=t_warmup)
 
     def __call__(self, state: State, ssr: float = 1.0):
+        assert state.max_duration is not None, 'max_duration should be set whenever schedulers are invoked'
+        _raise_if_warmup_and_max_duration_incompatible(self.t_warmup, state.max_duration)
         t_warmup = _convert_time(self.t_warmup, state)
         if t_warmup.value == 0:
             warnings.warn(
@@ -713,7 +733,7 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
             \alpha_f + (1 - \alpha_f) \times \frac{1}{2} (1 + \cos(\pi \times \tau_w)) & \text{otherwise}
         \end{cases}
 
-    Given :math:`\tau_w`, the fraction of post-warmup time elpased (clipped to the interval :math:`[0, 1]`), as:
+    Given :math:`\tau_w`, the fraction of post-warmup time elapsed (clipped to the interval :math:`[0, 1]`), as:
 
     .. math::
        \tau_w = (t - t_{warmup}) / t_{max}
@@ -744,6 +764,8 @@ class CosineAnnealingWithWarmupScheduler(ComposerScheduler):
         self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=1.0, t_max=t_warmup)
 
     def __call__(self, state: State, ssr: float = 1.0):
+        assert state.max_duration is not None, 'max_duration should be set whenever schedulers are invoked'
+        _raise_if_warmup_and_max_duration_incompatible(self.t_warmup, state.max_duration)
         t_warmup = _convert_time(self.t_warmup, state)
         if t_warmup.value == 0:
             warnings.warn(
@@ -779,7 +801,7 @@ class PolynomialWithWarmupScheduler(ComposerScheduler):
             \alpha_f + (1 - \alpha_f) \times (1 - \tau_w) ^ {\kappa} & \text{otherwise}
         \end{cases}
 
-    Given :math:`\tau_w`, the fraction of post-warmup time elpased (clipped to the interval :math:`[0, 1]`), as:
+    Given :math:`\tau_w`, the fraction of post-warmup time elapsed (clipped to the interval :math:`[0, 1]`), as:
 
     .. math::
        \tau_w = (t - t_{warmup}) / t_{max}
@@ -814,6 +836,8 @@ class PolynomialWithWarmupScheduler(ComposerScheduler):
         self.warmup_scheduler = LinearScheduler(alpha_i=0.0, alpha_f=1.0, t_max=t_warmup)
 
     def __call__(self, state: State, ssr: float = 1.0):
+        assert state.max_duration is not None, 'max_duration should be set whenever schedulers are invoked'
+        _raise_if_warmup_and_max_duration_incompatible(self.t_warmup, state.max_duration)
         t_warmup = _convert_time(self.t_warmup, state)
         if t_warmup.value == 0:
             warnings.warn(

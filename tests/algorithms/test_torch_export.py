@@ -169,7 +169,7 @@ def test_surgery_onnx(
     onnx.checker.check_model(onnx_model)  # type: ignore (third-party)
 
     # run inference
-    ort_session = ort.InferenceSession(onnx_path)
+    ort_session = ort.InferenceSession(onnx_path, providers=['CPUExecutionProvider'])
     outputs = ort_session.run(
         None,
         {'input': input[0].numpy()},

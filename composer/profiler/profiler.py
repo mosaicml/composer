@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import pathlib
-from typing import TYPE_CHECKING, Callable, Dict, List, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 from composer.profiler.marker import Marker
 from composer.profiler.profiler_action import ProfilerAction
@@ -94,7 +94,7 @@ class Profiler:
         sys_prof_stats_thread_interval_seconds: float = 0.5,
         torch_prof_folder: str = '{run_name}/torch_traces',
         torch_prof_filename: str = 'rank{rank}.{batch}.pt.trace.json',
-        torch_prof_remote_file_name: str = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
+        torch_prof_remote_file_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
         torch_prof_overwrite: bool = False,
         torch_prof_use_gzip: bool = False,
         torch_prof_record_shapes: bool = False,

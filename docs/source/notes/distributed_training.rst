@@ -184,7 +184,6 @@ The full spec and defaults for Composer's `fsdp_config` is here:
 
     fsdp_config = {
       'sharding_strategy': str = 'FULL_SHARD' | 'SHARD_GRAD_OP' | 'NO_SHARD', # Default: 'FULL_SHARD'
-      'min_params': float # Default: 1e8
       'cpu_offload': bool = True | False, # Default: False, cpu_offload not supported yet
       'mixed_precision': str = 'FULL' | 'DEFAULT' | 'PURE', # Default: 'DEFAULT'
       # Note: you can explicitly provide a dictionary too
@@ -279,7 +278,6 @@ An example code snippet for using FSDP with composer is provided below:
 
     fsdp_config = {
         'sharding_strategy': 'FULL_SHARD',
-        'min_params': 1e8,
         'cpu_offload': False, # Not supported yet
         'mixed_precision': 'DEFAULT',
         'backward_prefetch': 'BACKWARD_POST',
@@ -310,9 +308,8 @@ To make auto-wrapping easier on users, Composer uses a custom auto wrap policy t
 
 1) If any module is attributed with :code:`module._fsdp_wrap = True | False`, that choice will be respected.
 2) If the root module (e.g. `GPT`) defines a function :code:`def fsdp_wrap_fn(module: torch.nn.Module) -> bool`, then that function will be used to evaluate the root module's children.
-3) If any module has more parameters than :code:`fsdp_config['min_params']`, it will be wrapped.
 
-These rules are meant to make it easy for users to modify existing models for usage with FSDP. You can either add attributes to modules you want to wrap (#1), define a filter (#2), or make no changes at all and just use the size-based policy via :code:`fsdp_config['min_params'] = ...` (#3).
+These rules are meant to make it easy for users to modify existing models for usage with FSDP. You can either add attributes to modules you want to wrap (#1) or define a filter (#2).
 
 In `gpt.py <https://github.com/mosaicml/examples/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py>`__, you can see that `we used rule #2 <https://github.com/mosaicml/examples/blob/6972fe3000d5a5480d8757ff710965514155e8db/llm/llm/gpt.py#L172>`__ to specify that all :code:`GPTBlock` modules within :code:`GPT` should be wrapped. Alternatively, we could have easily attributed each of the blocks with :code:`block._fsdp_wrap = True` and it would have accomplished the same thing. Whatever style you prefer, it's up to you!
 

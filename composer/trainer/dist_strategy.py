@@ -17,11 +17,15 @@ from torchmetrics import Metric, MetricCollection
 from composer.core import Precision, State
 from composer.devices import Device
 from composer.trainer.meta_safe_apply import meta_safe_apply
+from composer.trainer.mosaic_fsdp import patch_pytorch
+from composer.trainer.mosaic_fsdp_utils import BACKWARD_PREFETCH_MAP, SHARDING_MAP, get_cpu_offload, get_mixed_precision
 from composer.utils import StringEnum, dist, ensure_tuple, using_torch_2
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module']
 
 log = logging.getLogger(__name__)
+
+process_group_cache = {}
 
 
 class DDPSyncStrategy(StringEnum):
@@ -218,7 +222,7 @@ def prepare_fsdp_module(
     if not is_torch_2_0:
         from torch.distributed.fsdp.flatten_params_wrapper import FlattenParamsWrapper
 
-    from composer.trainer.mosaic_fsdp import backward_prefetch_map, get_cpu_offload, get_mixed_precision, sharding_map
+    patch_pytorch()
 
     set_fsdp_default(fsdp_config)
 
@@ -310,7 +314,7 @@ def prepare_fsdp_module(
         optim.state.clear()
 
     sharding_map_key = fsdp_config['sharding_strategy'].upper()
-    sharding_strategy = sharding_map[sharding_map_key]
+    sharding_strategy = SHARDING_MAP[sharding_map_key]
 
     cpu_offload = get_cpu_offload(cpu_offload=fsdp_config['cpu_offload'])
 
@@ -340,11 +344,7 @@ def prepare_fsdp_module(
                 f'Consider using `amp` or `bf16` for precision or setting param_dtype in mixed_precision to `None` '
                 f'with sharding strategy `{sharding_map_key}.`')
 
-    if fsdp_config.get('min_params') is not None:
-        warnings.warn(DeprecationWarning('`min_params` in FSDP config will be deprecated in composer version 0.16.0.'))
-
-    backward_prefetch = backward_prefetch_map[fsdp_config['backward_prefetch'].upper()]
-    min_params = int(float(fsdp_config.get('min_params', 1e9)))
+    backward_prefetch = BACKWARD_PREFETCH_MAP[fsdp_config['backward_prefetch'].upper()]
     activation_checkpointing = fsdp_config['activation_checkpointing']
     activation_cpu_offload = fsdp_config['activation_cpu_offload']
     sync_module_states = fsdp_config['sync_module_states']
@@ -372,6 +372,10 @@ def prepare_fsdp_module(
 
                 # Goes through all modules finding which weights have the same pointers
                 for name, mod in module.named_modules():
+                    # Since FSDP recursively wraps, at parent modules we can encounter already
+                    # wrapped weights, as a result we should skip any modules with `_fsdp_wrapped_module.`
+                    if '_fsdp_wrapped_module' in name:
+                        continue
                     for attr in ['weight', 'bias']:
                         if hasattr(mod, attr):
                             mod_attr = getattr(mod, attr)
@@ -435,41 +439,56 @@ def prepare_fsdp_module(
                         'This leaves parameters without initialization. Please add a ``param_init_fn`` or ``reset_parameters`` '
                         f'to module `{obj_name}`.')
 
-            # Choose which modules to FSDP wrap according to the following priority:
-            # If module has attribute `module._fsdp_wrap = ...`, always respect it
-            # Otherwise wrap if root object `obj.fsdp_wrap_fn(module)` is true
-            # Or if unwrapped params in module in greater than or equal to fsdp_config.min_params
-            def __auto_wrap_policy(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
-                if recurse:
-                    return True
-                should_be_wrapped = False
-                if hasattr(module, '_fsdp_wrap'):
-                    should_be_wrapped = bool(module._fsdp_wrap)
-                else:
-                    is_large = nonwrapped_numel >= min_params
-                    if hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
-                        should_be_wrapped = obj.fsdp_wrap_fn(module) or is_large
-                    else:
-                        should_be_wrapped = is_large
+            if version.parse(torch.__version__) > version.parse('2.1.0.dev'):
+                # CustomPolicy is only supported in torch v2.1.0-rc1 or higher
+                from torch.distributed.fsdp.wrap import CustomPolicy  # type: ignore
 
-                if should_be_wrapped and auto_microbatching:
-                    module.register_forward_hook(sync_hook)
-                    module.register_full_backward_hook(sync_hook)
-                return should_be_wrapped
+                def lambda_fn(module: torch.nn.Module) -> Union[bool, dict]:
+                    ret = False
+                    if hasattr(module, '_fsdp_wrap'):
+                        ret = bool(module._fsdp_wrap)
+                    elif hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
+                        ret = obj.fsdp_wrap_fn(module)
+                        from composer.trainer.mosaic_fsdp_utils import _set_custom_fsdp_module_kwargs
+                        if isinstance(ret, dict):
+                            ret = _set_custom_fsdp_module_kwargs(ret, process_group_cache)
+                    if ret and auto_microbatching:
+                        module.register_forward_hook(sync_hook)
+                        module.register_full_backward_hook(sync_hook)
+                    return ret
 
-            if is_torch_2_0:
-
-                def _auto_wrap_policy_new(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
-                    return __auto_wrap_policy(module, recurse, nonwrapped_numel)
-
-                _auto_wrap_policy = _auto_wrap_policy_new
-
+                _auto_wrap_policy = CustomPolicy(lambda_fn)
             else:
+                # Choose which modules to FSDP wrap according to the following priority:
+                # If module has attribute `module._fsdp_wrap = ...`, always respect it
+                # Otherwise wrap if root object `obj.fsdp_wrap_fn(module)` is true.
+                def __auto_wrap_policy(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
+                    if recurse:
+                        return True
+                    should_be_wrapped = False
+                    if hasattr(module, '_fsdp_wrap'):
+                        should_be_wrapped = bool(module._fsdp_wrap)
+                    elif hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
+                        should_be_wrapped = obj.fsdp_wrap_fn(module)
 
-                def _auto_wrap_policy_old(module: torch.nn.Module, recurse: bool, unwrapped_params: int) -> bool:
-                    return __auto_wrap_policy(module, recurse, unwrapped_params)
+                    if should_be_wrapped and auto_microbatching:
+                        module.register_forward_hook(sync_hook)
+                        module.register_full_backward_hook(sync_hook)
+                    return should_be_wrapped
 
-                _auto_wrap_policy = _auto_wrap_policy_old
+                if is_torch_2_0:
+
+                    def _auto_wrap_policy_new(module: torch.nn.Module, recurse: bool, nonwrapped_numel: int) -> bool:
+                        return __auto_wrap_policy(module, recurse, nonwrapped_numel)
+
+                    _auto_wrap_policy = _auto_wrap_policy_new
+
+                else:
+
+                    def _auto_wrap_policy_old(module: torch.nn.Module, recurse: bool, unwrapped_params: int) -> bool:
+                        return __auto_wrap_policy(module, recurse, unwrapped_params)
+
+                    _auto_wrap_policy = _auto_wrap_policy_old
 
             fsdp_obj = FullyShardedDataParallel(
                 obj,
@@ -536,7 +555,6 @@ def prepare_fsdp_module(
         print(f'FSDP: Using cpu_offload={cpu_offload}')
         print(f'FSDP: Using mixed_precision={mixed_precision}')
         print(f'FSDP: Using backward_prefetch={backward_prefetch}')
-        print(f'FSDP: Using min_params={min_params}')
         print(f'FSDP: Using activation_checkpointing={activation_checkpointing}')
         print(f'FSDP: Using activation_cpu_offload={activation_cpu_offload}')
         print(f'FSDP: Using sync_module_states={sync_module_states}')

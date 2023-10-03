@@ -706,6 +706,9 @@ class Trainer:
 
             This parameter only controls how many checkpoints are kept locally; checkpoints are not deleted from
             remote file systems.
+        save_metrics (bool, optional): Whether to save the metrics. By default, metrics are not saved to checkpoint
+            as state usually does not need to be preserved and inconsistent state can cause issues when loading.
+            (default: ``False``)
         autoresume (bool, optional): Whether or not to enable autoresume, which allows for stopping and resuming
             training. This allows use of spot instances, as the training run is now fault tolerant.  This parameter
             requires ``save_folder`` and ``run_name`` to be specified and ``save_overwrite`` to be ``False``.
@@ -860,6 +863,7 @@ class Trainer:
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
         save_weights_only: bool = False,
         save_num_checkpoints_to_keep: int = -1,
+        save_metrics: bool = False,
 
         # Graceful Resumption
         autoresume: bool = False,
@@ -1025,6 +1029,7 @@ class Trainer:
             precision_config=precision_config,
             optimizers=optimizers,
             run_name=run_name,
+            save_metrics=save_metrics,
             deepspeed_config=deepspeed_config,
             fsdp_config=set_fsdp_default(fsdp_config) if fsdp_config is not None else None,
             fsdp_auto_wrap=fsdp_auto_wrap,
@@ -1075,9 +1080,8 @@ class Trainer:
                 loggers.append(remote_ud)
 
         # MosaicML Logger
-        if os.environ.get(MOSAICML_PLATFORM_ENV_VAR,
-                          False) and os.environ.get(MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and not any(
-                              isinstance(x, MosaicMLLogger) for x in loggers):
+        if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and os.environ.get(
+                MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and not any(isinstance(x, MosaicMLLogger) for x in loggers):
             log.info('Detected run on MosaicML platform. Adding MosaicMLLogger to loggers.')
             mosaicml_logger = MosaicMLLogger()
             loggers.append(mosaicml_logger)
@@ -2115,6 +2119,7 @@ class Trainer:
                     # did (e.g. duration specified in samples/batches/tokens), but it is still
                     # the end of the dataloader (i.e. next(dataloader) would raise StopIteration)
                     if self.state.train_metrics is not None:
+                        self.state.train_metrics = self._ensure_metrics_device_and_dtype(self.state.train_metrics)
                         self._compute_and_log_metrics(
                             dataloader_label='train',
                             metrics=self.state.train_metrics,
@@ -2245,7 +2250,7 @@ class Trainer:
                 if self.state.auto_microbatching and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     found_cuda_oom = 1
-                elif self.state.auto_microbatching and 'cuda' in str(e).lower() or 'c10' in str(e).lower():
+                elif self.state.auto_microbatching and ('cuda' in str(e).lower() or 'c10' in str(e).lower()):
                     raise RuntimeError(
                         textwrap.dedent(
                             'Encountered non-addressable cuda error while using auto microbatching. '
@@ -2917,7 +2922,7 @@ class Trainer:
                         if evaluator.auto_microbatching and _is_cuda_oom(e):
                             log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                             found_cuda_oom = 1
-                        elif self.state.auto_microbatching and 'cuda' in str(e).lower() or 'c10' in str(e).lower():
+                        elif self.state.auto_microbatching and ('cuda' in str(e).lower() or 'c10' in str(e).lower()):
                             raise ValueError(
                                 textwrap.dedent(
                                     'Encountered non-addressable cuda error while using auto microbatching. '

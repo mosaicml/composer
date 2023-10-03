@@ -7,8 +7,56 @@ from unittest.mock import MagicMock
 
 import pytest
 from botocore.exceptions import ClientError
+from torch.utils.data import DataLoader
 
+from composer.loggers import RemoteUploaderDownloader
+from composer.trainer import Trainer
 from composer.utils import GCSObjectStore
+from tests.common import RandomClassificationDataset, SimpleModel
+
+
+def get_gcs_os_from_trainer(trainer: Trainer) -> GCSObjectStore:
+    rud = [dest for dest in trainer.logger.destinations if isinstance(dest, RemoteUploaderDownloader)][0]
+    gcs_os = rud.remote_backend
+    assert isinstance(gcs_os, GCSObjectStore)
+    return gcs_os
+
+
+@pytest.mark.gpu  # json auth is hard to set up on github actions / CPU tests
+@pytest.mark.remote
+def test_gs_object_store_integration_json_auth(expected_use_gcs_sdk_val=True, client_should_be_none=False):
+    model = SimpleModel()
+    train_dataset = RandomClassificationDataset()
+    train_dataloader = DataLoader(dataset=train_dataset)
+    trainer_save = Trainer(model=model,
+                           train_dataloader=train_dataloader,
+                           save_folder='gs://mosaicml-composer-tests/checkpoints/{run_name}',
+                           save_filename='test-model.pt',
+                           max_duration='1ba')
+    run_name = trainer_save.state.run_name
+    gcs_os = get_gcs_os_from_trainer(trainer_save)
+    assert gcs_os.use_gcs_sdk == expected_use_gcs_sdk_val
+    if client_should_be_none:
+        assert gcs_os.client is None
+    else:
+        assert gcs_os.client is not None
+    trainer_save.fit()
+    trainer_save.close()
+
+    trainer_load = Trainer(model=model,
+                           train_dataloader=train_dataloader,
+                           load_path=f'gs://mosaicml-composer-tests/checkpoints/{run_name}/test-model.pt',
+                           max_duration='2ba')
+    trainer_load.fit()
+    trainer_load.close()
+
+
+@pytest.mark.remote
+def test_gs_object_store_integration_hmac_auth():
+    with mock.patch.dict(os.environ):
+        if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ:
+            del os.environ['GOOGLE_APPLICATION_CREDENTIALS']
+        test_gs_object_store_integration_json_auth(expected_use_gcs_sdk_val=False, client_should_be_none=True)
 
 
 @pytest.fixture
@@ -17,7 +65,7 @@ def gs_object_store(monkeypatch):
     with mock.patch.dict(os.environ, {'GOOGLE_APPLICATION_CREDENTIALS': 'FAKE_CREDENTIAL'}):
         mock_client = mock.MagicMock()
         with mock.patch.object(Client, 'from_service_account_json', return_value=mock_client):
-            yield GCSObjectStore('gs://test-bucket/test-prefix/')
+            yield GCSObjectStore(bucket='test-bucket', prefix='test-prefix')
 
 
 def test_get_uri(gs_object_store):
@@ -50,7 +98,7 @@ def test_upload_object(gs_object_store, monkeypatch):
     source_file_name = 'dummy-file.txt'
     destination_blob_name = 'dummy-blob.txt'
 
-    gs_object_store.upload_object(source_file_name, destination_blob_name)
+    gs_object_store.upload_object(destination_blob_name, source_file_name)
 
     mock_blob.upload_from_filename.assert_called_with(source_file_name)
     assert mock_blob.upload_from_filename.call_count == 1
@@ -66,7 +114,7 @@ def test_download_object(gs_object_store, monkeypatch, tmp_path, result: str):
 
     def generate_dummy_file(x):
         with open(x, 'wb') as fp:
-            fp.write(bytes('0' * (1024 * 1024 * 1024), 'utf-8'))
+            fp.write(bytes('0' * (10), 'utf-8'))
 
     monkeypatch.setattr(gs_object_store.bucket, 'blob', mock.MagicMock(return_value=mock_blob))
     mock_blob.download_to_filename.side_effect = generate_dummy_file

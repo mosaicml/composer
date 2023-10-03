@@ -362,7 +362,7 @@ def load_sharded_checkpoint(
                 # Download the shard file to the relative path it's associated to and save that relative path
                 # to the root directory specified to the FileSystem reader constructor.
                 file_destination = str(Path(self.destination_path) / Path(relative_file_path))
-                # THe file could have already been downloaded as diffeent plan items can point to same file.
+                # The file could have already been downloaded as diffeent plan items can point to same file.
                 if not os.path.exists(file_destination):
                     self.object_store.download_object(object_name=str(
                         Path(self.source_path) / Path(relative_file_path)),
@@ -400,11 +400,24 @@ def load_sharded_checkpoint(
 
         # We need no_grad because we overwrite tensor values with set_() when we do elastic loading and we don't want the set_ op recorded in the computation graph.
         with torch.no_grad():
-            # 1. Load just model first.
-            model_state_dict = {'state': {'model': state.state_dict()['model']}}
+            # 1. Load model and metadata first
+            model_state_dict = None
+            if load_weights_only:
+                model_state_dict = {'state': {'model': state.get_model_state_dict()}}
+            else:
+                cur_state_dict = state.state_dict()
+                if ignore_keys:
+                    # Filter provided list of key paths
+                    if not callable(ignore_keys):
+                        ignore_keys = glob_filter(ignore_keys)
+                    # Call function to modify state_dict
+                    ignore_keys(cur_state_dict)
+                cur_state_dict.pop('optimizers')
+                model_state_dict = {'state': cur_state_dict}
+
             dist_cp.load_state_dict(model_state_dict, storage_reader)
 
-            state.load_model_state(
+            state.load_state_dict(
                 model_state_dict['state'],
                 logger,
                 strict=strict_model_weights,
@@ -419,7 +432,7 @@ def load_sharded_checkpoint(
                                                                 storage_reader=storage_reader)
                 state.load_optim_state(optim_state)
 
-        # 3. Optionally, load RNG.
+        # 3. Optionally load RNG
         rng_state_dicts = reproducibility.get_rng_state()
         if not load_weights_only:
             # If we are resuming on more ranks than were used at save time we only want to load in rngs for those ranks
@@ -433,28 +446,6 @@ def load_sharded_checkpoint(
             if len(rng_state_dicts) > num_ranks_that_saved_rng:
                 rng_state_dicts_load['rng'].extend(rng_state_dicts[num_ranks_that_saved_rng:])
             rng_state_dicts = rng_state_dicts_load['rng']
-
-        # 4. Optionally, load the rest of state.
-        if not load_weights_only:
-            cur_state_dict = state.state_dict()
-
-            if ignore_keys:
-                # Filter provided list of key paths
-                if not callable(ignore_keys):
-                    ignore_keys = glob_filter(ignore_keys)
-                # Call function to modify state_dict
-                ignore_keys(cur_state_dict)
-
-            # Remove model and optimizers because they were already loaded.
-            cur_state_dict.pop('model')
-            cur_state_dict.pop('optimizers')
-
-            rest_of_the_state_dict = {'state': cur_state_dict}
-            dist_cp.load_state_dict(rest_of_the_state_dict, storage_reader)
-            state.load_state_dict(
-                rest_of_the_state_dict['state'],
-                logger,
-            )
 
     return rng_state_dicts
 
@@ -756,15 +747,19 @@ def save_checkpoint(
 
     is_deepspeed = is_model_deepspeed(state.model)
 
-    state_dict = {
-        'state': state.state_dict(),
-        'rng': reproducibility.get_rng_state(),
-    }
     if weights_only and not is_deepspeed:
-        state_dict['state'] = {
-            'model': state_dict['state']['model'],
-            'integrations': state_dict['state']['integrations'],
-            'metadata': state_dict['state']['metadata'],
+        state_dict = {
+            'state': {
+                'model': state.get_model_state_dict(),
+                'integrations': state._get_integrations_state_dict(),
+                'metadata': state._get_state_metadata(),
+            },
+            'rng': reproducibility.get_rng_state(),
+        }
+    else:
+        state_dict = {
+            'state': state.state_dict(),
+            'rng': reproducibility.get_rng_state(),
         }
 
     log.debug('State dict created.')

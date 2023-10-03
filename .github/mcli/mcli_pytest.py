@@ -24,7 +24,7 @@ if __name__ == '__main__':
                         help='PR number to check out. Overrides git_branch/git_commit if specified')
     parser.add_argument('--pytest_markers', type=str, help='Markers to pass to pytest')
     parser.add_argument('--pytest_command', type=str, help='Command to run pytest')
-    parser.add_argument('--timeout', type=int, default=1800, help='Timeout for run (in seconds)')
+    parser.add_argument('--timeout', type=int, default=2700, help='Timeout for run (in seconds)')
     args = parser.parse_args()
 
     name = args.name
@@ -58,13 +58,16 @@ if __name__ == '__main__':
         name = name[:56]
 
     s3_bucket_flag = '--s3_bucket mosaicml-internal-integration-testing'
+    clear_tmp_path_flag = '-o tmp_path_retention_policy=none'
     command += f'''
 
     export COMPOSER_PACKAGE_NAME='{args.pip_package_name}'
 
     pip install --upgrade --user .[all]
 
-    export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}' {s3_bucket_flag}"
+    export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}' {s3_bucket_flag} {clear_tmp_path_flag}"
+
+    export PYTHONUNBUFFERED=1
 
     make test PYTEST='{args.pytest_command}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
 
@@ -82,7 +85,7 @@ if __name__ == '__main__':
         image=args.image,
         integrations=[git_integration],
         command=command,
-        scheduling={'max_duration_seconds:': args.timeout},
+        scheduling={'max_duration': args.timeout / 60 / 60},
     )
 
     # Create run
