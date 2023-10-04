@@ -59,8 +59,6 @@ def _get_cuda_version_tag(cuda_version: str):
 def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: str, stage: str, interconnect: str):
     if stage == 'pytorch_stage':
         base_image_name = 'mosaicml/pytorch'
-    elif stage == 'vision_stage':
-        base_image_name = 'mosaicml/pytorch_vision'
     else:
         raise ValueError(f'Invalid stage: {stage}')
     cuda_version_tag = _get_cuda_version_tag(cuda_version)
@@ -98,8 +96,6 @@ def _get_image_name(pytorch_version: str, cuda_version: str, stage: str, interco
 
     if stage == 'pytorch_stage':
         stage = ''
-    elif stage == 'vision_stage':
-        stage = '-vision'
     else:
         raise ValueError(f'Invalid stage: {stage}')
 
@@ -130,7 +126,7 @@ def _main():
     python_versions = ['3.10']
     pytorch_versions = ['2.1.0', '2.0.1', '1.13.1']
     cuda_options = [True, False]
-    stages = ['pytorch_stage', 'vision_stage']
+    stages = ['pytorch_stage']
     interconnects = ['mellanox', 'EFA']  # mellanox is default, EFA needed for AWS
 
     pytorch_entries = []
@@ -168,10 +164,6 @@ def _main():
             'PYTORCH_NIGHTLY_VERSION':
                 '',
         }
-
-        # Only build the vision image on latest python
-        if stage == 'vision_stage' and python_version != LATEST_PYTHON_VERSION:
-            continue
 
         # Only build EFA image on latest python with cuda on pytorch_stage
         if interconnect == 'EFA' and not (python_version == LATEST_PYTHON_VERSION and use_cuda and
@@ -245,7 +237,7 @@ def _main():
         cuda_version = f"{entry['CUDA_VERSION']} ({interconnect})" if entry['CUDA_VERSION'] else 'cpu'
         table.append([
             'Ubuntu 20.04',  # Linux distro
-            'Base' if entry['TARGET'] == 'pytorch_stage' else 'Vision',  # Flavor
+            'Base',  # Flavor
             entry['PYTORCH_VERSION'],  # Pytorch version
             cuda_version,  # Cuda version
             entry['PYTHON_VERSION'],  # Python version,

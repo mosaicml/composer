@@ -49,26 +49,12 @@ ARG IPYTHON_VERSION='>=8.10.0'
 # Upgrade urllib to resolve CVE-2021-33503
 ARG URLLIB3_VERSION='>=1.26.5,<2'
 
-########################
-# Vision Image Arguments
-########################
-
-# Build the vision image on the pytorch stage
-ARG VISION_BASE=pytorch_stage
-
-# Pip version strings of dependencies to install
-ARG MMCV_VERSION='==1.4.8'
-ARG OPENCV_VERSION='>=4.5.5.64,<4.6'
-ARG NUMBA_VERSION='>=0.55.0,<0.56'
-ARG MMSEGMENTATION_VERSION='>=0.22.0,<0.23'
-ARG CUPY_VERSION='>=10.2.0'
-
 ##########################
 # Composer Image Arguments
 ##########################
 
-# Build the composer image on the vision image
-ARG COMPOSER_BASE=vision_stage
+# Build the composer image on the pytorch image
+ARG COMPOSER_BASE=pytorch_stage
 
 # The command that is passed to `pip install` -- e.g. `pip install "${COMPOSER_INSTALL_COMMAND}"`
 ARG COMPOSER_INSTALL_COMMAND='mosaicml[all]'
