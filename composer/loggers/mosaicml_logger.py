@@ -167,7 +167,7 @@ def format_data_to_json_serializable(data: Any):
 
         # Unknown format catch-all
         return str(data)
-    except RuntimeError as e:
+    except Exception as e:
         warnings.warn('Encountered unexpected error while formatting data to be JSON serializable. '
                       f'Returning empty string instead. Error: {str(e)}')
         return ''
