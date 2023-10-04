@@ -316,10 +316,11 @@ RUN pip${PYTHON_VERSION} install --no-cache-dir cmake==3.26.3
 ###########################
 # Install Pandoc Dependency
 ###########################
-# Pandoc is needed for the documentation build and is a nuisance to install via pip so just installing via dpkg
-RUN wget https://github.com/jgm/pandoc/releases/download/2.19.2/pandoc-2.19.2-1-amd64.deb && \
-    dpkg -i pandoc-2.19.2-1-amd64.deb && \
-    rm pandoc-2.19.2-1-amd64.deb
+# # Pandoc is needed for the documentation build and is a nuisance to install via pip so just installing via dpkg
+# RUN wget https://github.com/jgm/pandoc/releases/download/2.19.2/pandoc-2.19.2-1-amd64.deb && \
+#     dpkg -i pandoc-2.19.2-1-amd64.deb && \
+#     rm pandoc-2.19.2-1-amd64.deb
+RUN pip${PYTHON_VERSION} install --no-cache-dir pandoc==2.3
 
 ################################
 # Use the correct python version
