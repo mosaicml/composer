@@ -58,7 +58,7 @@ if __name__ == '__main__':
         name = name[:56]
 
     s3_bucket_flag = '--s3_bucket mosaicml-internal-integration-testing'
-    clear_tmp_path_flag = '-o tmp_path_retention_policy=none'
+    clear_tmp_path_flag = '-o tmp_path_retention_policy=failed'
     command += f'''
 
     export COMPOSER_PACKAGE_NAME='{args.pip_package_name}'
