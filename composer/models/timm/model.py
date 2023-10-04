@@ -4,6 +4,7 @@
 """A wrapper around `timm.create_model() <https://rwightman.github.io/pytorch-image-models/#load-a-pretrained-model>`_
 used to create :class:`.ComposerClassifier`."""
 
+import warnings
 from typing import Optional
 
 from composer.models.tasks import ComposerClassifier
@@ -47,6 +48,7 @@ def composer_timm(model_name: str,
 
         model = composer_timm(model_name='resnet18')  # creates a timm resnet18
     """
+    warnings.warn(DeprecationWarning('composer_timm is deprecated and will be removed in v0.18'))
     try:
         import timm
     except ImportError as e:

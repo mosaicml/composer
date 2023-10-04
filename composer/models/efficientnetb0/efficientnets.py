@@ -8,6 +8,7 @@ Adapted from `(Generic) EfficientNets for PyTorch. <https://github.com/rwightman
 
 import math
 import re
+import warnings
 from typing import Callable, Optional
 
 import torch
@@ -59,6 +60,8 @@ class EfficientNet(nn.Module):
                  act_layer: Callable[..., nn.Module] = nn.SiLU,
                  norm_kwargs: Optional[dict] = None,
                  norm_layer: Callable[..., nn.Module] = nn.BatchNorm2d):
+        warnings.warn(DeprecationWarning('EfficientNet is deprecated and will be removed in v0.18'))
+
         super(EfficientNet, self).__init__()
         self.num_classes = num_classes
 

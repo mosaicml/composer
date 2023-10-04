@@ -10,6 +10,7 @@ details about this dataset.
 import glob
 import os
 import random
+import warnings
 
 import numpy as np
 import torch
@@ -36,6 +37,8 @@ def build_brats_dataloader(datadir: str,
         global_batch_size (int): Global batch size.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    warnings.warn(DeprecationWarning('build_brats_dataloader is deprecated and will be removed in v0.18'))
+
     if global_batch_size % dist.get_world_size() != 0:
         raise ValueError(
             f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')

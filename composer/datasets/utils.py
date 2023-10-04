@@ -5,6 +5,7 @@
 
 import logging
 import textwrap
+import warnings
 from typing import Callable, List, Tuple, Union
 
 import numpy as np
@@ -44,6 +45,7 @@ class NormalizationFn:
                  mean: Tuple[float, float, float],
                  std: Tuple[float, float, float],
                  ignore_background: bool = False):
+        warnings.warn(DeprecationWarning('NormalizationFn is deprecated and will be removed in v0.18'))
         self.mean = mean
         self.std = std
         self.ignore_background = ignore_background
@@ -87,6 +89,7 @@ def pil_image_collate(
         (torch.Tensor, torch.Tensor): Tuple of (image tensor, target tensor)
             The image tensor will be four-dimensional (NCHW or NHWC, depending on the ``memory_format``).
     """
+    warnings.warn(DeprecationWarning('pil_image_collate is deprecated and will be removed in v0.18'))
     imgs = [sample[0] for sample in batch]
     w, h = imgs[0].size
     image_tensor = torch.zeros((len(imgs), 3, h, w), dtype=torch.uint8).contiguous(memory_format=memory_format)
@@ -137,6 +140,7 @@ def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is
     Returns:
         None: The ``dataset`` is modified in-place.
     """
+    warnings.warn(DeprecationWarning('add_vision_dataset_transform is deprecated and will be removed in v0.18'))
 
     transform_added_logstring = textwrap.dedent(f"""\
         Transform {transform} added to dataset.

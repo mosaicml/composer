@@ -3,6 +3,7 @@
 
 """ResNet models for CIFAR extending :class:`.ComposerClassifier`."""
 
+import warnings
 from typing import List, Optional
 
 from composer.models.initializers import Initializer
@@ -39,6 +40,7 @@ def composer_resnet_cifar(model_name: str,
 
     .. _blog: https://myrtle.ai/learn/how-to-train-your-resnet-4-architecture/
     """
+    warnings.warn(DeprecationWarning('composer_resnet_cifar is deprecated and will be removed in v0.18'))
     if initializers is None:
         initializers = []
 
