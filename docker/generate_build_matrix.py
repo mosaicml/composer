@@ -19,10 +19,12 @@ import tabulate
 import yaml
 
 LATEST_PYTHON_VERSION = '3.10'
-PRODUCTION_PYTORCH_VERSION = '1.13.1'
+PRODUCTION_PYTORCH_VERSION = '2.1.0'
 
 
 def _get_torchvision_version(pytorch_version: str):
+    if pytorch_version == '2.1.0':
+        return '0.16.0'
     if pytorch_version == '2.0.1':
         return '0.15.2'
     if pytorch_version == '1.13.1':
@@ -31,6 +33,8 @@ def _get_torchvision_version(pytorch_version: str):
 
 
 def _get_torchtext_version(pytorch_version: str):
+    if pytorch_version == '2.1.0':
+        return '0.16.0'
     if pytorch_version == '2.0.1':
         return '0.15.2'
     if pytorch_version == '1.13.1':
@@ -47,6 +51,8 @@ def _get_base_image(cuda_version: str):
 def _get_cuda_version(pytorch_version: str, use_cuda: bool):
     if not use_cuda:
         return ''
+    if pytorch_version == '2.1.0':
+        return '12.1.0'
     if pytorch_version == '2.0.1':
         return '11.8.0'
     if pytorch_version == '1.13.1':
@@ -132,7 +138,7 @@ def _write_table(table_tag: str, table_contents: str):
 
 def _main():
     python_versions = ['3.10']
-    pytorch_versions = ['2.0.1', '1.13.1']
+    pytorch_versions = ['2.1.0', '2.0.1', '1.13.1']
     cuda_options = [True, False]
     stages = ['pytorch_stage', 'vision_stage']
     interconnects = ['mellanox', 'EFA']  # mellanox is default, EFA needed for AWS
@@ -197,23 +203,6 @@ def _main():
             entry['AWS_OFI_NCCL_VERSION'] = 'v1.5.0-aws'
 
         pytorch_entries.append(entry)
-
-    nightly_entry = {
-        'AWS_OFI_NCCL_VERSION': '',
-        'BASE_IMAGE': 'nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04',
-        'CUDA_VERSION': '12.1.0',
-        'IMAGE_NAME': 'torch-nightly-2-1-0-20230827-cu121',
-        'MOFED_VERSION': '5.5-1.0.3.2',
-        'PYTHON_VERSION': '3.10',
-        'PYTORCH_VERSION': '2.1.0',
-        'PYTORCH_NIGHTLY_URL': 'https://download.pytorch.org/whl/nightly/cu121',
-        'PYTORCH_NIGHTLY_VERSION': 'dev20230827+cu121',
-        'TAGS': ['mosaicml/pytorch:2.1.0_cu121-nightly20230827-python3.10-ubuntu20.04'],
-        'TARGET': 'pytorch_stage',
-        'TORCHTEXT_VERSION': '0.16.0',
-        'TORCHVISION_VERSION': '0.16.0'
-    }
-    pytorch_entries.append(nightly_entry)
 
     composer_entries = []
 
