@@ -789,3 +789,59 @@ def shard(self: ChunkShardingSpec, tensor: torch.Tensor, src_rank: int = 0, proc
     st._sharding_spec = self
     self.dim = 0
     return st
+
+
+if version.parse(torch.__version__) > version.parse('2.0.2') and version.parse(
+        torch.__version__) < version.parse('2.1.1'):
+    import torch.distributed.fsdp._traversal_utils as traversal_utils
+    from torch.distributed.fsdp._runtime_utils import (
+        _post_forward,
+        _post_forward_reshard,
+        _pre_forward,
+        _pre_forward_unshard,
+        _root_pre_forward,
+    )
+    from torch.distributed.fsdp._common_utils import (
+        TrainingState,
+        HandleTrainingState,
+    )
+    from torch.distributed.utils import _p_assert
+    def fsdp_forward(self, *args: Any, **kwargs: Any) -> Any:
+        """
+        Runs the forward pass for the wrapped module, inserting FSDP-specific
+        pre- and post-forward sharding logic.
+        """
+        handle = self._handle
+        with torch.autograd.profiler.record_function(
+            f"FullyShardedDataParallel.forward {self._fsdp_wrapped_module.__class__}"
+        ):
+            args, kwargs = _root_pre_forward(self, self, args, kwargs)
+            unused = None
+            args, kwargs = _pre_forward(
+                self,
+                handle,
+                None if hasattr(self, '_skip_pre_forward_unshard') and self._skip_pre_forward_unshard else _pre_forward_unshard,
+                self._fsdp_wrapped_module,
+                args,
+                kwargs,
+            )
+
+            if hasattr(self._fsdp_wrapped_module, '_promote_child_unshard') and self._fsdp_wrapped_module._promote_child_unshard:
+                child_fsdp_states = traversal_utils._get_fsdp_states(self._fsdp_wrapped_module)
+                for child_fsdp_state in child_fsdp_states:
+                    setattr(child_fsdp_state, '_skip_pre_forward_unshard', True)
+                    child_fsdp_state.training_state = TrainingState.FORWARD_BACKWARD
+                    child_fsdp_state._handle._training_state = HandleTrainingState.FORWARD
+                    _pre_forward_unshard(child_fsdp_state, child_fsdp_state._handle)
+                    child_fsdp_state.training_state = TrainingState.IDLE
+
+            if handle:
+                _p_assert(
+                    handle.flat_param.device == self.compute_device,
+                    "Expected `FlatParameter` to be on the compute device "
+                    f"{self.compute_device} but got {handle.flat_param.device}",
+                )
+            output = self._fsdp_wrapped_module(*args, **kwargs)
+            return _post_forward(
+                self, handle, _post_forward_reshard, self, unused, output
+            )

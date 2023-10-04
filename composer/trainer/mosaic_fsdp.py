@@ -42,6 +42,9 @@ def patch_pytorch():
     elif version.parse(torch.__version__) < version.parse('2.1.1'):
         # Monkey path for torch < 2.1.1 ie torch == 2.1.0
 
+        from composer.trainer.mosaic_fsdp_utils import fsdp_forward
+        FullyShardedDataParallel.forward = fsdp_forward
+
         # Monkey patch sharding method
         ChunkShardingSpec.build_metadata = build_metadata
         ChunkShardingSpec.shard = shard
