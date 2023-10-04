@@ -111,7 +111,9 @@ class Evaluator:
         if eval_interval is None:
             self._eval_interval = None
         elif not callable(eval_interval):
-            self._eval_interval = create_interval_scheduler(eval_interval, checkpoint_events=False, final_events={Event.FIT_END})
+            self._eval_interval = create_interval_scheduler(eval_interval,
+                                                            checkpoint_events=False,
+                                                            final_events={Event.FIT_END})
         else:
             self._eval_interval = eval_interval
 

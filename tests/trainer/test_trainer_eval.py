@@ -463,12 +463,10 @@ def test_eval_at_fit_end(eval_interval: Union[str, Time, int], max_duration: str
         metric_names=['MulticlassAccuracy'],
     )
 
-    evaluator.eval_interval = create_interval_scheduler(
-        interval=eval_interval,
-        include_end_of_training=eval_at_fit_end,
-        checkpoint_events=False,
-        final_events={Event.FIT_END}
-    )
+    evaluator.eval_interval = create_interval_scheduler(interval=eval_interval,
+                                                        include_end_of_training=eval_at_fit_end,
+                                                        checkpoint_events=False,
+                                                        final_events={Event.FIT_END})
 
     trainer = Trainer(
         model=SimpleModel(),

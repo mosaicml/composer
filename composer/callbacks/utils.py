@@ -4,7 +4,7 @@
 """Utilities for callbacks."""
 
 import math
-from typing import Callable, Union, Set, Optional
+from typing import Callable, Optional, Set, Union
 
 from composer.core import Event, State, Time, TimeUnit
 
@@ -88,11 +88,10 @@ def create_interval_scheduler(interval: Union[str, int, Time],
             if state.dataloader_len is None:
                 raise RuntimeError(
                     f'Interval of type `dur` or {TimeUnit.DURATION} requires the dataloader to be sized.')
-            
+
             if event == interval_event:
-                if state.max_duration.unit == TimeUnit.EPOCH and int(
-                        state.timestamp.batch) % math.ceil(state.max_duration.value * float(interval) *
-                                                        state.dataloader_len) == 0:
+                if state.max_duration.unit == TimeUnit.EPOCH and int(state.timestamp.batch) % math.ceil(
+                        state.max_duration.value * float(interval) * state.dataloader_len) == 0:
                     last_batch_seen = state.timestamp.batch
                     return True
                 elif state.max_duration.unit == TimeUnit.BATCH and int(state.timestamp.batch) % math.ceil(
