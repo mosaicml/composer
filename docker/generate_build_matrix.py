@@ -19,20 +19,10 @@ import tabulate
 import yaml
 
 LATEST_PYTHON_VERSION = '3.10'
-PRODUCTION_PYTORCH_VERSION = '2.0.1'
+PRODUCTION_PYTORCH_VERSION = '2.1.0'
 
 
 def _get_torchvision_version(pytorch_version: str):
-    if pytorch_version == '2.1.0':
-        return '0.16.0'
-    if pytorch_version == '2.0.1':
-        return '0.15.2'
-    if pytorch_version == '1.13.1':
-        return '0.14.1'
-    raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
-
-
-def _get_torchtext_version(pytorch_version: str):
     if pytorch_version == '2.1.0':
         return '0.16.0'
     if pytorch_version == '2.0.1':
@@ -138,7 +128,7 @@ def _write_table(table_tag: str, table_contents: str):
 
 def _main():
     python_versions = ['3.10']
-    pytorch_versions = ['2.0.1', '1.13.1']
+    pytorch_versions = ['2.1.0', '2.0.1', '1.13.1']
     cuda_options = [True, False]
     stages = ['pytorch_stage', 'vision_stage']
     interconnects = ['mellanox', 'EFA']  # mellanox is default, EFA needed for AWS
@@ -165,8 +155,6 @@ def _main():
                 stage,
             'TORCHVISION_VERSION':
                 _get_torchvision_version(pytorch_version),
-            'TORCHTEXT_VERSION':
-                _get_torchtext_version(pytorch_version),
             'TAGS':
                 _get_pytorch_tags(
                     python_version=python_version,
@@ -227,7 +215,6 @@ def _main():
             'PYTORCH_NIGHTLY_VERSION': '',
             'TARGET': 'composer_stage',
             'TORCHVISION_VERSION': _get_torchvision_version(pytorch_version),
-            'TORCHTEXT_VERSION': _get_torchtext_version(pytorch_version),
             'MOFED_VERSION': '5.5-1.0.3.2',
             'AWS_OFI_NCCL_VERSION': '',
             'COMPOSER_INSTALL_COMMAND': f'mosaicml[all]=={composer_version}',

@@ -25,11 +25,6 @@ ARG PYTORCH_VERSION=1.13.1
 # version that corresponds to the PyTorch version
 ARG TORCHVISION_VERSION=0.14.1
 
-# The Torchtext version to install.
-# Reference https://github.com/pytorch/text#installation to determine the Torchtext
-# version that corresponds to the PyTorch version
-ARG TORCHTEXT_VERSION=0.14.1
-
 # In the Dockerimage, Pillow-SIMD is installed instead of Pillow. To trick pip into thinking that
 # Pillow is also installed (so it won't override it with a future pip install), a Pillow stub is included
 # PILLOW_PSEUDOVERSION is the Pillow version that pip thinks is installed
@@ -213,9 +208,8 @@ ARG PYTORCH_VERSION
 ARG PYTORCH_NIGHTLY_URL
 ARG PYTORCH_NIGHTLY_VERSION
 ARG TORCHVISION_VERSION
-ARG TORCHTEXT_VERSION
 
-# Set so supporting PyTorch packages such as Torchvision, Torchaudio, Torchtext pin PyTorch version
+# Set so supporting PyTorch packages such as Torchvision pin PyTorch version
 ENV PYTORCH_VERSION=${PYTORCH_VERSION}
 ENV PYTORCH_NIGHTLY_URL=${PYTORCH_NIGHTLY_URL}
 ENV PYTORCH_NIGHTLY_VERSION=${PYTORCH_NIGHTLY_VERSION}
@@ -224,13 +218,11 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
       CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
         pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
             torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
-            torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} \
-            torchtext==${TORCHTEXT_VERSION} ; \
+            torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} ; \
     else \
         pip${PYTHON_VERSION} install --no-cache-dir --pre --index-url ${PYTORCH_NIGHTLY_URL} \
             torch==${PYTORCH_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
-	        torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
-            torchtext ; \
+	        torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} ; \
     fi
 RUN
 #####################################
@@ -316,10 +308,6 @@ RUN pip${PYTHON_VERSION} install --no-cache-dir cmake==3.26.3
 ###########################
 # Install Pandoc Dependency
 ###########################
-# # Pandoc is needed for the documentation build and is a nuisance to install via pip so just installing via dpkg
-# RUN wget https://github.com/jgm/pandoc/releases/download/2.19.2/pandoc-2.19.2-1-amd64.deb && \
-#     dpkg -i pandoc-2.19.2-1-amd64.deb && \
-#     rm pandoc-2.19.2-1-amd64.deb
 RUN pip${PYTHON_VERSION} install --no-cache-dir pandoc==2.3
 
 ################################
@@ -369,50 +357,6 @@ RUN pip install --no-cache-dir --upgrade \
         certifi${CERTIFI_VERSION} \
         ipython${IPYTHON_VERSION} \
         urllib3${URLLIB3_VERSION}
-
-
-######################
-# PyTorch Vision Image
-######################
-
-FROM ${VISION_BASE} AS vision_stage
-ARG DEBIAN_FRONTEND=noninteractive
-
-RUN sudo apt-get update && \
-    sudo apt-get install -y --no-install-recommends \
-    # For FFCV:
-    pkg-config \
-    libturbojpeg-dev \
-    libopencv-dev \
-    # For deeplabv3:
-    ffmpeg \
-    libsm6 \
-    libxext6 && \
-    sudo apt-get autoclean && \
-    sudo apt-get clean && \
-    sudo rm -rf /var/lib/apt/lists/*
-
-ARG MMCV_VERSION
-ARG OPENCV_VERSION
-ARG NUMBA_VERSION
-ARG MMSEGMENTATION_VERSION
-ARG PYTHON_VERSION
-ARG CUPY_VERSION
-ARG CUDA_VERSION
-
-RUN CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
-    MMCV_TORCH_VERSION=$(python -c "print('torch' + ''.join('${PYTORCH_VERSION}'.split('.')[:2]) + '.0')") && \
-    sudo pip${PYTHON_VERSION} install --no-cache-dir \
-        "ffcv<1.0.3" \
-        "opencv-python${OPENCV_VERSION}" \
-        "numba${NUMBA_VERSION}" \
-        "mmsegmentation${MMSEGMENTATION_VERSION}" && \
-    sudo pip${PYTHON_VERSION} install --no-cache-dir \
-        "mmcv-full${MMCV_VERSION}" \
-        -f https://download.openmmlab.com/mmcv/dist/${CUDA_VERSION_TAG}/${MMCV_TORCH_VERSION}/index.html && \
-    if [ -n "$CUDA_VERSION" ] ; then \
-        sudo pip${PYTHON_VERSION} install --no-cache-dir cupy-cuda11x${CUPY_VERSION}; \
-    fi
 
 
 ################
