@@ -6,7 +6,7 @@
 import math
 import socket
 from contextlib import contextmanager
-from typing import Type, Union, Optional, Set, Callable, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Optional, Set, Type, Union
 
 import torch
 from packaging import version
@@ -24,6 +24,7 @@ __all__ = [
     'model_eval_mode',
     'create_interval_scheduler',
 ]
+
 
 def create_interval_scheduler(interval: Union[str, int, 'Time'],
                               include_end_of_training: bool = True,

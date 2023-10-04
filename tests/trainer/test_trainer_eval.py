@@ -9,13 +9,12 @@ from typing import Callable, Optional, Union
 import pytest
 from torch.utils.data import DataLoader
 
-from composer.utils import create_interval_scheduler
 from composer.core import Algorithm, Event
 from composer.core.evaluator import Evaluator
 from composer.core.state import State
 from composer.core.time import Time, TimeUnit
 from composer.trainer import Trainer
-from composer.utils import dist
+from composer.utils import create_interval_scheduler, dist
 from tests.common import (EventCounterCallback, ParityDataset, RandomClassificationDataset, RandomTextLMDataset,
                           SimpleModel, SimpleTransformerMaskedLM, ZeroModel, world_size)
 
