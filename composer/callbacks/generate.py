@@ -41,7 +41,7 @@ class Generate(Callback):
         self.prompts = prompts
         self.generate_kwargs = kwargs
         self.batch_size = batch_size if batch_size is not None else len(prompts)
-        self.check_interval = create_interval_scheduler(interval, include_end_of_training=False)
+        self.check_interval = create_interval_scheduler(interval, include_end_of_training=True)
 
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
         if state.get_elapsed_duration() is not None and self.check_interval(state, event):
