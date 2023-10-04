@@ -14,7 +14,7 @@ import textwrap
 from pathlib import Path
 from typing import Callable, List, Optional, Union
 
-from composer.callbacks.utils import create_interval_scheduler
+from composer.utils import create_interval_scheduler
 from composer.core import Callback, Event, State, Time
 from composer.loggers import Logger
 from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, PartialFilePath,

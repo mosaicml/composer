@@ -5,7 +5,7 @@
 
 from typing import Any, List, Optional, Union, cast
 
-from composer.callbacks.utils import create_interval_scheduler
+from composer.utils import create_interval_scheduler
 from composer.core import Callback, Event, State, Time, get_precision_context
 from composer.loggers import Logger
 from composer.models import HuggingFaceModel

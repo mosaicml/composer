@@ -9,7 +9,7 @@ from typing import Callable, Optional, Union
 import pytest
 from torch.utils.data import DataLoader
 
-from composer.callbacks.utils import create_interval_scheduler
+from composer.utils import create_interval_scheduler
 from composer.core import Algorithm, Event
 from composer.core.evaluator import Evaluator
 from composer.core.state import State

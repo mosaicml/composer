@@ -107,7 +107,7 @@ class Evaluator:
 
     @eval_interval.setter
     def eval_interval(self, eval_interval: Optional[Union[int, str, Time, Callable[[State, Event], bool]]]):
-        from composer.callbacks.utils import create_interval_scheduler
+        from composer.utils import create_interval_scheduler
         if eval_interval is None:
             self._eval_interval = None
         elif not callable(eval_interval):
