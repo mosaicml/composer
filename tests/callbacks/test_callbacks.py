@@ -167,13 +167,13 @@ class TestCallbackTrains:
         """
         del _remote  # unused. `_remote` must be passed through to parameterize the test markers.
         cb_kwargs = get_cb_kwargs(cb_cls)
-        cb = cb_cls(**cb_kwargs)
         if issubclass(cb_cls, MLFlowLogger):
             cb_kwargs['tracking_uri'] = tmp_path
         if issubclass(cb_cls, WandBLogger):
             os.environ['WANDB_DISABLE_GIT'] = 'true'
             os.environ['WANDB_PROGRAM'] = ''
             os.environ['WANDB_DISABLE_CODE'] = 'true'
+        cb = cb_cls(**cb_kwargs)
         trainer = self._get_trainer(cb, device_train_microbatch_size)
         trainer.fit()
 
