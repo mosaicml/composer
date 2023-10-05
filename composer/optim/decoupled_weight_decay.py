@@ -48,13 +48,14 @@ class DecoupledSGDW(SGD):
         nesterov (bool, optional): Enables Nesterov momentum updates. Default: ``False``.
     """
 
-    def __init__(self,
-                 params: Union[Iterable[torch.Tensor], Iterable[dict]],
-                 lr: float = required, # type: ignore (temporary, result of torch 2.1 release)
-                 momentum: float = 0,
-                 dampening: float = 0,
-                 weight_decay: float = 0,
-                 nesterov: bool = False):
+    def __init__(
+            self,
+            params: Union[Iterable[torch.Tensor], Iterable[dict]],
+            lr: float = required,  # type: ignore (temporary, result of torch 2.1 release)
+            momentum: float = 0,
+            dampening: float = 0,
+            weight_decay: float = 0,
+            nesterov: bool = False):
         if weight_decay >= 1e-3:
             log.warning(
                 f'You are using a high value of `weight_decay={weight_decay}` for the `DecoupledSGDW` optimizer. Are you sure you want to do this? '
