@@ -4,6 +4,7 @@
 """A U-Net model extending :class:`.ComposerModel`."""
 
 import logging
+import warnings
 from typing import Any, Dict, Optional, Sequence, Union
 
 import torch
@@ -33,6 +34,8 @@ class UNet(ComposerModel):
     """
 
     def __init__(self, num_classes: int = 3) -> None:
+        warnings.warn(DeprecationWarning('UNet is deprecated and will be removed in v0.18'))
+
         super().__init__()
         try:
             from monai.losses import DiceLoss
