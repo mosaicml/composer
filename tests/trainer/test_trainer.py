@@ -21,8 +21,6 @@ from torch.utils.data import DataLoader
 from composer import Callback, Evaluator, Trainer
 from composer.algorithms import CutOut, LabelSmoothing
 from composer.core import Event, Precision, State, Time, TimeUnit
-from composer.datasets.ffcv_utils import write_ffcv_dataset
-from composer.datasets.imagenet import build_ffcv_imagenet_dataloader
 from composer.devices import Device
 from composer.loggers import InMemoryLogger, Logger, RemoteUploaderDownloader
 from composer.loss import soft_cross_entropy

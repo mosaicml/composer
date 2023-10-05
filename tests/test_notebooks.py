@@ -22,13 +22,6 @@ NOTEBOOKS = [
 ]
 
 
-def _to_pytest_param(filepath: str):
-    notebook_name = os.path.split(filepath)[-1][:-len('.ipynb')]
-    marks = []
-
-    return pytest.param(filepath, marks=marks)
-
-
 def patch_notebooks():
     import itertools
     import multiprocessing
@@ -95,7 +88,7 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
     return cell_source
 
 
-@pytest.mark.parametrize('notebook', [_to_pytest_param(notebook) for notebook in NOTEBOOKS])
+@pytest.mark.parametrize('notebook', [notebook for notebook in NOTEBOOKS])
 @device('cpu', 'gpu')
 @pytest.mark.daily
 def test_notebook(notebook: str, device: str, s3_bucket: str):
