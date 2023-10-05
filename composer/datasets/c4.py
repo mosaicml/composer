@@ -7,6 +7,7 @@ This dataset is a colossal, cleaned version of Common Crawl's web crawl corpus a
 <https://commoncrawl.org>`_ dataset.
 """
 import logging
+import warnings
 from typing import Any, Dict, Optional
 
 from torch.utils.data import DataLoader
@@ -74,6 +75,7 @@ def build_streaming_c4_dataloader(
             Defaults to ``None``, which is interpreted as the number of nodes of the initial run.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    warnings.warn(DeprecationWarning('build_streaming_c4_dataloader is deprecated and will be removed in v0.18'))
 
     try:
         import transformers
