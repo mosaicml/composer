@@ -51,7 +51,7 @@ class DecoupledSGDW(SGD):
     def __init__(
             self,
             params: Union[Iterable[torch.Tensor], Iterable[dict]],
-            lr: float = required,  # type: ignore (temporary, result of torch 2.1 release)
+            lr: float = required,  # type: ignore
             momentum: float = 0,
             dampening: float = 0,
             weight_decay: float = 0,
