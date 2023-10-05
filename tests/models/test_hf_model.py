@@ -606,6 +606,7 @@ def test_hf_loading_tokenizer_with_python_file(modify_tokenizer: bool, tmp_path:
     check_hf_model_equivalence(hf_loaded_model, tiny_gpt2_model)
     check_hf_tokenizer_equivalence(hf_loaded_tokenizer, replit_tokenizer)
 
+
 @pytest.mark.parametrize('modify_tokenizer', [False, True])
 @pytest.mark.skipif('HUGGING_FACE_HUB_TOKEN' not in os.environ, reason='Requires access to llama models')
 def test_hf_loading_llama_tokenizer(modify_tokenizer: bool, tmp_path: Path, tiny_gpt2_model):
@@ -624,10 +625,11 @@ def test_hf_loading_llama_tokenizer(modify_tokenizer: bool, tmp_path: Path, tiny
     trainer = get_lm_trainer(tiny_gpt2_model, llama_tokenizer, str(tmp_path), is_conditional_generation=True)
     trainer.save_checkpoint(str(tmp_path / 'hf-checkpoint.pt'))
 
-    _, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(
-        checkpoint_path=str(tmp_path / 'hf-checkpoint.pt'))
+    _, hf_loaded_tokenizer = HuggingFaceModel.hf_from_composer_checkpoint(checkpoint_path=str(tmp_path /
+                                                                                              'hf-checkpoint.pt'))
 
     check_hf_tokenizer_equivalence(hf_loaded_tokenizer, llama_tokenizer)
+
 
 @pytest.mark.parametrize('modify_tokenizer', [False, True])
 def test_hf_loading_tokenizer(modify_tokenizer: bool, tmp_path: Path, tiny_bert_model, tiny_bert_tokenizer):
