@@ -10,6 +10,7 @@ import torch
 from packaging import version
 
 from composer.callbacks import Generate
+from composer.core import Event
 from composer.trainer import Trainer
 from composer.utils import dist
 from tests.common.datasets import dummy_gpt_lm_dataloader
@@ -136,4 +137,8 @@ class TestGenerate():
         expected_cb_call_count = 1
 
         # Assert that the generate callback has been called ONLY once
+        assert generate_cb.generate.call_count == expected_cb_call_count
+
+        # An additional fit call should not trigger additional calls to generate
+        trainer.engine.run_event(Event.FIT_END)
         assert generate_cb.generate.call_count == expected_cb_call_count
