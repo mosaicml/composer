@@ -8,6 +8,7 @@ dataset.
 """
 
 import os
+import warnings
 from math import ceil
 from typing import Any, Dict, Optional, Tuple, Union
 
@@ -50,6 +51,8 @@ def build_ade20k_transformations(split,
            image_transforms (torch.nn.Module): Transformations to apply to the input image only.
            target_transforms (torch.nn.Module): Transformations to apply to the target semantic segmentation mask only.
     """
+    warnings.warn(DeprecationWarning('build_ade20k_transformations is deprecated and will be removed in v0.18'))
+
     if split == 'train':
         both_transforms = torch.nn.Sequential(
             RandomResizePair(
@@ -110,6 +113,8 @@ def build_ade20k_dataloader(
             Default: ``true``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    warnings.warn(DeprecationWarning('build_ade20k_dataloader is deprecated and will be removed in v0.18'))
+
     if global_batch_size % dist.get_world_size() != 0:
         raise ValueError(
             f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
@@ -195,6 +200,8 @@ def build_streaming_ade20k_dataloader(
             Defaults to ``None``, which is interpreted as the number of nodes of the initial run.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    warnings.warn(DeprecationWarning('build_streaming_ade20k_dataloader is deprecated and will be removed in v0.18'))
+
     if global_batch_size % dist.get_world_size() != 0:
         raise ValueError(
             f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
@@ -274,6 +281,8 @@ def build_synthetic_ade20k_dataloader(
         memory_format (:class:`composer.core.MemoryFormat`): Memory format of the tensors. Default: ``CONTIGUOUS_FORMAT``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    warnings.warn(DeprecationWarning('build_synthetic_ade20k_dataloader is deprecated and will be removed in v0.18'))
+
     if global_batch_size % dist.get_world_size() != 0:
         raise ValueError(
             f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
@@ -321,6 +330,7 @@ class RandomResizePair(torch.nn.Module):
         self.min_scale = min_scale
         self.max_scale = max_scale
         self.base_size = base_size
+        warnings.warn(DeprecationWarning('RandomResizePair is deprecated and will be removed in v0.18'))
 
     def forward(self, sample: Tuple[Image.Image, Image.Image]):
         image, target = sample
@@ -348,6 +358,7 @@ class RandomCropPair(torch.nn.Module):
         self.crop_size = crop_size
         self.class_max_percent = class_max_percent
         self.num_retry = num_retry
+        warnings.warn(DeprecationWarning('RandomCropPair is deprecated and will be removed in v0.18'))
 
     def forward(self, sample: Tuple[Image.Image, Image.Image]):
         image, target = sample
@@ -392,6 +403,7 @@ class RandomHFlipPair(torch.nn.Module):
     def __init__(self, probability: float = 0.5):
         super().__init__()
         self.probability = probability
+        warnings.warn(DeprecationWarning('RandomHFlipPair is deprecated and will be removed in v0.18'))
 
     def forward(self, sample: Tuple[Image.Image, Image.Image]):
         image, target = sample
@@ -413,6 +425,7 @@ class PadToSize(torch.nn.Module):
         super().__init__()
         self.size = size
         self.fill = fill
+        warnings.warn(DeprecationWarning('PadToSize is deprecated and will be removed in v0.18'))
 
     def forward(self, image: Image.Image):
         padding = max(self.size[0] - image.height, 0), max(self.size[1] - image.width, 0)
@@ -440,6 +453,7 @@ class PhotometricDistoration(torch.nn.Module):
         self.contrast = contrast
         self.saturation = saturation
         self.hue = hue
+        warnings.warn(DeprecationWarning('PhotometricDistoration is deprecated and will be removed in v0.18'))
 
     def forward(self, image: Image.Image):
         if np.random.randint(2):
@@ -490,6 +504,7 @@ class ADE20k(Dataset):
                  both_transforms: Optional[torch.nn.Module] = None,
                  image_transforms: Optional[torch.nn.Module] = None,
                  target_transforms: Optional[torch.nn.Module] = None):
+        warnings.warn(DeprecationWarning('ADE20k is deprecated and will be removed in v0.18'))
         super().__init__()
         self.datadir = datadir
         self.split = split

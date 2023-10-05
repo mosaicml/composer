@@ -6,6 +6,8 @@
 See the :doc:`Model Card </model_cards/unet>` for more details.
 """
 
+import warnings
+
 import torch.nn as nn
 
 from composer.models.unet._layers import ConvBlock, OutputBlock, ResidBlock, UpsampleBlock
@@ -40,6 +42,7 @@ class UNet(nn.Module):
         residual,
         dimension,
     ):
+        warnings.warn(DeprecationWarning('UNet is deprecated and will be removed in v0.18'))
         super(UNet, self).__init__()
         self.dim = dimension
         self.n_class = n_class
