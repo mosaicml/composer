@@ -13,6 +13,7 @@ from composer.core.data_spec import DataSpec, ensure_data_spec
 from composer.core.event import Event
 from composer.core.state import State
 from composer.core.time import Time
+from composer.utils import create_interval_scheduler
 from composer.devices import Device, DeviceGPU
 
 __all__ = ['Evaluator', 'ensure_evaluator', 'validate_eval_automicrobatching']
@@ -107,7 +108,6 @@ class Evaluator:
 
     @eval_interval.setter
     def eval_interval(self, eval_interval: Optional[Union[int, str, Time, Callable[[State, Event], bool]]]):
-        from composer.utils import create_interval_scheduler
         if eval_interval is None:
             self._eval_interval = None
         elif not callable(eval_interval):
