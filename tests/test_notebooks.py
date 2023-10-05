@@ -26,9 +26,6 @@ def _to_pytest_param(filepath: str):
     notebook_name = os.path.split(filepath)[-1][:-len('.ipynb')]
     marks = []
 
-    if notebook_name == 'ffcv_dataloaders':
-        marks.append(pytest.mark.vision)
-
     return pytest.param(filepath, marks=marks)
 
 
