@@ -13,8 +13,8 @@ from composer.core.data_spec import DataSpec, ensure_data_spec
 from composer.core.event import Event
 from composer.core.state import State
 from composer.core.time import Time
-from composer.utils import create_interval_scheduler
 from composer.devices import Device, DeviceGPU
+from composer.utils import create_interval_scheduler
 
 __all__ = ['Evaluator', 'ensure_evaluator', 'validate_eval_automicrobatching']
 
