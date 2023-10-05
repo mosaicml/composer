@@ -493,7 +493,7 @@ def prepare_fsdp_module(
             fsdp_obj = FullyShardedDataParallel(
                 obj,
                 sharding_strategy=sharding_strategy,
-                auto_wrap_policy=_auto_wrap_policy,
+                auto_wrap_policy=_auto_wrap_policy, # type: ignore (temporary, result of torch 2.1 release)
                 cpu_offload=cpu_offload,
                 mixed_precision=mixed_precision,
                 backward_prefetch=backward_prefetch,
