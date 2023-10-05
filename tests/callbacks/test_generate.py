@@ -17,7 +17,6 @@ from tests.common.markers import device, world_size
 from tests.common.models import configure_tiny_gpt2_hf_model
 
 
-# foo
 @device('cpu', 'gpu')
 @pytest.mark.parametrize('use_fsdp', [True, False])
 @world_size(1, 2)
@@ -136,5 +135,5 @@ class TestGenerate():
 
         expected_cb_call_count = 1
 
-        # Assert that the generate callback has been called once
+        # Assert that the generate callback has been called ONLY once
         assert generate_cb.generate.call_count == expected_cb_call_count
