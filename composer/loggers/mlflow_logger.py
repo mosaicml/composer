@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Log to `MLFlow <https://www.mlflow.org/docs/latest/index.html>."""
+"""Log to `MLflow <https://www.mlflow.org/docs/latest/index.html>."""
 
 from __future__ import annotations
 
@@ -29,15 +29,15 @@ DEFAULT_MLFLOW_EXPERIMENT_NAME = 'my-mlflow-experiment'
 
 
 class MLFlowLogger(LoggerDestination):
-    """Log to `MLFlow <https://www.mlflow.org/docs/latest/index.html>`_.
+    """Log to `MLflow <https://www.mlflow.org/docs/latest/index.html>`_.
 
     Args:
-        experiment_name: (str, optional): MLFLow experiment name. If not set it will be
-            use the MLFLOW environment variable or a default value
-        run_name: (str, optional): MLFlow run name. If not set it will be the same as the
+        experiment_name: (str, optional): MLflow experiment name. If not set it will be
+            use the MLflow environment variable or a default value
+        run_name: (str, optional): MLflow run name. If not set it will be the same as the
             Trainer run name
-        tracking_uri (str | pathlib.Path, optional): MLFlow tracking uri, the URI to the
-            remote or local endpoint where logs are stored (If none it is set to MLFlow default)
+        tracking_uri (str | pathlib.Path, optional): MLflow tracking uri, the URI to the
+            remote or local endpoint where logs are stored (If none it is set to MLflow default)
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process
             (default: ``True``).
         flush_interval (int): The amount of time, in seconds, that MLflow must wait between
@@ -205,11 +205,11 @@ class MLFlowLogger(LoggerDestination):
             )
 
     def save_model(self, flavor: str, **kwargs):
-        """Save a model to MLFlow.
+        """Save a model to MLflow.
 
         Args:
-            flavor (str): The MLFlow model flavor to use. Currently only ``'transformers'`` is supported.
-            **kwargs: Keyword arguments to pass to the MLFlow model saving function.
+            flavor (str): The MLflow model flavor to use. Currently only ``'transformers'`` is supported.
+            **kwargs: Keyword arguments to pass to the MLflow model saving function.
 
         Raises:
             NotImplementedError: If ``flavor`` is not ``'transformers'``.
@@ -222,11 +222,11 @@ class MLFlowLogger(LoggerDestination):
                 raise NotImplementedError(f'flavor {flavor} not supported.')
 
     def log_model(self, flavor: str, **kwargs):
-        """Log a model to MLFlow.
+        """Log a model to MLflow.
 
         Args:
-            flavor (str): The MLFlow model flavor to use. Currently only ``'transformers'`` is supported.
-            **kwargs: Keyword arguments to pass to the MLFlow model logging function.
+            flavor (str): The MLflow model flavor to use. Currently only ``'transformers'`` is supported.
+            **kwargs: Keyword arguments to pass to the MLflow model logging function.
 
         Raises:
             NotImplementedError: If ``flavor`` is not ``'transformers'``.
