@@ -88,7 +88,7 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
     return cell_source
 
 
-@pytest.mark.parametrize('notebook', [notebook for notebook in NOTEBOOKS])
+@pytest.mark.parametrize('notebook', NOTEBOOKS)
 @device('cpu', 'gpu')
 @pytest.mark.daily
 def test_notebook(notebook: str, device: str, s3_bucket: str):
