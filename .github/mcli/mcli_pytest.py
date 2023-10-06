@@ -58,13 +58,14 @@ if __name__ == '__main__':
         name = name[:56]
 
     s3_bucket_flag = '--s3_bucket mosaicml-internal-integration-testing'
+    clear_tmp_path_flag = '-o tmp_path_retention_policy=none'
     command += f'''
 
     export COMPOSER_PACKAGE_NAME='{args.pip_package_name}'
 
     pip install --upgrade --user .[all]
 
-    export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}' {s3_bucket_flag}"
+    export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}' {s3_bucket_flag} {clear_tmp_path_flag}"
 
     export PYTHONUNBUFFERED=1
 

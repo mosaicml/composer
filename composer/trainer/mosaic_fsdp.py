@@ -42,10 +42,6 @@ def patch_pytorch():
     elif version.parse(torch.__version__) < version.parse('2.1.1'):
         # Monkey path for torch < 2.1.1 ie torch == 2.1.0
 
-        # Monkey patch __init__ where __init__ calls the custom _auto_wrap fn
-        from composer.trainer.mosaic_fsdp_utils import init_fn_t2p1p0
-        FullyShardedDataParallel.__init__ = init_fn_t2p1p0  # type: ignore
-
         # Monkey patch sharding method
         ChunkShardingSpec.build_metadata = build_metadata
         ChunkShardingSpec.shard = shard

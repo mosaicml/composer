@@ -28,6 +28,8 @@ __all__ = ['deeplabv3', 'composer_deeplabv3']
 class SimpleSegmentationModel(torch.nn.Module):
 
     def __init__(self, backbone, classifier):
+        warnings.warn(DeprecationWarning('SimpleSegmentationModel is deprecated and will be removed in v0.18'))
+
         super().__init__()
         self.backbone = backbone
         self.classifier = classifier
@@ -75,6 +77,7 @@ def deeplabv3(num_classes: int,
 
         pytorch_model = deeplabv3(num_classes=150, backbone_arch='resnet101', backbone_weights=None)
     """
+    warnings.warn(DeprecationWarning('deeplabv3 is deprecated and will be removed in v0.18'))
 
     # check that the specified architecture is in the resnet module
     if not hasattr(resnet, backbone_arch):
@@ -217,6 +220,7 @@ def composer_deeplabv3(num_classes: int,
 
         model = composer_deeplabv3(num_classes=150, backbone_arch='resnet101', backbone_weights=None)
     """
+    warnings.warn(DeprecationWarning('composer_deeplabv3 is deprecated and will be removed in v0.18'))
 
     model = deeplabv3(backbone_arch=backbone_arch,
                       backbone_weights=backbone_weights,
