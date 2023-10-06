@@ -6,10 +6,6 @@ import platform
 
 import PIL
 import pytest
-from torch.utils.data import DataLoader
-
-from composer.trainer import Trainer
-from tests.common import RandomClassificationDataset, SimpleModel
 
 
 @pytest.mark.skipif('composer-python' not in os.environ['PATH'] or 'Linux' not in platform.system(),
