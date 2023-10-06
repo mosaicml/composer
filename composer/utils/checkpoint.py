@@ -329,6 +329,9 @@ def load_sharded_checkpoint(
     load_planner = state.fsdp_config['load_planner']
     _validate_load_planner(load_planner)
 
+    # from composer.utils.planner import RankLoadPlanner
+    # load_planner = RankLoadPlanner(state.model)
+
     from torch.distributed import checkpoint as dist_cp
     from torch.distributed.checkpoint.metadata import Metadata
     from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
@@ -459,7 +462,7 @@ def load_sharded_checkpoint(
             dist_cp.load_state_dict(
                 state_dict=rng_state_dicts_load,
                 storage_reader=storage_reader,
-                planner=load_planner
+                # planner=load_planner
             )
             # We also want to append newly generated rng states for the ranks that don't have an rng state to load in
             # if we are resuming on more ranks than were used at save time.

@@ -40,11 +40,21 @@ def _get_module_name_mapping(model: torch.nn.Module) -> dict[str, str]:
                     '_fsdp_wrapped_module.', ''
                 )
                 for k in module.state_dict().keys():
-                    full_module_name = '.'.join(('state', new_module_name, k))
+                    full_module_name = '.'.join(filter(None, (new_module_name, k)))
                     module_name_mapping[full_module_name] = (
                         full_module_name + f'_pgidx{process_group_index}'
                     )
                     print(f'{full_module_name=}')
+        # print(f'{module_name=}')
+        # new_module_name = module_name.replace(
+        #     '_fsdp_wrapped_module.', ''
+        # )
+        # for k in module.state_dict().keys():
+        #     full_module_name = '.'.join(filter(None, (new_module_name, k)))
+        #     module_name_mapping[full_module_name] = (
+        #         full_module_name + f'_pgidx{dist.get_global_rank()}'
+        #     )
+        #     print(f'{full_module_name=}')
     return module_name_mapping
 
 
@@ -68,6 +78,8 @@ def _rename_model_state_dict(
             modified_state_dict[module_name_mapping[k]] = v
         else:
             modified_state_dict[k] = v
+    print(f'{module_name_mapping.items()=}')
+    print(f'{modified_state_dict.keys()=}')
 
     return modified_state_dict
 
