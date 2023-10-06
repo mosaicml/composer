@@ -49,7 +49,6 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    examples/functional_api.ipynb
    examples/medical_image_segmentation.ipynb
    examples/custom_speedup_methods.ipynb
-   examples/ffcv_dataloaders.ipynb
    examples/finetune_huggingface.ipynb
    examples/pretrain_finetune_huggingface.ipynb
    examples/migrate_from_ptl.ipynb

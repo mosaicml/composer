@@ -444,6 +444,7 @@ def load_sharded_checkpoint(
         # We need no_grad because we overwrite tensor values with set_() when we do elastic loading and we don't want the set_ op recorded in the computation graph.
         with torch.no_grad():
             # 1. Load model and metadata first
+            log.info('Load model and metadata')
             model_state_dict = None
             if load_weights_only:
                 model_state_dict = {'state': {'model': state.get_model_state_dict()}}
@@ -470,14 +471,22 @@ def load_sharded_checkpoint(
 
             # 2. Optionally load optimizer
             if not load_weights_only:
+                log.info('Load optimizer')
                 optim_state = load_sharded_optimizer_state_dict(model_state_dict=state.state_dict()['model'],
                                                                 optimizer_key='optimizers',
                                                                 storage_reader=storage_reader)
+                local_idx = f'_pgidx{dist.get_local_rank()}'
+                optim_state_dict = optim_state['optimizers']['DecoupledLionW']['state']
+                for key in list(optim_state_dict.keys()):
+                    optim_state_dict[key.replace(local_idx, '')] = optim_state_dict[key]
+                    if '_pgidx' in key:
+                        del optim_state_dict[key]
                 state.load_optim_state(optim_state)
 
         # 3. Optionally load RNG
         rng_state_dicts = reproducibility.get_rng_state()
         if not load_weights_only:
+            log.info('Load RNG')
             # If we are resuming on more ranks than were used at save time we only want to load in rngs for those ranks
             num_ranks_that_saved_rng = _get_num_ranks_that_saved_rng(storage_reader.read_metadata())
             rng_state_dicts_load = {}
