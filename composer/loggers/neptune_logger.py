@@ -1,3 +1,6 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
 # Copyright 2023 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
@@ -72,7 +75,6 @@ class NeptuneLogger(LoggerDestination):
         **neptune_kwargs,
     ) -> None:
         try:
-            from neptune import Run
             from neptune.internal.utils import verify_type
         except ImportError as e:
             raise MissingConditionalImportError(extra_deps_group='neptune',
@@ -96,16 +98,9 @@ class NeptuneLogger(LoggerDestination):
         self._neptune_kwargs = neptune_kwargs
 
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
+
         self._neptune_run = None
         self._base_handler = None
-
-        if self._enabled:
-            self._neptune_run = Run(
-                project=self._project,
-                api_token=self._api_token,
-                **self._neptune_kwargs,
-            )
-            self._base_handler = self._neptune_run[self._base_namespace]
 
         super(NeptuneLogger, self).__init__()
 
@@ -123,32 +118,37 @@ class NeptuneLogger(LoggerDestination):
             >>> neptune_logger.neptune_run["some_metric"] = 1
             >>> trainer.close()
         """
+        from neptune import Run
+
+        if not self._neptune_run:
+            self._neptune_run = Run(
+                project=self._project,
+                api_token=self._api_token,
+                **self._neptune_kwargs,
+            )
         return self._neptune_run
 
     @property
     def base_handler(self):
-        return self._base_handler
+        return self.neptune_run[self._base_namespace]
 
     def init(self, state: 'State', logger: 'Logger') -> None:
         del logger  # unused
 
         if not self._rank_zero_only:
-            self._base_handler["rank"] = dist.get_global_rank()
+            self.base_handler['rank'] = dist.get_global_rank()
 
         if self._enabled:
-            assert self._neptune_run is not None
-            self._neptune_run['sys/name'] = state.run_name
-            self._neptune_run[self.INTEGRATION_VERSION_KEY] = __version__
+            self.neptune_run['sys/name'] = state.run_name
+            self.neptune_run[self.INTEGRATION_VERSION_KEY] = __version__
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
         if not self._enabled:
             return
 
-        assert self._base_handler is not None
-
         from neptune.utils import stringify_unsupported
 
-        self._base_handler[NeptuneLogger.METRIC_NAMESPACE].append(stringify_unsupported(metrics), step=step)
+        self.base_handler[NeptuneLogger.METRIC_NAMESPACE].append(stringify_unsupported(metrics), step=step)
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]) -> None:
         if not self._enabled:
@@ -156,9 +156,7 @@ class NeptuneLogger(LoggerDestination):
 
         from neptune.utils import stringify_unsupported
 
-        assert self._base_handler is not None
-
-        self._base_handler[NeptuneLogger.HYPERPARAM_NAMESPACE] = stringify_unsupported(hyperparameters)
+        self.base_handler[NeptuneLogger.HYPERPARAM_NAMESPACE] = stringify_unsupported(hyperparameters)
 
     def log_traces(self, traces: Dict[str, Any]):
         if not self._enabled:
@@ -166,9 +164,7 @@ class NeptuneLogger(LoggerDestination):
 
         from neptune.utils import stringify_unsupported
 
-        assert self._base_handler is not None
-
-        self._base_handler[NeptuneLogger.TRACE_NAMESPACE] = stringify_unsupported(traces)
+        self.base_handler[NeptuneLogger.TRACE_NAMESPACE] = stringify_unsupported(traces)
 
     def can_upload_files(self) -> bool:
         """Whether the logger supports uploading files."""
@@ -185,19 +181,15 @@ class NeptuneLogger(LoggerDestination):
         if not self.can_upload_files():
             return
 
-        assert self._neptune_run is not None
-
         neptune_path = f'{self._base_namespace}/{remote_file_name}'
-        if self._neptune_run.exists(neptune_path) and not overwrite:
+        if self.neptune_run.exists(neptune_path) and not overwrite:
 
             warnings.warn(f"The file '{neptune_path}' already exists and overwrite is set to False."
                           'No action will be taken.')
             return
 
         del state  # unused
-
-        assert self._base_handler is not None
-        self._base_handler[remote_file_name].upload(str(file_path))
+        self.base_handler[remote_file_name].upload(str(file_path))
 
     def download_file(
         self,
@@ -219,14 +211,11 @@ class NeptuneLogger(LoggerDestination):
                           'No action will be taken.')
             return
 
-        assert self._neptune_run is not None
-        assert self._base_handler is not None
-
         file_path = f'{self._base_namespace}/{remote_file_name}'
-        if not self._neptune_run.exists(file_path):
+        if not self.neptune_run.exists(file_path):
             raise FileNotFoundError(f'File {file_path} not found')
 
-        self._base_handler[remote_file_name].download(destination=destination)
+        self.base_handler[remote_file_name].download(destination=destination)
 
     def log_images(
         self,
@@ -241,13 +230,11 @@ class NeptuneLogger(LoggerDestination):
         if not self._enabled:
             return
 
-        assert self._base_handler is not None
-
         if not isinstance(images, Sequence) and images.ndim <= 3:
             images = [images]
 
         for img in images:
-            self._base_handler[name].append(img, step=step)
+            self.base_handler[name].append(img, step=step)
 
     def post_close(self) -> None:
         if not self._enabled:
