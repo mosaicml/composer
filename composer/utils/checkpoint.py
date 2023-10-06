@@ -295,7 +295,7 @@ def load_checkpoint(
     return rng_state_dicts
 
 
-def get_module_name_mapping(model: torch.nn.Module) -> dict[str, str]:
+def _get_module_name_mapping(model: torch.nn.Module) -> dict[str, str]:
     module_name_mapping = {}
     world_size = dist.get_world_size()
     for module_name, module in model.named_modules():
@@ -312,7 +312,7 @@ def get_module_name_mapping(model: torch.nn.Module) -> dict[str, str]:
     return module_name_mapping
 
 
-def rename_model_state_dict(model_state_dict, module_name_mapping: dict[str, str]):
+def _rename_model_state_dict(model_state_dict, module_name_mapping: dict[str, str]):
     modified_state_dict = {}
     for k, v in model_state_dict.items():
         if k in module_name_mapping.keys():
@@ -323,7 +323,7 @@ def rename_model_state_dict(model_state_dict, module_name_mapping: dict[str, str
     return modified_state_dict
 
 
-def rename_optimizers_state_dict(optimizers_state_dict: dict[str, dict[str, dict[str, Any]]], module_name_mapping: dict[str, str]) -> dict[str, dict[str, dict[str, Any]]]:
+def _rename_optimizers_state_dict(optimizers_state_dict: dict[str, dict[str, dict[str, Any]]], module_name_mapping: dict[str, str]) -> dict[str, dict[str, dict[str, Any]]]:
     optimizers = {}
     for optimizer in optimizers_state_dict.keys():
         optimizers[optimizer] = optimizers_state_dict[optimizer]
@@ -458,44 +458,7 @@ def load_sharded_checkpoint(
                 cur_state_dict.pop('optimizers')
                 model_state_dict = {'state': cur_state_dict}
 
-            class RenameLoadPlanner(dist_cp.DefaultLoadPlanner):
-                """
-                RenameLoadPlanner overrides set_up_planner to rename modules that are part of a custom process group.
-                """
-
-                def set_up_planner(
-                    self,
-                    state_dict: STATE_DICT_TYPE,
-                    metadata: Metadata,
-                    is_coordinator: bool,
-                ) -> None:
-                    from torch.distributed.checkpoint._nested_dict import flatten_state_dict
-                    from torch.distributed.checkpoint._sharded_tensor_utils import _flatten_sharded_tensors
-
-                    self.original_state_dict = state_dict
-
-                    state_dict = {
-                        'state': {
-                            'model': {k: v for k, v in state_dict['state']['model'].items()},
-                        },
-                    }
-                    name_conversion_dict = get_module_name_mapping(state.model)
-
-                    if name_conversion_dict:
-                        model_state_dict = rename_model_state_dict(state_dict['state']['model'], name_conversion_dict)
-                        state_dict['state']['model'] = model_state_dict
-
-                    if self.flatten_sharded_tensors:
-                        state_dict = _flatten_sharded_tensors(state_dict)
-
-                    if self.flatten_state_dict:
-                        state_dict, self.mappings = flatten_state_dict(state_dict)
-
-                    self.state_dict = state_dict
-                    self.metadata = metadata
-                    self.is_coordinator = is_coordinator
-
-            dist_cp.load_state_dict(model_state_dict, storage_reader, planner=RenameLoadPlanner())
+            dist_cp.load_state_dict(model_state_dict, storage_reader, planner=RenameLoadPlanner(state.model))
 
             state.load_state_dict(
                 model_state_dict['state'],
@@ -888,22 +851,7 @@ def save_checkpoint(
         import torch.distributed.checkpoint as dist_cp
         log.debug('Saving sharded checkpoints to %s...', save_filename)
 
-
-        class RenameSavePlanner(dist_cp.DefaultSavePlanner):
-            # SavePlanner for when fsdp uses custom process_groups
-            def set_up_planner(self, state_dict, is_coordinator):
-                name_conversion_dict = get_module_name_mapping(state.model)
-                if name_conversion_dict:
-                    model_state_dict = rename_model_state_dict(state_dict['state']['model'], name_conversion_dict)
-                    state_dict['state']['model'] = model_state_dict
-
-                    if 'optimizers' in state_dict.keys():
-                        optimizers = rename_optimizers_state_dict(state_dict['optimizers'], name_conversion_dict)
-                        state_dict['optimizers'] = optimizers
-
-                super().set_up_planner(state_dict, is_coordinator)
-
-        dist_cp.save_state_dict(state_dict=state_dict, storage_writer=dist_cp.FileSystemWriter(dirname), planner=RenameSavePlanner())
+        dist_cp.save_state_dict(state_dict=state_dict, storage_writer=dist_cp.FileSystemWriter(dirname), planner=RenameSavePlanner(state.model))
 
     # Only rank 0 saves the state_dict unless you are using sharded checkpointing with torch <2.0
     elif dist.get_global_rank() == 0 or state.fsdp_sharded_state_dict_enabled:
@@ -1027,3 +975,137 @@ Args:
             Otherwise, when not using DeepSpeed, each list will contain only one filepath,
             since only the rank zero process saves checkpoints.
 """
+
+from torch.distributed.checkpoint.default_planner import (
+    DefaultLoadPlanner,
+    DefaultSavePlanner,
+)
+from torch.distributed.checkpoint._nested_dict import flatten_state_dict
+from torch.distributed.checkpoint._sharded_tensor_utils import (
+    _flatten_sharded_tensors,
+)
+class RenameLoadPlanner(DefaultLoadPlanner):
+    """
+    RankLoadPlanner extends __init__ and overrides set_up_planner to
+    rename modules that are part of a custom process group.
+    """
+
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        flatten_state_dict: bool = True,
+        flatten_sharded_tensors: bool = True,
+    ) -> None:
+        """Initializes RankLoadPlanner and sets the module mapping.
+
+        The module mapping appends the process group index to each module
+        name.
+
+        Args:
+            model: A torch.nn.Module.
+            flatten_state_dict: See parent class.
+            flatten_sharded_tensors: See parent class.
+        """
+        self.name_conversion_dict = _get_module_name_mapping(model)
+        super().__init__(flatten_state_dict, flatten_sharded_tensors)
+
+    def set_up_planner(
+        self,
+        state_dict,
+        metadata,
+        is_coordinator: bool,
+    ) -> None:
+        """Renames the state dict.
+
+        The rest of the function follows the parent class.
+
+        Args:
+            state_dict: See parent class.
+            metadata: See parent class.
+            is_coordinator: See parent class.
+        """
+        print(f'{state_dict.keys()=}')
+        if 'state' not in state_dict:
+            super().set_up_planner(state_dict, metadata, is_coordinator)
+            return
+
+        self.original_state_dict = state_dict
+
+        state_dict = {
+            'state': {
+                'model': {
+                    k: v for k, v in state_dict['state']['model'].items()
+                },
+            },
+        }
+
+        if self.name_conversion_dict:
+            model_state_dict = _rename_model_state_dict(
+                state_dict['state']['model'], self.name_conversion_dict
+            )
+            state_dict['state']['model'] = model_state_dict
+
+        if self.flatten_sharded_tensors:
+            state_dict = _flatten_sharded_tensors(state_dict)
+
+        if self.flatten_state_dict:
+            state_dict, self.mappings = flatten_state_dict(state_dict)
+
+        self.state_dict = state_dict
+        self.metadata = metadata
+        self.is_coordinator = is_coordinator
+
+
+class RenameSavePlanner(DefaultSavePlanner):
+    """
+    RankSavePlanner extends __init__ and set_up_planner to rename modules
+    that are part of a custom process group.
+    """
+
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        flatten_state_dict: bool = True,
+        flatten_sharded_tensors: bool = True,
+        dedup_replicated_tensors: bool = True,
+    ) -> None:
+        """Initializes RankSavePlanner and sets the module mapping.
+
+        The module mapping appends the process group index to each module
+        name.
+
+        Args:
+            model: A torch.nn.Module.
+            flatten_state_dict: See parent class.
+            flatten_sharded_tensors: See parent class.
+            dedup_replicated_tensors: See parent class.
+        """
+        self.name_conversion_dict = _get_module_name_mapping(model)
+        super().__init__(
+            flatten_state_dict,
+            flatten_sharded_tensors,
+            dedup_replicated_tensors,
+        )
+
+    def set_up_planner(
+        self, state_dict, is_coordinator: bool
+    ) -> None:
+        """Renames the state dict and optimizer state dict.
+
+        Args:
+            state_dict: See parent class.
+            is_coordinator: See parent class.
+        """
+        if self.name_conversion_dict:
+            model_state_dict = _rename_model_state_dict(
+                state_dict['state']['model'], self.name_conversion_dict
+            )
+            state_dict['state']['model'] = model_state_dict
+
+            if 'optimizers' in state_dict.keys():
+                optimizers = _rename_optimizers_state_dict(
+                    state_dict['optimizers'], self.name_conversion_dict
+                )
+                state_dict['optimizers'] = optimizers
+
+        super().set_up_planner(state_dict, is_coordinator)
