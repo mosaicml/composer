@@ -97,7 +97,11 @@ class NeptuneLogger(LoggerDestination):
         self._base_namespace = base_namespace
         self._neptune_kwargs = neptune_kwargs
 
+        mode = self._neptune_kwargs.pop('mode', 'async')
+
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
+
+        self._mode = mode if self._enabled else 'debug'
 
         self._neptune_run = None
         self._base_handler = None
@@ -124,6 +128,7 @@ class NeptuneLogger(LoggerDestination):
             self._neptune_run = Run(
                 project=self._project,
                 api_token=self._api_token,
+                mode=self._mode,
                 **self._neptune_kwargs,
             )
         return self._neptune_run
