@@ -473,6 +473,12 @@ def load_sharded_checkpoint(
                 optim_state = load_sharded_optimizer_state_dict(model_state_dict=state.state_dict()['model'],
                                                                 optimizer_key='optimizers',
                                                                 storage_reader=storage_reader)
+                local_idx = f'_pgidx{dist.get_local_rank()}'
+                optim_state_dict = optim_state['optimizers']['DecoupledLionW']['state']
+                for key in optim_state_dict.keys():
+                    optim_state_dict[key.replace(local_idx, '')] = optim_state_dict[key]
+                    if '_pgidx' in key:
+                        del optim_state_dict[key]
                 state.load_optim_state(optim_state)
 
         # 3. Optionally load RNG
