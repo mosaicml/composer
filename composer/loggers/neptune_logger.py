@@ -247,3 +247,4 @@ class NeptuneLogger(LoggerDestination):
 
         if self._neptune_run:
             self._neptune_run.stop()
+            self._neptune_run = None
