@@ -483,7 +483,7 @@ def load_sharded_checkpoint(
             rng_state_dicts_load = {}
             rng_state_dicts_load['rng'] = rng_state_dicts[:num_ranks_that_saved_rng] if len(
                 rng_state_dicts) > num_ranks_that_saved_rng else rng_state_dicts
-            dist_cp.load_state_dict(rng_state_dicts_load, storage_reader)
+            dist_cp.load_state_dict(rng_state_dicts_load, storage_reader, planner=RenameLoadPlanner(state.model))
             # We also want to append newly generated rng states for the ranks that don't have an rng state to load in
             # if we are resuming on more ranks than were used at save time.
             if len(rng_state_dicts) > num_ranks_that_saved_rng:
