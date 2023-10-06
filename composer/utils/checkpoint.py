@@ -295,10 +295,10 @@ def load_checkpoint(
     return rng_state_dicts
 
 
-def get_module_name_mapping(state: State) -> dict[str, str]:
+def get_module_name_mapping(model: torch.nn.Module) -> dict[str, str]:
     module_name_mapping = {}
     world_size = dist.get_world_size()
-    for module_name, module in state.model.named_modules():
+    for module_name, module in model.named_modules():
         if hasattr(module, 'process_group'):
             process_group = module.process_group
             process_group_size = torch.distributed.get_world_size(process_group)
@@ -479,7 +479,7 @@ def load_sharded_checkpoint(
                             'model': {k: v for k, v in state_dict['state']['model'].items()},
                         },
                     }
-                    name_conversion_dict = get_module_name_mapping(state)
+                    name_conversion_dict = get_module_name_mapping(state.model)
 
                     if name_conversion_dict:
                         model_state_dict = rename_model_state_dict(state_dict['state']['model'], name_conversion_dict)
@@ -892,7 +892,7 @@ def save_checkpoint(
         class RenameSavePlanner(dist_cp.DefaultSavePlanner):
             # SavePlanner for when fsdp uses custom process_groups
             def set_up_planner(self, state_dict, is_coordinator):
-                name_conversion_dict = get_module_name_mapping(state)
+                name_conversion_dict = get_module_name_mapping(state.model)
                 if name_conversion_dict:
                     model_state_dict = rename_model_state_dict(state_dict['state']['model'], name_conversion_dict)
                     state_dict['state']['model'] = model_state_dict
