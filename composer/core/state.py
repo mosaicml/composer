@@ -1136,6 +1136,7 @@ class State(Serializable):
         Args:
             state_dict (Dict[str, Any]): The state to load.
         """
+        print(f'{state_dict.keys()=}')
         serialized_value = state_dict['optimizers']
         for optimizer in ensure_tuple(self.optimizers):
             # Broadcast compatibility check as monolith rank 0 only loads won't have optimizer on all ranks

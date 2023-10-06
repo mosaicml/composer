@@ -973,55 +973,76 @@ def test_fsdp_planner(
     )
     from torch.distributed.checkpoint.metadata import Metadata, STATE_DICT_TYPE
 
+    def foo_mapping(model: torch.nn.Module) -> dict[str, str]:
+        module_name_mapping = {}
+        for module_name, module in model.named_modules():
+            print(f"{module_name=} {hasattr(module, 'process_group')=}")
+            new_module_name = module_name.replace(
+                '_fsdp_wrapped_module.', ''
+            )
+            for k in module.state_dict().keys():
+                full_module_name = '.'.join(filter(None, (new_module_name, k)))
+                module_name_mapping[full_module_name] = (
+                    full_module_name + f'_foo'
+                )
+                print(f'{full_module_name=}')
+        return module_name_mapping
+    
+    from composer.utils.planner import _rename_model_state_dict, _rename_optimizers_state_dict
+
     class RenameSavePlanner(DefaultSavePlanner):
+        def __init__(
+            self,
+            model: torch.nn.Module,
+            flatten_state_dict: bool = True,
+            flatten_sharded_tensors: bool = True,
+            dedup_replicated_tensors: bool = True,
+        ) -> None:
+            """Initializes RankSavePlanner and sets the module mapping.
+
+            The module mapping appends the process group index to each module
+            name.
+
+            Args:
+                model: A torch.nn.Module.
+                flatten_state_dict: See parent class.
+                flatten_sharded_tensors: See parent class.
+                dedup_replicated_tensors: See parent class.
+            """
+            self.name_conversion_dict = foo_mapping(model)
+            super().__init__(
+                flatten_state_dict,
+                flatten_sharded_tensors,
+                dedup_replicated_tensors,
+            )
         def set_up_planner(
                 self,
                 state_dict: STATE_DICT_TYPE,
                 is_coordinator: bool
             ) -> None:
-            assert self.flatten_state_dict
-            assert self.flatten_sharded_tensors
-            print(f'set_up_planner: {state_dict.keys()=}')
-            # suffix all keys with `foo_``
-            foo_state_dict = {k: v for k, v in state_dict.items()}
-            print(f'{foo_state_dict["state"]["model"].keys()=}')
-            foo_state_dict['state']['model'] = {
-                k.replace(
-                    '_fsdp_wrapped_module.', ''
-                ) + '_foo': v for k, v in foo_state_dict['state']['model'].items()
-            }
-            print(f'{foo_state_dict["state"]["model"].keys()=}')
+            if self.name_conversion_dict:
+                model_state_dict = _rename_model_state_dict(
+                    state_dict['state']['model'], self.name_conversion_dict
+                )
+                state_dict['state']['model'] = model_state_dict
 
-            if 'optimizers' in foo_state_dict:
+                if 'optimizers' in state_dict.keys():
+                    optimizers = _rename_optimizers_state_dict(
+                        state_dict['optimizers'], self.name_conversion_dict
+                    )
+                    state_dict['optimizers'] = optimizers
 
-                # optimizers = {}
-                # for optimizer in foo_state_dict['optimizers'].keys():
-                #     optimizers[optimizer] = foo_state_dict['optimizers'][optimizer]
-                #     renamed_optimizers = {}
-                #     for k, v in foo_state_dict['optimizers'][optimizer]['state'].items():
-                #         replace_key = k + '_foo'
-                #         renamed_optimizers[replace_key] = v
-                #     optimizers[optimizer]['state'] = renamed_optimizers
-                # foo_state_dict['optimizers'] = optimizers
-
-
-
-                # for optimizer in foo_state_dict['optimizers'].keys():
-                #     param_groups = foo_state_dict['optimizers'][optimizer]['param_groups']
-                #     foo_state_dict['optimizers'] = {optimizer: {'state': {}}}
-                #     foo_state_dict['optimizers'][optimizer]['param_groups'] = param_groups
-                #     foo_state_dict['optimizers'][optimizer]['state'] = {
-                #         k + '_foo': v for k, v in foo_state_dict['optimizers'][optimizer]['state'].items()
-                #     }
-                for optimizer in foo_state_dict['optimizers'].keys():
-                    foo_state_dict['optimizers'][optimizer]['state'] = {
-                        k + '_foo': v for k, v in foo_state_dict['optimizers'][optimizer]['state'].items()
-                    }
-                    print(f'{foo_state_dict["optimizers"][optimizer]["state"].items()=}')
-                    print(f'{foo_state_dict["optimizers"][optimizer]["param_groups"]=}')
-            super().set_up_planner(foo_state_dict, is_coordinator)
+            super().set_up_planner(state_dict, is_coordinator)
 
     class RenameLoadPlanner(DefaultLoadPlanner):
+        def __init__(
+            self,
+            model: torch.nn.Module,
+            flatten_state_dict: bool = True,
+            flatten_sharded_tensors: bool = True,
+        ) -> None:
+            self.name_conversion_dict = foo_mapping(model)
+            super().__init__(flatten_state_dict, flatten_sharded_tensors)
         def set_up_planner(
                 self,
                 state_dict: STATE_DICT_TYPE,
@@ -1032,8 +1053,6 @@ def test_fsdp_planner(
                 super().set_up_planner(state_dict, metadata, is_coordinator)
                 return
 
-            assert self.flatten_state_dict
-            assert self.flatten_sharded_tensors
             self.original_state_dict = state_dict
 
             state_dict = {
@@ -1043,13 +1062,19 @@ def test_fsdp_planner(
                     },
                 },
             }
-            state_dict['state']['model'] = {k + '_foo': v for k, v in state_dict['state']['model'].items()}
 
-            print(f'RenameLoadPlanner: {state_dict["state"]["model"].keys()=}')
+            if self.name_conversion_dict:
+                model_state_dict = _rename_model_state_dict(
+                    state_dict['state']['model'], self.name_conversion_dict
+                )
+                state_dict['state']['model'] = model_state_dict
+
             if self.flatten_sharded_tensors:
                 state_dict = _flatten_sharded_tensors(state_dict)
+
             if self.flatten_state_dict:
                 state_dict, self.mappings = flatten_state_dict(state_dict)
+
             self.state_dict = state_dict
             self.metadata = metadata
             self.is_coordinator = is_coordinator
@@ -1065,8 +1090,8 @@ def test_fsdp_planner(
         # from composer.utils.planner import RankLoadPlanner, RankSavePlanner
         # save_planner = RankSavePlanner(SimpleMLP())
         # load_planner = RankLoadPlanner(SimpleMLP())
-        save_planner = RenameSavePlanner()
-        load_planner = RenameLoadPlanner()
+        save_planner = RenameSavePlanner(SimpleMLP())
+        load_planner = RenameLoadPlanner(SimpleMLP())
 
     if autoresume:
         local_run_name = f'my-cool-autoresume-run-{uuid.uuid1()}'
@@ -1142,6 +1167,7 @@ def test_fsdp_planner(
         load_weights_only=weights_only,
         fsdp_config=fsdp_config,
     )
+    # trainer2.fit()
     state_dict_from_trainer2 = trainer2.state.state_dict()
     rng2 = trainer2._rng_state
     # Compare saved state and loaded state for both ranks.
