@@ -1,16 +1,19 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Utilities for callbacks."""
+"""Callback utils."""
 
-import math
-from typing import Callable, Union
+import warnings
+from typing import Callable, Optional, Set, Union
 
-from composer.core import Event, State, Time, TimeUnit
+from composer.core import Event, State, Time
+from composer.utils.misc import create_interval_scheduler as _create_interval_scheduler
 
 
 def create_interval_scheduler(interval: Union[str, int, Time],
-                              include_end_of_training=True) -> Callable[[State, Event], bool]:
+                              include_end_of_training: bool = True,
+                              checkpoint_events: bool = True,
+                              final_events: Optional[Set[Event]] = None) -> Callable[[State, Event], bool]:
     """Helper function to create a scheduler according to a specified interval.
 
     Args:
@@ -19,46 +22,22 @@ def create_interval_scheduler(interval: Union[str, int, Time],
             :attr:`.TimeUnit.TOKEN`, or :attr:`.TimeUnit.SAMPLE`.
         include_end_of_training (bool): If true, the returned callable will return true at the end of training as well.
             Otherwise, the returned callable will return true at intervals only.
+        checkpoint_events (bool): If true, will use the EPOCH_CHECKPOINT and BATCH_CHECKPOINT events. If False, will use
+            the EPOCH_END and BATCH_END events.
+        final_events (Optional[Set[Event]]): The set of events to trigger on at the end of training.
 
     Returns:
         Callable[[State, Event], bool]: A function that returns true at interval and at the end of training if specified.
             For example, it can be passed as the ``save_interval`` argument into the :class:`.CheckpointSaver`.
     """
-    if isinstance(interval, str):
-        interval = Time.from_timestring(interval)
-    if isinstance(interval, int):
-        interval = Time(interval, TimeUnit.EPOCH)
-
-    if interval.unit == TimeUnit.EPOCH:
-        save_event = Event.EPOCH_CHECKPOINT
-    elif interval.unit in {TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE}:
-        save_event = Event.BATCH_CHECKPOINT
-    else:
-        raise NotImplementedError(
-            f'Unknown interval: {interval.unit}. Must be TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.'
-        )
-
-    def check_interval(state: State, event: Event):
-        elapsed_duration = state.get_elapsed_duration()
-        assert elapsed_duration is not None, 'elapsed_duration is set on the BATCH_CHECKPOINT and EPOCH_CHECKPOINT'
-
-        if include_end_of_training and elapsed_duration >= 1.0:
-            return True
-
-        # previous timestamp will only be None if training has not started, but we are returning False
-        # in this case, just to be safe
-        if state.previous_timestamp is None:
-            return False
-
-        if interval.unit in {TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, TimeUnit.SAMPLE}:
-            previous_count = state.previous_timestamp.get(interval.unit)
-            count = state.timestamp.get(interval.unit)
-        else:
-            raise NotImplementedError(
-                f'Unknown interval: {interval.unit}. Must be TimeUnit.EPOCH, TimeUnit.BATCH, TimeUnit.TOKEN, or TimeUnit.SAMPLE.'
-            )
-
-        threshold_passed = math.floor(previous_count / interval.value) != math.floor(count / interval.value)
-        return event == save_event and threshold_passed
-
-    return check_interval
+    warnings.warn(
+        '`composer.callbacks.utils.create_interval_scheduler has been moved to `composer.utils.misc.create_interval_scheduler` '
+        + 'and will be removed in a future release.',
+        DeprecationWarning,
+    )
+    return _create_interval_scheduler(
+        interval=interval,
+        include_end_of_training=include_end_of_training,
+        checkpoint_events=checkpoint_events,
+        final_events=final_events,
+    )

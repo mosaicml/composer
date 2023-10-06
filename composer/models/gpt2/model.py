@@ -8,6 +8,7 @@ Implemented as a wrapper using :class:`.ComposerTrainer`.
 
 from __future__ import annotations
 
+import warnings
 from typing import Optional
 
 from composer.metrics.nlp import LanguageCrossEntropy, LanguagePerplexity
@@ -83,6 +84,8 @@ def create_gpt2(use_pretrained: Optional[bool] = False,
         composer_model = create_gpt2()
 
     """
+    warnings.warn(DeprecationWarning('create_gpt2 is deprecated and will be removed in v0.18'))
+
     try:
         import transformers
     except ImportError as e:

@@ -506,7 +506,7 @@ class HuggingFaceModel(ComposerModel):
                         with open(tokenizer_file_path) as _tokenizer_file:
                             tokenizer_file_content = _tokenizer_file.read().split('\n')
                     elif tokenizer_file_extension == '.json':
-                        with open(tokenizer_file_path) as _tokenizer_file:
+                        with open(tokenizer_file_path, 'rb') as _tokenizer_file:
                             tokenizer_file_content = json.load(_tokenizer_file)
                     elif tokenizer_file_extension == '.py':
                         with open(tokenizer_file_path) as _tokenizer_file:
