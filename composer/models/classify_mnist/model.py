@@ -3,6 +3,7 @@
 
 """A simple convolutional neural network extending :class:`.ComposerClassifier`."""
 
+import warnings
 from typing import List, Optional, Sequence, Union
 
 import torch
@@ -19,6 +20,7 @@ class Model(nn.Module):
     """Toy convolutional neural network architecture in pytorch for MNIST."""
 
     def __init__(self, initializers: Sequence[Union[str, Initializer]], num_classes: int = 10):
+        warnings.warn(DeprecationWarning('Model is deprecated and will be removed in v0.18'))
         super().__init__()
 
         self.num_classes = num_classes
@@ -65,6 +67,7 @@ def mnist_model(num_classes: int = 10, initializers: Optional[List[Initializer]]
 
         model = mnist_model()
     """
+    warnings.warn(DeprecationWarning('mnist_model is deprecated and will be removed in v0.18'))
 
     if initializers is None:
         initializers = []
