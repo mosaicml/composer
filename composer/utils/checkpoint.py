@@ -1024,20 +1024,11 @@ class RenameLoadPlanner(DefaultLoadPlanner):
             metadata: See parent class.
             is_coordinator: See parent class.
         """
-        print(f'{state_dict.keys()=}')
         if 'state' not in state_dict:
             super().set_up_planner(state_dict, metadata, is_coordinator)
             return
 
         self.original_state_dict = state_dict
-
-        state_dict = {
-            'state': {
-                'model': {
-                    k: v for k, v in state_dict['state']['model'].items()
-                },
-            },
-        }
 
         if self.name_conversion_dict:
             model_state_dict = _rename_model_state_dict(
