@@ -1039,11 +1039,15 @@ class RenameLoadPlanner(DefaultLoadPlanner):
 
         self.original_state_dict = state_dict
 
+        print(f'state_dict: {state_dict}')
+
         if self.name_conversion_dict:
             model_state_dict = _rename_model_state_dict(
                 state_dict['state']['model'], self.name_conversion_dict
             )
             state_dict['state']['model'] = model_state_dict
+
+        print(f'state_dict: {state_dict}')
 
         if self.flatten_sharded_tensors:
             state_dict = _flatten_sharded_tensors(state_dict)
