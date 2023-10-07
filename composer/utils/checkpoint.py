@@ -465,7 +465,7 @@ def load_sharded_checkpoint(
             for key in list(model_state.keys()):
                 model_state[key.replace(local_idx, '')] = model_state[key]
                 if '_pgidx' in key:
-                    del optim_state_dict[key]
+                    del model_state_dict[key]
 
             state.load_state_dict(
                 model_state_dict['state'],
