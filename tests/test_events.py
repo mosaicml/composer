@@ -83,7 +83,7 @@ class TestEventCalls:
                              pytest.mark.gpu,
                              pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                                                 reason='requires PyTorch 1.13 or higher'),
-                             pytest.mark.filterwarnings(),
+                             pytest.mark.filterwarnings("ignore"),
                             #  pytest.mark.filterwarnings(r"ignore:The torch\.cuda\.\*DtypeTensor constructors are no longer recommended\. It's best to use methods such as torch\.tensor\(data, dtype=\*, device='cuda'\) to create tensors\.:UserWarning")
                          ]),
         ])
