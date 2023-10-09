@@ -73,7 +73,8 @@ class TestEventCalls:
         [
             pytest.param('cpu', None, False, 'fp32', id='cpu-ddp'),
             # TODO: Remove filterwarnings after FSDP remove deprecated code
-            pytest.param('gpu', True, False, 'fp32', id='gpu-ddp', marks=pytest.mark.gpu),
+            pytest.param('gpu', True, False, 'fp32', id='gpu-ddp', marks=[pytest.mark.gpu, pytest.mark.filterwarnings("ignore::UserWarning"),
+]),
             pytest.param('gpu',
                          None,
                          True,
@@ -83,8 +84,7 @@ class TestEventCalls:
                              pytest.mark.gpu,
                              pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                                                 reason='requires PyTorch 1.13 or higher'),
-                             pytest.mark.filterwarnings("ignore"),
-                            #  pytest.mark.filterwarnings(r"ignore:The torch\.cuda\.\*DtypeTensor constructors are no longer recommended\. It's best to use methods such as torch\.tensor\(data, dtype=\*, device='cuda'\) to create tensors\.:UserWarning")
+                             pytest.mark.filterwarnings("ignore::UserWarning"),
                          ]),
         ])
     @pytest.mark.parametrize('save_interval', ['1ep', '1ba'])
