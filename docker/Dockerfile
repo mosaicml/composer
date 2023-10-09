@@ -211,6 +211,7 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
 	        torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} ; \
     fi
 RUN
+
 #####################################
 # Install EFA and AWS-OFI-NCCL plugin
 #####################################
