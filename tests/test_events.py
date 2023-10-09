@@ -84,7 +84,7 @@ class TestEventCalls:
                              pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                                                 reason='requires PyTorch 1.13 or higher'),
                             #  pytest.mark.filterwarnings('ignore::UserWarning'),
-                             pytest.mark.filterwarnings('ignore:UserWarning: The.*'),
+                             pytest.mark.filterwarnings('ignore: The.*:UserWarning'),
                          ]),
         ])
     @pytest.mark.parametrize('save_interval', ['1ep', '1ba'])
