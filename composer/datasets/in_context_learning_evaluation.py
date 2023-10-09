@@ -26,6 +26,7 @@ __all__ = [
     'InContextLearningMultipleChoiceTaskDataset',
     'InContextLearningCodeEvalDataset',
     'InContextLearningQATaskDataset',
+    'InContextLearningExecutionPredictionTaskDataset',
     'get_icl_task_dataloader',
 ]
 
@@ -308,19 +309,22 @@ class InContextLearningExecutionPredictionTaskDataset(Dataset):
         fewshot_random_seed (int): Random seed used to select fewshot examples
     """
 
-    def __init__(self,
-                 dataset_uri: str,
-                 tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
-                 max_seq_len: int,
-                 pad_tok_id: int,
-                 num_fewshot: int,
-                 prompt_string: str,
-                 example_delimiter: str,
-                 destination_path: str,
-                 fewshot_random_seed: int,
-                 fn_delimiter: str = '',
-                 output_delimiter: str = '',
-                 input_delimiter: str = ''):
+    def __init__(
+        self,
+        dataset_uri: str,
+        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
+        max_seq_len: int,
+        pad_tok_id: int,
+        num_fewshot: int,
+        prompt_string: str,
+        example_delimiter: str,
+        destination_path: str,
+        fewshot_random_seed: int,
+        generations_per_sample: int,
+        pass_at_k: int = 1,
+        top_p: Optional[float] = 0.95,
+        top_k: Optional[int] = 40,
+    ):
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
         except ImportError as e:
@@ -339,23 +343,47 @@ class InContextLearningExecutionPredictionTaskDataset(Dataset):
                     'canonical_solution': examples['canonical_solution'],
                     'test_inputs': examples['test_inputs'],
                     'test_outputs': examples['test_outputs'],
-                    'test': examples['test']
+                    'test': examples['test'],
+                    'language': examples['language'],
                 }))
+
+        if generations_per_sample < pass_at_k:
+            raise ValueError(
+                f'generations_per_sample ({generations_per_sample}) must be greater than or equal to pass_at_k ({pass_at_k}) for code evaluation.'
+            )
+
+        self.pass_at_k = pass_at_k
+        self.generations_per_sample = generations_per_sample
+
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
+        self.padding_side = 'left'
+        self.top_p = top_p
+        self.top_k = top_k
+        self.tokenizer = tokenizer
         fewshot_rng = random.Random(fewshot_random_seed)
-        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, fn_delimiter,
-                                                  output_delimiter, input_delimiter, fewshot_rng)
+        self.max_answer_length = 0
+        self.max_prompt_length = 0
+        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, fewshot_rng)
 
     @staticmethod
     def stringify_input(input_tuple):
         tup = eval(input_tuple)
-        res = '{' + ', '.join([f'arg_{i}: {json.dumps(x)}' for i, x in enumerate(tup)]) + '}'
+        res = ', '.join([f'{json.dumps(x)}' for i, x in enumerate(tup)])
         return res
 
-    def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, fn_delimiter: str,
-                      output_delimiter: str, input_delimiter: str, fewshot_rng: random.Random):
+    @staticmethod
+    def _write_assert_statement(language, fn_name, input_val, output_val):
+        if language == 'python':
+            if output_val is not None:
+                return f'\n\nassert {fn_name}({input_val}) == {output_val}'
+            else:
+                return f'\n\nassert {fn_name}({input_val}) =='
+        else:
+            raise ValueError(f'Unsupported language: {language}')
+
+    def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, fewshot_rng: random.Random):
         """Prepares a set of language modeling tasks into tokenized format with prompt and fewshot examples.
 
         Each task consists of a context and a continuation as well as an optional prompt and optional list of
@@ -372,9 +400,11 @@ class InContextLearningExecutionPredictionTaskDataset(Dataset):
             dict: Contains the context, the continuation, and the preamble (prompt + fewshot examples)
         """
         examples = []
+        max_answer_length = 0  # this is used to determine the expected generation length
+        max_prompt_length = 0  # this is used to determine padding
         for sample_idx in tqdm(range(len(self.samples))):
 
-            preamble = prompt_string
+            preamble = f'"""\n{prompt_string}\n"""'
 
             if num_fewshot > 0:
                 fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx, fewshot_rng)
@@ -387,31 +417,52 @@ class InContextLearningExecutionPredictionTaskDataset(Dataset):
                         self.samples[fewshot_idx]['test_outputs'],
                     )
                     test_idx = random.choice(range(0, len(test_in)))
-                    example = f"""{example_delimiter}{prompt}{soln}{fn_delimiter}{entry_point}{input_delimiter}{self.stringify_input(test_in[test_idx])}{output_delimiter}{test_out[test_idx]}"""
+                    assert_stmt = self._write_assert_statement(self.samples[sample_idx]['language'], entry_point,
+                                                               self.stringify_input(test_in[test_idx]),
+                                                               test_out[test_idx])
+                    example = f"""{example_delimiter}{prompt}{soln}{assert_stmt}"""
 
                     preamble += example
-
-            prompt, soln, entry_point, test_in, test_out = (
+            prompt, soln, entry_point, test_in, test_out, language = (
                 self.samples[sample_idx]['prompt'],
                 self.samples[sample_idx]['canonical_solution'],
                 self.samples[sample_idx]['entry_point'],
                 self.samples[sample_idx]['test_inputs'],
                 self.samples[sample_idx]['test_outputs'],
+                self.samples[sample_idx]['language'],
             )
-            
             for inp, out in zip(test_in, test_out):
                 encoded_example = {}
-                context = f"""{example_delimiter}{prompt}{soln}{fn_delimiter}{entry_point}{input_delimiter}{self.stringify_input(inp)}{output_delimiter}"""
-                out = f' {out}'
-                encoded_example['preamble'] = self.tokenizer(
-                    preamble
-                )  # if the preamble is empty then these will be 0-length lists, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
-                encoded_example['context'] = self.tokenizer(context, add_special_tokens=False)
-                encoded_example['continuation'] = self.tokenizer(out, add_special_tokens=False)
-                encoded_example['task_id'] = self.samples[sample_idx]['task_id']
+                assert_stmt = self._write_assert_statement(
+                    language,
+                    entry_point,
+                    self.stringify_input(inp),
+                    None  # final assert statement is incomplete
+                )
+                context = f"""{example_delimiter}{prompt}{soln}{assert_stmt}"""
 
+                # If the preamble is empty then this will be a 0-length list, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
+                encoded_example['preamble'] = self.tokenizer(preamble)
+                # If there is an EOS token added, we need to remove it so it is not in the middle of the prompt
+                if self.tokenizer.eos_token_id is not None and len(
+                        encoded_example['preamble']
+                    ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
+                    encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
+
+                encoded_example['prompt'] = self.tokenizer(context, add_special_tokens=False)
+                encoded_example['prompt_text'] = self.samples[sample_idx]['prompt']
+                encoded_example['language'] = self.samples[sample_idx]['language']
+                encoded_example['expected_output'] = out
                 examples.append(encoded_example)
 
+                max_answer_length = max(max_answer_length,
+                                        len(self.tokenizer(out, add_special_tokens=False)['input_ids']))
+                max_prompt_length = max(
+                    max_prompt_length,
+                    len(encoded_example['preamble']['input_ids'] + encoded_example['prompt']['input_ids']))
+                examples.append(encoded_example)
+        self.max_answer_length = max_answer_length
+        self.max_prompt_length = max_prompt_length
         return examples
 
     def __getitem__(self, index):
@@ -421,34 +472,76 @@ class InContextLearningExecutionPredictionTaskDataset(Dataset):
         return len(self.encoded_dataset)
 
     def collate_fn(self, data):
-        inputs = []
-        continuation_indices = []
-        task_ids = []
-        for data_pair in data:
-            preamble, context, continuation = (data_pair['preamble'], data_pair['context'], data_pair['continuation'])
-            task_ids.append(data_pair['task_id'])
-            context_enc = preamble['input_ids'] + context['input_ids']
-            continuation_enc = continuation['input_ids']
-
-            inp, continuation_span = _make_padded_input(context_enc, continuation_enc, self.max_seq_len,
-                                                        self.pad_tok_id)
+        inputs, prompts, outputs, languages = [], [], [], []
+        for sample in data:
+            preamble, prompt, language = (
+                sample['preamble'],
+                sample['prompt'],
+                sample['language'],
+            )
+            context_enc = preamble['input_ids'] + prompt['input_ids']
+            inp, _ = _make_padded_input(context_enc, [],
+                                        self.max_prompt_length,
+                                        self.pad_tok_id,
+                                        padding_side=self.padding_side)
 
             inputs.append(inp)
-            continuation_indices.append(continuation_span)
+            outputs.append(sample['expected_output'])
+            prompts.append(self.tokenizer.decode(context_enc))
+            languages.append(language)
 
         batch = {
             'input_ids': torch.stack(inputs),
-            'continuation_indices': continuation_indices,
-            'mode': 'icl_task',
-            'labels': torch.stack(inputs),
-            'task_ids': task_ids
+            'mode': 'generate',
+            'prompts': prompts,  # list of prompts
+            'languages': languages,  # list of languages
+            'pass_at_k': self.pass_at_k,
+            'generation_length': self.max_answer_length,
+            'labels': outputs,
+            'generation_kwargs': {
+                'pad_token_id': self.pad_tok_id,
+                'num_beams': 1,  # single beam
+                'num_return_sequences': self.generations_per_sample,  # how many gens per prompt
+                'do_sample': True,
+                'top_p': self.top_p,
+                'top_k': self.top_k,
+                'use_cache': True,
+            }
         }
-
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
     def get_num_samples_in_batch(self, batch) -> int:
+        # Count number of inputs in the batch
         return batch['input_ids'].shape[0]
+
+    def split_batch(self, batch: Any, microbatch_size: int):
+        # Don't split kwargs that don't change
+        # Normally split torch tensors
+        # List split lists of strings
+        no_split = ['mode', 'generation_length', 'pass_at_k', 'generation_kwargs']
+        normal_split = ['input_ids', 'attention_mask']
+        list_split = [
+            'labels', 'tests', 'canonical_solutions', 'entry_points', 'test_inputs', 'test_outputs', 'prompts',
+            'languages'
+        ]
+        chunked = {}
+        for k, v in batch.items():
+            if k in no_split:
+                # Defer broadcasting until we know num_chunks
+                pass
+            elif k in list_split:
+                chunked[k] = _split_list(v, microbatch_size)
+            elif k in normal_split:
+                chunked[k] = _default_split_batch(v, microbatch_size)
+            else:
+                raise ValueError(f'Unexpected key {k}')
+        num_chunks = len(chunked['input_ids'])
+        for k, v in batch.items():
+            if isinstance(v, (int, float, str, bool, dict)):
+                chunked[k] = [v] * num_chunks
+
+        return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
 
 
 class InContextLearningLMTaskDataset(Dataset):
@@ -1273,10 +1366,8 @@ def build_icl_dataloader(
         question_prelimiter: str = '',  # e.g. 'Question: '
         fewshot_random_seed: int = 1234,
         pass_at_k: int = 1,
-        generations_per_sample: int = 1,
-        extra_delimiters: Optional[dict] = None) -> DataSpec:
-    if extra_delimiters is None:
-        extra_delimiters = {}
+        generations_per_sample: int = 1) -> DataSpec:
+
     if icl_task_type == 'multiple_choice':
         dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri,
                                                              tokenizer,
@@ -1352,7 +1443,8 @@ def build_icl_dataloader(
                                                                   example_delimiter,
                                                                   destination_path=destination_path,
                                                                   fewshot_random_seed=fewshot_random_seed,
-                                                                  **extra_delimiters)
+                                                                  pass_at_k=pass_at_k,
+                                                                  generations_per_sample=generations_per_sample)
         effective_batchsize = batch_size
     else:
         raise Exception(f'Unrecognized ICL task type: {icl_task_type}')
@@ -1437,8 +1529,7 @@ def get_icl_task_dataloader(
         fewshot_random_seed: int = 1234,
         pass_at_k: int = 1,
         generations_per_sample: int = 1,
-        has_categories: bool = False,
-        extra_delimiters: Optional[dict] = None) -> Union[DataSpec, Dict[str, DataSpec]]:
+        has_categories: bool = False) -> Union[DataSpec, Dict[str, DataSpec]]:
     """This constructs a dataloader (or dataloaders if has_categories is True) capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
 
     >>> dl = get_icl_task_dataloader(
@@ -1491,15 +1582,26 @@ def get_icl_task_dataloader(
         categories = sorted(output_files.keys())
         for category in categories:
             partition_uri = output_files[category]
-            result_dls[category] = build_icl_dataloader(icl_task_type, partition_uri, tokenizer, batch_size,
-                                                        max_seq_len, pad_tok_id, num_fewshot, prompt_string,
-                                                        example_delimiter, continuation_delimiter,
-                                                        partition_uri + '_tmp', question_prelimiter,
-                                                        fewshot_random_seed, pass_at_k, generations_per_sample,
-                                                        extra_delimiters)
+            result_dls[category] = build_icl_dataloader(
+                icl_task_type,
+                partition_uri,
+                tokenizer,
+                batch_size,
+                max_seq_len,
+                pad_tok_id,
+                num_fewshot,
+                prompt_string,
+                example_delimiter,
+                continuation_delimiter,
+                partition_uri + '_tmp',
+                question_prelimiter,
+                fewshot_random_seed,
+                pass_at_k,
+                generations_per_sample,
+            )
         return result_dls
     else:
         return build_icl_dataloader(icl_task_type, dataset_uri, tokenizer, batch_size, max_seq_len, pad_tok_id,
                                     num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
                                     destination_path, question_prelimiter, fewshot_random_seed, pass_at_k,
-                                    generations_per_sample, extra_delimiters)
+                                    generations_per_sample)

@@ -4,6 +4,7 @@
 """A collection of common torchmetrics for NLP tasks."""
 
 import logging
+import multiprocessing
 import os
 import re
 import string
@@ -32,6 +33,7 @@ __all__ = [
     'InContextLearningMultipleChoiceAccuracy',
     'InContextLearningQAAccuracy',
     'InContextLearningCodeEvalAccuracy',
+    'InContextLearningCodeExecutionPredictionAccuracy',
     'BinaryF1Score',
     'LanguageCrossEntropy',
     'MaskedAccuracy',
@@ -642,3 +644,97 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         assert isinstance(self.correct, Tensor)
         assert isinstance(self.total, Tensor)
         return self.correct / self.total
+
+
+class InContextLearningCodeExecutionPredictionAccuracy(InContextLearningCodeEvalAccuracy):
+    r"""Computes accuracy for In-context learning (ICL) code evaluation tasks.
+
+    ICL code eval tasks consist of some number of example code eval tasks (referred to as the 'context'), followed by a test task where the model must
+    complete the code, where we term the code completion a 'continuation'.
+
+    In each case, the model constructs a given number of continuations (termed pass@K for K continuations), and each continuation is run against a set of test cases. The model is considered
+    correct if at least one of the proposed continuations passes all the test cases.
+
+    Runs on AWS Lambdas by default.
+
+    Adds metric state variables:
+        correct (float): The number of instances where the predictions passed all the test cases.
+        total (float): The number of total instances that were predicted.
+
+    Args:
+        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
+            each forward() before returning the value at the step. Default: ``False``.
+    """
+
+    # Make torchmetrics call update only once
+    full_state_update = False
+
+    def __init__(self, dist_sync_on_step: bool = False):
+        # state from multiple processes
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        # this is used to make ExecutionPrediction compatible with regular HumanEval
+        self.dummy_entrypoint = """def dummy_entrypoint(dummy_inpt):\n    return\n""" ''
+
+    def update(self, batch: Dict[str, Any], outputs: List[str], labels: List[str]):
+        """Updates the pass@k accuracy of code generation.
+
+        Given a batch of prompts, test cases, and code generations, evaluates the code generations
+        against the test cases and augments the pass@k accuracy of the batch to the values so far.
+
+        Args:
+            batch (Dict[str, Any]): A batch of data produced by the InContextLearningCodeEvalDataset, with
+            the prompt, test cases, and entry points. This will be a dictionary that must have the following
+            arguments:
+            {
+                'prompts': List[str],
+                'languages': List[str],
+                'generation_kwargs': Dict[str, Any]
+            }
+            outputs (List[str]): A list of code generations in the format of HF generate with beam search,
+            which is the a list of strings in groups of beam_size e.g. for beam size 2 and batch size 2, the list
+            will be of the format [prompt 1 gen 1, prompt 1 gen 2, prompt 2 gen 1, prompt 2 gen 2]
+            labels (List[str]): A list of the correct code generations, for compatibility with existing HF generate
+            functionalities. This is not used.
+        """
+        del labels  # never used
+        client = self.get_client()
+
+        pass_at_k = batch['pass_at_k']
+        num_generations = batch['generation_kwargs']['num_return_sequences']
+        processed_outputs = [
+            outputs[i * num_generations:(i + 1) * num_generations] for i in range(len(batch['prompts']))
+        ]
+        payloads = []
+        for sample_outputs, sample_prompt, language in zip(processed_outputs, batch['prompts'], batch['languages']):
+            self.total += torch.tensor(1.0)
+            prompt_payload = []
+            for code_gen in sample_outputs:
+                code_gen = re.split(r'\n[A-Za-z0-9#`]', code_gen)[0]  # remove everything after function ends
+                final_code = self.dummy_entrypoint + sample_prompt + code_gen  # combine prompt with the code generation
+                generation_payload = []
+
+                payload = {
+                    'code': final_code,
+                    'input': 'None,',
+                    'output': 'None',
+                    'entry_point': 'dummy_entrypoint',
+                    'language': language,
+                }
+                generation_payload.append(payload)
+
+                prompt_payload.append(generation_payload)
+            payloads.append(prompt_payload)
+
+        results = client.invoke(payloads)
+
+        for prompt in results:
+            num_correct = 0
+            for generation in prompt:
+                correct = all(generation)
+                if correct:
+                    num_correct += 1
+
+            pass_at_k_rate = self.estimator(num_generations, num_correct, pass_at_k)
+            self.correct += torch.tensor(pass_at_k_rate)
+
+        client.close()  # pyright: ignore [reportOptionalMemberAccess]
