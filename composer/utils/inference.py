@@ -230,11 +230,12 @@ def export_for_inference(
                 if sample_input is None:
                     raise ValueError(f'sample_input argument is required for onnx export')
 
+                # assert statement for pyright error: Cannot access member "keys" for type "Tensor"
+                assert isinstance(sample_input, tuple)
+
                 if input_names is None:
                     input_names = []
 
-                    # assert statement for pyright error: Cannot access member "keys" for type "Tensor"
-                    assert isinstance(sample_input, tuple)
                     # Extract input names from sample_input if it contains dicts
                     for i in range(len(sample_input)):
                         if isinstance(sample_input[i], dict):
