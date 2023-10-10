@@ -46,7 +46,10 @@ class Generate(Callback):
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
         if state.get_elapsed_duration() is not None and self.check_interval(
                 state, event) and self.last_generate_batch != state.timestamp.batch:
+            start = time.time()
             self.generate(state, logger)
+            diff = time.time() - start
+            log.info('Generate callback ran in %d seconds for %d prompts', diff, len(self.prompts))
 
     def generate(self, state: State, logger: Logger):
         self.last_generate_batch = state.timestamp.batch
