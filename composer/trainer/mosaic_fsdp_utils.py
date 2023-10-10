@@ -86,6 +86,7 @@ def get_mixed_precision(precision, mixed_precision='DEFAULT', keep_low_precision
             pass
         elif mixed_precision == 'DEFAULT':
             param_dtype = _get_torch_dtype(precision)
+            reduce_dtype = torch.float32
             buffer_dtype = _get_torch_dtype(precision)
         elif mixed_precision == 'PURE':
             param_dtype = _get_torch_dtype(precision)
