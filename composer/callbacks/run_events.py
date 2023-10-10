@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Log model run events"""
+"""Log model run events."""
 
 import time
 from datetime import datetime
@@ -13,7 +13,11 @@ __all__ = ['RunEventsCallback']
 
 
 class RunEventsCallback(Callback):
-    """Log model run events"""
+    """Historical model run events and information.
+    
+    This callback logs run information including:
+    1. model initialization time
+    """
 
     def after_load(self, state: State, logger: Logger):
         logger.log_metrics({'model_initialized_dt': datetime.fromtimestamp(time.time())})
