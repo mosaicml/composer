@@ -8,7 +8,7 @@ import os
 import re
 import string
 import warnings
-from typing import Any, Dict, List, Mapping, Union
+from typing import Any, Dict, List, Mapping, Optional, Union
 
 import numpy as np
 import torch
@@ -266,11 +266,19 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
 
         return white_space_fix(remove_articles(handle_punc(lower(replace_underscore(answer))))).strip()
 
-    def update(self, outputs: List[str], labels: List[List[str]]):
+    def update(self, outputs: List[str], labels: List[List[str]], batch: Optional[Dict[str, Any]] = None):
+        if batch is None:
+            batch = {}
+        cot_delimiter = batch.get('cot_delimiter', '')
         for sample_output, sample_labels in zip(outputs, labels):
-            cleaned_sample_output = self.normalize_answer(sample_output)
+            final_answer = sample_output
+            if cot_delimiter is not None and len(cot_delimiter) > 0:
+                final_answer = final_answer.split(cot_delimiter)[-1]
+
+            cleaned_final_answer = self.normalize_answer(final_answer)
             cleaned_sample_labels = {self.normalize_answer(label) for label in sample_labels}
-            if any(cleaned_sample_output.startswith(label) for label in cleaned_sample_labels):
+
+            if any(cleaned_final_answer.startswith(label) for label in cleaned_sample_labels):
                 self.correct += torch.tensor(1.0)
             self.total += torch.tensor(1.0)
 
