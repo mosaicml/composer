@@ -60,6 +60,8 @@ jobs:
           export COMPOSER_PACKAGE_NAME='${{ inputs.composer_package_name }}'
           python -m pip install --upgrade 'pip<23' wheel
           python -m pip install --upgrade .[all]
+
+          composer --version
       - name: Run Tests
         id: tests
         run: |
