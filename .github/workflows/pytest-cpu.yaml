@@ -58,6 +58,7 @@ jobs:
           set -ex
           export PATH=/composer-python:$PATH
           export COMPOSER_PACKAGE_NAME='${{ inputs.composer_package_name }}'
+          pip uninstall -y composer mosaicml
           python -m pip install --upgrade 'pip<23' wheel
           python -m pip install --upgrade .[all]
       - name: Run Tests
