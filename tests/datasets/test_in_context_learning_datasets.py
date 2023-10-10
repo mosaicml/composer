@@ -869,6 +869,7 @@ def test_code_execution_prediction_task_dataloader(dataset_uri, tmp_path, num_fe
     assert isinstance(dl.dataloader, DataLoader)  # pyright
     batch = next(dl.dataloader._get_iterator())
     max_prompt_length = 0
+    max_answer_length = 0
     if isinstance(dl.dataloader.dataset, InContextLearningExecutionPredictionTaskDataset):
         max_prompt_length = dl.dataloader.dataset.max_prompt_length
         max_answer_length = dl.dataloader.dataset.max_answer_length

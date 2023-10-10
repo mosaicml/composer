@@ -370,7 +370,7 @@ class InContextLearningExecutionPredictionTaskDataset(Dataset):
     @staticmethod
     def stringify_input(input_tuple):
         tup = eval(input_tuple)
-        res = ', '.join([f'{json.dumps(x)}' for i, x in enumerate(tup)])
+        res = ', '.join([f'{json.dumps(x)}' for x in tup])
         return res
 
     @staticmethod

@@ -4,7 +4,6 @@
 """A collection of common torchmetrics for NLP tasks."""
 
 import logging
-import multiprocessing
 import os
 import re
 import string
