@@ -149,6 +149,8 @@ filterwarnings = [
     '''ignore:'has_mkldnn' is deprecated, please use 'torch.backends.mkldnn.is_available():UserWarning''',
     # Ignore torch distributed deprecated warnings
     '''ignore:torch.distributed.reduce_op is deprecated, please use torch.distributed.ReduceOp instead:UserWarning''',
+    # Ignore torch sharded tensor deprecated warnings
+    '''ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning''',
 ]
 
 # Coverage
