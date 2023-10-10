@@ -60,6 +60,9 @@ jobs:
           export COMPOSER_PACKAGE_NAME='${{ inputs.composer_package_name }}'
           python -m pip install --upgrade 'pip<23' wheel
           python -m pip install --upgrade .[all]
+
+          echo ${{ github.event_name }}
+          [ "${{ github.event_name}}" == "pull_request" ] && echo "Event is pull_request" || echo "Event is not pull_request"
       - name: Run Tests
         id: tests
         run: |
