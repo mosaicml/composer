@@ -1042,28 +1042,36 @@ class RenameLoadPlanner(DefaultLoadPlanner):
             metadata: See parent class.
             is_coordinator: See parent class.
         """
+        log.debug('Set up planner')
         if 'state' not in state_dict:
             super().set_up_planner(state_dict, metadata, is_coordinator)
             return
 
         self.original_state_dict = state_dict
 
+        log.debug(f'Copy state dict')
         state_dict = { k: v for k, v in self.original_state_dict.items() }
         state_dict['state'] = { k: v for k, v in self.original_state_dict['state'].items() if k != 'model' }
         state_dict['state']['model'] = { k: v for k, v in self.original_state_dict['state']['model'].items() }
 
+        log.debug('rename state dict')
         if self.name_conversion_dict:
+            log.debug('rename state dict')
             model_state_dict = _rename_model_state_dict(
                 state_dict['state']['model'], self.name_conversion_dict
             )
+            log.debug('reassign model state dict')
             state_dict['state']['model'] = model_state_dict
 
+        log.debug('Load sharded optimizer state dict')
         if self.flatten_sharded_tensors:
             state_dict = _flatten_sharded_tensors(state_dict)
 
+        log.debug('Flatten state dict')
         if self.flatten_state_dict:
             state_dict, self.mappings = flatten_state_dict(state_dict)
 
+        log.debug('Set ptrs')
         self.state_dict = state_dict
         self.metadata = metadata
         self.is_coordinator = is_coordinator
