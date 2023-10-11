@@ -1048,7 +1048,7 @@ class RenameLoadPlanner(DefaultLoadPlanner):
 
         state_dict = { k: v for k, v in self.original_state_dict.items() }
         state_dict['state'] = { k: v for k, v in self.original_state_dict['state'].items() if k != 'model' }
-        state_dict['state']['model'] = { k: v for k, v in state_dict['state']['model'].items() }
+        state_dict['state']['model'] = { k: v for k, v in self.original_state_dict['state']['model'].items() }
 
         if self.name_conversion_dict:
             model_state_dict = _rename_model_state_dict(
