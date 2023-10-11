@@ -17,9 +17,4 @@ import composer
 ])
 def test_cli_version(args: List[str]):
     version_str = subprocess.check_output(args, text=True)
-    print(version_str)
-    print(subprocess.check_output(['pip', 'list'], text=True))
-    print(subprocess.check_output(['which', 'composer'], text=True))
-    print(subprocess.check_output(['which', 'python'], text=True))
-    print(f'Composer code: {composer.__version__}')
     assert version_str == f'MosaicML Composer {composer.__version__}\n'
