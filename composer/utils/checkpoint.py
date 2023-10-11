@@ -1217,13 +1217,13 @@ def load_sharded_optimizer_state_dict(
 
     log.debug('Get 2d Layout')
     layout_specs, dp_pg = _get_state_dict_2d_layout(model_state_dict)
-    dp_pg_device_type = dist.distributed_c10d._get_pg_default_device(dp_pg).type
+    dp_pg_device_type = torch.distributed.distributed_c10d._get_pg_default_device(dp_pg).type
     device_module = _get_device_module(dp_pg_device_type)
 
     log.debug('check pg')
     if dp_pg is None:
         placements = []
-        for i in range(dist.get_world_size()):
+        for i in range(torch.distributed.get_world_size()):
             device_info = _normalize_device_info(dp_pg_device_type, i % device_module.device_count())
             placements.append(f"rank:{i}/{device_info}")
         sharding_spec = ChunkShardingSpec(dim=0, placements=placements)  # type: ignore[arg-type]
@@ -1260,7 +1260,7 @@ def load_sharded_optimizer_state_dict(
                 torch.Size(alloc_size), value.properties
             )
             local_shards = []
-            current_rank = dist.get_rank(dp_pg)
+            current_rank = torch.distributed.get_rank(dp_pg)
             for shard_md in st_md.shards_metadata:
                 if (
                     cast(_remote_device, shard_md.placement).rank()
