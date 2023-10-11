@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any, List, Optional
 
 import numpy as np
@@ -56,6 +57,7 @@ class MMDetModel(ComposerModel):
             self,
             model: mmdet.models.detectors.BaseDetector,  # type: ignore
             metrics: Optional[List[Metric]] = None) -> None:
+        warnings.warn(DeprecationWarning('MMDetModel is deprecated and will be removed in v0.18'))
         super().__init__()
         self.model = model
 

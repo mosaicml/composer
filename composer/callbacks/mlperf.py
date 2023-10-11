@@ -267,6 +267,8 @@ class MLPerfCallback(Callback):
             # attempt to import ffcv and test if its an ffcv loader.
             import ffcv  # type: ignore
 
+            warnings.warn(DeprecationWarning('ffcv is deprecated and will be removed in v0.18'))
+
             if isinstance(dataloader, ffcv.loader.Loader):
                 # Use the cached attribute ffcv.init_traversal_order to compute number of samples
                 return (
