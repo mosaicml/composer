@@ -476,8 +476,8 @@ def load_sharded_checkpoint(
                 log.info('Load optimizer')
                 state_dict = state.state_dict()['model']
                 log.debug('Fetched state dict')
-                print(state_dict.keys())
-                print(state_dict)
+                # print(state_dict.keys())
+                # print(state_dict)
                 optim_state = load_sharded_optimizer_state_dict(model_state_dict=state_dict,
                                                                 optimizer_key='optimizers',
                                                                 storage_reader=storage_reader)
@@ -1236,7 +1236,7 @@ def load_sharded_optimizer_state_dict(
     log.debug(f'loop over fqn')
     fqn_to_offset = {}
     for key, value in metadata.state_dict_metadata.items():
-        log.debug(f'key: {key}')
+        # log.debug(f'key: {key}')
         key_path = metadata.planner_data[key]
         if key_path[0] != optimizer_key:
             continue
@@ -1245,12 +1245,16 @@ def load_sharded_optimizer_state_dict(
             state_dict[key] = "<bytes_io>"
             continue
 
+        local_idx = f'_pgidx{dist.get_local_rank()}'
+        if '_pgidx' in key and local_idx not in key:
+            continue
+
         # value: TensorStorageMetadata
         if value.size.numel() == 1:
             log.debug('key case 1')
             state_dict[key] = _alloc_tensor(value.properties, value.size, dp_pg_device_type)
         elif dp_pg is None:
-            log.debug('key case 2')
+            # log.debug('key case 2')
             state_dict[key] = _shard_tensor(
                 _alloc_tensor(value.properties, value.size, dp_pg_device_type), sharding_spec
             )
