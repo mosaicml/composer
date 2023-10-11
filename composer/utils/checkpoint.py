@@ -474,6 +474,8 @@ def load_sharded_checkpoint(
                 log.info('Load optimizer')
                 state_dict = state.state_dict()['model']
                 log.debug('Fetched state dict')
+                print(state_dict.keys())
+                print(state_dict)
                 optim_state = load_sharded_optimizer_state_dict(model_state_dict=state_dict,
                                                                 optimizer_key='optimizers',
                                                                 storage_reader=storage_reader)
