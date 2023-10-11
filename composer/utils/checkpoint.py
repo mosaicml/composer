@@ -1236,7 +1236,7 @@ def load_sharded_optimizer_state_dict(
     log.debug(f'loop over fqn')
     fqn_to_offset = {}
     for key, value in metadata.state_dict_metadata.items():
-        log.debug(f'key: {key}, value: {value}')
+        log.debug(f'key: {key}')
         key_path = metadata.planner_data[key]
         if key_path[0] != optimizer_key:
             continue
@@ -1247,12 +1247,15 @@ def load_sharded_optimizer_state_dict(
 
         # value: TensorStorageMetadata
         if value.size.numel() == 1:
+            log.debug('key case 1')
             state_dict[key] = _alloc_tensor(value.properties, value.size, dp_pg_device_type)
         elif dp_pg is None:
+            log.debug('key case 2')
             state_dict[key] = _shard_tensor(
                 _alloc_tensor(value.properties, value.size, dp_pg_device_type), sharding_spec
             )
         else:
+            log.debug('key case 3')
             spec_key = key_path[2]
             alloc_size = layout_specs.get(spec_key, (None, value.size))[1]
 
