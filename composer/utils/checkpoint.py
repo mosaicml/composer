@@ -460,12 +460,6 @@ def load_sharded_checkpoint(
                 model_state_dict = {'state': cur_state_dict}
 
             dist_cp.load_state_dict(model_state_dict, storage_reader, planner=RenameLoadPlanner(state.model))
-            model_state = model_state_dict['state']['model']
-            local_idx = f'_pgidx{dist.get_local_rank()}'
-            for key in list(model_state.keys()):
-                model_state[key.replace(local_idx, '')] = model_state[key]
-                if '_pgidx' in key:
-                    del model_state[key]
 
             state.load_state_dict(
                 model_state_dict['state'],
@@ -1051,6 +1045,10 @@ class RenameLoadPlanner(DefaultLoadPlanner):
             return
 
         self.original_state_dict = state_dict
+
+        state_dict = { k: v for k, v in self.original_state_dict.items() }
+        state_dict['state'] = { k: v for k, v in self.original_state_dict['state'].items() if k != 'model' }
+        state_dict['state']['model'] = { k: v for k, v in state_dict['state']['model'].items() }
 
         if self.name_conversion_dict:
             model_state_dict = _rename_model_state_dict(
