@@ -3,6 +3,8 @@
 
 """Periodically log generations from a set of prompts."""
 
+import logging
+import time
 from typing import Any, List, Optional, Union, cast
 
 from composer.core import Callback, Event, State, Time, get_precision_context
@@ -10,6 +12,8 @@ from composer.loggers import Logger
 from composer.models import HuggingFaceModel
 from composer.utils import create_interval_scheduler, dist
 from composer.utils.import_helpers import MissingConditionalImportError
+
+log = logging.getLogger(__name__)
 
 
 class Generate(Callback):
@@ -46,7 +50,10 @@ class Generate(Callback):
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
         if state.get_elapsed_duration() is not None and self.check_interval(
                 state, event) and self.last_generate_batch != state.timestamp.batch:
+            start = time.time()
             self.generate(state, logger)
+            diff = time.time() - start
+            log.info(f'Generate callback ran in {diff} seconds for {len(self.prompts)} prompts')
 
     def generate(self, state: State, logger: Logger):
         self.last_generate_batch = state.timestamp.batch
