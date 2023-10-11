@@ -1139,6 +1139,7 @@ class State(Serializable):
         serialized_value = state_dict['optimizers']
         for optimizer in ensure_tuple(self.optimizers):
             # Broadcast compatibility check as monolith rank 0 only loads won't have optimizer on all ranks
+            log.debug(f'Broadcast compatibility check')
             skip_optimizer_load = 1 if serialized_value is not None and type(
                 optimizer).__qualname__ not in serialized_value else 0
             skip_optimizer_load_tensor = self.device.tensor_to_device(
