@@ -3,6 +3,8 @@
 
 """Implements ViT-S/16 as a :class:`.ComposerClassifier`."""
 
+import warnings
+
 from composer.models.tasks import ComposerClassifier
 
 __all__ = ['vit_small_patch16']
@@ -29,6 +31,7 @@ def vit_small_patch16(num_classes: int = 1000,
     Returns:
         ComposerModel: instance of :class:`.ComposerClassifier` with a ViT-S/16 model.
     """
+    warnings.warn(DeprecationWarning('vit_small_patch16 is deprecated and will be removed in v0.18'))
 
     from vit_pytorch import ViT
     model = ViT(

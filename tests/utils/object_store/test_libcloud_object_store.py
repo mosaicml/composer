@@ -59,7 +59,7 @@ def test_libcloud_object_store_callback(remote_dir: pathlib.Path, local_dir: pat
 
     provider = _get_provider(remote_dir, chunk_size=chunk_size)
     local_file_path = os.path.join(local_dir, 'dummy_file')
-    total_len = 1024
+    total_len = 100
     with open(local_file_path, 'w+') as f:
         f.write('H' * total_len)
 

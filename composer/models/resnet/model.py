@@ -4,6 +4,7 @@
 """A :class:`.ComposerClassifier` wrapper around the torchvision implementations of the ResNet model family."""
 
 import logging
+import warnings
 from typing import List, Optional
 
 from torchmetrics import MetricCollection
@@ -57,6 +58,7 @@ def composer_resnet(model_name: str,
 
         model = composer_resnet(model_name='resnet18')  # creates a torchvision resnet18 for image classification
     """
+    warnings.warn(DeprecationWarning('composer_resnet is deprecated and will be removed in v0.18'))
 
     valid_model_names = ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']
     if model_name not in valid_model_names:

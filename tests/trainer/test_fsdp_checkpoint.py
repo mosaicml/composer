@@ -332,6 +332,9 @@ def test_fsdp_mixed_with_sync(world_size, tmp_path: pathlib.Path, sync_module_st
                      r'ignore:MosaicMLLogger is not in the state_dict. Its state will not be restored.:UserWarning')),
     pytest.param('0.15.1',
                  marks=pytest.mark.filterwarnings(
+                     r'ignore:MosaicMLLogger is not in the state_dict. Its state will not be restored.:UserWarning')),
+    pytest.param('0.16.0',
+                 marks=pytest.mark.filterwarnings(
                      r'ignore:MosaicMLLogger is not in the state_dict. Its state will not be restored.:UserWarning'))
 ])
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
@@ -459,6 +462,7 @@ def test_fsdp_full_state_dict_load_with_ema(world_size, tmp_path: pathlib.Path, 
                     reason='requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning')
 def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool,
                                           precision: str, optimizer: str, weights_only: bool, use_remote, s3_bucket,
                                           s3_ephemeral_prefix, request):
@@ -692,6 +696,7 @@ def test_mismatch_timestamp_error(world_size, tmp_path: pathlib.Path, state_dict
                     reason='requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning')
 def test_cleanup_sharded_checkpoints(world_size, tmp_path: pathlib.Path, state_dict_type: str, num_ckpts_to_keep: int,
                                      batches_to_train: int, s3_bucket, s3_ephemeral_prefix, request):
     if state_dict_type == 'local' and using_torch_2():
