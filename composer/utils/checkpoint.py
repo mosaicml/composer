@@ -479,7 +479,7 @@ def load_sharded_checkpoint(
                 log.debug('Fetched state dict')
                 # print(state_dict.keys())
                 # print(state_dict)
-                optim_state = load_sharded_optimizer_state_dict(model_state_dict=state_dict,
+                optim_state = load_sharded_optimizer_state_dict_with_logs(model_state_dict=state_dict,
                                                                 optimizer_key='optimizers',
                                                                 storage_reader=storage_reader)
                 log.debug('Strip _pgidx from optimizer state dict keys')
@@ -1211,6 +1211,8 @@ def load_sharded_optimizer_state_dict_with_logs(
     from torch.distributed._shard.sharding_spec.chunk_sharding_spec import (
         ChunkShardingSpec,
     )
+    from torch.distributed.distributed_c10d import _get_default_group
+    from torch.distributed.fsdp._shard_utils import _create_chunk_sharded_tensor
     log.debug(f'Finish imports')
 
     log.debug(f'Read metadata')
@@ -1256,8 +1258,15 @@ def load_sharded_optimizer_state_dict_with_logs(
             state_dict[key] = _alloc_tensor(value.properties, value.size, dp_pg_device_type)
         elif dp_pg is None:
             log.debug('key case 2')
-            state_dict[key] = _shard_tensor(
-                _alloc_tensor(value.properties, value.size, dp_pg_device_type), sharding_spec
+            # state_dict[key] = _shard_tensor(
+            #     _alloc_tensor(value.properties, value.size, dp_pg_device_type), sharding_spec
+            # )
+            state_dict[key] = _create_chunk_sharded_tensor(
+                _alloc_tensor(value.properties, value.size, dp_pg_device_type),
+                rank=torch.distributed.get_rank(),
+                world_size=torch.distributed.get_world_size(),
+                num_devices_per_node=device_module.device_count(),
+                pg=_get_default_group(),
             )
         else:
             log.debug('key case 3')
