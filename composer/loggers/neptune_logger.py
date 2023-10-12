@@ -135,6 +135,20 @@ class NeptuneLogger(LoggerDestination):
 
     @property
     def base_handler(self):
+        """Gets a handler for the base logging namespace.
+    
+        Use the handler to log extra metadata to the run and organize it under the base namespace (default: "training").
+        You can operate on it like a run object: Access a path inside the handler and assign metadata to it with "=" or
+        other [Neptune logging methods](https://docs.neptune.ai/logging/methods/).
+    
+        Example:
+            >>> neptune_logger = NeptuneLogger()
+            >>> trainer = Trainer(loggers=neptune_logger, ...)
+            >>> trainer.fit()
+            >>> neptune_logger.base_handler["some_metric"] = 1
+            >>> trainer.close()
+            Result: The value `1` is organized under "training/some_metric" inside the run.
+        """
         return self.neptune_run[self._base_namespace]
 
     def init(self, state: 'State', logger: 'Logger') -> None:
