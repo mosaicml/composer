@@ -363,6 +363,7 @@ def load_sharded_checkpoint(
 
     from torch.distributed import checkpoint as dist_cp
     from torch.distributed.checkpoint.metadata import Metadata
+    from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
     from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
 
     # This function is used so we can figure out which ranks need to load saved rngs and which can just make their own.
@@ -399,7 +400,7 @@ def load_sharded_checkpoint(
         def read_data(self, plan: LoadPlan, planner: LoadPlanner):
             # 1. Download to the destination all files that this rank is responsible for.
             for plan_item in plan.items:
-                log.debug(f'Downloading {plan_item.storage_index}')
+                # log.debug(f'Downloading {plan_item.storage_index}')
                 # Each plan item has a storage index which points to the relative path of the shard file at save time.
                 relative_file_path = self.storage_data[plan_item.storage_index].relative_path
                 # Download the shard file to the relative path it's associated to and save that relative path
@@ -1133,7 +1134,7 @@ class RenameSavePlanner(DefaultSavePlanner):
 
         super().set_up_planner(state_dict, is_coordinator)
 
-def load_sharded_optimizer_state_dict(
+def load_sharded_optimizer_state_dict_with_logs(
     model_state_dict,
     optimizer_key,
     storage_reader,
