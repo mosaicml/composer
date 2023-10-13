@@ -271,7 +271,8 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
     tokenizer1.__dict__['init_kwargs'].pop('added_tokens_decoder', None)
     tokenizer2.__dict__['init_kwargs'].pop('added_tokens_decoder', None)
     # If the additional special tokens are the same (or a subset of each other), or if one of them is empty, then we are good
-    assert additional_special_tokens_1.issubset(additional_special_tokens_2) or additional_special_tokens_2.issubset(additional_special_tokens_1)
+    assert additional_special_tokens_1.issubset(additional_special_tokens_2) or additional_special_tokens_2.issubset(
+        additional_special_tokens_1)
 
     # The special token attributes may be strings or they may be AddedToken objects, so we just check string values
     # First check that they have the same attrs
