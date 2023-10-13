@@ -579,14 +579,18 @@ def _is_registered_causal_lm(model: transformers.PreTrainedModel) -> bool:
     try:
         from transformers.models.auto.modeling_auto import MODEL_FOR_CAUSAL_LM_MAPPING
     except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='nlp',
+                                            conda_package='transformers',
+                                            conda_channel='conda-forge') from e
+    
+    try:
+        causal_lm_classes = list(MODEL_FOR_CAUSAL_LM_MAPPING.values())
+    except ImportError as e:
         if "cannot import name 'flash_attn_func'" in str(e):  # REMOVE BEFORE MERGING
             MODEL_FOR_CAUSAL_LM_MAPPING = {}
             return False
         else:
-            raise MissingConditionalImportError(extra_deps_group='nlp',
-                                                conda_package='transformers',
-                                                conda_channel='conda-forge') from e
-    causal_lm_classes = list(MODEL_FOR_CAUSAL_LM_MAPPING.values())
+            raise e
     return any(isinstance(model, causal_lm_class) for causal_lm_class in causal_lm_classes)
 
 
