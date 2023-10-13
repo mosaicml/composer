@@ -579,7 +579,7 @@ def _is_registered_causal_lm(model: transformers.PreTrainedModel) -> bool:
     try:
         from transformers.models.auto.modeling_auto import MODEL_FOR_CAUSAL_LM_MAPPING
     except ImportError as e:
-        if "cannot import name 'flash_attn_func'" in str(e): # REMOVE BEFORE MERGING
+        if "cannot import name 'flash_attn_func'" in str(e):  # REMOVE BEFORE MERGING
             MODEL_FOR_CAUSAL_LM_MAPPING = {}
             return False
         else:
