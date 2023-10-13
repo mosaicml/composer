@@ -200,7 +200,11 @@ def _set_custom_fsdp_module_kwargs(module_kwargs: Dict, process_group_cache: Dic
             f"Automated setting of custom per module mixed_precision is not implemented, but it can be set if `isinstance(module_kwargs['mixed_precision'], MixedPrecision)`"
         )
     if 'process_group' in module_kwargs:
-        module_kwargs['process_group'] = _get_process_group(module_kwargs['process_group'], process_group_cache)
+        # Call on every process group if it is a tuple
+        if isinstance(module_kwargs['process_group'], tuple):
+            module_kwargs['process_group'] = tuple(_get_process_group(pg, process_group_cache) for pg in module_kwargs['process_group'])
+        else:
+            module_kwargs['process_group'] = _get_process_group(module_kwargs['process_group'], process_group_cache)
 
     return module_kwargs
 
