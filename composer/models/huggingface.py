@@ -578,13 +578,14 @@ def _is_registered_causal_lm(model: transformers.PreTrainedModel) -> bool:
     """Return True if model class is either a registered 🤗 Causal LM or a subclass of one"""
     try:
         from transformers.models.auto.modeling_auto import MODEL_FOR_CAUSAL_LM_MAPPING
-    except RuntimeError:  # REMOVE AFTER 4.34.1
-        MODEL_FOR_CAUSAL_LM_MAPPING = {}
-        return False
     except ImportError as e:
-        raise MissingConditionalImportError(extra_deps_group='nlp',
-                                            conda_package='transformers',
-                                            conda_channel='conda-forge') from e
+        if "cannot import name 'flash_attn_func'" in str(e): # REMOVE BEFORE MERGING
+            MODEL_FOR_CAUSAL_LM_MAPPING = {}
+            return False
+        else:
+            raise MissingConditionalImportError(extra_deps_group='nlp',
+                                                conda_package='transformers',
+                                                conda_channel='conda-forge') from e
     causal_lm_classes = list(MODEL_FOR_CAUSAL_LM_MAPPING.values())
     return any(isinstance(model, causal_lm_class) for causal_lm_class in causal_lm_classes)
 
