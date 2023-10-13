@@ -283,10 +283,8 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
         if special_token_attr == 'additional_special_tokens':
             continue
 
-        init_attr1 = tokenizer1.__dict__['init_kwargs'].pop(
-            special_token_attr, None)
-        init_attr2 = tokenizer2.__dict__['init_kwargs'].pop(
-            special_token_attr, None)
+        init_attr1 = tokenizer1.__dict__['init_kwargs'].pop(special_token_attr, None)
+        init_attr2 = tokenizer2.__dict__['init_kwargs'].pop(special_token_attr, None)
 
         # Due to a transformers bug (https://github.com/huggingface/transformers/issues/26773)
         # we just check the content of the special token attributes, not the actual objects
@@ -303,10 +301,8 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
         if init_attr1 is None and init_attr2 is None:
             continue
 
-        init_attr_value1 = init_attr1 if isinstance(init_attr1,
-                                                    str) else init_attr1.content
-        init_attr_value2 = init_attr2 if isinstance(init_attr2,
-                                                    str) else init_attr2.content
+        init_attr_value1 = init_attr1 if isinstance(init_attr1, str) else init_attr1.content
+        init_attr_value2 = init_attr2 if isinstance(init_attr2, str) else init_attr2.content
         assert init_attr_value1 == init_attr_value2
 
         attr_value1 = attr1 if isinstance(attr1, str) else attr1.content
