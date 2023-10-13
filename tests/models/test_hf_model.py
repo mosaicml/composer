@@ -261,6 +261,36 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
     tokenizer1.__dict__['init_kwargs'].pop('auto_map', None)
     tokenizer2.__dict__['init_kwargs'].pop('auto_map', None)
 
+    # Additional special tokens do not match between original tokenizer and loaded tokenizer due to transformers
+    # constructor differences
+    additional_special_tokens_1 = tokenizer1.__dict__.pop('_additional_special_tokens', [])
+    additional_special_tokens_2 = tokenizer2.__dict__.pop('_additional_special_tokens', [])
+    # Also pop it out of init_kwargs
+    tokenizer1.__dict__['init_kwargs'].pop('additional_special_tokens', None)
+    tokenizer2.__dict__['init_kwargs'].pop('additional_special_tokens', None)
+    tokenizer1.__dict__['init_kwargs'].pop('added_tokens_decoder', None)
+    tokenizer2.__dict__['init_kwargs'].pop('added_tokens_decoder', None)
+    # If the additional special tokens are the same, or if one of them is empty, then we are good
+    assert additional_special_tokens_1 == additional_special_tokens_2 or additional_special_tokens_1 == [] or additional_special_tokens_2 == []
+
+    # The special token attributes may be strings or they may be AddedToken objects, so we just check string values
+    # First check that they have the same attrs
+    assert tokenizer1.SPECIAL_TOKENS_ATTRIBUTES == tokenizer2.SPECIAL_TOKENS_ATTRIBUTES
+    # Then check that the values are the same
+    for special_token_attr in tokenizer1.SPECIAL_TOKENS_ATTRIBUTES:
+        # Skip additional_special_tokens because we already checked it above
+        if special_token_attr == 'additional_special_tokens':
+            continue
+
+        attr1 = tokenizer1.__dict__['init_kwargs'].pop(special_token_attr, None)
+        attr2 = tokenizer2.__dict__['init_kwargs'].pop(special_token_attr, None)
+        if attr1 is None and attr2 is None:
+            continue
+
+        attr_value1 = attr1 if isinstance(attr1, str) else attr1.content
+        attr_value2 = attr2 if isinstance(attr2, str) else attr2.content
+        assert attr_value1 == attr_value2
+
     assert tokenizer1.__dict__ == tokenizer2.__dict__
 
 
