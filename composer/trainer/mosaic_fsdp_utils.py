@@ -38,7 +38,9 @@ if TYPE_CHECKING:
 
 SHARDING_MAP = {
     'NO_SHARD': ShardingStrategy.NO_SHARD,
+    '_HYBRID_SHARD_ZERO2': ShardingStrategy._HYBRID_SHARD_ZERO2,
     'SHARD_GRAD_OP': ShardingStrategy.SHARD_GRAD_OP,
+    'HYBRID_SHARD': ShardingStrategy.HYBRID_SHARD,
     'FULL_SHARD': ShardingStrategy.FULL_SHARD,
 }
 
