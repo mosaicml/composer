@@ -582,7 +582,7 @@ def _is_registered_causal_lm(model: transformers.PreTrainedModel) -> bool:
         raise MissingConditionalImportError(extra_deps_group='nlp',
                                             conda_package='transformers',
                                             conda_channel='conda-forge') from e
-    
+
     try:
         causal_lm_classes = list(MODEL_FOR_CAUSAL_LM_MAPPING.values())
     except ImportError as e:
