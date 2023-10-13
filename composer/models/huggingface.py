@@ -579,7 +579,8 @@ def _is_registered_causal_lm(model: transformers.PreTrainedModel) -> bool:
     try:
         from transformers.models.auto.modeling_auto import MODEL_FOR_CAUSAL_LM_MAPPING
     except RuntimeError:  # REMOVE AFTER 4.34.1
-        pass
+        MODEL_FOR_CAUSAL_LM_MAPPING = {}
+        return False
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group='nlp',
                                             conda_package='transformers',
