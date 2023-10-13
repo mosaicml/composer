@@ -299,6 +299,11 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
         if attr1 is None and attr2 is None:
             continue
 
+        # Due to a transformers bug (https://github.com/huggingface/transformers/issues/26775)
+        # the added pad token does not persist through save and load
+        if '_' + special_token_attr == '_pad_token':
+            continue
+
         attr_value1 = attr1 if isinstance(attr1, str) else attr1.content
         attr_value2 = attr2 if isinstance(attr2, str) else attr2.content
         assert attr_value1 == attr_value2
