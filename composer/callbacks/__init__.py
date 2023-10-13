@@ -18,7 +18,6 @@ from composer.callbacks.lr_monitor import LRMonitor
 from composer.callbacks.memory_monitor import MemoryMonitor
 from composer.callbacks.mlperf import MLPerfCallback
 from composer.callbacks.optimizer_monitor import OptimizerMonitor
-from composer.callbacks.run_events import RunEventsCallback
 from composer.callbacks.runtime_estimator import RuntimeEstimator
 from composer.callbacks.speed_monitor import SpeedMonitor
 from composer.callbacks.system_metrics_monitor import SystemMetricsMonitor
@@ -41,5 +40,4 @@ __all__ = [
     'SystemMetricsMonitor',
     'Generate',
     'FreeOutputs',
-    'RunEventsCallback',
 ]

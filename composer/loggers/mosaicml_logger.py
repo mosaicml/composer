@@ -88,6 +88,7 @@ class MosaicMLLogger(LoggerDestination):
         self._log_metadata(metrics)
 
     def after_load(self, state: State, logger: Logger) -> None:
+        self._log_metadata({'model_initialized_dt': time.time()})
         # Log WandB run URL if it exists. Must run on after_load as WandB is setup on event init
         for callback in state.callbacks:
             if isinstance(callback, WandBLogger):
