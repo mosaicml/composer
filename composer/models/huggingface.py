@@ -578,7 +578,7 @@ def _is_registered_causal_lm(model: transformers.PreTrainedModel) -> bool:
     """Return True if model class is either a registered 🤗 Causal LM or a subclass of one"""
     try:
         from transformers.models.auto.modeling_auto import MODEL_FOR_CAUSAL_LM_MAPPING
-    except RuntimeError: # REMOVE AFTER 4.34.1
+    except RuntimeError:  # REMOVE AFTER 4.34.1
         pass
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group='nlp',
