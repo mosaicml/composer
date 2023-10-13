@@ -585,8 +585,8 @@ def _is_registered_causal_lm(model: transformers.PreTrainedModel) -> bool:
 
     try:
         causal_lm_classes = list(MODEL_FOR_CAUSAL_LM_MAPPING.values())
-    except ImportError as e:
-        if "cannot import name 'flash_attn_func'" in str(e):  # REMOVE BEFORE MERGING
+    except RuntimeError as e:
+        if 'Failed to import transformers.models' in str(e):  # REMOVE BEFORE MERGING
             MODEL_FOR_CAUSAL_LM_MAPPING = {}
             return False
         else:
