@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 import mcli
 import torch
 
-from composer.core import TimeUnit
+from composer.core.time import TimeUnit
 from composer.loggers import Logger
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
@@ -91,7 +91,7 @@ class MosaicMLLogger(LoggerDestination):
 
     def after_load(self, state: State, logger: Logger) -> None:
         # Log model data downloaded and initialized for run events
-        self._log_metadata({'model_initialized_dt': time.time()})
+        self._log_metadata({'model_initialized_time': time.time()})
         # Log WandB run URL if it exists. Must run on after_load as WandB is setup on event init
         for callback in state.callbacks:
             if isinstance(callback, WandBLogger):
@@ -101,19 +101,18 @@ class MosaicMLLogger(LoggerDestination):
 
     def fit_start(self, state: State, logger: Logger) -> None:
         # Log max duration in either epochs or tokens for run events
-        total_num_epochs = total_num_tokens = None
-        num_batches_per_epoch = math.ceil(len(state.train_dataloader.dataset) / state.train_dataloader.batch_size)
-        if state.max_duration.unit == TimeUnit.EPOCH:
-            total_num_epochs = state.max_duration.value
-        elif state.max_duration.unit == TimeUnit.BATCH:
-            total_num_epochs = math.ceil(state.max_duration.value / num_batches_per_epoch)
-        elif state.max_duration.unit == TimeUnit.TOKEN:
-            total_num_tokens = state.max_duration.value
-        self._log_metadata({
-            'total_num_epochs': total_num_epochs,
-            'num_batches_per_epoch': num_batches_per_epoch,
-            'total_num_tokens': total_num_tokens
-        })
+        if state.max_duration.unit == TimeUnit.TOKEN:
+            self._log_metadata({'total_num_tokens': state.max_duration.value})
+        else:
+            num_batches_per_epoch = math.ceil(len(state.train_dataloader.dataset) / state.train_dataloader.batch_size)
+            if state.max_duration.unit == TimeUnit.EPOCH:
+                total_num_epochs = state.max_duration.value
+            elif state.max_duration.unit == TimeUnit.BATCH:
+                total_num_epochs = math.ceil(state.max_duration.value / num_batches_per_epoch)
+            self._log_metadata({
+                'total_num_epochs': total_num_epochs,
+                'num_batches_per_epoch': num_batches_per_epoch,
+            })
 
     def batch_end(self, state: State, logger: Logger) -> None:
         self._flush_metadata()

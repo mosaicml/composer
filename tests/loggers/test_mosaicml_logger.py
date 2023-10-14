@@ -10,14 +10,13 @@ import torch
 from torch.utils.data import DataLoader
 
 from composer.core import Callback
-from composer.core.time import Time
 from composer.loggers import WandBLogger
 from composer.loggers.mosaicml_logger import (MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR, MosaicMLLogger,
                                               format_data_to_json_serializable)
 from composer.trainer import Trainer
 from composer.utils import dist
 from tests.callbacks.callback_settings import get_cb_kwargs, get_cb_model_and_datasets, get_cbs_and_marks
-from tests.common import RandomClassificationDataset, SimpleModel, SimpleTransformerMaskedLM, RandomTextLMDataset
+from tests.common import RandomClassificationDataset, RandomTextLMDataset, SimpleModel, SimpleTransformerMaskedLM
 from tests.common.markers import world_size
 
 
@@ -204,7 +203,6 @@ def test_run_events_logged(monkeypatch, tiny_bert_tokenizer):
     monkeypatch.setenv('RUN_NAME', run_name1)
     trainer = Trainer(model=SimpleModel(),
                       train_dataloader=DataLoader(RandomClassificationDataset()),
-                      train_subset_num_batches=2,
                       max_duration='1ep',
                       loggers=[MosaicMLLogger()])
     trainer.fit()
