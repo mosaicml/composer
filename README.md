@@ -121,6 +121,7 @@ Composer is designed for users who are comfortable with Python and have basic fa
 
 Composer can be installed with `pip`:
 
+<!--pytest.mark.skip-->
 ```bash
 pip install mosaicml
 ```
