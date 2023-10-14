@@ -10,13 +10,14 @@ import torch
 from torch.utils.data import DataLoader
 
 from composer.core import Callback
+from composer.core.time import Time
 from composer.loggers import WandBLogger
 from composer.loggers.mosaicml_logger import (MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR, MosaicMLLogger,
                                               format_data_to_json_serializable)
 from composer.trainer import Trainer
 from composer.utils import dist
 from tests.callbacks.callback_settings import get_cb_kwargs, get_cb_model_and_datasets, get_cbs_and_marks
-from tests.common import RandomClassificationDataset, SimpleModel
+from tests.common import RandomClassificationDataset, SimpleModel, SimpleTransformerMaskedLM, RandomTextLMDataset
 from tests.common.markers import world_size
 
 
@@ -194,3 +195,41 @@ def test_auto_add_logger(monkeypatch, platform_env_var, access_token_env_var, lo
     # Otherwise, no logger
     else:
         assert logger_count == 0
+
+
+def test_run_events_logged(monkeypatch, tiny_bert_tokenizer):
+    mock_mapi = MockMAPI()
+    monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
+    run_name1 = 'test-run-name1'
+    monkeypatch.setenv('RUN_NAME', run_name1)
+    trainer = Trainer(model=SimpleModel(),
+                      train_dataloader=DataLoader(RandomClassificationDataset()),
+                      train_subset_num_batches=2,
+                      max_duration='1ep',
+                      loggers=[MosaicMLLogger()])
+    trainer.fit()
+    assert isinstance(mock_mapi.run_metadata[run_name1]['mosaicml/model_initialized_time'], float)
+    assert mock_mapi.run_metadata[run_name1]['mosaicml/total_num_epochs'] == 1
+    assert mock_mapi.run_metadata[run_name1]['mosaicml/num_batches_per_epoch'] == 100
+    assert 'total_num_tokens' not in mock_mapi.run_metadata[run_name1]
+
+    run_name2 = 'test-run-name2'
+    monkeypatch.setenv('RUN_NAME', run_name2)
+    transformers = pytest.importorskip('transformers')
+    pretraining_train_dataset = RandomTextLMDataset(size=8,
+                                                    vocab_size=tiny_bert_tokenizer.vocab_size,
+                                                    sequence_length=8,
+                                                    use_keys=True)
+    collator = transformers.DataCollatorForLanguageModeling(tokenizer=tiny_bert_tokenizer, mlm_probability=0.15)
+    dataloader = DataLoader(pretraining_train_dataset,
+                            batch_size=4,
+                            sampler=dist.get_sampler(pretraining_train_dataset),
+                            collate_fn=collator)
+    trainer = Trainer(model=SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size),
+                      train_dataloader=dataloader,
+                      max_duration='1tok',
+                      loggers=[MosaicMLLogger()])
+    trainer.fit()
+    assert 'mosaicml/total_num_epochs' not in mock_mapi.run_metadata[run_name2]
+    assert 'mosaicml/num_batches_per_epoch' not in mock_mapi.run_metadata[run_name2]
+    assert mock_mapi.run_metadata[run_name2]['mosaicml/total_num_tokens'] == 1
