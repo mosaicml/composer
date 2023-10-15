@@ -670,11 +670,9 @@ def test_hf_loading_llama_tokenizer(modify_tokenizer: bool, tmp_path: Path, tiny
     llama_tokenizer = transformers.AutoTokenizer.from_pretrained('meta-llama/Llama-2-7b-chat-hf')
     if modify_tokenizer:
         assert llama_tokenizer is not None  # pyright
-        # This is completely broken in transformers 4.34
-        # see https://github.com/huggingface/transformers/issues/26772
-        # llama_tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
         llama_tokenizer.add_special_tokens({'additional_special_tokens': ['[MOSAICML']})
         llama_tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
+        llama_tokenizer.update_post_processor()
 
         # we don't actually need the right model here, so avoiding adding llama
         tiny_gpt2_model.resize_token_embeddings(len(llama_tokenizer))
