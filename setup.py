@@ -115,7 +115,7 @@ extra_deps['dev'] = [
     'docutils==0.17.1',
     'sphinx_markdown_tables==0.0.17',
     'sphinx-argparse==0.4.0',
-    'sphinxcontrib.katex==0.9.6',
+    'sphinxcontrib.katex==0.9.8',
     'sphinxext.opengraph==0.8.2',
     'sphinxemoji==0.2.0',
     'furo==2022.9.29',
