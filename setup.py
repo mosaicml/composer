@@ -124,7 +124,7 @@ extra_deps['dev'] = [
     'myst-parser==0.16.1',
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
-    'pytest_codeblocks==0.16.1',
+    'pytest_codeblocks==0.17.0',
     'traitlets==5.10.0',
     'nbsphinx==0.9.1',
     'pandoc==2.3',
