@@ -428,9 +428,9 @@ class InContextLearningExecutionPredictionTaskDataset(Dataset):
     def _write_assert_statement(language, fn_name, input_val, output_val):
         if language == 'python':
             if output_val is not None:
-                return f'\n\nassert {fn_name}({input_val}) == {output_val}'
+                return f'\n\ndef test():\n\tassert {fn_name}({input_val}) == {output_val}'
             else:
-                return f'\n\nassert {fn_name}({input_val}) =='
+                return f'\n\ndef test():\n\tassert {fn_name}({input_val}) =='
         else:
             raise ValueError(f'Unsupported language: {language}')
 

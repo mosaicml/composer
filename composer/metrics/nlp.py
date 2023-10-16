@@ -679,8 +679,6 @@ class InContextLearningCodeExecutionPredictionAccuracy(InContextLearningCodeEval
     def __init__(self, dist_sync_on_step: bool = False):
         # state from multiple processes
         super().__init__(dist_sync_on_step=dist_sync_on_step)
-        # this is used to make ExecutionPrediction compatible with regular HumanEval
-        self.dummy_entrypoint = """def dummy_entrypoint(dummy_inpt):\n    return\n""" ''
 
     def update(self, batch: Dict[str, Any], outputs: List[str], labels: List[str]):
         """Updates the pass@k accuracy of code generation.
@@ -717,16 +715,17 @@ class InContextLearningCodeExecutionPredictionAccuracy(InContextLearningCodeEval
             prompt_payload = []
             for code_gen in sample_outputs:
                 code_gen = re.split(r'\n[A-Za-z0-9#`]', code_gen)[0]  # remove everything after function ends
-                final_code = self.dummy_entrypoint + sample_prompt + code_gen  # combine prompt with the code generation
+                final_code = sample_prompt + code_gen  # combine prompt with the code generation
                 generation_payload = []
 
                 payload = {
                     'code': final_code,
-                    'input': 'None,',
+                    'input': '""',
                     'output': 'None',
-                    'entry_point': 'dummy_entrypoint',
+                    'entry_point': 'test',
                     'language': language,
                 }
+
                 generation_payload.append(payload)
 
                 prompt_payload.append(generation_payload)
