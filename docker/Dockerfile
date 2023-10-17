@@ -39,8 +39,6 @@ ARG MOFED_VERSION=5.5-1.0.3.2
 # Version of EFA Drivers to install (for AWS Elastic Fabric Adapter support)
 # Leave blank for no EFA Drivers
 ARG AWS_OFI_NCCL_VERSION=v1.7.3-aws
-# Version of MPI HWLOC required for OFI NCCL Installation
-ARG MPI_HWLOC_VERSION=2.9.2
 
 # Upgrade certifi to resolve CVE-2022-23491
 ARG CERTIFI_VERSION='>=2022.12.7'
@@ -219,14 +217,18 @@ RUN
 
 ARG EFA_INSTALLER_VERSION=latest
 ARG AWS_OFI_NCCL_VERSION
+# Version of MPI HWLOC required for OFI NCCL Installation
+ARG MPI_HWLOC_VERSION=2.9.2
 
 ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:$LD_LIBRARY_PATH
 ENV PATH=/opt/amazon/openmpi/bin/:/opt/amazon/efa/bin:$PATH
 ENV FI_EFA_USE_DEVICE_RDMA=1
+RUN echo "https://download.open-mpi.org/release/hwloc/v${MPI_HWLOC_VERSION::-2}/hwloc-${MPI_HWLOC_VERSION}.tar.gz"
 
 RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
         cd /tmp && \
-        wget -q https://download.open-mpi.org/release/hwloc/v${MPI_HWLOC_VERSION::-2}/hwloc-${MPI_HWLOC_VERSION}.tar.gz && \
+        echo "https://download.open-mpi.org/release/hwloc/v${MPI_HWLOC_VERSION::-2}/hwloc-${MPI_HWLOC_VERSION}.tar.gz" && \
+        curl -OsS https://download.open-mpi.org/release/hwloc/v${MPI_HWLOC_VERSION::-2}/hwloc-${MPI_HWLOC_VERSION}.tar.gz && \
         tar xf hwloc-${MPI_HWLOC_VERSION}.tar.gz && cd hwloc-${MPI_HWLOC_VERSION} && \
         ./configure && \
         make -s && \
