@@ -255,10 +255,10 @@ class TorchProfiler(Callback):  # noqa: D101
     def close(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         if self.profiler is not None:
-            print(self.profiler.key_averages().table(sort_by='cpu_time_total', row_limit=20))
-            print(self.profiler.key_averages().table(sort_by='self_cpu_memory_usage', row_limit=20))
+            log.info(self.profiler.key_averages().table(sort_by='cpu_time_total', row_limit=20))
+            log.info(self.profiler.key_averages().table(sort_by='self_cpu_memory_usage', row_limit=20))
             if torch.profiler.ProfilerActivity.CUDA in self.profiler.activities:
-                print(self.profiler.key_averages().table(sort_by='cuda_time_total', row_limit=20))
-                print(self.profiler.key_averages().table(sort_by='self_cuda_memory_usage', row_limit=20))
+                log.info(self.profiler.key_averages().table(sort_by='cuda_time_total', row_limit=20))
+                log.info(self.profiler.key_averages().table(sort_by='self_cuda_memory_usage', row_limit=20))
             self.profiler.__exit__(None, None, None)
             self.profiler = None
