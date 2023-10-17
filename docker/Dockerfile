@@ -226,15 +226,13 @@ ENV FI_EFA_USE_DEVICE_RDMA=1
 RUN echo "https://download.open-mpi.org/release/hwloc/v${MPI_HWLOC_VERSION::-2}/hwloc-${MPI_HWLOC_VERSION}.tar.gz"
 
 RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
-        cd /tmp && \
-        echo "https://download.open-mpi.org/release/hwloc/v${MPI_HWLOC_VERSION::-2}/hwloc-${MPI_HWLOC_VERSION}.tar.gz" && \
-        curl -OsS https://download.open-mpi.org/release/hwloc/v${MPI_HWLOC_VERSION::-2}/hwloc-${MPI_HWLOC_VERSION}.tar.gz && \
-        tar xf hwloc-${MPI_HWLOC_VERSION}.tar.gz && cd hwloc-${MPI_HWLOC_VERSION} && \
-        ./configure && \
-        make -s && \
-        make install -s && \
-        cd /tmp && \
-        rm -rf hwloc-${MPI_HWLOC_VERSION}* ; \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        hwloc \
+        libhwloc-dev && \
+    apt-get autoclean && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* ; \
     fi
 
 RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
