@@ -43,7 +43,7 @@ class TorchProfiler(Callback):  # noqa: D101
 
     To view profiling results, run::
 
-        pip install tensorbaord torch_tb_profiler
+        pip install tensorboard torch_tb_profiler
         tensorboard --logdir path/to/torch/trace_folder
 
     .. note::
