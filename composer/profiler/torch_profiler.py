@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import logging
 import textwrap
 from typing import TYPE_CHECKING, Optional, OrderedDict
 
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
 
 __all__ = ['TorchProfiler']
 
+log = logging.getLogger(__name__)
 
 class TorchProfiler(Callback):  # noqa: D101
     __doc__ = f"""Profile the execution using the :class:`PyTorch Profiler <torch.profiler.profile>`.
