@@ -152,16 +152,6 @@ def _get_process_group(pg, process_group_cache=None):
             raise RuntimeError(f'{world_size} must be divisible by set size ({k})')
         start = dist.get_global_rank() // k * k
         ranks = tuple(range(start, start + k))
-    elif isinstance(pg, str) and pg.startswith('modwide'):
-        k = int(pg.strip('modwide'))
-        world_size = dist.get_world_size()
-        if world_size % k != 0:
-            raise RuntimeError(f'{world_size} must be divisible by mod ({k})')
-        idx = (dist.get_global_rank() // k) % 2
-        if idx == 0:
-            ranks = (dist.get_global_rank(), dist.get_global_rank() + 8)
-        elif idx == 1:
-            ranks = (dist.get_global_rank() - 8, dist.get_global_rank())
     elif isinstance(pg, str) and pg.startswith('mod'):
         k = int(pg.strip('mod'))
         world_size = dist.get_world_size()
