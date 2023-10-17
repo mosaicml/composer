@@ -7,11 +7,9 @@
 """Utilities for monkey patching FSDP."""
 
 import functools
-import inspect
 import logging
 import math
 import warnings
-from functools import partial
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Set, Tuple, Union, cast, no_type_check
 
 import torch
@@ -29,7 +27,7 @@ from torch.distributed.fsdp._fsdp_extensions import _ext_pre_load_state_dict_tra
 from torch.distributed.utils import _replace_by_prefix
 
 from composer.core import Precision
-from composer.utils import dist
+from composer.utils import dist, using_torch_2
 
 if TYPE_CHECKING:
     if version.parse(torch.__version__) >= version.parse('2.0.1') and version.parse(
@@ -38,11 +36,13 @@ if TYPE_CHECKING:
 
 SHARDING_MAP = {
     'NO_SHARD': ShardingStrategy.NO_SHARD,
-    '_HYBRID_SHARD_ZERO2': ShardingStrategy._HYBRID_SHARD_ZERO2,
     'SHARD_GRAD_OP': ShardingStrategy.SHARD_GRAD_OP,
-    'HYBRID_SHARD': ShardingStrategy.HYBRID_SHARD,
     'FULL_SHARD': ShardingStrategy.FULL_SHARD,
 }
+
+if using_torch_2():
+    SHARDING_MAP['_HYBRID_SHARD_ZERO2'] = ShardingStrategy._HYBRID_SHARD_ZERO2
+    SHARDING_MAP['HYBRID_SHARD'] = ShardingStrategy.HYBRID_SHARD
 
 BACKWARD_PREFETCH_MAP = {
     'NONE': None,
@@ -202,7 +202,8 @@ def _set_custom_fsdp_module_kwargs(module_kwargs: Dict, process_group_cache: Dic
     if 'process_group' in module_kwargs:
         # Call on every process group if it is a tuple
         if isinstance(module_kwargs['process_group'], tuple):
-            module_kwargs['process_group'] = tuple(_get_process_group(pg, process_group_cache) for pg in module_kwargs['process_group'])
+            module_kwargs['process_group'] = tuple(
+                _get_process_group(pg, process_group_cache) for pg in module_kwargs['process_group'])
         else:
             module_kwargs['process_group'] = _get_process_group(module_kwargs['process_group'], process_group_cache)
 
