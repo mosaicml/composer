@@ -255,13 +255,14 @@ class TorchProfiler(Callback):  # noqa: D101
     def close(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         if self.profiler is not None:
+            # make robust to preemption
             try:
                 log.info(self.profiler.key_averages().table(sort_by='cpu_time_total', row_limit=20))
                 log.info(self.profiler.key_averages().table(sort_by='self_cpu_memory_usage', row_limit=20))
                 if torch.profiler.ProfilerActivity.CUDA in self.profiler.activities:
                     log.info(self.profiler.key_averages().table(sort_by='cuda_time_total', row_limit=20))
                     log.info(self.profiler.key_averages().table(sort_by='self_cuda_memory_usage', row_limit=20))
-            except Exception as e: # make robust to preemption
+            except Exception as e:
                 log.warning(f'Failed to log profiler results: {e}')
             self.profiler.__exit__(None, None, None)
             self.profiler = None
