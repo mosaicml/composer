@@ -210,20 +210,17 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
             torch==${PYTORCH_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
 	        torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} ; \
     fi
-RUN
+
 #####################################
 # Install EFA and AWS-OFI-NCCL plugin
 #####################################
 
 ARG EFA_INSTALLER_VERSION=latest
 ARG AWS_OFI_NCCL_VERSION
-# Version of MPI HWLOC required for OFI NCCL Installation
-ARG MPI_HWLOC_VERSION=2.9.2
 
 ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:$LD_LIBRARY_PATH
 ENV PATH=/opt/amazon/openmpi/bin/:/opt/amazon/efa/bin:$PATH
 ENV FI_EFA_USE_DEVICE_RDMA=1
-RUN echo "https://download.open-mpi.org/release/hwloc/v${MPI_HWLOC_VERSION::-2}/hwloc-${MPI_HWLOC_VERSION}.tar.gz"
 
 RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
     apt-get update && \
