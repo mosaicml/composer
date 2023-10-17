@@ -2,6 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """A :class:`.ComposerClassifier` wrapper around the EfficientNet-b0 architecture."""
+
+import warnings
+
 from composer.models.efficientnetb0.efficientnets import EfficientNet
 from composer.models.tasks import ComposerClassifier
 
@@ -31,6 +34,7 @@ def composer_efficientnetb0(num_classes: int = 1000, drop_connect_rate: float = 
 
         model = composer_efficientnetb0()  # creates EfficientNet-b0 for image classification
     """
+    warnings.warn(DeprecationWarning('composer_efficientnetb0 is deprecated and will be removed in v0.18'))
     model = EfficientNet.get_model_from_name(model_name='efficientnet-b0',
                                              num_classes=num_classes,
                                              drop_connect_rate=drop_connect_rate)

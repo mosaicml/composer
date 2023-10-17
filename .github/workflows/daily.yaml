@@ -29,10 +29,15 @@ jobs:
             pytest_command: 'coverage run -m pytest'
             composer_package_name: 'mosaicml'
           - name: 'cpu-3.10-2.1'
-            container: mosaicml/pytorch:2.1.0_cu121-nightly20230903-python3.10-ubuntu20.04
+            container: mosaicml/pytorch:2.1.0_cpu-python3.10-ubuntu20.04
             markers: 'not daily and (remote or not remote) and not gpu and not vision and not doctest'
             pytest_command: 'coverage run -m pytest'
             composer_package_name: 'mosaicml'
+          - name: 'cpu-3.10-2.1-composer'
+            container: mosaicml/pytorch:2.1.0_cpu-python3.10-ubuntu20.04
+            markers: 'not daily and (remote or not remote) and not gpu and not vision and not doctest'
+            pytest_command: 'coverage run -m pytest'
+            composer_package_name: 'composer'
           - name: 'cpu-vision'
             container: mosaicml/pytorch_vision:1.13.1_cpu-python3.10-ubuntu20.04
             markers: 'not daily and (remote or not remote) and not gpu and vision and not doctest'
@@ -53,16 +58,16 @@ jobs:
             markers: 'daily and (remote or not remote) and not gpu and not vision and not doctest'
             pytest_command: 'coverage run -m pytest'
             composer_package_name: 'mosaicml'
-          - name: 'daily-cpu-3.10-1.13-composer'
-            container: mosaicml/pytorch:1.13.1_cpu-python3.10-ubuntu20.04
-            markers: 'daily and (remote or not remote) and not gpu and not vision and not doctest'
-            pytest_command: 'coverage run -m pytest'
-            composer_package_name: 'composer'
           - name: 'daily-cpu-3.10-2.1'
-            container: mosaicml/pytorch:2.1.0_cu121-nightly20230827-python3.10-ubuntu20.04
+            container: mosaicml/pytorch:2.1.0_cpu-python3.10-ubuntu20.04
             markers: 'daily and (remote or not remote) and not gpu and not vision and not doctest'
             pytest_command: 'coverage run -m pytest'
             composer_package_name: 'mosaicml'
+          - name: 'daily-cpu-3.10-2.1-composer'
+            container: mosaicml/pytorch:2.1.0_cpu-python3.10-ubuntu20.04
+            markers: 'daily and (remote or not remote) and not gpu and not vision and not doctest'
+            pytest_command: 'coverage run -m pytest'
+            composer_package_name: 'composer'
           - name: 'daily-cpu-vision'
             container: mosaicml/pytorch_vision:1.13.1_cpu-python3.10-ubuntu20.04
             markers: 'daily and (remote or not remote) and not gpu and vision and not doctest'
@@ -111,22 +116,17 @@ jobs:
         include:
           - name: 'gpu-3.10-1.13'
             container: mosaicml/pytorch:1.13.1_cu117-python3.10-ubuntu20.04
-            markers: '(daily or not daily) and (remote or not remote) and gpu and not vision and not doctest'
+            markers: '(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)'
             pytest_command: 'coverage run -m pytest'
             composer_package_name: 'mosaicml'
           - name: 'gpu-3.10-2.0'
             container: mosaicml/pytorch_vision:2.0.1_cu117-python3.10-ubuntu20.04
-            markers: '(daily or not daily) and (remote or not remote) and gpu and not vision and not doctest'
+            markers: '(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)'
             pytest_command: 'coverage run -m pytest'
             composer_package_name: 'mosaicml'
-          - name: 'gpu-3.10-1.13-composer'
-            container: mosaicml/pytorch:1.13.1_cu117-python3.10-ubuntu20.04
-            markers: '(daily or not daily) and (remote or not remote) and gpu and not vision and not doctest'
-            pytest_command: 'coverage run -m pytest'
-            composer_package_name: 'composer'
-          - name: 'gpu-vision-doctest'
-            container: mosaicml/pytorch_vision:1.13.1_cu117-python3.10-ubuntu20.04
-            markers: '(daily or not daily) and (remote or not remote) and gpu and (vision or doctest)'
+          - name: 'gpu-3.10-2.1'
+            container: mosaicml/pytorch:2.1.0_cu121-python3.10-ubuntu20.04
+            markers: '(daily or not daily) and (remote or not remote) and gpu and (doctest or not doctest)'
             pytest_command: 'coverage run -m pytest'
             composer_package_name: 'mosaicml'
     name: ${{ matrix.name }}
