@@ -304,14 +304,6 @@ class CheckpointSaver(Callback):  # noqa: D101
                 logger,
             )
 
-    def close(self, state: State, logger: Logger):
-        trained_at_least_one_batch = self.start_batch is not None and self.start_batch != state.timestamp.batch
-        if self.last_checkpoint_batch != state.timestamp.batch and trained_at_least_one_batch:
-            self._save_checkpoint(
-                state,
-                logger,
-            )
-
     def get_state_dict(self, state):
         return {
             'state': state.state_dict(),

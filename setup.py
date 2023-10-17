@@ -124,7 +124,7 @@ extra_deps['dev'] = [
     'myst-parser==0.16.1',
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
-    'pytest_codeblocks==0.16.1',
+    'pytest_codeblocks==0.17.0',
     'traitlets==5.10.0',
     'nbsphinx==0.9.1',
     'pandoc==2.3',
@@ -167,7 +167,7 @@ extra_deps['tensorboard'] = [
 ]
 
 extra_deps['unet'] = [
-    'monai>=0.9.1,<1.3',
+    'monai>=0.9.1,<1.4',
     'scikit-learn>=1.0.1,<2',
 ]
 
