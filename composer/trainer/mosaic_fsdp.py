@@ -44,6 +44,9 @@ def patch_pytorch():
         # Monkey path for torch < 2.1.1 ie torch == 2.1.0
         from torch.distributed.fsdp import _state_dict_utils
 
+        from torch.distributed.fsdp import _runtime_utils
+        _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
+
         # Monkey patch sharding method
         ChunkShardingSpec.build_metadata = build_metadata
 
