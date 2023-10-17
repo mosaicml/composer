@@ -226,7 +226,7 @@ To view the Torch Profiler traces in TensorBoard, run:
 
 <!--pytest.mark.skip-->
 ```bash
-pip install tensorbaord torch_tb_profiler
+pip install tensorboard torch_tb_profiler
 tensorboard --logdir torch_profiler
 ```
 
