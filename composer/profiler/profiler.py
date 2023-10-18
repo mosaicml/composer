@@ -111,8 +111,8 @@ class Profiler:
         self.state = None
         self._callbacks: List[Callback] = []
         self.remote_filenames: List[str] = []
-        # Add each remote file name to self.remote_filenames e.g: [s3://bucket/path/to/file]
-        # Then modify remote file name to be a local path to pass into torch_profiler and system_profiler. e.g: path/to/file
+        # Add each remote file name to self.remote_filenames to create RemoteUplaoderDownloader logger in trainer. [s3://bucket/path/to/file] 
+        # Then modify remote file name to be a local path to pass into torch_profiler and system_profiler. path/to/file
         if torch_prof_remote_file_name:
             self.remote_filenames.append(torch_prof_remote_file_name)
             _, _, torch_prof_remote_file_name = parse_uri(torch_prof_remote_file_name)
