@@ -555,8 +555,8 @@ def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, st
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.parametrize('autoresume', [False, True])  # True commented out for now
 @pytest.mark.parametrize('num_shards', [2, 4, 7])
-@pytest.mark.parametrize('sharding_strategy', ['FULL_SHARD', 'SHARD_GRAD_OP'])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.1'), reason='requires PyTorch 2.01 or higher')
+@pytest.mark.parametrize('sharding_strategy', ['FULL_SHARD', 'SHARD_GRAD_OP', 'HYBRID_SHARD', '_HYBRID_SHARD_ZERO2'])
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.1'), reason='requires PyTorch 2.0.1 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:MosaicMLLogger is not in the state_dict.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
@@ -566,6 +566,9 @@ def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type:
         pytest.xfail(
             'Loading a state_dict_type="local" checkpoint with strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 for more info'
         )
+    if 'HYBRID' in sharding_strategy and version.parse(torch.__version__) < version.parse('2.1.0'):
+        pytest.skip('Hybrid sharding is only supported in torch 2.1.0 and above')
+
     if autoresume:
         run_name = 'my-autoresume-run'
     else:
