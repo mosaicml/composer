@@ -65,7 +65,7 @@ class Profiler:
                 )
 
         trace_handlers (TraceHandler | Sequence[TraceHandler]): Trace handlers which record and
-            save profiling data to traces.
+            save profiling data to traces. Additionally supports full uri paths.
         sys_prof_cpu (bool, optional): Whether to record cpu statistics. (default: ``True``).
         sys_prof_memory (bool, optional): Whether to record memory statistics. (default: ``False``).
         sys_prof_disk (bool, optional): Whether to record disk statistics. (default: ``False``).
@@ -75,6 +75,7 @@ class Profiler:
         torch_prof_folder (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
         torch_prof_filename (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
         torch_prof_remote_file_name (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Additionally supports full uri paths.
         torch_prof_overwrite (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
         torch_prof_use_gzip (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
         torch_prof_record_shapes (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
