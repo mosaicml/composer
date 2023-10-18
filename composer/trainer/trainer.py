@@ -1041,6 +1041,7 @@ class Trainer:
         # Profiler
         if profiler is not None:
             warnings.warn('The profiler is enabled. Using the profiler adds additional overhead when training.')
+            import pdb; pdb.set_trace()
             self.state.profiler = profiler
             for remote_uri in profiler.remote_filenames:
                 remote_ud = maybe_create_remote_uploader_downloader_from_uri(uri=remote_uri, loggers=loggers)

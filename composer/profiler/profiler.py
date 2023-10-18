@@ -15,7 +15,7 @@ from composer.profiler.profiler_action import ProfilerAction
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
 from composer.profiler.trace_handler import TraceHandler
-from composer.utils import ensure_tuple
+from composer.utils import ensure_tuple, parse_uri
 
 if TYPE_CHECKING:
     from composer.core import Callback, State
@@ -113,12 +113,17 @@ class Profiler:
         self.remote_filenames: List[str] = []
         if torch_prof_remote_file_name:
             self.remote_filenames.append(torch_prof_remote_file_name)
+            _, _, torch_prof_remote_file_name = parse_uri(torch_prof_remote_file_name)
+
         for handler in self._trace_handlers:
             if isinstance(handler, JSONTraceHandler):
                 if handler.remote_file_name:
                     self.remote_filenames.append(handler.remote_file_name)
+                    _, _, handler.remote_file_name = parse_uri(handler.remote_file_name)
+
                 if handler.merged_trace_remote_file_name:
                     self.remote_filenames.append(handler.merged_trace_remote_file_name)
+                    _, _, handler.merged_trace_remote_file_name = parse_uri(handler.merged_trace_remote_file_name)
 
         if sys_prof_cpu or sys_prof_memory or sys_prof_disk or sys_prof_net:
             self._callbacks.append(
