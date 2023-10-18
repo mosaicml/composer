@@ -19,9 +19,8 @@ from composer.loggers import Logger
 from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, PartialFilePath,
                             checkpoint, create_interval_scheduler, create_symlink_file, dist,
                             ensure_folder_has_no_conflicting_files, format_name_with_dist,
-                            format_name_with_dist_and_time, is_model_deepspeed, reproducibility)
+                            format_name_with_dist_and_time, is_model_deepspeed, reproducibility, using_torch_2)
 from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
-from composer.utils.misc import using_torch_2
 
 log = logging.getLogger(__name__)
 
