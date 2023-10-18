@@ -140,5 +140,5 @@ jobs:
       pytest-markers: ${{ matrix.markers }}
       python-version: 3.9
     secrets:
-      mcloud-api-key: ${{ secrets.MCLOUD_API_KEY }}
+      mcloud-api-key: ${{ secrets.MCLOUD_DAILY_API_KEY }}
       slack-notifications-bot-token: ${{ secrets.SLACK_NOTIFICATIONS_BOT_TOKEN }}
