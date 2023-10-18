@@ -1044,7 +1044,7 @@ class Trainer:
             self.state.profiler = profiler
             for remote_uri in profiler.remote_filenames:
                 remote_ud = maybe_create_remote_uploader_downloader_from_uri(uri=remote_uri, loggers=loggers)
-                if remote_ud:
+                if remote_ud is not None:
                     loggers.append(remote_ud)
             self.state.profiler.bind_to_state(self.state)
 
