@@ -1035,14 +1035,18 @@ class Trainer:
             fsdp_auto_wrap=fsdp_auto_wrap,
         )
 
+        # Console Logging
+        loggers = list(ensure_tuple(loggers))
+
         # Profiler
         if profiler is not None:
             warnings.warn('The profiler is enabled. Using the profiler adds additional overhead when training.')
             self.state.profiler = profiler
+            for remote_uri in profiler.remote_filenames:
+                remote_ud = maybe_create_remote_uploader_downloader_from_uri(uri=remote_uri, loggers=loggers)
+                if remote_ud is not None:
+                    loggers.append(remote_ud)
             self.state.profiler.bind_to_state(self.state)
-
-        # Console Logging
-        loggers = list(ensure_tuple(loggers))
 
         if progress_bar and log_to_console:
             warnings.warn(
