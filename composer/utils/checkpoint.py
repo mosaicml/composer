@@ -15,14 +15,16 @@ import tempfile
 import textwrap
 import warnings
 from pathlib import Path
+from packaging import version
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
-from packaging import version
 
-from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, ObjectStore, dist, format_name_with_dist,
-                            format_name_with_dist_and_time, get_file, is_model_deepspeed, is_tar, reproducibility,
-                            using_torch_2)
+from composer.utils import dist, reproducibility
+from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist,
+                                         format_name_with_dist_and_time, get_file, is_tar)
+from composer.utils.misc import is_model_deepspeed, using_torch_2
+from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
     from composer.core import AlgorithmPass, State
