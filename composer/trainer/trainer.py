@@ -1217,11 +1217,11 @@ class Trainer:
                     f'Specifying `eval_subset_num_batches={eval_subset_num_batches}` without an `eval_dataloader` '
                     'has no effect. If trying to run an evaluator, make sure `eval_dataloader` is specified. '
                     'Otherwise, set `eval_subset_num_batches` to default value -1.')
-            if eval_interval != 1:
+            if eval_interval != 0 and eval_interval != 1:
                 raise ValueError(
                     f'Specifying `eval_interval={eval_interval}` without an `eval_dataloader` has no effect. '
                     'If trying to run an evaluator, make sure `eval_dataloader` is specified. Otherwise, '
-                    'set `eval_interval` to default value 1.')
+                    'set `eval_interval` to 0 or default value 1.')
 
         self.state.evaluators = evaluators
 
