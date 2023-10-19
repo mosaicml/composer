@@ -19,7 +19,7 @@ import tabulate
 import yaml
 
 LATEST_PYTHON_VERSION = '3.10'
-PRODUCTION_PYTORCH_VERSION = '1.13.1'
+PRODUCTION_PYTORCH_VERSION = '2.1.0'
 
 
 def _get_torchvision_version(pytorch_version: str):
@@ -180,14 +180,14 @@ def _main():
         if interconnect != 'EFA':
             entry['AWS_OFI_NCCL_VERSION'] = ''
         else:
-            entry['AWS_OFI_NCCL_VERSION'] = 'v1.5.0-aws'
+            entry['AWS_OFI_NCCL_VERSION'] = 'v1.7.3-aws'
 
         pytorch_entries.append(entry)
 
     composer_entries = []
 
     # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
-    composer_versions = ['0.16.3']  # Only build images for the latest composer version
+    composer_versions = ['0.16.4']  # Only build images for the latest composer version
     composer_python_versions = [LATEST_PYTHON_VERSION]  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):
