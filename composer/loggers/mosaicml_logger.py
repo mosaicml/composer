@@ -82,6 +82,7 @@ class MosaicMLLogger(LoggerDestination):
                 log.warning(f'Environment variable `{RUN_NAME_ENV_VAR}` not set, so MosaicMLLogger '
                             'is disabled as it is unable to identify which run to log to.')
                 self._enabled = False
+            self._state = None
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         self._log_metadata(hyperparameters)
@@ -100,19 +101,49 @@ class MosaicMLLogger(LoggerDestination):
                     self._log_metadata({'wandb/run_url': run_url})
 
     def fit_start(self, state: State, logger: Logger) -> None:
-        # Log max duration in either epochs or tokens for run events
+        self._state = state
+
+    def _get_training_progress_metrics(self, state: State) -> Dict[str, Any]:
+        """Calculates training progress metrics.
+
+        If user submits max duration:
+        - in tokens -> format: [token=x/xx]
+        - in batches -> format: [batch=x/xx]
+        - in epoch -> format: [epoch=x/xx] [batch=x/xx] (where batch refers to batches completed in current epoch)
+        If batches per epoch cannot be calculated, return [epoch=x/xx]
+
+        If no training duration given -> format: ''
+        """
+        if state.max_duration is None:
+            return {'training_progress': ''}
+
         if state.max_duration.unit == TimeUnit.TOKEN:
-            self._log_metadata({'total_num_tokens': state.max_duration.value})
-        else:
-            num_batches_per_epoch = math.ceil(len(state.train_dataloader.dataset) / state.train_dataloader.batch_size)
-            if state.max_duration.unit == TimeUnit.EPOCH:
-                total_num_epochs = state.max_duration.value
-            elif state.max_duration.unit == TimeUnit.BATCH:
-                total_num_epochs = math.ceil(state.max_duration.value / num_batches_per_epoch)
-            self._log_metadata({
-                'total_num_epochs': total_num_epochs,
-                'num_batches_per_epoch': num_batches_per_epoch,
-            })
+            return {
+                'training_progress': f'[token={state.timestamp.token.value}/{state.max_duration.value}]',
+                'training_progress_unit': TimeUnit.TOKEN
+            }
+
+        if state.max_duration.unit == TimeUnit.BATCH:
+            return {
+                'training_progress': f'[batch={state.timestamp.batch.value}/{state.max_duration.value}]',
+                'training_progress_unit': TimeUnit.BATCH
+            }
+        training_progress_metrics = {}
+        if state.max_duration.unit == TimeUnit.EPOCH:
+            batches_per_epoch = None
+            if state.timestamp.epoch.value >= 1:
+                batches_per_epoch = math.ceil(
+                    (state.timestamp.batch - state.timestamp.batch_in_epoch).value // state.timestamp.epoch.value)
+            elif state.dataloader_len is not None:
+                batches_per_epoch = state.dataloader_len.value
+            training_progress_metrics = {
+                'training_progress': f'[epoch={state.timestamp.epoch.value}/{state.max_duration.value}]',
+                'training_progress_unit': TimeUnit.EPOCH
+            }
+            if batches_per_epoch is not None:
+                training_progress_metrics[
+                    'training_sub_progress'] = f'[batch={state.timestamp.batch_in_epoch.value}/{batches_per_epoch}]'
+        return training_progress_metrics
 
     def batch_end(self, state: State, logger: Logger) -> None:
         self._flush_metadata()
@@ -134,6 +165,10 @@ class MosaicMLLogger(LoggerDestination):
 
     def _log_metadata(self, metadata: Dict[str, Any]) -> None:
         """Buffer metadata and prefix keys with mosaicml."""
+        # Logs the current training progress (ex: [batch=x/xx])
+        if self._state is not None:
+            training_progress_metrics = self._get_training_progress_metrics(self._state)
+            metadata.update(training_progress_metrics)
         if self._enabled:
             for key, val in metadata.items():
                 if self.ignore_keys and any(fnmatch.fnmatch(key, pattern) for pattern in self.ignore_keys):

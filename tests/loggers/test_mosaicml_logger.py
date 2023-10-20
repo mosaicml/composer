@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import math
 from typing import Type
 
 import mcli
@@ -10,7 +11,8 @@ import torch
 from torch.utils.data import DataLoader
 
 from composer.core import Callback
-from composer.loggers import WandBLogger
+from composer.core.time import TimeUnit
+from composer.loggers import InMemoryLogger, WandBLogger
 from composer.loggers.mosaicml_logger import (MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR, MosaicMLLogger,
                                               format_data_to_json_serializable)
 from composer.trainer import Trainer
@@ -196,24 +198,26 @@ def test_auto_add_logger(monkeypatch, platform_env_var, access_token_env_var, lo
         assert logger_count == 0
 
 
-def test_run_events_logged(monkeypatch, tiny_bert_tokenizer):
+def test_model_initialized_time_logged(monkeypatch):
     mock_mapi = MockMAPI()
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
-    run_name1 = 'test-run-name1'
-    monkeypatch.setenv('RUN_NAME', run_name1)
+    run_name = 'test-run-name'
+    monkeypatch.setenv('RUN_NAME', run_name)
     trainer = Trainer(model=SimpleModel(),
                       train_dataloader=DataLoader(RandomClassificationDataset()),
+                      train_subset_num_batches=1,
                       max_duration='1ep',
                       loggers=[MosaicMLLogger()])
     trainer.fit()
-    assert isinstance(mock_mapi.run_metadata[run_name1]['mosaicml/model_initialized_time'], float)
-    assert mock_mapi.run_metadata[run_name1]['mosaicml/total_num_epochs'] == 1
-    assert mock_mapi.run_metadata[run_name1]['mosaicml/num_batches_per_epoch'] == 100
-    assert 'total_num_tokens' not in mock_mapi.run_metadata[run_name1]
+    assert isinstance(mock_mapi.run_metadata[run_name]['mosaicml/model_initialized_time'], float)
 
-    run_name2 = 'test-run-name2'
-    monkeypatch.setenv('RUN_NAME', run_name2)
+
+def test_token_training_progress_logged(monkeypatch, tiny_bert_tokenizer):
     transformers = pytest.importorskip('transformers')
+    mock_mapi = MockMAPI()
+    monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
+    run_name = 'test-run-name'
+    monkeypatch.setenv('RUN_NAME', run_name)
     pretraining_train_dataset = RandomTextLMDataset(size=8,
                                                     vocab_size=tiny_bert_tokenizer.vocab_size,
                                                     sequence_length=8,
@@ -225,9 +229,55 @@ def test_run_events_logged(monkeypatch, tiny_bert_tokenizer):
                             collate_fn=collator)
     trainer = Trainer(model=SimpleTransformerMaskedLM(vocab_size=tiny_bert_tokenizer.vocab_size),
                       train_dataloader=dataloader,
-                      max_duration='1tok',
+                      max_duration='64tok',
                       loggers=[MosaicMLLogger()])
     trainer.fit()
-    assert 'mosaicml/total_num_epochs' not in mock_mapi.run_metadata[run_name2]
-    assert 'mosaicml/num_batches_per_epoch' not in mock_mapi.run_metadata[run_name2]
-    assert mock_mapi.run_metadata[run_name2]['mosaicml/total_num_tokens'] == 1
+    assert 'mosaicml/training_progress_unit' in mock_mapi.run_metadata[run_name]
+    assert mock_mapi.run_metadata[run_name]['mosaicml/training_progress_unit'] == str(TimeUnit.TOKEN)
+    assert 'mosaicml/training_progress' in mock_mapi.run_metadata[run_name]
+    assert mock_mapi.run_metadata[run_name]['mosaicml/training_progress'] == '[token=64/64]'
+    assert 'mosaicml/training_sub_progress' not in mock_mapi.run_metadata[run_name]
+
+
+def test_batch_training_progress_logged(monkeypatch):
+    mock_mapi = MockMAPI()
+    monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
+    run_name = 'test-run-name'
+    monkeypatch.setenv('RUN_NAME', run_name)
+    trainer = Trainer(model=SimpleModel(),
+                      train_dataloader=DataLoader(RandomClassificationDataset()),
+                      train_subset_num_batches=1,
+                      max_duration='4ba',
+                      loggers=[MosaicMLLogger()])
+    trainer.fit()
+    assert 'mosaicml/training_progress_unit' in mock_mapi.run_metadata[run_name]
+    assert mock_mapi.run_metadata[run_name]['mosaicml/training_progress_unit'] == str(TimeUnit.BATCH)
+    assert 'mosaicml/training_progress' in mock_mapi.run_metadata[run_name]
+    assert mock_mapi.run_metadata[run_name]['mosaicml/training_progress'] == '[batch=4/4]'
+    assert 'mosaicml/training_sub_progress' not in mock_mapi.run_metadata[run_name]
+
+
+def test_epoch_training_progress_logged(monkeypatch):
+    mock_mapi = MockMAPI()
+    monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
+    run_name = 'test-run-name'
+    monkeypatch.setenv('RUN_NAME', run_name)
+    # Because batch timestamp resets to 0 at the end of the train, we use in memory logger to check an intermediate epoch timestamp
+    in_memory_logger = InMemoryLogger()
+    trainer = Trainer(model=SimpleModel(),
+                      train_dataloader=DataLoader(RandomClassificationDataset(), batch_size=2),
+                      train_subset_num_batches=2,
+                      max_duration='2ep',
+                      loggers=[MosaicMLLogger(), in_memory_logger])
+    trainer.fit()
+    assert 'mosaicml/training_progress_unit' in mock_mapi.run_metadata[run_name]
+    assert mock_mapi.run_metadata[run_name]['mosaicml/training_progress_unit'] == str(TimeUnit.EPOCH)
+    assert 'mosaicml/training_progress' in mock_mapi.run_metadata[run_name]
+    assert mock_mapi.run_metadata[run_name]['mosaicml/training_progress'] == '[epoch=2/2]'
+    assert 'mosaicml/training_sub_progress' in mock_mapi.run_metadata[run_name]
+    # Check that the sub progress is calculated correctly by looking at the first batch of the second epoch
+    first_batch_ep2 = in_memory_logger.data['time/epoch'][2][0]
+    batches_per_epoch = math.ceil(
+        (first_batch_ep2.batch.value - first_batch_ep2.batch_in_epoch.value) // first_batch_ep2.epoch.value)
+    assert first_batch_ep2.batch_in_epoch.value < batches_per_epoch
+    assert batches_per_epoch < first_batch_ep2.batch
