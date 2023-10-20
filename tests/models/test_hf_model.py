@@ -263,8 +263,12 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
 
     # Additional special tokens do not match between original tokenizer and loaded tokenizer due to transformers
     # constructor differences
-    additional_special_tokens_1 = set(tokenizer1.__dict__.pop('_additional_special_tokens', []))
-    additional_special_tokens_2 = set(tokenizer2.__dict__.pop('_additional_special_tokens', []))
+    additional_special_tokens_1 = {
+        t if isinstance(t, str) else t.content for t in tokenizer1.__dict__.pop('_additional_special_tokens', [])
+    }
+    additional_special_tokens_2 = {
+        t if isinstance(t, str) else t.content for t in tokenizer2.__dict__.pop('_additional_special_tokens', [])
+    }
     # Also pop it out of init_kwargs
     tokenizer1.__dict__['init_kwargs'].pop('additional_special_tokens', None)
     tokenizer2.__dict__['init_kwargs'].pop('additional_special_tokens', None)
@@ -286,28 +290,21 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
         init_attr1 = tokenizer1.__dict__['init_kwargs'].pop(special_token_attr, None)
         init_attr2 = tokenizer2.__dict__['init_kwargs'].pop(special_token_attr, None)
 
-        # Due to a transformers bug (https://github.com/huggingface/transformers/issues/26773)
-        # we just check the content of the special token attributes, not the actual objects
         attr1 = tokenizer1.__dict__.pop('_' + special_token_attr, None)
         attr2 = tokenizer2.__dict__.pop('_' + special_token_attr, None)
         if attr1 is None and attr2 is None:
             continue
 
-        # Due to a transformers bug (https://github.com/huggingface/transformers/issues/26775)
-        # the added pad token does not persist through save and load
-        if '_' + special_token_attr == '_pad_token':
-            continue
+        attr_value1 = attr1 if isinstance(attr1, str) else attr1.content
+        attr_value2 = attr2 if isinstance(attr2, str) else attr2.content
+        assert attr_value1 == attr_value2
 
-        if init_attr1 is None and init_attr2 is None:
+        if init_attr1 is None or init_attr2 is None:
             continue
 
         init_attr_value1 = init_attr1 if isinstance(init_attr1, str) else init_attr1.content
         init_attr_value2 = init_attr2 if isinstance(init_attr2, str) else init_attr2.content
         assert init_attr_value1 == init_attr_value2
-
-        attr_value1 = attr1 if isinstance(attr1, str) else attr1.content
-        attr_value2 = attr2 if isinstance(attr2, str) else attr2.content
-        assert attr_value1 == attr_value2
 
     assert tokenizer1.__dict__ == tokenizer2.__dict__
 
@@ -343,9 +340,7 @@ def test_hf_state_dict_info(tmp_path: Path, pass_in_tokenizer: bool, modify_toke
 
     if modify_tokenizer:
         assert tokenizer is not None  # pyright
-        # This does not persist through saving and loading due to a transformers bug
-        # https://github.com/huggingface/transformers/issues/26775
-        # tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
+        tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
         tokenizer.add_special_tokens({'additional_special_tokens': ['[MOSAICML']})
         tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
         hf_model.resize_token_embeddings(len(tokenizer))
@@ -608,10 +603,11 @@ def test_hf_loading_sentencepiece_tokenizer(modify_tokenizer: bool, tmp_path: Pa
 
     if modify_tokenizer:
         assert t0_pp_tokenizer is not None  # pyright
-        # This does not persist through saving and loading due to a transformers bug
-        # https://github.com/huggingface/transformers/issues/26775
-        # t0_pp_tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
-        t0_pp_tokenizer.add_special_tokens({'additional_special_tokens': ['[MOSAICML']})
+        t0_pp_tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
+        # This is apparently not allowed anymore
+        # It results in ValueError: Both extra_ids (100) and additional_special_tokens (['[MOSAICML'])
+        # are provided to T5Tokenizer. In this case the additional_special_tokens must include the extra_ids tokens
+        # t0_pp_tokenizer.add_special_tokens({'additional_special_tokens': ['[MOSAICML']})
         t0_pp_tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
         tiny_t5_model.resize_token_embeddings(len(t0_pp_tokenizer))
 
@@ -644,9 +640,7 @@ def test_hf_loading_tokenizer_with_python_file(modify_tokenizer: bool, tmp_path:
 
     if modify_tokenizer:
         assert replit_tokenizer is not None  # pyright
-        # This does not persist through saving and loading due to a transformers bug
-        # https://github.com/huggingface/transformers/issues/26775
-        # replit_tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
+        replit_tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
         replit_tokenizer.add_special_tokens({'additional_special_tokens': ['[MOSAICML']})
         replit_tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
         tiny_gpt2_model.resize_token_embeddings(len(replit_tokenizer))
@@ -692,9 +686,7 @@ def test_hf_loading_tokenizer(modify_tokenizer: bool, tmp_path: Path, tiny_bert_
 
     if modify_tokenizer:
         assert tiny_bert_tokenizer is not None  # pyright
-        # This does not persist through saving and loading due to a transformers bug
-        # https://github.com/huggingface/transformers/issues/26775
-        # tiny_bert_tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
+        tiny_bert_tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
         tiny_bert_tokenizer.add_special_tokens({'additional_special_tokens': ['[MOSAICML']})
         tiny_bert_tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
         tiny_bert_model.resize_token_embeddings(len(tiny_bert_tokenizer))
