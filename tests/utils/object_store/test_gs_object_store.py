@@ -30,7 +30,7 @@ def test_gs_object_store_integration_json_auth(expected_use_gcs_sdk_val=True, cl
     train_dataloader = DataLoader(dataset=train_dataset)
     trainer_save = Trainer(model=model,
                            train_dataloader=train_dataloader,
-                           save_folder='gs://mosaicml-composer-tests/checkpoints/{run_name}',
+                           save_folder='gs://mosaicml-internal-integration-testing/checkpoints/{run_name}',
                            save_filename='test-model.pt',
                            max_duration='1ba')
     run_name = trainer_save.state.run_name
@@ -45,7 +45,7 @@ def test_gs_object_store_integration_json_auth(expected_use_gcs_sdk_val=True, cl
 
     trainer_load = Trainer(model=model,
                            train_dataloader=train_dataloader,
-                           load_path=f'gs://mosaicml-composer-tests/checkpoints/{run_name}/test-model.pt',
+                           load_path=f'gs://mosaicml-internal-integration-testing/checkpoints/{run_name}/test-model.pt',
                            max_duration='2ba')
     trainer_load.fit()
     trainer_load.close()

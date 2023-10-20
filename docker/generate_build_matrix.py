@@ -19,7 +19,7 @@ import tabulate
 import yaml
 
 LATEST_PYTHON_VERSION = '3.10'
-PRODUCTION_PYTORCH_VERSION = '1.13.1'
+PRODUCTION_PYTORCH_VERSION = '2.1.0'
 
 
 def _get_torchvision_version(pytorch_version: str):
@@ -180,7 +180,7 @@ def _main():
         if interconnect != 'EFA':
             entry['AWS_OFI_NCCL_VERSION'] = ''
         else:
-            entry['AWS_OFI_NCCL_VERSION'] = 'v1.5.0-aws'
+            entry['AWS_OFI_NCCL_VERSION'] = 'v1.7.3-aws'
 
         pytorch_entries.append(entry)
 
