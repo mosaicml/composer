@@ -74,6 +74,7 @@ class MosaicMLLogger(LoggerDestination):
             self.time_last_logged = 0
             self.time_failed_count_adjusted = 0
             self.buffered_metadata: Dict[str, Any] = {}
+            self._state = None
 
             self.run_name = os.environ.get(RUN_NAME_ENV_VAR)
             if self.run_name is not None:
@@ -82,8 +83,7 @@ class MosaicMLLogger(LoggerDestination):
                 log.warning(f'Environment variable `{RUN_NAME_ENV_VAR}` not set, so MosaicMLLogger '
                             'is disabled as it is unable to identify which run to log to.')
                 self._enabled = False
-            self._state = None
-
+            
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         self._log_metadata(hyperparameters)
 
@@ -101,6 +101,7 @@ class MosaicMLLogger(LoggerDestination):
                     self._log_metadata({'wandb/run_url': run_url})
 
     def fit_start(self, state: State, logger: Logger) -> None:
+        # adds state to calculate training progress on log metadata
         self._state = state
 
     def _get_training_progress_metrics(self, state: State) -> Dict[str, Any]:
@@ -165,11 +166,11 @@ class MosaicMLLogger(LoggerDestination):
 
     def _log_metadata(self, metadata: Dict[str, Any]) -> None:
         """Buffer metadata and prefix keys with mosaicml."""
-        # Logs the current training progress (ex: [batch=x/xx])
-        if self._state is not None:
-            training_progress_metrics = self._get_training_progress_metrics(self._state)
-            metadata.update(training_progress_metrics)
         if self._enabled:
+             # Logs the current training progress (ex: [batch=x/xx]) and unit
+            if self._state is not None:
+                training_progress_metrics = self._get_training_progress_metrics(self._state)
+                metadata.update(training_progress_metrics)
             for key, val in metadata.items():
                 if self.ignore_keys and any(fnmatch.fnmatch(key, pattern) for pattern in self.ignore_keys):
                     continue
