@@ -1035,14 +1035,18 @@ class Trainer:
             fsdp_auto_wrap=fsdp_auto_wrap,
         )
 
+        # Console Logging
+        loggers = list(ensure_tuple(loggers))
+
         # Profiler
         if profiler is not None:
             warnings.warn('The profiler is enabled. Using the profiler adds additional overhead when training.')
             self.state.profiler = profiler
+            for remote_uri in profiler.remote_filenames:
+                remote_ud = maybe_create_remote_uploader_downloader_from_uri(uri=remote_uri, loggers=loggers)
+                if remote_ud is not None:
+                    loggers.append(remote_ud)
             self.state.profiler.bind_to_state(self.state)
-
-        # Console Logging
-        loggers = list(ensure_tuple(loggers))
 
         if progress_bar and log_to_console:
             warnings.warn(
@@ -1213,11 +1217,11 @@ class Trainer:
                     f'Specifying `eval_subset_num_batches={eval_subset_num_batches}` without an `eval_dataloader` '
                     'has no effect. If trying to run an evaluator, make sure `eval_dataloader` is specified. '
                     'Otherwise, set `eval_subset_num_batches` to default value -1.')
-            if eval_interval != 1:
+            if eval_interval != 0 and eval_interval != 1:
                 raise ValueError(
                     f'Specifying `eval_interval={eval_interval}` without an `eval_dataloader` has no effect. '
                     'If trying to run an evaluator, make sure `eval_dataloader` is specified. Otherwise, '
-                    'set `eval_interval` to default value 1.')
+                    'set `eval_interval` to 0 or default value 1.')
 
         self.state.evaluators = evaluators
 
@@ -3099,6 +3103,8 @@ class Trainer:
         save_object_store: Optional[ObjectStore] = None,
         sample_input: Optional[Any] = None,
         transforms: Optional[Sequence[Transform]] = None,
+        input_names: Optional[Sequence[str]] = None,
+        output_names: Optional[Sequence[str]] = None,
     ):
         """Export a model for inference.
 
@@ -3117,6 +3123,10 @@ class Trainer:
                 should accept the ``sample_input`` as is. (default: ``None``)
             transforms (Sequence[Transform], optional): transformations (usually optimizations) that should
                 be applied to the model. Each Transform should be a callable that takes a model and returns a modified model.
+            input_names (Sequence[str], optional): names to assign to the input nodes of the graph, in order. If set
+                to ``None``, the keys from the `sample_input` will be used. Fallbacks to ``["input"]``.
+            output_names (Sequence[str], optional): names to assign to the output nodes of the graph, in order. It set
+                to ``None``, it defaults to ``["output"]``.
 
         Returns:
             None
@@ -3132,4 +3142,6 @@ class Trainer:
                            logger=self.logger,
                            save_object_store=save_object_store,
                            sample_input=(sample_input, {}),
-                           transforms=transforms)
+                           transforms=transforms,
+                           input_names=input_names,
+                           output_names=output_names)
