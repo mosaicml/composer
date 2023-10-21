@@ -583,14 +583,8 @@ def _is_registered_causal_lm(model: transformers.PreTrainedModel) -> bool:
                                             conda_package='transformers',
                                             conda_channel='conda-forge') from e
 
-    try:
-        causal_lm_classes = list(MODEL_FOR_CAUSAL_LM_MAPPING.values())
-    except RuntimeError as e:
-        if 'Failed to import transformers.models' in str(e):  # REMOVE BEFORE MERGING
-            MODEL_FOR_CAUSAL_LM_MAPPING = {}
-            return False
-        else:
-            raise e
+    causal_lm_classes = list(MODEL_FOR_CAUSAL_LM_MAPPING.values())
+
     return any(isinstance(model, causal_lm_class) for causal_lm_class in causal_lm_classes)
 
 

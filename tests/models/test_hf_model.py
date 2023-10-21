@@ -287,8 +287,10 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
         if special_token_attr == 'additional_special_tokens':
             continue
 
-        init_attr1 = tokenizer1.__dict__['init_kwargs'].pop(special_token_attr, None)
-        init_attr2 = tokenizer2.__dict__['init_kwargs'].pop(special_token_attr, None)
+        # The init_kwargs can change between the original tokenizer and the loaded tokenizer,
+        # so we just pop them
+        tokenizer1.__dict__['init_kwargs'].pop(special_token_attr, None)
+        tokenizer2.__dict__['init_kwargs'].pop(special_token_attr, None)
 
         attr1 = tokenizer1.__dict__.pop('_' + special_token_attr, None)
         attr2 = tokenizer2.__dict__.pop('_' + special_token_attr, None)
@@ -298,13 +300,6 @@ def check_hf_tokenizer_equivalence(tokenizer1, tokenizer2):
         attr_value1 = attr1 if isinstance(attr1, str) else attr1.content
         attr_value2 = attr2 if isinstance(attr2, str) else attr2.content
         assert attr_value1 == attr_value2
-
-        if init_attr1 is None or init_attr2 is None:
-            continue
-
-        init_attr_value1 = init_attr1 if isinstance(init_attr1, str) else init_attr1.content
-        init_attr_value2 = init_attr2 if isinstance(init_attr2, str) else init_attr2.content
-        assert init_attr_value1 == init_attr_value2
 
     assert tokenizer1.__dict__ == tokenizer2.__dict__
 
@@ -664,6 +659,7 @@ def test_hf_loading_llama_tokenizer(modify_tokenizer: bool, tmp_path: Path, tiny
     llama_tokenizer = transformers.AutoTokenizer.from_pretrained('meta-llama/Llama-2-7b-chat-hf')
     if modify_tokenizer:
         assert llama_tokenizer is not None  # pyright
+        llama_tokenizer.add_special_tokens({'bos_token': '[NEWSPECIAL]'})
         llama_tokenizer.add_special_tokens({'additional_special_tokens': ['[MOSAICML']})
         llama_tokenizer.add_tokens(['totallyarealtoken', 'mosaicml'])
         llama_tokenizer.update_post_processor()
