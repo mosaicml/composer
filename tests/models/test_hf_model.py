@@ -628,6 +628,7 @@ def test_hf_loading_sentencepiece_tokenizer(modify_tokenizer: bool, tmp_path: Pa
 
 
 @pytest.mark.parametrize('modify_tokenizer', [False, True])
+# https://github.com/huggingface/transformers/issues/26777
 @pytest.mark.skip('This tokenizer no longer loads at all as of transformers 4.34')
 def test_hf_loading_tokenizer_with_python_file(modify_tokenizer: bool, tmp_path: Path, tiny_gpt2_model):
     transformers = pytest.importorskip('transformers')
