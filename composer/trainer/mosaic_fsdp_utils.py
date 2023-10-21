@@ -40,7 +40,7 @@ SHARDING_MAP = {
     'FULL_SHARD': ShardingStrategy.FULL_SHARD,
 }
 
-if using_torch_2():
+if version.parse(torch.__version__) >= version.parse('2.1.0'):
     SHARDING_MAP['_HYBRID_SHARD_ZERO2'] = ShardingStrategy._HYBRID_SHARD_ZERO2
     SHARDING_MAP['HYBRID_SHARD'] = ShardingStrategy.HYBRID_SHARD
 

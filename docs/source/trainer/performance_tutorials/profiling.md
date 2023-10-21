@@ -77,6 +77,16 @@ Here, we configure following profiling options:
 :end-before: "[trainer-end]"
 ```
 
+Note, we support both local and object store paths for the composer profiler, e.g:
+```
+:language: python
+profiler = Profiler(
+    trace_handlers=[JSONTraceHandler(remote_file_name='oci://your-bucket/composer_profiler/')],
+    torch_remote_filename='s3://your-bucket/torch_profiler/',
+    ...
+)
+```
+
 ### Specifying the Profile Schedule
 
 When setting up profiling, it is important to specify the _profiling schedule_ via the ``schedule`` argument.
