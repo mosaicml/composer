@@ -759,7 +759,6 @@ def _sharded_pre_load_state_dict_hook(
     _enter_unshard_params_ctx(module, fsdp_state, writeback=True)
 
 
-
 if version.parse(torch.__version__) > version.parse('2.0.2') and version.parse(
         torch.__version__) < version.parse('2.1.1'):
     import torch.distributed.fsdp._traversal_utils as traversal_utils
@@ -767,14 +766,47 @@ if version.parse(torch.__version__) > version.parse('2.0.2') and version.parse(
         _post_forward,
         _post_forward_reshard,
         _pre_forward,
-        _pre_forward_unshard,
         _root_pre_forward,
+        _unshard,
+        _prefetch_handle,
+        _PrefetchMode
     )
     from torch.distributed.fsdp._common_utils import (
         TrainingState,
         HandleTrainingState,
+        _FSDPState,
     )
+    from torch.distributed.fsdp.flat_param import (
+        FlatParamHandle,
+    )
+
     from torch.distributed.utils import _p_assert
+    @no_type_check
+    def _pre_forward_unshard_async(
+        state: _FSDPState,
+        handle: Optional[FlatParamHandle],
+    ) -> None:
+        """Unshards parameters in the pre-forward."""
+        if not handle:
+            return
+        # If the handles have been prefetched, then there is no need to call
+        # `_unshard()` again
+        if not handle._prefetched:
+            _unshard(state, handle, state._unshard_stream, state._pre_unshard_stream)
+        handle._needs_pre_forward_unshard = False
+        # state._device_handle.current_stream().wait_stream(state._unshard_stream)
+        with torch.profiler.record_function(
+            "FullyShardedDataParallel._pre_forward_prefetch"
+        ):
+            _prefetch_handle(state, handle, _PrefetchMode.FORWARD)
+
+    @no_type_check
+    def _pre_forward_stream_sync(
+        state: _FSDPState,
+        handle: Optional[FlatParamHandle],
+    ) -> None:
+        state._device_handle.current_stream().wait_stream(state._unshard_stream)
+
     def fsdp_forward(self, *args: Any, **kwargs: Any) -> Any:
         """
         Runs the forward pass for the wrapped module, inserting FSDP-specific
@@ -789,7 +821,7 @@ if version.parse(torch.__version__) > version.parse('2.0.2') and version.parse(
             args, kwargs = _pre_forward(
                 self,
                 handle,
-                None if hasattr(self, '_skip_pre_forward_unshard') and self._skip_pre_forward_unshard else _pre_forward_unshard,
+                _pre_forward_stream_sync if hasattr(self, '_skip_pre_forward_unshard') and self._skip_pre_forward_unshard else _pre_forward_unshard_async,
                 self._fsdp_wrapped_module,
                 args,
                 kwargs,
@@ -801,7 +833,7 @@ if version.parse(torch.__version__) > version.parse('2.0.2') and version.parse(
                     setattr(child_fsdp_state, '_skip_pre_forward_unshard', True)
                     child_fsdp_state.training_state = TrainingState.FORWARD_BACKWARD
                     child_fsdp_state._handle._training_state = HandleTrainingState.FORWARD
-                    _pre_forward_unshard(child_fsdp_state, child_fsdp_state._handle)
+                    _pre_forward_unshard_async(child_fsdp_state, child_fsdp_state._handle)
                     child_fsdp_state.training_state = TrainingState.IDLE
 
             if handle:
