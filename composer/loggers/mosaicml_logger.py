@@ -8,7 +8,6 @@ from __future__ import annotations
 import collections.abc
 import fnmatch
 import logging
-import math
 import operator
 import os
 import time
@@ -18,6 +17,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import mcli
 import torch
+from flask import current_app
 
 from composer.core.time import TimeUnit
 from composer.loggers import Logger
@@ -74,8 +74,6 @@ class MosaicMLLogger(LoggerDestination):
             self.time_last_logged = 0
             self.time_failed_count_adjusted = 0
             self.buffered_metadata: Dict[str, Any] = {}
-            self._state = None
-
             self.run_name = os.environ.get(RUN_NAME_ENV_VAR)
             if self.run_name is not None:
                 log.info(f'Logging to mosaic run {self.run_name}')
@@ -100,10 +98,6 @@ class MosaicMLLogger(LoggerDestination):
                 if run_url is not None:
                     self._log_metadata({'wandb/run_url': run_url})
 
-    def fit_start(self, state: State, logger: Logger) -> None:
-        # adds state to calculate training progress on log metadata
-        self._state = state
-
     def _get_training_progress_metrics(self, state: State) -> Dict[str, Any]:
         """Calculates training progress metrics.
 
@@ -116,37 +110,37 @@ class MosaicMLLogger(LoggerDestination):
         If no training duration given -> format: ''
         """
         if state.max_duration is None:
-            return {'training_progress': ''}
-
+            return {}
         if state.max_duration.unit == TimeUnit.TOKEN:
             return {
                 'training_progress': f'[token={state.timestamp.token.value}/{state.max_duration.value}]',
-                'training_progress_unit': TimeUnit.TOKEN
             }
-
         if state.max_duration.unit == TimeUnit.BATCH:
             return {
                 'training_progress': f'[batch={state.timestamp.batch.value}/{state.max_duration.value}]',
-                'training_progress_unit': TimeUnit.BATCH
             }
         training_progress_metrics = {}
         if state.max_duration.unit == TimeUnit.EPOCH:
-            batches_per_epoch = None
-            if state.timestamp.epoch.value >= 1:
-                batches_per_epoch = math.ceil(
-                    (state.timestamp.batch - state.timestamp.batch_in_epoch).value // state.timestamp.epoch.value)
-            elif state.dataloader_len is not None:
-                batches_per_epoch = state.dataloader_len.value
+            cur_batch = int(state.timestamp.batch_in_epoch)
+            cur_epoch = int(state.timestamp.epoch)
+            if int(state.timestamp.epoch) >= 1:
+                batches_per_epoch = int((state.timestamp.batch - state.timestamp.batch_in_epoch).value / state.timestamp.epoch.value)
+                curr_progress = f'[batch={cur_batch}/{batches_per_epoch}]'
+            elif state.dataloader_len is None:
+                curr_progress = f'[batch={cur_batch}]'
+            else:
+                total = int(state.dataloader_len)
+                curr_progress = f'[batch={cur_batch}/{total}]'
+            if cur_epoch < state.max_duration.value:
+                cur_epoch += 1
             training_progress_metrics = {
-                'training_progress': f'[epoch={state.timestamp.epoch.value}/{state.max_duration.value}]',
-                'training_progress_unit': TimeUnit.EPOCH
+                'training_progress': f'[epoch={cur_epoch}/{state.max_duration.value}]',
             }
-            if batches_per_epoch is not None:
-                training_progress_metrics[
-                    'training_sub_progress'] = f'[batch={state.timestamp.batch_in_epoch.value}/{batches_per_epoch}]'
+            training_progress_metrics['training_sub_progress'] = curr_progress
         return training_progress_metrics
 
     def batch_end(self, state: State, logger: Logger) -> None:
+        self._log_metadata(self._get_training_progress_metrics(state))
         self._flush_metadata()
 
     def epoch_end(self, state: State, logger: Logger) -> None:
@@ -167,10 +161,6 @@ class MosaicMLLogger(LoggerDestination):
     def _log_metadata(self, metadata: Dict[str, Any]) -> None:
         """Buffer metadata and prefix keys with mosaicml."""
         if self._enabled:
-             # Logs the current training progress (ex: [batch=x/xx]) and unit
-            if self._state is not None:
-                training_progress_metrics = self._get_training_progress_metrics(self._state)
-                metadata.update(training_progress_metrics)
             for key, val in metadata.items():
                 if self.ignore_keys and any(fnmatch.fnmatch(key, pattern) for pattern in self.ignore_keys):
                     continue
