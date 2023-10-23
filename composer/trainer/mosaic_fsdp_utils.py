@@ -776,6 +776,9 @@ if version.parse(torch.__version__) > version.parse('2.0.2') and version.parse(
     )
     from torch.distributed.utils import _p_assert
     from torch.distributed.fsdp._init_utils import HYBRID_SHARDING_STRATEGIES
+    from torch.distributed.fsdp._common_utils import (
+        _FSDPState,
+    )
 
     @no_type_check
     def fsdp_init_streams(
