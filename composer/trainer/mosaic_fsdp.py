@@ -10,6 +10,7 @@ import torch
 from packaging import version
 from torch.distributed._shard.sharding_spec import ChunkShardingSpec
 from torch.distributed.fsdp import FullyShardedDataParallel
+from torch.distributed.fsdp._runtime_utils import _init_streams
 
 from composer.trainer.mosaic_fsdp_utils import (_sharded_pre_load_state_dict_hook, build_metadata,
                                                 custom_auto_wrap_t1p13p1)
@@ -44,8 +45,9 @@ def patch_pytorch():
         # Monkey path for torch < 2.1.1 ie torch == 2.1.0
         from torch.distributed.fsdp import _state_dict_utils
 
-        from composer.trainer.mosaic_fsdp_utils import fsdp_forward
+        from composer.trainer.mosaic_fsdp_utils import fsdp_forward, fsdp_init_streams
         FullyShardedDataParallel.forward = fsdp_forward
+        _init_streams = fsdp_init_streams
 
         # Monkey patch sharding method
         ChunkShardingSpec.build_metadata = build_metadata
