@@ -184,10 +184,11 @@ class MosaicMLLogger(LoggerDestination):
                 self.buffered_metadata = {}
                 self.time_last_logged = time.time()
                 self._futures.append(f)
-                done, self._futures = wait(self._futures, timeout=0.01)
+                done, incomplete = wait(self._futures, timeout=0.01)
                 # Raise any exceptions
                 for f in done:
                     f.exception()
+                self._futures = list(incomplete)
             except Exception as e:
                 log.error(f'Failed to log metadata to Mosaic with error: {e}')
                 raise
