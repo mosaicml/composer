@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import mcli
 import torch
-from flask import current_app
 
 from composer.core.time import TimeUnit
 from composer.loggers import Logger
@@ -81,7 +80,7 @@ class MosaicMLLogger(LoggerDestination):
                 log.warning(f'Environment variable `{RUN_NAME_ENV_VAR}` not set, so MosaicMLLogger '
                             'is disabled as it is unable to identify which run to log to.')
                 self._enabled = False
-            
+
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         self._log_metadata(hyperparameters)
 
@@ -109,9 +108,8 @@ class MosaicMLLogger(LoggerDestination):
 
         If no training duration given -> format: ''
         """
-        if state.max_duration is None:
-            return {}
-        if state.max_duration.unit == TimeUnit.TOKEN:
+        assert state.max_duration is not None
+        if state.max_duration.unit == TimeUnit.TOKEN: 
             return {
                 'training_progress': f'[token={state.timestamp.token.value}/{state.max_duration.value}]',
             }
@@ -124,7 +122,8 @@ class MosaicMLLogger(LoggerDestination):
             cur_batch = int(state.timestamp.batch_in_epoch)
             cur_epoch = int(state.timestamp.epoch)
             if int(state.timestamp.epoch) >= 1:
-                batches_per_epoch = int((state.timestamp.batch - state.timestamp.batch_in_epoch).value / state.timestamp.epoch.value)
+                batches_per_epoch = int(
+                    (state.timestamp.batch - state.timestamp.batch_in_epoch).value / state.timestamp.epoch.value)
                 curr_progress = f'[batch={cur_batch}/{batches_per_epoch}]'
             elif state.dataloader_len is None:
                 curr_progress = f'[batch={cur_batch}]'

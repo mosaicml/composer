@@ -14,11 +14,11 @@ from composer.core import Callback
 from composer.core.time import Time, TimeUnit
 from composer.loggers import WandBLogger
 from composer.loggers.mosaicml_logger import (MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR, MosaicMLLogger,
-                                              format_data_to_json_serializable,)
+                                              format_data_to_json_serializable)
 from composer.trainer import Trainer
 from composer.utils import dist
 from tests.callbacks.callback_settings import get_cb_kwargs, get_cb_model_and_datasets, get_cbs_and_marks
-from tests.common import RandomClassificationDataset, RandomTextLMDataset, SimpleModel, SimpleTransformerMaskedLM
+from tests.common import RandomClassificationDataset, SimpleModel
 from tests.common.markers import world_size
 
 
@@ -228,6 +228,7 @@ def test_progress_logged(monkeypatch, tiny_bert_tokenizer):
     assert metadata['mosaicml/training_progress'] == '[batch=4/4]'
     assert 'mosaicml/training_sub_progress' not in metadata
 
+
 def test_token_training_progress_logged():
     logger = MosaicMLLogger()
     state = MagicMock()
@@ -238,6 +239,7 @@ def test_token_training_progress_logged():
     assert 'training_progress' in training_progress
     assert training_progress['training_progress'] == '[token=50/64]'
     assert 'training_sub_progress' not in training_progress
+
 
 def test_epoch_training_progress_logged():
     logger = MosaicMLLogger()
@@ -253,6 +255,7 @@ def test_epoch_training_progress_logged():
     assert 'training_sub_progress' in training_progress
     assert training_progress['training_sub_progress'] == '[batch=1/5]'
 
+
 def test_epoch_zero_progress_logged():
     logger = MosaicMLLogger()
     state = MagicMock()
@@ -267,6 +270,7 @@ def test_epoch_zero_progress_logged():
     assert training_progress['training_progress'] == '[epoch=1/3]'
     assert 'training_sub_progress' in training_progress
     assert training_progress['training_sub_progress'] == '[batch=0/5]'
+
 
 def test_epoch_zero_no_dataloader_progress_logged():
     logger = MosaicMLLogger()
