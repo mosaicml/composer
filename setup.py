@@ -128,7 +128,7 @@ extra_deps['dev'] = [
     'traitlets==5.10.0',
     'nbsphinx==0.9.1',
     'pandoc==2.3',
-    'pypandoc==1.11',
+    'pypandoc==1.12',
     'GitPython==3.1.37',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
@@ -172,7 +172,7 @@ extra_deps['unet'] = [
 ]
 
 extra_deps['vit'] = [
-    'vit_pytorch==0.35.8',
+    'vit_pytorch==1.6.1',
 ]
 
 extra_deps['timm'] = [
@@ -184,7 +184,7 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<4.34',
+    'transformers>=4.11,<4.35,!=4.34.0',
     'datasets>=2.4,<3',
 ]
 
