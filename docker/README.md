@@ -4,9 +4,9 @@ To simplify environment setup for Composer, we provide a set of pre-built Docker
 
 ## Composer Images
 
-The [`mosaicml/composer`](https://hub.docker.com/r/mosaicml/composer) images contain all Composer pre-installed with
+The [`mosaicml/composer`](https://hub.docker.com/r/mosaicml/composer) images contain Composer pre-installed with
 all dependencies for both NLP and Vision models. They are built on top of the
-[`mosaicml/pytorch_vision`](https://hub.docker.com/r/mosaicml/pytorch_vision) family of images.
+[`mosaicml/pytorch`](https://hub.docker.com/r/mosaicml/pytorch) family of images.
 (See the section on [MosaicML PyTorch Images](#pytorch-images) below.)
 
 **Note**: Only the Dockerimage for most recent version of Composer will be maintained. We recommend using
