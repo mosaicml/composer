@@ -110,7 +110,7 @@ class MosaicMLLogger(LoggerDestination):
         If no training duration given -> format: ''
         """
         assert state.max_duration is not None
-        if state.max_duration.unit == TimeUnit.TOKEN: 
+        if state.max_duration.unit == TimeUnit.TOKEN:
             return {
                 'training_progress': f'[token={state.timestamp.token.value}/{state.max_duration.value}]',
             }
@@ -137,7 +137,7 @@ class MosaicMLLogger(LoggerDestination):
             }
             training_progress_metrics['training_sub_progress'] = curr_progress
         return training_progress_metrics
-    
+
     def batch_start(self, state: State, logger: Logger) -> None:
         if state.dataloader_len is not None and self._enabled:
             self.train_dataloader_len = state.dataloader_len.value
