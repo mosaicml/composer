@@ -71,6 +71,7 @@ class MosaicMLLogger(LoggerDestination):
         if self._enabled:
             self.allowed_fails_left = 3
             self.time_last_logged = 0
+            self.train_dataloader_len = None
             self.time_failed_count_adjusted = 0
             self.buffered_metadata: Dict[str, Any] = {}
             self.run_name = os.environ.get(RUN_NAME_ENV_VAR)
@@ -119,17 +120,16 @@ class MosaicMLLogger(LoggerDestination):
             }
         training_progress_metrics = {}
         if state.max_duration.unit == TimeUnit.EPOCH:
-            cur_batch = int(state.timestamp.batch_in_epoch)
-            cur_epoch = int(state.timestamp.epoch)
-            if int(state.timestamp.epoch) >= 1:
-                batches_per_epoch = int(
-                    (state.timestamp.batch - state.timestamp.batch_in_epoch).value / state.timestamp.epoch.value)
+            cur_batch = state.timestamp.batch_in_epoch.value
+            cur_epoch = state.timestamp.epoch.value
+            if state.timestamp.epoch.value >= 1:
+                batches_per_epoch = (state.timestamp.batch -
+                                     state.timestamp.batch_in_epoch).value // state.timestamp.epoch.value
                 curr_progress = f'[batch={cur_batch}/{batches_per_epoch}]'
-            elif state.dataloader_len is None:
-                curr_progress = f'[batch={cur_batch}]'
+            elif self.train_dataloader_len is not None:
+                curr_progress = f'[batch={cur_batch}/{self.train_dataloader_len}]'
             else:
-                total = int(state.dataloader_len)
-                curr_progress = f'[batch={cur_batch}/{total}]'
+                curr_progress = f'[batch={cur_batch}]'
             if cur_epoch < state.max_duration.value:
                 cur_epoch += 1
             training_progress_metrics = {
@@ -137,6 +137,10 @@ class MosaicMLLogger(LoggerDestination):
             }
             training_progress_metrics['training_sub_progress'] = curr_progress
         return training_progress_metrics
+    
+    def batch_start(self, state: State, logger: Logger) -> None:
+        if state.dataloader_len is not None and self._enabled:
+            self.train_dataloader_len = state.dataloader_len.value
 
     def batch_end(self, state: State, logger: Logger) -> None:
         self._log_metadata(self._get_training_progress_metrics(state))

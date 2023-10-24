@@ -14,7 +14,7 @@ from composer.core import Callback
 from composer.core.time import Time, TimeUnit
 from composer.loggers import WandBLogger
 from composer.loggers.mosaicml_logger import (MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR, MosaicMLLogger,
-                                              format_data_to_json_serializable)
+                                              format_data_to_json_serializable,)
 from composer.trainer import Trainer
 from composer.utils import dist
 from tests.callbacks.callback_settings import get_cb_kwargs, get_cb_model_and_datasets, get_cbs_and_marks
@@ -198,21 +198,12 @@ def test_auto_add_logger(monkeypatch, platform_env_var, access_token_env_var, lo
         assert logger_count == 0
 
 
-def test_model_initialized_time_logged(monkeypatch):
-    mock_mapi = MockMAPI()
-    monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
-    run_name = 'test-run-name'
-    monkeypatch.setenv('RUN_NAME', run_name)
-    trainer = Trainer(model=SimpleModel(),
-                      train_dataloader=DataLoader(RandomClassificationDataset()),
-                      train_subset_num_batches=1,
-                      max_duration='1ep',
-                      loggers=[MosaicMLLogger()])
-    trainer.fit()
-    assert isinstance(mock_mapi.run_metadata[run_name]['mosaicml/model_initialized_time'], float)
-
-
-def test_progress_logged(monkeypatch, tiny_bert_tokenizer):
+def test_run_events_logged(monkeypatch):
+    ''''
+    Current run events include:
+    1. model initialization time
+    2. training progress (i.e. [batch=x/xx] at batch end)
+    '''
     mock_mapi = MockMAPI()
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
     run_name = 'test-run-name'
@@ -224,12 +215,12 @@ def test_progress_logged(monkeypatch, tiny_bert_tokenizer):
                       loggers=[MosaicMLLogger()])
     trainer.fit()
     metadata = mock_mapi.run_metadata[run_name]
+    assert isinstance(metadata['mosaicml/model_initialized_time'], float)
     assert 'mosaicml/training_progress' in metadata
     assert metadata['mosaicml/training_progress'] == '[batch=4/4]'
     assert 'mosaicml/training_sub_progress' not in metadata
 
-
-def test_token_training_progress_logged():
+def test_token_training_progress_metrics():
     logger = MosaicMLLogger()
     state = MagicMock()
     state.max_duration.unit = TimeUnit.TOKEN
@@ -241,7 +232,7 @@ def test_token_training_progress_logged():
     assert 'training_sub_progress' not in training_progress
 
 
-def test_epoch_training_progress_logged():
+def test_epoch_training_progress_metrics():
     logger = MosaicMLLogger()
     state = MagicMock()
     state.max_duration.unit = TimeUnit.EPOCH
@@ -256,10 +247,10 @@ def test_epoch_training_progress_logged():
     assert training_progress['training_sub_progress'] == '[batch=1/5]'
 
 
-def test_epoch_zero_progress_logged():
+def test_epoch_zero_progress_metrics():
     logger = MosaicMLLogger()
     state = MagicMock()
-    state.dataloader_len = 5
+    logger.train_dataloader_len = 5
     state.max_duration.unit = TimeUnit.EPOCH
     state.max_duration = Time(3, TimeUnit.EPOCH)
     state.timestamp.epoch = Time(0, TimeUnit.EPOCH)
@@ -272,7 +263,7 @@ def test_epoch_zero_progress_logged():
     assert training_progress['training_sub_progress'] == '[batch=0/5]'
 
 
-def test_epoch_zero_no_dataloader_progress_logged():
+def test_epoch_zero_no_dataloader_progress_metrics():
     logger = MosaicMLLogger()
     state = MagicMock()
     state.dataloader_len = None
