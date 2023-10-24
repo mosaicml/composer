@@ -126,7 +126,7 @@ def object_store_test_helper(
                     with pytest.raises(
                             FileExistsError,
                             match=
-                            f'Object local://{remote_file_name} already exists, but allow_overwrite was set to False.'):
+                            f'Object local://{remote_file_name} already exists, but save_overwrite was set to False.'):
                         remote_uploader_downloader.run_event(event_to_test, dummy_state, logger)
 
                 else:
