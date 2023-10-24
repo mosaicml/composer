@@ -338,6 +338,7 @@ def test_fsdp_mixed_with_sync(world_size, tmp_path: pathlib.Path, sync_module_st
                      r'ignore:MosaicMLLogger is not in the state_dict. Its state will not be restored.:UserWarning'))
 ])
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:.*The CUDA RNG state could not be loaded.*:UserWarning')
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision: str, sharding_strategy: str,
@@ -354,6 +355,8 @@ def test_fsdp_load_old_checkpoint(world_size, tmp_path: pathlib.Path, precision:
         pytest.xfail(
             'Loading a torch 1.13 checkpoint with torch 2.0 for state_dict_type local is not backwards compatible. See https://github.com/pytorch/pytorch/issues/102667 for more info'
         )
+    if version.parse(torch.__version__) >= version.parse('2.1.0'):
+        pytest.mark.filterwarnings()
 
     if composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']:
         rank = 0 if state_dict_type == 'full' else '{rank}'

@@ -219,12 +219,11 @@ def load_rng_state(rng_state_dicts: List[Dict[str, Any]]):
                 torch.cuda.set_rng_state(rng_state_dict['cuda'])
             except RuntimeError as e:
                 if 'RNG state is wrong size' in str(e):
-                    raise RuntimeError('The RNG state could not be loaded from the checkpoint, '
-                                       'likely because a different version of torch was used to '
-                                       'save the checkpoint. Please use the same version of torch '
-                                       "or specify `load_ignore_keys=['rng'] when constructing "
-                                       'Trainer.') from e
-                raise e
+                    warnings.warn('The CUDA RNG state could not be loaded from the checkpoint, '
+                                  'likely because a different version of torch was used to save the '
+                                  'checkpoint. Skipping loading the CUDA RNG state.')
+                else:
+                    raise e
 
         if is_cuda_available and not has_cuda_rng_state:
             warnings.warn(
