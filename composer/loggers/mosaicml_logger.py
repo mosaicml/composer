@@ -109,6 +109,9 @@ class MosaicMLLogger(LoggerDestination):
 
         If no training duration given -> format: ''
         """
+        if not self._enabled:
+            return {}
+
         assert state.max_duration is not None
         if state.max_duration.unit == TimeUnit.TOKEN:
             return {
