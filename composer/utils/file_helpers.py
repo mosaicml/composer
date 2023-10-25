@@ -403,9 +403,6 @@ def maybe_create_remote_uploader_downloader_from_uri(
 def list_remote_objects(remote_path: str) -> List[str]:
     """List objects at the remote path.
 
-    If the path is valid, returns the list of objects at the path.
-    Otherwise, raises an error.
-
     Args:
         remote_path (str): Remote object store path.
 
@@ -417,9 +414,28 @@ def list_remote_objects(remote_path: str) -> List[str]:
         raise ValueError(f'Failed to create object store. The given path {remote_path} is a local path.')
     _, _, prefix = parse_uri(remote_path)
     objects = object_store.list_objects(prefix)
+    return objects
+
+
+def validate_remote_path():
+    """Entry point to composer_validate_remote_path cli command.
+
+    Validates a remote path.
+    If a the remote path is valid, prints a list of objects at the path.
+    Otherwise, raises an error.
+    """
+    import sys
+    args = sys.argv
+    if len(args) == 1:
+        raise ValueError('Please provide a remote path.')
+    if len(args) > 2:
+        raise ValueError('Extra arguments found. Please provide only one remote path.')
+    remote_path = sys.argv[1]
+    objects = list_remote_objects(remote_path)
     if len(objects) == 0:
         raise ValueError(f'No objects at path {remote_path} found. Please check your path and your access credentials.')
-    return objects
+    objects_str = '\n'.join(objects)
+    print(f'Found {len(objects)} objects at {remote_path} \n{objects_str}')
 
 
 def get_file(path: str,
