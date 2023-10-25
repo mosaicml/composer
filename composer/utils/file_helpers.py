@@ -421,7 +421,7 @@ def validate_remote_path():
     """Entry point to composer_validate_remote_path cli command.
 
     Validates a remote path.
-    If a the remote path is valid, prints a list of objects at the path.
+    If the remote path is valid, prints a list of objects at the path.
     Otherwise, raises an error.
     """
     import sys

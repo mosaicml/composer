@@ -264,8 +264,9 @@ setup(name=package_name,
       install_requires=install_requires,
       entry_points={
           'console_scripts': [
-              'composer = composer.cli.launcher:main', 'composer_collect_env = composer.utils.collect_env:main',
-              'composer_validate_remote_path = composer.utils.file_helpers:validate_remote_path'
+              'composer = composer.cli.launcher:main',
+              'composer_collect_env = composer.utils.collect_env:main',
+              'composer_validate_remote_path = composer.utils.file_helpers:validate_remote_path',
           ],
       },
       extras_require=extra_deps,
