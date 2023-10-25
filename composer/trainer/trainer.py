@@ -2001,7 +2001,7 @@ class Trainer:
             self._spin_dataloaders_to_cur_epoch()
 
         if self.state.timestamp.batch_in_epoch == 0 and self._rng_state is not None:
-            # only restore the rng state here if the step in the current epoch is zero.
+            # Only restore the rng state here if the step in the current epoch is zero.
             reproducibility.load_rng_state(self._rng_state)
             self._rng_state = None
 
