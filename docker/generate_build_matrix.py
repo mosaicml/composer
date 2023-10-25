@@ -195,6 +195,7 @@ def _main():
         'PYTORCH_NIGHTLY_VERSION': 'dev20231024+cu121',
         'TAGS': ['mosaicml/pytorch:2.2.0_cu121-nightly20231024-python3.10-ubuntu20.04'],
         'TARGET': 'pytorch_stage',
+        'TORCHVISION_VERSION': '0.17.0'
     }
     pytorch_entries.append(nightly_entry)
     composer_entries = []
