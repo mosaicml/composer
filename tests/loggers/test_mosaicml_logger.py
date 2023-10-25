@@ -223,6 +223,7 @@ def test_run_events_logged(monkeypatch):
 
 def test_token_training_progress_metrics():
     logger = MosaicMLLogger()
+    logger._enabled = True
     state = MagicMock()
     state.max_duration.unit = TimeUnit.TOKEN
     state.max_duration.value = 64
@@ -235,6 +236,7 @@ def test_token_training_progress_metrics():
 
 def test_epoch_training_progress_metrics():
     logger = MosaicMLLogger()
+    logger._enabled = True
     state = MagicMock()
     state.max_duration.unit = TimeUnit.EPOCH
     state.max_duration = Time(3, TimeUnit.EPOCH)
@@ -250,6 +252,7 @@ def test_epoch_training_progress_metrics():
 
 def test_epoch_zero_progress_metrics():
     logger = MosaicMLLogger()
+    logger._enabled = True
     state = MagicMock()
     logger.train_dataloader_len = 5
     state.max_duration.unit = TimeUnit.EPOCH
@@ -266,6 +269,7 @@ def test_epoch_zero_progress_metrics():
 
 def test_epoch_zero_no_dataloader_progress_metrics():
     logger = MosaicMLLogger()
+    logger._enabled = True
     state = MagicMock()
     state.dataloader_len = None
     state.max_duration.unit = TimeUnit.EPOCH
