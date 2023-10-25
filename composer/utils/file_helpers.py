@@ -400,6 +400,28 @@ def maybe_create_remote_uploader_downloader_from_uri(
                                   'one of the supported RemoteUploaderDownloader object stores')
 
 
+def list_remote_objects(remote_path: str) -> List[str]:
+    """List objects at the remote path.
+
+    If the path is valid, returns the list of objects at the path.
+    Otherwise, raises an error.
+
+    Args:
+        remote_path (str): Remote object store path.
+
+    Returns:
+        A list of objects at the remote path.
+    """
+    object_store = maybe_create_object_store_from_uri(remote_path)
+    if object_store is None:
+        raise ValueError(f'Failed to create object store. The given path {remote_path} is a local path.')
+    _, _, prefix = parse_uri(remote_path)
+    objects = object_store.list_objects(prefix)
+    if len(objects) == 0:
+        raise ValueError(f'No objects at path {remote_path} found. Please check your path and your access credentials.')
+    return objects
+
+
 def get_file(path: str,
              destination: str,
              object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
