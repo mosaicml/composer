@@ -10,8 +10,7 @@ import pytest
 import torch
 from torch.utils.data import DataLoader
 
-from composer.core import Callback
-from composer.core.time import Time, TimeUnit
+from composer.core import Callback, Time, TimeUnit
 from composer.loggers import WandBLogger
 from composer.loggers.mosaicml_logger import (MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR, MosaicMLLogger,
                                               format_data_to_json_serializable)
