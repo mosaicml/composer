@@ -3,13 +3,14 @@
 
 import json
 from typing import Type
+from unittest.mock import MagicMock
 
 import mcli
 import pytest
 import torch
 from torch.utils.data import DataLoader
 
-from composer.core import Callback
+from composer.core import Callback, Time, TimeUnit
 from composer.loggers import WandBLogger
 from composer.loggers.mosaicml_logger import (MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR, MosaicMLLogger,
                                               format_data_to_json_serializable)
@@ -194,3 +195,89 @@ def test_auto_add_logger(monkeypatch, platform_env_var, access_token_env_var, lo
     # Otherwise, no logger
     else:
         assert logger_count == 0
+
+
+def test_run_events_logged(monkeypatch):
+    ''''
+    Current run events include:
+    1. model initialization time
+    2. training progress (i.e. [batch=x/xx] at batch end)
+    '''
+    mock_mapi = MockMAPI()
+    monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
+    run_name = 'test-run-name'
+    monkeypatch.setenv('RUN_NAME', run_name)
+    trainer = Trainer(model=SimpleModel(),
+                      train_dataloader=DataLoader(RandomClassificationDataset()),
+                      train_subset_num_batches=1,
+                      max_duration='4ba',
+                      loggers=[MosaicMLLogger()])
+    trainer.fit()
+    metadata = mock_mapi.run_metadata[run_name]
+    assert isinstance(metadata['mosaicml/model_initialized_time'], float)
+    assert 'mosaicml/training_progress' in metadata
+    assert metadata['mosaicml/training_progress'] == '[batch=4/4]'
+    assert 'mosaicml/training_sub_progress' not in metadata
+
+
+def test_token_training_progress_metrics():
+    logger = MosaicMLLogger()
+    logger._enabled = True
+    state = MagicMock()
+    state.max_duration.unit = TimeUnit.TOKEN
+    state.max_duration.value = 64
+    state.timestamp.token.value = 50
+    training_progress = logger._get_training_progress_metrics(state)
+    assert 'training_progress' in training_progress
+    assert training_progress['training_progress'] == '[token=50/64]'
+    assert 'training_sub_progress' not in training_progress
+
+
+def test_epoch_training_progress_metrics():
+    logger = MosaicMLLogger()
+    logger._enabled = True
+    state = MagicMock()
+    state.max_duration.unit = TimeUnit.EPOCH
+    state.max_duration = Time(3, TimeUnit.EPOCH)
+    state.timestamp.epoch = Time(2, TimeUnit.EPOCH)
+    state.timestamp.batch = Time(11, TimeUnit.BATCH)
+    state.timestamp.batch_in_epoch = Time(1, TimeUnit.BATCH)
+    training_progress = logger._get_training_progress_metrics(state)
+    assert 'training_progress' in training_progress
+    assert training_progress['training_progress'] == '[epoch=3/3]'
+    assert 'training_sub_progress' in training_progress
+    assert training_progress['training_sub_progress'] == '[batch=1/5]'
+
+
+def test_epoch_zero_progress_metrics():
+    logger = MosaicMLLogger()
+    logger._enabled = True
+    state = MagicMock()
+    logger.train_dataloader_len = 5
+    state.max_duration.unit = TimeUnit.EPOCH
+    state.max_duration = Time(3, TimeUnit.EPOCH)
+    state.timestamp.epoch = Time(0, TimeUnit.EPOCH)
+    state.timestamp.batch = Time(0, TimeUnit.BATCH)
+    state.timestamp.batch_in_epoch = Time(0, TimeUnit.BATCH)
+    training_progress = logger._get_training_progress_metrics(state)
+    assert 'training_progress' in training_progress
+    assert training_progress['training_progress'] == '[epoch=1/3]'
+    assert 'training_sub_progress' in training_progress
+    assert training_progress['training_sub_progress'] == '[batch=0/5]'
+
+
+def test_epoch_zero_no_dataloader_progress_metrics():
+    logger = MosaicMLLogger()
+    logger._enabled = True
+    state = MagicMock()
+    state.dataloader_len = None
+    state.max_duration.unit = TimeUnit.EPOCH
+    state.max_duration = Time(3, TimeUnit.EPOCH)
+    state.timestamp.epoch = Time(0, TimeUnit.EPOCH)
+    state.timestamp.batch = Time(1, TimeUnit.BATCH)
+    state.timestamp.batch_in_epoch = Time(1, TimeUnit.BATCH)
+    training_progress = logger._get_training_progress_metrics(state)
+    assert 'training_progress' in training_progress
+    assert training_progress['training_progress'] == '[epoch=1/3]'
+    assert 'training_sub_progress' in training_progress
+    assert training_progress['training_sub_progress'] == '[batch=1]'
