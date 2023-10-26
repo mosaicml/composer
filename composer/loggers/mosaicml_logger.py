@@ -136,9 +136,9 @@ class MosaicMLLogger(LoggerDestination):
             if cur_epoch < state.max_duration.value:
                 cur_epoch += 1
             training_progress_metrics = {
+                'training_sub_progress': curr_progress,
                 'training_progress': f'[epoch={cur_epoch}/{state.max_duration.value}]',
             }
-            training_progress_metrics['training_sub_progress'] = curr_progress
         return training_progress_metrics
 
     def batch_start(self, state: State, logger: Logger) -> None:
