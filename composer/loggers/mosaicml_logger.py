@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 import mcli
 import torch
 
-from composer.core.time import TimeUnit
+from composer.core import TimeUnit
 from composer.loggers import Logger
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
