@@ -153,6 +153,7 @@ class MosaicMLLogger(LoggerDestination):
         self._flush_metadata()
 
     def fit_end(self, state: State, logger: Logger) -> None:
+        self._log_metadata(self._get_training_progress_metrics(state))
         self._flush_metadata(force_flush=True)
 
     def eval_end(self, state: State, logger: Logger) -> None:
