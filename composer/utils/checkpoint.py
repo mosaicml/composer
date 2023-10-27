@@ -295,9 +295,10 @@ def load_checkpoint(
     return rng_state_dicts
 
 
-def _get_module_name_mapping(model: torch.nn.Module) -> dict[str, str]:
+def _get_module_name_mapping(model: torch.nn.Module) -> tuple[dict[str, str], int]:
     module_name_mapping = {}
     world_size = dist.get_world_size()
+    pg_world_size = 1
     for module_name, module in model.named_modules():
         if hasattr(module, 'process_group'):
             process_group = module.process_group
@@ -305,11 +306,12 @@ def _get_module_name_mapping(model: torch.nn.Module) -> dict[str, str]:
             if process_group_size != world_size:
                 custom_process_group_size = world_size // process_group_size
                 process_group_index = dist.get_global_rank() % custom_process_group_size
+                pg_world_size = max(pg_world_size, process_group_index + 1)
                 new_module_name = module_name.replace('_fsdp_wrapped_module.', '')
                 for k in module.state_dict().keys():
                     full_module_name = '.'.join((new_module_name, k))
                     module_name_mapping[full_module_name] = full_module_name + f'_pgidx{process_group_index}'
-    return module_name_mapping
+    return module_name_mapping, pg_world_size
 
 
 def _rename_model_state_dict(model_state_dict, module_name_mapping: dict[str, str]):
@@ -998,6 +1000,8 @@ Args:
             since only the rank zero process saves checkpoints.
 """
 
+from copy import deepcopy
+
 from torch.distributed.checkpoint.default_planner import (
     DefaultLoadPlanner,
     DefaultSavePlanner,
@@ -1006,6 +1010,95 @@ from torch.distributed.checkpoint._nested_dict import flatten_state_dict
 from torch.distributed.checkpoint._sharded_tensor_utils import (
     _flatten_sharded_tensors,
 )
+
+from torch.distributed.checkpoint.metadata import STORAGE_TYPES, ChunkStorageMetadata, TensorStorageMetadata, MetadataIndex
+from torch.distributed.checkpoint.planner import LoadPlan, ReadItem
+from torch.distributed.checkpoint.planner_helpers import _chunk_for_shard, _create_read_item_for_tensor
+from torch.distributed.checkpoint.resharding import (
+    _shards_get_overlap_region_wrt_saved_tensor,
+    _check_shard_metadata_pair_overlap
+)
+
+def _create_read_items(fqn: str, md: STORAGE_TYPES, obj: Any) -> List[ReadItem]:
+        local_chunks = [_chunk_for_shard(shard.metadata) for shard in obj.local_shards()]
+        return create_read_items_for_chunk_list(fqn, md, local_chunks)
+
+def create_read_items_for_chunk_list(
+    fqn: str,
+    checkpoint_md: TensorStorageMetadata,
+    local_chunks: List[ChunkStorageMetadata],
+) -> List[ReadItem]:
+    """
+    Creates a list of ``ReadItem`` based on the checkpoint and local chunks.
+
+    This applies the resharding algorithm and computes the reads needed
+    to satisfy ``local_chunks`` with a checkpoint described by ``checkpoint_md``.
+
+    Args:
+        fqn (str) : The state_dict FQN to pass to ``ReadItem``.
+        checkpoint_md (TensorStorageMetadata): metadata for a given tensor
+            from a checkpoint.
+        local_chunks (List[ChunkStorageMetadata]): Local chunks that needs to be
+            loaded.
+
+    Returns:
+        A list of ``ReadItem`` that will satisfy all input chunks.
+    """
+    read_items = []
+    # this is a naive quadratic algo that can be optimized later
+    for idx, shard in enumerate(local_chunks):
+        # TODO(brian.chu): We assume that we chunk tensors on the first dim
+        total_size = sum(chunk.sizes[0] for chunk in checkpoint_md.chunks)
+        for storage_idx, storage_md in enumerate(checkpoint_md.chunks):
+            offset_storage_md = deepcopy(storage_md)
+            # TODO(brian.chu): We assume that custom process group fqns are
+            # appended with _pgidx{n} where n < 8
+            if '_pgidx' in fqn:
+                pgidx = fqn[-1]
+                offset_storage_md.offsets = torch.Size(
+                    [total_size * int(pgidx) + offset_storage_md.offsets[0],
+                    *offset_storage_md.offsets[1:]]
+                )
+            if not _check_shard_metadata_pair_overlap(
+                shard, offset_storage_md
+            ):
+                continue
+
+            storage_offsets = []
+            dest_offsets = []
+            lengths = []
+            for (
+                dim,
+                offset_for_saved_tensor,
+                offset_for_current_tensor,
+                length,
+            ) in _shards_get_overlap_region_wrt_saved_tensor(
+                saved_shard=offset_storage_md, current_shard=shard
+            ):
+                storage_offsets.append(offset_for_saved_tensor)
+                dest_offsets.append(offset_for_current_tensor)
+                lengths.append(length)
+
+            dest_fqn = fqn
+            if '_pgidx' in fqn:
+                # TODO(brian.chu): We assume that custom process group fqns are
+                # appended with _pgidx{n} where n < 8
+                dest_fqn = fqn[:-7]
+            read_items.append(
+                _create_read_item_for_tensor(
+                    dest_index=MetadataIndex(
+                        dest_fqn, shard.offsets, idx
+                    ),
+                    dest_offsets=dest_offsets,
+                    storage_index=MetadataIndex(
+                        fqn, storage_md.offsets, storage_idx
+                    ),
+                    storage_offsets=storage_offsets,
+                    lengths=lengths,
+                )
+            )
+    return read_items
+
 class RenameLoadPlanner(DefaultLoadPlanner):
     """
     RankLoadPlanner extends __init__ and overrides set_up_planner to
@@ -1028,7 +1121,7 @@ class RenameLoadPlanner(DefaultLoadPlanner):
             flatten_state_dict: See parent class.
             flatten_sharded_tensors: See parent class.
         """
-        self.name_conversion_dict = _get_module_name_mapping(model)
+        self.name_conversion_dict, self.pg_world_size = _get_module_name_mapping(model)
         super().__init__(flatten_state_dict, flatten_sharded_tensors)
 
     def set_up_planner(
@@ -1080,6 +1173,33 @@ class RenameLoadPlanner(DefaultLoadPlanner):
         self.metadata = metadata
         self.is_coordinator = is_coordinator
 
+    def create_local_plan(self) -> LoadPlan:
+        """
+        Create the ``LoadPlan`` used by DefaultLoadPlanner.
+
+        It produces one read item per value in ``state_dict`` using the metadata in ``metadata``.
+
+        The default behavior is to match key exactly between state_dict and metadata.
+        It handles resharding by issuing multiple read requests against storage in order to match
+        load requirements.
+        """
+        if self.pg_world_size != 1:
+            return super().create_local_plan()
+
+        requests = []
+        for fqn, obj in self.state_dict.items():
+            renamed_fqns = []
+            for key in self.metadata.state_dict_metadata.keys():
+                original_key = key
+                if '_pgidx' in key:
+                    key = key[:-7]
+                if key == fqn:
+                    renamed_fqns.append(original_key)
+            for fqn in renamed_fqns:
+                md = self.metadata.state_dict_metadata[fqn]
+                requests += _create_read_items(fqn, md, obj)
+
+        return LoadPlan(requests)
 
 class RenameSavePlanner(DefaultSavePlanner):
     """
@@ -1105,7 +1225,7 @@ class RenameSavePlanner(DefaultSavePlanner):
             flatten_sharded_tensors: See parent class.
             dedup_replicated_tensors: See parent class.
         """
-        self.name_conversion_dict = _get_module_name_mapping(model)
+        self.name_conversion_dict, _ = _get_module_name_mapping(model)
         super().__init__(
             flatten_state_dict,
             flatten_sharded_tensors,
