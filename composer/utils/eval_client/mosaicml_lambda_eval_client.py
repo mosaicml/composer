@@ -53,6 +53,9 @@ class MosaicMLLambdaEvalClient(EvalClient):
                         log.error(f'Failed to get code eval output after {self.num_retries} retries. Error: {e}')
                     log.warning(f'Failed to get code eval output, retrying in {self.backoff**i} seconds.')
                     time.sleep(self.backoff**i)
+                elif e.status == 401:
+                    raise RuntimeError('Failed to get code eval output due to UNAUTHORIZED error. '
+                                       'Please ensure you have access to MosaicMLLambdaEvalClient.') from e
                 else:
                     log.error(f'Failed to get code eval output with unexpected MAPIException. Error: {e}')
                     break
