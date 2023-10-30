@@ -179,6 +179,8 @@ class MosaicMLLogger(LoggerDestination):
             try:
                 log.info(f'Logging metadata to MosaicML: {self.buffered_metadata}')
                 log.info("credentials", os.environ.get(MOSAICML_ACCESS_TOKEN_ENV_VAR), os.environ.get(MOSAICML_PLATFORM_ENV_VAR))
+                cfg = mcli.MCLIConfig.load_config()
+                log.info(f'Using config: {cfg}')
                 mcli.update_run_metadata(self.run_name, self.buffered_metadata)
                 self.buffered_metadata = {}
                 self.time_last_logged = time.time()
