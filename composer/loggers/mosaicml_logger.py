@@ -178,6 +178,7 @@ class MosaicMLLogger(LoggerDestination):
         if self._enabled and (time.time() - self.time_last_logged > self.log_interval or force_flush):
             try:
                 log.info(f'Logging metadata to MosaicML: {self.buffered_metadata}')
+                log.info("credentials", os.environ.get(MOSAICML_ACCESS_TOKEN_ENV_VAR), os.environ.get(MOSAICML_PLATFORM_ENV_VAR))
                 mcli.update_run_metadata(self.run_name, self.buffered_metadata)
                 self.buffered_metadata = {}
                 self.time_last_logged = time.time()
