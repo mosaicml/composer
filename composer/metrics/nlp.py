@@ -528,7 +528,6 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
-        self.eval_device = 'LAMBDA'
         if not 'CODE_EVAL_DEVICE' in os.environ:
             raise ValueError(
                 'Attempting to use InContextLearningCodeEvalAccuracy but environment '
@@ -536,6 +535,9 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
                 'to one of `LOCAL` (for unsafe local eval), `LAMBDA` (for AWS lambda ',
                 'evaluation), or `MOSAICML` (for lambda eval through MAPI).')
         self.eval_device = os.environ['CODE_EVAL_DEVICE'].upper()
+        if self.eval_device not in ('LOCAL', 'LAMBDA', 'MOSAICML'):
+            raise ValueError('Environment variable `CODE_EVAL_DEVICE` must be one of `LOCAL`, '
+                             '`LAMBDA`, or `MOSAICML`.')
 
     def get_client(self) -> EvalClient:
         """Returns a client for the appropriate remote platform."""
@@ -552,9 +554,9 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         elif self.eval_device == 'MOSAICML':
             client = MosaicMLLambdaEvalClient()
         else:
-            raise Exception(
+            raise ValueError(
                 'Remote platforms apart from Lambdas/MOSAICML are not yet supported. Please set environment variable '
-                'CODE_EVAL_DEVICE to LOCAL or LAMBDA, or run on the MosaicML Platform.')
+                '`CODE_EVAL_DEVICE` to `LOCAL`, `LAMBDA`, or `MOSAICML`.')
         return client
 
     def estimator(self, n: int, c: int, k: int) -> float:
