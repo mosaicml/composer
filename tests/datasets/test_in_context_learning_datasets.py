@@ -1345,8 +1345,7 @@ def test_qa_task_with_cot_evaluation(device, world_size, num_fewshot, dataset_ur
 
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
 @device('gpu')
-@world_size(1)
-def test_code_eval_requires_envvar(monkeypatch, device, world_size, num_fewshot, dataset_uri, tmp_path):
+def test_code_eval_requires_envvar(monkeypatch, device, dataset_uri, tmp_path):
     pytest.importorskip('datasets')
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
