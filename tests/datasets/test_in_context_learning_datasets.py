@@ -1343,6 +1343,12 @@ def test_qa_task_with_cot_evaluation(device, world_size, num_fewshot, dataset_ur
     assert in_memory_logger.data['metrics/gsm8k/InContextLearningQAAccuracy'][0][1].item() == 0
 
 
+@pytest.mark.gpu  # Run on MosaicML platform
+def test_code_eval_requires_envvar():
+    with pytest.raises(ValueError, match='Attempting to use InContextLearningCodeEvalAccuracy but.*'):
+        InContextLearningCodeEvalAccuracy()
+
+
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
 @device('gpu')
 @world_size(1, 2)
