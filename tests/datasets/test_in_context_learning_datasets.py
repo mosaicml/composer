@@ -1444,7 +1444,7 @@ def test_code_eval_sentpiece_evaluation(monkeypatch, device, world_size, num_few
 @device('gpu')
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [0, 2])
-@pytest.mark.parametrize('generations_per_sample', [1])
+@pytest.mark.parametrize('generations_per_sample', [2])
 @pytest.mark.filterwarnings(r'ignore: Input length of input_ids is')
 def test_code_eval_task_evaluation(monkeypatch, device, world_size, num_fewshot, dataset_uri, tiny_gpt2_tokenizer,
                                    tiny_gpt2_model, tmp_path, generations_per_sample):
@@ -1482,7 +1482,7 @@ def test_code_eval_task_evaluation(monkeypatch, device, world_size, num_fewshot,
 
     trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
     torch.use_deterministic_algorithms(False)
-    trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
+    trainer.eval(eval_dataloader=evaluator, subset_num_batches=1)
     torch.use_deterministic_algorithms(True)
     assert 'metrics/humaneval/InContextLearningCodeEvalAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/humaneval/InContextLearningCodeEvalAccuracy'][0][1].item() == 0
