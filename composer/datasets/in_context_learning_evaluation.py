@@ -474,6 +474,7 @@ class InContextLearningExecutionPredictionTaskDataset(Dataset):
                     example = f"""{example_delimiter}{prompt}{soln}{assert_stmt}"""
 
                     preamble += example
+
             prompt, soln, entry_point, test_in, test_out, language = (
                 self.samples[sample_idx]['prompt'],
                 self.samples[sample_idx]['canonical_solution'],
@@ -511,7 +512,7 @@ class InContextLearningExecutionPredictionTaskDataset(Dataset):
                 max_prompt_length = max(
                     max_prompt_length,
                     len(encoded_example['preamble']['input_ids'] + encoded_example['prompt']['input_ids']))
-                examples.append(encoded_example)
+
         self.max_answer_length = max_answer_length
         self.max_prompt_length = max_prompt_length
         return examples
