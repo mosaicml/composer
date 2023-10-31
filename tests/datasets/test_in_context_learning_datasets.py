@@ -1343,45 +1343,10 @@ def test_qa_task_with_cot_evaluation(device, world_size, num_fewshot, dataset_ur
     assert in_memory_logger.data['metrics/gsm8k/InContextLearningQAAccuracy'][0][1].item() == 0
 
 
-@pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
 @device('gpu')
-def test_code_eval_requires_envvar(monkeypatch, device, dataset_uri, tmp_path):
-    pytest.importorskip('datasets')
-    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
-    dataset_uri = f'{local_data}/{dataset_uri}'
-    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m')
-
-    dl = get_icl_task_dataloader(
-        'code_evaluation',
-        dataset_uri,
-        tokenizer,
-        2,
-        max_seq_len=150,
-        pad_tok_id=tokenizer.eos_token_id,
-        num_fewshot=0,
-        prompt_string='',
-        example_delimiter='\n',
-        continuation_delimiter=': ',
-        destination_path=str(Path(tmp_path) / 'icl.jsonl'),
-        generations_per_sample=1,
-    )
-
-    evaluator = Evaluator(label='humaneval',
-                          dataloader=dl,
-                          metric_names=['InContextLearningCodeEvalAccuracy'],
-                          device_eval_microbatch_size=1)
-    model = HuggingFaceModel(
-        model=AutoModelForCausalLM.from_pretrained('facebook/opt-125m'),
-        tokenizer=tokenizer,
-        eval_metrics=[InContextLearningCodeEvalAccuracy()],
-        use_logits=True,
-    )
-
-    trainer = Trainer(model=model, max_duration='1ba')
-    torch.use_deterministic_algorithms(False)
+def test_code_eval_requires_envvar():
     with pytest.raises(RuntimeError, match='Attempting to use InContextLearningCodeEvalAccuracy but.*'):
-        trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
-    torch.use_deterministic_algorithms(True)
+        InContextLearningCodeEvalAccuracy()
 
 
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
