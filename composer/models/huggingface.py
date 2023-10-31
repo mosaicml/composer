@@ -406,19 +406,17 @@ class HuggingFaceModel(ComposerModel):
                     'Generation eval cannot be used without providing a tokenizer to the model constructor.')
             generations = []
             self.labels = batch.pop('labels')
-            if  batch.get('generation_kwargs', {}).get('num_return_sequences', 1) > 1:
-                for _ in range(batch.get('generation_kwargs', {}).get('num_return_sequences', 1)):
-                    generation_kwargs = batch.get('generation_kwargs', {})
-                    generation_kwargs['num_return_sequences']  = 1
-                    result = self.generate(batch['input_ids'],
-                                        attention_mask=batch['attention_mask'],
-                                        max_new_tokens=batch['generation_length'],
-                                        synced_gpus=dist.get_world_size() > 1,
-                                        **generation_kwargs)
-                    generations.append(result)
+            for _ in range(batch.get('generation_kwargs', {}).get('num_return_sequences', 1)):
+                generation_kwargs = batch.get('generation_kwargs', {})
+                generation_kwargs['num_return_sequences'] = 1
+                result = self.generate(batch['input_ids'],
+                                       attention_mask=batch['attention_mask'],
+                                       max_new_tokens=batch['generation_length'],
+                                       synced_gpus=dist.get_world_size() > 1,
+                                       **generation_kwargs)
+                generations.append(result)
+            generation = torch.stack(generations, dim=1).view(generations[0].shape[0] * len(generations), -1)
 
-            
-            generation = torch.stack(generations, dim=1).view(generations[0].shape[0] *  len(generations), -1)
             # don't remove prefix space to sentencepiece models
 
             if len(self.tokenizer(' a', add_special_tokens=False)['input_ids']) == 1:
