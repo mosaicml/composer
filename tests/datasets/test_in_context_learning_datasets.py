@@ -1345,6 +1345,7 @@ def test_qa_task_with_cot_evaluation(device, world_size, num_fewshot, dataset_ur
 
 @device('gpu')
 def test_code_eval_requires_envvar():
+    pytest.importorskip('datasets')
     with pytest.raises(RuntimeError, match='Attempting to use InContextLearningCodeEvalAccuracy but.*'):
         InContextLearningCodeEvalAccuracy()
 
