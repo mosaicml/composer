@@ -23,9 +23,9 @@ from composer.utils import MissingConditionalImportError, dist
 if TYPE_CHECKING:
     from mlflow import ModelVersion
 
-__all__ = ['MLFlowLogger']
+__all__ = ["MLFlowLogger"]
 
-DEFAULT_MLFLOW_EXPERIMENT_NAME = 'my-mlflow-experiment'
+DEFAULT_MLFLOW_EXPERIMENT_NAME = "my-mlflow-experiment"
 
 
 class MLFlowLogger(LoggerDestination):
@@ -58,27 +58,33 @@ class MLFlowLogger(LoggerDestination):
         tracking_uri: Optional[Union[str, pathlib.Path]] = None,
         rank_zero_only: bool = True,
         flush_interval: int = 10,
-        model_registry_prefix: str = '',
+        model_registry_prefix: str = "",
         model_registry_uri: Optional[str] = None,
+        synchronous_logging=False,
     ) -> None:
         try:
             import mlflow
             from mlflow import MlflowClient
             from mlflow.utils.autologging_utils import MlflowAutologgingQueueingClient
         except ImportError as e:
-            raise MissingConditionalImportError(extra_deps_group='mlflow',
-                                                conda_package='mlflow',
-                                                conda_channel='conda-forge') from e
+            raise MissingConditionalImportError(
+                extra_deps_group="mlflow",
+                conda_package="mlflow",
+                conda_channel="conda-forge",
+            ) from e
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
 
         self.run_name = run_name
         self.experiment_name = experiment_name
         self.model_registry_prefix = model_registry_prefix
         self.model_registry_uri = model_registry_uri
-        if self.model_registry_uri == 'databricks-uc':
-            if len(self.model_registry_prefix.split('.')) != 2:
-                raise ValueError(f'When registering to Unity Catalog, model_registry_prefix must be in the format ' +
-                                 f'{{catalog_name}}.{{schema_name}}, but got {self.model_registry_prefix}')
+        self.synchronous_logging = synchronous_logging
+        if self.model_registry_uri == "databricks-uc":
+            if len(self.model_registry_prefix.split(".")) != 2:
+                raise ValueError(
+                    f"When registering to Unity Catalog, model_registry_prefix must be in the format "
+                    + f"{{catalog_name}}.{{schema_name}}, but got {self.model_registry_prefix}"
+                )
 
         self._rank_zero_only = rank_zero_only
         self._last_flush_time = time.time()
@@ -92,27 +98,38 @@ class MLFlowLogger(LoggerDestination):
             # Set up MLflow state
             self._run_id = None
             if self.experiment_name is None:
-                self.experiment_name = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,
-                                                 DEFAULT_MLFLOW_EXPERIMENT_NAME)
+                self.experiment_name = os.getenv(
+                    mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,
+                    DEFAULT_MLFLOW_EXPERIMENT_NAME,
+                )
             self._mlflow_client = MlflowClient(self.tracking_uri)
             # Create an instance of MlflowAutologgingQueueingClient - an optimized version
             # of MlflowClient - that automatically batches metrics together and supports
             # asynchronous logging for improved performance
-            self._optimized_mlflow_client = MlflowAutologgingQueueingClient(self.tracking_uri)
+            self._optimized_mlflow_client = MlflowAutologgingQueueingClient(
+                self.tracking_uri
+            )
             # Set experiment. We use MlflowClient for experiment retrieval and creation
             # because MlflowAutologgingQueueingClient doesn't support it
-            env_exp_id = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None)
+            env_exp_id = os.getenv(
+                mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None
+            )
             if env_exp_id is not None:
                 self._experiment_id = env_exp_id
             else:
-                exp_from_name = self._mlflow_client.get_experiment_by_name(name=self.experiment_name)
+                exp_from_name = self._mlflow_client.get_experiment_by_name(
+                    name=self.experiment_name
+                )
                 if exp_from_name is not None:
                     self._experiment_id = exp_from_name.experiment_id
                 else:
-                    self._experiment_id = (self._mlflow_client.create_experiment(name=self.experiment_name))
+                    self._experiment_id = self._mlflow_client.create_experiment(
+                        name=self.experiment_name
+                    )
 
     def init(self, state: State, logger: Logger) -> None:
         import mlflow
+
         del logger  # unused
 
         if self.run_name is None:
@@ -120,11 +137,13 @@ class MLFlowLogger(LoggerDestination):
 
         # Adjust name and group based on `rank_zero_only`.
         if not self._rank_zero_only:
-            self.run_name += f'-rank{dist.get_global_rank()}'
+            self.run_name += f"-rank{dist.get_global_rank()}"
 
         # Start run
         if self._enabled:
-            env_run_id = os.getenv(mlflow.environment_variables.MLFLOW_RUN_ID.name, None)
+            env_run_id = os.getenv(
+                mlflow.environment_variables.MLFLOW_RUN_ID.name, None
+            )
             if env_run_id is not None:
                 self._run_id = env_run_id
             else:
@@ -135,19 +154,23 @@ class MLFlowLogger(LoggerDestination):
                 self._run_id = new_run.info.run_id
             mlflow.start_run(run_id=self._run_id)
 
-    def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
+    def log_table(
+        self, columns: List[str], rows: List[List[Any]], name: str = "Table"
+    ) -> None:
         if self._enabled:
             try:
                 import pandas as pd
             except ImportError as e:
-                raise MissingConditionalImportError(extra_deps_group='pandas',
-                                                    conda_package='pandas',
-                                                    conda_channel='conda-forge') from e
+                raise MissingConditionalImportError(
+                    extra_deps_group="pandas",
+                    conda_package="pandas",
+                    conda_channel="conda-forge",
+                ) from e
             table = pd.DataFrame.from_records(data=rows, columns=columns)
             self._mlflow_client.log_table(
                 run_id=self._run_id,
                 data=table,
-                artifact_file=f'{name}.json',
+                artifact_file=f"{name}.json",
             )
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
@@ -158,6 +181,7 @@ class MLFlowLogger(LoggerDestination):
                 run_id=self._run_id,
                 metrics=metrics,
                 step=step,
+                # synchronous=self.synchronous_logging,
             )
             time_since_flush = time.time() - self._last_flush_time
             if time_since_flush >= self._flush_interval:
@@ -178,7 +202,7 @@ class MLFlowLogger(LoggerDestination):
         name: str,
         await_registration_for: Optional[int] = 300,
         tags: Optional[Dict[str, Any]] = None,
-    ) -> 'ModelVersion':
+    ) -> "ModelVersion":
         """Register a model to model registry.
 
         Args:
@@ -194,9 +218,14 @@ class MLFlowLogger(LoggerDestination):
             ModelVersion: The registered model.
         """
         if self._enabled:
-            full_name = f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name
+            full_name = (
+                f"{self.model_registry_prefix}.{name}"
+                if len(self.model_registry_prefix) > 0
+                else name
+            )
 
             import mlflow
+
             return mlflow.register_model(
                 model_uri=model_uri,
                 name=full_name,
@@ -216,10 +245,13 @@ class MLFlowLogger(LoggerDestination):
         """
         if self._enabled:
             import mlflow
-            if flavor == 'transformers':
-                mlflow.transformers.save_model(**kwargs,)
+
+            if flavor == "transformers":
+                mlflow.transformers.save_model(
+                    **kwargs,
+                )
             else:
-                raise NotImplementedError(f'flavor {flavor} not supported.')
+                raise NotImplementedError(f"flavor {flavor} not supported.")
 
     def log_model(self, flavor: str, **kwargs):
         """Log a model to MLflow.
@@ -233,34 +265,51 @@ class MLFlowLogger(LoggerDestination):
         """
         if self._enabled:
             import mlflow
-            if flavor == 'transformers':
-                mlflow.transformers.log_model(**kwargs,)
+
+            if flavor == "transformers":
+                mlflow.transformers.log_model(
+                    **kwargs,
+                )
             else:
-                raise NotImplementedError(f'flavor {flavor} not supported.')
+                raise NotImplementedError(f"flavor {flavor} not supported.")
 
     def log_images(
         self,
-        images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
-        name: str = 'image',
+        images: Union[
+            np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]
+        ],
+        name: str = "image",
         channels_last: bool = False,
         step: Optional[int] = None,
-        masks: Optional[Dict[str, Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]]]] = None,
+        masks: Optional[
+            Dict[
+                str,
+                Union[
+                    np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]
+                ],
+            ]
+        ] = None,
         mask_class_labels: Optional[Dict[int, str]] = None,
         use_table: bool = True,
     ):
         unused_args = (masks, mask_class_labels)  # Unused (only for wandb)
         if any(unused_args):
             warnings.warn(
-                textwrap.dedent(f"""MLFlowLogger does not support masks, class labels, or tables of images,
-                          but got masks={masks}, mask_class_labels={mask_class_labels}"""))
+                textwrap.dedent(
+                    f"""MLFlowLogger does not support masks, class labels, or tables of images,
+                          but got masks={masks}, mask_class_labels={mask_class_labels}"""
+                )
+            )
         if self._enabled:
             if not isinstance(images, Sequence) and images.ndim <= 3:
                 images = [images]
             for im_ind, image in enumerate(images):
                 image = _convert_to_mlflow_image(image, channels_last)
-                self._mlflow_client.log_image(image=image,
-                                              artifact_file=f'{name}_{step}_{im_ind}.png',
-                                              run_id=self._run_id)
+                self._mlflow_client.log_image(
+                    image=image,
+                    artifact_file=f"{name}_{step}_{im_ind}.png",
+                    run_id=self._run_id,
+                )
 
     def post_close(self):
         if self._enabled:
@@ -277,13 +326,17 @@ class MLFlowLogger(LoggerDestination):
         return self._optimized_mlflow_client.flush(synchronous=True)
 
 
-def _convert_to_mlflow_image(image: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:
+def _convert_to_mlflow_image(
+    image: Union[np.ndarray, torch.Tensor], channels_last: bool
+) -> np.ndarray:
     if isinstance(image, torch.Tensor):
         image = image.data.cpu().numpy()
 
     # Error out for empty arrays or weird arrays of dimension 0.
     if np.any(np.equal(image.shape, 0)):
-        raise ValueError(f'Got an image (shape {image.shape}) with at least one dimension being 0! ')
+        raise ValueError(
+            f"Got an image (shape {image.shape}) with at least one dimension being 0! "
+        )
 
     # Squeeze any singleton dimensions and then add them back in if image dimension
     # less than 3.
@@ -300,20 +353,26 @@ def _convert_to_mlflow_image(image: Union[np.ndarray, torch.Tensor], channels_la
 
     if image.ndim != 3:
         raise ValueError(
-            textwrap.dedent(f'''Input image must be 3 dimensions, but instead
+            textwrap.dedent(
+                f"""Input image must be 3 dimensions, but instead
                             got {image.ndim} dims at shape: {image.shape}
                             Your input image was interpreted as a batch of {image.ndim}
                             -dimensional images because you either specified a
                             {image.ndim + 1}D image or a list of {image.ndim}D images.
-                            Please specify either a 4D image of a list of 3D images'''))
+                            Please specify either a 4D image of a list of 3D images"""
+            )
+        )
 
     assert isinstance(image, np.ndarray)
     if not channels_last:
         image = image.transpose(1, 2, 0)
     if image.shape[-1] not in [1, 3, 4]:
         raise ValueError(
-            textwrap.dedent(f'''Input image must have 1, 3, or 4 channels, but instead
+            textwrap.dedent(
+                f"""Input image must have 1, 3, or 4 channels, but instead
                             got {image.shape[-1]} channels at shape: {image.shape}
                             Please specify either a 1-, 3-, or 4-channel image or a list of
-                            1-, 3-, or 4-channel images'''))
+                            1-, 3-, or 4-channel images"""
+            )
+        )
     return image
