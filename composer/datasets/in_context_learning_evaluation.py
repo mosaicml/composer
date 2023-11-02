@@ -1054,7 +1054,7 @@ class InContextLearningCodeEvalDataset(Dataset):
                 len(encoded_example['preamble']['input_ids'] + encoded_example['prompt']['input_ids']))
             max_answer_length = max(
                 max_answer_length,
-                len(encoded_example['canonical_solution']['input_ids'])
+                len(self.tokenizer(encoded_example['canonical_solution'], add_special_tokens=False)['input_ids'])
             )
 
         self.max_prompt_length = max_prompt_length
