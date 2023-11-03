@@ -29,7 +29,11 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-__all__ = ['MosaicMLLogger', 'MOSAICML_PLATFORM_ENV_VAR', 'MOSAICML_ACCESS_TOKEN_ENV_VAR']
+__all__ = [
+    'MosaicMLLogger',
+    'MOSAICML_PLATFORM_ENV_VAR',
+    'MOSAICML_ACCESS_TOKEN_ENV_VAR',
+]
 
 RUN_NAME_ENV_VAR = 'RUN_NAME'
 MOSAICML_PLATFORM_ENV_VAR = 'MOSAICML_PLATFORM'
@@ -75,7 +79,7 @@ class MosaicMLLogger(LoggerDestination):
             self.buffered_metadata: Dict[str, Any] = {}
             self.run_name = os.environ.get(RUN_NAME_ENV_VAR)
             if self.run_name is not None:
-                log.info(f'Logging to mosaic run {self.run_name}')
+                log.info(f'GEEZ Logging to mosaic run {self.run_name}')
             else:
                 log.warning(f'Environment variable `{RUN_NAME_ENV_VAR}` not set, so MosaicMLLogger '
                             'is disabled as it is unable to identify which run to log to.')
@@ -182,7 +186,7 @@ class MosaicMLLogger(LoggerDestination):
                 self.time_last_logged = time.time()
                 # If we have not failed in the last hour, increase the allowed fails. This increases
                 # robustness to transient network issues.
-                if time.time() - self.time_failed_count_adjusted > 3600 and self.allowed_fails_left < 3:
+                if (time.time() - self.time_failed_count_adjusted > 3600 and self.allowed_fails_left < 3):
                     self.allowed_fails_left += 1
                     self.time_failed_count_adjusted = time.time()
             except Exception as e:
