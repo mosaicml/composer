@@ -116,6 +116,9 @@ class InContextLearningDataset(Dataset):
         destination_path: str,
         question_prelimiter: str,
         fewshot_random_seed: int,
+        dont_split_keys: List[str],
+        normal_split_keys: List[str],
+        list_split_keys: List[str],
     ):
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
@@ -130,7 +133,10 @@ class InContextLearningDataset(Dataset):
         self.samples = self._read_dataset(dataset_uri, destination_path)
         self.samples = strip_data(self.samples)
         self.encoded_dataset = self._prep_examples(num_fewshot, prompt_string, fewshot_rng)
-        # TODO: define split keys
+
+        self.dont_split_keys = dont_split_keys
+        self.normal_split_keys = normal_split_keys
+        self.list_split_keys = list_split_keys
 
     def __getitem__(self, index):
         return self.encoded_dataset[index]
