@@ -1108,7 +1108,7 @@ class InContextLearningCodeEvalDataset(Dataset):
             'test_outputs': test_outputs,  # list of test outputs
             'languages': languages,  # list of languages
             'pass_at_k': self.pass_at_k,
-            'generation_length': self.max_answer_length,
+            'generation_length': min(self.max_answer_length, self.max_seq_len - self.max_prompt_length),
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
                 'num_beams': 1,  # single beam
