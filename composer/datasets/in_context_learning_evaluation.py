@@ -425,12 +425,12 @@ class InContextLearningExecutionPredictionTaskDataset(Dataset):
         return res
 
     @staticmethod
-    def _write_assert_statement(language, fn_name, input_val, output_val):
+    def _write_assert_statement(language, fn_name, input_val, output_val, fewshot_idx = ""):
         if language == 'python':
             if output_val is not None:
-                return f'\n\ndef test():\n\tassert {fn_name}({input_val}) == {output_val}'
+                return f'\n\ndef test{fewshot_idx}():\n\tassert {fn_name}({input_val}) == {output_val}'
             else:
-                return f'\n\ndef test():\n\tassert {fn_name}({input_val}) =='
+                return f'\n\ndef test{fewshot_idx}():\n\tassert {fn_name}({input_val}) =='
         else:
             raise ValueError(f'Unsupported language: {language}')
 
@@ -459,7 +459,7 @@ class InContextLearningExecutionPredictionTaskDataset(Dataset):
 
             if num_fewshot > 0:
                 fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx, fewshot_rng)
-                for fewshot_idx in fewshot_idxs:
+                for idx, fewshot_idx in enumerate(fewshot_idxs):
                     prompt, soln, entry_point, test_in, test_out = (
                         self.samples[fewshot_idx]['prompt'],
                         self.samples[fewshot_idx]['canonical_solution'],
@@ -470,7 +470,7 @@ class InContextLearningExecutionPredictionTaskDataset(Dataset):
                     test_idx = random.choice(range(0, len(test_in)))
                     assert_stmt = self._write_assert_statement(self.samples[sample_idx]['language'], entry_point,
                                                                self.stringify_input(test_in[test_idx]),
-                                                               test_out[test_idx])
+                                                               test_out[test_idx], idx)
                     example = f"""{example_delimiter}{prompt}{soln}{assert_stmt}"""
 
                     preamble += example

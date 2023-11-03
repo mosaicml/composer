@@ -1559,12 +1559,12 @@ def test_code_eval_task_evaluation(monkeypatch, device, world_size, num_fewshot,
 
 
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
-@device('cpu')
-# @world_size(1, 2)
+@device('gpu')
+@world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [0, 2])
 @pytest.mark.parametrize('generations_per_sample', [1])
 @pytest.mark.filterwarnings(r'ignore: Input length of input_ids is')
-def test_code_execution_prediction_task_evaluation(monkeypatch, device, num_fewshot, dataset_uri, tiny_gpt2_tokenizer,
+def test_code_execution_prediction_task_evaluation(monkeypatch, device, world_size, num_fewshot, dataset_uri, tiny_gpt2_tokenizer,
                                                    tiny_gpt2_model, tmp_path, generations_per_sample):
     pytest.importorskip('datasets')
     torch.cuda.empty_cache()
