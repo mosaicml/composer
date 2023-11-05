@@ -382,8 +382,8 @@ class InContextLearningLMTaskDataset(Dataset):
         self.samples = dataset.map(lambda example: {
             'continuation': example['continuation'],
             'context': example['context'],
-        })
-        self.samples = self.samples.map(strip_data)
+        }, desc='Reading in dataset')
+        self.samples = self.samples.map(strip_data, desc='Stripping data')
 
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
@@ -404,7 +404,7 @@ class InContextLearningLMTaskDataset(Dataset):
         self.encoded_dataset = self.samples.map(prep_examples_helper(self.samples, num_fewshot, prompt_string,
                                                                      example_delimiter, continuation_delimiter,
                                                                      fewshot_rng, prefix_space, tokenizer),
-                                                with_indices=True)
+                                                with_indices=True, desc='Encoding dataset')
 
     @staticmethod
     def prep_examples(full_dataset, num_fewshot: int, prompt_string: str, example_delimiter: str,
