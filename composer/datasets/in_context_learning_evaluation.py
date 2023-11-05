@@ -33,8 +33,8 @@ __all__ = [
 ]
 
 
-def strip_data(samples):
-    return [{k: v.strip() if isinstance(v, str) else v for k, v in entry.items()} for entry in samples]
+def strip_data(sample):
+    return {k: v.strip() if isinstance(v, str) else v for k, v in sample.items()}
 
 
 def _tokenizer_needs_prefix_space(tokenizer) -> bool:
@@ -172,11 +172,22 @@ class InContextLearningQATaskDataset(Dataset):
         self.padding_side = 'left'
         self.max_answer_length = 0
         fewshot_rng = random.Random(fewshot_random_seed)
-        self.encoded_dataset = self._prep_examples(num_fewshot, prompt_string, example_delimiter,
-                                                   continuation_delimiter, question_prelimiter, fewshot_rng,
-                                                   cot_delimiter)
 
-    def _format_prompt_and_fewshot(self, num_fewshot: int, prompt_string: str, example_delimiter: str,
+        prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
+
+        def prep_examples_helper(full_dataset, num_fewshot, prompt_string, example_delimiter, continuation_delimiter, fewshot_rng, cot_delimiter, prefix_space, tokenizer):
+            def prep_examples(sample, idx):
+                return self.prep_examples(full_dataset, num_fewshot, prompt_string, example_delimiter,
+                                          continuation_delimiter, fewshot_rng, cot_delimiter, prefix_space, tokenizer, sample, idx)
+
+            return prep_examples
+
+        self.encoded_samples = self.samples.map(prep_examples_helper(self.samples, num_fewshot, prompt_string, example_delimiter, continuation_delimiter, fewshot_rng, cot_delimiter, prefix_space, tokenizer), with_indices=True)
+
+        self.max_answer_length = 100 # TODO
+
+    @staticmethod
+    def _format_prompt_and_fewshot(full_dataset, num_fewshot: int, prompt_string: str, example_delimiter: str,
                                    continuation_delimiter: str, question_prelimiter: str, cot_delimiter: str,
                                    fewshot_rng: random.Random, sample_idx: int) -> str:
         """Formats the prompt fewshot examples for test sample `sample_idx`.
@@ -191,11 +202,11 @@ class InContextLearningQATaskDataset(Dataset):
         prompt_and_fewshot = prompt_string
 
         if num_fewshot > 0:
-            fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx, fewshot_rng)
+            fewshot_idxs = _get_fewshot_sample_idxs(len(full_dataset), num_fewshot, sample_idx, fewshot_rng)
             for fewshot_idx in fewshot_idxs:
-                context = self.samples[fewshot_idx]['context']
-                chain_of_thought = self.samples[fewshot_idx].get('chain_of_thought', '')
-                answer = self.samples[fewshot_idx]['answer']
+                context = full_dataset[fewshot_idx]['context']
+                chain_of_thought = full_dataset[fewshot_idx].get('chain_of_thought', '')
+                answer = full_dataset[fewshot_idx]['answer']
 
                 if len(chain_of_thought) == 0:
                     cot_delimiter = ''
@@ -206,14 +217,15 @@ class InContextLearningQATaskDataset(Dataset):
 
         return prompt_and_fewshot
 
-    def _prep_examples(self,
+    @staticmethod
+    def prep_examples(full_dataset,
                        num_fewshot: int,
                        prompt_string: str,
                        example_delimiter: str,
                        continuation_delimiter: str,
                        question_prelimiter: str,
                        fewshot_rng: random.Random,
-                       cot_delimiter: str = '') -> List[Dict[str, Any]]:
+                       cot_delimiter: str, prefix_space, tokenizer, sample, sample_idx) -> List[Dict[str, Any]]:
         """Prepares a set of language modeling tasks into tokenized format with prompt and fewshot examples.
 
         Each task consists of a context and a continuation as well as an optional prompt and optional list of
@@ -232,46 +244,35 @@ class InContextLearningQATaskDataset(Dataset):
         Returns:
             dict: Contains the context, the continuation, and the preamble (prompt + fewshot examples)
         """
-        max_answer_length = 0
-        has_cot = False
-        examples = []
-        for sample_idx in tqdm(range(len(self.samples))):
-            encoded_example = {}
+        encoded_example = {}
 
-            prompt_and_fewshot = self._format_prompt_and_fewshot(num_fewshot, prompt_string, example_delimiter,
-                                                                 continuation_delimiter, question_prelimiter,
-                                                                 cot_delimiter, fewshot_rng, sample_idx)
+        prompt_and_fewshot = None # TODO
+        # prompt_and_fewshot = self._format_prompt_and_fewshot(num_fewshot, prompt_string, example_delimiter,
+        #                                                         continuation_delimiter, question_prelimiter,
+        #                                                         cot_delimiter, fewshot_rng, sample_idx)
 
-            ctxt = self.samples[sample_idx]['context']
-            ctxt = f'{question_prelimiter}{ctxt}'
-            if len(prompt_and_fewshot) > 0:
-                ctxt = f'{example_delimiter}{ctxt}'
+        ctxt = full_dataset[sample_idx]['context']
+        ctxt = f'{question_prelimiter}{ctxt}'
+        if len(prompt_and_fewshot) > 0:
+            ctxt = f'{example_delimiter}{ctxt}'
 
-            # rstrip the continuation delimiter, because the prompt ending in a space results in degenerate output
-            continuation_delimiter_stripped = continuation_delimiter.rstrip()
-            ctxt = f'{ctxt}{continuation_delimiter_stripped}'
+        # rstrip the continuation delimiter, because the prompt ending in a space results in degenerate output
+        continuation_delimiter_stripped = continuation_delimiter.rstrip()
+        ctxt = f'{ctxt}{continuation_delimiter_stripped}'
 
-            # If the preamble is empty then this will be a 0-length list, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
-            encoded_example['preamble'] = self.tokenizer(prompt_and_fewshot)
-            # If there is an EOS token added, we need to remove it so it is not in the middle of the prompt
-            if self.tokenizer.eos_token_id is not None and len(
-                    encoded_example['preamble']
-                ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
-                encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
+        # If the preamble is empty then this will be a 0-length list, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
+        encoded_example['preamble'] = tokenizer(prompt_and_fewshot)
+        # If there is an EOS token added, we need to remove it so it is not in the middle of the prompt
+        if tokenizer.eos_token_id is not None and len(
+                encoded_example['preamble']
+            ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == tokenizer.eos_token_id:
+            encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
 
-            encoded_example['context'] = self.tokenizer(ctxt, add_special_tokens=False)
-            encoded_example['aliases'] = list(self.samples[sample_idx]['aliases'])
-            encoded_example['cot_delimiter'] = cot_delimiter
-            examples.append(encoded_example)
-            for answer in self.samples[sample_idx]['aliases']:
-                response = f"{self.samples[sample_idx]['chain_of_thought']}{cot_delimiter}{answer}"
-                max_answer_length = max(max_answer_length, len(self.tokenizer(response)['input_ids']))
+        encoded_example['context'] = tokenizer(ctxt, add_special_tokens=False)
+        encoded_example['aliases'] = list(full_dataset[sample_idx]['aliases'])
+        encoded_example['cot_delimiter'] = cot_delimiter
 
-            if len(self.samples[sample_idx]['chain_of_thought']) > 0:
-                has_cot = True
-
-        self.max_answer_length = max_answer_length + (_MAX_ANSWER_BUFFER_LENGTH if has_cot else 0)
-        return examples
+        return encoded_example
 
     def __getitem__(self, index):
         return self.encoded_dataset[index]
@@ -383,25 +384,31 @@ class InContextLearningLMTaskDataset(Dataset):
             if dist.get_local_rank() == 0:
                 get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
-        self.samples = list(
-            dataset.map(lambda examples: {
-                'continuation': examples['continuation'],
-                'context': examples['context'],
-            }))
-        self.samples = strip_data(self.samples)
+        self.samples = dataset.map(lambda example: {
+                'continuation': example['continuation'],
+                'context': example['context'],
+            })
+        self.samples = self.samples.map(strip_data)
 
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
         fewshot_rng = random.Random(fewshot_random_seed)
 
-        self.prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
+        prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
 
-        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
-                                                  fewshot_rng)
+        def prep_examples_helper(full_dataset, num_fewshot, prompt_string, example_delimiter, continuation_delimiter, fewshot_rng, prefix_space, tokenizer):
+            def prep_examples(sample, idx):
+                return self.prep_examples(full_dataset, num_fewshot, prompt_string, example_delimiter,
+                                          continuation_delimiter, fewshot_rng, prefix_space, tokenizer, sample, idx)
 
-    def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
-                      fewshot_rng: random.Random):
+            return prep_examples
+
+        self.encoded_dataset = self.samples.map(prep_examples_helper(self.samples, num_fewshot, prompt_string, example_delimiter, continuation_delimiter, fewshot_rng, prefix_space, tokenizer), with_indices=True)
+
+    @staticmethod
+    def prep_examples(full_dataset, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
+                      fewshot_rng: random.Random, prefix_space, tokenizer, sample, sample_idx):
         """Prepares a set of language modeling tasks into tokenized format with prompt and fewshot examples.
 
         Each task consists of a context and a continuation as well as an optional prompt and optional list of
@@ -417,45 +424,42 @@ class InContextLearningLMTaskDataset(Dataset):
         Returns:
             dict: Contains the context, the continuation, and the preamble (prompt + fewshot examples)
         """
-        examples = []
-        for sample_idx in tqdm(range(len(self.samples))):
-            encoded_example = {}
 
-            preamble = prompt_string
+        encoded_example = {}
 
-            if num_fewshot > 0:
-                fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx, fewshot_rng)
-                for fewshot_idx in fewshot_idxs:
-                    ctxt, cont = self.samples[fewshot_idx]['context'], self.samples[fewshot_idx]['continuation']
-                    if len(preamble) > 0:
-                        ctxt = f'{example_delimiter}{ctxt}'
-                    preamble += f'{ctxt}{continuation_delimiter}{cont}'
+        preamble = prompt_string
 
-            ctxt, cont = self.samples[sample_idx]['context'], self.samples[sample_idx]['continuation']
-            if len(preamble) > 0:
-                ctxt = f'{example_delimiter}{ctxt}'
+        if num_fewshot > 0:
+            fewshot_idxs = _get_fewshot_sample_idxs(len(full_dataset), num_fewshot, sample_idx, fewshot_rng)
+            for fewshot_idx in fewshot_idxs:
+                ctxt, cont = full_dataset[fewshot_idx]['context'], full_dataset[fewshot_idx]['continuation']
+                if len(preamble) > 0:
+                    ctxt = f'{example_delimiter}{ctxt}'
+                preamble += f'{ctxt}{continuation_delimiter}{cont}'
 
-            # rstrip the continuation delimiter, because the prompt ending in a space results in degenerate output
-            continuation_delimiter_stripped = continuation_delimiter.rstrip()
+        ctxt, cont = full_dataset[sample_idx]['context'], full_dataset[sample_idx]['continuation']
+        if len(preamble) > 0:
+            ctxt = f'{example_delimiter}{ctxt}'
 
-            if self.prefix_space and not cont.startswith(' '):
-                cont = f' {cont}'
-            ctxt += continuation_delimiter_stripped
+        # rstrip the continuation delimiter, because the prompt ending in a space results in degenerate output
+        continuation_delimiter_stripped = continuation_delimiter.rstrip()
 
-            encoded_example['preamble'] = self.tokenizer(
-                preamble
-            )  # if the preamble is empty then these will be 0-length lists, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
-            if self.tokenizer.eos_token_id is not None and len(
-                    encoded_example['preamble']
-                ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
-                encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
+        if prefix_space and not cont.startswith(' '):
+            cont = f' {cont}'
+        ctxt += continuation_delimiter_stripped
 
-            encoded_example['context'] = self.tokenizer(ctxt, add_special_tokens=False)
-            encoded_example['continuation'] = self.tokenizer(cont, add_special_tokens=False)
+        encoded_example['preamble'] = tokenizer(
+            preamble
+        )  # if the preamble is empty then these will be 0-length lists, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
+        if tokenizer.eos_token_id is not None and len(
+                encoded_example['preamble']
+            ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == tokenizer.eos_token_id:
+            encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
 
-            examples.append(encoded_example)
+        encoded_example['context'] = tokenizer(ctxt, add_special_tokens=False)
+        encoded_example['continuation'] = tokenizer(cont, add_special_tokens=False)
 
-        return examples
+        return encoded_example
 
     def __getitem__(self, index):
         return self.encoded_dataset[index]
@@ -548,13 +552,12 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
             if dist.get_local_rank() == 0:
                 get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
-        self.samples = list(
-            dataset.map(lambda examples: {
-                'query': examples['query'],
-                'choices': examples['choices'],
-                'gold': examples['gold']
-            }))
-        self.samples = strip_data(self.samples)
+        self.samples = dataset.map(lambda example: {
+                'query': example['query'],
+                'choices': example['choices'],
+                'gold': example['gold']
+            })
+        self.samples = self.samples.map(strip_data)
 
         self.num_choices = len(self.samples[0]['choices'])
         self.tokenizer = tokenizer
@@ -562,13 +565,20 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
         self.pad_tok_id = pad_tok_id
         fewshot_rng = random.Random(fewshot_random_seed)
 
-        self.prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
+        prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
 
-        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
-                                                  fewshot_rng)
+        def prep_examples_helper(full_dataset, num_fewshot, prompt_string, example_delimiter, continuation_delimiter, fewshot_rng, prefix_space, tokenizer):
+            def prep_examples(sample, idx):
+                return self.prep_examples(full_dataset, num_fewshot, prompt_string, example_delimiter,
+                                          continuation_delimiter, fewshot_rng, prefix_space, tokenizer, sample, idx)
 
-    def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
-                      fewshot_rng: random.Random):
+            return prep_examples
+
+        self.encoded_samples = self.samples.map(prep_examples_helper(self.samples, num_fewshot, prompt_string, example_delimiter, continuation_delimiter, fewshot_rng, prefix_space, tokenizer), with_indices=True)
+
+    @staticmethod
+    def prep_examples(full_dataset, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
+                      fewshot_rng: random.Random, prefix_space, tokenizer, sample, sample_idx):
         """Prepares a set of multiple choice questions into tokenized format with prompt and few shot examples.
 
         Each question consists of a query and set of answer choices, only one of which is correct. At inference time
@@ -589,48 +599,44 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
             dict: Contains the query, the list of encoded potential answer choices, the preamble (prompt + fewshot examples), and
                 the index of the correct answer choice.
         """
-        examples = []
-        for sample_idx in tqdm(range(len(self.samples))):
 
-            preamble = prompt_string
-            if num_fewshot > 0:
-                fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx, fewshot_rng)
-                for fewshot_idx in fewshot_idxs:
-                    query, choices, gold_idx = self.samples[fewshot_idx]['query'], self.samples[fewshot_idx][
-                        'choices'], self.samples[fewshot_idx]['gold']
-                    if len(preamble) > 0:
-                        query = f'{example_delimiter}{query}'
-                    assert isinstance(gold_idx, int)
-                    preamble += f'{query}{continuation_delimiter}{choices[gold_idx]}'
-            encoded_example = {}
-            query, choices, gold_idx = self.samples[sample_idx]['query'], self.samples[sample_idx][
-                'choices'], self.samples[sample_idx]['gold'],
-            if len(preamble) > 0:
-                query = f'{example_delimiter}{query}'
+        preamble = prompt_string
+        if num_fewshot > 0:
+            fewshot_idxs = _get_fewshot_sample_idxs(len(full_dataset), num_fewshot, sample_idx, fewshot_rng)
+            for fewshot_idx in fewshot_idxs:
+                query, choices, gold_idx = full_dataset[fewshot_idx]['query'], full_dataset[fewshot_idx][
+                    'choices'], full_dataset[fewshot_idx]['gold']
+                if len(preamble) > 0:
+                    query = f'{example_delimiter}{query}'
+                assert isinstance(gold_idx, int)
+                preamble += f'{query}{continuation_delimiter}{choices[gold_idx]}'
+        encoded_example = {}
+        query, choices, gold_idx = full_dataset[sample_idx]['query'], full_dataset[sample_idx][
+            'choices'], full_dataset[sample_idx]['gold'],
+        if len(preamble) > 0:
+            query = f'{example_delimiter}{query}'
 
-            # rstrip the continuation delimiter, because the prompt ending in a space results in degenerate output
-            continuation_delimiter_stripped = continuation_delimiter.rstrip()
+        # rstrip the continuation delimiter, because the prompt ending in a space results in degenerate output
+        continuation_delimiter_stripped = continuation_delimiter.rstrip()
 
-            if self.prefix_space:
-                choices = [(f' {choice}' if not choice.startswith(' ') else choice) for choice in choices]
-            query += continuation_delimiter_stripped
-            encoded_example['preamble'] = self.tokenizer(
-                preamble
-            )  # if the preamble is empty then these will be 0-length lists, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
+        if prefix_space:
+            choices = [(f' {choice}' if not choice.startswith(' ') else choice) for choice in choices]
+        query += continuation_delimiter_stripped
+        encoded_example['preamble'] = tokenizer(
+            preamble
+        )  # if the preamble is empty then these will be 0-length lists, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
 
-            if self.tokenizer.eos_token_id is not None and len(
-                    encoded_example['preamble']
-                ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
-                encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
+        if tokenizer.eos_token_id is not None and len(
+                encoded_example['preamble']
+            ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == tokenizer.eos_token_id:
+            encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
 
-            encoded_example['gold_idx'] = gold_idx
+        encoded_example['gold_idx'] = gold_idx
 
-            encoded_example['query'] = self.tokenizer(query, add_special_tokens=False)
-            encoded_example['choices'] = [self.tokenizer(choice, add_special_tokens=False) for choice in choices]
+        encoded_example['query'] = tokenizer(query, add_special_tokens=False)
+        encoded_example['choices'] = [tokenizer(choice, add_special_tokens=False) for choice in choices]
 
-            examples.append(encoded_example)
-
-        return examples
+        return encoded_example
 
     def __getitem__(self, index):
         return self.encoded_dataset[index]
@@ -791,13 +797,20 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         self.pad_tok_id = pad_tok_id
         fewshot_rng = random.Random(fewshot_random_seed)
 
-        self.prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
+        prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
 
-        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, continuation_delimiter,
-                                                  fewshot_rng)
+        def prep_examples_helper(full_dataset, num_fewshot, prompt_string, example_delimiter, continuation_delimiter, fewshot_rng, prefix_space, tokenizer):
+            def prep_examples(sample, idx):
+                return self.prep_examples(full_dataset, num_fewshot, prompt_string, example_delimiter,
+                                          continuation_delimiter, fewshot_rng, prefix_space, tokenizer, sample, idx)
 
-    def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
-                      fewshot_rng: random.Random):
+            return prep_examples
+
+        self.encoded_samples = self.samples.map(prep_examples_helper(self.samples, num_fewshot, prompt_string, example_delimiter, continuation_delimiter, fewshot_rng, prefix_space, tokenizer), with_indices=True)
+
+    @staticmethod
+    def prep_examples(full_dataset, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
+                      fewshot_rng: random.Random, prefix_space, tokenizer, sample, sample_idx):
         """Prepares a set of schema questions into tokenized format with prompt and few shot examples.
         Each question consists of a set of possible contexts followed by a continuation, only one of the contexts would logically permit the continuation.
         At inference time we construct individual inference examples consisting of a single context option + the continuation,
@@ -815,47 +828,43 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
                 the index of the correct answer choice.
         """
 
-        examples = []
-        for sample_idx in tqdm(range(len(self.samples))):
+        preamble = prompt_string
+        if num_fewshot > 0:
+            fewshot_idxs = _get_fewshot_sample_idxs(len(full_dataset), num_fewshot, sample_idx, fewshot_rng)
+            for fewshot_idx in fewshot_idxs:
+                context_options, continuation, gold_idx = full_dataset[fewshot_idx][
+                    'context_options'], full_dataset[fewshot_idx]['continuation'], full_dataset[fewshot_idx]['gold']
+                assert isinstance(gold_idx, int)
+                context = context_options[gold_idx]
+                if len(preamble) > 0:
+                    context = f'{example_delimiter}{context}'
+                preamble += f'{context}{continuation_delimiter}{continuation}'
 
-            preamble = prompt_string
-            if num_fewshot > 0:
-                fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx, fewshot_rng)
-                for fewshot_idx in fewshot_idxs:
-                    context_options, continuation, gold_idx = self.samples[fewshot_idx][
-                        'context_options'], self.samples[fewshot_idx]['continuation'], self.samples[fewshot_idx]['gold']
-                    assert isinstance(gold_idx, int)
-                    context = context_options[gold_idx]
-                    if len(preamble) > 0:
-                        context = f'{example_delimiter}{context}'
-                    preamble += f'{context}{continuation_delimiter}{continuation}'
+        encoded_example = {}
+        context_options, continuation, gold_idx = full_dataset[sample_idx]['context_options'], full_dataset[
+            sample_idx]['continuation'], full_dataset[sample_idx]['gold'],
 
-            encoded_example = {}
-            context_options, continuation, gold_idx = self.samples[sample_idx]['context_options'], self.samples[
-                sample_idx]['continuation'], self.samples[sample_idx]['gold'],
+        # rstrip the continuation delimiter, because the prompt ending in a space results in degenerate output
+        continuation_delimiter_stripped = continuation_delimiter.rstrip()
 
-            # rstrip the continuation delimiter, because the prompt ending in a space results in degenerate output
-            continuation_delimiter_stripped = continuation_delimiter.rstrip()
+        if len(preamble) > 0:
+            context_options = [f'{example_delimiter}{c}{continuation_delimiter_stripped}' for c in context_options]
+        encoded_example['preamble'] = tokenizer(
+            preamble
+        )  # if the preamble is empty then these will be 0-length lists, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
+        if tokenizer.eos_token_id is not None and len(
+                encoded_example['preamble']
+            ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == tokenizer.eos_token_id:
+            encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
 
-            if len(preamble) > 0:
-                context_options = [f'{example_delimiter}{c}{continuation_delimiter_stripped}' for c in context_options]
-            encoded_example['preamble'] = self.tokenizer(
-                preamble
-            )  # if the preamble is empty then these will be 0-length lists, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
-            if self.tokenizer.eos_token_id is not None and len(
-                    encoded_example['preamble']
-                ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
-                encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
+        encoded_example['gold_idx'] = gold_idx
+        encoded_example['context_options'] = [tokenizer(c, add_special_tokens=False) for c in context_options]
 
-            encoded_example['gold_idx'] = gold_idx
-            encoded_example['context_options'] = [self.tokenizer(c, add_special_tokens=False) for c in context_options]
+        if prefix_space:
+            continuation = f' {continuation}' if not continuation.startswith(' ') else continuation
+        encoded_example['continuation'] = tokenizer(continuation, add_special_tokens=False)
 
-            if self.prefix_space:
-                continuation = f' {continuation}' if not continuation.startswith(' ') else continuation
-            encoded_example['continuation'] = self.tokenizer(continuation, add_special_tokens=False)
-            examples.append(encoded_example)
-
-        return examples
+        return encoded_example
 
     def collate_fn(self, data):
         inputs = []
@@ -987,11 +996,22 @@ class InContextLearningCodeEvalDataset(Dataset):
         self.top_p = top_p
         self.top_k = top_k
         fewshot_rng = random.Random(fewshot_random_seed)
-        self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, code_prelimiter,
-                                                  fewshot_rng)
 
-    def prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, code_prelimiter: str,
-                      fewshot_rng: random.Random):
+        prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
+
+        def prep_examples_helper(full_dataset, num_fewshot, prompt_string, example_delimiter, code_prelimiter, fewshot_rng, prefix_space, tokenizer):
+            def prep_examples(sample, idx):
+                return self.prep_examples(full_dataset, num_fewshot, prompt_string, example_delimiter,
+                                          code_prelimiter, fewshot_rng, prefix_space, tokenizer, sample, idx)
+
+            return prep_examples
+
+        self.encoded_samples = self.samples.map(prep_examples_helper(self.samples, num_fewshot, prompt_string, example_delimiter, code_prelimiter, fewshot_rng, prefix_space, tokenizer), with_indices=True)
+        self.max_prompt_length = 100 # TODO
+
+    @staticmethod
+    def prep_examples(full_dataset, num_fewshot: int, prompt_string: str, example_delimiter: str, code_prelimiter: str,
+                      fewshot_rng: random.Random, prefix_space, tokenizer, sample, sample_idx):
         """Prepares a set of code evaluation tasks into tokenized format with prompt and fewshot examples.
 
         Each task consists of a context as well as an optional prompt and optional list of
@@ -1007,52 +1027,43 @@ class InContextLearningCodeEvalDataset(Dataset):
         Returns:
             dict: Contains the context, the continuation, and the preamble (prompt + fewshot examples)
         """
-        max_prompt_length = 0
-        examples = []
-        for sample_idx in tqdm(range(len(self.samples))):
-            encoded_example = {}
+        encoded_example = {}
 
-            preamble = prompt_string
+        preamble = prompt_string
 
-            if num_fewshot > 0:
-                fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx, fewshot_rng)
-                for fewshot_idx in fewshot_idxs:
-                    ctxt, cont = self.samples[fewshot_idx]['prompt'], self.samples[fewshot_idx]['canonical_solution']
-                    ctxt = f'{code_prelimiter}{ctxt}'
-                    if len(preamble) > 0:
-                        ctxt = f'{example_delimiter}{ctxt}'
-                    preamble += f'{ctxt}{cont}'
+        if num_fewshot > 0:
+            fewshot_idxs = _get_fewshot_sample_idxs(len(full_dataset), num_fewshot, sample_idx, fewshot_rng)
+            for fewshot_idx in fewshot_idxs:
+                ctxt, cont = full_dataset[fewshot_idx]['prompt'], full_dataset[fewshot_idx]['canonical_solution']
+                ctxt = f'{code_prelimiter}{ctxt}'
+                if len(preamble) > 0:
+                    ctxt = f'{example_delimiter}{ctxt}'
+                preamble += f'{ctxt}{cont}'
 
-            ctxt = self.samples[sample_idx]['prompt']
-            ctxt = f'{code_prelimiter}{ctxt}'
-            if len(preamble) > 0:
-                ctxt = f'{example_delimiter}{ctxt}'
+        ctxt = full_dataset[sample_idx]['prompt']
+        ctxt = f'{code_prelimiter}{ctxt}'
+        if len(preamble) > 0:
+            ctxt = f'{example_delimiter}{ctxt}'
 
-            # If the preamble is empty then this will be a 0-length list, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
-            encoded_example['preamble'] = self.tokenizer(preamble)
-            # If there is an EOS token added, we need to remove it so it is not in the middle of the prompt
-            if self.tokenizer.eos_token_id is not None and len(
-                    encoded_example['preamble']
-                ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
-                encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
+        # If the preamble is empty then this will be a 0-length list, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
+        encoded_example['preamble'] = tokenizer(preamble)
+        # If there is an EOS token added, we need to remove it so it is not in the middle of the prompt
+        if tokenizer.eos_token_id is not None and len(
+                encoded_example['preamble']
+            ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == tokenizer.eos_token_id:
+            encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
 
-            encoded_example['prompt'] = self.tokenizer(ctxt, add_special_tokens=False)
-            encoded_example['prompt_text'] = self.samples[sample_idx]['prompt']
-            encoded_example['task_id'] = self.samples[sample_idx]['task_id']
-            encoded_example['canonical_solution'] = self.samples[sample_idx]['canonical_solution']
-            encoded_example['test'] = self.samples[sample_idx]['test']
-            encoded_example['entry_point'] = self.samples[sample_idx]['entry_point']
-            encoded_example['test_inputs'] = self.samples[sample_idx]['test_inputs']
-            encoded_example['test_outputs'] = self.samples[sample_idx]['test_outputs']
-            encoded_example['language'] = self.samples[sample_idx]['language']
+        encoded_example['prompt'] = tokenizer(ctxt, add_special_tokens=False)
+        encoded_example['prompt_text'] = full_dataset[sample_idx]['prompt']
+        encoded_example['task_id'] = full_dataset[sample_idx]['task_id']
+        encoded_example['canonical_solution'] = full_dataset[sample_idx]['canonical_solution']
+        encoded_example['test'] = full_dataset[sample_idx]['test']
+        encoded_example['entry_point'] = full_dataset[sample_idx]['entry_point']
+        encoded_example['test_inputs'] = full_dataset[sample_idx]['test_inputs']
+        encoded_example['test_outputs'] = full_dataset[sample_idx]['test_outputs']
+        encoded_example['language'] = full_dataset[sample_idx]['language']
 
-            examples.append(encoded_example)
-            max_prompt_length = max(
-                max_prompt_length,
-                len(encoded_example['preamble']['input_ids'] + encoded_example['prompt']['input_ids']))
-
-        self.max_prompt_length = max_prompt_length
-        return examples
+        return encoded_example
 
     def __getitem__(self, index):
         return self.encoded_dataset[index]
