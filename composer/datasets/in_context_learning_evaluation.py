@@ -114,11 +114,10 @@ class InContextLearningDataset(Dataset):
         example_delimiter: str,
         continuation_delimiter: str,
         destination_path: str,
-        question_prelimiter: str,
         fewshot_random_seed: int,
-        dont_split_keys: List[str],
-        normal_split_keys: List[str],
-        list_split_keys: List[str],
+        dont_split_keys: List[str] = None,
+        normal_split_keys: List[str] = None,
+        list_split_keys: List[str] = None,
     ):
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
@@ -128,7 +127,6 @@ class InContextLearningDataset(Dataset):
         fewshot_rng = random.Random(fewshot_random_seed)
         self.example_delimiter = example_delimiter
         self.continuation_delimiter = continuation_delimiter 
-        self.question_prelimiter = question_prelimiter 
 
         self.samples = self._read_dataset(dataset_uri, destination_path)
         self.samples = strip_data(self.samples)
@@ -186,8 +184,8 @@ class InContextLearningDataset(Dataset):
 
     def generate_few_shot_text(self, 
                                 num_fewshot: int, 
-                                sample_idx: int, 
-                                question_prelimiter: str = "") -> str:
+                                sample_idx: int,
+                                fewshot_rng: random.Random) -> str:
         """Formats the prompt fewshot examples for test sample `sample_idx`.
 
         Randomly select `num_fewshot` samples from the dataset (not including the sample at `sample_idx`) and format
@@ -210,9 +208,12 @@ class InContextLearningDataset(Dataset):
         return few_shot_text
 
     def get_context(self, ctxt, prompt_and_fewshot: str = ""):
-        ctxt = f'{self.question_prelimiter}{ctxt}'
+        # ctxt = f'{self.question_prelimiter}{ctxt}'
         if len(prompt_and_fewshot) > 0:
             ctxt = f'{self.example_delimiter}{ctxt}'
+        # rstrip the continuation delimiter, because the prompt ending in a space results in degenerate output
+        continuation_delimiter_stripped = self.continuation_delimiter.rstrip()
+        ctxt = f'{ctxt}{continuation_delimiter_stripped}'
         return ctxt
 
     def fix_eos_on_preamble(self, preamble):
@@ -246,7 +247,6 @@ class InContextLearningDataset(Dataset):
             prompt_string (str): The prompt to prepend to all inputs
             example_delimiter (str): The delimiter used to separate each individual context/continuation pair
             continuation_delimiter (str): The delimiter used to separate each context from its continuation
-            question_prelimiter (str): The text to prepend to each question
             fewshot_rng (random.Random): Random number generator to use for fewshot sampling
             cot_delimiter (str): The delimiter used to separate the chain-of-thought (if present) from the final model response.
 
@@ -256,17 +256,17 @@ class InContextLearningDataset(Dataset):
         """
         examples = []
         for sample_idx in tqdm(range(len(self.samples))):
-            few_shot_text = self.generate_few_shot_text(num_fewshot, prompt_string, fewshot_rng, sample_idx)
+            few_shot_text = self.generate_few_shot_text(num_fewshot, fewshot_rng, sample_idx)
             prompt_and_fewshot = prompt_string + few_shot_text
 
             ctxt = self.get_context(self.samples[sample_idx]['context'], prompt_and_fewshot)
-            # TODO: put this in get_context? 
-            # rstrip the continuation delimiter, because the prompt ending in a space results in degenerate output
-            continuation_delimiter_stripped = self.continuation_delimiter.rstrip()
-            ctxt = f'{ctxt}{continuation_delimiter_stripped}'
             tokenized_example = self.tokenize_example(prompt_and_fewshot, ctxt)
+            tokenized_example = self.additional_processing_for_example(tokenized_example, sample_idx)
             examples.append(tokenized_example)
         return examples
+
+    def additional_processing_for_example(self, tokenized_example, sample_idx):
+        return tokenized_example
     
     # TODO: implement abc
     # @abstractmethod
@@ -339,34 +339,30 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
 
     def __init__(
         self,
-        dataset_uri: str,
-        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
-        max_seq_len: int,
-        pad_tok_id: int,
-        num_fewshot: int,
-        prompt_string: str,
-        example_delimiter: str,
-        continuation_delimiter: str,
-        destination_path: str,
         question_prelimiter: str,
-        fewshot_random_seed: int,
         cot_delimiter: str = '',
+        *args, 
+        **kwargs
     ):
-        self.samples = self._read_dataset(dataset_uri, destination_path)
-        self.samples = strip_data(self.samples)
-        self.tokenizer = tokenizer
-        self.max_seq_len = max_seq_len
-        self.pad_tok_id = pad_tok_id
-        self.padding_side = 'left'
-        self.max_answer_length = 0
-        fewshot_rng = random.Random(fewshot_random_seed)
-        self.encoded_dataset = self._prep_examples(num_fewshot, prompt_string, example_delimiter,
-                                                   continuation_delimiter, question_prelimiter, fewshot_rng,
-                                                   cot_delimiter)
+        super().__init__(*args, **kwargs)
+        self.question_prelimiter = question_prelimiter
+        self.cot_delimiter = cot_delimiter
+        self.max_answer_length = self.get_max_answer_length()
+        self.set_split_keys()
+        
+    def set_split_keys(self):
+        if not self.dont_split_keys:
+            self.dont_split_keys = ['mode', 'generation_length', 'generation_kwargs', 'cot_delimiter']
+        if not self.normal_split_keys:
+            self.normal_split_keys = ['input_ids', 'attention_mask']
+        if not self.list_split_keys:
+            self.list_split_keys = ['labels']
 
-    def _format_prompt_and_fewshot(self, num_fewshot: int, prompt_string: str, example_delimiter: str,
-                                   continuation_delimiter: str, question_prelimiter: str, cot_delimiter: str,
-                                   fewshot_rng: random.Random, sample_idx: int) -> str:
+
+    def generate_few_shot_text(self, 
+                               num_fewshot: int, 
+                               fewshot_rng: random.Random, 
+                               sample_idx: int) -> str:
         """Formats the prompt fewshot examples for test sample `sample_idx`.
 
         Randomly select `num_fewshot` samples from the dataset (not including the sample at `sample_idx`) and format
@@ -376,112 +372,47 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
 
         Returns the formatted prompt_string + concatenated list of formatted few shot examples.
         """
-        prompt_and_fewshot = prompt_string
+        prompt_and_fewshot = ''
 
         if num_fewshot > 0:
             fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx, fewshot_rng)
             for fewshot_idx in fewshot_idxs:
-                context = self.samples[fewshot_idx]['context']
                 chain_of_thought = self.samples[fewshot_idx].get('chain_of_thought', '')
                 answer = self.samples[fewshot_idx]['answer']
-
                 if len(chain_of_thought) == 0:
                     cot_delimiter = ''
-                context = f'{question_prelimiter}{context}'
-                if len(prompt_and_fewshot) > 0:
-                    context = f'{example_delimiter}{context}'
-                prompt_and_fewshot += f'{context}{continuation_delimiter}{chain_of_thought}{cot_delimiter}{answer}'
+                else:
+                    cot_delimiter = self.cot_delimiter
+                
+                context = self.samples[fewshot_idx]['context']
+                # TODO: might _not_ want to rstrip cont_delim in get_context here
+                context = self.get_context(context, prompt_and_fewshot=prompt_and_fewshot)
+                prompt_and_fewshot += f'{context}{self.continuation_delimiter}{chain_of_thought}{cot_delimiter}{answer}'
 
         return prompt_and_fewshot
 
-    def _prep_examples(self,
-                       num_fewshot: int,
-                       prompt_string: str,
-                       example_delimiter: str,
-                       continuation_delimiter: str,
-                       question_prelimiter: str,
-                       fewshot_rng: random.Random,
-                       cot_delimiter: str = '') -> List[Dict[str, Any]]:
-        """Prepares a set of language modeling tasks into tokenized format with prompt and fewshot examples.
-
-        Each task consists of a context and a continuation as well as an optional prompt and optional list of
-        example context/continuation pairs which precede the test context/continuation pair.
-
-        Args:
-            num_fewshot (int): Number of examples context/continuation pairs to prepend to the test pair
-            prompt_string (str): The prompt to prepend to all inputs
-            example_delimiter (str): The delimiter used to separate each individual context/continuation pair
-            continuation_delimiter (str): The delimiter used to separate each context from its continuation
-            question_prelimiter (str): The text to prepend to each question
-            fewshot_rng (random.Random): Random number generator to use for fewshot sampling
-            cot_delimiter (str): The delimiter used to separate the chain-of-thought (if present) from the final model response.
-
-
-        Returns:
-            dict: Contains the context, the continuation, and the preamble (prompt + fewshot examples)
-        """
-        max_answer_length = 0
-        has_cot = False
-        examples = []
-        for sample_idx in tqdm(range(len(self.samples))):
-            encoded_example = {}
-
-            prompt_and_fewshot = self._format_prompt_and_fewshot(num_fewshot, prompt_string, example_delimiter,
-                                                                 continuation_delimiter, question_prelimiter,
-                                                                 cot_delimiter, fewshot_rng, sample_idx)
-
-            ctxt = self.samples[sample_idx]['context']
-            ctxt = f'{question_prelimiter}{ctxt}'
-            if len(prompt_and_fewshot) > 0:
-                ctxt = f'{example_delimiter}{ctxt}'
-
-            # rstrip the continuation delimiter, because the prompt ending in a space results in degenerate output
-            continuation_delimiter_stripped = continuation_delimiter.rstrip()
-            ctxt = f'{ctxt}{continuation_delimiter_stripped}'
-
-            # If the preamble is empty then this will be a 0-length list, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
-            encoded_example['preamble'] = self.tokenizer(prompt_and_fewshot)
-            # If there is an EOS token added, we need to remove it so it is not in the middle of the prompt
-            if self.tokenizer.eos_token_id is not None and len(
-                    encoded_example['preamble']
-                ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
-                encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
-
-            encoded_example['context'] = self.tokenizer(ctxt, add_special_tokens=False)
-            encoded_example['aliases'] = list(self.samples[sample_idx]['aliases'])
-            encoded_example['cot_delimiter'] = cot_delimiter
-            examples.append(encoded_example)
-            for answer in self.samples[sample_idx]['aliases']:
-                response = f"{self.samples[sample_idx]['chain_of_thought']}{cot_delimiter}{answer}"
-                max_answer_length = max(max_answer_length, len(self.tokenizer(response)['input_ids']))
-
-            if len(self.samples[sample_idx]['chain_of_thought']) > 0:
-                has_cot = True
-
-        self.max_answer_length = max_answer_length + (_MAX_ANSWER_BUFFER_LENGTH if has_cot else 0)
-        return examples
-
-    #     max_answer_length = self.get_max_answer_length(cot_delimiter)
-    #     # TODO: this is only a QA task thing
-    #     # has_cot = self.check_for_cot()
-
-    #     self.max_answer_length = max_answer_length + (_MAX_ANSWER_BUFFER_LENGTH if has_cot else 0)
+    def get_context(self, ctxt, prompt_and_fewshot: str = ""):
+        ctxt = f'{self.question_prelimiter}{ctxt}'
+        if len(prompt_and_fewshot) > 0:
+            ctxt = f'{self.example_delimiter}{ctxt}'
+        # rstrip the continuation delimiter, because the prompt ending in a space results in degenerate output
+        continuation_delimiter_stripped = self.continuation_delimiter.rstrip()
+        ctxt = f'{ctxt}{continuation_delimiter_stripped}'
+        return ctxt
     
-    # def check_for_cot(self):
-    #     for sample in self.samples:
-    #         cot = sample.get('chain_of_thought', '')
-    #         if len(cot) > 0:
-    #             return True
-    #     return False
+    def addiontional_processing_for_example(self, tokenized_example, sample_idx):
+        tokenized_example['aliases'] = list(self.samples[sample_idx]['aliases'])
+        tokenized_example['cot_delimiter'] = self.cot_delimiter
+        return tokenized_example 
 
-    # def get_max_answer_length(self, cot_delimiter):
-    #     max_answer_length = 0
-    #     for sample in self.samples:
-    #         for answer in sample['aliases']:
-    #             response = f"{sample['chain_of_thought']}{cot_delimiter}{answer}"
-    #             max_answer_length = max(max_answer_length, len(self.tokenizer(response)['input_ids']))
-    #     return max_answer_length
-
+    def get_max_answer_length(self):
+        max_answer_length = 0
+        for sample in self.samples:
+            for answer in sample['aliases']:
+                response = f"{sample['chain_of_thought']}{self.cot_delimiter}{answer}"
+                max_answer_length = max(max_answer_length, len(self.tokenizer(response)['input_ids']))
+        max_answer_length = max_answer_length + (_MAX_ANSWER_BUFFER_LENGTH if len(self.cot_delimiter) > 0 else 0)
+        return max_answer_length
 
     def collate_fn(self, data):
         inputs, answers = [], []
@@ -516,30 +447,6 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
 
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
-
-    def split_batch(self, batch: Any, microbatch_size: int):
-        # Don't split kwargs that don't change
-        # Normally split torch tensors
-        # List split lists of strings
-        no_split = ['mode', 'generation_length', 'generation_kwargs', 'cot_delimiter']
-        normal_split = ['input_ids', 'attention_mask']
-        list_split = ['labels']
-        chunked = {}
-        for k, v in batch.items():
-            if k in no_split:
-                # Defer broadcasting until we know num_chunks
-                pass
-            elif k in list_split:
-                chunked[k] = _split_list(v, microbatch_size)
-            elif k in normal_split:
-                chunked[k] = _default_split_batch(v, microbatch_size)
-            else:
-                raise ValueError(f'Unexpected key {k}')
-        num_chunks = len(chunked['input_ids'])
-        for k, v in batch.items():
-            if isinstance(v, (int, float, str, bool, dict)):
-                chunked[k] = [v] * num_chunks
-        return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
 
 
 class InContextLearningLMTaskDataset(InContextLearningDataset):
