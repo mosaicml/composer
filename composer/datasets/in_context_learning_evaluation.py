@@ -404,7 +404,7 @@ class InContextLearningLMTaskDataset(Dataset):
         self.encoded_dataset = self.samples.map(prep_examples_helper(self.samples, num_fewshot, prompt_string,
                                                                      example_delimiter, continuation_delimiter,
                                                                      fewshot_rng, prefix_space, tokenizer),
-                                                with_indices=True, desc='Encoding dataset', num_proc=60)
+                                                with_indices=True, desc='Encoding dataset', num_proc=10)
 
     @staticmethod
     def prep_examples(full_dataset, num_fewshot: int, prompt_string: str, example_delimiter: str,
