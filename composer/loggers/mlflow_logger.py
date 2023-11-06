@@ -126,6 +126,9 @@ class MLFlowLogger(LoggerDestination):
     def init(self, state: State, logger: Logger) -> None:
         import mlflow
 
+        mlflow.enable_system_metrics_logging()
+        log.info(f'GEEZ I AM LOGGING SYSTEM METRICS!')
+
         del logger  # unused
 
         if self.run_name is None:
