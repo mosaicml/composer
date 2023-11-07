@@ -28,7 +28,7 @@ def _ensure_not_found_errors_are_wrapped(uri: str, e: Exception):
     raise e
 
 
-class S3CannedACL(Enum):
+class S3CannedACL(StringEnum):
     """Enum of valid S3 Canned ACL strings.
 
     .. note::
