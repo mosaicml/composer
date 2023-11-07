@@ -80,10 +80,12 @@ class S3ObjectStore(ObjectStore):
         try:
             import boto3
             from boto3.s3.transfer import TransferConfig
+            from boto3.s3.transfer.S3Transfer import ALLOWED_UPLOAD_ARGS
             from botocore.config import Config
         except ImportError as e:
             raise MissingConditionalImportError('streaming', 'boto3') from e
 
+        self.ALLOWED_UPLOAD_ARGS = ALLOWED_UPLOAD_ARGS
         # Format paths
         self.bucket = bucket.strip('/')
         self.prefix = prefix.strip('/')
@@ -127,10 +129,6 @@ class S3ObjectStore(ObjectStore):
                       filename: Union[str, pathlib.Path],
                       callback: Optional[Callable[[int, int], None]] = None,
                       **kwargs):
-        try:
-            from boto3.s3.transfer.S3Transfer import ALLOWED_UPLOAD_ARGS
-        except ImportError as e:
-            raise MissingConditionalImportError('streaming', 'boto3') from e
 
         file_size = os.path.getsize(filename)
         cb_wrapper = None if callback is None else lambda bytes_transferred: callback(bytes_transferred, file_size)
@@ -140,7 +138,7 @@ class S3ObjectStore(ObjectStore):
             if len(kwargs) > 1 or 'ExtraArgs' not in kwargs or not isinstance(kwargs['ExtraArgs'], dict):
                 raise ValueError('S3ObjectStore.upload_object only supports an additional ExtraArgs dictionary.')
             for key in kwargs['ExtraArgs']:
-                if key not in ALLOWED_UPLOAD_ARGS:
+                if key not in self.ALLOWED_UPLOAD_ARGS:
                     raise ValueError(f'{key} is not an allowed upload argument.')
 
         self.client.upload_file(Bucket=self.bucket,
