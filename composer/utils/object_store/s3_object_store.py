@@ -79,13 +79,12 @@ class S3ObjectStore(ObjectStore):
     ) -> None:
         try:
             import boto3
-            from boto3.s3.transfer import TransferConfig
-            from boto3.s3.transfer.S3Transfer import ALLOWED_UPLOAD_ARGS
+            from boto3.s3.transfer import S3Transfer, TransferConfig
             from botocore.config import Config
         except ImportError as e:
             raise MissingConditionalImportError('streaming', 'boto3') from e
 
-        self.ALLOWED_UPLOAD_ARGS = ALLOWED_UPLOAD_ARGS
+        self.ALLOWED_UPLOAD_ARGS = S3Transfer.ALLOWED_UPLOAD_ARGS
         # Format paths
         self.bucket = bucket.strip('/')
         self.prefix = prefix.strip('/')
