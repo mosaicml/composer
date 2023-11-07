@@ -132,6 +132,7 @@ def test_logged_composer_version(monkeypatch):
     assert composer_version == mock_mapi.run_metadata[run_name]['mosaicml/composer_version']
     assert composer_commit_hash == mock_mapi.run_metadata[run_name]['mosaicml/composer_commit_hash']
 
+
 def test_metric_full_filtering(monkeypatch):
     mock_mapi = MockMAPI()
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
