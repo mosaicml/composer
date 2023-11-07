@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import pathlib
 import uuid
-from enum import Enum
+from composer.utils import StringEnum
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
