@@ -108,6 +108,7 @@ class TestObjectStore:
         return tmpfile_path
 
     def test_upload(self, object_store: ObjectStore, dummy_obj: pathlib.Path, remote: bool):
+        pytest.importorskip('boto3')
         del remote  # unused
         object_name = 'tmpfile_object_name'
         cb = MockCallback(dummy_obj.stat().st_size)
@@ -130,6 +131,7 @@ class TestObjectStore:
             raise NotImplementedError(f'Object store {type(object_store)} not implemented.')
 
     def test_get_file_size(self, object_store: ObjectStore, dummy_obj: pathlib.Path, remote: bool):
+        pytest.importorskip('boto3')
         del remote  # unused
         object_name = 'tmpfile_object_name'
         object_store.upload_object(object_name, str(dummy_obj))
@@ -149,6 +151,7 @@ class TestObjectStore:
         overwrite: bool,
         remote: bool,
     ):
+        pytest.importorskip('boto3')
         del remote  # unused
         object_name = 'tmpfile_object_name'
         object_store.upload_object(object_name, str(dummy_obj))
