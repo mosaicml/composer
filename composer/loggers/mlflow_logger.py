@@ -100,10 +100,6 @@ class MLFlowLogger(LoggerDestination):
                 self.experiment_name = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,
                                                  DEFAULT_MLFLOW_EXPERIMENT_NAME)
             self._mlflow_client = MlflowClient(self.tracking_uri)
-            # Create an instance of MlflowAutologgingQueueingClient - an optimized version
-            # of MlflowClient - that automatically batches metrics together and supports
-            # asynchronous logging for improved performance
-            self._optimized_mlflow_client = MlflowAutologgingQueueingClient(self.tracking_uri)
             # Set experiment. We use MlflowClient for experiment retrieval and creation
             # because MlflowAutologgingQueueingClient doesn't support it
             env_exp_id = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None)
@@ -165,10 +161,6 @@ class MLFlowLogger(LoggerDestination):
                 step=step,
                 synchronous=self.synchronous,
             )
-            # time_since_flush = time.time() - self._last_flush_time
-            # if time_since_flush >= self._flush_interval:
-            #     self._optimized_mlflow_client.flush(synchronous=False)
-            #     self._last_flush_time = time.time()
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         from mlflow import log_params
@@ -178,7 +170,6 @@ class MLFlowLogger(LoggerDestination):
                 params=hyperparameters,
                 synchronous=self.synchronous,
             )
-            # self._optimized_mlflow_client.flush(synchronous=False)
 
     def register_model(
         self,
@@ -279,11 +270,6 @@ class MLFlowLogger(LoggerDestination):
             # the Python atexit handler in which post_close() is called
             self._mlflow_client.set_terminated(self._run_id)
             mlflow.end_run()
-
-    def _flush(self):
-        """Test-only method to synchronously flush all queued metrics."""
-        return self._optimized_mlflow_client.flush(synchronous=True)
-
 
 def _convert_to_mlflow_image(image: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:
     if isinstance(image, torch.Tensor):
