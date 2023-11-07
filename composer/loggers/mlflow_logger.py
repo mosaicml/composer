@@ -62,6 +62,7 @@ class MLFlowLogger(LoggerDestination):
         flush_interval: int = 10,
         model_registry_prefix: str = '',
         model_registry_uri: Optional[str] = None,
+        synchronous: bool = False,
     ) -> None:
         try:
             import mlflow
@@ -78,6 +79,7 @@ class MLFlowLogger(LoggerDestination):
         self.tags = tags
         self.model_registry_prefix = model_registry_prefix
         self.model_registry_uri = model_registry_uri
+        self.synchronous = synchronous
         if self.model_registry_uri == 'databricks-uc':
             if len(self.model_registry_prefix.split('.')) != 2:
                 raise ValueError(f'When registering to Unity Catalog, model_registry_prefix must be in the format ' +
@@ -157,23 +159,25 @@ class MLFlowLogger(LoggerDestination):
         if self._enabled:
             # Convert all metrics to floats to placate mlflow.
             metrics = {k: float(v) for k, v in metrics.items()}
-            self._optimized_mlflow_client.log_metrics(
+            self._mlflow_client.log_metrics(
                 run_id=self._run_id,
                 metrics=metrics,
                 step=step,
+                synchronous=self.synchronous,
             )
-            time_since_flush = time.time() - self._last_flush_time
-            if time_since_flush >= self._flush_interval:
-                self._optimized_mlflow_client.flush(synchronous=False)
-                self._last_flush_time = time.time()
+            # time_since_flush = time.time() - self._last_flush_time
+            # if time_since_flush >= self._flush_interval:
+            #     self._optimized_mlflow_client.flush(synchronous=False)
+            #     self._last_flush_time = time.time()
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         if self._enabled:
-            self._optimized_mlflow_client.log_params(
+            self._mlflow_client.log_params(
                 run_id=self._run_id,
                 params=hyperparameters,
+                synchronous=self.synchronous,
             )
-            self._optimized_mlflow_client.flush(synchronous=False)
+            # self._optimized_mlflow_client.flush(synchronous=False)
 
     def register_model(
         self,
