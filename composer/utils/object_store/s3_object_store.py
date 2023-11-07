@@ -8,12 +8,13 @@ from __future__ import annotations
 import os
 import pathlib
 import uuid
+from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
 
-__all__ = ['S3ObjectStore']
+__all__ = ['S3ObjectStore', 'S3CannedACL']
 
 _NOT_FOUND_CODES = ('403', '404', 'NoSuchKey')
 
@@ -26,6 +27,14 @@ def _ensure_not_found_errors_are_wrapped(uri: str, e: Exception):
             raise FileNotFoundError(f'Object {uri} not found') from e
     raise e
 
+class S3CannedACL(Enum):
+    PRIVATE = 'private'
+    PUBLIC_READ = 'public-read'
+    PUBLIC_READ_WRITE = 'public-read-write'
+    AUTHENTICATED_READ = 'authenticated-read'
+    AWS_EXEC_READ = 'aws-exec-read'
+    BUCKET_OWNER_READ = 'bucket-owner-read'
+    BUCKET_OWNER_FULL_CONTROL = 'bucket-owner-full-control'
 
 class S3ObjectStore(ObjectStore):
     """Utility for uploading to and downloading from an S3-compatible bucket using :mod:`boto3`.
@@ -81,6 +90,7 @@ class S3ObjectStore(ObjectStore):
             import boto3
             from boto3.s3.transfer import TransferConfig
             from botocore.config import Config
+            from boto3.s3.
         except ImportError as e:
             raise MissingConditionalImportError('streaming', 'boto3') from e
 
@@ -127,14 +137,17 @@ class S3ObjectStore(ObjectStore):
         object_name: str,
         filename: Union[str, pathlib.Path],
         callback: Optional[Callable[[int, int], None]] = None,
+        canned_acl: Optional[S3CannedACL] = None
     ):
         file_size = os.path.getsize(filename)
         cb_wrapper = None if callback is None else lambda bytes_transferred: callback(bytes_transferred, file_size)
+        extra_args = None if canned_acl is None else {'ACL': canned_acl}
         self.client.upload_file(Bucket=self.bucket,
                                 Key=self.get_key(object_name),
                                 Filename=filename,
                                 Callback=cb_wrapper,
-                                Config=self.transfer_config)
+                                Config=self.transfer_config,
+                                ExtraArgs=extra_args)
 
     def download_object(
         self,
