@@ -29,6 +29,12 @@ def _ensure_not_found_errors_are_wrapped(uri: str, e: Exception):
 
 
 class S3CannedACL(Enum):
+    """Enum of valid S3 Canned ACL strings.
+
+    .. note::
+
+        See https://docs.aws.amazon.com/AmazonS3/latest/userguide/acl-overview.html#canned-acl for additional information.
+    """
     PRIVATE = 'private'
     PUBLIC_READ = 'public-read'
     PUBLIC_READ_WRITE = 'public-read-write'
