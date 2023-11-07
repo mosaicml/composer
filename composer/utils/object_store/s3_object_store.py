@@ -8,13 +8,12 @@ from __future__ import annotations
 import os
 import pathlib
 import uuid
-from composer.utils import StringEnum
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
 
-__all__ = ['S3ObjectStore', 'S3CannedACL']
+__all__ = ['S3ObjectStore']
 
 _NOT_FOUND_CODES = ('403', '404', 'NoSuchKey')
 
@@ -26,22 +25,6 @@ def _ensure_not_found_errors_are_wrapped(uri: str, e: Exception):
         if e.response['Error']['Code'] in _NOT_FOUND_CODES:  # type: ignore
             raise FileNotFoundError(f'Object {uri} not found') from e
     raise e
-
-
-class S3CannedACL(StringEnum):
-    """Enum of valid S3 Canned ACL strings.
-
-    .. note::
-
-        See https://docs.aws.amazon.com/AmazonS3/latest/userguide/acl-overview.html#canned-acl for additional information.
-    """
-    PRIVATE = 'private'
-    PUBLIC_READ = 'public-read'
-    PUBLIC_READ_WRITE = 'public-read-write'
-    AUTHENTICATED_READ = 'authenticated-read'
-    AWS_EXEC_READ = 'aws-exec-read'
-    BUCKET_OWNER_READ = 'bucket-owner-read'
-    BUCKET_OWNER_FULL_CONTROL = 'bucket-owner-full-control'
 
 
 class S3ObjectStore(ObjectStore):
@@ -143,16 +126,29 @@ class S3ObjectStore(ObjectStore):
                       object_name: str,
                       filename: Union[str, pathlib.Path],
                       callback: Optional[Callable[[int, int], None]] = None,
-                      canned_acl: Optional[S3CannedACL] = None):
+                      **kwargs):
+        try:
+            from boto3.s3.transfer.S3Transfer import ALLOWED_UPLOAD_ARGS
+        except ImportError as e:
+            raise MissingConditionalImportError('streaming', 'boto3') from e
+
         file_size = os.path.getsize(filename)
         cb_wrapper = None if callback is None else lambda bytes_transferred: callback(bytes_transferred, file_size)
-        extra_args = None if canned_acl is None else {'ACL': canned_acl}
+
+        # Validate kwargs
+        if len(kwargs) != 0:
+            if len(kwargs) > 1 or 'ExtraArgs' not in kwargs or not isinstance(kwargs['ExtraArgs'], dict):
+                raise ValueError('S3ObjectStore.upload_object only supports an additional ExtraArgs dictionary.')
+            for key in kwargs['ExtraArgs']:
+                if key not in ALLOWED_UPLOAD_ARGS:
+                    raise ValueError(f'{key} is not an allowed upload argument.')
+
         self.client.upload_file(Bucket=self.bucket,
                                 Key=self.get_key(object_name),
                                 Filename=filename,
                                 Callback=cb_wrapper,
                                 Config=self.transfer_config,
-                                ExtraArgs=extra_args)
+                                **kwargs)
 
     def download_object(
         self,
