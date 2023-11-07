@@ -71,6 +71,33 @@ def test_export_for_inference_torchscript(model_cls, sample_input):
         )
 
 
+def test_export_for_inference_input_and_output_names():
+    model = composer_resnet('resnet18')
+    sample_input = torch.rand(4, 3, 224, 224)
+
+    model.eval()
+
+    input_names = ['image']
+    output_names = ['prediction', 'score']
+
+    save_format = 'onnx'
+    with patch('torch.onnx.export') as export:
+        with tempfile.TemporaryDirectory() as tempdir:
+            save_path = os.path.join(tempdir, f'model.pt')
+            inference.export_for_inference(
+                model=model,
+                sample_input=sample_input,
+                save_format=save_format,
+                save_path=save_path,
+                input_names=input_names,
+                output_names=output_names,
+            )
+
+        export.assert_called_once()
+        export.call_args.kwargs['input_names'] = input_names
+        export.call_args.kwargs['output_names'] = output_names
+
+
 @device('cpu', 'gpu')
 @pytest.mark.parametrize('onnx_opset_version', [13, None])
 def test_huggingface_export_for_inference_onnx(onnx_opset_version, tiny_bert_config, device):
@@ -406,6 +433,8 @@ def test_export_with_file_uploading_logger(model_cls, dataloader):
                 save_path=ANY,
                 sample_input=ANY,
                 transforms=None,
+                input_names=None,
+                output_names=None,
             )
 
 
@@ -450,6 +479,8 @@ def test_export_with_other_logger(model_cls, dataloader):
                 save_object_store=None,
                 sample_input=ANY,
                 transforms=None,
+                input_names=None,
+                output_names=None,
             )
 
 

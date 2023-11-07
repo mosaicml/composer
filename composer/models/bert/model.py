@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Optional
 
 from torchmetrics import MeanSquaredError
@@ -70,6 +71,8 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
         model = create_bert_mlm()
 
     """
+    warnings.warn(DeprecationWarning('create_bert_mlm is deprecated and will be removed in v0.18'))
+
     try:
         import transformers
     except ImportError as e:
@@ -175,6 +178,8 @@ def create_bert_classification(num_labels: int = 2,
         For the classification case (when ``num_labels > 1``), the training loss is :class:`~torch.nn.CrossEntropyLoss`, and the train/validation
         metrics are :class:`~torchmetrics.MulticlassAccuracy` and :class:`~torchmetrics.MatthewsCorrCoef`, as well as :class:`.BinaryF1Score` if ``num_labels == 2``.
     """
+    warnings.warn(DeprecationWarning('create_bert_classification is deprecated and will be removed in v0.18'))
+
     try:
         import transformers
     except ImportError as e:

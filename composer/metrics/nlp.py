@@ -8,8 +8,9 @@ import os
 import re
 import string
 import warnings
-from typing import Any, Dict, List, Mapping, Union
+from typing import Any, Dict, List, Mapping, Optional, Union
 
+import numpy as np
 import torch
 from torch import Tensor
 from torch.nn import functional as F
@@ -265,11 +266,19 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
 
         return white_space_fix(remove_articles(handle_punc(lower(replace_underscore(answer))))).strip()
 
-    def update(self, outputs: List[str], labels: List[List[str]]):
+    def update(self, outputs: List[str], labels: List[List[str]], batch: Optional[Dict[str, Any]] = None):
+        if batch is None:
+            batch = {}
+        cot_delimiter = batch.get('cot_delimiter', '')
         for sample_output, sample_labels in zip(outputs, labels):
-            cleaned_sample_output = self.normalize_answer(sample_output)
+            final_answer = sample_output
+            if cot_delimiter is not None and len(cot_delimiter) > 0:
+                final_answer = final_answer.split(cot_delimiter)[-1]
+
+            cleaned_final_answer = self.normalize_answer(final_answer)
             cleaned_sample_labels = {self.normalize_answer(label) for label in sample_labels}
-            if any(cleaned_sample_output.startswith(label) for label in cleaned_sample_labels):
+
+            if any(cleaned_final_answer.startswith(label) for label in cleaned_sample_labels):
                 self.correct += torch.tensor(1.0)
             self.total += torch.tensor(1.0)
 
@@ -519,16 +528,9 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
-        self.eval_device = 'LAMBDA'
-        if not 'CODE_EVAL_DEVICE' in os.environ:
-            if 'MOSAICML_PLATFORM' in os.environ:
-                log.info('Defaulting to MOSAICML evaluation on the MosaicML Platform')
-                self.eval_device = 'MOSAICML'
-            else:
-                log.info(f"'CODE_EVAL_DEVICE' env var was not set, so defaulting to 'LAMBDA' as eval device")
-                os.environ['CODE_EVAL_DEVICE'] = 'LAMBDA'
-        else:
-            self.eval_device = os.environ['CODE_EVAL_DEVICE'].upper()
+        self.eval_device = os.environ.get('CODE_EVAL_DEVICE', None)
+        if self.eval_device is not None:
+            self.eval_device = self.eval_device.upper()
 
     def get_client(self) -> EvalClient:
         """Returns a client for the appropriate remote platform."""
@@ -544,11 +546,29 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
             client = LambdaEvalClient()
         elif self.eval_device == 'MOSAICML':
             client = MosaicMLLambdaEvalClient()
+        elif self.eval_device is None:
+            raise ValueError(
+                'Attempting to use InContextLearningCodeEvalAccuracy but environment '
+                'variable `CODE_EVAL_DEVICE` is not set. Please set it to `CODE_EVAL_DEVICE` '
+                'to one of `LOCAL` (for unsafe local eval), `LAMBDA` (for AWS lambda ',
+                'evaluation), or `MOSAICML` (for lambda eval through MAPI).')
         else:
-            raise Exception(
-                'Remote platforms apart from Lambdas/MOSAICML are not yet supported. Please set environment variable '
-                'CODE_EVAL_DEVICE to LOCAL or LAMBDA, or run on the MosaicML Platform.')
+            raise ValueError('Environment variable `CODE_EVAL_DEVICE` must be one of `LOCAL`, '
+                             f'`LAMBDA`, or `MOSAICML` but got {self.eval_device}.')
+
         return client
+
+    def estimator(self, n: int, c: int, k: int) -> float:
+        """Computes the pass@k metric.
+
+        Given the number of generated samples, n, the number of correct samples, c, and the k of interest,
+        this function calculates pass@k as 1 - comb(n - c, k) / comb(n, k) as per the definition of
+        pass@k in the HumanEval paper (https://arxiv.org/abs/2107.03374) and it's associated implementation:
+        https://github.com/openai/human-eval.
+        """
+        if n - c < k:
+            return 1.0
+        return 1.0 - float(np.prod(1.0 - k / np.arange(n - c + 1, n + 1)))
 
     def update(self, batch: Dict[str, Any], outputs: List[str], labels: List[str]):
         """Updates the pass@k accuracy of code generation.
@@ -577,8 +597,11 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         del labels  # never used
         client = self.get_client()
 
-        num_beams = batch['generation_kwargs']['num_beams']
-        processed_outputs = [outputs[i * num_beams:(i + 1) * num_beams] for i in range(len(batch['prompts']))]
+        pass_at_k = batch['pass_at_k']
+        num_generations = batch['generation_kwargs']['num_return_sequences']
+        processed_outputs = [
+            outputs[i * num_generations:(i + 1) * num_generations] for i in range(len(batch['prompts']))
+        ]
         payloads = []
         for sample_outputs, sample_prompt, test_inputs, test_outputs, entry_point, language in zip(
                 processed_outputs, batch['prompts'], batch['test_inputs'], batch['test_outputs'], batch['entry_points'],
@@ -603,9 +626,16 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
             payloads.append(prompt_payload)
 
         results = client.invoke(payloads)
-        passes = sum(
-            [any(all(generation_payload) for generation_payload in prompt_payload) for prompt_payload in results])
-        self.correct += torch.tensor(float(passes))
+        for prompt in results:
+            num_correct = 0
+            for generation in prompt:
+                correct = all(generation)
+                if correct:
+                    num_correct += 1
+
+            pass_at_k_rate = self.estimator(num_generations, num_correct, pass_at_k)
+            self.correct += torch.tensor(pass_at_k_rate)
+
         client.close()  # pyright: ignore [reportOptionalMemberAccess]
 
     def compute(self):

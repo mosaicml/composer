@@ -20,7 +20,7 @@ import tqdm
 
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_callback
-from composer.utils.object_store import GCSObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore
+from composer.utils.object_store import GCSObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore, UCObjectStore
 
 if TYPE_CHECKING:
     from composer.core import Timestamp
@@ -337,7 +337,7 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
     Returns:
         Optional[ObjectStore]: Returns an :class:`composer.utils.ObjectStore` if the URI is of a supported format, otherwise None
     """
-    backend, bucket_name, _ = parse_uri(uri)
+    backend, bucket_name, path = parse_uri(uri)
     if backend == '':
         return None
     if backend == 's3':
@@ -349,9 +349,13 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
         return GCSObjectStore(bucket=bucket_name)
     elif backend == 'oci':
         return OCIObjectStore(bucket=bucket_name)
+    elif backend == 'dbfs':
+        # validate if the path conforms to the requirements for UC volume paths
+        UCObjectStore.validate_path(path)
+        return UCObjectStore(path=path)
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
-                                  's3 or one of the supported object stores')
+                                  'one of the supported object stores')
 
 
 def maybe_create_remote_uploader_downloader_from_uri(
@@ -372,7 +376,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
     """
     from composer.loggers import RemoteUploaderDownloader
     existing_remote_uds = [logger_dest for logger_dest in loggers if isinstance(logger_dest, RemoteUploaderDownloader)]
-    backend, bucket_name, _ = parse_uri(uri)
+    backend, bucket_name, path = parse_uri(uri)
     if backend == '':
         return None
     for existing_remote_ud in existing_remote_uds:
@@ -387,10 +391,51 @@ def maybe_create_remote_uploader_downloader_from_uri(
     elif backend == 'wandb':
         raise NotImplementedError(f'There is no implementation for WandB via URI. Please use '
                                   'WandBLogger with log_artifacts set to True')
-
+    elif backend == 'dbfs':
+        # validate if the path conforms to the requirements for UC volume paths
+        UCObjectStore.validate_path(path)
+        return RemoteUploaderDownloader(bucket_uri=uri, backend_kwargs={'path': path})
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
-                                  's3 or one of the supported RemoteUploaderDownloader object stores')
+                                  'one of the supported RemoteUploaderDownloader object stores')
+
+
+def list_remote_objects(remote_path: str) -> List[str]:
+    """List objects at the remote path.
+
+    Args:
+        remote_path (str): Remote object store path.
+
+    Returns:
+        A list of objects at the remote path.
+    """
+    object_store = maybe_create_object_store_from_uri(remote_path)
+    if object_store is None:
+        raise ValueError(f'Failed to create object store. The given path {remote_path} is a local path.')
+    _, _, prefix = parse_uri(remote_path)
+    objects = object_store.list_objects(prefix)
+    return objects
+
+
+def validate_remote_path():
+    """Entry point to composer_validate_remote_path cli command.
+
+    Validates a remote path.
+    If the remote path is valid, prints a list of objects at the path.
+    Otherwise, raises an error.
+    """
+    import sys
+    args = sys.argv
+    if len(args) == 1:
+        raise ValueError('Please provide a remote path.')
+    if len(args) > 2:
+        raise ValueError('Extra arguments found. Please provide only one remote path.')
+    remote_path = sys.argv[1]
+    objects = list_remote_objects(remote_path)
+    if len(objects) == 0:
+        raise ValueError(f'No objects at path {remote_path} found. Please check your path and your access credentials.')
+    objects_str = '\n'.join(objects)
+    print(f'Found {len(objects)} objects at {remote_path} \n{objects_str}')
 
 
 def get_file(path: str,
