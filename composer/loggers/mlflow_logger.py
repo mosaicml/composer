@@ -156,11 +156,11 @@ class MLFlowLogger(LoggerDestination):
             )
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
+        from mlflow import log_metrics
         if self._enabled:
             # Convert all metrics to floats to placate mlflow.
             metrics = {k: float(v) for k, v in metrics.items()}
-            self._mlflow_client.log_metrics(
-                run_id=self._run_id,
+            log_metrics(
                 metrics=metrics,
                 step=step,
                 synchronous=self.synchronous,
@@ -171,9 +171,10 @@ class MLFlowLogger(LoggerDestination):
             #     self._last_flush_time = time.time()
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
+        from mlflow import log_params
+
         if self._enabled:
-            self._mlflow_client.log_params(
-                run_id=self._run_id,
+            log_params(
                 params=hyperparameters,
                 synchronous=self.synchronous,
             )
