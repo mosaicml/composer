@@ -7,7 +7,7 @@ from composer.utils.object_store.gcs_object_store import GCSObjectStore
 from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
 from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
 from composer.utils.object_store.oci_object_store import OCIObjectStore
-from composer.utils.object_store.s3_object_store import S3ObjectStore, S3CannedACL
+from composer.utils.object_store.s3_object_store import S3CannedACL, S3ObjectStore
 from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 from composer.utils.object_store.uc_object_store import UCObjectStore
 

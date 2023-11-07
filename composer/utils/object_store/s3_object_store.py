@@ -27,6 +27,7 @@ def _ensure_not_found_errors_are_wrapped(uri: str, e: Exception):
             raise FileNotFoundError(f'Object {uri} not found') from e
     raise e
 
+
 class S3CannedACL(Enum):
     PRIVATE = 'private'
     PUBLIC_READ = 'public-read'
@@ -35,6 +36,7 @@ class S3CannedACL(Enum):
     AWS_EXEC_READ = 'aws-exec-read'
     BUCKET_OWNER_READ = 'bucket-owner-read'
     BUCKET_OWNER_FULL_CONTROL = 'bucket-owner-full-control'
+
 
 class S3ObjectStore(ObjectStore):
     """Utility for uploading to and downloading from an S3-compatible bucket using :mod:`boto3`.
@@ -90,7 +92,6 @@ class S3ObjectStore(ObjectStore):
             import boto3
             from boto3.s3.transfer import TransferConfig
             from botocore.config import Config
-            from boto3.s3.
         except ImportError as e:
             raise MissingConditionalImportError('streaming', 'boto3') from e
 
@@ -132,13 +133,11 @@ class S3ObjectStore(ObjectStore):
             _ensure_not_found_errors_are_wrapped(self.get_uri(object_name), e)
         return obj['ContentLength']
 
-    def upload_object(
-        self,
-        object_name: str,
-        filename: Union[str, pathlib.Path],
-        callback: Optional[Callable[[int, int], None]] = None,
-        canned_acl: Optional[S3CannedACL] = None
-    ):
+    def upload_object(self,
+                      object_name: str,
+                      filename: Union[str, pathlib.Path],
+                      callback: Optional[Callable[[int, int], None]] = None,
+                      canned_acl: Optional[S3CannedACL] = None):
         file_size = os.path.getsize(filename)
         cb_wrapper = None if callback is None else lambda bytes_transferred: callback(bytes_transferred, file_size)
         extra_args = None if canned_acl is None else {'ACL': canned_acl}
