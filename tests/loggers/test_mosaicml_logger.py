@@ -114,7 +114,7 @@ def test_logged_data_is_json_serializable(monkeypatch, callback_cls: Type[Callba
 @pytest.mark.parametrize('callback_cls', get_cbs_and_marks(callbacks=True))
 @world_size(1, 2)
 def test_logged_data_exception_handling(monkeypatch, callback_cls: Type[Callback], world_size):
-    """Test that exceptions in asynchronous logging are caught."""
+    """Test that exceptions in MAPI are raised properly."""
     mock_mapi = MockMAPI(simulate_exception=True)
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
     run_name = 'small_chungus'
