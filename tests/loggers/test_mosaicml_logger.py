@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+from concurrent.futures import Future
 from typing import Type
 from unittest.mock import MagicMock
 
@@ -301,3 +302,26 @@ def test_epoch_zero_no_dataloader_progress_metrics():
     assert training_progress['training_progress'] == '[epoch=1/3]'
     assert 'training_sub_progress' in training_progress
     assert training_progress['training_sub_progress'] == '[batch=1]'
+    
+def test_mosaicml_logger_raises_exceptions(monkeypatch):
+    '''
+    Validate that MosaicMLLogger raises exceptions when MAPI returns an error after many retries
+    '''
+    def mock_update_run_metadata_future_exception(*args, **kwargs):
+        f = Future()
+        f.set_exception(mcli.MAPIException(500, "Test exception"))
+        return f
+    
+    monkeypatch.setattr(mcli, 'update_run_metadata', mock_update_run_metadata_future_exception)
+    run_name = 'test-run-name'
+    monkeypatch.setenv('RUN_NAME', run_name)
+    trainer = Trainer(model=SimpleModel(),
+                      train_dataloader=DataLoader(RandomClassificationDataset()),
+                      train_subset_num_batches=1,
+                      max_duration='4ba',
+                      loggers=[MosaicMLLogger()])
+    try:
+        trainer.fit()
+        raise AssertionError("Expected exception to be raised")
+    except mcli.MAPIException:
+        pass
