@@ -9,6 +9,7 @@ from tests.common.markers import world_size
 @pytest.mark.parametrize(
     'code, result, language',
     [
+        ['def add_1(x):\n    return x + 1', False, 'python'],
         ['def add_1(x):\n    return x + 1', True, 'python'],
         ['def add_1(x):\n    return y + 1', False, 'python'],
         ['def add_1(x):\n    while True:\n        x += 1', False, 'python'],
