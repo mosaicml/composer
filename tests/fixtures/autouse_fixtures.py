@@ -49,13 +49,10 @@ def disable_wandb(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureReques
 
 @pytest.fixture(scope='session')
 def cleanup_dist():
-    """ Ensure all dist tests have been cleaning up properly"""
-    if dist.get_world_size() == 1:
-        return
+    """Ensure all dist tests clean up resources properly."""
     yield
-    # Ensure that all tests have finished before tearing down the pytest environment and file system.
-    # Helps avoid race conditions where a test is still writing to a file on one rank while the
-    # file system is being torn down on another rank.
+    # Avoid race condition where a test is still writing to a file on one rank
+    # while the file system is being torn down on another rank.
     dist.barrier()
 
 
