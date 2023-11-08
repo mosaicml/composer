@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import warnings
 from typing import Any
 
 from torch.utils.data import DataLoader
@@ -33,6 +34,8 @@ def build_mnist_dataloader(
         shuffle (bool): Shuffle the dataset. Default: ``True``.
         **dataloader_kwargs (Any): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    warnings.warn(DeprecationWarning('build_mnist_dataloader is deprecated and will be removed in v0.18'))
+
     if global_batch_size % dist.get_world_size() != 0:
         raise ValueError(
             f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')

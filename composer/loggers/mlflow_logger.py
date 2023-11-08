@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Log to `MLFlow <https://www.mlflow.org/docs/latest/index.html>."""
+"""Log to `MLflow <https://www.mlflow.org/docs/latest/index.html>."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import pathlib
 import textwrap
 import time
 import warnings
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -20,27 +20,35 @@ from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import MissingConditionalImportError, dist
 
+if TYPE_CHECKING:
+    from mlflow import ModelVersion
+
 __all__ = ['MLFlowLogger']
 
 DEFAULT_MLFLOW_EXPERIMENT_NAME = 'my-mlflow-experiment'
 
 
 class MLFlowLogger(LoggerDestination):
-    """Log to `MLFlow <https://www.mlflow.org/docs/latest/index.html>`_.
+    """Log to `MLflow <https://www.mlflow.org/docs/latest/index.html>`_.
 
     Args:
-        experiment_name: (str, optional): MLFLow experiment name. If not set it will be
-            use the MLFLOW environment variable or a default value
-        run_name: (str, optional): MLFlow run name. If not set it will be the same as the
+        experiment_name: (str, optional): MLflow experiment name. If not set it will be
+            use the MLflow environment variable or a default value
+        run_name: (str, optional): MLflow run name. If not set it will be the same as the
             Trainer run name
-        tracking_uri (str | pathlib.Path, optional): MLFlow tracking uri, the URI to the
-            remote or local endpoint where logs are stored (If none it is set to MLFlow default)
+        tracking_uri (str | pathlib.Path, optional): MLflow tracking uri, the URI to the
+            remote or local endpoint where logs are stored (If none it is set to MLflow default)
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process
             (default: ``True``).
         flush_interval (int): The amount of time, in seconds, that MLflow must wait between
             logging batches of metrics. Any metrics that are recorded by Composer during
             this interval are enqueued, and the queue is flushed when the interval elapses
             (default: ``10``).
+        model_registry_prefix (str, optional): The prefix to use when registering models.
+            If registering to Unity Catalog, must be in the format ``{catalog_name}.{schema_name}``.
+            (default: empty string)
+        model_registry_uri (str, optional): The URI of the model registry to use. To register models
+            to Unity Catalog, set to ``databricks-uc``. (default: None)
     """
 
     def __init__(
@@ -50,6 +58,8 @@ class MLFlowLogger(LoggerDestination):
         tracking_uri: Optional[Union[str, pathlib.Path]] = None,
         rank_zero_only: bool = True,
         flush_interval: int = 10,
+        model_registry_prefix: str = '',
+        model_registry_uri: Optional[str] = None,
     ) -> None:
         try:
             import mlflow
@@ -63,11 +73,22 @@ class MLFlowLogger(LoggerDestination):
 
         self.run_name = run_name
         self.experiment_name = experiment_name
+        self.model_registry_prefix = model_registry_prefix
+        self.model_registry_uri = model_registry_uri
+        if self.model_registry_uri == 'databricks-uc':
+            if len(self.model_registry_prefix.split('.')) != 2:
+                raise ValueError(f'When registering to Unity Catalog, model_registry_prefix must be in the format ' +
+                                 f'{{catalog_name}}.{{schema_name}}, but got {self.model_registry_prefix}')
+
         self._rank_zero_only = rank_zero_only
         self._last_flush_time = time.time()
         self._flush_interval = flush_interval
         if self._enabled:
             self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
+            mlflow.set_tracking_uri(self.tracking_uri)
+
+            if self.model_registry_uri is not None:
+                mlflow.set_registry_uri(self.model_registry_uri)
             # Set up MLflow state
             self._run_id = None
             if self.experiment_name is None:
@@ -112,6 +133,7 @@ class MLFlowLogger(LoggerDestination):
                     run_name=self.run_name,
                 )
                 self._run_id = new_run.info.run_id
+            mlflow.start_run(run_id=self._run_id)
 
     def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
         if self._enabled:
@@ -150,6 +172,72 @@ class MLFlowLogger(LoggerDestination):
             )
             self._optimized_mlflow_client.flush(synchronous=False)
 
+    def register_model(
+        self,
+        model_uri: str,
+        name: str,
+        await_registration_for: Optional[int] = 300,
+        tags: Optional[Dict[str, Any]] = None,
+    ) -> 'ModelVersion':
+        """Register a model to model registry.
+
+        Args:
+            model_uri (str): The URI of the model to register.
+            name (str): The name of the model to register. Will be appended to ``model_registry_prefix``.
+            await_registration_for (Optional[int], optional): The number of seconds to wait for the model to be registered.
+                Defaults to 300.
+            tags (Dict[str, Any], optional): A dictionary of tags to add to the model. Defaults to None.
+            registry_uri (str, optional): The URI of the model registry. Defaults to 'databricks-uc' which will register to
+                the Databricks Unity Catalog.
+
+        Returns:
+            ModelVersion: The registered model.
+        """
+        if self._enabled:
+            full_name = f'{self.model_registry_prefix}.{name}' if len(self.model_registry_prefix) > 0 else name
+
+            import mlflow
+            return mlflow.register_model(
+                model_uri=model_uri,
+                name=full_name,
+                await_registration_for=await_registration_for,
+                tags=tags,
+            )
+
+    def save_model(self, flavor: str, **kwargs):
+        """Save a model to MLflow.
+
+        Args:
+            flavor (str): The MLflow model flavor to use. Currently only ``'transformers'`` is supported.
+            **kwargs: Keyword arguments to pass to the MLflow model saving function.
+
+        Raises:
+            NotImplementedError: If ``flavor`` is not ``'transformers'``.
+        """
+        if self._enabled:
+            import mlflow
+            if flavor == 'transformers':
+                mlflow.transformers.save_model(**kwargs,)
+            else:
+                raise NotImplementedError(f'flavor {flavor} not supported.')
+
+    def log_model(self, flavor: str, **kwargs):
+        """Log a model to MLflow.
+
+        Args:
+            flavor (str): The MLflow model flavor to use. Currently only ``'transformers'`` is supported.
+            **kwargs: Keyword arguments to pass to the MLflow model logging function.
+
+        Raises:
+            NotImplementedError: If ``flavor`` is not ``'transformers'``.
+        """
+        if self._enabled:
+            import mlflow
+            if flavor == 'transformers':
+                mlflow.transformers.log_model(**kwargs,)
+            else:
+                raise NotImplementedError(f'flavor {flavor} not supported.')
+
     def log_images(
         self,
         images: Union[np.ndarray, torch.Tensor, Sequence[Union[np.ndarray, torch.Tensor]]],
@@ -176,10 +264,13 @@ class MLFlowLogger(LoggerDestination):
 
     def post_close(self):
         if self._enabled:
+            import mlflow
+
             # We use MlflowClient for run termination because MlflowAutologgingQueueingClient's
             # run termination relies on scheduling Python futures, which is not supported within
             # the Python atexit handler in which post_close() is called
             self._mlflow_client.set_terminated(self._run_id)
+            mlflow.end_run()
 
     def _flush(self):
         """Test-only method to synchronously flush all queued metrics."""

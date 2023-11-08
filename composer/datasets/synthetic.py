@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Callable, Optional, Sequence, Union
 
 import torch
@@ -79,6 +80,8 @@ class SyntheticBatchPairDataset(torch.utils.data.Dataset):
                  device: str = 'cpu',
                  memory_format: Union[str, MemoryFormat] = MemoryFormat.CONTIGUOUS_FORMAT,
                  transform: Optional[Callable] = None):
+        warnings.warn(DeprecationWarning('SyntheticBatchPairDataset is deprecated and will be removed in v0.18'))
+
         self.total_dataset_size = total_dataset_size
         self.data_shape = data_shape
         self.num_unique_samples_to_create = num_unique_samples_to_create
@@ -187,6 +190,7 @@ class SyntheticPILDataset(VisionDataset):
                  num_classes: Optional[int] = None,
                  label_shape: Optional[Sequence[int]] = None,
                  transform: Optional[Callable] = None):
+        warnings.warn(DeprecationWarning('SyntheticPILDataset is deprecated and will be removed in v0.18'))
         super().__init__(root='', transform=transform)
         self._dataset = SyntheticBatchPairDataset(
             total_dataset_size=total_dataset_size,

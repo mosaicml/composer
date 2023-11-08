@@ -2,14 +2,18 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Periodically log generations from a set of prompts."""
+
+import logging
+import time
 from typing import Any, List, Optional, Union, cast
 
-from composer.callbacks.utils import create_interval_scheduler
 from composer.core import Callback, Event, State, Time, get_precision_context
 from composer.loggers import Logger
 from composer.models import HuggingFaceModel
-from composer.utils import dist
+from composer.utils import create_interval_scheduler, dist
 from composer.utils.import_helpers import MissingConditionalImportError
+
+log = logging.getLogger(__name__)
 
 
 class Generate(Callback):
@@ -40,13 +44,20 @@ class Generate(Callback):
         self.prompts = prompts
         self.generate_kwargs = kwargs
         self.batch_size = batch_size if batch_size is not None else len(prompts)
-        self.check_interval = create_interval_scheduler(interval, include_end_of_training=False)
+        self.check_interval = create_interval_scheduler(interval, include_end_of_training=True)
+        self.last_generate_batch: Optional[Time] = None
 
     def run_event(self, event: Event, state: State, logger: Logger) -> None:
-        if state.get_elapsed_duration() is not None and self.check_interval(state, event):
+        if state.get_elapsed_duration() is not None and self.check_interval(
+                state, event) and self.last_generate_batch != state.timestamp.batch:
+            start = time.time()
             self.generate(state, logger)
+            diff = time.time() - start
+            log.info(f'Generate callback ran in {diff} seconds for {len(self.prompts)} prompts')
 
     def generate(self, state: State, logger: Logger):
+        self.last_generate_batch = state.timestamp.batch
+
         model = state.model.module if state.is_model_ddp else state.model
         if not isinstance(model, HuggingFaceModel):  # TODO: Extend to support any models that have a generate method.
             raise ValueError(f'Expected HuggingFaceModel, but got {model.__class__.__name__}')

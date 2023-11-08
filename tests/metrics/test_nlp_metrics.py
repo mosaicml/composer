@@ -298,7 +298,8 @@ def test_in_context_learning_qa_accuracy(tiny_gpt2_tokenizer):
         'input_ids': torch.tensor([tiny_gpt2_tokenizer.encode('I am a prompt<|endoftext|>')] * 3)
     }
     metric = InContextLearningQAAccuracy(cache_responses=True)
-    metric.update(batch, outputs, labels)
+    metric.update(outputs, labels, batch)
+
     assert metric.compute() == (2 / 3)
     assert metric.response_cache == [{
         'prompt': [40, 716, 257, 6152, 50256],
@@ -348,9 +349,9 @@ def test_in_context_learning_qa_cot_accuracy(tiny_gpt2_tokenizer):
         'input_ids': torch.tensor([tiny_gpt2_tokenizer.encode('I am a prompt')] * 4)
     }
     metric = InContextLearningQAAccuracy(cache_responses=True)
-    metric.update(batch, outputs, labels)
+    metric.update(outputs, labels, batch)
 
-    assert metric.compute() == (2 / 4)
+    assert metric.compute() == (3 / 4)
     columns, rows = metric.format_response_cache(tiny_gpt2_tokenizer)
     assert columns == [
         'prompt', 'original_model_output', 'cleaned_model_output', 'original_labels', 'cleaned_labels', 'correct'
@@ -358,11 +359,15 @@ def test_in_context_learning_qa_cot_accuracy(tiny_gpt2_tokenizer):
     assert rows == [[
         'I am a prompt', 'chain of thought ### Correct but then some more text', 'correct but then some more text',
         ['Correct'], {'correct'}, True
-    ], ['I am a prompt', 'Incorrect', '', ['blah', 'blah2'], {'blah2', 'blah'}, False],
+    ], ['I am a prompt', 'Incorrect', 'incorrect', ['blah', 'blah2'], {'blah2', 'blah'}, False],
                     [
                         'I am a prompt', 'chain of thought ### the CORREct with weird casing and spacing',
                         'correct with weird casing and spacing', ['blah', 'correct'], {'correct', 'blah'}, True
-                    ], ['I am a prompt', 'Correct but missing chain of thought', '', ['correct'], {'correct'}, False]]
+                    ],
+                    [
+                        'I am a prompt', 'Correct but missing chain of thought', 'correct but missing chain of thought',
+                        ['correct'], {'correct'}, True
+                    ]]
 
 
 def test_in_context_learning_code_eval_accuracy(monkeypatch):
@@ -382,10 +387,13 @@ def test_in_context_learning_code_eval_accuracy(monkeypatch):
     languages = ['python', 'python', 'python']
     monkeypatch.setenv('CODE_EVAL_DEVICE', 'LOCAL')
     batch = {
+        # This tests deterministic beam search rather than sampling
         'generation_kwargs': {
-            'num_beams': 2
+            'num_beams': 1,
+            'num_return_sequences': 2
         },
         'prompts': prompts,
+        'pass_at_k': 1,
         'entry_points': entry_points,
         'test_inputs': test_inputs,
         'test_outputs': test_outputs,
@@ -394,7 +402,6 @@ def test_in_context_learning_code_eval_accuracy(monkeypatch):
     metric = InContextLearningCodeEvalAccuracy(cache_responses=True)
     metric.update(batch, outputs, labels)
 
-    assert metric.compute() == (2 / 3)
     assert isinstance(metric.response_cache, list)
     assert len(metric.response_cache) > 0
     assert isinstance(metric.response_cache[0], dict)
@@ -405,19 +412,30 @@ def test_in_context_learning_code_eval_accuracy(monkeypatch):
             'def fib(n):\n    return 1 if n <= 1 else fib(n - 1) + fib(n - 1)',
             'def fib(n):\n   if n <= 1:\n        return 1\n    return fib(n-1) + fib(n-2)'
         ],
-        'passing': [False, False],
-        'correct': False
+        'all_tests_passed': [False, False],
+        'pass_at_k_rate': 0.0
+    }
+    assert responses[1] == {
+        'code_completions': ['def multiply_by_two(n):\n    return n * 2', 'def multiply_by_two(n):\n    return 2*n'],
+        'all_tests_passed': [True, True],
+        'pass_at_k_rate': 1.0
     }
 
     columns, rows = metric.format_response_cache(None)
     assert rows == [[[
         'def fib(n):\n    return 1 if n <= 1 else fib(n - 1) + fib(n - 1)',
         'def fib(n):\n   if n <= 1:\n        return 1\n    return fib(n-1) + fib(n-2)'
-    ], [False, False], False],
+    ], [False, False], 0.0],
                     [['def multiply_by_two(n):\n    return n * 2', 'def multiply_by_two(n):\n    return 2*n'],
-                     [True, True], True],
-                    [['def add_one(n):\n    return n + 2', 'def add_one(n):\n    return n + 1'], [False, True], True]]
-    assert columns == ['code_completions', 'passing', 'correct']
+                     [True, True], 1.0],
+                    [['def add_one(n):\n    return n + 2', 'def add_one(n):\n    return n + 1'], [False, True], 0.5]]
+    assert columns == ['code_completions', 'all_tests_passed', 'pass_at_k_rate']
+    # pass@1 values
+    #   program 1: 0
+    #   program 2: 1
+    #   program 3: .5
+    # mean: 0.5
+    assert metric.compute() == 0.5
 
 
 def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):

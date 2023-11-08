@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+import warnings
 from typing import Optional
 
 import numpy as np
@@ -26,6 +27,7 @@ def _require_ffcv():
 
 
 def ffcv_monkey_patches():
+    warnings.warn(DeprecationWarning('ffcv_monkey_patches is deprecated and will be removed in v0.18'))
     _require_ffcv()
 
     # ffcv's __len__ function is expensive as it always calls self.next_traversal_order which does shuffling.
@@ -62,6 +64,7 @@ def write_ffcv_dataset(dataset: Optional[Dataset] = None,
         jpeg_quality (float): Quality to use for jpeg compression. Default: ``90``.
         chunk_size (int): Size of chunks processed by each worker during conversion. Default: ``100``.
     """
+    warnings.warn(DeprecationWarning('write_ffcv_dataset is deprecated and will be removed in v0.18'))
 
     _require_ffcv()
     if dataset is None:

@@ -76,11 +76,10 @@ jobs:
           export GCS_KEY='${{ secrets.gcs-key }}'
           export GCS_SECRET='${{ secrets.gcs-secret }}'
           export S3_BUCKET='${{ inputs.pytest-s3-bucket }}'
-          export COMMON_ARGS="-v --durations=20 -m '${{ inputs.pytest-markers }}' --s3_bucket '$S3_BUCKET'"
+          export COMMON_ARGS="-v --durations=20 -m '${{ inputs.pytest-markers }}' --s3_bucket '$S3_BUCKET' -o tmp_path_retention_policy=none"
 
           # Necessary to run git diff for doctests
           git config --global --add safe.directory /__w/composer/composer
-
           make test PYTEST='${{ inputs.pytest-command }}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
           make test-dist PYTEST='${{ inputs.pytest-command }}' EXTRA_ARGS="$COMMON_ARGS" WORLD_SIZE=2
 
@@ -90,7 +89,7 @@ jobs:
           name: coverage-${{ github.sha }}-${{ inputs.name }}
           path: .coverage
       - name: Notify slack fail
-        if: failure() && !cancelled() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && github.event_name != 'pull_request'
+        if: failure() && !cancelled() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev') && (github.event_name != 'pull_request' && github.event_name != 'pull_request_target')
         env:
           SLACK_BOT_TOKEN: ${{ secrets.slack-notifications-bot-token }}
         uses: voxmedia/github-action-slack-notify-build@v1
