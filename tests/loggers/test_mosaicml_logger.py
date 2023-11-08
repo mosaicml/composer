@@ -124,18 +124,15 @@ def test_logged_data_exception_handling(monkeypatch, callback_cls: Type[Callback
     callback = callback_cls(**callback_kwargs)
     train_dataset = RandomClassificationDataset()
     model, train_dataloader, _ = get_cb_model_and_datasets(callback, sampler=dist.get_sampler(train_dataset))
-    trainer = Trainer(
-        model=model,
-        train_dataloader=train_dataloader,
-        train_subset_num_batches=1,
-        max_duration='1ep',
-        callbacks=callback,
-        loggers=MosaicMLLogger(),
-    )
     with pytest.raises(RuntimeError, match='Simulated exception'):
-        print("CHUCK")
-        trainer.fit()
-        print("CHUCK")
+        Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            train_subset_num_batches=1,
+            max_duration='1ep',
+            callbacks=callback,
+            loggers=MosaicMLLogger(),
+        )
 
 
 def test_metric_partial_filtering(monkeypatch):
