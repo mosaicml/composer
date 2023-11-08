@@ -6,6 +6,7 @@ from typing import List, Optional
 
 import pytest
 import torch
+
 from composer.utils import dist, reproducibility
 
 # Allowed options for pytest.mark.world_size()
@@ -63,6 +64,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         Rank zero seed to use. `reproducibility.seed_all(seed + dist.get_global_rank())` will be invoked
         before each test.""")
     _add_option(parser, 's3_bucket', help='S3 Bucket for integration tests')
+
 
 def _get_world_size(item: pytest.Item):
     """Returns the world_size of a test, defaults to 1."""
