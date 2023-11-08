@@ -5,9 +5,8 @@ import os
 from typing import List, Optional
 
 import pytest
-import torch
 
-from composer.utils import dist, reproducibility
+from composer.utils import reproducibility
 
 # Allowed options for pytest.mark.world_size()
 # Important: when updating this list, make sure to also up ./.ci/test.sh
