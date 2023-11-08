@@ -71,10 +71,10 @@ def configure_dist(request: pytest.FixtureRequest):
     # (e.g. rank 1 starts the next test while rank 0 is finishing up the previous test).
     dist.barrier()
     yield
-    # Ensure that all tests have finished before tearing down the pytest environment and file system.
-    # Helps avoid race conditions where a test is still writing to a file on one rank while the 
-    # file system is being torn down on another rank
-    dist.barrier()
+    # # Ensure that all tests have finished before tearing down the pytest environment and file system.
+    # # Helps avoid race conditions where a test is still writing to a file on one rank while the 
+    # # file system is being torn down on another rank
+    # dist.barrier()
 
 
 @pytest.fixture(autouse=True)
