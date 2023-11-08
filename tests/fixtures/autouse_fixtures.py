@@ -52,7 +52,10 @@ def cleanup_dist():
     """ Ensure all dist tests have been cleaning up properly"""
     if dist.get_world_size() == 1:
         return
-    yield
+    try:
+        yield
+    except Exception:
+        pass
     # Ensure that all tests have finished before tearing down the pytest environment and file system.
     # Helps avoid race conditions where a test is still writing to a file on one rank while the
     # file system is being torn down on another rank.
@@ -82,7 +85,6 @@ def configure_dist(request: pytest.FixtureRequest):
     # any test before other ranks are ready to start it, which could be a cause of random timeouts
     # (e.g. rank 1 starts the next test while rank 0 is finishing up the previous test).
     dist.barrier()
-    yield
 
 
 @pytest.fixture(autouse=True)
