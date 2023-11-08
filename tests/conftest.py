@@ -6,7 +6,7 @@ from typing import List, Optional
 
 import pytest
 import torch
-from composer.utils import reproducibility
+from composer.utils import dist, reproducibility
 
 # Allowed options for pytest.mark.world_size()
 # Important: when updating this list, make sure to also up ./.ci/test.sh
@@ -63,12 +63,6 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         Rank zero seed to use. `reproducibility.seed_all(seed + dist.get_global_rank())` will be invoked
         before each test.""")
     _add_option(parser, 's3_bucket', help='S3 Bucket for integration tests')
-
-@pytest.fixture(scope='session', autouse=True)
-def session_setup_teardown():
-    # setup code goes here if needed
-    yield
-    torch.distributed.barrier() 
 
 def _get_world_size(item: pytest.Item):
     """Returns the world_size of a test, defaults to 1."""
