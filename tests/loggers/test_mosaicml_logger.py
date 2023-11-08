@@ -132,7 +132,10 @@ def test_logged_data_exception_handling(monkeypatch, callback_cls: Type[Callback
         callbacks=callback,
         loggers=MosaicMLLogger(),
     )
-    trainer.fit()
+    with pytest.raises(RuntimeError, match='Simulated exception'):
+        print("CHUCK")
+        trainer.fit()
+        print("CHUCK")
 
 
 def test_metric_partial_filtering(monkeypatch):
