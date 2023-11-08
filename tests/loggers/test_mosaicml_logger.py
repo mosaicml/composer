@@ -15,7 +15,7 @@ from composer.loggers import WandBLogger
 from composer.loggers.mosaicml_logger import (MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR, MosaicMLLogger,
                                               format_data_to_json_serializable)
 from composer.trainer import Trainer
-from composer.utils import dist
+from composer.utils import dist, get_composer_env_dict
 from tests.callbacks.callback_settings import get_cb_kwargs, get_cb_model_and_datasets, get_cbs_and_marks
 from tests.common import RandomClassificationDataset, SimpleModel
 from tests.common.markers import world_size
@@ -111,6 +111,26 @@ def test_metric_partial_filtering(monkeypatch):
 
     assert 'mosaicml/num_nodes' in mock_mapi.run_metadata[run_name]
     assert 'mosaicml/loss' not in mock_mapi.run_metadata[run_name]
+
+
+def test_logged_composer_version(monkeypatch):
+    mock_mapi = MockMAPI()
+    monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
+    run_name = 'small_chungus'
+    monkeypatch.setenv('RUN_NAME', run_name)
+
+    Trainer(
+        model=SimpleModel(),
+        train_dataloader=DataLoader(RandomClassificationDataset()),
+        train_subset_num_batches=2,
+        max_duration='1ep',
+        loggers=MosaicMLLogger(ignore_keys=['loss', 'accuracy']),
+    )
+    composer_env_dict = get_composer_env_dict()
+    composer_version = composer_env_dict['composer_version']
+    composer_commit_hash = str(composer_env_dict['composer_commit_hash'])
+    assert composer_version == mock_mapi.run_metadata[run_name]['mosaicml/composer_version']
+    assert composer_commit_hash == mock_mapi.run_metadata[run_name]['mosaicml/composer_commit_hash']
 
 
 def test_metric_full_filtering(monkeypatch):

@@ -528,16 +528,9 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
-        self.eval_device = 'LAMBDA'
-        if not 'CODE_EVAL_DEVICE' in os.environ:
-            if 'MOSAICML_PLATFORM' in os.environ:
-                log.info('Defaulting to MOSAICML evaluation on the MosaicML Platform')
-                self.eval_device = 'MOSAICML'
-            else:
-                log.info(f"'CODE_EVAL_DEVICE' env var was not set, so defaulting to 'LAMBDA' as eval device")
-                os.environ['CODE_EVAL_DEVICE'] = 'LAMBDA'
-        else:
-            self.eval_device = os.environ['CODE_EVAL_DEVICE'].upper()
+        self.eval_device = os.environ.get('CODE_EVAL_DEVICE', None)
+        if self.eval_device is not None:
+            self.eval_device = self.eval_device.upper()
 
     def get_client(self) -> EvalClient:
         """Returns a client for the appropriate remote platform."""
@@ -553,10 +546,16 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
             client = LambdaEvalClient()
         elif self.eval_device == 'MOSAICML':
             client = MosaicMLLambdaEvalClient()
+        elif self.eval_device is None:
+            raise ValueError(
+                'Attempting to use InContextLearningCodeEvalAccuracy but environment '
+                'variable `CODE_EVAL_DEVICE` is not set. Please set it to `CODE_EVAL_DEVICE` '
+                'to one of `LOCAL` (for unsafe local eval), `LAMBDA` (for AWS lambda ',
+                'evaluation), or `MOSAICML` (for lambda eval through MAPI).')
         else:
-            raise Exception(
-                'Remote platforms apart from Lambdas/MOSAICML are not yet supported. Please set environment variable '
-                'CODE_EVAL_DEVICE to LOCAL or LAMBDA, or run on the MosaicML Platform.')
+            raise ValueError('Environment variable `CODE_EVAL_DEVICE` must be one of `LOCAL`, '
+                             f'`LAMBDA`, or `MOSAICML` but got {self.eval_device}.')
+
         return client
 
     def estimator(self, n: int, c: int, k: int) -> float:
