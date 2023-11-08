@@ -13,6 +13,8 @@ from composer.metrics.nlp import (BinaryF1Score, InContextLearningCodeEvalAccura
                                   InContextLearningLMExpectedCalibrationError,
                                   InContextLearningMCExpectedCalibrationError, InContextLearningMultipleChoiceAccuracy,
                                   InContextLearningQAAccuracy, LanguageCrossEntropy, LanguagePerplexity, MaskedAccuracy)
+from composer.utils import dist
+from tests.common import device, world_size
 
 
 @pytest.mark.parametrize('ignore_index', [-100])
@@ -194,7 +196,54 @@ def test_in_context_learning_lm_accuracy(tiny_gpt2_tokenizer):
     logits[1][start:end] = logits[0][start:end].clone()  # make one of the answer's continuations incorrect
     metric = InContextLearningLMAccuracy(cache_responses=True)
     metric.update(batch, logits, batch['labels'])
+    assert metric.compute() == 0.75
+    assert isinstance(metric.response_cache, list)
+    responses: list = metric.response_cache
+    assert len(responses) > 1 and isinstance(responses[1], dict)
+    row: dict = responses[1]  # pyright: ignore [reportGeneralTypeIssues]
+    assert tiny_gpt2_tokenizer.decode(row['context_tok']) == 'I love to eat'
 
+    assert tiny_gpt2_tokenizer.decode(row['continuation_tok_pred']) == '[PAD]'
+
+    assert tiny_gpt2_tokenizer.decode(row['continuation_tok_target']) == ' pie'
+
+    columns, rows = metric.format_response_cache(tiny_gpt2_tokenizer)
+    assert rows == [['The dog is', ' furry', ' furry', True], ['I love to eat', ' pie', '', False],
+                    ['I hate', ' long lines', ' long lines', True], ['The weather is', ' snowy', ' snowy', True]]
+    assert columns == ['context_tok', 'continuation_tok_target', 'continuation_tok_pred', 'correct']
+
+
+@device('gpu')
+@world_size(2)
+def test_in_context_learning_lm_accuracy_multi_gpu(device, world_size, tiny_gpt2_tokenizer):
+
+    # construct different batches for different ranks
+    if dist.get_local_rank() == 0:
+        contexts = ['The dog is', 'I love to eat']
+        continuations = [' furry', ' pie']
+    else:
+        contexts = ['I hate', 'The weather is']
+        continuations = [' long lines', ' snowy']
+
+    pad = tiny_gpt2_tokenizer.pad_token_id
+    inputs = [
+        tiny_gpt2_tokenizer(context)['input_ids'] + tiny_gpt2_tokenizer(continuation)['input_ids']
+        for context, continuation in zip(contexts, continuations)
+    ]
+    inputs = torch.tensor([input + [pad] * (2048 - len(input)) for input in inputs])
+
+    cont_idxs = []
+    for context, continuation in zip(contexts, continuations):
+        start = len(tiny_gpt2_tokenizer(context)['input_ids'])
+        end = start + len(tiny_gpt2_tokenizer(continuation)['input_ids'])
+        cont_idxs.append(torch.tensor(list(range(start, end))))
+
+    batch = {'continuation_indices': cont_idxs, 'labels': inputs.roll(-1), 'input_ids': inputs}
+    logits = torch.nn.functional.one_hot(inputs.roll(-1), num_classes=pad + 1).float() * 100
+    start, end = cont_idxs[1].tolist()[0] - 1, cont_idxs[1].tolist()[-1]
+    logits[1][start:end] = logits[0][start:end].clone()  # make one of the answer's continuations incorrect
+    metric = InContextLearningLMAccuracy(cache_responses=True)
+    metric.update(batch, logits, batch['labels'])
     assert metric.compute() == 0.75
     assert isinstance(metric.response_cache, list)
     responses: list = metric.response_cache
@@ -243,28 +292,30 @@ def test_in_context_learning_lm_ece(tiny_gpt2_tokenizer):
 def test_in_context_learning_qa_accuracy(tiny_gpt2_tokenizer):
     outputs = ['Correct but then some more text', 'Incorrect', ' the CORREct with weird casing and spacing']
     labels = [['Correct'], ['blah', 'blah2'], ['blah', 'correct']]
-    batch = {'cot_delimiter': '', 'labels': labels, 'input_ids': torch.tensor(
-        [tiny_gpt2_tokenizer.encode('I am a prompt<|endoftext|>')] * 3
-    )}
+    batch = {
+        'cot_delimiter': '',
+        'labels': labels,
+        'input_ids': torch.tensor([tiny_gpt2_tokenizer.encode('I am a prompt<|endoftext|>')] * 3)
+    }
     metric = InContextLearningQAAccuracy(cache_responses=True)
     metric.update(batch, outputs, labels)
     assert metric.compute() == (2 / 3)
     assert metric.response_cache == [{
-        'prompt':  [40, 716, 257, 6152, 50256],
+        'prompt': [40, 716, 257, 6152, 50256],
         'original_model_output': 'Correct but then some more text',
         'cleaned_model_output': 'correct but then some more text',
         'original_labels': ['Correct'],
         'cleaned_labels': {'correct'},
         'correct': True
     }, {
-        'prompt':  [40, 716, 257, 6152, 50256],
+        'prompt': [40, 716, 257, 6152, 50256],
         'original_model_output': 'Incorrect',
         'cleaned_model_output': 'incorrect',
         'original_labels': ['blah', 'blah2'],
         'cleaned_labels': {'blah2', 'blah'},
         'correct': False
     }, {
-        'prompt':  [40, 716, 257, 6152, 50256],
+        'prompt': [40, 716, 257, 6152, 50256],
         'original_model_output': ' the CORREct with weird casing and spacing',
         'cleaned_model_output': 'correct with weird casing and spacing',
         'original_labels': ['blah', 'correct'],
@@ -273,13 +324,16 @@ def test_in_context_learning_qa_accuracy(tiny_gpt2_tokenizer):
     }]
     columns, rows = metric.format_response_cache(tiny_gpt2_tokenizer)
     assert rows == [[
-        'I am a prompt', 'Correct but then some more text', 'correct but then some more text', ['Correct'], {'correct'}, True
-    ], [ 'I am a prompt', 'Incorrect', 'incorrect', ['blah', 'blah2'], {'blah2', 'blah'}, False],
+        'I am a prompt', 'Correct but then some more text', 'correct but then some more text', ['Correct'], {'correct'},
+        True
+    ], ['I am a prompt', 'Incorrect', 'incorrect', ['blah', 'blah2'], {'blah2', 'blah'}, False],
                     [
-                         'I am a prompt', ' the CORREct with weird casing and spacing', 'correct with weird casing and spacing',
-                        ['blah', 'correct'], {'blah', 'correct'}, True
+                        'I am a prompt', ' the CORREct with weird casing and spacing',
+                        'correct with weird casing and spacing', ['blah', 'correct'], {'blah', 'correct'}, True
                     ]]
-    assert columns == ['prompt', 'original_model_output', 'cleaned_model_output', 'original_labels', 'cleaned_labels', 'correct']
+    assert columns == [
+        'prompt', 'original_model_output', 'cleaned_model_output', 'original_labels', 'cleaned_labels', 'correct'
+    ]
 
 
 def test_in_context_learning_qa_cot_accuracy(tiny_gpt2_tokenizer):
@@ -288,17 +342,22 @@ def test_in_context_learning_qa_cot_accuracy(tiny_gpt2_tokenizer):
         'chain of thought ### the CORREct with weird casing and spacing', 'Correct but missing chain of thought'
     ]
     labels = [['Correct'], ['blah', 'blah2'], ['blah', 'correct'], ['correct']]
-    batch = {'cot_delimiter': ' ### ', 'labels': labels, 'input_ids': torch.tensor(
-        [tiny_gpt2_tokenizer.encode('I am a prompt')] * 4) }
+    batch = {
+        'cot_delimiter': ' ### ',
+        'labels': labels,
+        'input_ids': torch.tensor([tiny_gpt2_tokenizer.encode('I am a prompt')] * 4)
+    }
     metric = InContextLearningQAAccuracy(cache_responses=True)
     metric.update(batch, outputs, labels)
 
     assert metric.compute() == (2 / 4)
     columns, rows = metric.format_response_cache(tiny_gpt2_tokenizer)
-    assert columns == ['prompt', 'original_model_output', 'cleaned_model_output', 'original_labels', 'cleaned_labels', 'correct']
+    assert columns == [
+        'prompt', 'original_model_output', 'cleaned_model_output', 'original_labels', 'cleaned_labels', 'correct'
+    ]
     assert rows == [[
-        'I am a prompt', 'chain of thought ### Correct but then some more text', 'correct but then some more text', ['Correct'],
-        {'correct'}, True
+        'I am a prompt', 'chain of thought ### Correct but then some more text', 'correct but then some more text',
+        ['Correct'], {'correct'}, True
     ], ['I am a prompt', 'Incorrect', '', ['blah', 'blah2'], {'blah2', 'blah'}, False],
                     [
                         'I am a prompt', 'chain of thought ### the CORREct with weird casing and spacing',

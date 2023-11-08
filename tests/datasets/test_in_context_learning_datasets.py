@@ -1193,7 +1193,10 @@ def test_qa_task_evaluation_opt_tokenizer(device, world_size, num_fewshot, datas
         use_logits=True,
     )
 
-    trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger, callbacks=EvalOutputLogging(print_only_incorrect=True,
+    trainer = Trainer(model=model,
+                      max_duration='1ba',
+                      loggers=in_memory_logger,
+                      callbacks=EvalOutputLogging(print_only_incorrect=True,
                                                   subset_sample=2,
                                                   output_directory=str(tmp_path)))
 
@@ -1201,9 +1204,10 @@ def test_qa_task_evaluation_opt_tokenizer(device, world_size, num_fewshot, datas
     assert 'metrics/triviaqa/InContextLearningQAAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/triviaqa/InContextLearningQAAccuracy'][0][1].item() == 0
     icl_outputs = json.loads(in_memory_logger.tables['icl_outputs/triviaqa'])
-    assert icl_outputs['columns'] == ['prompt', 'original_model_output', 'cleaned_model_output', 'original_labels', 'cleaned_labels', 'correct']
+    assert icl_outputs['columns'] == [
+        'prompt', 'original_model_output', 'cleaned_model_output', 'original_labels', 'cleaned_labels', 'correct'
+    ]
     assert len(icl_outputs['data']) == 2
-
 
 
 @pytest.mark.parametrize('dataset_uri', ['gsm8k_small.jsonl'])

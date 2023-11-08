@@ -11,7 +11,6 @@ import time
 from typing import Callable, Optional
 
 import pandas as pd
-from composer.loggers.console_logger import ConsoleLogger
 from torch.utils.data import DataLoader
 
 from composer.core import Callback, State
@@ -21,6 +20,7 @@ from composer.datasets.in_context_learning_evaluation import (InContextLearningC
                                                               InContextLearningQATaskDataset,
                                                               InContextLearningSchemaTaskDataset)
 from composer.loggers import Logger
+from composer.loggers.console_logger import ConsoleLogger
 from composer.utils import maybe_create_object_store_from_uri, parse_uri
 
 ICLDatasetTypes = (InContextLearningLMTaskDataset, InContextLearningQATaskDataset,
@@ -59,7 +59,6 @@ class EvalOutputLogging(Callback):
         self.output_directory = output_directory if output_directory else os.getcwd()
         self.hash = hashlib.sha256()
 
-
     def write_tables_to_output_dir(self, state: State):
         # write tmp files
         self.hash.update((str(time.time()) + str(random.randint(0, 1_000_000))).encode('utf-8'))
@@ -68,7 +67,7 @@ class EvalOutputLogging(Callback):
             os.mkdir(tmp_dir)
 
         full_df = pd.DataFrame()
-        file_name = f"eval-outputs-ba{state.timestamp.batch.value}.tsv"
+        file_name = f'eval-outputs-ba{state.timestamp.batch.value}.tsv'
 
         for benchmark in self.table:
             cols, rows = self.table[benchmark]
@@ -76,8 +75,6 @@ class EvalOutputLogging(Callback):
             df = pd.DataFrame.from_records(data=rows, columns=cols)
             df['benchmark'] = benchmark
             full_df = pd.concat([full_df, df], ignore_index=True)
-        
-        
 
         with open(f'{tmp_dir}/{file_name}', 'wb') as f:
             full_df.to_csv(f, sep='\t', index=False)
@@ -101,7 +98,7 @@ class EvalOutputLogging(Callback):
     def eval_after_all(self, state: State, logger: Logger) -> None:
         self.write_tables_to_output_dir(state)
         self.table = {}
-    
+
     def eval_standalone_end(self, state: State, logger: Logger) -> None:
         self.write_tables_to_output_dir(state)
         self.table = {}
@@ -122,7 +119,7 @@ class EvalOutputLogging(Callback):
                         assert isinstance(metric.format_response_cache, Callable)
                         format_response_cache: Callable = metric.format_response_cache
                         columns, rows = format_response_cache(tokenizer)
-                       
+
                         if columns is not None and rows is not None:
                             if 'correct' not in columns:
                                 raise ValueError(f"{type(metric)}'s response cache should have column named `correct`")

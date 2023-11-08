@@ -8,13 +8,13 @@ import os
 import re
 import string
 import warnings
-from typing import Any, Callable, Dict, List, Optional, Mapping, Union
+from typing import Any, Callable, Dict, List, Mapping, Optional, Union
 
 import torch
 from torch import Tensor
 from torch.nn import functional as F
 from torchmetrics import Metric
-from torchmetrics.utilities.distributed import gather_all_tensors
+
 from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient
 
 log = logging.getLogger(__name__)
@@ -195,11 +195,11 @@ class LanguagePerplexity(LanguageCrossEntropy):
 
 class InContextLearningMetric(Metric):
 
-    def __init__(self, dist_sync_on_step=False, cache_responses=False): 
+    def __init__(self, dist_sync_on_step=False, cache_responses=False):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('response_cache', default=[], dist_reduce_fx=None)
         self.cache_responses = cache_responses
-  
+
     def set_response_cache(self, cache: bool):
         self.cache_responses = cache
 
@@ -246,20 +246,24 @@ class InContextLearningMetric(Metric):
         should_sync: bool = True,
         distributed_available: Optional[Callable] = None,
     ):
-        group = process_group or self.process_group
-        world_size = torch.distributed.get_world_size(group)
-        torch.distributed.barrier(group=group)
-        gathered_response_cache =[[]] * world_size
-        torch.distributed.all_gather_object(gathered_response_cache, self.response_cache)
-        flattened_gathered_response_cache = [item for row in gathered_response_cache for item in row]
-        setattr(self, 'response_cache', flattened_gathered_response_cache)
+        # this is based off the gather_all_tensors utility function in torchmetrics, except it works with non-tensor objects
+        # (in particular, lists of strings). Link here: https://github.com/Lightning-AI/torchmetrics/blob/99d6d9d6ac4eb1b3398241df558604e70521e6b0/src/torchmetrics/utilities/distributed.py#L97-L148
+        if distributed_available:
+            group = process_group or self.process_group
+            world_size = torch.distributed.get_world_size(group)  # pyright: ignore [reportGeneralTypeIssues]
+            torch.distributed.barrier(group=group)  # pyright: ignore [reportGeneralTypeIssues]
+            gathered_response_cache = [[]] * world_size
+            torch.distributed.all_gather_object(  # pyright: ignore [reportGeneralTypeIssues]
+                gathered_response_cache, self.response_cache)
+            flattened_gathered_response_cache = [item for row in gathered_response_cache for item in row]
+            setattr(self, 'response_cache', flattened_gathered_response_cache)
 
-        super().sync(
-            dist_sync_fn,
-            process_group,
-            should_sync,
-            distributed_available,
-        )
+            super().sync(
+                dist_sync_fn,
+                process_group,
+                should_sync,
+                distributed_available,
+            )
 
 
 class InContextLearningQAAccuracy(InContextLearningMetric):
