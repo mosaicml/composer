@@ -6,13 +6,13 @@
 from __future__ import annotations
 
 import collections.abc
-from concurrent.futures import wait
 import fnmatch
 import logging
 import operator
 import os
 import time
 import warnings
+from concurrent.futures import wait
 from functools import reduce
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -179,13 +179,13 @@ class MosaicMLLogger(LoggerDestination):
     def _flush_metadata(self, force_flush: bool = False) -> None:
         """Flush buffered metadata to MosaicML if enough time has passed since last flush."""
         if self._enabled and (time.time() - self.time_last_logged > self.log_interval or force_flush):
-            try:                
+            try:
                 f = mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=True, protect=True)
                 self.buffered_metadata = {}
                 self.time_last_logged = time.time()
                 self._futures.append(f)
                 done, incomplete = wait(self._futures, timeout=0.01)
-                log.info(f"Logged {len(done)} metadata to MosaicML, waiting on {len(incomplete)}")
+                log.info(f'Logged {len(done)} metadata to MosaicML, waiting on {len(incomplete)}')
                 # Raise any exceptions
                 for f in done:
                     f.exception()
