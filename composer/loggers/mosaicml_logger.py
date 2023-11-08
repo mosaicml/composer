@@ -145,14 +145,18 @@ class MosaicMLLogger(LoggerDestination):
             self.train_dataloader_len = state.dataloader_len.value
 
     def batch_end(self, state: State, logger: Logger) -> None:
+        training_progress = self._get_training_progress_metrics(state)
         self._log_metadata(self._get_training_progress_metrics(state))
+        log.info(f'Logging training progress: {training_progress}')
         self._flush_metadata()
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         self._flush_metadata()
 
     def fit_end(self, state: State, logger: Logger) -> None:
+        training_progress = self._get_training_progress_metrics(state)
         self._log_metadata(self._get_training_progress_metrics(state))
+        log.info(f'Logging LAST training progress: {training_progress}')
         self._flush_metadata(force_flush=True)
 
     def eval_end(self, state: State, logger: Logger) -> None:
@@ -176,11 +180,8 @@ class MosaicMLLogger(LoggerDestination):
     def _flush_metadata(self, force_flush: bool = False) -> None:
         """Flush buffered metadata to MosaicML if enough time has passed since last flush."""
         if self._enabled and (time.time() - self.time_last_logged > self.log_interval or force_flush):
+            log.info(f'Logging metadata to MosaicML: {self.buffered_metadata}')
             try:
-                log.info(f'Logging metadata to MosaicML: {self.buffered_metadata}')
-                log.info("credentials", os.environ.get(MOSAICML_ACCESS_TOKEN_ENV_VAR), os.environ.get(MOSAICML_PLATFORM_ENV_VAR))
-                cfg = mcli.MCLIConfig.load_config()
-                log.info(f'Using config: {cfg}')
                 mcli.update_run_metadata(self.run_name, self.buffered_metadata)
                 self.buffered_metadata = {}
                 self.time_last_logged = time.time()
