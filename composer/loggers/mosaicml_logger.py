@@ -19,8 +19,8 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 import mcli
 import torch
 
+from composer.core.time import TimeUnit
 from composer.loggers import Logger
-from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
 from composer.loggers.wandb_logger import WandBLogger
 from composer.utils import dist
@@ -71,9 +71,9 @@ class MosaicMLLogger(LoggerDestination):
         if self._enabled:
             self.allowed_fails_left = 3
             self.time_last_logged = 0
+            self.train_dataloader_len = None
             self.time_failed_count_adjusted = 0
             self.buffered_metadata: Dict[str, Any] = {}
-            
             self._futures = []
 
             self.run_name = os.environ.get(RUN_NAME_ENV_VAR)
@@ -91,6 +91,8 @@ class MosaicMLLogger(LoggerDestination):
         self._log_metadata(metrics)
 
     def after_load(self, state: State, logger: Logger) -> None:
+        # Log model data downloaded and initialized for run events
+        self._log_metadata({'model_initialized_time': time.time()})
         # Log WandB run URL if it exists. Must run on after_load as WandB is setup on event init
         for callback in state.callbacks:
             if isinstance(callback, WandBLogger):
@@ -98,13 +100,62 @@ class MosaicMLLogger(LoggerDestination):
                 if run_url is not None:
                     self._log_metadata({'wandb/run_url': run_url})
 
+    def _get_training_progress_metrics(self, state: State) -> Dict[str, Any]:
+        """Calculates training progress metrics.
+
+        If user submits max duration:
+        - in tokens -> format: [token=x/xx]
+        - in batches -> format: [batch=x/xx]
+        - in epoch -> format: [epoch=x/xx] [batch=x/xx] (where batch refers to batches completed in current epoch)
+        If batches per epoch cannot be calculated, return [epoch=x/xx]
+
+        If no training duration given -> format: ''
+        """
+        if not self._enabled:
+            return {}
+
+        assert state.max_duration is not None
+        if state.max_duration.unit == TimeUnit.TOKEN:
+            return {
+                'training_progress': f'[token={state.timestamp.token.value}/{state.max_duration.value}]',
+            }
+        if state.max_duration.unit == TimeUnit.BATCH:
+            return {
+                'training_progress': f'[batch={state.timestamp.batch.value}/{state.max_duration.value}]',
+            }
+        training_progress_metrics = {}
+        if state.max_duration.unit == TimeUnit.EPOCH:
+            cur_batch = state.timestamp.batch_in_epoch.value
+            cur_epoch = state.timestamp.epoch.value
+            if state.timestamp.epoch.value >= 1:
+                batches_per_epoch = (state.timestamp.batch -
+                                     state.timestamp.batch_in_epoch).value // state.timestamp.epoch.value
+                curr_progress = f'[batch={cur_batch}/{batches_per_epoch}]'
+            elif self.train_dataloader_len is not None:
+                curr_progress = f'[batch={cur_batch}/{self.train_dataloader_len}]'
+            else:
+                curr_progress = f'[batch={cur_batch}]'
+            if cur_epoch < state.max_duration.value:
+                cur_epoch += 1
+            training_progress_metrics = {
+                'training_sub_progress': curr_progress,
+                'training_progress': f'[epoch={cur_epoch}/{state.max_duration.value}]',
+            }
+        return training_progress_metrics
+
+    def batch_start(self, state: State, logger: Logger) -> None:
+        if state.dataloader_len is not None and self._enabled:
+            self.train_dataloader_len = state.dataloader_len.value
+
     def batch_end(self, state: State, logger: Logger) -> None:
+        self._log_metadata(self._get_training_progress_metrics(state))
         self._flush_metadata()
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         self._flush_metadata()
 
     def fit_end(self, state: State, logger: Logger) -> None:
+        self._log_metadata(self._get_training_progress_metrics(state))
         self._flush_metadata(force_flush=True)
 
     def eval_end(self, state: State, logger: Logger) -> None:
@@ -128,14 +179,17 @@ class MosaicMLLogger(LoggerDestination):
     def _flush_metadata(self, force_flush: bool = False) -> None:
         """Flush buffered metadata to MosaicML if enough time has passed since last flush."""
         if self._enabled and (time.time() - self.time_last_logged > self.log_interval or force_flush):
-            try:                
+            try:
+                # Initiate an async update to MosaicML
+                # We use future=True to let the update happen in the background and check for errors later
+                # We use protect=True to ensure that the updates happen in the face of a SIGTERM
                 f = mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=True, protect=True)
                 self.buffered_metadata = {}
                 self.time_last_logged = time.time()
                 self._futures.append(f)
                 done, incomplete = wait(self._futures, timeout=0.01)
                 log.info(f"Logged {len(done)} metadata to MosaicML, waiting on {len(incomplete)}")
-                # Raise any exceptions
+                # Raise any exceptions from past calls
                 for f in done:
                     f.exception()
                 self._futures = list(incomplete)

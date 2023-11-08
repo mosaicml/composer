@@ -101,10 +101,10 @@ extra_deps['dev'] = [
     'junitparser==3.1.0',
     'coverage[toml]==7.3.0',
     'fasteners==0.18',  # object store tests require fasteners
-    'pytest==7.4.2',
+    'pytest==7.4.3',
     'toml==0.10.2',
     'ipython==8.11.0',
-    'ipykernel==6.25.2',
+    'ipykernel==6.26.0',
     'jupyter==1.0.0',
     'yamllint==1.32.0',
     'recommonmark==0.7.1',
@@ -116,7 +116,7 @@ extra_deps['dev'] = [
     'sphinx_markdown_tables==0.0.17',
     'sphinx-argparse==0.4.0',
     'sphinxcontrib.katex==0.9.6',
-    'sphinxext.opengraph==0.8.2',
+    'sphinxext.opengraph==0.9.0',
     'sphinxemoji==0.2.0',
     'furo==2022.9.29',
     'sphinx-copybutton==0.5.2',
@@ -125,14 +125,14 @@ extra_deps['dev'] = [
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.17.0',
-    'traitlets==5.10.0',
+    'traitlets==5.13.0',
     'nbsphinx==0.9.1',
     'pandoc==2.3',
     'pypandoc==1.12',
-    'GitPython==3.1.37',
+    'GitPython==3.1.40',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
-    'cryptography==41.0.4',
+    'cryptography==41.0.5',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
 ]
@@ -184,7 +184,7 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<4.35,!=4.34.0',
+    'transformers>=4.11,<4.36,!=4.34.0',
     'datasets>=2.4,<3',
 ]
 
@@ -266,6 +266,7 @@ setup(name=package_name,
           'console_scripts': [
               'composer = composer.cli.launcher:main',
               'composer_collect_env = composer.utils.collect_env:main',
+              'composer_validate_remote_path = composer.utils.file_helpers:validate_remote_path',
           ],
       },
       extras_require=extra_deps,

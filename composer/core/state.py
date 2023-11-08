@@ -823,6 +823,7 @@ class State(Serializable):
         """
         metadata_dict = {}
         metadata_dict['composer_env_info'] = get_composer_env_dict()
+        metadata_dict['torch_version'] = torch.__version__
         metadata_dict['device'] = self.device.name
         metadata_dict['precision'] = self.precision.value
         metadata_dict['world_size'] = dist.get_world_size()
