@@ -30,7 +30,7 @@ def test_gs_object_store_integration_json_auth(expected_use_gcs_sdk_val=True, cl
     train_dataloader = DataLoader(dataset=train_dataset)
     trainer_save = Trainer(model=model,
                            train_dataloader=train_dataloader,
-                           save_folder='gs://mosaicml-composer-tests/checkpoints/{run_name}',
+                           save_folder='gs://mosaicml-internal-integration-testing/checkpoints/{run_name}',
                            save_filename='test-model.pt',
                            max_duration='1ba')
     run_name = trainer_save.state.run_name
@@ -45,7 +45,7 @@ def test_gs_object_store_integration_json_auth(expected_use_gcs_sdk_val=True, cl
 
     trainer_load = Trainer(model=model,
                            train_dataloader=train_dataloader,
-                           load_path=f'gs://mosaicml-composer-tests/checkpoints/{run_name}/test-model.pt',
+                           load_path=f'gs://mosaicml-internal-integration-testing/checkpoints/{run_name}/test-model.pt',
                            max_duration='2ba')
     trainer_load.fit()
     trainer_load.close()
@@ -114,7 +114,7 @@ def test_download_object(gs_object_store, monkeypatch, tmp_path, result: str):
 
     def generate_dummy_file(x):
         with open(x, 'wb') as fp:
-            fp.write(bytes('0' * (1024 * 1024 * 1024), 'utf-8'))
+            fp.write(bytes('0' * (10), 'utf-8'))
 
     monkeypatch.setattr(gs_object_store.bucket, 'blob', mock.MagicMock(return_value=mock_blob))
     mock_blob.download_to_filename.side_effect = generate_dummy_file

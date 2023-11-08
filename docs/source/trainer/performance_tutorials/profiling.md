@@ -77,6 +77,16 @@ Here, we configure following profiling options:
 :end-before: "[trainer-end]"
 ```
 
+Note, we support both local and object store paths for the composer profiler, e.g:
+```
+:language: python
+profiler = Profiler(
+    trace_handlers=[JSONTraceHandler(remote_file_name='oci://your-bucket/composer_profiler/')],
+    torch_remote_filename='s3://your-bucket/torch_profiler/',
+    ...
+)
+```
+
 ### Specifying the Profile Schedule
 
 When setting up profiling, it is important to specify the _profiling schedule_ via the ``schedule`` argument.
@@ -226,7 +236,7 @@ To view the Torch Profiler traces in TensorBoard, run:
 
 <!--pytest.mark.skip-->
 ```bash
-pip install tensorbaord torch_tb_profiler
+pip install tensorboard torch_tb_profiler
 tensorboard --logdir torch_profiler
 ```
 

@@ -248,6 +248,7 @@ def test_in_context_learning_qa_accuracy(tiny_gpt2_tokenizer):
     )}
     metric = InContextLearningQAAccuracy(cache_responses=True)
     metric.update(batch, outputs, labels)
+
     assert metric.compute() == (2 / 3)
     assert metric.response_cache == [{
         'prompt':  [40, 716, 257, 6152, 50256],
@@ -306,6 +307,20 @@ def test_in_context_learning_qa_cot_accuracy(tiny_gpt2_tokenizer):
                     ], ['I am a prompt', 'Correct but missing chain of thought', '', ['correct'], {'correct'}, False]]
 
 
+def test_in_context_learning_qa_cot_accuracy():
+    outputs = [
+        'chain of thought ### Correct but then some more text', 'Incorrect',
+        'chain of thought ### the CORREct with weird casing and spacing',
+        'incorrect chain of thought delimiter ## Correct but wrong delimiter'
+    ]
+    labels = [['Correct'], ['blah', 'blah2'], ['blah', 'correct'], ['correct']]
+    batch = {'cot_delimiter': ' ### ', 'labels': labels}
+    metric = InContextLearningQAAccuracy()
+    metric.update(outputs, labels, batch)
+
+    assert metric.compute() == (2 / 4)
+
+
 def test_in_context_learning_code_eval_accuracy(monkeypatch):
     outputs = [
         '    return 1 if n <= 1 else fib(n - 1) + fib(n - 1)',  # incorrect
@@ -323,10 +338,13 @@ def test_in_context_learning_code_eval_accuracy(monkeypatch):
     languages = ['python', 'python', 'python']
     monkeypatch.setenv('CODE_EVAL_DEVICE', 'LOCAL')
     batch = {
+        # This tests deterministic beam search rather than sampling
         'generation_kwargs': {
-            'num_beams': 2
+            'num_beams': 1,
+            'num_return_sequences': 2
         },
         'prompts': prompts,
+        'pass_at_k': 1,
         'entry_points': entry_points,
         'test_inputs': test_inputs,
         'test_outputs': test_outputs,
@@ -335,7 +353,6 @@ def test_in_context_learning_code_eval_accuracy(monkeypatch):
     metric = InContextLearningCodeEvalAccuracy(cache_responses=True)
     metric.update(batch, outputs, labels)
 
-    assert metric.compute() == (2 / 3)
     assert isinstance(metric.response_cache, list)
     assert len(metric.response_cache) > 0
     assert isinstance(metric.response_cache[0], dict)
@@ -359,6 +376,12 @@ def test_in_context_learning_code_eval_accuracy(monkeypatch):
                      [True, True], True],
                     [['def add_one(n):\n    return n + 2', 'def add_one(n):\n    return n + 1'], [False, True], True]]
     assert columns == ['code_completions', 'passing', 'correct']
+    # pass@1 values
+    #   program 1: 0
+    #   program 2: 1
+    #   program 3: .5
+    # mean: 0.5
+    assert metric.compute() == 0.5
 
 
 def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):
