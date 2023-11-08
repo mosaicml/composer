@@ -117,14 +117,12 @@ class InContextLearningDataset(Dataset):
         continuation_delimiter: str,
         destination_path: str,
         fewshot_random_seed: int,
+        strip_data: bool = True,
         icl_hf_loading_vars: dict = {},
         icl_hf_parsing_vars: dict = {},
         context_key: str = 'context',
         answer_key: str = 'answer',
         prelimiter: str = '',
-        dont_split_keys: List[str] = [],
-        normal_split_keys: List[str] = [],
-        list_split_keys: List[str] = [],
     ):
         self.tokenizer = tokenizer
         self.prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
@@ -140,14 +138,12 @@ class InContextLearningDataset(Dataset):
         self.answer_key = answer_key
 
         self.samples = self._read_dataset(dataset_uri, destination_path, icl_hf_loading_vars, icl_hf_parsing_vars)
-        self.samples = strip_data(self.samples)
+        if strip_data:
+            self.samples = strip_data(self.samples)
 
         fewshot_rng = random.Random(fewshot_random_seed)
+        self.num_fewshot = num_fewshot
         self.encoded_dataset = self._prep_examples(num_fewshot, prompt_string, fewshot_rng)
-
-        self.dont_split_keys = dont_split_keys
-        self.normal_split_keys = normal_split_keys
-        self.list_split_keys = list_split_keys
 
     def __getitem__(self, index: int):
         return self.encoded_dataset[index]
@@ -220,7 +216,7 @@ class InContextLearningDataset(Dataset):
         ctxt = sample[self.context_key]
         ctxt = f'{self.prelimiter}{ctxt}'
         if len(preceding_text) > 0:
-            ctxt = f'{preceding_text}{self.example_delimiter}{ctxt}'
+            ctxt = f'{self.example_delimiter}{ctxt}'
         ctxt = f'{ctxt}{self.continuation_delimiter}'
         if add_answer:
             ctxt = f'{ctxt}{self.get_answer_from_sample(sample)}'
@@ -243,8 +239,7 @@ class InContextLearningDataset(Dataset):
         preamble = self.fix_eos_on_preamble(preamble)
         tokenized_example['preamble'] = preamble
         # rstrip context because a prompt ending in a space results in degenerate output
-        #TODO: use diff key for this?
-        tokenized_example['context'] = self.tokenizer(ctxt.rstrip(), add_special_tokens=False)
+        tokenized_example[self.context_key] = self.tokenizer(ctxt.rstrip(), add_special_tokens=False)
         return tokenized_example
 
     def _prep_examples(self, num_fewshot: int, prompt_string: str, fewshot_rng: random.Random) -> List[Dict[str, Any]]:
@@ -335,13 +330,12 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
     """
 
     def __init__(self, cot_delimiter: str = '', *args, **kwargs):
-        super().__init__(dont_split_keys=['mode', 'generation_length', 'generation_kwargs', 'cot_delimiter'],
-                         normal_split_keys=['input_ids', 'attention_mask'],
-                         list_split_keys=['labels'],
-                         *args,
-                         **kwargs)
+        super().__init__(*args, **kwargs)
         self.cot_delimiter = cot_delimiter
         self.max_answer_length = self.get_max_answer_length()
+        self.dont_split_keys = ['mode', 'generation_length', 'generation_kwargs', 'cot_delimiter']
+        self.normal_split_keys = ['input_ids', 'attention_mask']
+        self.list_split_keys = ['labels']
 
     def _parse_dataset(self, dataset: Dataset) -> List[Dict[str, str]]:
         return list(
@@ -432,7 +426,7 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
     """
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(answer_key='continuation', *args, **kwargs)
 
     def _parse_dataset(self, dataset: Dataset) -> List[Dict[str, str]]:
         return list(
@@ -507,16 +501,13 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
     """
 
     def __init__(self, *args, **kwargs):
-        super().__init__(dont_split_keys=['mode'],
-                         real_split_keys=['input_ids', 'labels', 'attention_mask'],
-                         normal_split_key=['gold_indices'],
-                         *args,
-                         **kwargs)
+        super().__init__(context_key='query', *args, **kwargs)
         self.num_choices = len(self.samples[0]['choices'])
-        self.context_key = 'query'
-        # self.dont_split_keys = ['mode']
-        # self.real_split_keys = ['input_ids', 'labels', 'attention_mask']
-        # self.normal_split_keys = ['gold_indices']
+
+        # TODO: set all these keys like this or what?
+        self.dont_split_keys = ['mode']
+        self.real_split_keys = ['input_ids', 'labels', 'attention_mask']
+        self.normal_split_keys = ['gold_indices']
 
     def _parse_dataset(self, dataset: Dataset) -> List[Dict[str, str]]:
         return list(
@@ -664,7 +655,6 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         gold_idx = sample['gold']
         continuation = sample['continuation']
         assert isinstance(gold_idx, int)
-        # TODO: fix this?
         if add_answer:
             context = context_options[gold_idx]
             if len(preceding_text) > 0:
@@ -812,7 +802,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
                 f'generations_per_sample ({generations_per_sample}) must be greater than or equal to pass_at_k ({pass_at_k}) for code evaluation.'
             )
 
-        super().__init__(context_key='prompt', answer_key='canonical_solution', *args, **kwargs)
+        super().__init__(context_key='prompt', answer_key='canonical_solution', strip_data=False, *args, **kwargs)
         self.pass_at_k = pass_at_k
         self.generations_per_sample = generations_per_sample
         self.max_prompt_length = self.get_max_prompt_length()
@@ -825,6 +815,13 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             'labels', 'tests', 'canonical_solutions', 'entry_points', 'test_inputs', 'test_outputs', 'prompts',
             'languages'
         ]
+
+    def get_max_prompt_length(self):
+        max_prompt_length = 0
+        for sample in self.encoded_dataset:
+            max_prompt_length = max(max_prompt_length,
+                                    len(sample['preamble']['input_ids'] + sample['prompt']['input_ids']))
+        return max_prompt_length
 
     def _parse_dataset(self, dataset: Dataset) -> List[Dict[str, str]]:
         return list(
@@ -839,13 +836,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
                     'test_outputs': examples['test_outputs'],
                     'language': examples['language'],
                 }))
-
-    def get_max_prompt_length(self):
-        max_prompt_length = 0
-        for sample in self.samples:
-            max_prompt_length = max(max_prompt_length,
-                                    len(sample['preamble']['input_ids'] + sample['prompt']['input_ids']))
-        return max_prompt_length
 
     def additional_processing_for_example(self, tokenized_example: dict, sample: dict):
         tokenized_example['prompt_text'] = sample['prompt']
@@ -985,13 +975,14 @@ def build_icl_dataloader(
                                                  cot_delimiter=cot_delimiter)
         effective_batchsize = batch_size
     elif icl_task_type == 'code_evaluation':
-        dataset = InContextLearningCodeEvalDataset(dataset_uri,
-                                                   tokenizer,
-                                                   max_seq_len,
-                                                   pad_tok_id,
-                                                   num_fewshot,
-                                                   prompt_string,
-                                                   example_delimiter,
+        dataset = InContextLearningCodeEvalDataset(dataset_uri=dataset_uri,
+                                                   tokenizer=tokenizer,
+                                                   max_seq_len=max_seq_len,
+                                                   pad_tok_id=pad_tok_id,
+                                                   num_fewshot=num_fewshot,
+                                                   prompt_string=prompt_string,
+                                                   example_delimiter=example_delimiter,
+                                                   continuation_delimiter=continuation_delimiter,
                                                    destination_path=destination_path,
                                                    prelimiter=prelimiter,
                                                    fewshot_random_seed=fewshot_random_seed,
