@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+from concurrent.futures import Future
 from typing import Type
 from unittest.mock import MagicMock
 
@@ -23,10 +24,26 @@ from tests.common.markers import world_size
 
 class MockMAPI:
 
-    def __init__(self):
+    def __init__(self, simulate_exception: bool = False):
         self.run_metadata = {}
+        self.simulate_exception = simulate_exception
 
-    def update_run_metadata(self, run_name, new_metadata):
+    def update_run_metadata(self, run_name, new_metadata, future=False, protect=True):
+        if future:
+            # Simulate asynchronous behavior using Future
+            future_obj = Future()
+            try:
+                self._update_metadata(run_name, new_metadata)
+                future_obj.set_result(None)  # Set a result to indicate completion
+            except Exception as e:
+                future_obj.set_exception(e)  # Set an exception if something goes wrong
+            return future_obj
+        else:
+            self._update_metadata(run_name, new_metadata)
+
+    def _update_metadata(self, run_name, new_metadata):
+        if self.simulate_exception:
+            raise RuntimeError('Simulated exception')
         if run_name not in self.run_metadata:
             self.run_metadata[run_name] = {}
         for k, v in new_metadata.items():
@@ -92,6 +109,30 @@ def test_logged_data_is_json_serializable(monkeypatch, callback_cls: Type[Callba
         assert len(mock_mapi.run_metadata[run_name].keys()) > 0
     else:
         assert len(mock_mapi.run_metadata.keys()) == 0
+
+
+@pytest.mark.parametrize('callback_cls', get_cbs_and_marks(callbacks=True))
+@world_size(1, 2)
+def test_logged_data_exception_handling(monkeypatch, callback_cls: Type[Callback], world_size):
+    """Test that exceptions in asynchronous logging are caught."""
+    mock_mapi = MockMAPI(simulate_exception=True)
+    monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
+    run_name = 'small_chungus'
+    monkeypatch.setenv('RUN_NAME', run_name)
+
+    callback_kwargs = get_cb_kwargs(callback_cls)
+    callback = callback_cls(**callback_kwargs)
+    train_dataset = RandomClassificationDataset()
+    model, train_dataloader, _ = get_cb_model_and_datasets(callback, sampler=dist.get_sampler(train_dataset))
+    trainer = Trainer(
+        model=model,
+        train_dataloader=train_dataloader,
+        train_subset_num_batches=1,
+        max_duration='1ep',
+        callbacks=callback,
+        loggers=MosaicMLLogger(),
+    )
+    trainer.fit()
 
 
 def test_metric_partial_filtering(monkeypatch):
