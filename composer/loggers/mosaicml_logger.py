@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import collections.abc
+from concurrent.futures import wait
 import fnmatch
 import logging
 import operator
@@ -73,6 +74,8 @@ class MosaicMLLogger(LoggerDestination):
             self.train_dataloader_len = None
             self.time_failed_count_adjusted = 0
             self.buffered_metadata: Dict[str, Any] = {}
+            self._futures = []
+
             self.run_name = os.environ.get(RUN_NAME_ENV_VAR)
             if self.run_name is not None:
                 log.info(f'Logging to mosaic run {self.run_name}')
@@ -176,21 +179,18 @@ class MosaicMLLogger(LoggerDestination):
     def _flush_metadata(self, force_flush: bool = False) -> None:
         """Flush buffered metadata to MosaicML if enough time has passed since last flush."""
         if self._enabled and (time.time() - self.time_last_logged > self.log_interval or force_flush):
-            try:
-                mcli.update_run_metadata(self.run_name, self.buffered_metadata)
+            try:                
+                f = mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=True, protect=True)
                 self.buffered_metadata = {}
                 self.time_last_logged = time.time()
-                # If we have not failed in the last hour, increase the allowed fails. This increases
-                # robustness to transient network issues.
-                if time.time() - self.time_failed_count_adjusted > 3600 and self.allowed_fails_left < 3:
-                    self.allowed_fails_left += 1
-                    self.time_failed_count_adjusted = time.time()
+                self._futures.append(f)
+                done, self._futures = wait(self._futures, timeout=0.01)
+                # Raise any exceptions
+                for f in done:
+                    f.exception()
             except Exception as e:
                 log.error(f'Failed to log metadata to Mosaic with error: {e}')
-                self.allowed_fails_left -= 1
-                self.time_failed_count_adjusted = time.time()
-                if self.allowed_fails_left <= 0:
-                    self._enabled = False
+                raise
 
 
 def format_data_to_json_serializable(data: Any):
