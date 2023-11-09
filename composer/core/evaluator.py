@@ -86,11 +86,10 @@ class Evaluator:
         self.label = label
         self.dataloader = ensure_data_spec(dataloader)
 
-        self.metric_names = []
         if metric_names is not None:
             if not isinstance(metric_names, list):
                 raise ValueError(f'``metric_names`` should be a list of strings, not a {type(metric_names)}')
-            self.metric_names = metric_names
+        self.metric_names = metric_names
 
         self.subset_num_batches = subset_num_batches
         self._eval_interval = None
@@ -132,8 +131,8 @@ def ensure_evaluator(evaluator: Union[Evaluator, DataSpec, Iterable, Dict[str, A
     """
     if isinstance(evaluator, Evaluator):
         # If no metric_names are specified, populate with the defaults.
-        if len(evaluator.metric_names) == 0:
-            evaluator.metric_names.extend(default_metric_names)
+        if evaluator.metric_names is None:
+            evaluator.metric_names = default_metric_names
         return evaluator
     else:
         return Evaluator(
