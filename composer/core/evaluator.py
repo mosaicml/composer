@@ -130,9 +130,6 @@ def ensure_evaluator(evaluator: Union[Evaluator, DataSpec, Iterable, Dict[str, A
         Evaluator: An evaluator.
     """
     if isinstance(evaluator, Evaluator):
-        # If no metric_names are specified, populate with the defaults.
-        if evaluator.metric_names is None:
-            evaluator.metric_names = default_metric_names
         return evaluator
     else:
         return Evaluator(

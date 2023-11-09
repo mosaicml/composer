@@ -105,9 +105,9 @@ def _get_default_scheduler_frequency(schedulers: Optional[Union[Scheduler, Seque
 
 def _filter_metrics(metrics: Dict[str, Metric], metric_names: Optional[List[str]]) -> Dict[str, Metric]:
     """Filter the metrics based on the given metric_names as regex strings (e.g. 'Accuracy', 'f1' for 'BinaryF1Score', 'Top-.' for 'Top-1 Accuracy' and 'Top-2 Accuracy', etc). If no metric_names are provided, all metrics will be returned."""
-    if metric_names is None:
-        raise ValueError('metric_names is None but should be List[str].')
     metrics = deepcopy(metrics)
+    if metric_names is None:
+        return metrics
     filtered_metrics = {}
     for name, metric in metrics.items():
         if any(re.match(f'.*{metric_name}.*', name, re.IGNORECASE) for metric_name in metric_names):
