@@ -138,6 +138,8 @@ def _compare_optims_between_state_dicts(state_dict1, state_dict2):
     optim_key1 = list(state_dict1['optimizers'].keys()).pop()
     optim_key2 = list(state_dict2['optimizers'].keys()).pop()
     assert optim_key1 == optim_key2
+    # Note for state_dict_type = 'full' on nonzero ranks
+    # state_dict1['optimizers'][optim_key1] and state_dict2['optimizers'][optim_key2] may be empty dictionaries.
     state_dict1_optim_params = state_dict1['optimizers'][optim_key1]['state']
     state_dict2_optim_params = state_dict2['optimizers'][optim_key2]['state']
     state_dict1_keys = set(state_dict1_optim_params.keys())
@@ -629,11 +631,14 @@ def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type:
     def compare_state_dicts():
         state_dict_from_trainer1 = mono_trainer.state.state_dict()
         state_dict_from_trainer2 = get_mono_state_dict_from_sharded_one(sharded_trainer)
-        _compare_model_params_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
-        _compare_optims_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
-        # Metrics are NOT equal as sharded checkpoints do not save or load metrics
-        # _compare_metrics_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
-        _compare_timestamps_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
+        # We are comparing full state dicts (all optim and model parameters are gathered on only rank 0)
+        # So we only need to compare on rank 0. Comparing on other ranks may cause errors because some state_dicts will be empty.
+        if dist.get_global_rank() == 0:
+            _compare_model_params_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
+            _compare_optims_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
+            # Metrics are NOT equal as sharded checkpoints do not save or load metrics
+            # _compare_metrics_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
+            _compare_timestamps_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
 
     # Compare state dicts.
     compare_state_dicts()
