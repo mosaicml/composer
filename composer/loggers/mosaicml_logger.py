@@ -105,7 +105,7 @@ class MosaicMLLogger(LoggerDestination):
 
     def batch_end(self, state: State, logger: Logger) -> None:
         training_progress_data = self._get_training_progress_metrics(state)
-        log.debug(f'Logging training progress data to metadata: {training_progress_data}')
+        log.debug(f'Logging training progress data to metadata: {dict_to_str(training_progress_data)}')
         self._log_metadata(training_progress_data)
         self._flush_metadata()
 
@@ -114,7 +114,7 @@ class MosaicMLLogger(LoggerDestination):
 
     def fit_end(self, state: State, logger: Logger) -> None:
         training_progress_data = self._get_training_progress_metrics(state)
-        log.debug(f'Logging FINAL training progress data to metadata: {training_progress_data}')
+        log.debug(f'Logging FINAL training progress data to metadata: {dict_to_str(training_progress_data)}')
         self._log_metadata(training_progress_data)
         self._flush_metadata(force_flush=True)
 
@@ -228,3 +228,7 @@ def format_data_to_json_serializable(data: Any):
         warnings.warn('Encountered unexpected error while formatting data to be JSON serializable. '
                       f'Returning empty string instead. Error: {str(e)}')
         return ''
+
+
+def dict_to_str(data: Dict[str, Any]):
+    return '\n'.join([f'{k}: {v}' for k, v in data.items()])
