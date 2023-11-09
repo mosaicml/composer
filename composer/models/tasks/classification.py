@@ -99,7 +99,8 @@ class ComposerClassifier(ComposerModel):
 
     def loss(self, outputs: Tensor, batch: Tuple[Any, Tensor], *args, **kwargs) -> Tensor:
         _, targets = batch
-        return self._loss_fn(outputs, targets, *args, **kwargs)
+        loss = self._loss_fn(outputs, targets, *args, **kwargs)
+        return {'a': loss, 'total': loss}
 
     def get_metrics(self, is_train: bool = False) -> Dict[str, Metric]:
         if is_train:

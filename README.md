@@ -150,6 +150,7 @@ trainer = Trainer(
     model=mnist_model(num_classes=10),
     train_dataloader=train_dataloader,
     max_duration="2ep",
+    device='mps',
     algorithms=[
         LabelSmoothing(smoothing=0.1),
         CutMix(alpha=1.0),

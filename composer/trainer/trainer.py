@@ -20,7 +20,7 @@ import warnings
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
+from typing import Any, Callable, ContextManager, Dict, Iterable, List, Mapping, Optional, Sequence, TextIO, Tuple, Union, cast
 
 import coolname
 import torch
@@ -2911,7 +2911,15 @@ class Trainer:
                                 if isinstance(self.state.device, DeviceMPS):
                                     # torchmetrics math has numerical errors on M1 devices
                                     # running the compute on CPU instead
-                                    outputs = self.state.outputs.cpu()
+                                    if isinstance(self.state.outputs, Mapping):
+                                        outputs = {}
+                                        for k, v in self.state.outputs.items():
+                                            if isinstance(v, torch.Tensor):
+                                                outputs[k] = v.cpu()
+                                            else:
+                                                outputs[k] = v
+                                    else:
+                                        outputs = self.state.outputs.cpu()
                                 else:
                                     outputs = self.state.outputs
 
