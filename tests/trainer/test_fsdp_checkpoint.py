@@ -632,7 +632,7 @@ def test_elastic_resumption(world_size, tmp_path: pathlib.Path, state_dict_type:
         state_dict_from_trainer1 = mono_trainer.state.state_dict()
         state_dict_from_trainer2 = get_mono_state_dict_from_sharded_one(sharded_trainer)
         # We are comparing full state dicts (all optim and model parameters are gathered on only rank 0)
-        # So we only need to compare on rank 0. Comparing on other ranks may cause errors because some state_dicts will be empty.
+        # so we only need to compare on rank 0. Comparing on other ranks may cause errors because some state_dicts will be empty.
         if dist.get_global_rank() == 0:
             _compare_model_params_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
             _compare_optims_between_state_dicts(state_dict_from_trainer1, state_dict_from_trainer2)
