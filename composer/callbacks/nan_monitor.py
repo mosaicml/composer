@@ -9,10 +9,10 @@ import torch
 
 from composer import Callback, Logger, State
 
-__all__ = ['NaNChecker']
+__all__ = ['NaNMonitor']
 
 
-class NaNChecker(Callback):
+class NaNMonitor(Callback):
     """Catches NaNs in the loss and raises an error if one is found."""
 
     def after_loss(self, state: State, logger: Logger):
