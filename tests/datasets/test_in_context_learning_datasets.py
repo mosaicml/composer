@@ -1525,3 +1525,60 @@ def test_lm_spacing_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
 
     assert first_batch_without_last_word.count(' UNIQUE ') == 1
     assert second_batch_without_last_word.count(' UNIQUE ') == 1
+
+@pytest.mark.parametrize('dataset_uri', ['hf://maxisawesome/long_context_eval'])
+@pytest.mark.parametrize('num_fewshot', [0, 1, 2])
+@pytest.mark.parametrize('prompt_string', ['I am a prompt', ''])
+@pytest.mark.parametrize('hf_loading_vars', [{"split":"test","name":"kv_pairs", "context_length":2048, "section":"middle"}])
+@pytest.mark.parametrize('hf_parsing_vars', [{"inputs":["context"], "outputs":["answer"]}])
+def test_hf_dataloading(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fewshot, prompt_string, hf_loading_vars, hf_parsing_vars):
+    pytest.importorskip('datasets')
+
+    # local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+
+    tokenizer = tiny_gpt2_tokenizer
+    # dataset_uri = f'{local_data}/{dataset_uri}'
+    batch_size = 2
+    seqlen = 2048
+    # empirical number from the small test dataset
+    maximum_answer_length = 9
+    dl = get_icl_task_dataloader('question_answering',
+                                 dataset_uri=dataset_uri,
+                                 tokenizer=tokenizer,
+                                 batch_size=batch_size,
+                                 max_seq_len=seqlen,
+                                 pad_tok_id=tokenizer.eos_token_id,
+                                 num_fewshot=num_fewshot,
+                                 prompt_string=prompt_string,
+                                 example_delimiter='\n',
+                                 prelimiter='Q: ',
+                                 continuation_delimiter='\nA:',
+                                 destination_path=str(tmp_path / f'icl_{num_fewshot}.jsonl'),
+                                 hf_loading_vars=hf_loading_vars,
+                                 hf_parsing_vars=hf_parsing_vars)
+    assert isinstance(dl, DataSpec)
+
+    assert isinstance(dl.dataloader, DataLoader)  # pyright
+    batch = next(dl.dataloader._get_iterator())
+    decoded_batch = tokenizer.batch_decode(batch['input_ids'])
+    import IPython; IPython.embed()
+
+    assert tuple(batch['input_ids'].shape) == (batch_size, seqlen - maximum_answer_length)
+    assert tuple(batch['attention_mask'].shape) == (batch_size, seqlen - maximum_answer_length)
+    assert batch['mode'] == 'generate'
+    # the maximum generation length from the small test data
+    assert batch['generation_length'] == maximum_answer_length
+    assert all(item[0] == tokenizer.eos_token_id for item in batch['input_ids'])
+
+    decoded_batch = tokenizer.batch_decode(batch['input_ids'])
+    import IPython; IPython.embed()
+    assert all(item.count('Q: ') == num_fewshot + 1 for item in decoded_batch)
+    assert all(item.count('\nA:') == num_fewshot + 1 for item in decoded_batch)
+
+    if len(prompt_string) > 0:
+        assert all(item.count('I am a prompt') == 1 for item in decoded_batch)
+    assert all(
+        set(found) == set(expected)
+        for found, expected in zip(batch['labels'], [['David Seville'], ['Skorpio', 'Scorpio']]))
+    assert decoded_batch[0].endswith('Q: Who was the man behind The Chipmunks?\nA:')
+    assert decoded_batch[1].endswith('Q: What star sign is Jamie Lee Curtis?\nA:')

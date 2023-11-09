@@ -88,6 +88,10 @@ def _make_padded_input(context_enc, continuation_enc, max_seq_len, pad_tok_id, p
 def _get_fewshot_sample_idxs(dataset_size: int, num_fewshot: int, sample_idx: int, rng: random.Random):
     # samples without replacement. if num_fewshot exceeds the number of unique samples,
     # then we will have fewer than num_fewshot examples in context
+    
+    # Simpler implementation (but will choose different actual ids which will break some tests) 
+    # possible_fewshot_idxs = [i for i in range(0, dataset_size) if i != sample_idx] 
+    # fewshot_idxs = set(rng.sample(possible_fewshot_idxs, num_fewshot))
     num_fewshot = min(dataset_size - 1, num_fewshot)
     fewshot_idxs = set(rng.sample(range(0, dataset_size), num_fewshot))
 
@@ -118,8 +122,8 @@ class InContextLearningDataset(Dataset):
         destination_path: str,
         fewshot_random_seed: int,
         strip_dataset: bool = True,
-        icl_hf_loading_vars: dict = {},
-        icl_hf_parsing_vars: dict = {},
+        hf_loading_vars: dict = {},
+        hf_parsing_vars: dict = {},
         context_key: str = 'context',
         answer_key: str = 'answer',
         prelimiter: str = '',
@@ -129,6 +133,7 @@ class InContextLearningDataset(Dataset):
 
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
+        self.num_fewshot = num_fewshot
         self.padding_side = 'left'
 
         self.prelimiter = prelimiter
@@ -137,13 +142,12 @@ class InContextLearningDataset(Dataset):
         self.context_key = context_key
         self.answer_key = answer_key
 
-        self.samples = self._read_dataset(dataset_uri, destination_path, icl_hf_loading_vars, icl_hf_parsing_vars)
+        self.samples = self._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_vars)
         self.strip_data = strip_dataset
         if self.strip_data:
             self.samples = strip_data(self.samples)
 
         fewshot_rng = random.Random(fewshot_random_seed)
-        self.num_fewshot = num_fewshot
         self.encoded_dataset = self._prep_examples(num_fewshot, prompt_string, fewshot_rng)
 
     def __getitem__(self, index: int):
@@ -158,8 +162,8 @@ class InContextLearningDataset(Dataset):
     def _read_dataset(self,
                       dataset_uri: str,
                       destination_path: str,
-                      icl_hf_loading_vars: dict = None,
-                      icl_hf_parsing_vars: dict = None):
+                      hf_loading_vars: dict = None,
+                      hf_parsing_vars: dict = None):
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
         except ImportError as e:
@@ -168,21 +172,19 @@ class InContextLearningDataset(Dataset):
                                                 conda_channel='conda-forge') from e
         if 'hf://' in dataset_uri:
             dataset_uri = dataset_uri.replace('hf://', '')
-            dataset = load_dataset(dataset_uri, split='train', **icl_hf_loading_vars)
+            dataset = load_dataset(dataset_uri, **hf_loading_vars)
+            dataset = self._parse_hf_dataset(dataset, hf_parsing_vars)
         else:
             with dist.local_rank_zero_download_and_wait(destination_path):
                 if dist.get_local_rank() == 0:
                     get_file(dataset_uri, destination_path, overwrite=True)
             dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
-        if icl_hf_parsing_vars:
-            dataset = self._parse_hf_dataset(dataset, icl_hf_parsing_vars)
-        else:
             dataset = self._parse_dataset(dataset)
         return dataset
 
-    def _parse_hf_dataset(self, dataset, icl_hf_parsing_vars):
+    def _parse_hf_dataset(self, dataset, hf_parsing_vars):
         dataset = dataset.map(
-            lambda example: {k: ''.join([str(example[col]) for col in v]) for k, v in icl_hf_parsing_vars})
+            lambda example: {k: ''.join([str(example[col]) for col in v]) for k, v in hf_parsing_vars.items()})
         return dataset
 
     def _parse_dataset(self, dataset: Dataset) -> List[Dict[str, str]]:
@@ -357,19 +359,27 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         if len(chain_of_thought) == 0:
             cot_delimiter = ''
         else:
+            # TODO: cot_delimiter setting is all over the place. Need to choose a single way to do it
             cot_delimiter = self.cot_delimiter
         return f'{chain_of_thought}{cot_delimiter}{sample[self.answer_key]}'
 
     def additional_processing_for_example(self, tokenized_example: dict, sample: dict):
-        tokenized_example['aliases'] = list(sample['aliases'])
+        tokenized_example['aliases'] = list(sample.get('aliases', []))
         tokenized_example['cot_delimiter'] = self.cot_delimiter
         return tokenized_example
 
     def get_max_answer_length(self):
         max_answer_length = 0
         for sample in self.samples:
-            for answer in sample['aliases']:
-                response = f"{sample['chain_of_thought']}{self.cot_delimiter}{answer}"
+            all_answers = [sample[self.answer_key]] + list(sample.get('aliases', []))
+            for answer in all_answers:
+                chain_of_thought = sample.get('chain_of_thought', '')
+                if len(chain_of_thought) == 0:
+                    cot_delimiter = ''
+                else:
+                    # TODO: cot_delimiter setting is all over the place. Need to choose a single way to do it
+                    cot_delimiter = self.cot_delimiter
+                response = f"{chain_of_thought}{cot_delimiter}{answer}"
                 max_answer_length = max(max_answer_length, len(self.tokenizer(response)['input_ids']))
         max_answer_length = max_answer_length + (_MAX_ANSWER_BUFFER_LENGTH if len(self.cot_delimiter) > 0 else 0)
         return max_answer_length
@@ -922,6 +932,8 @@ def build_icl_dataloader(
     prompt_string: str,  # e.g. 'translate english to french:'
     example_delimiter: str,  # e.g. '\n'
     continuation_delimiter: str,  # e.g. ''
+    hf_loading_vars: dict, 
+    hf_parsing_vars: dict,
     destination_path: str,
     prelimiter: str,  # e.g. 'Question: '
     cot_delimiter: str,
@@ -939,7 +951,9 @@ def build_icl_dataloader(
                                                              example_delimiter=example_delimiter,
                                                              continuation_delimiter=continuation_delimiter,
                                                              destination_path=destination_path,
-                                                             fewshot_random_seed=fewshot_random_seed)
+                                                             fewshot_random_seed=fewshot_random_seed,
+                                                             hf_loading_vars=hf_loading_vars,
+                                                             hf_parsing_vars=hf_parsing_vars)
         batch_size = max(dataset.num_choices, batch_size)
         effective_batchsize = batch_size // dataset.num_choices
     elif icl_task_type == 'schema':
@@ -952,7 +966,9 @@ def build_icl_dataloader(
                                                      example_delimiter=example_delimiter,
                                                      continuation_delimiter=continuation_delimiter,
                                                      destination_path=destination_path,
-                                                     fewshot_random_seed=fewshot_random_seed)
+                                                     fewshot_random_seed=fewshot_random_seed,
+                                                     hf_loading_vars=hf_loading_vars,
+                                                     hf_parsing_vars=hf_parsing_vars)
         batch_size = max(dataset.num_choices, batch_size)
         effective_batchsize = batch_size // dataset.num_choices
     elif icl_task_type == 'language_modeling':
@@ -965,7 +981,9 @@ def build_icl_dataloader(
                                                  example_delimiter=example_delimiter,
                                                  continuation_delimiter=continuation_delimiter,
                                                  destination_path=destination_path,
-                                                 fewshot_random_seed=fewshot_random_seed)
+                                                 fewshot_random_seed=fewshot_random_seed,
+                                                 hf_loading_vars=hf_loading_vars,
+                                                 hf_parsing_vars=hf_parsing_vars)
         effective_batchsize = batch_size
     elif icl_task_type == 'question_answering':
         dataset = InContextLearningQATaskDataset(dataset_uri=dataset_uri,
@@ -979,6 +997,8 @@ def build_icl_dataloader(
                                                  destination_path=destination_path,
                                                  prelimiter=prelimiter,
                                                  fewshot_random_seed=fewshot_random_seed,
+                                                 hf_loading_vars=hf_loading_vars,
+                                                 hf_parsing_vars=hf_parsing_vars,
                                                  cot_delimiter=cot_delimiter)
         effective_batchsize = batch_size
     elif icl_task_type == 'code_evaluation':
@@ -993,6 +1013,8 @@ def build_icl_dataloader(
                                                    destination_path=destination_path,
                                                    prelimiter=prelimiter,
                                                    fewshot_random_seed=fewshot_random_seed,
+                                                   hf_loading_vars=hf_loading_vars,
+                                                   hf_parsing_vars=hf_parsing_vars,
                                                    pass_at_k=pass_at_k,
                                                    generations_per_sample=generations_per_sample)
         effective_batchsize = batch_size
@@ -1074,6 +1096,8 @@ def get_icl_task_dataloader(
         num_fewshot: int,
         prompt_string: str,  # e.g. 'translate english to french:'
         example_delimiter: str,  # e.g. '\n'
+        hf_loading_vars: dict = {},
+        hf_parsing_vars: dict = {},
         continuation_delimiter: str = '',
         destination_path: str = '',
         prelimiter: str = '',  # e.g. 'Question: '
@@ -1144,6 +1168,8 @@ def get_icl_task_dataloader(
                 num_fewshot=num_fewshot,
                 prompt_string=prompt_string,
                 example_delimiter=example_delimiter,
+                hf_loading_vars=hf_loading_vars, 
+                hf_parsing_vars=hf_parsing_vars,
                 continuation_delimiter=continuation_delimiter,
                 destination_path=partition_uri + '_tmp',
                 prelimiter=prelimiter,
@@ -1164,6 +1190,8 @@ def get_icl_task_dataloader(
             num_fewshot=num_fewshot,
             prompt_string=prompt_string,
             example_delimiter=example_delimiter,
+            hf_loading_vars=hf_loading_vars, 
+            hf_parsing_vars=hf_parsing_vars,
             continuation_delimiter=continuation_delimiter,
             destination_path=destination_path,
             prelimiter=prelimiter,
