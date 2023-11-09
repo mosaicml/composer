@@ -117,7 +117,7 @@ class InContextLearningDataset(Dataset):
         continuation_delimiter: str,
         destination_path: str,
         fewshot_random_seed: int,
-        strip_data: bool = True,
+        strip_dataset: bool = True,
         icl_hf_loading_vars: dict = {},
         icl_hf_parsing_vars: dict = {},
         context_key: str = 'context',
@@ -138,7 +138,8 @@ class InContextLearningDataset(Dataset):
         self.answer_key = answer_key
 
         self.samples = self._read_dataset(dataset_uri, destination_path, icl_hf_loading_vars, icl_hf_parsing_vars)
-        if strip_data:
+        self.strip_data = strip_dataset
+        if self.strip_data:
             self.samples = strip_data(self.samples)
 
         fewshot_rng = random.Random(fewshot_random_seed)
@@ -238,8 +239,11 @@ class InContextLearningDataset(Dataset):
         preamble = self.tokenizer(prompt_and_fewshot)
         preamble = self.fix_eos_on_preamble(preamble)
         tokenized_example['preamble'] = preamble
-        # rstrip context because a prompt ending in a space results in degenerate output
-        tokenized_example[self.context_key] = self.tokenizer(ctxt.rstrip(), add_special_tokens=False)
+        if self.strip_data:
+            # TODO: probably shouldn't use self.strip_data for this
+            # rstrip context because a prompt ending in a space results in degenerate output
+            ctxt = ctxt.rstrip()
+        tokenized_example[self.context_key] = self.tokenizer(ctxt, add_special_tokens=False)
         return tokenized_example
 
     def _prep_examples(self, num_fewshot: int, prompt_string: str, fewshot_rng: random.Random) -> List[Dict[str, Any]]:
@@ -330,8 +334,8 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
     """
 
     def __init__(self, cot_delimiter: str = '', *args, **kwargs):
-        super().__init__(*args, **kwargs)
         self.cot_delimiter = cot_delimiter
+        super().__init__(*args, **kwargs)
         self.max_answer_length = self.get_max_answer_length()
         self.dont_split_keys = ['mode', 'generation_length', 'generation_kwargs', 'cot_delimiter']
         self.normal_split_keys = ['input_ids', 'attention_mask']
@@ -354,7 +358,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
             cot_delimiter = ''
         else:
             cot_delimiter = self.cot_delimiter
-        return f'{self.continuation_delimiter}{chain_of_thought}{cot_delimiter}{sample[self.answer_key]}'
+        return f'{chain_of_thought}{cot_delimiter}{sample[self.answer_key]}'
 
     def additional_processing_for_example(self, tokenized_example: dict, sample: dict):
         tokenized_example['aliases'] = list(sample['aliases'])
@@ -365,7 +369,6 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         max_answer_length = 0
         for sample in self.samples:
             for answer in sample['aliases']:
-                # DRY says I should use get_answer_from_sample somehow here
                 response = f"{sample['chain_of_thought']}{self.cot_delimiter}{answer}"
                 max_answer_length = max(max_answer_length, len(self.tokenizer(response)['input_ids']))
         max_answer_length = max_answer_length + (_MAX_ANSWER_BUFFER_LENGTH if len(self.cot_delimiter) > 0 else 0)
@@ -500,9 +503,9 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         fewshot_random_seed (int): Random seed used to select fewshot examples
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, choices_key: str = 'choices', *args, **kwargs):
         super().__init__(context_key='query', *args, **kwargs)
-        self.num_choices = len(self.samples[0]['choices'])
+        self.num_choices = len(self.samples[0][choices_key])
 
         # TODO: set all these keys like this or what?
         self.dont_split_keys = ['mode']
@@ -638,8 +641,9 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         fewshot_random_seed (int): Random seed used to select fewshot examples
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, choices_key='context_options', *args, **kwargs):
+        super().__init__(choices_key=choices_key, *args, **kwargs)
+        # self.num_choices = len(self.samples[0]['context_options'])
 
     def _parse_dataset(self, dataset: Dataset) -> List[Dict[str, str]]:
         return list(
@@ -651,6 +655,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
                 }))
 
     def construct_context(self, sample, preceding_text: str = '', add_answer: bool = False):
+        # TODO this is a bad monkey patch
         context_options = sample['context_options']
         gold_idx = sample['gold']
         continuation = sample['continuation']
@@ -660,25 +665,14 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
             if len(preceding_text) > 0:
                 context = f'{self.example_delimiter}{context}'
             context = f'{context}{self.continuation_delimiter}{continuation}'
-        else:
-            context_options = sample['context_options']
-            if len(preceding_text) > 0:
-                context_options = [f'{self.example_delimiter}{c}{self.continuation_delimiter}' for c in context_options]
+        # else:
+        #     context_options = sample['context_options']
+        #     if len(preceding_text) > 0:
+        #         context_options = [f'{self.example_delimiter}{c}{self.continuation_delimiter}' for c in context_options]
 
         return context
 
-    def generate_few_shot_text(self, num_fewshot: int, sample_idx: int, preamble: str,
-                               fewshot_rng: random.Random) -> str:
-        preamble = preamble
-        if num_fewshot > 0:
-            fewshot_idxs = _get_fewshot_sample_idxs(len(self.samples), num_fewshot, sample_idx, fewshot_rng)
-            for fewshot_idx in fewshot_idxs:
-                context = self.construct_context(self.samples[fewshot_idx])
-                preamble += context
-        return preamble
-
-    def _prep_examples(self, num_fewshot: int, prompt_string: str, example_delimiter: str, continuation_delimiter: str,
-                       fewshot_rng: random.Random):
+    def _prep_examples(self, num_fewshot: int, prompt_string: str, fewshot_rng: random.Random):
         """Prepares a set of schema questions into tokenized format with prompt and few shot examples.
         Each question consists of a set of possible contexts followed by a continuation, only one of the contexts would logically permit the continuation.
         At inference time we construct individual inference examples consisting of a single context option + the continuation,
@@ -696,24 +690,41 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
                 the index of the correct answer choice.
         """
 
-        # TODO: fix this
         examples = []
         for sample_idx in tqdm(range(len(self.samples))):
             prompt_and_fewshot = self.generate_few_shot_text(num_fewshot, sample_idx, prompt_string, fewshot_rng)
-            tokenized_example = self.tokenize_example(prompt_and_fewshot, '')
-            tokenized_example['context_options'] = [
-                self.tokenizer(c, add_special_tokens=False) for c in context_options
-            ]
+            # This is different bcus the context has multiple options for scheme problems
+            ctxt_options = self.construct_context_options(self.samples[sample_idx], prompt_and_fewshot)
+            tokenized_example = self.tokenize_example(prompt_and_fewshot, ctxt_options)
+            tokenized_example = self.additional_processing_for_example(tokenized_example, self.samples[sample_idx])
             examples.append(tokenized_example)
-
         return examples
+
+    def construct_context_options(self, sample, preceding_text):
+        context_options = sample['context_options']
+        if len(preceding_text) > 0:
+            if self.strip_data:
+                cont_del = self.continuation_delimiter.rstrip()
+            else:
+                cont_del = self.continuation_delimiter
+            context_options = [f'{self.example_delimiter}{c}{cont_del}' for c in context_options]
+        return context_options
+
+    def tokenize_example(self, prompt_and_fewshot: str, context_options: List[str]):
+        tokenized_example = {}
+        preamble = self.tokenizer(prompt_and_fewshot)
+        preamble = self.fix_eos_on_preamble(preamble)
+        tokenized_example['preamble'] = preamble
+        tokenized_example['context_options'] = [self.tokenizer(c, add_special_tokens=False) for c in context_options]
+        return tokenized_example
 
     def additional_processing_for_example(self, tokenized_example: dict, sample: dict):
         continuation = sample['continuation']
         if self.prefix_space:
             continuation = f' {continuation}' if not continuation.startswith(' ') else continuation
         tokenized_example['continuation'] = self.tokenizer(continuation, add_special_tokens=False)
-        tokenized_example['gold_idx'] = sample['gold_idx']
+        # TODO: make this just "gold" not 'gold_idx'
+        tokenized_example['gold_idx'] = sample['gold']
         return tokenized_example
 
     def collate_fn(self, data):
@@ -722,7 +733,6 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         gold_idxs = []
         choice_groupings = []
         for data_pair in data:
-
             continuation_start_idx = len(continuation_indices)
             preamble, context_options, continuation, gold_idx = (data_pair['preamble'], data_pair['context_options'],
                                                                  data_pair['continuation'], data_pair['gold_idx'])
@@ -758,6 +768,9 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
+    # def get_num_samples_in_batch(self, batch) -> int:
+    #     return batch['input_ids'].shape[0] // self.num_choices
+
 
 class InContextLearningCodeEvalDataset(InContextLearningDataset):
     """ A dataset that constructs batches for in-context learning code evaluation
@@ -776,7 +789,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "task_id",
         "prompt", "entry_point", "canonical_solution", "test", "test_inputs", and "test_outputs". See tests/datasets/local_data/human_eval_small.jsonl.
         tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to map between strings and token ids
-        batch_size (int): Size of a batch used for eval
+        ? batch_size (int): Size of a batch used for eval
         max_seq_len (int): The maximum sequence length supported by the model
         pad_tok_id (int): The special token reserved for padding batches
         num_fewshot (int): The number of complete fewshot examples to prepend before each test example
@@ -802,7 +815,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
                 f'generations_per_sample ({generations_per_sample}) must be greater than or equal to pass_at_k ({pass_at_k}) for code evaluation.'
             )
 
-        super().__init__(context_key='prompt', answer_key='canonical_solution', strip_data=False, *args, **kwargs)
+        super().__init__(context_key='prompt', answer_key='canonical_solution', strip_dataset=False, *args, **kwargs)
         self.pass_at_k = pass_at_k
         self.generations_per_sample = generations_per_sample
         self.max_prompt_length = self.get_max_prompt_length()
@@ -923,52 +936,52 @@ def build_icl_dataloader(
     generations_per_sample: int = 1,
 ) -> DataSpec:
     if icl_task_type == 'multiple_choice':
-        dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri,
-                                                             tokenizer,
-                                                             max_seq_len,
-                                                             pad_tok_id,
-                                                             num_fewshot,
-                                                             prompt_string,
-                                                             example_delimiter,
-                                                             continuation_delimiter,
+        dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri=dataset_uri,
+                                                             tokenizer=tokenizer,
+                                                             max_seq_len=max_seq_len,
+                                                             pad_tok_id=pad_tok_id,
+                                                             num_fewshot=num_fewshot,
+                                                             prompt_string=prompt_string,
+                                                             example_delimiter=example_delimiter,
+                                                             continuation_delimiter=continuation_delimiter,
                                                              destination_path=destination_path,
                                                              fewshot_random_seed=fewshot_random_seed)
         batch_size = max(dataset.num_choices, batch_size)
         effective_batchsize = batch_size // dataset.num_choices
     elif icl_task_type == 'schema':
-        dataset = InContextLearningSchemaTaskDataset(dataset_uri,
-                                                     tokenizer,
-                                                     max_seq_len,
-                                                     pad_tok_id,
-                                                     num_fewshot,
-                                                     prompt_string,
-                                                     example_delimiter,
-                                                     continuation_delimiter,
+        dataset = InContextLearningSchemaTaskDataset(dataset_uri=dataset_uri,
+                                                     tokenizer=tokenizer,
+                                                     max_seq_len=max_seq_len,
+                                                     pad_tok_id=pad_tok_id,
+                                                     num_fewshot=num_fewshot,
+                                                     prompt_string=prompt_string,
+                                                     example_delimiter=example_delimiter,
+                                                     continuation_delimiter=continuation_delimiter,
                                                      destination_path=destination_path,
                                                      fewshot_random_seed=fewshot_random_seed)
         batch_size = max(dataset.num_choices, batch_size)
         effective_batchsize = batch_size // dataset.num_choices
     elif icl_task_type == 'language_modeling':
-        dataset = InContextLearningLMTaskDataset(dataset_uri,
-                                                 tokenizer,
-                                                 max_seq_len,
-                                                 pad_tok_id,
-                                                 num_fewshot,
-                                                 prompt_string,
-                                                 example_delimiter,
-                                                 continuation_delimiter,
+        dataset = InContextLearningLMTaskDataset(dataset_uri=dataset_uri,
+                                                 tokenizer=tokenizer,
+                                                 max_seq_len=max_seq_len,
+                                                 pad_tok_id=pad_tok_id,
+                                                 num_fewshot=num_fewshot,
+                                                 prompt_string=prompt_string,
+                                                 example_delimiter=example_delimiter,
+                                                 continuation_delimiter=continuation_delimiter,
                                                  destination_path=destination_path,
                                                  fewshot_random_seed=fewshot_random_seed)
         effective_batchsize = batch_size
     elif icl_task_type == 'question_answering':
-        dataset = InContextLearningQATaskDataset(dataset_uri,
-                                                 tokenizer,
-                                                 max_seq_len,
-                                                 pad_tok_id,
-                                                 num_fewshot,
-                                                 prompt_string,
-                                                 example_delimiter,
-                                                 continuation_delimiter,
+        dataset = InContextLearningQATaskDataset(dataset_uri=dataset_uri,
+                                                 tokenizer=tokenizer,
+                                                 max_seq_len=max_seq_len,
+                                                 pad_tok_id=pad_tok_id,
+                                                 num_fewshot=num_fewshot,
+                                                 prompt_string=prompt_string,
+                                                 example_delimiter=example_delimiter,
+                                                 continuation_delimiter=continuation_delimiter,
                                                  destination_path=destination_path,
                                                  prelimiter=prelimiter,
                                                  fewshot_random_seed=fewshot_random_seed,

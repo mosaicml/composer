@@ -468,10 +468,10 @@ def test_qa_split_batch(dataset_uri, tmp_path):
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
     dl = get_icl_task_dataloader(
-        'question_answering',
-        dataset_uri,
-        tokenizer,
-        8,
+        icl_task_type='question_answering',
+        dataset_uri=dataset_uri,
+        tokenizer=tokenizer,
+        batch_size=8,
         max_seq_len=1024,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=0,
@@ -525,9 +525,9 @@ def test_qa_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fews
     # empirical number from the small test dataset
     maximum_answer_length = 9
     dl = get_icl_task_dataloader('question_answering',
-                                 dataset_uri,
-                                 tokenizer,
-                                 batch_size,
+                                 dataset_uri=dataset_uri,
+                                 tokenizer=tokenizer,
+                                 batch_size=batch_size,
                                  max_seq_len=seqlen,
                                  pad_tok_id=tokenizer.eos_token_id,
                                  num_fewshot=num_fewshot,
