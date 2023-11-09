@@ -89,7 +89,7 @@ class MosaicMLLogger(LoggerDestination):
 
     def after_load(self, state: State, logger: Logger) -> None:
         # Log model data downloaded and initialized for run events
-        log.info(f'Logging model initialized time to run {self.run_name} metadata')
+        log.info(f'Logging model initialized time to metadata')
         self._log_metadata({'model_initialized_time': time.time()})
         # Log WandB run URL if it exists. Must run on after_load as WandB is setup on event init
         for callback in state.callbacks:
@@ -105,7 +105,7 @@ class MosaicMLLogger(LoggerDestination):
 
     def batch_end(self, state: State, logger: Logger) -> None:
         training_progress_data = self._get_training_progress_metrics(state)
-        log.info(f'Logging training progress data to run {self.run_name} metadata: {training_progress_data}')
+        log.info(f'Logging training progress data to metadata: {training_progress_data}')
         self._log_metadata(training_progress_data)
         self._flush_metadata(force_flush=True)
 
@@ -114,7 +114,7 @@ class MosaicMLLogger(LoggerDestination):
 
     def fit_end(self, state: State, logger: Logger) -> None:
         training_progress_data = self._get_training_progress_metrics(state)
-        log.info(f'Logging FINAL training progress data to run {self.run_name} metadata: {training_progress_data}')
+        log.info(f'Logging FINAL training progress data to metadata: {training_progress_data}')
         self._log_metadata(training_progress_data)
         self._flush_metadata(force_flush=True)
 
