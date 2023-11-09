@@ -993,7 +993,7 @@ def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_st
 
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 5])
-@device('gpu')
+@device('cpu')
 def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenizer, tmp_path):
     pytest.importorskip('datasets')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
@@ -1028,9 +1028,7 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
     trainer = Trainer(model=model,
                       max_duration='1ep',
                       loggers=in_memory_logger,
-                      callbacks=EvalOutputLogging(print_only_incorrect=True,
-                                                  subset_sample=2,
-                                                  output_directory=str(tmp_path)))
+                      callbacks=EvalOutputLogging(subset_sample=2, output_directory=str(tmp_path)))
     trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
 
     assert 'metrics/lambada/InContextLearningLMAccuracy' in in_memory_logger.data.keys()
@@ -1042,7 +1040,8 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
     with open(str(tmp_path) + '/eval-outputs-ba0.tsv', 'r') as f:
         df = pd.read_csv(f, sep='\t')
     assert len(df) == 2
-    assert list(df.columns) == ['context_tok', 'continuation_tok_target', 'continuation_tok_pred', 'correct']
+    assert list(
+        df.columns) == ['context_tok', 'continuation_tok_target', 'continuation_tok_pred', 'correct', 'benchmark']
 
 
 @pytest.mark.parametrize('dataset_uri', ['winograd_small.jsonl'])
@@ -1226,9 +1225,7 @@ def test_qa_task_evaluation_opt_tokenizer(device, world_size, num_fewshot, datas
     trainer = Trainer(model=model,
                       max_duration='1ba',
                       loggers=in_memory_logger,
-                      callbacks=EvalOutputLogging(print_only_incorrect=True,
-                                                  subset_sample=2,
-                                                  output_directory=str(tmp_path)))
+                      callbacks=EvalOutputLogging(subset_sample=2, output_directory=str(tmp_path)))
 
     trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
     assert 'metrics/triviaqa/InContextLearningQAAccuracy' in in_memory_logger.data.keys()

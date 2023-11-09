@@ -45,15 +45,12 @@ class EvalOutputLogging(Callback):
     This callback then accesses each eval benchmark during eval_end, retrieves the cached results,
     and renders and and logs them in tabular format.
 
-    If print_only_incorrect=False, correct model outputs will be omitted. If subset_sample > 0, then
-    only `subset_sample` of the outputs will be logged.
+    If subset_sample > 0, then only `subset_sample` of the outputs will be logged.
+
+    output_directory indicates where to write the tsv results, either can be a local directory or a cloud storage directory.
     """
 
-    def __init__(self,
-                 print_only_incorrect: bool = False,
-                 subset_sample: int = -1,
-                 output_directory: Optional[str] = None):
-        self.print_only_incorrect = print_only_incorrect
+    def __init__(self, subset_sample: int = -1, output_directory: Optional[str] = None):
         self.subset_sample = subset_sample
         self.table = {}
         self.output_directory = output_directory if output_directory else os.getcwd()
@@ -104,7 +101,6 @@ class EvalOutputLogging(Callback):
         self.table = {}
 
     def eval_end(self, state: State, logger: Logger) -> None:
-
         assert state.dataloader is not None
         assert isinstance(state.dataloader, DataLoader)
         if hasattr(state.dataloader, 'dataset') and isinstance(state.dataloader.dataset, ICLDatasetTypes):
@@ -121,15 +117,8 @@ class EvalOutputLogging(Callback):
                         columns, rows = format_response_cache(tokenizer)
 
                         if columns is not None and rows is not None:
-                            if 'correct' not in columns:
-                                raise ValueError(f"{type(metric)}'s response cache should have column named `correct`")
-                            correct_col = columns.index('correct')
-                            if self.print_only_incorrect:
-                                rows = [r for r in rows if not r[correct_col]]
-
                             if self.subset_sample > 0:
                                 rows = random.sample(rows, min(len(rows), self.subset_sample))
-
                             for destination in logger.destinations:
                                 if not isinstance(destination, ConsoleLogger):
                                     destination.log_table(columns, rows, f'icl_outputs/{benchmark}')
