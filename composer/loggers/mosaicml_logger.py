@@ -89,6 +89,7 @@ class MosaicMLLogger(LoggerDestination):
 
     def after_load(self, state: State, logger: Logger) -> None:
         # Log model data downloaded and initialized for run events
+        log.info(f'Logging model initialized time to run {self.run_name} metadata')
         self._log_metadata({'model_initialized_time': time.time()})
         # Log WandB run URL if it exists. Must run on after_load as WandB is setup on event init
         for callback in state.callbacks:
@@ -96,63 +97,25 @@ class MosaicMLLogger(LoggerDestination):
                 run_url = callback.run_url
                 if run_url is not None:
                     self._log_metadata({'wandb/run_url': run_url})
-
-    def _get_training_progress_metrics(self, state: State) -> Dict[str, Any]:
-        """Calculates training progress metrics.
-
-        If user submits max duration:
-        - in tokens -> format: [token=x/xx]
-        - in batches -> format: [batch=x/xx]
-        - in epoch -> format: [epoch=x/xx] [batch=x/xx] (where batch refers to batches completed in current epoch)
-        If batches per epoch cannot be calculated, return [epoch=x/xx]
-
-        If no training duration given -> format: ''
-        """
-        if not self._enabled:
-            return {}
-
-        assert state.max_duration is not None
-        if state.max_duration.unit == TimeUnit.TOKEN:
-            return {
-                'training_progress': f'[token={state.timestamp.token.value}/{state.max_duration.value}]',
-            }
-        if state.max_duration.unit == TimeUnit.BATCH:
-            return {
-                'training_progress': f'[batch={state.timestamp.batch.value}/{state.max_duration.value}]',
-            }
-        training_progress_metrics = {}
-        if state.max_duration.unit == TimeUnit.EPOCH:
-            cur_batch = state.timestamp.batch_in_epoch.value
-            cur_epoch = state.timestamp.epoch.value
-            if state.timestamp.epoch.value >= 1:
-                batches_per_epoch = (state.timestamp.batch -
-                                     state.timestamp.batch_in_epoch).value // state.timestamp.epoch.value
-                curr_progress = f'[batch={cur_batch}/{batches_per_epoch}]'
-            elif self.train_dataloader_len is not None:
-                curr_progress = f'[batch={cur_batch}/{self.train_dataloader_len}]'
-            else:
-                curr_progress = f'[batch={cur_batch}]'
-            if cur_epoch < state.max_duration.value:
-                cur_epoch += 1
-            training_progress_metrics = {
-                'training_sub_progress': curr_progress,
-                'training_progress': f'[epoch={cur_epoch}/{state.max_duration.value}]',
-            }
-        return training_progress_metrics
+        self._flush_metadata(force_flush=True)
 
     def batch_start(self, state: State, logger: Logger) -> None:
         if state.dataloader_len is not None and self._enabled:
             self.train_dataloader_len = state.dataloader_len.value
 
     def batch_end(self, state: State, logger: Logger) -> None:
-        self._log_metadata(self._get_training_progress_metrics(state))
-        self._flush_metadata()
+        training_progress_data = self._get_training_progress_metrics(state)
+        log.info(f'Logging training progress data to run {self.run_name} metadata: {training_progress_data}')
+        self._log_metadata(training_progress_data)
+        self._flush_metadata(force_flush=True)
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         self._flush_metadata()
 
     def fit_end(self, state: State, logger: Logger) -> None:
-        self._log_metadata(self._get_training_progress_metrics(state))
+        training_progress_data = self._get_training_progress_metrics(state)
+        log.info(f'Logging FINAL training progress data to run {self.run_name} metadata: {training_progress_data}')
+        self._log_metadata(training_progress_data)
         self._flush_metadata(force_flush=True)
 
     def eval_end(self, state: State, logger: Logger) -> None:
@@ -192,6 +155,48 @@ class MosaicMLLogger(LoggerDestination):
                 if self.allowed_fails_left <= 0:
                     self._enabled = False
 
+    def _get_training_progress_metrics(self, state: State) -> Dict[str, Any]:
+            """Calculates training progress metrics.
+
+            If user submits max duration:
+            - in tokens -> format: [token=x/xx]
+            - in batches -> format: [batch=x/xx]
+            - in epoch -> format: [epoch=x/xx] [batch=x/xx] (where batch refers to batches completed in current epoch)
+            If batches per epoch cannot be calculated, return [epoch=x/xx]
+
+            If no training duration given -> format: ''
+            """
+            if not self._enabled:
+                return {}
+
+            assert state.max_duration is not None
+            if state.max_duration.unit == TimeUnit.TOKEN:
+                return {
+                    'training_progress': f'[token={state.timestamp.token.value}/{state.max_duration.value}]',
+                }
+            if state.max_duration.unit == TimeUnit.BATCH:
+                return {
+                    'training_progress': f'[batch={state.timestamp.batch.value}/{state.max_duration.value}]',
+                }
+            training_progress_metrics = {}
+            if state.max_duration.unit == TimeUnit.EPOCH:
+                cur_batch = state.timestamp.batch_in_epoch.value
+                cur_epoch = state.timestamp.epoch.value
+                if state.timestamp.epoch.value >= 1:
+                    batches_per_epoch = (state.timestamp.batch -
+                                        state.timestamp.batch_in_epoch).value // state.timestamp.epoch.value
+                    curr_progress = f'[batch={cur_batch}/{batches_per_epoch}]'
+                elif self.train_dataloader_len is not None:
+                    curr_progress = f'[batch={cur_batch}/{self.train_dataloader_len}]'
+                else:
+                    curr_progress = f'[batch={cur_batch}]'
+                if cur_epoch < state.max_duration.value:
+                    cur_epoch += 1
+                training_progress_metrics = {
+                    'training_sub_progress': curr_progress,
+                    'training_progress': f'[epoch={cur_epoch}/{state.max_duration.value}]',
+                }
+            return training_progress_metrics
 
 def format_data_to_json_serializable(data: Any):
     """Recursively formats data to be JSON serializable.
