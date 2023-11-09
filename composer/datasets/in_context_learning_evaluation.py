@@ -507,7 +507,6 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         super().__init__(context_key='query', *args, **kwargs)
         self.num_choices = len(self.samples[0][choices_key])
 
-        # TODO: set all these keys like this or what?
         self.dont_split_keys = ['mode']
         self.real_split_keys = ['input_ids', 'labels', 'attention_mask']
         self.normal_split_keys = ['gold_indices']
@@ -530,7 +529,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         if self.prefix_space:
             choices = [(f' {choice}' if not choice.startswith(' ') else choice) for choice in choices]
         tokenized_example['choices'] = [self.tokenizer(choice, add_special_tokens=False) for choice in choices]
-        tokenized_example['gold_idx'] = sample['gold']
+        tokenized_example['gold'] = sample['gold']
         return tokenized_example
 
     def collate_fn(self, data):
@@ -542,7 +541,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
 
             choice_start_idx = len(continuation_indices)
             preamble, context, choices, gold_idx = (data_pair['preamble'], data_pair['query'], data_pair['choices'],
-                                                    data_pair['gold_idx'])
+                                                    data_pair['gold'])
 
             for choice in choices:
                 context_enc = preamble['input_ids'] + context['input_ids']
@@ -643,7 +642,6 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
 
     def __init__(self, choices_key='context_options', *args, **kwargs):
         super().__init__(choices_key=choices_key, *args, **kwargs)
-        # self.num_choices = len(self.samples[0]['context_options'])
 
     def _parse_dataset(self, dataset: Dataset) -> List[Dict[str, str]]:
         return list(
@@ -655,7 +653,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
                 }))
 
     def construct_context(self, sample, preceding_text: str = '', add_answer: bool = False):
-        # TODO this is a bad monkey patch
+        # TODO this is bad 
         context_options = sample['context_options']
         gold_idx = sample['gold']
         continuation = sample['continuation']
@@ -723,8 +721,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         if self.prefix_space:
             continuation = f' {continuation}' if not continuation.startswith(' ') else continuation
         tokenized_example['continuation'] = self.tokenizer(continuation, add_special_tokens=False)
-        # TODO: make this just "gold" not 'gold_idx'
-        tokenized_example['gold_idx'] = sample['gold']
+        tokenized_example['gold'] = sample['gold']
         return tokenized_example
 
     def collate_fn(self, data):
@@ -735,7 +732,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         for data_pair in data:
             continuation_start_idx = len(continuation_indices)
             preamble, context_options, continuation, gold_idx = (data_pair['preamble'], data_pair['context_options'],
-                                                                 data_pair['continuation'], data_pair['gold_idx'])
+                                                                 data_pair['continuation'], data_pair['gold'])
 
             for ctxt in context_options:
                 context_enc = preamble['input_ids'] + ctxt['input_ids']
@@ -767,9 +764,6 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         }
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
-
-    # def get_num_samples_in_batch(self, batch) -> int:
-    #     return batch['input_ids'].shape[0] // self.num_choices
 
 
 class InContextLearningCodeEvalDataset(InContextLearningDataset):
@@ -929,11 +923,11 @@ def build_icl_dataloader(
     example_delimiter: str,  # e.g. '\n'
     continuation_delimiter: str,  # e.g. ''
     destination_path: str,
-    prelimiter: str = '',  # e.g. 'Question: '
-    cot_delimiter: str = '',
-    fewshot_random_seed: int = 1234,
-    pass_at_k: int = 1,
-    generations_per_sample: int = 1,
+    prelimiter: str,  # e.g. 'Question: '
+    cot_delimiter: str,
+    fewshot_random_seed: int,
+    pass_at_k: int,
+    generations_per_sample: int,
 ) -> DataSpec:
     if icl_task_type == 'multiple_choice':
         dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri=dataset_uri,
@@ -1068,6 +1062,7 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str) -> Di
         output_files[cat] = cat_dest
     return output_files
 
+#TODO: Where do we want to set our defaults?
 
 def get_icl_task_dataloader(
         icl_task_type: str,
@@ -1140,40 +1135,40 @@ def get_icl_task_dataloader(
         for category in categories:
             partition_uri = output_files[category]
             result_dls[category] = build_icl_dataloader(
-                icl_task_type,
-                partition_uri,
-                tokenizer,
-                batch_size,
-                max_seq_len,
-                pad_tok_id,
-                num_fewshot,
-                prompt_string,
-                example_delimiter,
-                continuation_delimiter,
-                partition_uri + '_tmp',
-                prelimiter,
-                cot_delimiter,
-                fewshot_random_seed,
-                pass_at_k,
-                generations_per_sample,
+                icl_task_type=icl_task_type,
+                dataset_uri=partition_uri,
+                tokenizer=tokenizer,
+                batch_size=batch_size,
+                max_seq_len=max_seq_len,
+                pad_tok_id=pad_tok_id,
+                num_fewshot=num_fewshot,
+                prompt_string=prompt_string,
+                example_delimiter=example_delimiter,
+                continuation_delimiter=continuation_delimiter,
+                destination_path=partition_uri + '_tmp',
+                prelimiter=prelimiter,
+                cot_delimiter=cot_delimiter,
+                fewshot_random_seed=fewshot_random_seed,
+                pass_at_k=pass_at_k,
+                generations_per_sample=generations_per_sample,
             )
         return result_dls
     else:
         return build_icl_dataloader(
-            icl_task_type,
-            dataset_uri,
-            tokenizer,
-            batch_size,
-            max_seq_len,
-            pad_tok_id,
-            num_fewshot,
-            prompt_string,
-            example_delimiter,
-            continuation_delimiter,
-            destination_path,
-            prelimiter,
-            cot_delimiter,
-            fewshot_random_seed,
-            pass_at_k,
-            generations_per_sample,
+            icl_task_type=icl_task_type,
+            dataset_uri=dataset_uri,
+            tokenizer=tokenizer,
+            batch_size=batch_size,
+            max_seq_len=max_seq_len,
+            pad_tok_id=pad_tok_id,
+            num_fewshot=num_fewshot,
+            prompt_string=prompt_string,
+            example_delimiter=example_delimiter,
+            continuation_delimiter=continuation_delimiter,
+            destination_path=destination_path,
+            prelimiter=prelimiter,
+            cot_delimiter=cot_delimiter,
+            fewshot_random_seed=fewshot_random_seed,
+            pass_at_k=pass_at_k,
+            generations_per_sample=generations_per_sample,
         )
