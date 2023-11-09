@@ -231,4 +231,4 @@ def format_data_to_json_serializable(data: Any):
 
 
 def dict_to_str(data: Dict[str, Any]):
-    return '\n'.join([f'{k}: {v}' for k, v in data.items()])
+    return '\n'.join([f'\t{k}: {v}' for k, v in data.items()])
