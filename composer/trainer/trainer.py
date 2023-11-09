@@ -20,7 +20,8 @@ import warnings
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, ContextManager, Dict, Iterable, List, Mapping, Optional, Sequence, TextIO, Tuple, Union, cast
+from typing import (Any, Callable, ContextManager, Dict, Iterable, List, Mapping, Optional, Sequence, TextIO, Tuple,
+                    Union, cast)
 
 import coolname
 import torch
