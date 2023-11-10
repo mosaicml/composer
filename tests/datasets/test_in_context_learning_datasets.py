@@ -1526,12 +1526,19 @@ def test_lm_spacing_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     assert first_batch_without_last_word.count(' UNIQUE ') == 1
     assert second_batch_without_last_word.count(' UNIQUE ') == 1
 
+
 @pytest.mark.parametrize('dataset_uri', ['hf://maxisawesome/long_context_eval'])
 @pytest.mark.parametrize('num_fewshot', [0, 1, 2])
 @pytest.mark.parametrize('prompt_string', ['I am a prompt', ''])
-@pytest.mark.parametrize('hf_loading_vars', [{"split":"test","name":"kv_pairs", "context_length":2048, "section":"middle"}])
-@pytest.mark.parametrize('hf_parsing_vars', [{"inputs":["context"], "outputs":["answer"]}])
-def test_hf_dataloading(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fewshot, prompt_string, hf_loading_vars, hf_parsing_vars):
+@pytest.mark.parametrize('hf_loading_vars', [{
+    'split': 'test',
+    'name': 'kv_pairs',
+    'context_length': 2048,
+    'section': 'middle'
+}])
+@pytest.mark.parametrize('hf_parsing_vars', [{'inputs': ['context'], 'outputs': ['answer']}])
+def test_hf_dataloading(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fewshot, prompt_string, hf_loading_vars,
+                        hf_parsing_vars):
     pytest.importorskip('datasets')
 
     # local_data = os.path.join(os.path.dirname(__file__), 'local_data')

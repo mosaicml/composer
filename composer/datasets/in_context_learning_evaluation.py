@@ -88,9 +88,9 @@ def _make_padded_input(context_enc, continuation_enc, max_seq_len, pad_tok_id, p
 def _get_fewshot_sample_idxs(dataset_size: int, num_fewshot: int, sample_idx: int, rng: random.Random):
     # samples without replacement. if num_fewshot exceeds the number of unique samples,
     # then we will have fewer than num_fewshot examples in context
-    
-    # Simpler implementation (but will choose different actual ids which will break some tests) 
-    # possible_fewshot_idxs = [i for i in range(0, dataset_size) if i != sample_idx] 
+
+    # Simpler implementation (but will choose different actual ids which will break some tests)
+    # possible_fewshot_idxs = [i for i in range(0, dataset_size) if i != sample_idx]
     # fewshot_idxs = set(rng.sample(possible_fewshot_idxs, num_fewshot))
     num_fewshot = min(dataset_size - 1, num_fewshot)
     fewshot_idxs = set(rng.sample(range(0, dataset_size), num_fewshot))
@@ -337,13 +337,17 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
 
     def __init__(self, cot_delimiter: str = '', *args, **kwargs):
         self.cot_delimiter = cot_delimiter
+        self.has_cot = False
         super().__init__(*args, **kwargs)
+        
         self.max_answer_length = self.get_max_answer_length()
         self.dont_split_keys = ['mode', 'generation_length', 'generation_kwargs', 'cot_delimiter']
         self.normal_split_keys = ['input_ids', 'attention_mask']
         self.list_split_keys = ['labels']
 
     def _parse_dataset(self, dataset: Dataset) -> List[Dict[str, str]]:
+        # TODO: I hate that this is here - I really just don't want to ever have a list
+        self.has_cot = 'chain_of_thought' in dataset.features
         return list(
             dataset.map(
                 lambda examples: {
@@ -354,18 +358,14 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
                 }))
 
     def get_answer_from_sample(self, sample):
-        # If we add the answer, we need to also add COT
-        chain_of_thought = sample.get('chain_of_thought', '')
-        if len(chain_of_thought) == 0:
-            cot_delimiter = ''
+        if self.has_cot:
+            return f'{sample["chain_of_thought"]}{self.cot_delimiter}{sample[self.answer_key]}'
         else:
-            # TODO: cot_delimiter setting is all over the place. Need to choose a single way to do it
-            cot_delimiter = self.cot_delimiter
-        return f'{chain_of_thought}{cot_delimiter}{sample[self.answer_key]}'
+            return sample[self.answer_key]
 
     def additional_processing_for_example(self, tokenized_example: dict, sample: dict):
         tokenized_example['aliases'] = list(sample.get('aliases', []))
-        tokenized_example['cot_delimiter'] = self.cot_delimiter
+        # tokenized_example['cot_delimiter'] = self.cot_delimiter
         return tokenized_example
 
     def get_max_answer_length(self):
@@ -373,20 +373,16 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         for sample in self.samples:
             all_answers = [sample[self.answer_key]] + list(sample.get('aliases', []))
             for answer in all_answers:
-                chain_of_thought = sample.get('chain_of_thought', '')
-                if len(chain_of_thought) == 0:
-                    cot_delimiter = ''
+                if self.has_cot:
+                    response = f'{sample["chain_of_thought"]}{self.cot_delimiter}{answer}'
                 else:
-                    # TODO: cot_delimiter setting is all over the place. Need to choose a single way to do it
-                    cot_delimiter = self.cot_delimiter
-                response = f"{chain_of_thought}{cot_delimiter}{answer}"
+                    response = answer
                 max_answer_length = max(max_answer_length, len(self.tokenizer(response)['input_ids']))
         max_answer_length = max_answer_length + (_MAX_ANSWER_BUFFER_LENGTH if len(self.cot_delimiter) > 0 else 0)
         return max_answer_length
 
     def collate_fn(self, data):
         inputs, answers = [], []
-        cot_delimiter = ''
 
         for sample in data:
             preamble, context, aliases = (sample['preamble'], sample['context'], sample['aliases'])
@@ -401,13 +397,13 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
 
             # We will search for the answer within the portion of the model response
             # beginning with `cot_delimiter`
-            cot_delimiter = sample['cot_delimiter']
+            # cot_delimiter = sample['cot_delimiter']
 
         batch = {
             'input_ids': torch.stack(inputs),
             'mode': 'generate',
             'labels': answers,
-            'cot_delimiter': cot_delimiter,
+            'cot_delimiter': self.cot_delimiter,
             'generation_length': self.max_answer_length,
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
@@ -663,7 +659,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
                 }))
 
     def construct_context(self, sample, preceding_text: str = '', add_answer: bool = False):
-        # TODO this is bad 
+        # TODO this is bad
         context_options = sample['context_options']
         gold_idx = sample['gold']
         continuation = sample['continuation']
@@ -932,7 +928,7 @@ def build_icl_dataloader(
     prompt_string: str,  # e.g. 'translate english to french:'
     example_delimiter: str,  # e.g. '\n'
     continuation_delimiter: str,  # e.g. ''
-    hf_loading_vars: dict, 
+    hf_loading_vars: dict,
     hf_parsing_vars: dict,
     destination_path: str,
     prelimiter: str,  # e.g. 'Question: '
@@ -1084,7 +1080,9 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str) -> Di
         output_files[cat] = cat_dest
     return output_files
 
+
 #TODO: Where do we want to set our defaults?
+
 
 def get_icl_task_dataloader(
         icl_task_type: str,
@@ -1168,7 +1166,7 @@ def get_icl_task_dataloader(
                 num_fewshot=num_fewshot,
                 prompt_string=prompt_string,
                 example_delimiter=example_delimiter,
-                hf_loading_vars=hf_loading_vars, 
+                hf_loading_vars=hf_loading_vars,
                 hf_parsing_vars=hf_parsing_vars,
                 continuation_delimiter=continuation_delimiter,
                 destination_path=partition_uri + '_tmp',
@@ -1190,7 +1188,7 @@ def get_icl_task_dataloader(
             num_fewshot=num_fewshot,
             prompt_string=prompt_string,
             example_delimiter=example_delimiter,
-            hf_loading_vars=hf_loading_vars, 
+            hf_loading_vars=hf_loading_vars,
             hf_parsing_vars=hf_parsing_vars,
             continuation_delimiter=continuation_delimiter,
             destination_path=destination_path,
