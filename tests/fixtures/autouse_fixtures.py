@@ -3,9 +3,9 @@
 
 import gc
 import logging
-from concurrent.futures import Future
 import os
 import pathlib
+from concurrent.futures import Future
 
 import mcli
 import pytest
