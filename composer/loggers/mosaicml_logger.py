@@ -152,8 +152,8 @@ class MosaicMLLogger(LoggerDestination):
                 log.info(f'Logged {len(done)} metadata to MosaicML, waiting on {len(incomplete)}')
                 # Raise any exceptions
                 for f in done:
-                    if f.exception():
-                        raise f.exception()
+                    if f.exception() is not None:
+                        raise f.exception()  # type: ignore
                 self._futures = list(incomplete)
             except Exception as e:
                 log.error(f'Failed to log metadata to Mosaic with error: {e}')
