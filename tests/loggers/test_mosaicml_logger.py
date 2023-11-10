@@ -139,15 +139,16 @@ def test_logged_data_exception_handling(monkeypatch, callback_cls: Type[Callback
         trainer.fit()
         assert logger._enabled == False
     else:
-        with pytest.raises(RuntimeError, match='Simulated exception'):
-            Trainer(
-                model=model,
-                train_dataloader=train_dataloader,
-                train_subset_num_batches=1,
-                max_duration='1ep',
-                callbacks=callback,
-                loggers=logger,
-            )
+        if dist.get_global_rank() == 0:
+            with pytest.raises(RuntimeError, match='Simulated exception'):
+                Trainer(
+                    model=model,
+                    train_dataloader=train_dataloader,
+                    train_subset_num_batches=1,
+                    max_duration='1ep',
+                    callbacks=callback,
+                    loggers=logger,
+                )
 
 
 def test_metric_partial_filtering(monkeypatch):
