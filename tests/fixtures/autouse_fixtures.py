@@ -47,13 +47,13 @@ def disable_wandb(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureReques
             monkeypatch.setenv('WANDB_PROJECT', 'pytest')
 
 
-# @pytest.fixture(scope='session')
-# def cleanup_dist():
-#     """Ensure all dist tests clean up resources properly."""
-#     yield
-#     # Avoid race condition where a test is still writing to a file on one rank
-#     # while the file system is being torn down on another rank.
-#     dist.barrier()
+@pytest.fixture(scope='session')
+def cleanup_dist():
+    """Ensure all dist tests clean up resources properly."""
+    yield
+    # Avoid race condition where a test is still writing to a file on one rank
+    # while the file system is being torn down on another rank.
+    dist.barrier()
 
 
 @pytest.fixture(autouse=True, scope='session')
