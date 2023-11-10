@@ -121,6 +121,7 @@ def test_logged_data_exception_handling(monkeypatch, callback_cls: Type[Callback
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
     run_name = 'small_chungus'
     monkeypatch.setenv('RUN_NAME', run_name)
+    monkeypatch.setenv(MOSAICML_ACCESS_TOKEN_ENV_VAR, 'my-token')
 
     callback_kwargs = get_cb_kwargs(callback_cls)
     callback = callback_cls(**callback_kwargs)
