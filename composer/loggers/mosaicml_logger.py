@@ -58,21 +58,22 @@ class MosaicMLLogger(LoggerDestination):
             Example 2: ``ignore_keys = ["wall_clock/*"]`` would ignore all wall clock metrics.
 
             (default: ``None``)
+        ignore_exceptions: Flag to disable logging exceptions. Defaults to False.
     """
 
     def __init__(
         self,
         log_interval: int = 60,
         ignore_keys: Optional[List[str]] = None,
+        ignore_exceptions: bool = False,
     ) -> None:
         self.log_interval = log_interval
         self.ignore_keys = ignore_keys
+        self.ignore_exceptions = ignore_exceptions
         self._enabled = dist.get_global_rank() == 0
         if self._enabled:
-            self.allowed_fails_left = 3
             self.time_last_logged = 0
             self.train_dataloader_len = None
-            self.time_failed_count_adjusted = 0
             self.buffered_metadata: Dict[str, Any] = {}
             self._futures = []
 
@@ -193,7 +194,12 @@ class MosaicMLLogger(LoggerDestination):
                 self._futures = list(incomplete)
             except Exception as e:
                 log.error(f'Failed to log metadata to Mosaic with error: {e}')
-                raise
+                if self.ignore_exceptions:
+                    log.error('Ignoring exception and disabling MosaicMLLogger.')
+                    self._enabled = False
+                else:
+                    log.error('Raising exception. To ignore exceptions, set ignore_exceptions=True.')
+                    raise
 
 
 def format_data_to_json_serializable(data: Any):

@@ -113,7 +113,9 @@ def test_logged_data_is_json_serializable(monkeypatch, callback_cls: Type[Callba
 
 @pytest.mark.parametrize('callback_cls', get_cbs_and_marks(callbacks=True))
 @world_size(1, 2)
-def test_logged_data_exception_handling(monkeypatch, callback_cls: Type[Callback], world_size):
+@pytest.mark.parametrize('ignore_exceptions', [True, False])
+def test_logged_data_exception_handling(monkeypatch, callback_cls: Type[Callback], world_size: int,
+                                        ignore_exceptions: bool):
     """Test that exceptions in MAPI are raised properly."""
     mock_mapi = MockMAPI(simulate_exception=True)
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
@@ -124,15 +126,28 @@ def test_logged_data_exception_handling(monkeypatch, callback_cls: Type[Callback
     callback = callback_cls(**callback_kwargs)
     train_dataset = RandomClassificationDataset()
     model, train_dataloader, _ = get_cb_model_and_datasets(callback, sampler=dist.get_sampler(train_dataset))
-    with pytest.raises(RuntimeError, match='Simulated exception'):
-        Trainer(
+    logger = MosaicMLLogger(ignore_exceptions=ignore_exceptions)
+    if ignore_exceptions:
+        trainer = Trainer(
             model=model,
             train_dataloader=train_dataloader,
             train_subset_num_batches=1,
             max_duration='1ep',
             callbacks=callback,
-            loggers=MosaicMLLogger(),
+            loggers=logger,
         )
+        trainer.fit()
+        assert logger._enabled == False
+    else:
+        with pytest.raises(RuntimeError, match='Simulated exception'):
+            Trainer(
+                model=model,
+                train_dataloader=train_dataloader,
+                train_subset_num_batches=1,
+                max_duration='1ep',
+                callbacks=callback,
+                loggers=logger,
+            )
 
 
 def test_metric_partial_filtering(monkeypatch):
