@@ -63,6 +63,7 @@ trainer = Trainer(model=model,
                   algorithms=[SeqLengthWarmup(max_seq_length=64)])
 
 trainer.fit()
+trainer.close()
 ```
 
 ### Implementation Details
