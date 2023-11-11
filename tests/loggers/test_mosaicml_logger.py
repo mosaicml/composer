@@ -137,7 +137,6 @@ def test_logged_data_exception_handling(monkeypatch, world_size: int, ignore_exc
             logger._flush_metadata(force_flush=True)
 
 
-
 def test_metric_partial_filtering(monkeypatch):
     mock_mapi = MockMAPI()
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
