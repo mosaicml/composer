@@ -159,7 +159,6 @@ class InContextLearningDataset(Dataset):
                 'fewshot_rng': fewshot_rng,
             },
         )
-        # self.encoded_dataset = self._prep_examples(num_fewshot, prompt_string, fewshot_rng)
 
     def __getitem__(self, index: int):
         return self.encoded_dataset[index]
@@ -185,6 +184,7 @@ class InContextLearningDataset(Dataset):
                 conda_package='datasets',
                 conda_channel='conda-forge',
             ) from e
+        # TODO: this feels bad as well
         if 'hf://' in dataset_uri:
             dataset_uri = dataset_uri.replace('hf://', '')
             dataset = load_dataset(dataset_uri, **hf_loading_vars)
@@ -718,7 +718,6 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
             })
 
     def construct_context(self, sample, preceding_text: str = '', add_answer: bool = False):
-        # TODO this is bad
         context_options = sample['context_options']
         gold_idx = sample['gold']
         continuation = sample['continuation']
@@ -728,50 +727,18 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
             if len(preceding_text) > 0:
                 context = f'{self.example_delimiter}{context}'
             context = f'{context}{self.continuation_delimiter}{continuation}'
-        # else:
-        #     context_options = sample['context_options']
-        #     if len(preceding_text) > 0:
-        #         context_options = [f'{self.example_delimiter}{c}{self.continuation_delimiter}' for c in context_options]
-
-        return context
-
-    def _prep_examples(self, num_fewshot: int, prompt_string: str, fewshot_rng: random.Random):
-        """Prepares a set of schema questions into tokenized format with prompt and few shot examples.
-        Each question consists of a set of possible contexts followed by a continuation, only one of the contexts would logically permit the continuation.
-        At inference time we construct individual inference examples consisting of a single context option + the continuation,
-        as well as an optional (prompt) and optional list of example correct context option + continuations, which precede the test context option + continuation.
-        For schema, this method provides information relaying which of the answer choices is the correct one. This
-        information is used for computing accuracy metrics.
-        Args:
-            num_fewshot (int): Number of examples context/continuation pairs to prepend to the test pair
-            prompt_string (str): The prompt to prepend to all inputs
-            example_delimiter (str): The delimiter used to separate each example query/answer pair
-            continuation_delimiter (str): The delimiter used to separate each query from its answer
-            fewshot_rng (random.Random): Random number generator used to select fewshot examples
-        Returns:
-            dict: Contains the query, the list of encoded potential answer choices, the preamble (prompt + fewshot examples), and
-                the index of the correct answer choice.
-        """
-
-        examples = []
-        for sample_idx in tqdm(range(len(self.samples))):
-            prompt_and_fewshot = self.generate_few_shot_text(num_fewshot, sample_idx, prompt_string, fewshot_rng)
-            # This is different bcus the context has multiple options for scheme problems
-            ctxt_options = self.construct_context_options(self.samples[sample_idx], prompt_and_fewshot)
-            tokenized_example = self.tokenize_example(prompt_and_fewshot, ctxt_options)
-            tokenized_example = self.additional_processing_for_example(tokenized_example, self.samples[sample_idx])
-            examples.append(tokenized_example)
-        return examples
-
-    def construct_context_options(self, sample, preceding_text):
-        context_options = sample['context_options']
-        if len(preceding_text) > 0:
-            if self.strip_data:
-                cont_del = self.continuation_delimiter.rstrip()
-            else:
-                cont_del = self.continuation_delimiter
-            context_options = [f'{self.example_delimiter}{c}{cont_del}' for c in context_options]
-        return context_options
+            return context
+        else:
+            # TODO: This is a kinda code-smelly bcus we return two different types
+            # depending on the situation (a string if we hav add_answer=True or a
+            # list of strings if add_answer=False)
+            if len(preceding_text) > 0:
+                if self.strip_data:
+                    cont_del = self.continuation_delimiter.rstrip()
+                else:
+                    cont_del = self.continuation_delimiter
+                context_options = [f'{self.example_delimiter}{c}{cont_del}' for c in context_options]
+            return context_options
 
     def tokenize_example(self, prompt_and_fewshot: str, context_options: List[str]):
         tokenized_example = {}
