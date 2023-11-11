@@ -8,7 +8,6 @@ from unittest.mock import MagicMock
 
 import mcli
 import pytest
-from sympy import true
 import torch
 from torch.utils.data import DataLoader
 
