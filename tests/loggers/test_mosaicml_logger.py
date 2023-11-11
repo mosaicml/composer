@@ -115,7 +115,7 @@ def test_logged_data_is_json_serializable(monkeypatch, callback_cls: Type[Callba
 @pytest.mark.parametrize('ignore_exceptions', [True, False])
 def test_logged_data_exception_handling(monkeypatch, world_size: int, ignore_exceptions: bool):
     """Test that exceptions in MAPI are raised properly."""
-    mock_mapi = MockMAPI()
+    mock_mapi = MockMAPI(simulate_exception=True)
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
     run_name = 'small_chungus'
     monkeypatch.setenv('RUN_NAME', run_name)

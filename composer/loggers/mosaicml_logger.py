@@ -142,6 +142,7 @@ class MosaicMLLogger(LoggerDestination):
 
     def _flush_metadata(self, force_flush: bool = False) -> None:
         """Flush buffered metadata to MosaicML if enough time has passed since last flush."""
+        import pdb; pdb.set_trace()
         if self._enabled and (time.time() - self.time_last_logged > self.log_interval or force_flush):
             try:
                 f = mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=True, protect=True)
