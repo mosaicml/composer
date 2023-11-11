@@ -121,21 +121,21 @@ def test_logged_data_exception_handling(monkeypatch, world_size: int, ignore_exc
     monkeypatch.setenv('RUN_NAME', run_name)
 
     logger = MosaicMLLogger(ignore_exceptions=ignore_exceptions)
-    if ignore_exceptions:
-        on_rank_zero = (dist.get_global_rank() == 0)
-        assert logger._enabled is on_rank_zero
+    if dist.get_global_rank() != 0:
+        assert logger._enabled is False
         logger._flush_metadata(force_flush=True)
         assert logger._enabled is False
-    elif dist.get_global_rank() == 0:
+    elif ignore_exceptions:
+        assert logger._enabled is True
+        logger._flush_metadata(force_flush=True)
+        assert logger._enabled is False
+    else:
         with pytest.raises(RuntimeError, match='Simulated exception'):
             assert logger._enabled is True
             mock_mapi = MockMAPI(simulate_exception=True)
             monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
             logger._flush_metadata(force_flush=True)
-    else:
-        assert logger._enabled is False
-        logger._flush_metadata(force_flush=True)
-        assert logger._enabled is False
+
 
 
 def test_metric_partial_filtering(monkeypatch):
