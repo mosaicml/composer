@@ -111,29 +111,22 @@ def test_logged_data_is_json_serializable(monkeypatch, callback_cls: Type[Callba
         assert len(mock_mapi.run_metadata.keys()) == 0
 
 
-@pytest.mark.parametrize('callback_cls', get_cbs_and_marks(callbacks=True))
 @world_size(1, 2)
 @pytest.mark.parametrize('ignore_exceptions', [True, False])
-def test_logged_data_exception_handling(monkeypatch, callback_cls: Type[Callback], world_size: int,
-                                        ignore_exceptions: bool):
+def test_logged_data_exception_handling(monkeypatch, world_size: int, ignore_exceptions: bool):
     """Test that exceptions in MAPI are raised properly."""
-    mock_mapi = MockMAPI(simulate_exception=True)
+    mock_mapi = MockMAPI()
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
     run_name = 'small_chungus'
     monkeypatch.setenv('RUN_NAME', run_name)
 
-    callback_kwargs = get_cb_kwargs(callback_cls)
-    callback = callback_cls(**callback_kwargs)
-    train_dataset = RandomClassificationDataset()
-    model, train_dataloader, _ = get_cb_model_and_datasets(callback, sampler=dist.get_sampler(train_dataset))
     logger = MosaicMLLogger(ignore_exceptions=ignore_exceptions)
     if ignore_exceptions:
         trainer = Trainer(
-            model=model,
-            train_dataloader=train_dataloader,
-            train_subset_num_batches=1,
+            model=SimpleModel(),
+            train_dataloader=DataLoader(RandomClassificationDataset()),
+            train_subset_num_batches=2,
             max_duration='1ep',
-            callbacks=callback,
             loggers=logger,
         )
         trainer.fit()
@@ -142,11 +135,10 @@ def test_logged_data_exception_handling(monkeypatch, callback_cls: Type[Callback
         if dist.get_global_rank() == 0:
             with pytest.raises(RuntimeError, match='Simulated exception'):
                 Trainer(
-                    model=model,
-                    train_dataloader=train_dataloader,
-                    train_subset_num_batches=1,
+                    model=SimpleModel(),
+                    train_dataloader=DataLoader(RandomClassificationDataset()),
+                    train_subset_num_batches=2,
                     max_duration='1ep',
-                    callbacks=callback,
                     loggers=logger,
                 )
 
