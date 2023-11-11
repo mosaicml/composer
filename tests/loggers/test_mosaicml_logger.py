@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 
 import mcli
 import pytest
+from sympy import true
 import torch
 from torch.utils.data import DataLoader
 
@@ -122,26 +123,19 @@ def test_logged_data_exception_handling(monkeypatch, world_size: int, ignore_exc
 
     logger = MosaicMLLogger(ignore_exceptions=ignore_exceptions)
     if ignore_exceptions:
-        trainer = Trainer(
-            model=SimpleModel(),
-            train_dataloader=DataLoader(RandomClassificationDataset()),
-            train_subset_num_batches=2,
-            max_duration='1ep',
-            loggers=logger,
-        )
-        trainer.fit()
-        assert logger._enabled == False
+        assert logger._enabled is True
+        logger._flush_metadata(force_flush=True)
+        assert logger._enabled is False
+    elif dist.get_global_rank() == 0:
+        with pytest.raises(RuntimeError, match='Simulated exception'):
+            assert logger._enabled is True
+            mock_mapi = MockMAPI(simulate_exception=True)
+            monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
+            logger._flush_metadata(force_flush=True)
     else:
-        if dist.get_global_rank() == 0:
-            with pytest.raises(RuntimeError, match='Simulated exception'):
-                Trainer(
-                    model=SimpleModel(),
-                    train_dataloader=DataLoader(RandomClassificationDataset()),
-                    train_subset_num_batches=2,
-                    max_duration='1ep',
-                    loggers=logger,
-                )
-
+        assert logger._enabled is False
+        logger._flush_metadata(force_flush=True)
+        assert logger._enabled is False
 
 def test_metric_partial_filtering(monkeypatch):
     mock_mapi = MockMAPI()
