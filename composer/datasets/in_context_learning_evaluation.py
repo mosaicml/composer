@@ -183,9 +183,9 @@ class InContextLearningDataset(Dataset):
         return dataset
 
     def _parse_hf_dataset(self, dataset, hf_parsing_vars):
-        dataset = dataset.map(
-            lambda example: {k: ''.join([str(example[col]) for col in v]) for k, v in hf_parsing_vars.items()})
-        return dataset
+        return dataset.map(
+            lambda example: {k: ''.join([str(example[col]) for col in v]) for k, v in hf_parsing_vars.items()}
+            )
 
     def _parse_dataset(self, dataset: Dataset) -> List[Dict[str, str]]:
         return list(
