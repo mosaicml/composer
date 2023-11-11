@@ -122,7 +122,8 @@ def test_logged_data_exception_handling(monkeypatch, world_size: int, ignore_exc
 
     logger = MosaicMLLogger(ignore_exceptions=ignore_exceptions)
     if ignore_exceptions:
-        assert logger._enabled is True
+        on_rank_zero = (dist.get_global_rank() == 0)
+        assert logger._enabled is on_rank_zero
         logger._flush_metadata(force_flush=True)
         assert logger._enabled is False
     elif dist.get_global_rank() == 0:
@@ -135,6 +136,7 @@ def test_logged_data_exception_handling(monkeypatch, world_size: int, ignore_exc
         assert logger._enabled is False
         logger._flush_metadata(force_flush=True)
         assert logger._enabled is False
+
 
 def test_metric_partial_filtering(monkeypatch):
     mock_mapi = MockMAPI()
