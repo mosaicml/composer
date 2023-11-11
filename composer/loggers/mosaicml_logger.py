@@ -129,7 +129,10 @@ class MosaicMLLogger(LoggerDestination):
         self._flush_metadata(force_flush=True)
 
     def close(self, state: State, logger: Logger) -> None:
-        self._flush_metadata(force_flush=True)
+        try:
+            self._flush_metadata(force_flush=True)
+        except Exception as e:
+            log.error(f'Failed to flush on close to Mosaic with error: {e}')
 
     def _log_metadata(self, metadata: Dict[str, Any]) -> None:
         """Buffer metadata and prefix keys with mosaicml."""
@@ -156,12 +159,12 @@ class MosaicMLLogger(LoggerDestination):
                         raise f.exception()  # type: ignore
                 self._futures = list(incomplete)
             except Exception as e:
-                log.info(f'Failed to log metadata to Mosaic with error: {e}')
+                log.error(f'Failed to log metadata to Mosaic with error: {e}')
                 if self.ignore_exceptions:
-                    log.info('Ignoring exception and disabling MosaicMLLogger.')
+                    log.error('Ignoring exception and disabling MosaicMLLogger.')
                     self._enabled = False
                 else:
-                    log.info('Raising exception. To ignore exceptions, set ignore_exceptions=True.')
+                    log.error('Raising exception. To ignore exceptions, set ignore_exceptions=True.')
                     raise
 
     def _get_training_progress_metrics(self, state: State) -> Dict[str, Any]:
