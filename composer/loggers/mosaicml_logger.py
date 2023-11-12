@@ -129,10 +129,7 @@ class MosaicMLLogger(LoggerDestination):
         self._flush_metadata(force_flush=True)
 
     def close(self, state: State, logger: Logger) -> None:
-        try:
-            self._flush_metadata(force_flush=True)
-        except Exception as e:
-            log.info(f'Failed to flush on close to Mosaic with error: {e}')
+        self._flush_metadata(force_flush=True, on_close=True)
 
     def _log_metadata(self, metadata: Dict[str, Any]) -> None:
         """Buffer metadata and prefix keys with mosaicml."""
@@ -143,7 +140,7 @@ class MosaicMLLogger(LoggerDestination):
                 self.buffered_metadata[f'mosaicml/{key}'] = format_data_to_json_serializable(val)
             self._flush_metadata()
 
-    def _flush_metadata(self, force_flush: bool = False) -> None:
+    def _flush_metadata(self, force_flush: bool = False, on_close: bool=False) -> None:
         """Flush buffered metadata to MosaicML if enough time has passed since last flush."""
         if self._enabled and (time.time() - self.time_last_logged > self.log_interval or force_flush):
             try:
@@ -160,7 +157,7 @@ class MosaicMLLogger(LoggerDestination):
                 self._futures = list(incomplete)
             except Exception as e:
                 log.info(f'Failed to log metadata to Mosaic with error: {e}')
-                if self.ignore_exceptions:
+                if self.ignore_exceptions or on_close:
                     log.info('Ignoring exception and disabling MosaicMLLogger.')
                     self._enabled = False
                 else:
