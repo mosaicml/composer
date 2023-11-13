@@ -10,7 +10,7 @@ from composer.models import ComposerClassifier
 from composer.trainer.trainer import Trainer
 from composer.utils import dist
 from tests.common import (EmbeddedWeightTiedModel, RandomClassificationDataset, SimpleModel, SimpleWeightTiedModel,
-                          world_size)
+                          device, world_size)
 
 
 @pytest.mark.parametrize('model', [SimpleWeightTiedModel, EmbeddedWeightTiedModel])
@@ -19,6 +19,7 @@ from tests.common import (EmbeddedWeightTiedModel, RandomClassificationDataset, 
 @pytest.mark.parametrize('reentrant', [True, False])
 @world_size(2)
 @pytest.mark.gpu
+@pytest.mark.filterwarnings('ignore:The passed in model appears to have tied weights.*:UserWarning')
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='FSDP requires PyTorch 1.13 or higher')
 def test_fsdp_device_initialization(model: ComposerClassifier, mixed_precision: str, reentrant: bool, world_size: int,
@@ -67,7 +68,7 @@ def test_fsdp_device_initialization(model: ComposerClassifier, mixed_precision: 
 @world_size(2)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='FSDP requires PyTorch 1.13 or higher')
-def test_fsdp_meta_initialization_none(model: ComposerClassifier, mixed_precision: 'str', world_size: int, device: str):
+def test_fsdp_meta_initialization_none(model: ComposerClassifier, mixed_precision: 'str', world_size: int):
     """
     This test is intended to test FSDP for meta initialization when there are attributes
     that are `None` and ensure we don't raise nasty UserWarnings.
@@ -96,7 +97,7 @@ def test_fsdp_meta_initialization_none(model: ComposerClassifier, mixed_precisio
 @world_size(2)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='FSDP requires PyTorch 1.13 or higher')
-def test_fsdp_prefetch_limit(forward_prefetch_limit: int, backward_prefetch_limit: int, world_size: int, device: str):
+def test_fsdp_prefetch_limit(forward_prefetch_limit: int, backward_prefetch_limit: int, world_size: int):
     """test FSDP device initialization for a simple model with weight tying and a model where two modules
     from separate submodules have weight tying applied. This test also covers both 'cpu' and
     'meta' devices. This is because 'meta' will result in deferred initialization until FSDP is initialized
