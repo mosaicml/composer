@@ -10,7 +10,7 @@ from composer.models import ComposerClassifier
 from composer.trainer.trainer import Trainer
 from composer.utils import dist
 from tests.common import (EmbeddedWeightTiedModel, RandomClassificationDataset, SimpleModel, SimpleWeightTiedModel,
-                          device, world_size)
+                          world_size)
 
 
 @pytest.mark.parametrize('model', [SimpleWeightTiedModel, EmbeddedWeightTiedModel])
