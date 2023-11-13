@@ -514,22 +514,19 @@ def prepare_fsdp_module(
                 if hasattr(fsdp_obj._exec_order_data, '_forward_prefetch_limit'):
                     fsdp_obj._exec_order_data._forward_prefetch_limit = fsdp_config['forward_prefetch_limit']
                 else:
-                    warnings.warn(
-                        'FSDP._exec_order_data does not have attribute _forward_prefetch_limit '
-                        'which is unexpected and will result in `forward_prefetch_limit` from FSDP '
-                        'config being ignored. Please open an issue to Composer to report this.')
+                    warnings.warn('FSDP._exec_order_data does not have attribute _forward_prefetch_limit '
+                                  'which is unexpected and will result in `forward_prefetch_limit` from FSDP '
+                                  'config being ignored. Please open an issue to Composer to report this.')
                 if hasattr(fsdp_obj._exec_order_data, '_backward_prefetch_limit'):
                     fsdp_obj._exec_order_data._backward_prefetch_limit = fsdp_config['backward_prefetch_limit']
                 else:
-                    warnings.warn(
-                        'FSDP._exec_order_data does not have attribute _backward_prefetch_limit '
-                        'which is unexpected and will result in `backward_prefetch_limit` from FSDP '
-                        'config being ignored. Please open an issue to Composer to report this.')
+                    warnings.warn('FSDP._exec_order_data does not have attribute _backward_prefetch_limit '
+                                  'which is unexpected and will result in `backward_prefetch_limit` from FSDP '
+                                  'config being ignored. Please open an issue to Composer to report this.')
             else:
-                warnings.warn(
-                    'FSDP does not have attribute _exec_order_data which is unexpected and will '
-                    'result in `forward_prefetch_limit` and `backward_prefetch_limit` from FSDP '
-                    'config being ignored. Please open an issue to Composer to report this.')
+                warnings.warn('FSDP does not have attribute _exec_order_data which is unexpected and will '
+                              'result in `forward_prefetch_limit` and `backward_prefetch_limit` from FSDP '
+                              'config being ignored. Please open an issue to Composer to report this.')
 
             # Activation Checkpointing
             if activation_checkpointing or activation_cpu_offload:
