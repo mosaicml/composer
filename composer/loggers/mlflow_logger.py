@@ -271,6 +271,7 @@ class MLFlowLogger(LoggerDestination):
             self._mlflow_client.set_terminated(self._run_id)
             mlflow.end_run()
 
+
 def _convert_to_mlflow_image(image: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:
     if isinstance(image, torch.Tensor):
         image = image.data.cpu().numpy()
