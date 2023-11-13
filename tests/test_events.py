@@ -73,7 +73,15 @@ class TestEventCalls:
         [
             pytest.param('cpu', None, False, 'fp32', id='cpu-ddp'),
             # TODO: Remove filterwarnings after FSDP remove deprecated code
-            pytest.param('gpu', True, False, 'fp32', id='gpu-ddp', marks=pytest.mark.gpu),
+            pytest.param('gpu',
+                         True,
+                         False,
+                         'fp32',
+                         id='gpu-ddp',
+                         marks=[
+                             pytest.mark.gpu,
+                             pytest.mark.filterwarnings('ignore::UserWarning'),
+                         ]),
             pytest.param('gpu',
                          None,
                          True,

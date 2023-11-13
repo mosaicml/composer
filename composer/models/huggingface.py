@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple, Typ
 import torch
 from torchmetrics import Metric
 
-from composer.metrics import InContextLearningCodeEvalAccuracy, InContextLearningMetric
+from composer.metrics import InContextLearningMetric, InContextLearningQAAccuracy
 from composer.models.base import ComposerModel
 from composer.utils import MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp, safe_torch_load
 
@@ -469,8 +469,10 @@ class HuggingFaceModel(ComposerModel):
         return metrics if metrics else {}
 
     def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
-        if (isinstance(metric, InContextLearningMetric) and batch.get('mode', None) == 'icl_task') or isinstance(
-                metric, InContextLearningCodeEvalAccuracy):
+        if isinstance(metric, InContextLearningQAAccuracy):
+            assert self.labels is not None
+            metric.update(batch=batch, outputs=outputs, labels=self.labels)  # pyright: ignore [reportGeneralTypeIssues]
+        elif isinstance(metric, InContextLearningMetric):
             assert self.labels is not None
             metric.update(batch, outputs, self.labels)  # pyright: ignore [reportGeneralTypeIssues]
         else:
@@ -504,7 +506,7 @@ class HuggingFaceModel(ComposerModel):
                         with open(tokenizer_file_path) as _tokenizer_file:
                             tokenizer_file_content = _tokenizer_file.read().split('\n')
                     elif tokenizer_file_extension == '.json':
-                        with open(tokenizer_file_path) as _tokenizer_file:
+                        with open(tokenizer_file_path, 'rb') as _tokenizer_file:
                             tokenizer_file_content = json.load(_tokenizer_file)
                     elif tokenizer_file_extension == '.py':
                         with open(tokenizer_file_path) as _tokenizer_file:
@@ -580,7 +582,18 @@ def _is_registered_causal_lm(model: transformers.PreTrainedModel) -> bool:
         raise MissingConditionalImportError(extra_deps_group='nlp',
                                             conda_package='transformers',
                                             conda_channel='conda-forge') from e
-    causal_lm_classes = list(MODEL_FOR_CAUSAL_LM_MAPPING.values())
+
+    # This try/except is needed until https://github.com/huggingface/transformers/issues/26778
+    # is resolved in a release. This means that this attempt to automatically detect causal LMs
+    # does not currently work in an environment with flash attention <2 installed.
+    try:
+        causal_lm_classes = list(MODEL_FOR_CAUSAL_LM_MAPPING.values())
+    except RuntimeError as e:
+        if 'Failed to import transformers.models' in str(e):
+            MODEL_FOR_CAUSAL_LM_MAPPING = {}
+            return False
+        else:
+            raise e
     return any(isinstance(model, causal_lm_class) for causal_lm_class in causal_lm_classes)
 
 

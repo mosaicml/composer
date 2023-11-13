@@ -413,6 +413,44 @@ class TestCheckpointSaving:
         else:
             assert set(composer_state_dict['state'].keys()) != {'model', 'metadata', 'integrations'}
 
+    @pytest.mark.parametrize(('save_interval', 'max_duration', 'expected_save_calls'), [
+        (1, '5ep', 5),
+        (Time(2, TimeUnit.EPOCH), '8ep', 4),
+        (Time(10, TimeUnit.BATCH), '8ep', 4),
+        (Time(0.25, TimeUnit.DURATION), '4ep', 4),
+        ('1ep', '4ep', 4),
+        ('5ba', '4ep', 4),
+        ('5ba', '10ba', 2),
+        ('0.35dur', '4ep', 3),
+        ('0.01dur', '100ba', 100),
+        ('0.10dur', '70sp', 10),
+        ('0.05dur', '80sp', 20),
+    ])
+    def test_checkpoint_intervals(self, save_interval: Union[str, Time, int], max_duration: str,
+                                  expected_save_calls: int, tmp_path: pathlib.Path):
+        train_dataset = RandomClassificationDataset(size=10)
+        train_dataloader = DataLoader(
+            dataset=train_dataset,
+            batch_size=2,
+            sampler=dist.get_sampler(train_dataset),
+        )
+
+        trainer = Trainer(
+            model=SimpleModel(),
+            train_dataloader=train_dataloader,
+            save_interval=save_interval,
+            max_duration=max_duration,
+            save_folder=str(tmp_path / 'checkpoints'),
+        )
+
+        assert trainer._checkpoint_saver is not None
+        trainer._checkpoint_saver._save_checkpoint = MagicMock(wraps=trainer._checkpoint_saver._save_checkpoint)
+
+        trainer.fit()
+
+        # we should have one extra call from the fit end checkpoint
+        assert trainer._checkpoint_saver._save_checkpoint.call_count == expected_save_calls
+
 
 class TestCheckpointLoading:
 

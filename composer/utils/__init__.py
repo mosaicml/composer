@@ -10,7 +10,7 @@ from composer.utils.checkpoint import PartialFilePath, load_checkpoint, safe_tor
 from composer.utils.collect_env import (configure_excepthook, disable_env_report, enable_env_report,
                                         get_composer_env_dict, print_env)
 from composer.utils.device import get_device, is_hpu_installed, is_tpu_installed
-from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient
+from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient, MosaicMLLambdaEvalClient
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE,
                                          create_symlink_file, ensure_folder_has_no_conflicting_files,
                                          ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time,
@@ -19,10 +19,10 @@ from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, F
 from composer.utils.import_helpers import MissingConditionalImportError, import_object
 from composer.utils.inference import ExportFormat, Transform, export_for_inference, export_with_logger, quantize_dynamic
 from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, map_collection
-from composer.utils.misc import (get_free_tcp_port, is_model_deepspeed, is_model_fsdp, is_notebook, model_eval_mode,
-                                 using_torch_2)
+from composer.utils.misc import (create_interval_scheduler, get_free_tcp_port, is_model_deepspeed, is_model_fsdp,
+                                 is_notebook, model_eval_mode, using_torch_2)
 from composer.utils.object_store import (GCSObjectStore, LibcloudObjectStore, ObjectStore, ObjectStoreTransientError,
-                                         OCIObjectStore, S3ObjectStore, SFTPObjectStore)
+                                         OCIObjectStore, S3ObjectStore, SFTPObjectStore, UCObjectStore)
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
 
@@ -43,6 +43,7 @@ __all__ = [
     'SFTPObjectStore',
     'OCIObjectStore',
     'GCSObjectStore',
+    'UCObjectStore',
     'MissingConditionalImportError',
     'import_object',
     'is_model_deepspeed',
@@ -82,7 +83,9 @@ __all__ = [
     'convert_nested_dict_to_flat_dict',
     'convert_flat_dict_to_nested_dict',
     'using_torch_2',
+    'create_interval_scheduler',
     'EvalClient',
     'LambdaEvalClient',
     'LocalEvalClient',
+    'MosaicMLLambdaEvalClient',
 ]
