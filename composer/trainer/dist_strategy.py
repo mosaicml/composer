@@ -133,9 +133,11 @@ def set_fsdp_default(fsdp_config: Dict[str, Any]):
     fsdp_config.setdefault('activation_checkpointing_reentrant', True)
     fsdp_config.setdefault('activation_cpu_offload', False)
     fsdp_config.setdefault('backward_prefetch', 'BACKWARD_POST')
+    fsdp_config.setdefault('backward_prefetch_limit', 1)
     fsdp_config.setdefault('cpu_offload', False)
     fsdp_config.setdefault('flatten_parameters', True)
     fsdp_config.setdefault('forward_prefetch', False)
+    fsdp_config.setdefault('forward_prefetch_limit', 1)
     fsdp_config.setdefault('ignored_modules', None)
     fsdp_config.setdefault('keep_low_precision_grads', False)
     fsdp_config.setdefault('limit_all_gathers', True)
@@ -507,6 +509,9 @@ def prepare_fsdp_module(
                 limit_all_gathers=limit_all_gathers,
                 **kwargs,
             )
+
+            fsdp_obj._exec_order_data._forward_prefetch_limit = fsdp_config['forward_prefetch_limit']
+            fsdp_obj._exec_order_data._backward_prefetch_limit = fsdp_config['backward_prefetch_limit']
 
             # Activation Checkpointing
             if activation_checkpointing or activation_cpu_offload:
