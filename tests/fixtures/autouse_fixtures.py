@@ -6,7 +6,6 @@ import logging
 import os
 import pathlib
 from concurrent.futures import Future
-from composer.loggers.mosaicml_logger import MOSAICML_PLATFORM_ENV_VAR
 
 import mcli
 import pytest
@@ -15,6 +14,7 @@ import tqdm.std
 
 import composer
 from composer.devices import DeviceCPU, DeviceGPU
+from composer.loggers.mosaicml_logger import MOSAICML_PLATFORM_ENV_VAR
 from composer.utils import dist, reproducibility
 
 
