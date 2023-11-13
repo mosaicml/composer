@@ -53,6 +53,7 @@ from composer.devices import DeviceCPU
 from composer.loggers import InMemoryLogger as InMemoryLogger
 from composer.loggers import Logger as Logger
 from composer.loggers import RemoteUploaderDownloader
+from composer.loggers.mosaicml_logger import MOSAICML_PLATFORM_ENV_VAR
 from composer.models import ComposerModel as ComposerModel
 from composer.optim.scheduler import ConstantScheduler
 from composer.utils import LibcloudObjectStore
@@ -91,6 +92,9 @@ from tests.common.datasets import RandomTextClassificationDataset
 
 # Disable wandb
 os.environ['WANDB_MODE'] = 'disabled'
+
+# Disable MosaicMLLogger
+os.environ[MOSAICML_PLATFORM_ENV_VAR] = 'false'
 
 # Change the cwd to be the tempfile, so we don't pollute the documentation source folder
 tmpdir = tempfile.mkdtemp()
