@@ -631,7 +631,15 @@ class TestTrainerInitOrFit:
     @pytest.mark.gpu
     @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                         reason='requires PyTorch 1.13 or higher')
-    @pytest.mark.parametrize('precision', [Precision.FP32, Precision.AMP_BF16, Precision.AMP_FP16])
+    @pytest.mark.parametrize(
+        'precision,forward_prefetch_limit,backward_prefetch_limit', 
+        [
+            [Precision.FP32, 1, 1],
+            [Precision.AMP_FP16, 1, 1],
+            [Precision.AMP_BF16, 1, 1],
+            [Precision.AMP_BF16, 2, 2],
+        ],
+    )
     @pytest.mark.filterwarnings('ignore::UserWarning')
     def test_fsdp(
         self,
