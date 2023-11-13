@@ -510,8 +510,11 @@ def prepare_fsdp_module(
                 **kwargs,
             )
 
-            fsdp_obj._exec_order_data._forward_prefetch_limit = fsdp_config['forward_prefetch_limit']
-            fsdp_obj._exec_order_data._backward_prefetch_limit = fsdp_config['backward_prefetch_limit']
+            if hasattr(fsdp_obj, '_exec_order_data'):
+                if hasattr(fsdp_obj._exec_order_data, '_forward_prefetch_limit'):
+                    fsdp_obj._exec_order_data._forward_prefetch_limit = fsdp_config['forward_prefetch_limit']
+                if hasattr(fsdp_obj._exec_order_data, '_backward_prefetch_limit'):
+                    fsdp_obj._exec_order_data._backward_prefetch_limit = fsdp_config['backward_prefetch_limit']
 
             # Activation Checkpointing
             if activation_checkpointing or activation_cpu_offload:
