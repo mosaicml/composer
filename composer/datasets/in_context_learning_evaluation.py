@@ -129,6 +129,7 @@ class InContextLearningDataset(Dataset):
         context_key: str = 'context',
         answer_key: str = 'answer',
         prelimiter: str = '',
+        stacked_keys: List[str] = ['input_ids', 'labels']
     ):
         self.tokenizer = tokenizer
         self.prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
@@ -143,6 +144,7 @@ class InContextLearningDataset(Dataset):
         self.continuation_delimiter = continuation_delimiter
         self.context_key = context_key
         self.answer_key = answer_key
+        self.stacked_keys = stacked_keys
 
         self.dataset = self._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_vars)
         self.strip_data = strip_dataset
@@ -194,18 +196,12 @@ class InContextLearningDataset(Dataset):
                 if dist.get_local_rank() == 0:
                     get_file(dataset_uri, destination_path, overwrite=True)
             dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
-            dataset = self._parse_dataset(dataset)
         return dataset
 
     def _parse_hf_dataset(self, dataset, hf_parsing_vars):
         return dataset.map(
             lambda example: {k: ''.join([str(example[col]) for col in v]) for k, v in hf_parsing_vars.items()})
 
-    def _parse_dataset(self, dataset: Dataset) -> List[Dict[str, str]]:
-        return dataset.map(lambda examples: {
-            self.context_key: examples['context'],
-            self.answer_key: examples['answer'],
-        })
 
     def generate_few_shot_text(
         self,
@@ -254,7 +250,7 @@ class InContextLearningDataset(Dataset):
             preamble['input_ids'] = preamble['input_ids'][:-1]
         return preamble
 
-    def tokenize_example(self, prompt_and_fewshot: str, ctxt: str):
+    def tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: dict):
         tokenized_example = {}
         preamble = self.tokenizer(prompt_and_fewshot)
         preamble = self.fix_eos_on_preamble(preamble)
@@ -293,15 +289,11 @@ class InContextLearningDataset(Dataset):
         """
         prompt_and_fewshot = self.generate_few_shot_text(num_fewshot, example_idx, prompt_string, fewshot_rng)
         ctxt = self.construct_context(example, prompt_and_fewshot, add_answer=False)
-        tokenized_example = self.tokenize_example(prompt_and_fewshot, ctxt)
-        tokenized_example = self.additional_processing_for_example(tokenized_example, example)
-        return tokenized_example
-
-    def additional_processing_for_example(self, tokenized_example: dict, sample: dict):
+        tokenized_example = self.tokenize_example(prompt_and_fewshot, ctxt, example)
         return tokenized_example
 
     def collate_fn(self, data):
-        batch = self.default_batch
+        # batch = self.default_batch
         batch = {
             'input_ids': [],
             'continuation_indices': [],
@@ -309,25 +301,20 @@ class InContextLearningDataset(Dataset):
             'labels': [],
         }
         for data_pair in data:
-            preamble, context, continuation = (
-                data_pair['preamble'],
-                data_pair['context'],
-                data_pair['continuation'],
-            )
+            context_enc = data_pair['preamble']['input_ids'] + data_pair[self.context_key]['input_ids']
 
-            context_enc = preamble['input_ids'] + context['input_ids']
-            continuation_enc = continuation['input_ids']
-
-            inp, continuation_span = _make_padded_input(context_enc, continuation_enc, self.max_seq_len,
-                                                        self.pad_tok_id)
+            inp, continuation_span = _make_padded_input(
+                context_enc, 
+                data_pair['continuation']['input_ids'], 
+                self.max_seq_len,
+                self.pad_tok_id
+                )
 
             batch['input_ids'].append(inp)
             batch['continuate_indicies'].append(continuation_span)
             batch['labels'].append(inp)
 
-        for key in self.stack_keys:
-            batch[key] = torch.stack(batch[key])
-
+        batch = {k : torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
@@ -382,7 +369,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
     def __init__(self, cot_delimiter: str = '', *args, **kwargs):
         self.cot_delimiter = cot_delimiter
         self.has_cot = False
-        super().__init__(*args, **kwargs)
+        super().__init__(stacked_keys=['input_ids'], *args, **kwargs)
 
         self.max_answer_length = self.get_max_answer_length()
         self.dont_split_keys = [
@@ -394,8 +381,8 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         self.normal_split_keys = ['input_ids', 'attention_mask']
         self.list_split_keys = ['labels']
 
-    def _parse_dataset(self, dataset: Dataset) -> List[Dict[str, str]]:
-        # TODO: I hate that this is here - I really just don't want to ever have a list
+    def _read_dataset(self, dataset_uri: str, destination_path: str, hf_loading_vars: dict = None, hf_parsing_vars: dict = None):
+        dataset = super()._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_vars)   
         self.has_cot = 'chain_of_thought' in dataset.features
         return dataset.map(
             lambda examples: {
@@ -411,9 +398,9 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         else:
             return sample[self.answer_key]
 
-    def additional_processing_for_example(self, tokenized_example: dict, sample: dict):
-        tokenized_example['aliases'] = list(sample.get('aliases', []))
-        # tokenized_example['cot_delimiter'] = self.cot_delimiter
+    def tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: dict):
+        tokenized_example = super().tokenize_example(prompt_and_fewshot, ctxt, example)
+        tokenized_example['aliases'] = list(example.get('aliases', []))
         return tokenized_example
 
     def get_max_answer_length(self):
@@ -430,15 +417,20 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         return max_answer_length
 
     def collate_fn(self, data):
-        inputs, answers = [], []
-
+        batch = {
+            'input_ids': [],
+            'mode': 'generate',
+            'labels': [],
+            'cot_delimiter': self.cot_delimiter,
+            'generation_length': self.max_answer_length,
+            'generation_kwargs': {
+                'pad_token_id': self.pad_tok_id,
+                'use_cache': True
+            },
+        }
         for sample in data:
-            preamble, context, aliases = (
-                sample['preamble'],
-                sample['context'],
-                sample['aliases'],
-            )
-            context_enc = preamble['input_ids'] + context['input_ids']
+            aliases = sample['aliases']
+            context_enc = sample['preamble']['input_ids'] + sample[self.context_key]['input_ids']
             inp, _ = _make_padded_input(
                 context_enc,
                 [],
@@ -447,25 +439,10 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
                 padding_side=self.padding_side,
             )
 
-            inputs.append(inp)
-            answers.append(aliases)
+            batch['input_ids'].append(inp)
+            batch['labels'].append(aliases)
 
-            # We will search for the answer within the portion of the model response
-            # beginning with `cot_delimiter`
-            # cot_delimiter = sample['cot_delimiter']
-
-        batch = {
-            'input_ids': torch.stack(inputs),
-            'mode': 'generate',
-            'labels': answers,
-            'cot_delimiter': self.cot_delimiter,
-            'generation_length': self.max_answer_length,
-            'generation_kwargs': {
-                'pad_token_id': self.pad_tok_id,
-                'use_cache': True
-            },
-        }
-
+        batch = {k : torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
@@ -492,45 +469,33 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
     def __init__(self, *args, **kwargs):
         super().__init__(answer_key='continuation', *args, **kwargs)
 
-    def _parse_dataset(self, dataset: Dataset) -> List[Dict[str, str]]:
-        return dataset.map(lambda examples: {
-            'continuation': examples['continuation'],
-            'context': examples['context'],
-        })
-
-    def additional_processing_for_example(self, tokenized_example: dict, sample: dict):
-        cont = sample['continuation']
+    def tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: dict):
+        tokenized_example = super().tokenize_example(prompt_and_fewshot, ctxt, example)
+        cont = example['continuation']
         if self.prefix_space and not cont.startswith(' '):
             cont = f' {cont}'
         tokenized_example['continuation'] = self.tokenizer(cont, add_special_tokens=False)
         return tokenized_example
 
     def collate_fn(self, data):
-        inputs = []
-        continuation_indices = []
+        batch = {
+            'input_ids': [],
+            'continuation_indices': [],
+            'mode': 'icl_task',
+            'labels': []
+        }
         for data_pair in data:
-            preamble, context, continuation = (
-                data_pair['preamble'],
-                data_pair['context'],
-                data_pair['continuation'],
-            )
-
-            context_enc = preamble['input_ids'] + context['input_ids']
-            continuation_enc = continuation['input_ids']
+            context_enc = data_pair['preamble']['input_ids'] + data_pair['context']['input_ids']
+            continuation_enc = data_pair['continuation']['input_ids']
 
             inp, continuation_span = _make_padded_input(context_enc, continuation_enc, self.max_seq_len,
                                                         self.pad_tok_id)
+            batch['input_ids'].append(inp)
+            batch['continuation_indices'].append(continuation_span)
+            batch['labels'].append(inp)
 
-            inputs.append(inp)
-            continuation_indices.append(continuation_span)
 
-        batch = {
-            'input_ids': torch.stack(inputs),
-            'continuation_indices': continuation_indices,
-            'mode': 'icl_task',
-            'labels': torch.stack(inputs),
-        }
-
+        batch = {k : torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
@@ -575,52 +540,46 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         self.real_split_keys = ['input_ids', 'labels', 'attention_mask']
         self.normal_split_keys = ['gold_indices']
 
-    def _parse_dataset(self, dataset: Dataset) -> List[Dict[str, str]]:
-        return dataset.map(lambda examples: {
-            'query': examples['query'],
-            'choices': examples['choices'],
-            'gold': examples['gold'],
-        })
-
     def get_answer_from_sample(self, sample: dict):
         choices = sample['choices']
         gold_idx = sample['gold']
         return choices[gold_idx]
 
-    def additional_processing_for_example(self, tokenized_example: dict, sample: dict):
-        choices = sample['choices']
+    def tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: dict):
+        tokenized_example = super().tokenize_example(prompt_and_fewshot, ctxt, example)
+        choices = example['choices']
         if self.prefix_space:
             choices = [(f' {choice}' if not choice.startswith(' ') else choice) for choice in choices]
         tokenized_example['choices'] = [self.tokenizer(choice, add_special_tokens=False) for choice in choices]
-        tokenized_example['gold'] = sample['gold']
+        tokenized_example['gold'] = example['gold']
         return tokenized_example
 
     def collate_fn(self, data):
-        inputs = []
-        continuation_indices = []
-        gold_idxs = []
-        choice_groupings = []
+        batch = {
+            'input_ids': [],
+            'continuation_indices': [],
+            'mode': 'icl_task',
+            'labels': [],
+            'gold_indices': [],
+            'choice_groupings': [],
+        }
         for data_pair in data:
-            choice_start_idx = len(continuation_indices)
-            preamble, context, choices, gold_idx = (
-                data_pair['preamble'],
-                data_pair['query'],
-                data_pair['choices'],
-                data_pair['gold'],
-            )
+            # TODO: this line is sus idgi
+            choice_start_idx = len(batch['continuation_indices'])
 
-            for choice in choices:
-                context_enc = preamble['input_ids'] + context['input_ids']
+            for choice in data_pair['choices']:
+                context_enc = data_pair['preamble']['input_ids'] + data_pair[self.context_key]['input_ids']
                 continuation_enc = choice['input_ids']
                 inp, continuation_span = _make_padded_input(context_enc, continuation_enc, self.max_seq_len,
                                                             self.pad_tok_id)
 
-                inputs.append(inp)
-                continuation_indices.append(continuation_span)
+                batch['input_ids'].append(inp)
+                batch['continuation_indices'].append(continuation_span)
+                batch['labels'].append(inp)
 
-            gold_idxs.append(gold_idx)
-            choice_end_idx = len(continuation_indices)
-            choice_groupings.append((choice_start_idx, choice_end_idx))
+            batch['gold_indices'].append(data_pair['gold'])
+            choice_end_idx = len(batch['continuation_indices'])
+            batch['choice_groupings'].append((choice_start_idx, choice_end_idx))
 
         # We run each distinct query + answer choice through the model separately and determine which
         # answer has the lowest per-token-perplexity.
@@ -629,14 +588,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         # since the batch may consist of multiple questions, the choice_groupings indicates
         # which contiguous sequences of elements in the batch correspond to which question
         # gold_indices indicates which of the [0, N-1] choices is the correct one for each question.
-        batch = {
-            'input_ids': torch.stack(inputs),
-            'continuation_indices': continuation_indices,
-            'mode': 'icl_task',
-            'labels': torch.stack(inputs),
-            'gold_indices': gold_idxs,
-            'choice_groupings': choice_groupings,
-        }
+        batch = {k : torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
@@ -709,14 +661,6 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
     def __init__(self, choices_key='context_options', *args, **kwargs):
         super().__init__(choices_key=choices_key, *args, **kwargs)
 
-    def _parse_dataset(self, dataset: Dataset) -> List[Dict[str, str]]:
-        return dataset.map(
-            lambda examples: {
-                'context_options': examples['context_options'],
-                'continuation': examples['continuation'],
-                'gold': examples['gold'],
-            })
-
     def construct_context(self, sample, preceding_text: str = '', add_answer: bool = False):
         context_options = sample['context_options']
         gold_idx = sample['gold']
@@ -740,48 +684,46 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
                 context_options = [f'{self.example_delimiter}{c}{cont_del}' for c in context_options]
             return context_options
 
-    def tokenize_example(self, prompt_and_fewshot: str, context_options: List[str]):
+    def tokenize_example(self, prompt_and_fewshot: str, context_options: List[str], example:dict):
         tokenized_example = {}
         preamble = self.tokenizer(prompt_and_fewshot)
         preamble = self.fix_eos_on_preamble(preamble)
         tokenized_example['preamble'] = preamble
         tokenized_example['context_options'] = [self.tokenizer(c, add_special_tokens=False) for c in context_options]
-        return tokenized_example
-
-    def additional_processing_for_example(self, tokenized_example: dict, sample: dict):
-        continuation = sample['continuation']
+        continuation = example['continuation']
         if self.prefix_space:
             continuation = (f' {continuation}' if not continuation.startswith(' ') else continuation)
         tokenized_example['continuation'] = self.tokenizer(continuation, add_special_tokens=False)
-        tokenized_example['gold'] = sample['gold']
+        tokenized_example['gold'] = example['gold']
         return tokenized_example
 
-    def collate_fn(self, data):
-        inputs = []
-        continuation_indices = []
-        gold_idxs = []
-        choice_groupings = []
-        for data_pair in data:
-            continuation_start_idx = len(continuation_indices)
-            preamble, context_options, continuation, gold_idx = (
-                data_pair['preamble'],
-                data_pair['context_options'],
-                data_pair['continuation'],
-                data_pair['gold'],
-            )
 
-            for ctxt in context_options:
-                context_enc = preamble['input_ids'] + ctxt['input_ids']
-                continuation_enc = continuation['input_ids']
+    def collate_fn(self, data):
+        batch = {
+            'input_ids': [], 
+            'continuation_indices': [],
+            'mode': 'icl_task',
+            'labels': [], 
+            'gold_indices': [],
+            'choice_groupings': [],
+        }
+        for data_pair in data:
+            continuation_start_idx = len(batch['continuation_indices'])
+            context_options = data_pair['context_options']
+
+            for context in context_options:
+                context_enc = data_pair['preamble']['input_ids'] + context['input_ids']
+                continuation_enc = data_pair['continuation']['input_ids']
                 inp, continuation_span = _make_padded_input(context_enc, continuation_enc, self.max_seq_len,
                                                             self.pad_tok_id)
 
-                inputs.append(inp)
-                continuation_indices.append(continuation_span)
+                batch['input_ids'].append(inp)
+                batch['labels'].append(inp)
+                batch['continuation_indices'].append(continuation_span)
 
-            gold_idxs.append(gold_idx)
-            continuation_end_idx = len(continuation_indices)
-            choice_groupings.append((continuation_start_idx, continuation_end_idx))
+            batch['gold_indices'].append(data_pair['gold'])
+            continuation_end_idx = len(batch['continuation_indices'])
+            batch['choice_groupings'].append((continuation_start_idx, continuation_end_idx))
 
         # We run each distinct query + answer choice through the model separately and determine which
         # answer has the lowest per-token-perplexity.
@@ -790,14 +732,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         # since the batch may consist of multiple questions, the choice_groupings indicates
         # which contiguous sequences of elements in the batch correspond to which question
         # gold_indices indicates which of the [0, N-1] choices is the correct one for each question.
-        batch = {
-            'input_ids': torch.stack(inputs),
-            'continuation_indices': continuation_indices,
-            'mode': 'icl_task',
-            'labels': torch.stack(inputs),
-            'gold_indices': gold_idxs,
-            'choice_groupings': choice_groupings,
-        }
+        batch = {k : torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
@@ -851,6 +786,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             context_key='prompt',
             answer_key='canonical_solution',
             strip_dataset=False,
+            stacked_keys=['input_ids'],
             *args,
             **kwargs,
         )
@@ -887,92 +823,30 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             )
         return max_prompt_length
 
-    def _parse_dataset(self, dataset: Dataset) -> List[Dict[str, str]]:
-        return dataset.map(
-            lambda examples: {
-                'task_id': examples['task_id'],
-                'prompt': examples['prompt'],
-                'canonical_solution': examples['canonical_solution'],
-                'test': examples['test'],
-                'entry_point': examples['entry_point'],
-                'test_inputs': examples['test_inputs'],
-                'test_outputs': examples['test_outputs'],
-                'language': examples['language'],
-            })
-
-    def additional_processing_for_example(self, tokenized_example: dict, sample: dict):
-        tokenized_example['prompt_text'] = sample['prompt']
-        tokenized_example['task_id'] = sample['task_id']
-        tokenized_example['canonical_solution'] = sample['canonical_solution']
-        tokenized_example['test'] = sample['test']
-        tokenized_example['entry_point'] = sample['entry_point']
-        tokenized_example['test_inputs'] = sample['test_inputs']
-        tokenized_example['test_outputs'] = sample['test_outputs']
-        tokenized_example['language'] = sample['language']
+    def tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: dict):
+        tokenized_example = super().tokenize_example(prompt_and_fewshot, ctxt, example)
+        tokenized_example['prompt_text'] = example['prompt']
+        tokenized_example['task_id'] = example['task_id']
+        tokenized_example['canonical_solution'] = example['canonical_solution']
+        tokenized_example['test'] = example['test']
+        tokenized_example['entry_point'] = example['entry_point']
+        tokenized_example['test_inputs'] = example['test_inputs']
+        tokenized_example['test_outputs'] = example['test_outputs']
+        tokenized_example['language'] = example['language']
         return tokenized_example
 
     def collate_fn(self, data):
-        (
-            inputs,
-            prompts,
-            tests,
-            canonical_solutions,
-            entry_points,
-            test_inputs,
-            test_outputs,
-            languages,
-        ) = ([], [], [], [], [], [], [], [])
-        for sample in data:
-            (
-                preamble,
-                prompt,
-                text_prompt,
-                canonical_solution,
-                test,
-                entry_point,
-                test_input,
-                test_output,
-                language,
-            ) = (
-                sample['preamble'],
-                sample['prompt'],
-                sample['prompt_text'],
-                sample['canonical_solution'],
-                sample['test'],
-                sample['entry_point'],
-                sample['test_inputs'],
-                sample['test_outputs'],
-                sample['language'],
-            )
-            context_enc = preamble['input_ids'] + prompt['input_ids']
-            inp, _ = _make_padded_input(
-                context_enc,
-                [],
-                self.max_prompt_length,
-                self.pad_tok_id,
-                padding_side=self.padding_side,
-            )
-
-            inputs.append(inp)
-            tests.append(test)
-            prompts.append(text_prompt)
-            canonical_solutions.append(canonical_solution)
-            entry_points.append(entry_point)
-            test_inputs.append(test_input)
-            test_outputs.append(test_output)
-            languages.append(language)
-
         batch = {
-            'input_ids': torch.stack(inputs),
+            'input_ids': [],
             'mode': 'generate',
-            'labels': canonical_solutions,
-            'prompts': prompts,  # list of prompts
-            'tests': tests,  # list of tests
-            'canonical_solutions': canonical_solutions,  # list of solutions
-            'entry_points': entry_points,  # list of entry points
-            'test_inputs': test_inputs,  # list of test inputs
-            'test_outputs': test_outputs,  # list of test outputs
-            'languages': languages,  # list of languages
+            'labels': [],
+            'prompts': [],  # list of prompts
+            'tests': [],  # list of tests
+            'canonical_solutions': [],  # list of solutions
+            'entry_points': [],  # list of entry points
+            'test_inputs': [],  # list of test inputs
+            'test_outputs': [],  # list of test outputs
+            'languages': [],  # list of languages
             'pass_at_k': self.pass_at_k,
             'generation_length': self.max_seq_len - self.max_prompt_length,
             'generation_kwargs': {
@@ -985,6 +859,27 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
                 'use_cache': True,
             },
         }
+        for sample in data:
+            context_enc = sample['preamble']['input_ids'] + sample['prompt']['input_ids']
+            inp, _ = _make_padded_input(
+                context_enc,
+                [],
+                self.max_prompt_length,
+                self.pad_tok_id,
+                padding_side=self.padding_side,
+            )
+
+            batch['input_ids'].append(inp)
+            batch['canonical_solutions'].append(sample['canonical_solution'])
+            batch['prompts'].append(sample['prompt_text'])
+            batch['tests'].append(sample['test'])
+            batch['labels'].append(sample['canonical_solution'])
+            batch['entry_points'].append(sample['entry_point'])
+            batch['test_inputs'].append(sample['test_inputs'])
+            batch['test_outputs'].append(sample['test_outputs'])
+            batch['languages'].append(sample['language'])
+
+        batch = {k : torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
@@ -1171,8 +1066,6 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str) -> Di
 
 
 # TODO: Where do we want to set our defaults?
-
-
 def get_icl_task_dataloader(
     icl_task_type: str,
     dataset_uri: str,
