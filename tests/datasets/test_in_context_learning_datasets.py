@@ -24,7 +24,8 @@ from composer.metrics import (InContextLearningCodeEvalAccuracy, InContextLearni
 from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
 from composer.utils import dist, reproducibility
-from tests.common import device, world_size
+
+# from tests.common import device, world_size
 
 
 def test_fewshot_sample_idxs():
@@ -1073,8 +1074,7 @@ def test_schema_task_evaluation(num_fewshot, dataset_uri, tiny_gpt2_tokenizer, t
 @pytest.mark.parametrize('dataset_uri', ['mmlu_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 5])
 @pytest.mark.filterwarnings(r'ignore:Cannot split .* of length.*:UserWarning')
-def test_mc_task_evaluation_subcategories(dataset_uri, num_fewshot, tiny_gpt2_model,
-                                          tiny_gpt2_tokenizer, tmp_path):
+def test_mc_task_evaluation_subcategories(dataset_uri, num_fewshot, tiny_gpt2_model, tiny_gpt2_tokenizer, tmp_path):
     pytest.importorskip('datasets')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -1250,8 +1250,7 @@ def test_qa_task_evaluation_with_cot_opt_tokenizer(num_fewshot, dataset_uri, tmp
 
 @pytest.mark.parametrize('dataset_uri', ['triviaqa_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 5])
-def test_qa_task_evaluation(num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tiny_gpt2_model,
-                            tmp_path):
+def test_qa_task_evaluation(num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tiny_gpt2_model, tmp_path):
     pytest.importorskip('datasets')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -1291,8 +1290,7 @@ def test_qa_task_evaluation(num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tiny_
 
 @pytest.mark.parametrize('dataset_uri', ['gsm8k_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [5])
-def test_qa_task_with_cot_evaluation(num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tiny_gpt2_model,
-                                     tmp_path):
+def test_qa_task_with_cot_evaluation(num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tiny_gpt2_model, tmp_path):
     pytest.importorskip('datasets')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -1334,8 +1332,7 @@ def test_qa_task_with_cot_evaluation(num_fewshot, dataset_uri, tiny_gpt2_tokeniz
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0])
 @pytest.mark.parametrize('generations_per_sample', range(1, 3))
-def test_code_eval_microbatching(monkeypatch, num_fewshot, dataset_uri, tmp_path,
-                                 generations_per_sample):
+def test_code_eval_microbatching(monkeypatch, num_fewshot, dataset_uri, tmp_path, generations_per_sample):
     pytest.importorskip('datasets')
     monkeypatch.setenv('CODE_EVAL_DEVICE', 'LOCAL')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
@@ -1382,8 +1379,8 @@ def test_code_eval_microbatching(monkeypatch, num_fewshot, dataset_uri, tmp_path
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0])
 @pytest.mark.parametrize('generations_per_sample', range(1, 3))
-def test_code_eval_sentpiece_evaluation(monkeypatch, num_fewshot, dataset_uri, tiny_t5_tokenizer,
-                                        tiny_t5_model, tmp_path, generations_per_sample):
+def test_code_eval_sentpiece_evaluation(monkeypatch, num_fewshot, dataset_uri, tiny_t5_tokenizer, tiny_t5_model,
+                                        tmp_path, generations_per_sample):
     pytest.importorskip('datasets')
     torch.cuda.empty_cache()
     monkeypatch.setenv('CODE_EVAL_DEVICE', 'LOCAL')
@@ -1428,8 +1425,8 @@ def test_code_eval_sentpiece_evaluation(monkeypatch, num_fewshot, dataset_uri, t
 @pytest.mark.parametrize('num_fewshot', [0, 2])
 @pytest.mark.parametrize('generations_per_sample', [1])
 @pytest.mark.filterwarnings(r'ignore: Input length of input_ids is')
-def test_code_eval_task_evaluation(monkeypatch, num_fewshot, dataset_uri, tiny_gpt2_tokenizer,
-                                   tiny_gpt2_model, tmp_path, generations_per_sample):
+def test_code_eval_task_evaluation(monkeypatch, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tiny_gpt2_model,
+                                   tmp_path, generations_per_sample):
     pytest.importorskip('datasets')
     torch.cuda.empty_cache()
     monkeypatch.setenv('CODE_EVAL_DEVICE', 'LOCAL')
@@ -1509,64 +1506,111 @@ def test_lm_spacing_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     assert second_batch_without_last_word.count(' UNIQUE ') == 1
 
 
-# @pytest.mark.parametrize('dataset_uri', ['hf://maxisawesome/long_context_eval'])
-# @pytest.mark.parametrize('num_fewshot', [0, 1, 2])
-# @pytest.mark.parametrize('prompt_string', ['I am a prompt', ''])
-# @pytest.mark.parametrize('hf_loading_vars', [{
-#     'split': 'test',
-#     'name': 'kv_pairs',
-#     'context_length': 2048,
-#     'section': 'middle'
-# }])
-# @pytest.mark.parametrize('hf_parsing_vars', [{'inputs': ['context'], 'outputs': ['answer']}])
-# def test_hf_dataloading(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fewshot, prompt_string, hf_loading_vars,
-#                         hf_parsing_vars):
-#     pytest.importorskip('datasets')
+@pytest.mark.parametrize('dataset_uri', ['hf://maxisawesome/test_dataset'])
+@pytest.mark.parametrize('num_fewshot', [0, 1])
+@pytest.mark.parametrize('prompt_string', ['Complete the voiceline: ', ''])
+@pytest.mark.parametrize('hf_loading_vars', [{
+    'split': 'test',
+    'name': 'juggernaut',
+}])
+@pytest.mark.parametrize('hf_parsing_vars', [{'inputs': ['context'], 'outputs': ['continuation']}])
+def test_hf_dataloading_lm_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fewshot, prompt_string,
+                                      hf_loading_vars, hf_parsing_vars):
+    pytest.importorskip('datasets')
 
-#     # local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+    tokenizer = tiny_gpt2_tokenizer
+    batch_size = 2
+    seqlen = 2048
+    dl = get_icl_task_dataloader('language_modeling',
+                                 dataset_uri,
+                                 tokenizer,
+                                 batch_size,
+                                 max_seq_len=seqlen,
+                                 pad_tok_id=tokenizer.eos_token_id,
+                                 num_fewshot=0,
+                                 prompt_string='',
+                                 example_delimiter='\n',
+                                 continuation_delimiter=' ',
+                                 destination_path=str(tmp_path / 'test_dataset_lm_juggernaut.jsonl'),
+                                 hf_loading_vars=hf_loading_vars,
+                                 hf_parsing_vars=hf_parsing_vars)
+    assert isinstance(dl, DataSpec)
+    assert isinstance(dl.dataloader, DataLoader)  # pyright
+    batch = next(dl.dataloader._get_iterator())
 
-#     tokenizer = tiny_gpt2_tokenizer
-#     # dataset_uri = f'{local_data}/{dataset_uri}'
-#     batch_size = 2
-#     seqlen = 2048
-#     # empirical number from the small test dataset
-#     maximum_answer_length = 9
-#     dl = get_icl_task_dataloader('question_answering',
-#                                  dataset_uri=dataset_uri,
-#                                  tokenizer=tokenizer,
-#                                  batch_size=batch_size,
-#                                  max_seq_len=seqlen,
-#                                  pad_tok_id=tokenizer.eos_token_id,
-#                                  num_fewshot=num_fewshot,
-#                                  prompt_string=prompt_string,
-#                                  example_delimiter='\n',
-#                                  prelimiter='Q: ',
-#                                  continuation_delimiter='\nA:',
-#                                  destination_path=str(tmp_path / f'icl_{num_fewshot}.jsonl'),
-#                                  hf_loading_vars=hf_loading_vars,
-#                                  hf_parsing_vars=hf_parsing_vars)
-#     assert isinstance(dl, DataSpec)
+    assert 'input_ids' in batch
+    assert tuple(batch['input_ids'].shape) == (batch_size, seqlen)
+    assert 'attention_mask' in batch
+    assert tuple(batch['attention_mask'].shape) == (batch_size, seqlen)
+    assert 'continuation_indices' in batch
+    assert isinstance(batch['continuation_indices'], list) and len(batch['continuation_indices']) == batch_size
+    assert 'mode' in batch
+    assert batch['mode'] == 'icl_task'
+    min_idx = min(batch['continuation_indices'][0]).item()
+    max_idx = max(batch['continuation_indices'][0]).item()
+    assert tokenizer.decode(batch['input_ids'][0][min_idx:max_idx + 1]) == ' and me.'
 
-#     assert isinstance(dl.dataloader, DataLoader)  # pyright
-#     batch = next(dl.dataloader._get_iterator())
+    decoded_batch = tokenizer.decode(batch['input_ids'][batch['input_ids'] != tokenizer.eos_token_id])
+    # Pytorch kills our dim_size = 2 here and concatenates the two strings.
+    assert decoded_batch == "Looks like it's just you and me.There's a fine line between bravery and stupidity."
 
-#     assert tuple(batch['input_ids'].shape) == (batch_size, seqlen - maximum_answer_length)
-#     assert tuple(batch['attention_mask'].shape) == (batch_size, seqlen - maximum_answer_length)
-#     assert batch['mode'] == 'generate'
-#     # the maximum generation length from the small test data
-#     assert batch['generation_length'] == maximum_answer_length
-#     assert all(item[0] == tokenizer.eos_token_id for item in batch['input_ids'])
 
-#     decoded_batch = tokenizer.batch_decode(batch['input_ids'])
-#     import IPython
-#     IPython.embed()
-#     assert all(item.count('Q: ') == num_fewshot + 1 for item in decoded_batch)
-#     assert all(item.count('\nA:') == num_fewshot + 1 for item in decoded_batch)
+@pytest.mark.parametrize('dataset_uri', ['hf://maxisawesome/test_dataset'])
+@pytest.mark.parametrize('num_fewshot', [0, 1])
+@pytest.mark.parametrize('prompt_string', ['What spell does this invoke? ', ''])
+@pytest.mark.parametrize('hf_loading_vars', [{
+    'split': 'test',
+    'name': 'invoker',
+}])
+def test_hf_dataloading_custom_parsing(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fewshot, prompt_string,
+                                       hf_loading_vars):
+    pytest.importorskip('datasets')
 
-#     if len(prompt_string) > 0:
-#         assert all(item.count('I am a prompt') == 1 for item in decoded_batch)
-#     assert all(
-#         set(found) == set(expected)
-#         for found, expected in zip(batch['labels'], [['David Seville'], ['Skorpio', 'Scorpio']]))
-#     assert decoded_batch[0].endswith('Q: Who was the man behind The Chipmunks?\nA:')
-#     assert decoded_batch[1].endswith('Q: What star sign is Jamie Lee Curtis?\nA:')
+    tokenizer = tiny_gpt2_tokenizer
+    batch_size = 2
+    seqlen = 2048
+
+    def parse_invoker(example):
+        context = ' '.join([example['quas'], example['wex'], example['exort']])
+        label = example['spell']
+        return {'context': context, 'answer': label}
+
+    # empirical number from the small test dataset
+    maximum_answer_length = 4
+
+    dl = get_icl_task_dataloader('question_answering',
+                                 dataset_uri,
+                                 tokenizer,
+                                 batch_size,
+                                 max_seq_len=seqlen,
+                                 pad_tok_id=tokenizer.eos_token_id,
+                                 num_fewshot=num_fewshot,
+                                 prompt_string=prompt_string,
+                                 example_delimiter='\n',
+                                 hf_parsing_func=parse_invoker,
+                                 prelimiter='Orbs: ',
+                                 continuation_delimiter='\nSpell:',
+                                 destination_path=str(tmp_path / 'test_dataset_lm_juggernaut.jsonl'),
+                                 hf_loading_vars=hf_loading_vars)
+    assert isinstance(dl, DataSpec)
+    assert isinstance(dl.dataloader, DataLoader)  # pyright
+    batch = next(dl.dataloader._get_iterator())
+
+    assert tuple(batch['input_ids'].shape) == (batch_size, seqlen - maximum_answer_length)
+    assert tuple(batch['attention_mask'].shape) == (batch_size, seqlen - maximum_answer_length)
+    assert batch['mode'] == 'generate'
+    # the maximum generation length from the small test data
+    assert batch['generation_length'] == maximum_answer_length
+    assert all(item[0] == tokenizer.eos_token_id for item in batch['input_ids'])
+
+    decoded_batch = tokenizer.batch_decode(batch['input_ids'])
+    assert all(item.count('Orbs: ') == num_fewshot + 1 for item in decoded_batch)
+    # import IPython; IPython.embed()
+    assert all(item.count('\nSpell:') == num_fewshot + 1 for item in decoded_batch)
+
+    if len(prompt_string) > 0:
+        assert all(item.count('What spell does this invoke? ') == 1 for item in decoded_batch)
+    assert all(
+        set(found) == set(expected) for found, expected in zip(batch['labels'], [['defeaning blast'], ['cold snap']]))
+    assert decoded_batch[0].endswith('Orbs: quas wex exort\nSpell:')
+    assert decoded_batch[1].endswith('Orbs: quas quas quas\nSpell:')

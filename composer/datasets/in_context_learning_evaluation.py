@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import os
 import random
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 import torch
 import transformers
@@ -111,26 +111,25 @@ def _get_fewshot_sample_idxs(dataset_size: int, num_fewshot: int, sample_idx: in
 
 class InContextLearningDataset(Dataset):
 
-    def __init__(
-        self,
-        dataset_uri: str,
-        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
-        max_seq_len: int,
-        pad_tok_id: int,
-        num_fewshot: int,
-        prompt_string: str,
-        example_delimiter: str,
-        continuation_delimiter: str,
-        destination_path: str,
-        fewshot_random_seed: int,
-        strip_dataset: bool = True,
-        hf_loading_vars: dict = {},
-        hf_parsing_vars: dict = {},
-        context_key: str = 'context',
-        answer_key: str = 'answer',
-        prelimiter: str = '',
-        stacked_keys: List[str] = ['input_ids', 'labels']
-    ):
+    def __init__(self,
+                 dataset_uri: str,
+                 tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
+                 max_seq_len: int,
+                 pad_tok_id: int,
+                 num_fewshot: int,
+                 prompt_string: str,
+                 example_delimiter: str,
+                 continuation_delimiter: str,
+                 destination_path: str,
+                 fewshot_random_seed: int,
+                 strip_dataset: bool = True,
+                 hf_loading_vars: dict = {},
+                 hf_parsing_vars: dict = {},
+                 hf_parsing_func: Callable = None,
+                 context_key: str = 'context',
+                 answer_key: str = 'answer',
+                 prelimiter: str = '',
+                 stacked_keys: List[str] = ['input_ids', 'labels']):
         self.tokenizer = tokenizer
         self.prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
 
@@ -146,7 +145,14 @@ class InContextLearningDataset(Dataset):
         self.answer_key = answer_key
         self.stacked_keys = stacked_keys
 
-        self.dataset = self._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_vars)
+        if hf_parsing_func is not None:
+            self._parse_hf_dataset = hf_parsing_func
+        else:
+            self._parse_hf_dataset = lambda example: {
+                k: ' '.join([str(example[col]) for col in v]) for k, v in hf_parsing_vars.items()
+            }
+
+        self.dataset = self._read_dataset(dataset_uri, destination_path, hf_loading_vars)
         self.strip_data = strip_dataset
         if self.strip_data:
             self.dataset = self.dataset.map(strip_data)
@@ -176,7 +182,6 @@ class InContextLearningDataset(Dataset):
         dataset_uri: str,
         destination_path: str,
         hf_loading_vars: dict = None,
-        hf_parsing_vars: dict = None,
     ):
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
@@ -190,18 +195,13 @@ class InContextLearningDataset(Dataset):
         if 'hf://' in dataset_uri:
             dataset_uri = dataset_uri.replace('hf://', '')
             dataset = load_dataset(dataset_uri, **hf_loading_vars)
-            dataset = self._parse_hf_dataset(dataset, hf_parsing_vars)
+            dataset = dataset.map(self._parse_hf_dataset)
         else:
             with dist.local_rank_zero_download_and_wait(destination_path):
                 if dist.get_local_rank() == 0:
                     get_file(dataset_uri, destination_path, overwrite=True)
             dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
         return dataset
-
-    def _parse_hf_dataset(self, dataset, hf_parsing_vars):
-        return dataset.map(
-            lambda example: {k: ''.join([str(example[col]) for col in v]) for k, v in hf_parsing_vars.items()})
-
 
     def generate_few_shot_text(
         self,
@@ -303,18 +303,14 @@ class InContextLearningDataset(Dataset):
         for data_pair in data:
             context_enc = data_pair['preamble']['input_ids'] + data_pair[self.context_key]['input_ids']
 
-            inp, continuation_span = _make_padded_input(
-                context_enc, 
-                data_pair['continuation']['input_ids'], 
-                self.max_seq_len,
-                self.pad_tok_id
-                )
+            inp, continuation_span = _make_padded_input(context_enc, data_pair['continuation']['input_ids'],
+                                                        self.max_seq_len, self.pad_tok_id)
 
             batch['input_ids'].append(inp)
             batch['continuate_indicies'].append(continuation_span)
             batch['labels'].append(inp)
 
-        batch = {k : torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
+        batch = {k: torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
@@ -381,8 +377,8 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         self.normal_split_keys = ['input_ids', 'attention_mask']
         self.list_split_keys = ['labels']
 
-    def _read_dataset(self, dataset_uri: str, destination_path: str, hf_loading_vars: dict = None, hf_parsing_vars: dict = None):
-        dataset = super()._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_vars)   
+    def _read_dataset(self, dataset_uri: str, destination_path: str, hf_loading_vars: dict = None):
+        dataset = super()._read_dataset(dataset_uri, destination_path, hf_loading_vars)
         self.has_cot = 'chain_of_thought' in dataset.features
         return dataset.map(
             lambda examples: {
@@ -442,7 +438,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
             batch['input_ids'].append(inp)
             batch['labels'].append(aliases)
 
-        batch = {k : torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
+        batch = {k: torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
@@ -478,12 +474,7 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
         return tokenized_example
 
     def collate_fn(self, data):
-        batch = {
-            'input_ids': [],
-            'continuation_indices': [],
-            'mode': 'icl_task',
-            'labels': []
-        }
+        batch = {'input_ids': [], 'continuation_indices': [], 'mode': 'icl_task', 'labels': []}
         for data_pair in data:
             context_enc = data_pair['preamble']['input_ids'] + data_pair['context']['input_ids']
             continuation_enc = data_pair['continuation']['input_ids']
@@ -494,8 +485,7 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
             batch['continuation_indices'].append(continuation_span)
             batch['labels'].append(inp)
 
-
-        batch = {k : torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
+        batch = {k: torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
@@ -588,7 +578,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         # since the batch may consist of multiple questions, the choice_groupings indicates
         # which contiguous sequences of elements in the batch correspond to which question
         # gold_indices indicates which of the [0, N-1] choices is the correct one for each question.
-        batch = {k : torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
+        batch = {k: torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
@@ -684,7 +674,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
                 context_options = [f'{self.example_delimiter}{c}{cont_del}' for c in context_options]
             return context_options
 
-    def tokenize_example(self, prompt_and_fewshot: str, context_options: List[str], example:dict):
+    def tokenize_example(self, prompt_and_fewshot: str, context_options: List[str], example: dict):
         tokenized_example = {}
         preamble = self.tokenizer(prompt_and_fewshot)
         preamble = self.fix_eos_on_preamble(preamble)
@@ -697,13 +687,12 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         tokenized_example['gold'] = example['gold']
         return tokenized_example
 
-
     def collate_fn(self, data):
         batch = {
-            'input_ids': [], 
+            'input_ids': [],
             'continuation_indices': [],
             'mode': 'icl_task',
-            'labels': [], 
+            'labels': [],
             'gold_indices': [],
             'choice_groupings': [],
         }
@@ -732,7 +721,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         # since the batch may consist of multiple questions, the choice_groupings indicates
         # which contiguous sequences of elements in the batch correspond to which question
         # gold_indices indicates which of the [0, N-1] choices is the correct one for each question.
-        batch = {k : torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
+        batch = {k: torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
@@ -879,7 +868,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             batch['test_outputs'].append(sample['test_outputs'])
             batch['languages'].append(sample['language'])
 
-        batch = {k : torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
+        batch = {k: torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
@@ -903,93 +892,89 @@ def build_icl_dataloader(
     fewshot_random_seed: int,
     pass_at_k: int,
     generations_per_sample: int,
+    hf_parsing_func: Callable = None,
 ) -> DataSpec:
     if icl_task_type == 'multiple_choice':
-        dataset = InContextLearningMultipleChoiceTaskDataset(
-            dataset_uri=dataset_uri,
-            tokenizer=tokenizer,
-            max_seq_len=max_seq_len,
-            pad_tok_id=pad_tok_id,
-            num_fewshot=num_fewshot,
-            prompt_string=prompt_string,
-            example_delimiter=example_delimiter,
-            continuation_delimiter=continuation_delimiter,
-            destination_path=destination_path,
-            fewshot_random_seed=fewshot_random_seed,
-            hf_loading_vars=hf_loading_vars,
-            hf_parsing_vars=hf_parsing_vars,
-        )
+        dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri=dataset_uri,
+                                                             tokenizer=tokenizer,
+                                                             max_seq_len=max_seq_len,
+                                                             pad_tok_id=pad_tok_id,
+                                                             num_fewshot=num_fewshot,
+                                                             prompt_string=prompt_string,
+                                                             example_delimiter=example_delimiter,
+                                                             continuation_delimiter=continuation_delimiter,
+                                                             destination_path=destination_path,
+                                                             fewshot_random_seed=fewshot_random_seed,
+                                                             hf_loading_vars=hf_loading_vars,
+                                                             hf_parsing_vars=hf_parsing_vars,
+                                                             hf_parsing_func=hf_parsing_func)
         batch_size = max(dataset.num_choices, batch_size)
         effective_batchsize = batch_size // dataset.num_choices
     elif icl_task_type == 'schema':
-        dataset = InContextLearningSchemaTaskDataset(
-            dataset_uri=dataset_uri,
-            tokenizer=tokenizer,
-            max_seq_len=max_seq_len,
-            pad_tok_id=pad_tok_id,
-            num_fewshot=num_fewshot,
-            prompt_string=prompt_string,
-            example_delimiter=example_delimiter,
-            continuation_delimiter=continuation_delimiter,
-            destination_path=destination_path,
-            fewshot_random_seed=fewshot_random_seed,
-            hf_loading_vars=hf_loading_vars,
-            hf_parsing_vars=hf_parsing_vars,
-        )
+        dataset = InContextLearningSchemaTaskDataset(dataset_uri=dataset_uri,
+                                                     tokenizer=tokenizer,
+                                                     max_seq_len=max_seq_len,
+                                                     pad_tok_id=pad_tok_id,
+                                                     num_fewshot=num_fewshot,
+                                                     prompt_string=prompt_string,
+                                                     example_delimiter=example_delimiter,
+                                                     continuation_delimiter=continuation_delimiter,
+                                                     destination_path=destination_path,
+                                                     fewshot_random_seed=fewshot_random_seed,
+                                                     hf_loading_vars=hf_loading_vars,
+                                                     hf_parsing_vars=hf_parsing_vars,
+                                                     hf_parsing_func=hf_parsing_func)
         batch_size = max(dataset.num_choices, batch_size)
         effective_batchsize = batch_size // dataset.num_choices
     elif icl_task_type == 'language_modeling':
-        dataset = InContextLearningLMTaskDataset(
-            dataset_uri=dataset_uri,
-            tokenizer=tokenizer,
-            max_seq_len=max_seq_len,
-            pad_tok_id=pad_tok_id,
-            num_fewshot=num_fewshot,
-            prompt_string=prompt_string,
-            example_delimiter=example_delimiter,
-            continuation_delimiter=continuation_delimiter,
-            destination_path=destination_path,
-            fewshot_random_seed=fewshot_random_seed,
-            hf_loading_vars=hf_loading_vars,
-            hf_parsing_vars=hf_parsing_vars,
-        )
+        dataset = InContextLearningLMTaskDataset(dataset_uri=dataset_uri,
+                                                 tokenizer=tokenizer,
+                                                 max_seq_len=max_seq_len,
+                                                 pad_tok_id=pad_tok_id,
+                                                 num_fewshot=num_fewshot,
+                                                 prompt_string=prompt_string,
+                                                 example_delimiter=example_delimiter,
+                                                 continuation_delimiter=continuation_delimiter,
+                                                 destination_path=destination_path,
+                                                 fewshot_random_seed=fewshot_random_seed,
+                                                 hf_loading_vars=hf_loading_vars,
+                                                 hf_parsing_vars=hf_parsing_vars,
+                                                 hf_parsing_func=hf_parsing_func)
         effective_batchsize = batch_size
     elif icl_task_type == 'question_answering':
-        dataset = InContextLearningQATaskDataset(
-            dataset_uri=dataset_uri,
-            tokenizer=tokenizer,
-            max_seq_len=max_seq_len,
-            pad_tok_id=pad_tok_id,
-            num_fewshot=num_fewshot,
-            prompt_string=prompt_string,
-            example_delimiter=example_delimiter,
-            continuation_delimiter=continuation_delimiter,
-            destination_path=destination_path,
-            prelimiter=prelimiter,
-            fewshot_random_seed=fewshot_random_seed,
-            hf_loading_vars=hf_loading_vars,
-            hf_parsing_vars=hf_parsing_vars,
-            cot_delimiter=cot_delimiter,
-        )
+        dataset = InContextLearningQATaskDataset(dataset_uri=dataset_uri,
+                                                 tokenizer=tokenizer,
+                                                 max_seq_len=max_seq_len,
+                                                 pad_tok_id=pad_tok_id,
+                                                 num_fewshot=num_fewshot,
+                                                 prompt_string=prompt_string,
+                                                 example_delimiter=example_delimiter,
+                                                 continuation_delimiter=continuation_delimiter,
+                                                 destination_path=destination_path,
+                                                 prelimiter=prelimiter,
+                                                 fewshot_random_seed=fewshot_random_seed,
+                                                 hf_loading_vars=hf_loading_vars,
+                                                 hf_parsing_vars=hf_parsing_vars,
+                                                 cot_delimiter=cot_delimiter,
+                                                 hf_parsing_func=hf_parsing_func)
         effective_batchsize = batch_size
     elif icl_task_type == 'code_evaluation':
-        dataset = InContextLearningCodeEvalDataset(
-            dataset_uri=dataset_uri,
-            tokenizer=tokenizer,
-            max_seq_len=max_seq_len,
-            pad_tok_id=pad_tok_id,
-            num_fewshot=num_fewshot,
-            prompt_string=prompt_string,
-            example_delimiter=example_delimiter,
-            continuation_delimiter=continuation_delimiter,
-            destination_path=destination_path,
-            prelimiter=prelimiter,
-            fewshot_random_seed=fewshot_random_seed,
-            hf_loading_vars=hf_loading_vars,
-            hf_parsing_vars=hf_parsing_vars,
-            pass_at_k=pass_at_k,
-            generations_per_sample=generations_per_sample,
-        )
+        dataset = InContextLearningCodeEvalDataset(dataset_uri=dataset_uri,
+                                                   tokenizer=tokenizer,
+                                                   max_seq_len=max_seq_len,
+                                                   pad_tok_id=pad_tok_id,
+                                                   num_fewshot=num_fewshot,
+                                                   prompt_string=prompt_string,
+                                                   example_delimiter=example_delimiter,
+                                                   continuation_delimiter=continuation_delimiter,
+                                                   destination_path=destination_path,
+                                                   prelimiter=prelimiter,
+                                                   fewshot_random_seed=fewshot_random_seed,
+                                                   hf_loading_vars=hf_loading_vars,
+                                                   hf_parsing_vars=hf_parsing_vars,
+                                                   pass_at_k=pass_at_k,
+                                                   generations_per_sample=generations_per_sample,
+                                                   hf_parsing_func=hf_parsing_func)
         effective_batchsize = batch_size
     else:
         raise Exception(f'Unrecognized ICL task type: {icl_task_type}')
@@ -1078,6 +1063,7 @@ def get_icl_task_dataloader(
     example_delimiter: str,  # e.g. '\n'
     hf_loading_vars: dict = {},
     hf_parsing_vars: dict = {},
+    hf_parsing_func: Callable = None,
     continuation_delimiter: str = '',
     destination_path: str = '',
     prelimiter: str = '',  # e.g. 'Question: '
@@ -1151,6 +1137,7 @@ def get_icl_task_dataloader(
                 example_delimiter=example_delimiter,
                 hf_loading_vars=hf_loading_vars,
                 hf_parsing_vars=hf_parsing_vars,
+                hf_parsing_func=hf_parsing_func,
                 continuation_delimiter=continuation_delimiter,
                 destination_path=partition_uri + '_tmp',
                 prelimiter=prelimiter,
@@ -1173,6 +1160,7 @@ def get_icl_task_dataloader(
             example_delimiter=example_delimiter,
             hf_loading_vars=hf_loading_vars,
             hf_parsing_vars=hf_parsing_vars,
+            hf_parsing_func=hf_parsing_func,
             continuation_delimiter=continuation_delimiter,
             destination_path=destination_path,
             prelimiter=prelimiter,
