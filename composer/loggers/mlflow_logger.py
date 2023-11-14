@@ -67,7 +67,6 @@ class MLFlowLogger(LoggerDestination):
         try:
             import mlflow
             from mlflow import MlflowClient
-            from mlflow.utils.autologging_utils import MlflowAutologgingQueueingClient
         except ImportError as e:
             raise MissingConditionalImportError(extra_deps_group='mlflow',
                                                 conda_package='mlflow',
@@ -100,8 +99,7 @@ class MLFlowLogger(LoggerDestination):
                 self.experiment_name = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,
                                                  DEFAULT_MLFLOW_EXPERIMENT_NAME)
             self._mlflow_client = MlflowClient(self.tracking_uri)
-            # Set experiment. We use MlflowClient for experiment retrieval and creation
-            # because MlflowAutologgingQueueingClient doesn't support it
+            # Set experiment.
             env_exp_id = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None)
             if env_exp_id is not None:
                 self._experiment_id = env_exp_id
@@ -265,9 +263,6 @@ class MLFlowLogger(LoggerDestination):
         if self._enabled:
             import mlflow
 
-            # We use MlflowClient for run termination because MlflowAutologgingQueueingClient's
-            # run termination relies on scheduling Python futures, which is not supported within
-            # the Python atexit handler in which post_close() is called
             self._mlflow_client.set_terminated(self._run_id)
             mlflow.end_run()
 
