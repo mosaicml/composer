@@ -44,6 +44,9 @@ def training_loop(model, train_loader):
 <!--pytest.mark.gpu-->
 <!--
 ```python
+import os
+os.environ["MOSAIC_PLATFORM"] = "false"
+
 from tests.common.models import configure_tiny_bert_hf_model
 from tests.common.datasets import dummy_bert_lm_dataloader
 
