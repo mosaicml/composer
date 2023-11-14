@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 import torch
 import transformers
 from torch.utils.data import DataLoader, Dataset
-from tqdm import tqdm
 
 from composer.core import DataSpec
 from composer.core.data_spec import _default_split_batch, _split_list
@@ -148,11 +147,10 @@ class InContextLearningDataset(Dataset):
         if hf_parsing_func is not None:
             self._parse_hf_dataset = hf_parsing_func
         else:
-            self._parse_hf_dataset = lambda example: {
+            self._parse_hf_dataset = lambda example, **kwargs: {
                 k: ' '.join([str(example[col]) for col in v]) for k, v in hf_parsing_vars.items()
             }
-
-        self.dataset = self._read_dataset(dataset_uri, destination_path, hf_loading_vars)
+        self.dataset = self._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_vars)
         self.strip_data = strip_dataset
         if self.strip_data:
             self.dataset = self.dataset.map(strip_data)
@@ -182,6 +180,7 @@ class InContextLearningDataset(Dataset):
         dataset_uri: str,
         destination_path: str,
         hf_loading_vars: dict = None,
+        hf_parsing_vars: dict = None,
     ):
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
@@ -191,11 +190,15 @@ class InContextLearningDataset(Dataset):
                 conda_package='datasets',
                 conda_channel='conda-forge',
             ) from e
-        # TODO: this feels bad as well
         if 'hf://' in dataset_uri:
             dataset_uri = dataset_uri.replace('hf://', '')
             dataset = load_dataset(dataset_uri, **hf_loading_vars)
-            dataset = dataset.map(self._parse_hf_dataset)
+            batched = hf_parsing_vars.pop('batched', False)
+            dataset = dataset.map(self._parse_hf_dataset,
+                                  remove_columns=dataset.column_names,
+                                  batched=batched,
+                                  fn_kwargs=hf_parsing_vars)
+
         else:
             with dist.local_rank_zero_download_and_wait(destination_path):
                 if dist.get_local_rank() == 0:
@@ -293,7 +296,6 @@ class InContextLearningDataset(Dataset):
         return tokenized_example
 
     def collate_fn(self, data):
-        # batch = self.default_batch
         batch = {
             'input_ids': [],
             'continuation_indices': [],
@@ -377,8 +379,12 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         self.normal_split_keys = ['input_ids', 'attention_mask']
         self.list_split_keys = ['labels']
 
-    def _read_dataset(self, dataset_uri: str, destination_path: str, hf_loading_vars: dict = None):
-        dataset = super()._read_dataset(dataset_uri, destination_path, hf_loading_vars)
+    def _read_dataset(self,
+                      dataset_uri: str,
+                      destination_path: str,
+                      hf_loading_vars: dict = None,
+                      hf_parsing_vars: dict = None):
+        dataset = super()._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_vars)
         self.has_cot = 'chain_of_thought' in dataset.features
         return dataset.map(
             lambda examples: {

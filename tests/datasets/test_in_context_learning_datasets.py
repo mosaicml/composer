@@ -1525,7 +1525,7 @@ def test_lm_spacing_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     'split': 'test',
     'name': 'juggernaut',
 }])
-@pytest.mark.parametrize('hf_parsing_vars', [{'inputs': ['context'], 'outputs': ['continuation']}])
+@pytest.mark.parametrize('hf_parsing_vars', [{'context': ['context'], 'continuation': ['continuation']}])
 def test_hf_dataloading_lm_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fewshot, prompt_string,
                                       hf_loading_vars, hf_parsing_vars):
     pytest.importorskip('datasets')
@@ -1604,6 +1604,73 @@ def test_hf_dataloading_custom_parsing(dataset_uri, tiny_gpt2_tokenizer, tmp_pat
                                  continuation_delimiter='\nSpell:',
                                  destination_path=str(tmp_path / 'test_dataset_lm_juggernaut.jsonl'),
                                  hf_loading_vars=hf_loading_vars)
+    assert isinstance(dl, DataSpec)
+    assert isinstance(dl.dataloader, DataLoader)  # pyright
+    batch = next(dl.dataloader._get_iterator())
+
+    assert tuple(batch['input_ids'].shape) == (batch_size, seqlen - maximum_answer_length)
+    assert tuple(batch['attention_mask'].shape) == (batch_size, seqlen - maximum_answer_length)
+    assert batch['mode'] == 'generate'
+    # the maximum generation length from the small test data
+    assert batch['generation_length'] == maximum_answer_length
+    assert all(item[0] == tokenizer.eos_token_id for item in batch['input_ids'])
+
+    decoded_batch = tokenizer.batch_decode(batch['input_ids'])
+    assert all(item.count('Orbs: ') == num_fewshot + 1 for item in decoded_batch)
+    # import IPython; IPython.embed()
+    assert all(item.count('\nSpell:') == num_fewshot + 1 for item in decoded_batch)
+
+    if len(prompt_string) > 0:
+        assert all(item.count('What spell does this invoke? ') == 1 for item in decoded_batch)
+    assert all(
+        set(found) == set(expected) for found, expected in zip(batch['labels'], [['defeaning blast'], ['cold snap']]))
+    assert decoded_batch[0].endswith('Orbs: quas wex exort\nSpell:')
+    assert decoded_batch[1].endswith('Orbs: quas quas quas\nSpell:')
+
+
+@pytest.mark.parametrize('dataset_uri', ['hf://maxisawesome/test_dataset'])
+@pytest.mark.parametrize('num_fewshot', [0, 1])
+@pytest.mark.parametrize('prompt_string', ['What spell does this invoke? ', ''])
+@pytest.mark.parametrize('hf_loading_vars', [{
+    'split': 'test',
+    'name': 'invoker',
+}])
+def test_hf_dataloading_custom_parsing_batched(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fewshot, prompt_string,
+                                               hf_loading_vars):
+    pytest.importorskip('datasets')
+
+    tokenizer = tiny_gpt2_tokenizer
+    batch_size = 2
+    seqlen = 2048
+
+    def parse_invoker_batched(examples):
+        batch = {'context': [], 'answer': []}
+        for i, quas_text in enumerate(examples['quas']):
+            # import IPython; IPython.embed()
+            wex_text = examples['wex'][i]
+            exort_text = examples['exort'][i]
+            batch['context'].append(' '.join([quas_text, wex_text, exort_text]))
+            batch['answer'].append(examples['spell'][i])
+        return batch
+
+    # empirical number from the small test dataset
+    maximum_answer_length = 4
+
+    dl = get_icl_task_dataloader('question_answering',
+                                 dataset_uri,
+                                 tokenizer,
+                                 batch_size,
+                                 max_seq_len=seqlen,
+                                 pad_tok_id=tokenizer.eos_token_id,
+                                 num_fewshot=num_fewshot,
+                                 prompt_string=prompt_string,
+                                 example_delimiter='\n',
+                                 hf_parsing_func=parse_invoker_batched,
+                                 prelimiter='Orbs: ',
+                                 continuation_delimiter='\nSpell:',
+                                 destination_path=str(tmp_path / 'test_dataset_lm_juggernaut.jsonl'),
+                                 hf_loading_vars=hf_loading_vars,
+                                 hf_parsing_vars={'batched': True})
     assert isinstance(dl, DataSpec)
     assert isinstance(dl.dataloader, DataLoader)  # pyright
     batch = next(dl.dataloader._get_iterator())
