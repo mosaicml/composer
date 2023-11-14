@@ -94,7 +94,7 @@ from tests.common.datasets import RandomTextClassificationDataset
 os.environ['WANDB_MODE'] = 'disabled'
 
 os.environ['MOSAICML_PLATFORM'] = 'false'
-os.environ['MOSAICML_ACCESS_TOKEN_FILE'] = None
+del environ['MOSAICML_ACCESS_TOKEN_FILE']
 
 # Change the cwd to be the tempfile, so we don't pollute the documentation source folder
 tmpdir = tempfile.mkdtemp()
