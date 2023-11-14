@@ -124,8 +124,6 @@ def mapi_fixture(monkeypatch):
     future_obj.set_result(None)
     mock_update = lambda *args, **kwargs: future_obj
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_update)
-    # Disable the MosaicMLLogger by default
-    monkeypatch.setenv(MOSAICML_PLATFORM_ENV_VAR, 'false')
 
 
 @pytest.fixture(autouse=True)
