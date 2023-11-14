@@ -99,9 +99,8 @@ def test_fsdp_meta_initialization_none(model: ComposerClassifier, mixed_precisio
                     reason='FSDP requires PyTorch 1.13 or higher')
 def test_fsdp_prefetch_limit(forward_prefetch_limit: int, backward_prefetch_limit: int, world_size: int):
     model = SimpleModel()
-    for module in model.net:
-        if isinstance(module, torch.nn.Linear):
-            module._fsdp_wrap = True
+    model.fc1._fsdp_wrap = True
+    model.fc2._fsdp_wrap = True
     dataset = RandomClassificationDataset(size=10)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
