@@ -95,8 +95,7 @@ os.environ['WANDB_MODE'] = 'disabled'
 
 # Disable MosaicMLLogger
 os.environ['MOSAICML_PLATFORM'] = 'false'
-if 'MOSAICML_ACCESS_TOKEN_FILE' in os.environ:
-    del os.environ['MOSAICML_ACCESS_TOKEN_FILE']
+os.environ.pop('MOSAICML_ACCESS_TOKEN_FILE', None)
 
 # Change the cwd to be the tempfile, so we don't pollute the documentation source folder
 tmpdir = tempfile.mkdtemp()
