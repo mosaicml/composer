@@ -93,8 +93,10 @@ from tests.common.datasets import RandomTextClassificationDataset
 # Disable wandb
 os.environ['WANDB_MODE'] = 'disabled'
 
+# Disable MosaicMLLogger
 os.environ['MOSAICML_PLATFORM'] = 'false'
-del os.environ['MOSAICML_ACCESS_TOKEN_FILE']
+if 'MOSAICML_ACCESS_TOKEN_FILE' in os.environ:
+    del os.environ['MOSAICML_ACCESS_TOKEN_FILE']
 
 # Change the cwd to be the tempfile, so we don't pollute the documentation source folder
 tmpdir = tempfile.mkdtemp()
