@@ -1142,7 +1142,7 @@ class Trainer:
                 remote_file_name=remote_file_name,
                 latest_filename=save_latest_filename,
                 latest_remote_file_name=latest_remote_file_name,
-                save_overwrite=save_overwrite,
+                overwrite=save_overwrite,
                 weights_only=save_weights_only,
                 save_interval=save_interval,
                 num_checkpoints_to_keep=save_num_checkpoints_to_keep,

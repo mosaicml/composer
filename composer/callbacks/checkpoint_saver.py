@@ -240,7 +240,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         latest_remote_file_name: Optional[Union[str, pathlib.Path]] = '{run_name}/checkpoints/latest-rank{rank}.pt',
         save_interval: Union[Time, str, int, Callable[[State, Event], bool]] = '1ep',
         *,
-        save_overwrite: bool = False,
+        overwrite: bool = False,
         num_checkpoints_to_keep: int = -1,
         weights_only: bool = False,
     ):
@@ -262,7 +262,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.remote_file_name = PartialFilePath(remote_file_name) if remote_file_name else None
         self.latest_remote_file_name = PartialFilePath(latest_remote_file_name) if latest_remote_file_name else None
 
-        self.save_overwrite = save_overwrite
+        self.overwrite = overwrite
         self.saved_checkpoints: List[str] = []
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
         self.weights_only = weights_only
@@ -274,7 +274,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         os.makedirs(folder, exist_ok=True)
 
     def fit_start(self, state: State, logger: Logger) -> None:
-        if not self.save_overwrite:
+        if not self.overwrite:
             # checks that save_folder contains no files with a timestamp after the current timestamp,
             # which has potential for future conflicts.
             folder = format_name_with_dist(self.folder, state.run_name)
@@ -374,7 +374,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                     assert metadata_local_file_path is not None
                     logger.upload_file(remote_file_name=metadata_remote_file_name,
                                        file_path=metadata_local_file_path,
-                                       overwrite=self.save_overwrite)
+                                       overwrite=self.overwrite)
             else:
                 remote_file_name = self.remote_file_name.format(
                     state,
@@ -383,9 +383,9 @@ class CheckpointSaver(Callback):  # noqa: D101
 
             log.debug(f'Uploading checkpoint to {remote_file_name}')
             try:
-                logger.upload_file(remote_file_name=remote_file_name, file_path=saved_path, overwrite=self.save_overwrite)
+                logger.upload_file(remote_file_name=remote_file_name, file_path=saved_path, overwrite=self.overwrite)
             except FileExistsError as e:
-                raise FileExistsError(f'Uploading checkpoint failed with error: {e.message}. To overwrite checkpoints, set save_overwrite to True.')
+                raise FileExistsError(f'Uploading checkpoint failed with error: {e.message}. overwrite was set to {self.overwrite}. To overwrite checkpoints with Trainer, set save_overwrite to True.')
 
 
             # symlinks stay the same with sharded checkpointing
