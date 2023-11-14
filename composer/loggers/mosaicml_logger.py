@@ -129,10 +129,7 @@ class MosaicMLLogger(LoggerDestination):
         self._flush_metadata(force_flush=True)
 
     def close(self, state: State, logger: Logger) -> None:
-        try:
-            self._flush_metadata(force_flush=True)
-        except Exception as e:
-            log.info(f'Failed to flush on close to Mosaic with error: {e}')
+        self._flush_metadata(force_flush=True)
 
     def _log_metadata(self, metadata: Dict[str, Any]) -> None:
         """Buffer metadata and prefix keys with mosaicml."""
