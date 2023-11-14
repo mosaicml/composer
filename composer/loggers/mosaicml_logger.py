@@ -155,8 +155,8 @@ class MosaicMLLogger(LoggerDestination):
                     if f.exception() is not None:
                         raise f.exception()  # type: ignore
                 self._futures = list(incomplete)
-            except Exception as e:
-                log.exception(f'Failed to log metadata to Mosaic with error: {e}')
+            except Exception:
+                log.exception('Failed to log metadata to Mosaic')  # Prints out full traceback
                 if self.ignore_exceptions:
                     log.info('Ignoring exception and disabling MosaicMLLogger.')
                     self._enabled = False

@@ -132,8 +132,6 @@ def test_logged_data_exception_handling(monkeypatch, world_size: int, ignore_exc
     else:
         with pytest.raises(RuntimeError, match='Simulated exception'):
             assert logger._enabled is True
-            mock_mapi = MockMAPI(simulate_exception=True)
-            monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
             logger._flush_metadata(force_flush=True)
 
 
