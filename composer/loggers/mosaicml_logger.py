@@ -152,6 +152,8 @@ class MosaicMLLogger(LoggerDestination):
         self._flush_metadata()
 
     def fit_end(self, state: State, logger: Logger) -> None:
+        # Log training end timestampe for run events
+        self._log_metadata({'train_finished_time': time.time()})
         self._log_metadata(self._get_training_progress_metrics(state))
         self._flush_metadata(force_flush=True)
 
