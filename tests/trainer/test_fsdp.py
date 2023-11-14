@@ -105,6 +105,9 @@ def test_fsdp_prefetch_limit(forward_prefetch_limit: int, backward_prefetch_limi
     """
     num_classes = 10
     model = SimpleModel(num_features=num_classes, device='meta')
+    for module in model.net:
+        if isinstance(module, torch.nn.Linear):
+            module._fsdp_wrap = True
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
