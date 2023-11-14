@@ -3,7 +3,7 @@
 
 """Callback for catching loss NaNs."""
 
-from typing import Sequence
+from typing import Dict, Sequence
 
 import torch
 
@@ -24,5 +24,9 @@ class NaNMonitor(Callback):
             for loss in state.loss:
                 if torch.isnan(loss).any():
                     raise RuntimeError('Train loss contains a NaN.')
+        elif isinstance(state.loss, Dict):
+            for k, v in state.loss.items():
+                if torch.isnan(v).any():
+                    raise RuntimeError(f'Train loss {k} contains a NaN.')
         else:
             raise TypeError(f'Loss is of type {type(state.loss)}, but should be a tensor or a sequence of tensors')
