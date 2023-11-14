@@ -149,7 +149,7 @@ class MosaicMLLogger(LoggerDestination):
                 self.time_last_logged = time.time()
                 self._futures.append(f)
                 done, incomplete = wait(self._futures, timeout=0.01)
-                log.exception(f'Logged {len(done)} metadata to MosaicML, waiting on {len(incomplete)}')
+                log.info(f'Logged {len(done)} metadata to MosaicML, waiting on {len(incomplete)}')
                 # Raise any exceptions
                 for f in done:
                     if f.exception() is not None:
@@ -158,10 +158,10 @@ class MosaicMLLogger(LoggerDestination):
             except Exception as e:
                 log.exception(f'Failed to log metadata to Mosaic with error: {e}')
                 if self.ignore_exceptions:
-                    log.exception('Ignoring exception and disabling MosaicMLLogger.')
+                    log.info('Ignoring exception and disabling MosaicMLLogger.')
                     self._enabled = False
                 else:
-                    log.exception('Raising exception. To ignore exceptions, set ignore_exceptions=True.')
+                    log.info('Raising exception. To ignore exceptions, set ignore_exceptions=True.')
                     raise
 
     def _get_training_progress_metrics(self, state: State) -> Dict[str, Any]:
