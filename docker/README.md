@@ -4,9 +4,9 @@ To simplify environment setup for Composer, we provide a set of pre-built Docker
 
 ## Composer Images
 
-The [`mosaicml/composer`](https://hub.docker.com/r/mosaicml/composer) images contain all Composer pre-installed with
+The [`mosaicml/composer`](https://hub.docker.com/r/mosaicml/composer) images contain Composer pre-installed with
 all dependencies for both NLP and Vision models. They are built on top of the
-[`mosaicml/pytorch_vision`](https://hub.docker.com/r/mosaicml/pytorch_vision) family of images.
+[`mosaicml/pytorch`](https://hub.docker.com/r/mosaicml/pytorch) family of images.
 (See the section on [MosaicML PyTorch Images](#pytorch-images) below.)
 
 **Note**: Only the Dockerimage for most recent version of Composer will be maintained. We recommend using
@@ -31,6 +31,7 @@ To install composer, once inside the image, run `pip install mosaicml`.
 <!-- BEGIN_PYTORCH_BUILD_MATRIX -->
 | Linux Distro   | Flavor   | PyTorch Version   | CUDA Version        | Python Version   | Docker Tags                                                                              |
 |----------------|----------|-------------------|---------------------|------------------|------------------------------------------------------------------------------------------|
+| Ubuntu 20.04   | Base     | 2.2.0             | 12.1.0 (Infiniband) | 3.10             | `mosaicml/pytorch:2.2.0_cu121-nightly20231024-python3.10-ubuntu20.04`                    |
 | Ubuntu 20.04   | Base     | 2.1.0             | 12.1.0 (Infiniband) | 3.10             | `mosaicml/pytorch:latest`, `mosaicml/pytorch:2.1.0_cu121-python3.10-ubuntu20.04`         |
 | Ubuntu 20.04   | Base     | 2.1.0             | 12.1.0 (EFA)        | 3.10             | `mosaicml/pytorch:latest-aws`, `mosaicml/pytorch:2.1.0_cu121-python3.10-ubuntu20.04-aws` |
 | Ubuntu 20.04   | Base     | 2.1.0             | cpu                 | 3.10             | `mosaicml/pytorch:latest_cpu`, `mosaicml/pytorch:2.1.0_cpu-python3.10-ubuntu20.04`       |
