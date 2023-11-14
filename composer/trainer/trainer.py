@@ -20,7 +20,8 @@ import warnings
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
+from typing import (Any, Callable, ContextManager, Dict, Iterable, List, Mapping, Optional, Sequence, TextIO, Tuple,
+                    Union, cast)
 
 import coolname
 import torch
@@ -106,14 +107,13 @@ def _get_default_scheduler_frequency(schedulers: Optional[Union[Scheduler, Seque
 def _filter_metrics(metrics: Dict[str, Metric], metric_names: Optional[List[str]]) -> Dict[str, Metric]:
     """Filter the metrics based on the given metric_names as regex strings (e.g. 'Accuracy', 'f1' for 'BinaryF1Score', 'Top-.' for 'Top-1 Accuracy' and 'Top-2 Accuracy', etc). If no metric_names are provided, all metrics will be returned."""
     metrics = deepcopy(metrics)
-    if not metric_names:
+    if metric_names is None:
         return metrics
-    else:
-        filtered_metrics = {}
-        for name, metric in metrics.items():
-            if any(re.match(f'.*{metric_name}.*', name, re.IGNORECASE) for metric_name in metric_names):
-                filtered_metrics[name] = metric
-        return filtered_metrics
+    filtered_metrics = {}
+    for name, metric in metrics.items():
+        if any(re.match(f'.*{metric_name}.*', name, re.IGNORECASE) for metric_name in metric_names):
+            filtered_metrics[name] = metric
+    return filtered_metrics
 
 
 def _validate_precision(precision: Precision, device: Device):
@@ -2916,7 +2916,15 @@ class Trainer:
                                 if isinstance(self.state.device, DeviceMPS):
                                     # torchmetrics math has numerical errors on M1 devices
                                     # running the compute on CPU instead
-                                    outputs = self.state.outputs.cpu()
+                                    if isinstance(self.state.outputs, Mapping):
+                                        outputs = {}
+                                        for k, v in self.state.outputs.items():
+                                            if isinstance(v, torch.Tensor):
+                                                outputs[k] = v.cpu()
+                                            else:
+                                                outputs[k] = v
+                                    else:
+                                        outputs = self.state.outputs.cpu()
                                 else:
                                     outputs = self.state.outputs
 

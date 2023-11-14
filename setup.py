@@ -106,7 +106,7 @@ extra_deps['dev'] = [
     'ipython==8.11.0',
     'ipykernel==6.26.0',
     'jupyter==1.0.0',
-    'yamllint==1.32.0',
+    'yamllint==1.33.0',
     'recommonmark==0.7.1',
     'sphinx==4.4.0',
     'pre-commit>=3.4.0,<4',
@@ -155,7 +155,7 @@ extra_deps['deepspeed'] = [
 ]
 
 extra_deps['wandb'] = [
-    'wandb>=0.13.2,<0.16',
+    'wandb>=0.13.2,<0.17',
 ]
 
 extra_deps['comet_ml'] = [

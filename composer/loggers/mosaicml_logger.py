@@ -89,6 +89,7 @@ class MosaicMLLogger(LoggerDestination):
 
     def after_load(self, state: State, logger: Logger) -> None:
         # Log model data downloaded and initialized for run events
+        log.debug(f'Logging model initialized time to metadata')
         self._log_metadata({'model_initialized_time': time.time()})
         # Log WandB run URL if it exists. Must run on after_load as WandB is setup on event init
         for callback in state.callbacks:
@@ -96,6 +97,65 @@ class MosaicMLLogger(LoggerDestination):
                 run_url = callback.run_url
                 if run_url is not None:
                     self._log_metadata({'wandb/run_url': run_url})
+        self._flush_metadata(force_flush=True)
+
+    def batch_start(self, state: State, logger: Logger) -> None:
+        if state.dataloader_len is not None and self._enabled:
+            self.train_dataloader_len = state.dataloader_len.value
+
+    def batch_end(self, state: State, logger: Logger) -> None:
+        training_progress_data = self._get_training_progress_metrics(state)
+        log.debug(f'\nLogging training progress data to metadata:\n{dict_to_str(training_progress_data)}')
+        self._log_metadata(training_progress_data)
+        self._flush_metadata()
+
+    def epoch_end(self, state: State, logger: Logger) -> None:
+        self._flush_metadata()
+
+    def fit_end(self, state: State, logger: Logger) -> None:
+        # Log model training finished time for run events
+        self._log_metadata({'train_finished_time': time.time()})
+        training_progress_data = self._get_training_progress_metrics(state)
+        log.debug(f'\nLogging FINAL training progress data to metadata:\n{dict_to_str(training_progress_data)}')
+        self._log_metadata(training_progress_data)
+        self._flush_metadata(force_flush=True)
+
+    def eval_end(self, state: State, logger: Logger) -> None:
+        self._flush_metadata(force_flush=True)
+
+    def predict_end(self, state: State, logger: Logger) -> None:
+        self._flush_metadata(force_flush=True)
+
+    def close(self, state: State, logger: Logger) -> None:
+        self._flush_metadata(force_flush=True)
+
+    def _log_metadata(self, metadata: Dict[str, Any]) -> None:
+        """Buffer metadata and prefix keys with mosaicml."""
+        if self._enabled:
+            for key, val in metadata.items():
+                if self.ignore_keys and any(fnmatch.fnmatch(key, pattern) for pattern in self.ignore_keys):
+                    continue
+                self.buffered_metadata[f'mosaicml/{key}'] = format_data_to_json_serializable(val)
+            self._flush_metadata()
+
+    def _flush_metadata(self, force_flush: bool = False) -> None:
+        """Flush buffered metadata to MosaicML if enough time has passed since last flush."""
+        if self._enabled and (time.time() - self.time_last_logged > self.log_interval or force_flush):
+            try:
+                mcli.update_run_metadata(self.run_name, self.buffered_metadata)
+                self.buffered_metadata = {}
+                self.time_last_logged = time.time()
+                # If we have not failed in the last hour, increase the allowed fails. This increases
+                # robustness to transient network issues.
+                if time.time() - self.time_failed_count_adjusted > 3600 and self.allowed_fails_left < 3:
+                    self.allowed_fails_left += 1
+                    self.time_failed_count_adjusted = time.time()
+            except Exception as e:
+                log.error(f'Failed to log metadata to Mosaic with error: {e}')
+                self.allowed_fails_left -= 1
+                self.time_failed_count_adjusted = time.time()
+                if self.allowed_fails_left <= 0:
+                    self._enabled = False
 
     def _get_training_progress_metrics(self, state: State) -> Dict[str, Any]:
         """Calculates training progress metrics.
@@ -140,60 +200,6 @@ class MosaicMLLogger(LoggerDestination):
             }
         return training_progress_metrics
 
-    def batch_start(self, state: State, logger: Logger) -> None:
-        if state.dataloader_len is not None and self._enabled:
-            self.train_dataloader_len = state.dataloader_len.value
-
-    def batch_end(self, state: State, logger: Logger) -> None:
-        self._log_metadata(self._get_training_progress_metrics(state))
-        self._flush_metadata()
-
-    def epoch_end(self, state: State, logger: Logger) -> None:
-        self._flush_metadata()
-
-    def fit_end(self, state: State, logger: Logger) -> None:
-        # Log training end timestampe for run events
-        self._log_metadata({'train_finished_time': time.time()})
-        self._log_metadata(self._get_training_progress_metrics(state))
-        self._flush_metadata(force_flush=True)
-
-    def eval_end(self, state: State, logger: Logger) -> None:
-        self._flush_metadata(force_flush=True)
-
-    def predict_end(self, state: State, logger: Logger) -> None:
-        self._flush_metadata(force_flush=True)
-
-    def close(self, state: State, logger: Logger) -> None:
-        self._flush_metadata(force_flush=True)
-
-    def _log_metadata(self, metadata: Dict[str, Any]) -> None:
-        """Buffer metadata and prefix keys with mosaicml."""
-        if self._enabled:
-            for key, val in metadata.items():
-                if self.ignore_keys and any(fnmatch.fnmatch(key, pattern) for pattern in self.ignore_keys):
-                    continue
-                self.buffered_metadata[f'mosaicml/{key}'] = format_data_to_json_serializable(val)
-            self._flush_metadata()
-
-    def _flush_metadata(self, force_flush: bool = False) -> None:
-        """Flush buffered metadata to MosaicML if enough time has passed since last flush."""
-        if self._enabled and (time.time() - self.time_last_logged > self.log_interval or force_flush):
-            try:
-                mcli.update_run_metadata(self.run_name, self.buffered_metadata)
-                self.buffered_metadata = {}
-                self.time_last_logged = time.time()
-                # If we have not failed in the last hour, increase the allowed fails. This increases
-                # robustness to transient network issues.
-                if time.time() - self.time_failed_count_adjusted > 3600 and self.allowed_fails_left < 3:
-                    self.allowed_fails_left += 1
-                    self.time_failed_count_adjusted = time.time()
-            except Exception as e:
-                log.error(f'Failed to log metadata to Mosaic with error: {e}')
-                self.allowed_fails_left -= 1
-                self.time_failed_count_adjusted = time.time()
-                if self.allowed_fails_left <= 0:
-                    self._enabled = False
-
 
 def format_data_to_json_serializable(data: Any):
     """Recursively formats data to be JSON serializable.
@@ -224,3 +230,7 @@ def format_data_to_json_serializable(data: Any):
         warnings.warn('Encountered unexpected error while formatting data to be JSON serializable. '
                       f'Returning empty string instead. Error: {str(e)}')
         return ''
+
+
+def dict_to_str(data: Dict[str, Any]):
+    return '\n'.join([f'\t{k}: {v}' for k, v in data.items()])

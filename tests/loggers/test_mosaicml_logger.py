@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from composer.core import Callback, Time, TimeUnit
 from composer.loggers import WandBLogger
 from composer.loggers.mosaicml_logger import (MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR, MosaicMLLogger,
-                                              format_data_to_json_serializable)
+                                              format_data_to_json_serializable,)
 from composer.trainer import Trainer
 from composer.utils import dist, get_composer_env_dict
 from tests.callbacks.callback_settings import get_cb_kwargs, get_cb_model_and_datasets, get_cbs_and_marks
@@ -235,10 +235,10 @@ def test_run_events_logged(monkeypatch):
     trainer.fit()
     metadata = mock_mapi.run_metadata[run_name]
     assert isinstance(metadata['mosaicml/model_initialized_time'], float)
-    assert isinstance(metadata['mosaicml/train_finished_time'], float)
     assert 'mosaicml/training_progress' in metadata
     assert metadata['mosaicml/training_progress'] == '[batch=4/4]'
     assert 'mosaicml/training_sub_progress' not in metadata
+    assert isinstance(metadata['mosaicml/train_finished_time'], float)
 
 
 def test_token_training_progress_metrics():
