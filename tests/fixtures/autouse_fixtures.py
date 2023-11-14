@@ -14,7 +14,6 @@ import tqdm.std
 
 import composer
 from composer.devices import DeviceCPU, DeviceGPU
-from composer.loggers.mosaicml_logger import MOSAICML_PLATFORM_ENV_VAR
 from composer.utils import dist, reproducibility
 
 
