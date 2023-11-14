@@ -66,6 +66,12 @@ trainer = Trainer(model=model,
 
 trainer.fit()
 ```
+<!--pytest-codeblocks:cont-->
+<!--
+```python
+os.environ["MOSAICML_PLATFORM"] = "True"
+```
+-->
 
 ### Implementation Details
 
