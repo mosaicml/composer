@@ -385,8 +385,9 @@ class CheckpointSaver(Callback):  # noqa: D101
             try:
                 logger.upload_file(remote_file_name=remote_file_name, file_path=saved_path, overwrite=self.overwrite)
             except FileExistsError as e:
-                raise FileExistsError(f'Uploading checkpoint failed with error: {e.message}. overwrite was set to {self.overwrite}. To overwrite checkpoints with Trainer, set save_overwrite to True.')
-
+                raise FileExistsError(
+                    f'Uploading checkpoint failed with error: {e}. overwrite was set to {self.overwrite}. To overwrite checkpoints with Trainer, set save_overwrite to True.'
+                )
 
             # symlinks stay the same with sharded checkpointing
             if self.latest_remote_file_name is not None:
