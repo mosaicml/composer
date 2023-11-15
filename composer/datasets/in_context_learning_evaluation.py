@@ -32,8 +32,6 @@ __all__ = [
 ]
 
 
-# def strip_data(samples):
-#     return [{k: v.strip() if isinstance(v, str) else v for k, v in entry.items()} for entry in samples]
 def strip_data(sample):
     return {k: v.strip() if isinstance(v, str) else v for k, v in sample.items()}
 
@@ -109,26 +107,60 @@ def _get_fewshot_sample_idxs(dataset_size: int, num_fewshot: int, sample_idx: in
 
 
 class InContextLearningDataset(Dataset):
+    """A base dataset that construct batches for in-context learning task evaluations
 
-    def __init__(self,
-                 dataset_uri: str,
-                 tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
-                 max_seq_len: int,
-                 pad_tok_id: int,
-                 num_fewshot: int,
-                 prompt_string: str,
-                 example_delimiter: str,
-                 continuation_delimiter: str,
-                 destination_path: str,
-                 fewshot_random_seed: int,
-                 strip_dataset: bool = True,
-                 hf_loading_vars: dict = {},
-                 hf_parsing_vars: dict = {},
-                 hf_parsing_func: Callable = None,
-                 context_key: str = 'context',
-                 answer_key: str = 'answer',
-                 prelimiter: str = '',
-                 stacked_keys: List[str] = ['input_ids', 'labels']):
+    The input format is expected to be a jsonl file with different fields based on the task or a link to a huggingface dataset.
+
+    Args:
+        dataset_uri (str): A local path, a remote path beginning with ``s3://`` or another backend, or a HuggingFace dataset link with ``hf://`` prepended to it.
+            Alternate backends must be supported by :meth:`composer.utils.maybe_create_object_store_from_uri`.
+            A local dataset must consist of rows of JSON data points with different fields based on the task.
+            The default is "context" and "answer".
+        tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to map between strings and token ids
+        max_seq_len (int): The maximum sequence length supported by the model
+        pad_tok_id (int): The special token reserved for padding batches
+        num_fewshot (int): The number of complete fewshot examples to prepend before each test example
+        prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
+        example_delimiter (str): Separator that goes between individual (context, answer) pairs (e.g. '\n')
+        continuation_delimiter: (str): Separator that goes between context and answer in each example (e.g. '\nA: ')
+        destination_path (str): Temporary path to store downloaded datasets
+        prelimiter (str): String to put before each question (e.g. 'Q: ')
+        fewshot_random_seed (int): Random seed to use for fewshot sampling
+        strip_dataset (bool): Boolean for whether to strip whitespace from data. Trailing whitespace can cause degenerative outputs,
+            so unless otherwise required (for example in code), this should be set to True.
+        hf_loading_vars (dict): A dictionary containing keyword arguments to be passed into `load_dataset` if dataset is being pulled from HF.
+        hf_parsing_vars (dict): A dictionary containing keyword arguments to be passed into `_parse_hf_dataset` if the dataset is being pulled from HF,
+            as well as a boolean for whether or not to process the dataset in batches.
+        context_key (str): The key from the parsed dataset that the class will use as the "context" (i.e. the main content to be included in the prompt)
+        answer_key (str): The key from the parsed dataset that the class will use as the "answer" (i.e. the main content to be predicted by the model)
+        prelimiter (str): Text to be prepended before each example, including few shot examples #TODO: confirm this
+        stacked_keys (list(str)): keys in the output batch that must be converted to tensors with torch.stack()
+    """
+
+    def __init__(
+            self,
+            dataset_uri: str,
+            tokenizer: transformers.PreTrainedTokenizerBase,
+            max_seq_len: int,
+            pad_tok_id: int,
+            num_fewshot: int,
+            prompt_string: str,
+            example_delimiter: str,
+            continuation_delimiter: str,
+            destination_path: str,
+            fewshot_random_seed: int,
+            strip_dataset: bool = True,
+            hf_loading_vars: dict = None,
+            hf_parsing_vars: dict = None,
+            hf_parsing_func: Callable = None,
+            # TODO: should this be used to both set and access the data / tokenized examples?
+            context_key: str = 'context',
+            answer_key: str = 'answer',
+            prelimiter: str = '',
+            stacked_keys: List[str] = None,
+            dont_split_keys: List[str] = None,
+            list_split_keys: List[str] = None,
+            normal_split_keys: List[str] = None):
         self.tokenizer = tokenizer
         self.prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
 
@@ -143,13 +175,18 @@ class InContextLearningDataset(Dataset):
         self.context_key = context_key
         self.answer_key = answer_key
         self.stacked_keys = stacked_keys
+        hf_loading_vars = hf_loading_vars or {}
+        hf_parsing_vars = hf_parsing_vars or {}
+        self.stacked_keys = stacked_keys or ['input_ids', 'labels']
+        self.dont_split_keys = dont_split_keys or []
+        self.list_split_keys = list_split_keys or []
+        self.normal_split_keys = normal_split_keys or []
 
-        if hf_parsing_func is not None:
-            self._parse_hf_dataset = hf_parsing_func
-        else:
-            self._parse_hf_dataset = lambda example, **kwargs: {
-                k: ' '.join([str(example[col]) for col in v]) for k, v in hf_parsing_vars.items()
-            }
+        default_hf_parser = lambda example, **kwargs: {
+            k: ' '.join([str(example[col]) for col in v]) for k, v in kwargs.items()
+        }
+        self._parse_hf_dataset = hf_parsing_func or default_hf_parser
+
         self.dataset = self._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_vars)
         self.strip_data = strip_dataset
         if self.strip_data:
@@ -190,7 +227,7 @@ class InContextLearningDataset(Dataset):
                 conda_package='datasets',
                 conda_channel='conda-forge',
             ) from e
-        if 'hf://' in dataset_uri:
+        if dataset_uri.startswith('hf://'):
             dataset_uri = dataset_uri.replace('hf://', '')
             dataset = load_dataset(dataset_uri, **hf_loading_vars)
             batched = hf_parsing_vars.pop('batched', False)
@@ -215,10 +252,8 @@ class InContextLearningDataset(Dataset):
     ) -> str:
         """Formats the prompt fewshot examples for test sample `sample_idx`.
 
-        Randomly select `num_fewshot` samples from the dataset (not including the sample at `sample_idx`) and format
-        them each as follows `{example_delimiter}{prelimiter}{context}{continuation_delimiter}{chain_of_thought}{cot_delimiter}{answer}`.
-
-        `chain_of_thought` will default to empty if not present in the dataset but `context` and `answer` must be present.
+        Randomly select `num_fewshot` samples from the dataset (not including the sample at `sample_idx`) and constructs
+        a context with its answer appended.
 
         Returns the formatted prompt_string + concatenated list of formatted few shot examples.
         """
@@ -233,6 +268,13 @@ class InContextLearningDataset(Dataset):
         return few_shot_text
 
     def construct_context(self, sample: dict, preceding_text: str = '', add_answer: bool = False):
+        """
+        Takes a sample and  constructs a context. Optionally, appends this to preceeding text (such as a
+        prompt or fewshot examples), as well as optionally adds the correct answer (for fewshot examples)
+
+        The default context is formatted as follows: f'{self.prelimiter}{sample[self.context_key]}{self.continuation_delimiter}'
+
+        """
         ctxt = sample[self.context_key]
         ctxt = f'{self.prelimiter}{ctxt}'
         if len(preceding_text) > 0:
@@ -243,23 +285,33 @@ class InContextLearningDataset(Dataset):
         return ctxt
 
     def get_answer_from_sample(self, sample: dict):
+        """
+        Returns the answer from the sample
+        """
         return sample[self.answer_key]
 
     def fix_eos_on_preamble(self, preamble: dict):
-        # If the preamble is empty then this will be a 0-length list, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
-        # If there is an EOS token added, we need to remove it so it is not in the middle of the prompt
+        """
+        If the preamble is empty then preamble['input_ids'] will be a 0-length list,
+        unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
+        If there is an EOS token added, we need to remove it so it is not in the middle of the prompt,
+        as the specific eval question's prompt will follow the preamble
+        """
         if (self.tokenizer.eos_token_id is not None and len(preamble['input_ids']) > 1 and
                 preamble['input_ids'][-1] == self.tokenizer.eos_token_id):
             preamble['input_ids'] = preamble['input_ids'][:-1]
         return preamble
 
+    # TODO: do we need example here?
     def tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: dict):
+        """
+        Runs text throught he tokenizer and handles special cases.
+        """
         tokenized_example = {}
         preamble = self.tokenizer(prompt_and_fewshot)
         preamble = self.fix_eos_on_preamble(preamble)
         tokenized_example['preamble'] = preamble
         if self.strip_data:
-            # TODO: probably shouldn't use self.strip_data for this
             # rstrip context because a prompt ending in a space results in degenerate output
             ctxt = ctxt.rstrip()
         tokenized_example[self.context_key] = self.tokenizer(ctxt, add_special_tokens=False)
@@ -267,28 +319,26 @@ class InContextLearningDataset(Dataset):
 
     def _prep_example(
         self,
-        example,
+        example: dict,
         example_idx: int,
         num_fewshot: int,
         prompt_string: str,
         fewshot_rng: random.Random,
     ) -> List[Dict[str, Any]]:
-        """Prepares a set of language modeling tasks into tokenized format with prompt and fewshot examples.
+        """Prepares a single example from a HF Dataset into tokenized format with prompt and fewshot examples.
 
         Each task consists of a context and a continuation as well as an optional prompt and optional list of
         example context/continuation pairs which precede the test context/continuation pair.
 
         Args:
+            example (dict): A dictionary from the hf dataset
+            example_idx (int): the index of example
             num_fewshot (int): Number of examples context/continuation pairs to prepend to the test pair
             prompt_string (str): The prompt to prepend to all inputs
-            example_delimiter (str): The delimiter used to separate each individual context/continuation pair
-            continuation_delimiter (str): The delimiter used to separate each context from its continuation
             fewshot_rng (random.Random): Random number generator to use for fewshot sampling
-            cot_delimiter (str): The delimiter used to separate the chain-of-thought (if present) from the final model response.
-
 
         Returns:
-            dict: Contains the context, the continuation, and the preamble (prompt + fewshot examples)
+            dict: contains a dictionary with the tokenized data
         """
         prompt_and_fewshot = self.generate_few_shot_text(num_fewshot, example_idx, prompt_string, fewshot_rng)
         ctxt = self.construct_context(example, prompt_and_fewshot, add_answer=False)
@@ -296,6 +346,10 @@ class InContextLearningDataset(Dataset):
         return tokenized_example
 
     def collate_fn(self, data):
+        """
+        The function that the dataloader uses to accumulate data into batches
+        """
+
         batch = {
             'input_ids': [],
             'continuation_indices': [],
@@ -309,7 +363,7 @@ class InContextLearningDataset(Dataset):
                                                         self.max_seq_len, self.pad_tok_id)
 
             batch['input_ids'].append(inp)
-            batch['continuate_indicies'].append(continuation_span)
+            batch['continuation_indicies'].append(continuation_span)
             batch['labels'].append(inp)
 
         batch = {k: torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
@@ -317,6 +371,9 @@ class InContextLearningDataset(Dataset):
         return batch
 
     def split_batch(self, batch: Any, microbatch_size: int):
+        """
+        Handling for certain specialty columns that must be split into batches in different formats
+        """
         # Don't split kwargs that don't change
         # Normally split torch tensors
         # List split lists of strings
@@ -367,17 +424,14 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
     def __init__(self, cot_delimiter: str = '', *args, **kwargs):
         self.cot_delimiter = cot_delimiter
         self.has_cot = False
-        super().__init__(stacked_keys=['input_ids'], *args, **kwargs)
+        super().__init__(stacked_keys=['input_ids'],
+                         dont_split_keys=['mode', 'generation_length', 'generation_kwargs', 'cot_delimiter'],
+                         normal_split_keys=['input_ids', 'attention_mask'],
+                         list_split_keys=['labels'],
+                         *args,
+                         **kwargs)
 
         self.max_answer_length = self.get_max_answer_length()
-        self.dont_split_keys = [
-            'mode',
-            'generation_length',
-            'generation_kwargs',
-            'cot_delimiter',
-        ]
-        self.normal_split_keys = ['input_ids', 'attention_mask']
-        self.list_split_keys = ['labels']
 
     def _read_dataset(self,
                       dataset_uri: str,
@@ -529,12 +583,13 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
     """
 
     def __init__(self, choices_key: str = 'choices', *args, **kwargs):
-        super().__init__(context_key='query', *args, **kwargs)
+        super().__init__(context_key='query',
+                         dont_split_keys=['mode'],
+                         normal_split_keys=['gold_indices'],
+                         *args,
+                         **kwargs)
         self.num_choices = len(self.dataset[0][choices_key])
-
-        self.dont_split_keys = ['mode']
         self.real_split_keys = ['input_ids', 'labels', 'attention_mask']
-        self.normal_split_keys = ['gold_indices']
 
     def get_answer_from_sample(self, sample: dict):
         choices = sample['choices']
@@ -749,7 +804,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "task_id",
         "prompt", "entry_point", "canonical_solution", "test", "test_inputs", and "test_outputs". See tests/datasets/local_data/human_eval_small.jsonl.
         tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to map between strings and token ids
-        ? batch_size (int): Size of a batch used for eval
         max_seq_len (int): The maximum sequence length supported by the model
         pad_tok_id (int): The special token reserved for padding batches
         num_fewshot (int): The number of complete fewshot examples to prepend before each test example
@@ -782,6 +836,12 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             answer_key='canonical_solution',
             strip_dataset=False,
             stacked_keys=['input_ids'],
+            dont_split_keys=['mode', 'generation_length', 'pass_at_k', 'generation_kwargs'],
+            normal_split_keys=['input_ids', 'attention_mask'],
+            list_split_keys=[
+                'labels', 'tests', 'canonical_solutions', 'entry_points', 'test_inputs', 'test_outputs', 'prompts',
+                'languages'
+            ],
             *args,
             **kwargs,
         )
@@ -790,24 +850,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         self.max_prompt_length = self.get_max_prompt_length()
         self.top_p = top_p
         self.top_k = top_k
-
-        self.dont_split_keys = [
-            'mode',
-            'generation_length',
-            'pass_at_k',
-            'generation_kwargs',
-        ]
-        self.normal_split_keys = ['input_ids', 'attention_mask']
-        self.list_split_keys = [
-            'labels',
-            'tests',
-            'canonical_solutions',
-            'entry_points',
-            'test_inputs',
-            'test_outputs',
-            'prompts',
-            'languages',
-        ]
 
     def get_max_prompt_length(self):
         max_prompt_length = 0
@@ -1067,8 +1109,8 @@ def get_icl_task_dataloader(
     num_fewshot: int,
     prompt_string: str,  # e.g. 'translate english to french:'
     example_delimiter: str,  # e.g. '\n'
-    hf_loading_vars: dict = {},
-    hf_parsing_vars: dict = {},
+    hf_loading_vars: dict = None,
+    hf_parsing_vars: dict = None,
     hf_parsing_func: Callable = None,
     continuation_delimiter: str = '',
     destination_path: str = '',
