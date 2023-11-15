@@ -12,6 +12,7 @@ import operator
 import os
 import time
 import warnings
+from concurrent.futures import wait
 from functools import reduce
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -57,22 +58,25 @@ class MosaicMLLogger(LoggerDestination):
             Example 2: ``ignore_keys = ["wall_clock/*"]`` would ignore all wall clock metrics.
 
             (default: ``None``)
+        ignore_exceptions: Flag to disable logging exceptions. Defaults to False.
     """
 
     def __init__(
         self,
         log_interval: int = 60,
         ignore_keys: Optional[List[str]] = None,
+        ignore_exceptions: bool = False,
     ) -> None:
         self.log_interval = log_interval
         self.ignore_keys = ignore_keys
+        self.ignore_exceptions = ignore_exceptions
         self._enabled = dist.get_global_rank() == 0
         if self._enabled:
-            self.allowed_fails_left = 3
             self.time_last_logged = 0
             self.train_dataloader_len = None
-            self.time_failed_count_adjusted = 0
             self.buffered_metadata: Dict[str, Any] = {}
+            self._futures = []
+
             self.run_name = os.environ.get(RUN_NAME_ENV_VAR)
             if self.run_name is not None:
                 log.info(f'Logging to mosaic run {self.run_name}')
@@ -140,20 +144,25 @@ class MosaicMLLogger(LoggerDestination):
         """Flush buffered metadata to MosaicML if enough time has passed since last flush."""
         if self._enabled and (time.time() - self.time_last_logged > self.log_interval or force_flush):
             try:
-                mcli.update_run_metadata(self.run_name, self.buffered_metadata)
+                f = mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=True, protect=True)
                 self.buffered_metadata = {}
                 self.time_last_logged = time.time()
-                # If we have not failed in the last hour, increase the allowed fails. This increases
-                # robustness to transient network issues.
-                if time.time() - self.time_failed_count_adjusted > 3600 and self.allowed_fails_left < 3:
-                    self.allowed_fails_left += 1
-                    self.time_failed_count_adjusted = time.time()
-            except Exception as e:
-                log.error(f'Failed to log metadata to Mosaic with error: {e}')
-                self.allowed_fails_left -= 1
-                self.time_failed_count_adjusted = time.time()
-                if self.allowed_fails_left <= 0:
+                self._futures.append(f)
+                done, incomplete = wait(self._futures, timeout=0.01)
+                log.info(f'Logged {len(done)} metadata to MosaicML, waiting on {len(incomplete)}')
+                # Raise any exceptions
+                for f in done:
+                    if f.exception() is not None:
+                        raise f.exception()  # type: ignore
+                self._futures = list(incomplete)
+            except Exception:
+                log.exception('Failed to log metadata to Mosaic')  # Prints out full traceback
+                if self.ignore_exceptions:
+                    log.info('Ignoring exception and disabling MosaicMLLogger.')
                     self._enabled = False
+                else:
+                    log.info('Raising exception. To ignore exceptions, set ignore_exceptions=True.')
+                    raise
 
     def _get_training_progress_metrics(self, state: State) -> Dict[str, Any]:
         """Calculates training progress metrics.
