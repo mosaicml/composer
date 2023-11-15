@@ -203,6 +203,7 @@ class InContextLearningMetric(Metric):
 
     def set_response_cache(self, cache: bool):
         self.cache_responses = cache
+        setattr(self, 'response_cache', [])
 
     def format_response_cache(self, tokenizer):
         columns, rows = None, None

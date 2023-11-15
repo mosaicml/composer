@@ -993,7 +993,7 @@ def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_st
 
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 5])
-@device('cpu')
+@device('gpu')
 def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenizer, tmp_path):
     pytest.importorskip('datasets')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
@@ -1033,7 +1033,7 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
 
     assert 'metrics/lambada/InContextLearningLMAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/lambada/InContextLearningLMAccuracy'][0][1].item() == 0
-    icl_outputs = json.loads(in_memory_logger.tables['icl_outputs/lambada'])
+    icl_outputs = json.loads(in_memory_logger.tables['icl_outputs/lambada/InContextLearningLMAccuracy'])
     assert icl_outputs['columns'] == ['context_tok', 'continuation_tok_target', 'continuation_tok_pred', 'correct']
     assert len(icl_outputs['data']) == 2
 

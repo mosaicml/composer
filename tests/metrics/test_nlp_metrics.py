@@ -216,7 +216,7 @@ def test_in_context_learning_lm_accuracy(tiny_gpt2_tokenizer):
 @device('gpu')
 @world_size(2)
 def test_in_context_learning_lm_accuracy_multi_gpu(device, world_size, tiny_gpt2_tokenizer):
-
+    # need multi gpu test to ensure that gathering non-tensor state (response cache) works properly
     # construct different batches for different ranks
     if dist.get_local_rank() == 0:
         contexts = ['The dog is', 'I love to eat']

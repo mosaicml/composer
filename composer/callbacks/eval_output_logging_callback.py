@@ -21,7 +21,7 @@ from composer.datasets.in_context_learning_evaluation import (InContextLearningC
                                                               InContextLearningSchemaTaskDataset)
 from composer.loggers import Logger
 from composer.loggers.console_logger import ConsoleLogger
-from composer.utils import maybe_create_object_store_from_uri, parse_uri
+from composer.utils import dist, maybe_create_object_store_from_uri, parse_uri
 
 ICLDatasetTypes = (InContextLearningLMTaskDataset, InContextLearningQATaskDataset,
                    InContextLearningMultipleChoiceTaskDataset, InContextLearningSchemaTaskDataset,
@@ -34,7 +34,9 @@ def _write(destination_path, src_file):
     if obj_store is not None:
         obj_store.upload_object(object_name=save_path, filename=src_file)
     else:
-        shutil.copy(src_file, destination_path)
+        with dist.local_rank_zero_download_and_wait(destination_path):
+            if dist.get_local_rank() == 0:
+                shutil.copy(src_file, destination_path)
 
 
 class EvalOutputLogging(Callback):
@@ -55,13 +57,17 @@ class EvalOutputLogging(Callback):
         self.table = {}
         self.output_directory = output_directory if output_directory else os.getcwd()
         self.hash = hashlib.sha256()
+        self.destination_file = None
 
     def write_tables_to_output_dir(self, state: State):
         # write tmp files
         self.hash.update((str(time.time()) + str(random.randint(0, 1_000_000))).encode('utf-8'))
         tmp_dir = os.getcwd() + '/' + self.hash.hexdigest()
+
         if not os.path.exists(tmp_dir):
-            os.mkdir(tmp_dir)
+            with dist.local_rank_zero_download_and_wait(tmp_dir):
+                if dist.get_local_rank() == 0:
+                    os.mkdir(tmp_dir)
 
         full_df = pd.DataFrame()
         file_name = f'eval-outputs-ba{state.timestamp.batch.value}.tsv'
@@ -73,12 +79,15 @@ class EvalOutputLogging(Callback):
             df['benchmark'] = benchmark
             full_df = pd.concat([full_df, df], ignore_index=True)
 
-        with open(f'{tmp_dir}/{file_name}', 'wb') as f:
-            full_df.to_csv(f, sep='\t', index=False)
+        with dist.local_rank_zero_download_and_wait(f'{tmp_dir}/{file_name}'):
+            if dist.get_local_rank() == 0:
+                with open(f'{tmp_dir}/{file_name}', 'wb') as f:
+                    full_df.to_csv(f, sep='\t', index=False)
 
         # copy/upload tmp files
         _write(destination_path=f'{self.output_directory}/{file_name}', src_file=f'{tmp_dir}/{file_name}')
         os.remove(f'{tmp_dir}/{file_name}')
+        self.destination_file = f'{self.output_directory}/{file_name}'
 
         # delete tmp files
         os.rmdir(tmp_dir)
@@ -90,17 +99,23 @@ class EvalOutputLogging(Callback):
                 metric.set_response_cache(cache)
 
     def eval_start(self, state: State, logger: Logger) -> None:
+        # eval start runs before each benchmark's evaluator (either in training or eval)
         self.prep_response_cache(state, True)
 
     def eval_after_all(self, state: State, logger: Logger) -> None:
+        # eval after all runs after all evaluators have completed during eval within training
+        #  (either in training or eval)
         self.write_tables_to_output_dir(state)
         self.table = {}
 
     def eval_standalone_end(self, state: State, logger: Logger) -> None:
+        # eval standalone end runs after all evaluators have completed during a direct call to trainer.eval()
         self.write_tables_to_output_dir(state)
         self.table = {}
 
     def eval_end(self, state: State, logger: Logger) -> None:
+        # eval start runs after each benchmark's evaluator
+        # during each eval, only a single dataloader/benchmark will be active
         assert state.dataloader is not None
         assert isinstance(state.dataloader, DataLoader)
         if hasattr(state.dataloader, 'dataset') and isinstance(state.dataloader.dataset, ICLDatasetTypes):
@@ -110,7 +125,7 @@ class EvalOutputLogging(Callback):
                 benchmark = state.dataloader_label
                 assert benchmark is not None
                 assert isinstance(benchmark, str)
-                for metric in state.eval_metrics[benchmark].values():
+                for metric_name, metric in state.eval_metrics[benchmark].items():
                     if hasattr(metric, 'format_response_cache'):
                         assert isinstance(metric.format_response_cache, Callable)
                         format_response_cache: Callable = metric.format_response_cache
@@ -121,7 +136,8 @@ class EvalOutputLogging(Callback):
                                 rows = random.sample(rows, min(len(rows), self.subset_sample))
                             for destination in logger.destinations:
                                 if not isinstance(destination, ConsoleLogger):
-                                    destination.log_table(columns, rows, f'icl_outputs/{benchmark}')
+                                    # don't log to console because it will pollute the console too much
+                                    destination.log_table(columns, rows, f'icl_outputs/{benchmark}/{metric_name}')
 
-                            self.table[benchmark] = (columns, rows)
+                            self.table[f'{benchmark}_{metric_name}'] = (columns, rows)
         self.prep_response_cache(state, False)
