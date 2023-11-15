@@ -5,6 +5,7 @@ import gc
 import logging
 import os
 import pathlib
+from concurrent.futures import Future
 
 import mcli
 import pytest
@@ -118,7 +119,9 @@ def seed_all(rank_zero_seed: int, monkeypatch: pytest.MonkeyPatch):
 @pytest.fixture(autouse=True)
 def mapi_fixture(monkeypatch):
     # Composer auto-adds mosaicml logger when running on platform. Disable logging for tests.
-    mock_update = lambda *args, **kwargs: None
+    future_obj = Future()
+    future_obj.set_result(None)
+    mock_update = lambda *args, **kwargs: future_obj
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_update)
 
 
