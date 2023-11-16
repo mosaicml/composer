@@ -49,6 +49,3 @@ def patch_pytorch():
 
         # Monkey patch partial state dict handling
         _state_dict_utils._sharded_pre_load_state_dict_hook = (_sharded_pre_load_state_dict_hook)
-
-    elif version.parse(torch.__version__) >= version.parse('2.1.1'):
-        raise NotImplementedError(f'FullyShardedDataParallel is not supported for torch >= 2.2.0')
