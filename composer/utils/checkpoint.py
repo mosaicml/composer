@@ -14,6 +14,7 @@ import tarfile
 import tempfile
 import textwrap
 import warnings
+from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
@@ -37,6 +38,50 @@ __all__ = ['load_checkpoint', 'save_checkpoint', 'download_checkpoint']
 _COMPOSER_STATES_FILENAME = 'composer_states.pt'
 _DEEPSPEED_TAG = 'deepspeed'  # always tag with the same, deterministic name. We'll rename the tarball to the appropriate name.
 _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME = f'__{dist.get_global_rank()}_0.distcp'
+
+
+def _get_checkpoint_validation_function(name: str) -> Callable[[Union[Path, str]], bool]:
+    """Get the validation function by name.
+
+    Args:
+        name (str): Qualified name of the checkpoint validation function.
+                    It should be in the form '{module_name}.{fn_name}'.
+
+    Returns:
+        Callable[[Union[Path, str]], bool] The checkpoint validation function that returns
+            True given a valid checkpoint and False otherwise.
+    """
+    splits = name.split('.')
+    module_name, fn_name = '.'.join(splits[:-1]), splits[-1]
+    module = import_module(module_name)
+    fn = getattr(module, fn_name)
+    log.debug(f'Checkpoint validation function {name} has been found.')
+    return fn
+
+
+def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str]) -> Union[Path, str]:
+    """Ensures that the checkpoint at checkpoint_filepath is valid
+
+    if the CHECKPOINT_VALIDATION_FUNCTION environment variable exists.
+
+    Args:
+        checkpoint_filepath (Union[Path,str]): The path to the checkpoint file.
+    """
+    fn_name = os.environ.get('CHECKPOINT_VALIDATION_FUNCTION', None)
+
+    # No function name has been specified.
+    if fn_name is None:
+        return checkpoint_filepath
+
+    # Get the validation function by name.
+    validate = _get_checkpoint_validation_function(fn_name)
+
+    # Validate the checkpoint.
+    if not validate(checkpoint_filepath):
+        raise ValueError(f'Checkpoint at {checkpoint_filepath} is invalid.')
+
+    log.debug(f'Checkpoint at {checkpoint_filepath} is valid.')
+    return checkpoint_filepath
 
 
 def _format_path_with_rank_zero(path: str) -> str:
@@ -695,7 +740,8 @@ def safe_torch_load(
             model = None
             optimizer = None
             if dist.get_global_rank() == 0:
-                state_dict_list[0] = torch.load(composer_states_filepath, map_location=map_location)
+                state_dict_list[0] = torch.load(_ensure_valid_checkpoint(composer_states_filepath),
+                                                map_location=map_location)
                 # Don't broadcast model/optimizer state if they exist
                 if 'model' in state_dict_list[0]['state']:
                     model = state_dict_list[0]['state']['model']
@@ -716,7 +762,7 @@ def safe_torch_load(
 
             return state_dict
         else:
-            return torch.load(composer_states_filepath, map_location=map_location)
+            return torch.load(_ensure_valid_checkpoint(composer_states_filepath), map_location=map_location)
     except TypeError as e:
         if 'Accuracy.__new__() missing 1 required positional argument' in str(e):
             raise Exception('As of v0.10.0, torchmetrics introduces a new required argument to Accuracy which '
