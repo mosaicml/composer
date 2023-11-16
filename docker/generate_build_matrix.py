@@ -136,17 +136,15 @@ def _main():
 
         cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
 
-        override_string = (
-            "cuda>=11.8 brand=tesla,driver>=470,driver<471 "
-            "brand=tesla,driver>=515,driver<516 brand=unknown,driver>=470,driver<471 "
-            "brand=unknown,driver>=515,driver<516 brand=nvidia,driver>=470,driver<471 "
-            "brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=470,driver<471 "
-            "brand=nvidiartx,driver>=515,driver<516 brand=geforce,driver>=470,driver<471 "
-            "brand=geforce,driver>=515,driver<516 brand=quadro,driver>=470,driver<471 "
-            "brand=quadro,driver>=515,driver<516 brand=titan,driver>=470,driver<471 "
-            "brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=470,driver<471 "
-            "brand=titanrtx,driver>=515,driver<516"
-        )
+        override_string = ('cuda>=11.8 brand=tesla,driver>=470,driver<471 '
+                           'brand=tesla,driver>=515,driver<516 brand=unknown,driver>=470,driver<471 '
+                           'brand=unknown,driver>=515,driver<516 brand=nvidia,driver>=470,driver<471 '
+                           'brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=470,driver<471 '
+                           'brand=nvidiartx,driver>=515,driver<516 brand=geforce,driver>=470,driver<471 '
+                           'brand=geforce,driver>=515,driver<516 brand=quadro,driver>=470,driver<471 '
+                           'brand=quadro,driver>=515,driver<516 brand=titan,driver>=470,driver<471 '
+                           'brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=470,driver<471 '
+                           'brand=titanrtx,driver>=515,driver<516')
         nvidia_require_cuda_override = '' if cuda_version != '11.8.0' else override_string
 
         entry = {
@@ -176,7 +174,8 @@ def _main():
                 '',
             'PYTORCH_NIGHTLY_VERSION':
                 '',
-            'NVIDIA_REQUIRE_CUDA_OVERRIDE': nvidia_require_cuda_override,
+            'NVIDIA_REQUIRE_CUDA_OVERRIDE':
+                nvidia_require_cuda_override,
         }
 
         # Only build EFA image on latest python with cuda on pytorch_stage
