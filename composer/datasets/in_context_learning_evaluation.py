@@ -1196,7 +1196,7 @@ def get_icl_task_dataloader(
     hf_parsing_map: dict = None,
     continuation_delimiter: str = '',
     destination_path: str = '',
-    prelimiter: str = '',  # e.g. 'Question: '
+    question_prelimiter: str = '',  # e.g. 'Question: '
     fewshot_random_seed: int = 1234,
     pass_at_k: int = 1,
     generations_per_sample: int = 1,
@@ -1269,7 +1269,7 @@ def get_icl_task_dataloader(
                 hf_parsing_map=hf_parsing_map,
                 continuation_delimiter=continuation_delimiter,
                 destination_path=partition_uri + '_tmp',
-                prelimiter=prelimiter,
+                prelimiter=question_prelimiter,
                 cot_delimiter=cot_delimiter,
                 fewshot_random_seed=fewshot_random_seed,
                 pass_at_k=pass_at_k,
@@ -1291,7 +1291,7 @@ def get_icl_task_dataloader(
             hf_parsing_map=hf_parsing_map,
             continuation_delimiter=continuation_delimiter,
             destination_path=destination_path,
-            prelimiter=prelimiter,
+            prelimiter=question_prelimiter,
             cot_delimiter=cot_delimiter,
             fewshot_random_seed=fewshot_random_seed,
             pass_at_k=pass_at_k,
