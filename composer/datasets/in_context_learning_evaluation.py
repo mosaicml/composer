@@ -444,8 +444,9 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
                       dataset_uri: str,
                       destination_path: str,
                       hf_loading_vars: dict = None,
+                      hf_parsing_map: dict = None,
                       ):
-        dataset = super()._read_dataset(dataset_uri, destination_path, hf_loading_vars)
+        dataset = super()._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_map)
         self.has_cot = 'chain_of_thought' in dataset.features
         return dataset.map(
             lambda examples: {
