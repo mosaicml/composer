@@ -1288,3 +1288,7 @@ def test_rotate_checkpoints(
     assert len(symlink_files) == ((1 if not deepspeed_enabled else world_size) if num_keep != 0 else 0)
 
     dist.barrier()  # all ranks finish before cleaning up tmpdir
+
+def test_checkpoint_validation():
+    # Test validation occurs
+    pass

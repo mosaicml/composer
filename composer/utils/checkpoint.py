@@ -60,9 +60,10 @@ def _get_checkpoint_validation_function(name: str) -> Callable[[Union[Path, str]
 
 
 def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str]) -> Union[Path, str]:
-    """Ensures that the checkpoint at checkpoint_filepath is valid
+    """Ensures that the checkpoint at checkpoint_filepath is valid.
 
-    if the CHECKPOINT_VALIDATION_FUNCTION environment variable exists.
+    using the function specified by the CHECKPOINT_VALIDATION_FUNCTION environment variable.
+    If CHECKPOINT_VALIDATION_FUNCTION, we skip validation.
 
     Args:
         checkpoint_filepath (Union[Path,str]): The path to the checkpoint file.
@@ -71,6 +72,7 @@ def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str]) -> Union[Pat
 
     # No function name has been specified.
     if fn_name is None:
+        log.debug('No validation function specified. Skipping checkpoint validation.')
         return checkpoint_filepath
 
     # Get the validation function by name.
@@ -732,6 +734,9 @@ def safe_torch_load(
         map_location: The location to load the checkpoint to.
         load_fsdp_monolith_rank0_only: Whether the checkpoint is a monolith FSDP checkpoint.
     """
+    # Validate the checkpoint file.
+    composer_states_filepath = _ensure_valid_checkpoint(composer_states_filepath)
+
     try:
         if load_fsdp_monolith_rank0_only:
             log.info(
@@ -740,8 +745,7 @@ def safe_torch_load(
             model = None
             optimizer = None
             if dist.get_global_rank() == 0:
-                state_dict_list[0] = torch.load(_ensure_valid_checkpoint(composer_states_filepath),
-                                                map_location=map_location)
+                state_dict_list[0] = torch.load(composer_states_filepath, map_location=map_location)
                 # Don't broadcast model/optimizer state if they exist
                 if 'model' in state_dict_list[0]['state']:
                     model = state_dict_list[0]['state']['model']
@@ -762,7 +766,7 @@ def safe_torch_load(
 
             return state_dict
         else:
-            return torch.load(_ensure_valid_checkpoint(composer_states_filepath), map_location=map_location)
+            return torch.load(composer_states_filepath, map_location=map_location)
     except TypeError as e:
         if 'Accuracy.__new__() missing 1 required positional argument' in str(e):
             raise Exception('As of v0.10.0, torchmetrics introduces a new required argument to Accuracy which '
