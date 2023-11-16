@@ -221,7 +221,7 @@ def prepare_fsdp_module(
     is_torch_2_0 = using_torch_2()
     from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (CheckpointImpl,
                                                                              apply_activation_checkpointing,
-                                                                             checkpoint_wrapper)
+                                                                             checkpoint_wrapper, offload_wrapper)
     from torch.distributed.fsdp import FullyShardedDataParallel
     if not is_torch_2_0:
         from torch.distributed.fsdp.flatten_params_wrapper import FlattenParamsWrapper
@@ -535,20 +535,19 @@ def prepare_fsdp_module(
                                                                 ) if activation_checkpointing else (lambda module:
                                                                                                     module)
                     second_wrap_fn = (
-                        lambda module: checkpoint_wrapper(
+                        lambda module: offload_wrapper(
                             first_wrap_fn(module),  # type: ignore reportGeneralTypeIssues
-                            checkpoint_impl=CheckpointImpl.NO_REENTRANT,
-                            offload_to_cpu=True)) if activation_cpu_offload else first_wrap_fn
+                        )) if activation_cpu_offload else first_wrap_fn
                 else:
                     first_wrap_fn = checkpoint_wrapper if activation_checkpointing else (lambda module: module)
                     second_wrap_fn = (
-                        lambda module: checkpoint_wrapper(
-                            first_wrap_fn(module),  # type: ignore reportGeneralTypeIssues
-                            offload_to_cpu=True)) if activation_cpu_offload else first_wrap_fn
+                        lambda module: offload_wrapper(first_wrap_fn(module))  # type: ignore reportGeneralTypeIssues
+                    ) if activation_cpu_offload else first_wrap_fn
 
                 # Choose which modules to activation checkpoint according to the following priority:
                 # If module has attribute `module._activation_checkpointing = ...`, always respect it
                 # Otherwise checkpoint if root object `obj.activation_checkpointing_fn(module)` is true
+
                 def _check_fn(module: torch.nn.Module) -> bool:
                     if not is_torch_2_0 and isinstance(module, FlattenParamsWrapper):
                         return False
