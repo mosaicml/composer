@@ -19,11 +19,11 @@ import tabulate
 import yaml
 
 LATEST_PYTHON_VERSION = '3.10'
-PRODUCTION_PYTORCH_VERSION = '2.1.0'
+PRODUCTION_PYTORCH_VERSION = '2.1.1'
 
 
 def _get_torchvision_version(pytorch_version: str):
-    if pytorch_version == '2.1.0':
+    if pytorch_version == '2.1.1':
         return '0.16.0'
     if pytorch_version == '2.0.1':
         return '0.15.2'
@@ -41,7 +41,7 @@ def _get_base_image(cuda_version: str):
 def _get_cuda_version(pytorch_version: str, use_cuda: bool):
     if not use_cuda:
         return ''
-    if pytorch_version == '2.1.0':
+    if pytorch_version == '2.1.1':
         return '12.1.0'
     if pytorch_version == '2.0.1':
         return '11.8.0'
