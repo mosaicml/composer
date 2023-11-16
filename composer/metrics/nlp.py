@@ -201,7 +201,7 @@ class InContextLearningMetric(Metric):
         self.add_state('response_cache', default=[], dist_reduce_fx=None)
         self.cache_responses = cache_responses
 
-    def set_response_cache(self, cache: bool):
+    def reset_response_cache(self, cache: bool):
         self.cache_responses = cache
         setattr(self, 'response_cache', [])
 

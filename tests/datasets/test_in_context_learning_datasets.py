@@ -1230,7 +1230,7 @@ def test_qa_task_evaluation_opt_tokenizer(device, world_size, num_fewshot, datas
     trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
     assert 'metrics/triviaqa/InContextLearningQAAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/triviaqa/InContextLearningQAAccuracy'][0][1].item() == 0
-    icl_outputs = json.loads(in_memory_logger.tables['icl_outputs/triviaqa'])
+    icl_outputs = json.loads(in_memory_logger.tables['icl_outputs/triviaqa/InContextLearningQAAccuracy'])
     assert icl_outputs['columns'] == [
         'prompt', 'original_model_output', 'cleaned_model_output', 'original_labels', 'cleaned_labels', 'correct'
     ]

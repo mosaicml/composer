@@ -10,7 +10,6 @@ import shutil
 import time
 from typing import Callable, Optional
 
-import pandas as pd
 from torch.utils.data import DataLoader
 
 from composer.core import Callback, State
@@ -21,7 +20,7 @@ from composer.datasets.in_context_learning_evaluation import (InContextLearningC
                                                               InContextLearningSchemaTaskDataset)
 from composer.loggers import Logger
 from composer.loggers.console_logger import ConsoleLogger
-from composer.utils import dist, maybe_create_object_store_from_uri, parse_uri
+from composer.utils import MissingConditionalImportError, dist, maybe_create_object_store_from_uri, parse_uri
 
 ICLDatasetTypes = (InContextLearningLMTaskDataset, InContextLearningQATaskDataset,
                    InContextLearningMultipleChoiceTaskDataset, InContextLearningSchemaTaskDataset,
@@ -59,7 +58,13 @@ class EvalOutputLogging(Callback):
         self.hash = hashlib.sha256()
         self.destination_file = None
 
-    def write_tables_to_output_dir(self, state: State):
+    def _write_tables_to_output_dir(self, state: State):
+        try:
+            import pandas as pd
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='pandas',
+                                                conda_package='pandas',
+                                                conda_channel='conda-forge') from e
         # write tmp files
         self.hash.update((str(time.time()) + str(random.randint(0, 1_000_000))).encode('utf-8'))
         tmp_dir = os.getcwd() + '/' + self.hash.hexdigest()
@@ -92,25 +97,25 @@ class EvalOutputLogging(Callback):
         # delete tmp files
         os.rmdir(tmp_dir)
 
-    def prep_response_cache(self, state, cache):
+    def _prep_response_cache(self, state, cache):
         benchmark = state.dataloader_label
         for metric in state.eval_metrics[benchmark].values():
-            if hasattr(metric, 'set_response_cache'):
-                metric.set_response_cache(cache)
+            if hasattr(metric, 'reset_response_cache'):
+                metric.reset_response_cache(cache)
 
     def eval_start(self, state: State, logger: Logger) -> None:
         # eval start runs before each benchmark's evaluator (either in training or eval)
-        self.prep_response_cache(state, True)
+        self._prep_response_cache(state, True)
 
     def eval_after_all(self, state: State, logger: Logger) -> None:
         # eval after all runs after all evaluators have completed during eval within training
         #  (either in training or eval)
-        self.write_tables_to_output_dir(state)
+        self._write_tables_to_output_dir(state)
         self.table = {}
 
     def eval_standalone_end(self, state: State, logger: Logger) -> None:
         # eval standalone end runs after all evaluators have completed during a direct call to trainer.eval()
-        self.write_tables_to_output_dir(state)
+        self._write_tables_to_output_dir(state)
         self.table = {}
 
     def eval_end(self, state: State, logger: Logger) -> None:
@@ -140,4 +145,4 @@ class EvalOutputLogging(Callback):
                                     destination.log_table(columns, rows, f'icl_outputs/{benchmark}/{metric_name}')
 
                             self.table[f'{benchmark}_{metric_name}'] = (columns, rows)
-        self.prep_response_cache(state, False)
+        self._prep_response_cache(state, False)
