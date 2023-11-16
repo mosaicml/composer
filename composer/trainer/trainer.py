@@ -1079,6 +1079,7 @@ class Trainer:
                     ConsoleLogger(stream=console_stream, log_interval=console_log_interval, log_traces=log_traces))
 
         # MosaicML Logger
+        # Keep MosaicML logger above the RemoteUploaderDownloader so that fit end is reported before the final checkpoint begins uploading
         if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and os.environ.get(
                 MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and not any(isinstance(x, MosaicMLLogger) for x in loggers):
             log.info('Detected run on MosaicML platform. Adding MosaicMLLogger to loggers.')
