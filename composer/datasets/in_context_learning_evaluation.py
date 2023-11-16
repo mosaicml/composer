@@ -1137,7 +1137,7 @@ def build_icl_dataloader(
     )
 
 
-def partition_dataset_by_category(dataset_uri: str, destination_path: str) -> Dict[str, str]:
+def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_loading_vars: dict, hf_parsing_map: dict) -> Dict[str, str]:
     """If has_categories is enabled, we partition the dataset into a separate dataset for each category value in the data and write each partition to a local file.
 
     Args:
@@ -1158,6 +1158,15 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str) -> Di
             conda_package='datasets',
             conda_channel='conda-forge',
         ) from e
+    if dataset_uri.startswith("hf://"):
+        # TODO: this will also execute in the dataset class, so ensure that the same hf_parsing_map and loading_vars can be used both times
+        cur_dataset_uri = dataset_uri.replace('hf://', '')
+        dataset = load_dataset(cur_dataset_uri, **hf_loading_vars)
+        if hf_parsing_map:
+            dataset_parsing_func = lambda example: {
+                k: ' '.join([str(example[col]) for col in v]) for k, v in hf_parsing_map.items()
+            }
+            dataset = dataset.map(dataset_parsing_func, remove_columns=dataset.column_names)
     with dist.local_rank_zero_download_and_wait(destination_path):
         if dist.get_local_rank() == 0:
             get_file(dataset_uri, destination_path, overwrite=True)
@@ -1186,18 +1195,18 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str) -> Di
 def get_icl_task_dataloader(
     icl_task_type: str,
     dataset_uri: str,
-    tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
+    tokenizer: transformers.PreTrainedTokenizerBase,
     batch_size: int,
     max_seq_len: int,
     pad_tok_id: int,
     num_fewshot: int,
     prompt_string: str,  # e.g. 'translate english to french:'
     example_delimiter: str,  # e.g. '\n'
+    continuation_delimiter: str = '',
+    question_prelimiter: str = '',  # e.g. 'Question: '
     hf_loading_vars: dict = None,
     hf_parsing_map: dict = None,
-    continuation_delimiter: str = '',
     destination_path: str = '',
-    question_prelimiter: str = '',  # e.g. 'Question: '
     fewshot_random_seed: int = 1234,
     pass_at_k: int = 1,
     generations_per_sample: int = 1,
@@ -1232,9 +1241,10 @@ def get_icl_task_dataloader(
        ... )
 
     Args:
-        dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
-            supported by :meth:`composer.utils.maybe_create_object_store_from_uri`.
-        tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to transform data into batches
+        icl_task_type (str): Name of icl_task type. One of ['multiple_choice', 'schema', 'language_modeling', 'question_answering', 'code_evaluation']
+        dataset_uri (str): Either a local path, a remote path beginning with ``s3://``, or another backend
+            supported by :meth:`composer.utils.maybe_create_object_store_from_uri`, a link to a HuggingFace Dataset
+        tokenizer (transformers.PreTrainedTokenizerBase): The tokenizer used to transform data into batches
         batch_size (int): Size of a batch used for eval
         max_seq_len (int): The sequence length expected by the model
         pad_tok_id (int): The special token reserved for padding the ends of batches
@@ -1242,8 +1252,14 @@ def get_icl_task_dataloader(
         prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
         example_delimiter (str): Separator that goes between individual examples (e.g. '\n')
         continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
+        question_prelimiter: (str): Text to be prepended before each context segement in each eval example. (e.g. 'Q:', 'The following is a paragraph containing...')
+        hf_loading_vars (dict):
+        hf_parsing_map (dict):
         destination_path: (str): This is the local file where remote datasets will be saved.
-        prelimiter: (str): For QA tasks, this will be prepended to each question.
+        fewshot_random_seed (int):
+        pass_at_k (int):
+        generations_per_sample (int):
+        cot_delimiter (str):
         has_categories: (bool): If ``True``, we will search the dataset file for a category key, and partition the dataset into a separate dataloader for each category occurring in the data.
 
     Returns:
@@ -1252,7 +1268,7 @@ def get_icl_task_dataloader(
 
     if has_categories:
         result_dls = {}
-        output_files = partition_dataset_by_category(dataset_uri, destination_path)
+        output_files = partition_dataset_by_category(dataset_uri, destination_path, hf_loading_vars, hf_parsing_map)
         categories = sorted(output_files.keys())
         for category in categories:
             partition_uri = output_files[category]
