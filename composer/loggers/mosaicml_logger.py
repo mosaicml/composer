@@ -223,7 +223,7 @@ def format_data_to_json_serializable(data: Any):
     try:
         if data is None:
             return 'None'
-        if type(data) is float:
+        if isinstance(data, float):
             if math.isnan(data):
                 return 'NaN'
             elif math.isinf(data):
