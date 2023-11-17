@@ -206,6 +206,11 @@ class InContextLearningDataset(Dataset):
     def get_num_samples_in_batch(self, batch: dict) -> int:
         return batch['input_ids'].shape[0]
 
+    def check_defaults_are_set(self, dict_of_defaults:dict):
+        if all([v for v in dict_of_defaults.values()]):
+            return
+        raise ValueError(f"{type(self).__name__} missing required variable(s): {''.join([k for k, v in dict_of_defaults.items() if not v])}") 
+
     def _read_dataset(
         self,
         dataset_uri: str,
@@ -213,6 +218,18 @@ class InContextLearningDataset(Dataset):
         hf_loading_vars: dict = None,
         hf_parsing_map: dict = None
     ):
+        """
+        Reads a dataset and handles parsing it from HuggingFace.
+        Args:
+            dataset_uri (str): A local path, a remote path beginning with ``s3://`` or another backend, or a HuggingFace dataset link with ``hf://`` prepended to it.
+                Alternate backends must be supported by :meth:`composer.utils.maybe_create_object_store_from_uri`.
+            destination_path (str): A local path where the data will be stored
+            hf_loading_vars (dict): If parsing from HuggingFace, keyword args that will be passed into load_dataset
+            hf_parsing_map (dict): Dictionary in the form of {icl_key: [hf_col1, hf_col2]} that will map one or more hf columns, in order, to ICL dataset cols
+
+        Returns:
+            dataset: a loaded HF dataset 
+        """
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
         except ImportError as e:
@@ -412,6 +429,7 @@ class InContextLearningDataset(Dataset):
         # Don't split kwargs that don't change
         # Normally split torch tensors
         # List split lists of strings
+        self.check_defaults_are_set({"dont_split_keys":self.dont_split_keys,"list_split_keys":self.list_split_keys,"normal_split_keys":self.normal_split_keys})
         chunked = {}
         for k, v in batch.items():
             if k in self.dont_split_keys:
@@ -578,6 +596,7 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
     Language modeling tasks test a model's ability to properly predict tokens based on preceding tokens. 
 
 
+    #TODO: Should I only list variables here that are different than InContextLearningDataset?
     Args:
         dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
             supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "context",
@@ -655,6 +674,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
     'gold_indices': List of length |batch_size // N| indicating for each question, which of the answers is correct (via an integer [0, N-1])
     'choice_groupings': Indicates which indices of the batch correspond to which questions
 
+    #TODO: Should I only list variables here that are different than InContextLearningDataset?
     Args:
         dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
             supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "query",
@@ -676,7 +696,6 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
                          normal_split_keys=['gold_indices'],
                          *args,
                          **kwargs)
-        # self.check_defaults_are_set({'num_choices': self.num_choices, 'generations_per_sample':self.generations_per_sample, "top_p": self.top_p,"top_k":self.top_k})
         self.num_choices = len(self.dataset[0][choices_key])
         self.real_split_keys = ['input_ids', 'labels', 'attention_mask']
 
@@ -776,7 +795,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         Returns:
             list: list of chunked batches
         """
-        # There are extra split options in this func for multiple choice
+        self.check_defaults_are_set({"dont_split_keys":self.dont_split_keys,"normal_split_keys":self.normal_split_keys})
         chunked = {}
         for k, v in batch.items():
             if k in self.dont_split_keys:
@@ -814,6 +833,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
     'labels': Identical to the input, used by the model to calculate loss/metrics
     'gold_indices': List of length |batch_size // N| indicating for each question, which of the answers is correct (via an integer [0, N-1])
     'choice_groupings': Indicates which indices of the batch correspond to which questions
+    #TODO: Should I only list variables here that are different than InContextLearningDataset?
     Args:
         dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
             supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "query",
@@ -950,6 +970,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
     - test_inputs: list of test inputs
     - test_outputs: list of test outputs
     - language: the language of the code snippet
+    #TODO: Should I only list variables here that are different than InContextLearningDataset?
     Args:
         dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
         supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "task_id",
@@ -963,9 +984,11 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         destination_path (str): Temporary path to store downloaded datasets
         code_prelimiter (str): String to put before each code prompt (e.g. 'Q: ')
         fewshot_random_seed (int): Random seed to use for fewshot sampling
-        generations_per_sample: how many outputs to generate per prompt
-        top_p: top_p sampling parameter for nucleus sampling
-        top_k: top_k sampling parameter for number of samples to consider
+        generations_per_sample (int): how many outputs to generate per prompt
+        # TODO: is this correct?
+        pass_at_k (int): k for how many chances the model gets to write passing code
+        top_p (int): top_p sampling parameter for nucleus sampling
+        top_k (int): top_k sampling parameter for number of samples to consider
     """
 
     def __init__(
@@ -977,6 +1000,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         *args,
         **kwargs,
     ):
+        self.check_defaults_are_set({'pass_at_k': pass_at_k, 'generations_per_sample': generations_per_sample, "top_p": top_p,"top_k": top_k})
         if generations_per_sample < pass_at_k:
             raise ValueError(
                 f'generations_per_sample ({generations_per_sample}) must be greater than or equal to pass_at_k ({pass_at_k}) for code evaluation.'
@@ -996,6 +1020,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             *args,
             **kwargs,
         )
+        # TODO: add temperature
         self.pass_at_k = pass_at_k
         self.generations_per_sample = generations_per_sample
         self.max_prompt_length = self.get_max_prompt_length()
@@ -1062,6 +1087,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             'generation_length': self.max_seq_len - self.max_prompt_length,
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
+                # TODO: specify this?
                 'num_beams': 1,  # single beam
                 'num_return_sequences': self.generations_per_sample,  # how many gens per prompt
                 'do_sample': True,
@@ -1343,13 +1369,15 @@ def get_icl_task_dataloader(
         example_delimiter (str): Separator that goes between individual examples (e.g. '\n')
         continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
         question_prelimiter: (str): Text to be prepended before each context segement in each eval example. (e.g. 'Q:', 'The following is a paragraph containing...')
-        hf_loading_vars (dict):
-        hf_parsing_map (dict):
+        hf_loading_vars (dict): A dictionary containing keyword arguments to be passed into `load_dataset` if dataset is being pulled from HF.
+        hf_parsing_map (Dict[str:List[str]]): A dictionary containing a from HF columns to ICL dataset keys. The dictionary should be formatted {icl_key:[hf_key1, hf_key1]}.
+            Values in the dict will be concatenated with ' ' seperating them. If not included, will use the columns already present in the HF dataset.
         destination_path: (str): This is the local file where remote datasets will be saved.
-        fewshot_random_seed (int):
-        pass_at_k (int):
-        generations_per_sample (int):
-        cot_delimiter (str):
+        fewshot_random_seed (int): Random seed to use for fewshot sampling
+        # TODO: is this right?
+        pass_at_k (int): k for how many chances the model gets to write passing code
+        generations_per_sample (int): how many outputs to generate per prompt
+        cot_delimiter (str): Delimiter to place between the chain of thought and continuations.
         has_categories: (bool): If ``True``, we will search the dataset file for a category key, and partition the dataset into a separate dataloader for each category occurring in the data.
 
     Returns:
@@ -1379,6 +1407,8 @@ def get_icl_task_dataloader(
                 fewshot_random_seed=fewshot_random_seed,
                 pass_at_k=pass_at_k,
                 generations_per_sample=generations_per_sample,
+                hf_loading_vars=hf_loading_vars,
+                hf_parsing_map=hf_parsing_map
             )
         return result_dls
     else:
