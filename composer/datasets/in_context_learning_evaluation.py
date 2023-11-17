@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader, Dataset
 
 from composer.core import DataSpec
 from composer.core.data_spec import _default_split_batch, _split_list
-from composer.utils import MissingConditionalImportError, dist, get_file
+from composer.utils import MissingConditionalImportError, dist, get_file, parse_uri
 
 if TYPE_CHECKING:
     import transformers
@@ -30,6 +30,22 @@ __all__ = [
     'InContextLearningQATaskDataset',
     'get_icl_task_dataloader',
 ]
+
+def _check_if_huggingface_uri(uri: str) -> bool:
+    """
+    Takes a dataset uri and checks if it's a HuggingFace dataset uri
+    Returns False if a backend uri is present (ie 's3://', 'oci://') or if the uri is a local file
+    Returns True otherwise
+    Args:
+        uri (str): uri as a string
+
+    Returns:
+        bool: result of parsing uri as a HF uri 
+    """
+    backend, _, _ = parse_uri(uri)
+    if backend == '':
+        return not os.path.isfile(uri)
+    return False
 
 
 def strip_data(sample):
@@ -112,7 +128,7 @@ class InContextLearningDataset(Dataset):
     The input format is expected to be a jsonl file with different fields based on the task or a link to a huggingface dataset.
 
     Args:
-        dataset_uri (str): A local path, a remote path beginning with ``s3://`` or another backend, or a HuggingFace dataset link with ``hf://`` prepended to it.
+        dataset_uri (str): A local path, a remote path beginning with ``s3://`` or another backend, or a HuggingFace dataset uri.
             Alternate backends must be supported by :meth:`composer.utils.maybe_create_object_store_from_uri`.
             A local dataset must consist of rows of JSON data points with different fields based on the task.
             The default keys expected are "context" and "answer".
@@ -221,7 +237,7 @@ class InContextLearningDataset(Dataset):
         """
         Reads a dataset and handles parsing it from HuggingFace.
         Args:
-            dataset_uri (str): A local path, a remote path beginning with ``s3://`` or another backend, or a HuggingFace dataset link with ``hf://`` prepended to it.
+            dataset_uri (str): A local path, a remote path beginning with ``s3://`` or another backend, or a HuggingFace dataset uri.
                 Alternate backends must be supported by :meth:`composer.utils.maybe_create_object_store_from_uri`.
             destination_path (str): A local path where the data will be stored
             hf_loading_vars (dict): If parsing from HuggingFace, keyword args that will be passed into load_dataset
@@ -238,8 +254,7 @@ class InContextLearningDataset(Dataset):
                 conda_package='datasets',
                 conda_channel='conda-forge',
             ) from e
-        if dataset_uri.startswith('hf://'):
-            dataset_uri = dataset_uri.replace('hf://', '')
+        if _check_if_huggingface_uri(dataset_uri):
             dataset = load_dataset(dataset_uri, **hf_loading_vars)
             if hf_parsing_map:
                 dataset_parsing_func = lambda example: {
@@ -287,7 +302,7 @@ class InContextLearningDataset(Dataset):
 
     def _construct_context(self, sample: dict, preceding_text: str = '', add_answer: bool = False):
         """
-        Takes a sample and  constructs a context. Optionally, appends this to preceeding text (such as a
+        Takes a sample and constructs a context. Optionally, appends this to preceeding text (such as a
         prompt or fewshot examples), as well as optionally adds the correct answer (for fewshot examples)
 
         Args:
@@ -464,7 +479,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
 
     #TODO: Should I only list variables here that are different than InContextLearningDataset?
     Args:
-        dataset_uri (str): A local path, a remote path beginning with ``s3://`` or another backend, or a HuggingFace dataset link with ``hf://`` prepended to it.
+        dataset_uri (str): A local path, a remote path beginning with ``s3://`` or another backend, or a HuggingFace dataset link.
             Alternate backends must be supported by :meth:`composer.utils.maybe_create_object_store_from_uri`.
             Dataset must consist of rows of JSON data points with "context", "answer", and "aliases". See tests/datasets/local_data/triviaqa_small.jsonl.
         tokenizer (transformers.PreTrainedTokenizerBase): The tokenizer used to map between strings and token ids
@@ -1298,9 +1313,8 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_lo
             conda_package='datasets',
             conda_channel='conda-forge',
         ) from e
-    if dataset_uri.startswith('hf://'):
-        cur_dataset_uri = dataset_uri.replace('hf://', '')
-        dataset = load_dataset(cur_dataset_uri, **hf_loading_vars)
+    if _check_if_huggingface_uri(dataset_uri):
+        dataset = load_dataset(dataset_uri, **hf_loading_vars)
         if hf_parsing_map:
             dataset_parsing_func = lambda example: {
                 k: ' '.join([str(example[col]) for col in v]) for k, v in hf_parsing_map.items()
