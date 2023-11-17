@@ -8,6 +8,7 @@ from __future__ import annotations
 import collections.abc
 import fnmatch
 import logging
+import math
 import operator
 import os
 import time
@@ -222,7 +223,13 @@ def format_data_to_json_serializable(data: Any):
     try:
         if data is None:
             return 'None'
-        if type(data) in (str, int, float, bool):
+        if type(data) is float:
+            if math.isnan(data):
+                return 'NaN'
+            elif math.isinf(data):
+                return 'Infinity' if data > 0 else '-Infinity'
+            return data
+        if type(data) in (str, int, bool):
             return data
         if isinstance(data, torch.Tensor):
             if data.shape == () or reduce(operator.mul, data.shape, 1) == 1:

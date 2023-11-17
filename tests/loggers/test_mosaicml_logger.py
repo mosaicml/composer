@@ -63,6 +63,9 @@ def test_format_data_to_json_serializable():
             'inner_key': 'inner_value'
         },
         'key7': [1, 2, 3],
+        'key8': float('nan'),
+        'key9': float('inf'),
+        'key10': float('-inf'),
     }
     formatted_data = format_data_to_json_serializable(data)
 
@@ -76,6 +79,9 @@ def test_format_data_to_json_serializable():
             'inner_key': 'inner_value'
         },
         'key7': [1, 2, 3],
+        'key8': 'NaN',
+        'key9': 'Infinity',
+        'key10': '-Infinity',
     }
 
     assert formatted_data == expected_formatted_data
