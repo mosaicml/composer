@@ -82,12 +82,12 @@ class MLPerfCallback(Callback):
             callback = MLPerfCallback(
                 root_folder='/submission',
                 index=0,
-                metric_name='Accuracy',
+                metric_name='MulticlassAccuracy',
                 metric_label='eval',
                 target='0.759',
             )
 
-    During training, the metric found in ``state.eval_metrics[metric_label][metric_name]``
+    During training, the metric found in ``state.eval_metrics[evaluator_label][metric_name]``
     will be compared against the target criterion.
 
     .. note::
@@ -113,9 +113,9 @@ class MLPerfCallback(Callback):
         division (str, optional): Division of submission. Currently only ``open`` division supported.
             Default: ``'open'``.
         metric_name (str, optional): name of the metric to compare against the target.
-            Default: ``Accuracy``.
+            Default: ``MulticlassAccuracy``.
         metric_label (str, optional): The label name. The metric will be accessed via
-            ``state.eval_metrics[metric_label][metric_name]``.
+            ``state.eval_metrics[evaluator_label][metric_name]``.
         submitter (str, optional): Submitting organization. Default: ``"MosaicML"``.
         system_name (str, optional): Name of the system (e.g. 8xA100_composer). If
             not provided, system name will default to ``[world_size]x[device_name]_composer``,
@@ -135,7 +135,7 @@ class MLPerfCallback(Callback):
         benchmark: str = 'resnet',
         target: float = 0.759,
         division: str = 'open',
-        metric_name: str = 'Accuracy',
+        metric_name: str = 'MulticlassAccuracy',
         metric_label: str = 'eval',
         submitter: str = 'MosaicML',
         system_name: Optional[str] = None,
@@ -267,6 +267,8 @@ class MLPerfCallback(Callback):
             # attempt to import ffcv and test if its an ffcv loader.
             import ffcv  # type: ignore
 
+            warnings.warn(DeprecationWarning('ffcv is deprecated and will be removed in v0.18'))
+
             if isinstance(dataloader, ffcv.loader.Loader):
                 # Use the cached attribute ffcv.init_traversal_order to compute number of samples
                 return (
@@ -295,7 +297,7 @@ class MLPerfCallback(Callback):
             self._log_dict({
                 constants.SEED: state.seed,
                 constants.GLOBAL_BATCH_SIZE: batch_size * dist.get_world_size(),
-                constants.GRADIENT_ACCUMULATION_STEPS: state.grad_accum,
+                constants.DEVICE_TRAIN_MICROBATCH_SIZE: state.device_train_microbatch_size,
                 constants.TRAIN_SAMPLES: num_samples,
                 constants.EVAL_SAMPLES: eval_num_samples,
             })

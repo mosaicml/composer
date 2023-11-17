@@ -5,7 +5,6 @@
 
 import logging
 import textwrap
-from math import ceil
 from typing import Dict, Mapping, Optional
 
 import torch
@@ -250,8 +249,8 @@ class SeqLengthWarmup(Algorithm):
         length increases.
 
         Second, it detects if the batch*max_sequence_length size will cause an OOM and
-        increases state.grad_accum accordingly. This logic mirrors the ``grad_accum="auto"``
-        logic in :class:`.Trainer`.
+        decreases state.device_train_microbatch_size accordingly. This logic mirrors the
+        ``device_train_microbatch_size='auto'`` logic in :class:`.Trainer`.
         """
 
         assert self._original_model is not None, 'original model should be set on Event.INIT'
@@ -269,33 +268,44 @@ class SeqLengthWarmup(Algorithm):
 
         # truncate all sequence-shaped tensors to the max sequence length
         batch_clone = {k: torch.clone(v) for k, v in state.batch.items()}
-        device_batch_size = 0
         for k, v in batch_clone.items():
             if v.ndim < 2:
                 raise ValueError(f'Sequence Length Warmup requires that all tensors are sequence-shaped. '
                                  f'Tensor "{k}" has shape {v.shape}.')
             batch_clone[k] = v[:, :self.max_seq_length].contiguous()
-            device_batch_size = v.shape[0]
 
         # In-line to avoid circular dependency
-        from composer.trainer.trainer import _adjust_device_train_microbatch_size, _adjust_grad_accum, _is_cuda_oom
+        from composer.trainer.trainer import _adjust_device_train_microbatch_size, _is_cuda_oom
 
         # This loop tries to do a forward/backward pass using the current microbatch size.
-        # If it hits an OOM error, it doubles `state.grad_accum` and tries again until
-        # it succeeds.
+        # If it hits an OOM error, it halves `state.device_train_microbatch_size` and tries again
+        # until it succeeds.
         while True:
-            per_gpu_batch = ceil(per_gpu_macrobatch / state.grad_accum)
-            model_inputs = {k: v[:per_gpu_batch] for k, v in batch_clone.items()}
+            model_inputs = {k: v[:state.device_train_microbatch_size] for k, v in batch_clone.items()}
 
             found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
             try:
-                # start by running a forward and backward pass
+                # Start by running a forward and backward pass
                 # of the maximum sequence length to allocate cache.
-                with get_precision_context(state.precision):
+                with get_precision_context(state.precision, state.precision_config):
                     outputs = state.model.forward(model_inputs)
                     loss = self._original_model.loss(outputs, model_inputs)
 
-                # since use_grad_scaling is in the Trainer, and we
+                # Check if other ranks OOMed after forward pass when using auto microbatching. This may
+                # happen when close to memory limit or with uneven memory usage across ranks
+                if state.auto_microbatching:
+                    # Check if any other rank hit an OOM
+                    found_cuda_oom_tensor = state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+                    dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
+                    found_cuda_oom = found_cuda_oom_tensor.item()
+                    # Signal current rank is still in batch
+                    all_ranks_finished_tensor = state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+                    dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
+
+                    if found_cuda_oom == 1:
+                        raise RuntimeError('CUDA out of memory encountered on a different rank')
+
+                # Since use_grad_scaling is in the Trainer, and we
                 # don't care about the loss values, skip scaling
                 for loss_item in ensure_tuple(loss):
                     loss_item.backward()
@@ -304,23 +314,34 @@ class SeqLengthWarmup(Algorithm):
                 for optimizer in state.optimizers:
                     optimizer.zero_grad()
 
-            # This error/state.grad_accum handling mimics the logic in trainer._train_batch().
+            # This error/state.device_train_microbatch_size handling mimics the logic in trainer._train_batch().
             except RuntimeError as e:
                 if state.auto_microbatching and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     found_cuda_oom = 1
+                elif state.auto_microbatching and ('cuda' in str(e).lower() or 'c10' in str(e).lower()):
+                    raise ValueError(
+                        textwrap.dedent(
+                            'Encountered non-addressable cuda error while using auto microbatching. '
+                            'If this repeatedly occurs, set `device_train_microbatch_size` manually.')) from e
                 else:
                     raise
 
             if state.auto_microbatching:
-                # Propagate across all ranks if any rank hit CUDA OOM
-                found_cuda_oom = state.device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
-                dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
-                if found_cuda_oom.item() == 1:
-                    if state.using_device_microbatch_size:
-                        _adjust_device_train_microbatch_size(state)
-                    else:
-                        _adjust_grad_accum(state, device_batch_size)
+                all_ranks_finished = False
+                while not all_ranks_finished:
+                    # Propagate across all ranks if any rank hit CUDA OOM
+                    found_cuda_oom_tensor = state.device.tensor_to_device(
+                        torch.tensor([found_cuda_oom], dtype=torch.uint8))
+                    dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
+                    found_cuda_oom = found_cuda_oom_tensor.item()
+                    # Check if any rank is still not done with the batch. This may happen if only a
+                    # subset of ranks OOM, leaving some batches still in the forward pass
+                    all_ranks_finished_tensor = state.device.tensor_to_device(torch.tensor([1], dtype=torch.uint8))
+                    dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
+                    all_ranks_finished = all_ranks_finished_tensor.item() == 1
+                if found_cuda_oom == 1:
+                    _adjust_device_train_microbatch_size(state)
                     # Skip return and rerun after handling oom
                     continue
             # Activate and return if we've completed without OOMing.

@@ -6,8 +6,9 @@ import os
 
 import pytest
 import torch
+from packaging import version
 from torch.utils.data import DataLoader
-from torchmetrics.classification import Accuracy
+from torchmetrics.classification import MulticlassAccuracy
 
 from composer.algorithms import GatedLinearUnits
 from composer.loggers import RemoteUploaderDownloader
@@ -117,6 +118,7 @@ def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, pretra
                                  save_folder='finetuning_checkpoints',
                                  load_path=checkpoint_path,
                                  load_weights_only=True,
+                                 load_strict_model_weights=False,
                                  loggers=[rud],
                                  max_duration='1ep',
                                  seed=17,
@@ -136,8 +138,8 @@ def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, pretra
 
     loaded_finetuning_trainer.eval(finetuning_eval_dataloader)
 
-    original_acc = finetuning_trainer.state.eval_metrics['eval']['Accuracy']
-    loaded_acc = loaded_finetuning_trainer.state.eval_metrics['eval']['Accuracy']
+    original_acc = finetuning_trainer.state.eval_metrics['eval']['MulticlassAccuracy']
+    loaded_acc = loaded_finetuning_trainer.state.eval_metrics['eval']['MulticlassAccuracy']
     assert original_acc.compute() > 0.0
     assert original_acc.compute() == loaded_acc.compute()
 
@@ -145,7 +147,7 @@ def finetuning_test_helper(tokenizer, model, algorithms, checkpoint_path, pretra
 
 
 def inference_test_helper(finetuning_output_path, rud, finetuning_model, algorithms, original_input, original_output,
-                          tmp_path, save_format, device):
+                          onnx_opset_version, tmp_path, save_format, device):
     inference_trainer = Trainer(model=finetuning_model,
                                 load_path=finetuning_output_path,
                                 load_weights_only=True,
@@ -160,7 +162,8 @@ def inference_test_helper(finetuning_output_path, rud, finetuning_model, algorit
     inference.export_for_inference(model=inference_trainer.state.model,
                                    save_format=save_format,
                                    save_path=str(tmp_path / 'inference_checkpoints' / f'exported_model.{save_format}'),
-                                   sample_input=sample_input)
+                                   sample_input=sample_input,
+                                   onnx_opset_version=onnx_opset_version)
 
     copied_batch = copy.deepcopy(original_input)
 
@@ -169,7 +172,8 @@ def inference_test_helper(finetuning_output_path, rud, finetuning_model, algorit
         ort = pytest.importorskip('onnxruntime')
         loaded_inference_model = onnx.load(str(tmp_path / 'inference_checkpoints' / 'exported_model.onnx'))
         onnx.checker.check_model(loaded_inference_model)
-        ort_session = ort.InferenceSession(str(tmp_path / 'inference_checkpoints' / 'exported_model.onnx'))
+        ort_session = ort.InferenceSession(str(tmp_path / 'inference_checkpoints' / 'exported_model.onnx'),
+                                           providers=['CPUExecutionProvider'])
 
         for key, value in copied_batch.items():
             copied_batch[key] = value.numpy()
@@ -191,7 +195,9 @@ def inference_test_helper(finetuning_output_path, rud, finetuning_model, algorit
 # Note: the specificity of these settings are due to incompatibilities (e.g. the simpletransformer model is not traceable)
 @pytest.mark.parametrize('model_type,algorithms,save_format', [('tinybert_hf', [GatedLinearUnits], 'onnx'),
                                                                ('simpletransformer', [], 'torchscript')])
-def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokenizer, tmp_path, request, device):
+@pytest.mark.parametrize('onnx_opset_version', [13, None])
+def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokenizer, onnx_opset_version, tmp_path,
+                           request, device):
     """This test is intended to exercise our full pipeline for NLP.
 
     To this end, it performs pretraining, loads the pretrained model with a classification head for finetuning
@@ -199,6 +205,9 @@ def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokeni
     """
     pytest.importorskip('libcloud')
     pytest.importorskip('transformers')
+
+    if onnx_opset_version == None and version.parse(torch.__version__) < version.parse('1.13'):
+        pytest.skip("Don't test prior PyTorch version's default Opset version.")
 
     algorithms = [algorithm() for algorithm in algorithms]
 
@@ -211,10 +220,7 @@ def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokeni
     # pretraining
     if model_type == 'tinybert_hf':
         assert tiny_bert_model is not None
-        pretraining_metrics = [
-            LanguageCrossEntropy(ignore_index=-100, vocab_size=tiny_bert_tokenizer.vocab_size),
-            MaskedAccuracy(ignore_index=-100)
-        ]
+        pretraining_metrics = [LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100)]
         pretraining_model = HuggingFaceModel(tiny_bert_model,
                                              tiny_bert_tokenizer,
                                              use_logits=True,
@@ -228,7 +234,7 @@ def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokeni
 
     # finetuning
     if model_type == 'tinybert_hf':
-        finetuning_metric = Accuracy()
+        finetuning_metric = MulticlassAccuracy(num_classes=3, average='micro')
         hf_finetuning_model, _ = HuggingFaceModel.hf_from_composer_checkpoint(
             pretraining_output_path,
             model_instantiation_class='transformers.AutoModelForSequenceClassification',
@@ -252,4 +258,4 @@ def test_full_nlp_pipeline(model_type, algorithms, save_format, tiny_bert_tokeni
     finetuning_trainer.state.model.eval()
     original_output = finetuning_trainer.state.model(batch)
     inference_test_helper(finetuning_output_path, rud, finetuning_model_copy, algorithms, batch, original_output,
-                          tmp_path, save_format, device)
+                          onnx_opset_version, tmp_path, save_format, device)

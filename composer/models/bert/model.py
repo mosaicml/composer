@@ -5,12 +5,12 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Optional
 
 from torchmetrics import MeanSquaredError
-from torchmetrics.classification.accuracy import Accuracy
-from torchmetrics.classification.matthews_corrcoef import MatthewsCorrCoef
-from torchmetrics.regression.spearman import SpearmanCorrCoef
+from torchmetrics.classification import MatthewsCorrCoef, MulticlassAccuracy
+from torchmetrics.regression import SpearmanCorrCoef
 
 from composer.metrics.nlp import BinaryF1Score, LanguageCrossEntropy, MaskedAccuracy
 from composer.models.huggingface import HuggingFaceModel
@@ -71,6 +71,8 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
         model = create_bert_mlm()
 
     """
+    warnings.warn(DeprecationWarning('create_bert_mlm is deprecated and will be removed in v0.18'))
+
     try:
         import transformers
     except ImportError as e:
@@ -100,19 +102,16 @@ def create_bert_mlm(use_pretrained: Optional[bool] = False,
     else:
         tokenizer = None
 
-    metrics = [
-        LanguageCrossEntropy(ignore_index=-100, vocab_size=model.config.vocab_size),
-        MaskedAccuracy(ignore_index=-100)
-    ]
+    metrics = [LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100)]
     return HuggingFaceModel(model=model, tokenizer=tokenizer, use_logits=True, metrics=metrics)
 
 
-def create_bert_classification(num_labels: Optional[int] = 2,
-                               use_pretrained: Optional[bool] = False,
+def create_bert_classification(num_labels: int = 2,
+                               use_pretrained: bool = False,
                                pretrained_model_name: Optional[str] = None,
                                model_config: Optional[dict] = None,
                                tokenizer_name: Optional[str] = None,
-                               gradient_checkpointing: Optional[bool] = False):
+                               gradient_checkpointing: bool = False):
     """BERT classification model based on |:hugging_face:| Transformers.
 
     For more information, see `Transformers <https://huggingface.co/transformers/>`_.
@@ -177,8 +176,10 @@ def create_bert_classification(num_labels: Optional[int] = 2,
         Second, the returned :class:`.ComposerModel`'s train/validation metrics will be :class:`~torchmetrics.MeanSquaredError` and :class:`~torchmetrics.SpearmanCorrCoef`.
 
         For the classification case (when ``num_labels > 1``), the training loss is :class:`~torch.nn.CrossEntropyLoss`, and the train/validation
-        metrics are :class:`~torchmetrics.Accuracy` and :class:`~torchmetrics.MatthewsCorrCoef`, as well as :class:`.BinaryF1Score` if ``num_labels == 2``.
+        metrics are :class:`~torchmetrics.MulticlassAccuracy` and :class:`~torchmetrics.MatthewsCorrCoef`, as well as :class:`.BinaryF1Score` if ``num_labels == 2``.
     """
+    warnings.warn(DeprecationWarning('create_bert_classification is deprecated and will be removed in v0.18'))
+
     try:
         import transformers
     except ImportError as e:
@@ -215,7 +216,10 @@ def create_bert_classification(num_labels: Optional[int] = 2,
         metrics = [MeanSquaredError(), SpearmanCorrCoef()]
     else:
         # Metrics for a classification model
-        metrics = [Accuracy(), MatthewsCorrCoef(num_classes=model.config.num_labels)]
+        metrics = [
+            MulticlassAccuracy(num_classes=num_labels, average='micro'),
+            MatthewsCorrCoef(task='multiclass', num_classes=num_labels)
+        ]
         if num_labels == 2:
             metrics.append(BinaryF1Score())
 

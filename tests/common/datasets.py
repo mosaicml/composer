@@ -1,15 +1,49 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
-from typing import Sequence
+from typing import Optional, Sequence
 
 import pytest
 import torch
 from PIL import Image
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, IterableDataset
 from torchvision.datasets import VisionDataset
 
 from composer.utils import dist
 from tests.common.models import configure_tiny_bert_tokenizer, configure_tiny_gpt2_tokenizer
+
+
+class ParityDataset(Dataset):
+    """A dataset of numbers where the output is the parity.
+
+    Args:
+        size (int): number of samples (default: 100)
+    """
+
+    def __init__(self, size: int = 100):
+        self.size = size
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, index: int):
+        return torch.tensor(index, dtype=torch.float32), torch.tensor(index % 2)
+
+
+class InfiniteClassificationDataset(IterableDataset):
+    """Classification dataset that never ends.
+
+    Args:
+        shape (Sequence[int]): shape of features (default: (1, 1, 1))
+        num_classes (int): number of classes (default: 2)
+    """
+
+    def __init__(self, shape: Sequence[int] = (1, 1, 1), num_classes: int = 2):
+        self.shape = shape
+        self.num_classes = num_classes
+
+    def __iter__(self):
+        while True:
+            yield torch.randn(*self.shape), torch.randint(0, self.num_classes, size=(1,))[0]
 
 
 class RandomClassificationDataset(Dataset):
@@ -23,13 +57,21 @@ class RandomClassificationDataset(Dataset):
 
     def __init__(self, shape: Sequence[int] = (1, 1, 1), size: int = 100, num_classes: int = 2):
         self.size = size
-        self.x = torch.randn(size, *shape)
-        self.y = torch.randint(0, num_classes, size=(size,))
+        self.shape = shape
+        self.num_classes = num_classes
+        self.x = None
+        self.y = None
 
     def __len__(self):
         return self.size
 
     def __getitem__(self, index: int):
+        # Note: lazily generate data so it runs after Composer seeds everything, giving the same
+        # dataset across multiple calls when using the same seed.
+        if self.x is None:
+            self.x = torch.randn(self.size, *self.shape)
+        if self.y is None:
+            self.y = torch.randint(0, self.num_classes, size=(self.size,))
         return self.x[index], self.y[index]
 
 
@@ -59,6 +101,8 @@ class RandomImageDataset(VisionDataset):
         return self.size
 
     def __getitem__(self, index: int):
+        # Note: lazily generate data so it runs after Composer seeds everything, giving the same
+        # dataset across multiple calls when using the same seed.
         if self.x is None:
             self.x = torch.randn(self.size, *self.shape)
         if self.y is None:
@@ -104,6 +148,8 @@ class RandomSegmentationDataset(VisionDataset):
         return self.size
 
     def __getitem__(self, index: int):
+        # Note: lazily generate data so it runs after Composer seeds everything, giving the same
+        # dataset across multiple calls when using the same seed.
         if self.x is None:
             self.x = torch.randn(self.size, *self.shape)
         if self.y is None:
@@ -158,6 +204,8 @@ class RandomTextClassificationDataset(Dataset):
         return self.size
 
     def __getitem__(self, index: int):
+        # Note: lazily generate data so it runs after Composer seeds everything, giving the same
+        # dataset across multiple calls when using the same seed.
         if self.x is None:
             self.x = torch.randint(low=0, high=self.vocab_size, size=(self.size, self.sequence_length))
         if self.y is None:
@@ -166,6 +214,48 @@ class RandomTextClassificationDataset(Dataset):
         x = self.x[index]
         y = self.y[index]
 
+        if self.use_keys:
+            return {'input_ids': x, 'labels': y}
+        else:
+            return x, y
+
+
+class RandomTextRegressionDataset(Dataset):
+    """ Text Regression dataset with values (just input token ids) drawn uniformly
+    Args:
+        vocab_size (int): vocab size to use (default: 10)
+        size (int): number of samples (default: 100)
+        sequence_length (int): sequence length to use, all sequences will be of this length with no padding (default: 8)
+        use_keys: (bool): whether to return the item in a dictionary with keys for input and output
+    """
+
+    def __init__(self, size: int = 100, vocab_size: int = 10, sequence_length: int = 8, use_keys: bool = False):
+        self.vocab_size = vocab_size
+        self.sequence_length = sequence_length
+        self.use_keys = use_keys
+
+        self.input_key = 'input_ids'
+        self.label_key = 'labels'
+
+        self.size = size
+        self.x = None
+        self.y = None
+
+        super().__init__()
+
+    def __len__(self):
+        return self.size
+
+    def __getitem__(self, index: int):
+        # Note: lazily generate data so it runs after Composer seeds everything, giving the same
+        # dataset across multiple calls when using the same seed.
+        if self.x is None:
+            self.x = torch.randint(low=0, high=self.vocab_size, size=(self.size, self.sequence_length))
+        if self.y is None:
+            self.y = torch.rand(size=(self.size,))
+
+        x = self.x[index]
+        y = self.y[index]
         if self.use_keys:
             return {'input_ids': x, 'labels': y}
         else:
@@ -181,10 +271,22 @@ class RandomTextLMDataset(Dataset):
         use_keys: (bool): whether to return the item in a dictionary with keys for input and output
     """
 
-    def __init__(self, size: int = 100, vocab_size: int = 10, sequence_length: int = 8, use_keys: bool = False):
+    def __init__(self,
+                 size: int = 100,
+                 vocab_size: int = 10,
+                 sequence_length: int = 8,
+                 use_keys: bool = False,
+                 use_token_type_ids: bool = True,
+                 conditional_generation: bool = False,
+                 causal_lm: bool = False,
+                 pad_token_id: Optional[int] = None):
         self.vocab_size = vocab_size
         self.sequence_length = sequence_length
         self.use_keys = use_keys
+        self.use_token_type_ids = use_token_type_ids
+        self.conditional_generation = conditional_generation
+        self.causal_lm = causal_lm
+        self.pad_token_id = pad_token_id
 
         self.input_key = 'input_ids'
 
@@ -198,15 +300,29 @@ class RandomTextLMDataset(Dataset):
         return self.size
 
     def __getitem__(self, index: int):
+        # Note: lazily generate data so it runs after Composer seeds everything, giving the same
+        # dataset across multiple calls when using the same seed.
         if self.x is None:
             self.x = torch.randint(low=0, high=self.vocab_size, size=(self.size, self.sequence_length))
+            if self.pad_token_id is not None:
+                mask = torch.randint(low=0, high=2, size=(self.size, self.sequence_length // 2)).bool()
+                self.x[:, :self.sequence_length // 2][mask] = self.pad_token_id
+            if self.conditional_generation:
+                self.y = torch.randint(low=0, high=self.vocab_size, size=(self.size, 2 * self.sequence_length))
+            if self.causal_lm:
+                self.y = torch.randint(low=0, high=self.vocab_size, size=(self.size, self.sequence_length))
 
         x = self.x[index]
 
         if self.use_keys:
-            return {'input_ids': x, 'token_type_ids': torch.zeros_like(x)}
+            output = {'input_ids': x}
+            if self.use_token_type_ids:
+                output['token_type_ids'] = torch.zeros_like(x)
+            if self.y is not None:
+                output['labels'] = self.y[index]
+            return output
         else:
-            return x
+            return x if self.y is None else (x, self.y[index])
 
 
 class SimpleDataset(Dataset):
@@ -214,18 +330,26 @@ class SimpleDataset(Dataset):
     def __init__(self, size: int = 256, batch_size: int = 256, feature_size: int = 1, num_classes: int = 2):
         self.size = size
         self.batch_size = batch_size
-        self.x = torch.randn(size * batch_size, feature_size)
-        self.y = torch.randint(0, num_classes, size=(size * batch_size,), dtype=torch.long)
+        self.feature_size = feature_size
+        self.num_classes = num_classes
+        self.x = None
+        self.y = None
 
     def __len__(self):
         return self.size
 
     def __getitem__(self, index: int):
+        # Note: lazily generate data so it runs after Composer seeds everything, giving the same
+        # dataset across multiple calls when using the same seed.
+        if self.x is None:
+            self.x = torch.randn(self.size * self.batch_size, self.feature_size)
+        if self.y is None:
+            self.y = torch.randint(0, self.num_classes, size=(self.size * self.batch_size,), dtype=torch.long)
         return self.x[index * self.batch_size:(index + 1) *
                       self.batch_size], self.y[index * self.batch_size:(index + 1) * self.batch_size]
 
 
-def dummy_transformer_classifier_batch(vocab_size=100, num_classes=2):
+def dummy_transformer_classifier_batch(vocab_size=10, num_classes=2):
     sequence_length = 32
     size = 8
     batch_size = 8

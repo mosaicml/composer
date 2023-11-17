@@ -69,6 +69,8 @@ import atexit
 import contextlib
 import logging
 import os
+import signal
+import sys
 import textwrap
 import weakref
 from collections import OrderedDict
@@ -112,6 +114,17 @@ def _set_atexit_ran():
 # Since atexit calls hooks in LIFO order, this hook will always be invoked after all atexit-triggered
 # _close() calls are invoked
 atexit.register(_set_atexit_ran)
+
+
+# Catch SIGTERM/SIGINT and instead exit via `sys.exit` using same error code, ensuring atexit
+# functions still run. Composer CLI launcher will give a 30 second grace period before sending
+# SIGKILL.
+def sigterm_handler(signal, frame):
+    sys.exit(128 + signal)
+
+
+signal.signal(signal.SIGTERM, sigterm_handler)
+signal.signal(signal.SIGINT, sigterm_handler)
 
 
 def _get_default_passes():
@@ -339,7 +352,8 @@ class Engine():
     def _assert_dataloader_and_duration_set(state: State, event: Event):
         # correctness checks that dataloader and max duration need to be set for certain events
 
-        if event != Event.INIT and event != Event.AFTER_LOAD:  # dataloader should be set on all events expect INIT/AFTER_LOAD
+        # dataloader should be set on all events expect INIT/AFTER_LOAD/EVAL_STANDALONE_START/EVAL_STANDALONE_END
+        if event not in {Event.INIT, Event.AFTER_LOAD, Event.EVAL_STANDALONE_START, Event.EVAL_STANDALONE_END}:
             assert state.dataloader is not None, f'The trainer should have set state.dataloader for event {event}.'
 
         if event != Event.INIT and event != Event.AFTER_LOAD and not event.is_predict and not event.is_eval:
@@ -505,7 +519,7 @@ class Engine():
     @staticmethod
     def _close(state: State, logger: Logger):
         """The actual shutdown logic, as a static method, so the underlying engine can still be garbage collected."""
-        log.debug('Closing the engine')
+        log.debug('Closing the engine.')
         callback_to_has_exception: Dict[Callback, bool] = {}
         for callback in state.callbacks:
             try:
@@ -535,3 +549,5 @@ class Engine():
             state.train_dataloader._iterator._shutdown_workers()  # type: ignore [reportGeneralTypeIssues]
         except:
             pass
+
+        log.debug('Engine closed.')

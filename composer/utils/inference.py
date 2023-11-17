@@ -19,10 +19,10 @@ import torch
 import torch.nn as nn
 
 from composer.utils import dist
-from composer.utils.checkpoint import download_checkpoint
+from composer.utils.checkpoint import download_checkpoint, safe_torch_load
 from composer.utils.device import get_device
 from composer.utils.iter_helpers import ensure_tuple
-from composer.utils.misc import is_model_ddp, is_model_deepspeed, model_eval_mode
+from composer.utils.misc import is_model_ddp, is_model_deepspeed, is_model_fsdp, model_eval_mode
 from composer.utils.object_store import ObjectStore
 from composer.utils.string_enum import StringEnum
 
@@ -91,9 +91,12 @@ def export_for_inference(
     dynamic_axes: Optional[Any] = None,
     surgery_algs: Optional[Union[Callable[[nn.Module], nn.Module], Sequence[Callable[[nn.Module], nn.Module]]]] = None,
     transforms: Optional[Sequence[Transform]] = None,
+    onnx_opset_version: Optional[int] = None,
     load_path: Optional[str] = None,
     load_object_store: Optional[ObjectStore] = None,
     load_strict: bool = False,
+    input_names: Optional[Sequence[str]] = None,
+    output_names: Optional[Sequence[str]] = None,
 ) -> None:
     """Export a model for inference.
 
@@ -115,11 +118,13 @@ def export_for_inference(
         dynamic_axes (Any, optional): Dictionary specifying the axes of input/output tensors as dynamic. May be required
             for exporting models using older versions of PyTorch when types cannot be inferred.
         surgery_algs (Union[Callable, Sequence[Callable]], optional): Algorithms that should be applied to the model
-            before loading a checkpoint. Each should be callable that takes a model and returns modified model.
+            before loading a checkpoint. Each should be callable that takes a model and returns None.
             ``surgery_algs`` are applied before ``transforms``. (default: ``None``)
         transforms (Sequence[Transform], optional): transformations (usually optimizations) that should
             be applied to the model. Each Transform should be a callable that takes a model and returns a modified model.
             ``transforms`` are applied after ``surgery_algs``. (default: ``None``)
+        onnx_opset_version (int, optional): The opset version ONNX should use for exporting. Only used if save_format is ``"onnx"``.
+            Defaults to Pytorch's default torch.onnx.export opset version, which changes by PyTorch version. (default: ``None``)
         load_path (str): The path to an existing checkpoint file.
             It can be a path to a file on the local disk, a URL, or if ``load_object_store`` is set, the object name
             for a checkpoint in a cloud bucket. For example, run_name/checkpoints/ep0-ba4-rank0. (default: ``None``)
@@ -129,6 +134,10 @@ def export_for_inference(
             Otherwise, if the checkpoint is a local filepath, set to ``None``. (default: ``None``)
         load_strict (bool): Whether the keys (i.e., model parameter names) in the model state dict should
             perfectly match the keys in the model instance. (default: ``False``)
+        input_names (Sequence[str], optional): names to assign to the input nodes of the graph, in order. If set
+            to ``None``, the keys from the `sample_input` will be used. Fallbacks to ``["input"]``.
+        output_names (Sequence[str], optional): names to assign to the output nodes of the graph, in order. It set
+            to ``None``, it defaults to ``["output"]``.
 
     Returns:
         None
@@ -141,6 +150,12 @@ def export_for_inference(
     if is_model_ddp(model):
         raise ValueError(
             f'Directly exporting a DistributedDataParallel model is not supported. Export the module instead.')
+
+    if is_model_fsdp(model):
+        raise ValueError(
+            'Directly exporting a FSDP wrapped module is not supported as the model is deepcopied to avoid '
+            'side-effects, and FSDP does not support deepcopying. To export the model, load it without FSDP '
+            'wrapping.')
 
     # Only rank0 exports the model
     if dist.get_global_rank() != 0:
@@ -162,7 +177,7 @@ def export_for_inference(
 
     # Apply surgery algorithms in the given order
     for alg in ensure_tuple(surgery_algs):
-        model = alg(model)
+        alg(model)
 
     if load_path is not None:
         # download checkpoint and load weights only
@@ -172,7 +187,7 @@ def export_for_inference(
                                                                  node_checkpoint_folder=tempdir,
                                                                  object_store=load_object_store,
                                                                  progress_bar=True)
-            state_dict = torch.load(composer_states_filepath, map_location='cpu')
+            state_dict = safe_torch_load(composer_states_filepath)
             missing_keys, unexpected_keys = model.load_state_dict(state_dict['state']['model'], strict=load_strict)
             if len(missing_keys) > 0:
                 log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
@@ -215,27 +230,32 @@ def export_for_inference(
                 if sample_input is None:
                     raise ValueError(f'sample_input argument is required for onnx export')
 
-                input_names = []
-
                 # assert statement for pyright error: Cannot access member "keys" for type "Tensor"
                 assert isinstance(sample_input, tuple)
-                # Extract input names from sample_input if it contains dicts
-                for i in range(len(sample_input)):
-                    if isinstance(sample_input[i], dict):
-                        input_names += list(sample_input[i].keys())
 
-                # Default input name if no dict present
-                if input_names == []:
-                    input_names = ['input']
+                if input_names is None:
+                    input_names = []
+
+                    # Extract input names from sample_input if it contains dicts
+                    for i in range(len(sample_input)):
+                        if isinstance(sample_input[i], dict):
+                            input_names += list(sample_input[i].keys())
+
+                    # Default input name if no dict present
+                    if input_names == []:
+                        input_names = ['input']
+
+                if output_names is None:
+                    output_names = ['output']
 
                 torch.onnx.export(
                     model,
                     sample_input,
                     local_save_path,
                     input_names=input_names,
-                    output_names=['output'],
+                    output_names=output_names,
                     dynamic_axes=dynamic_axes,
-                    opset_version=13,
+                    opset_version=onnx_opset_version,
                 )
 
             # upload if required.
@@ -251,6 +271,8 @@ def export_with_logger(
     save_object_store: Optional[ObjectStore] = None,
     sample_input: Optional[Any] = None,
     transforms: Optional[Sequence[Transform]] = None,
+    input_names: Optional[Sequence[str]] = None,
+    output_names: Optional[Sequence[str]] = None,
 ) -> None:
     """Helper method for exporting a model for inference.
 
@@ -280,6 +302,10 @@ def export_with_logger(
         transforms (Sequence[Transform], optional): transformations (usually optimizations) that should
             be applied to the model. Each Transform should be a callable that takes a model and returns a modified model.
             ``transforms`` are applied after ``surgery_algs``. (default: ``None``)
+        input_names (Sequence[str], optional): names to assign to the input nodes of the graph, in order. If set
+            to ``None``, the keys from the `sample_input` will be used. Fallbacks to ``["input"]``.
+        output_names (Sequence[str], optional): names to assign to the output nodes of the graph, in order. It set
+            to ``None``, it defaults to ``["output"]``.
 
     Returns:
         None
@@ -291,7 +317,9 @@ def export_with_logger(
                                  save_format=save_format,
                                  save_path=temp_local_save_path,
                                  sample_input=sample_input,
-                                 transforms=transforms)
+                                 transforms=transforms,
+                                 input_names=input_names,
+                                 output_names=output_names)
             logger.upload_file(remote_file_name=save_path, file_path=temp_local_save_path)
     else:
         export_for_inference(model=model,
@@ -299,4 +327,6 @@ def export_with_logger(
                              save_path=save_path,
                              save_object_store=save_object_store,
                              sample_input=sample_input,
-                             transforms=transforms)
+                             transforms=transforms,
+                             input_names=input_names,
+                             output_names=output_names)

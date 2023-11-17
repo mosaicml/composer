@@ -4,17 +4,14 @@
 from typing import Type, cast
 
 import pytest
-from torch.utils.data import DataLoader
 
 from composer.core import Callback, Engine, Event, State
 from composer.core.time import Time
 from composer.loggers import Logger, LoggerDestination
 from composer.profiler import Profiler, ProfilerAction
 from composer.trainer import Trainer
-from tests.callbacks.callback_settings import get_cb_kwargs, get_cbs_and_marks
+from tests.callbacks.callback_settings import get_cb_kwargs, get_cb_model_and_datasets, get_cbs_and_marks
 from tests.common import EventCounterCallback
-from tests.common.datasets import RandomClassificationDataset
-from tests.common.models import SimpleModel
 
 
 def test_callbacks_map_to_events():
@@ -22,8 +19,8 @@ def test_callbacks_map_to_events():
     # exception for private methods
     cb = Callback()
     excluded_methods = ['state_dict', 'load_state_dict', 'run_event', 'close', 'post_close']
-    methods = set(m for m in dir(cb) if (m not in excluded_methods and not m.startswith('_')))
-    event_names = set(e.value for e in Event)
+    methods = {m for m in dir(cb) if (m not in excluded_methods and not m.startswith('_'))}
+    event_names = {e.value for e in Event}
     assert methods == event_names
 
 
@@ -108,36 +105,37 @@ class TestCallbacks:
 
 @pytest.mark.parametrize('cb_cls', get_cbs_and_marks(callbacks=True, loggers=True, profilers=True))
 # Parameterized across @pytest.mark.remote as some loggers (e.g. wandb) support integration testing
-@pytest.mark.parametrize('grad_accum,_remote',
+@pytest.mark.parametrize('device_train_microbatch_size,_remote',
                          [(1, False),
                           (2, False), pytest.param(1, True, marks=pytest.mark.remote)])
 @pytest.mark.filterwarnings(r'ignore:The profiler is enabled:UserWarning')
 class TestCallbackTrains:
 
-    def _get_trainer(self, cb: Callback, grad_accum: int):
+    def _get_trainer(self, cb: Callback, device_train_microbatch_size: int):
         loggers = cb if isinstance(cb, LoggerDestination) else None
         callbacks = cb if not isinstance(cb, LoggerDestination) else None
-        batch_size = 2
+
+        model, train_dataloader, eval_dataloader = get_cb_model_and_datasets(cb, dl_size=4, batch_size=2)
 
         return Trainer(
-            model=SimpleModel(),
-            train_dataloader=DataLoader(RandomClassificationDataset(size=4), batch_size=batch_size),
-            eval_dataloader=DataLoader(RandomClassificationDataset(size=4), batch_size=batch_size),
+            model=model,
+            train_dataloader=train_dataloader,
+            eval_dataloader=eval_dataloader,
             max_duration=2,
-            device_train_microbatch_size=batch_size // grad_accum,
+            device_train_microbatch_size=device_train_microbatch_size,
             callbacks=callbacks,
             loggers=loggers,
             profiler=Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[]),
         )
 
-    def test_trains(self, cb_cls: Type[Callback], grad_accum: int, _remote: bool):
+    def test_trains(self, cb_cls: Type[Callback], device_train_microbatch_size: int, _remote: bool):
         del _remote  # unused. `_remote` must be passed through to parameterize the test markers.
         cb_kwargs = get_cb_kwargs(cb_cls)
         cb = cb_cls(**cb_kwargs)
-        trainer = self._get_trainer(cb, grad_accum)
+        trainer = self._get_trainer(cb, device_train_microbatch_size)
         trainer.fit()
 
-    def test_trains_multiple_calls(self, cb_cls: Type[Callback], grad_accum: int, _remote: bool):
+    def test_trains_multiple_calls(self, cb_cls: Type[Callback], device_train_microbatch_size: int, _remote: bool):
         """
         Tests that training with multiple fits complete.
         Note: future functional tests should test for
@@ -146,7 +144,7 @@ class TestCallbackTrains:
         del _remote  # unused. `_remote` must be passed through to parameterize the test markers.
         cb_kwargs = get_cb_kwargs(cb_cls)
         cb = cb_cls(**cb_kwargs)
-        trainer = self._get_trainer(cb, grad_accum)
+        trainer = self._get_trainer(cb, device_train_microbatch_size)
         trainer.fit()
 
         assert trainer.state.max_duration is not None

@@ -19,36 +19,16 @@ import tabulate
 import yaml
 
 LATEST_PYTHON_VERSION = '3.10'
-
-
-def _get_pytorch_version(python_version: str):
-    if python_version == '3.10':
-        return '1.13.1'
-    if python_version == '3.9':
-        return '1.12.1'
-    if python_version in '3.8':
-        return '1.11.0'
-    raise ValueError(f'Invalid python version: {python_version}')
+PRODUCTION_PYTORCH_VERSION = '2.1.0'
 
 
 def _get_torchvision_version(pytorch_version: str):
+    if pytorch_version == '2.1.0':
+        return '0.16.0'
+    if pytorch_version == '2.0.1':
+        return '0.15.2'
     if pytorch_version == '1.13.1':
         return '0.14.1'
-    if pytorch_version == '1.12.1':
-        return '0.13.1'
-    if pytorch_version == '1.11.0':
-        return '0.12.0'
-    raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
-
-
-def _get_torchtext_version(pytorch_version: str):
-    if pytorch_version == '1.13.1':
-        return '0.14.1'
-    if pytorch_version == '1.12.1':
-        return '0.13.1'
-    if pytorch_version == '1.11.0':
-        return '0.12.0'
-
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
@@ -61,12 +41,12 @@ def _get_base_image(cuda_version: str):
 def _get_cuda_version(pytorch_version: str, use_cuda: bool):
     if not use_cuda:
         return ''
+    if pytorch_version == '2.1.0':
+        return '12.1.0'
+    if pytorch_version == '2.0.1':
+        return '11.8.0'
     if pytorch_version == '1.13.1':
         return '11.7.1'
-    if pytorch_version == '1.12.1':
-        return '11.6.2'
-    if pytorch_version == '1.11.0':
-        return '11.5.2'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
@@ -79,14 +59,12 @@ def _get_cuda_version_tag(cuda_version: str):
 def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: str, stage: str, interconnect: str):
     if stage == 'pytorch_stage':
         base_image_name = 'mosaicml/pytorch'
-    elif stage == 'vision_stage':
-        base_image_name = 'mosaicml/pytorch_vision'
     else:
         raise ValueError(f'Invalid stage: {stage}')
     cuda_version_tag = _get_cuda_version_tag(cuda_version)
     tags = [f'{base_image_name}:{pytorch_version}_{cuda_version_tag}-python{python_version}-ubuntu20.04']
 
-    if python_version == LATEST_PYTHON_VERSION:
+    if python_version == LATEST_PYTHON_VERSION and pytorch_version == PRODUCTION_PYTORCH_VERSION:
         if not cuda_version:
             tags.append(f'{base_image_name}:latest_cpu')
         else:
@@ -99,16 +77,34 @@ def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: s
 
 
 def _get_composer_tags(composer_version: str, use_cuda: bool):
-    if not composer_version:
-        composer_version = 'latest'
-    composer_version = composer_version.lstrip('=')
-    if composer_version == 'GIT_COMMIT':
-        # Jenkins will set the tag
-        return []
-    tag = f'mosaicml/composer:{composer_version}'
+    base_image_name = 'mosaicml/composer'
+
+    tags = []
     if not use_cuda:
-        tag += '_cpu'
-    return [tag]
+        tags.append(f'{base_image_name}:{composer_version}_cpu')
+        tags.append(f'{base_image_name}:latest_cpu')
+    else:
+        tags.append(f'{base_image_name}:{composer_version}')
+        tags.append(f'{base_image_name}:latest')
+
+    return tags
+
+
+def _get_image_name(pytorch_version: str, cuda_version: str, stage: str, interconnect: str):
+    pytorch_version = pytorch_version.replace('.', '-')
+    cuda_version = _get_cuda_version_tag(cuda_version)
+
+    if stage == 'pytorch_stage':
+        stage = ''
+    else:
+        raise ValueError(f'Invalid stage: {stage}')
+
+    if interconnect == 'EFA':
+        fabric = '-aws'
+    else:
+        fabric = ''
+
+    return f'torch{stage}-{pytorch_version}-{cuda_version}{fabric}'
 
 
 def _write_table(table_tag: str, table_contents: str):
@@ -127,20 +123,33 @@ def _write_table(table_tag: str, table_contents: str):
 
 
 def _main():
-    python_versions = ['3.8', '3.9', '3.10']
+    python_versions = ['3.10']
+    pytorch_versions = ['2.1.0', '2.0.1', '1.13.1']
     cuda_options = [True, False]
-    stages = ['pytorch_stage', 'vision_stage']
+    stages = ['pytorch_stage']
     interconnects = ['mellanox', 'EFA']  # mellanox is default, EFA needed for AWS
 
     pytorch_entries = []
 
-    for product in itertools.product(python_versions, cuda_options, stages, interconnects):
-        python_version, use_cuda, stage, interconnect = product
+    for product in itertools.product(python_versions, pytorch_versions, cuda_options, stages, interconnects):
+        python_version, pytorch_version, use_cuda, stage, interconnect = product
 
-        pytorch_version = _get_pytorch_version(python_version)
         cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
 
+        override_string = ('cuda>=11.8 brand=tesla,driver>=470,driver<471 '
+                           'brand=tesla,driver>=515,driver<516 brand=unknown,driver>=470,driver<471 '
+                           'brand=unknown,driver>=515,driver<516 brand=nvidia,driver>=470,driver<471 '
+                           'brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=470,driver<471 '
+                           'brand=nvidiartx,driver>=515,driver<516 brand=geforce,driver>=470,driver<471 '
+                           'brand=geforce,driver>=515,driver<516 brand=quadro,driver>=470,driver<471 '
+                           'brand=quadro,driver>=515,driver<516 brand=titan,driver>=470,driver<471 '
+                           'brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=470,driver<471 '
+                           'brand=titanrtx,driver>=515,driver<516')
+        nvidia_require_cuda_override = '' if cuda_version != '11.8.0' else override_string
+
         entry = {
+            'IMAGE_NAME':
+                _get_image_name(pytorch_version, cuda_version, stage, interconnect),
             'BASE_IMAGE':
                 _get_base_image(cuda_version),
             'CUDA_VERSION':
@@ -153,8 +162,6 @@ def _main():
                 stage,
             'TORCHVISION_VERSION':
                 _get_torchvision_version(pytorch_version),
-            'TORCHTEXT_VERSION':
-                _get_torchtext_version(pytorch_version),
             'TAGS':
                 _get_pytorch_tags(
                     python_version=python_version,
@@ -163,11 +170,13 @@ def _main():
                     stage=stage,
                     interconnect=interconnect,
                 ),
+            'PYTORCH_NIGHTLY_URL':
+                '',
+            'PYTORCH_NIGHTLY_VERSION':
+                '',
+            'NVIDIA_REQUIRE_CUDA_OVERRIDE':
+                nvidia_require_cuda_override,
         }
-
-        # Only build the vision image on latest python
-        if stage == 'vision_stage' and python_version != LATEST_PYTHON_VERSION:
-            continue
 
         # Only build EFA image on latest python with cuda on pytorch_stage
         if interconnect == 'EFA' and not (python_version == LATEST_PYTHON_VERSION and use_cuda and
@@ -184,33 +193,50 @@ def _main():
         if interconnect != 'EFA':
             entry['AWS_OFI_NCCL_VERSION'] = ''
         else:
-            entry['AWS_OFI_NCCL_VERSION'] = 'v1.5.0-aws'
+            entry['AWS_OFI_NCCL_VERSION'] = 'v1.7.3-aws'
 
         pytorch_entries.append(entry)
-
+    nightly_entry = {
+        'AWS_OFI_NCCL_VERSION': '',
+        'BASE_IMAGE': 'nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04',
+        'CUDA_VERSION': '12.1.0',
+        'IMAGE_NAME': 'torch-nightly-2-2-0-20231024-cu121',
+        'MOFED_VERSION': '5.5-1.0.3.2',
+        'PYTHON_VERSION': '3.10',
+        'PYTORCH_VERSION': '2.2.0',
+        'PYTORCH_NIGHTLY_URL': 'https://download.pytorch.org/whl/nightly/cu121',
+        'PYTORCH_NIGHTLY_VERSION': 'dev20231024+cu121',
+        'TAGS': ['mosaicml/pytorch:2.2.0_cu121-nightly20231024-python3.10-ubuntu20.04'],
+        'TARGET': 'pytorch_stage',
+        'TORCHVISION_VERSION': '0.17.0'
+    }
+    pytorch_entries.append(nightly_entry)
     composer_entries = []
 
     # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
-    composer_versions = ['', '==0.12.1', 'GIT_COMMIT']  # Only build images for the latest composer version
+    composer_versions = ['0.17.0']  # Only build images for the latest composer version
     composer_python_versions = [LATEST_PYTHON_VERSION]  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):
         python_version, composer_version, use_cuda = product
 
-        pytorch_version = _get_pytorch_version(python_version)
+        pytorch_version = PRODUCTION_PYTORCH_VERSION
         cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
+        cpu = '-cpu' if not use_cuda else ''
 
         entry = {
+            'IMAGE_NAME': f"composer-{composer_version.replace('.', '-')}{cpu}",
             'BASE_IMAGE': _get_base_image(cuda_version),
             'CUDA_VERSION': cuda_version,
             'PYTHON_VERSION': python_version,
             'PYTORCH_VERSION': pytorch_version,
+            'PYTORCH_NIGHTLY_URL': '',
+            'PYTORCH_NIGHTLY_VERSION': '',
             'TARGET': 'composer_stage',
             'TORCHVISION_VERSION': _get_torchvision_version(pytorch_version),
-            'TORCHTEXT_VERSION': _get_torchtext_version(pytorch_version),
             'MOFED_VERSION': '5.5-1.0.3.2',
             'AWS_OFI_NCCL_VERSION': '',
-            'COMPOSER_INSTALL_COMMAND': f'mosaicml[all]{composer_version}',
+            'COMPOSER_INSTALL_COMMAND': f'mosaicml[all]=={composer_version}',
             'TAGS': _get_composer_tags(
                 composer_version=composer_version,
                 use_cuda=use_cuda,
@@ -238,11 +264,11 @@ def _main():
         cuda_version = f"{entry['CUDA_VERSION']} ({interconnect})" if entry['CUDA_VERSION'] else 'cpu'
         table.append([
             'Ubuntu 20.04',  # Linux distro
-            'Base' if entry['TARGET'] == 'pytorch_stage' else 'Vision',  # Flavor
+            'Base',  # Flavor
             entry['PYTORCH_VERSION'],  # Pytorch version
             cuda_version,  # Cuda version
             entry['PYTHON_VERSION'],  # Python version,
-            ', '.join(reversed(list(f'`{x}`' for x in entry['TAGS']))),  # Docker tags
+            ', '.join(reversed([f'`{x}`' for x in entry['TAGS']])),  # Docker tags
         ])
     table.sort(
         key=lambda x: x[3].replace('Infiniband', '1').replace('EFA', '2'))  # cuda version, put infiniband ahead of EFA
@@ -264,7 +290,7 @@ def _main():
         table.append([
             entry['TAGS'][0].split(':')[1].replace('_cpu', ''),  # Composer version, or 'latest'
             'No' if entry['BASE_IMAGE'].startswith('ubuntu:') else 'Yes',  # Whether there is Cuda support
-            ', '.join(reversed(list(f'`{x}`' for x in entry['TAGS']))),  # Docker tags
+            ', '.join(reversed([f'`{x}`' for x in entry['TAGS']])),  # Docker tags
         ])
     table.sort(key=lambda x: x[1], reverse=True)  # cuda support
     table.sort(key=lambda x: packaging.version.parse('9999999999999'

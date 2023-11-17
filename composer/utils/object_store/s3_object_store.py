@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import pathlib
 import uuid
-from typing import Any, Callable, Dict, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
@@ -122,19 +122,33 @@ class S3ObjectStore(ObjectStore):
             _ensure_not_found_errors_are_wrapped(self.get_uri(object_name), e)
         return obj['ContentLength']
 
-    def upload_object(
-        self,
-        object_name: str,
-        filename: Union[str, pathlib.Path],
-        callback: Optional[Callable[[int, int], None]] = None,
-    ):
+    def upload_object(self,
+                      object_name: str,
+                      filename: Union[str, pathlib.Path],
+                      callback: Optional[Callable[[int, int], None]] = None,
+                      **kwargs):
+        try:
+            from boto3.s3.transfer import S3Transfer
+        except ImportError as e:
+            raise MissingConditionalImportError('streaming', 'boto3') from e
+
         file_size = os.path.getsize(filename)
         cb_wrapper = None if callback is None else lambda bytes_transferred: callback(bytes_transferred, file_size)
+
+        # Validate kwargs
+        if len(kwargs) != 0:
+            if len(kwargs) > 1 or 'ExtraArgs' not in kwargs or not isinstance(kwargs['ExtraArgs'], dict):
+                raise ValueError('S3ObjectStore.upload_object only supports an additional ExtraArgs dictionary.')
+            for key in kwargs['ExtraArgs']:
+                if key not in S3Transfer.ALLOWED_UPLOAD_ARGS:
+                    raise ValueError(f'{key} is not an allowed upload argument.')
+
         self.client.upload_file(Bucket=self.bucket,
                                 Key=self.get_key(object_name),
                                 Filename=filename,
                                 Callback=cb_wrapper,
-                                Config=self.transfer_config)
+                                Config=self.transfer_config,
+                                **kwargs)
 
     def download_object(
         self,
@@ -145,7 +159,12 @@ class S3ObjectStore(ObjectStore):
     ):
         if os.path.exists(filename) and not overwrite:
             raise FileExistsError(f'The file at {filename} already exists and overwrite is set to False.')
+
+        dirname = os.path.dirname(filename)
+        if dirname:
+            os.makedirs(dirname, exist_ok=True)
         tmp_path = str(filename) + f'.{uuid.uuid4()}.tmp'
+
         if callback is None:
             cb_wrapper = None
         else:
@@ -173,3 +192,17 @@ class S3ObjectStore(ObjectStore):
                 os.replace(tmp_path, filename)
             else:
                 os.rename(tmp_path, filename)
+
+    def list_objects(self, prefix: Optional[str] = None) -> List[str]:
+        if prefix is None:
+            prefix = ''
+
+        if self.prefix:
+            prefix = f'{self.prefix}{prefix}'
+
+        paginator = self.client.get_paginator('list_objects_v2')
+        pages = paginator.paginate(Bucket=self.bucket, Prefix=prefix)
+        try:
+            return [obj['Key'] for page in pages for obj in page['Contents']]
+        except KeyError:
+            return []

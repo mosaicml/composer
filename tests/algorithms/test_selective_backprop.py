@@ -137,7 +137,7 @@ def batch() -> int:
 @pytest.fixture
 def conv_model(Ximage: torch.Tensor, D: int) -> ComposerClassifier:
     """Dummy conv model."""
-    return ComposerClassifier(torch.nn.Conv2d(Ximage.shape[1], D, 3))
+    return ComposerClassifier(torch.nn.Conv2d(Ximage.shape[1], D, 3), num_classes=2)
 
 
 @pytest.fixture

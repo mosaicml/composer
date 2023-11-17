@@ -17,6 +17,8 @@ import torch
 from torch.optim import SGD, AdamW
 from torch.optim.optimizer import required  # type: ignore
 
+from composer.utils import dist
+
 log = logging.getLogger(__name__)
 
 __all__ = ['DecoupledSGDW', 'DecoupledAdamW']
@@ -46,13 +48,14 @@ class DecoupledSGDW(SGD):
         nesterov (bool, optional): Enables Nesterov momentum updates. Default: ``False``.
     """
 
-    def __init__(self,
-                 params: Union[Iterable[torch.Tensor], Iterable[dict]],
-                 lr: float = required,
-                 momentum: float = 0,
-                 dampening: float = 0,
-                 weight_decay: float = 0,
-                 nesterov: bool = False):
+    def __init__(
+            self,
+            params: Union[Iterable[torch.Tensor], Iterable[dict]],
+            lr: float = required,  # type: ignore
+            momentum: float = 0,
+            dampening: float = 0,
+            weight_decay: float = 0,
+            nesterov: bool = False):
         if weight_decay >= 1e-3:
             log.warning(
                 f'You are using a high value of `weight_decay={weight_decay}` for the `DecoupledSGDW` optimizer. Are you sure you want to do this? '
@@ -187,26 +190,10 @@ class DecoupledAdamW(AdamW):
     """
 
     metric_functions = {
-        'l2_norm/moment':
-            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(optim_state['exp_avg']),
-        'l2_norm_ratio/moment_grad':
-            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(param.grad) / torch.linalg.vector_norm(
-                optim_state['exp_avg']),
-        'cosine/moment_grad':
-            lambda param, optim_state, step_tensor: torch.nn.functional.cosine_similarity(
-                param.grad.flatten(), optim_state['exp_avg'].flatten(), dim=0),
-        'l2_norm/param':
-            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(param.data),
-        'l2_norm/second_moment_sqrt':
-            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(optim_state['exp_avg_sq']).sqrt(),
-        'l2_norm/update':
-            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(step_tensor),
-        'cosine/update_grad':
-            lambda param, optim_state, step_tensor: torch.nn.functional.cosine_similarity(
-                param.grad.flatten(), step_tensor.flatten(), dim=0),
-        'l2_norm_ratio/update_param':
-            lambda param, optim_state, step_tensor: torch.linalg.vector_norm(step_tensor) / torch.linalg.vector_norm(
-                param.data),
+        'l2_norm/moment': lambda param, optim_state, step_tensor: torch.linalg.vector_norm(optim_state['exp_avg']),
+        'l2_norm/param': lambda param, optim_state, step_tensor: torch.linalg.vector_norm(param.data),
+        'l2_norm/update': lambda param, optim_state, step_tensor: torch.linalg.vector_norm(step_tensor),
+        'l2_norm/grad': lambda param, optim_state, step_tensor: torch.linalg.vector_norm(param.grad),
     }
 
     def __init__(self,
@@ -223,10 +210,11 @@ class DecoupledAdamW(AdamW):
         super().__init__(params=params, lr=lr, betas=betas, eps=eps, weight_decay=weight_decay, amsgrad=amsgrad)
         for group in self.param_groups:
             group['initial_lr'] = group['lr']
+        self.amsgrad = amsgrad
 
     @staticmethod
     def adamw(params: List[torch.Tensor], grads: List[torch.Tensor], exp_avgs: List[torch.Tensor],
-              exp_avg_sqs: List[torch.Tensor], max_exp_avg_sqs: List[torch.Tensor], state_steps: List[int], *,
+              exp_avg_sqs: List[torch.Tensor], max_exp_avg_sqs: List[torch.Tensor], state_steps: List[torch.Tensor], *,
               amsgrad: bool, beta1: float, beta2: float, lr: float, initial_lr: float, weight_decay: float,
               eps: float) -> None:
         r"""Functional API that performs AdamW algorithm computation with decoupled weight decay.
@@ -250,7 +238,7 @@ class DecoupledAdamW(AdamW):
             grad = grads[i]
             exp_avg = exp_avgs[i]
             exp_avg_sq = exp_avg_sqs[i]
-            step = state_steps[i]
+            step = state_steps[i].item()
 
             # Perform stepweight decay
             if weight_decay != 0:
@@ -299,11 +287,13 @@ class DecoupledAdamW(AdamW):
             beta1, beta2 = group['betas']
             eps = group['eps']
             lr = group['lr']
+            if 'initial_lr' not in group:
+                group['initial_lr'] = lr
             initial_lr = group['initial_lr']
             weight_decay = group['weight_decay']
 
             for p in group['params']:
-                if p.grad is None:
+                if p.grad is None or not p.requires_grad:
                     continue
                 params_with_grad.append(p)
                 if p.grad.is_sparse:
@@ -313,8 +303,8 @@ class DecoupledAdamW(AdamW):
                 state = self.state[p]
 
                 # State initialization
-                if len(state) == 0:
-                    state['step'] = 0
+                if 'step' not in state:
+                    state['step'] = torch.zeros((), dtype=torch.float, device=p.device)
                     # Exponential moving average of gradient values
                     state['exp_avg'] = torch.zeros_like(p, memory_format=torch.preserve_format)
                     # Exponential moving average of squared gradient values
@@ -325,13 +315,12 @@ class DecoupledAdamW(AdamW):
 
                 exp_avgs.append(state['exp_avg'])
                 exp_avg_sqs.append(state['exp_avg_sq'])
-
                 if amsgrad:
                     max_exp_avg_sqs.append(state['max_exp_avg_sq'])
 
-                # update the steps for each param group update
+                # Update the steps for each param group update
                 state['step'] += 1
-                # record the step after step update
+                # Record the step after step update
                 state_steps.append(state['step'])
 
             self.adamw(params_with_grad,
@@ -350,6 +339,40 @@ class DecoupledAdamW(AdamW):
 
         return loss
 
+    def dist_reduce_metrics(self, optimizer_metrics):
+        local_keys = list(optimizer_metrics.keys())
+        all_gathered_keys = dist.all_gather_object(local_keys)
+        all_keys = set()
+        for keys in all_gathered_keys:
+            all_keys.update(keys)
+
+        # Sort keys to ensure every rank has the same keys order
+        # Only L2 norm metric keys are present, can apply regular sort
+        all_keys = sorted(all_keys)
+        for metric in all_keys:
+            if metric.startswith('l2_norm'):
+                reduced = optimizer_metrics.get(metric, torch.tensor(0.0, device=torch.cuda.current_device()))
+                if dist.get_world_size() > 1:
+                    dist.all_reduce(reduced, reduce_operation='SUM')
+
+                optimizer_metrics[metric] = math.sqrt(reduced)
+            else:
+                reduced = optimizer_metrics.get(metric, torch.tensor(0.0, device=torch.cuda.current_device()))
+                if dist.get_world_size() > 1:
+                    dist.all_reduce(reduced, reduce_operation='SUM')
+                optimizer_metrics[metric] = reduced / dist.get_world_size()
+
+        return optimizer_metrics
+
+    def pre_reduce_metrics(self, optimizer_metrics):
+        """Preprocess metrics to reduce across ranks correctly."""
+        # Only L2 norm metric keys are present, can skip sorting at this stage
+        for metric in optimizer_metrics:
+            # L2 norms need to be squared, before they are reduced via summation
+            optimizer_metrics[metric] = optimizer_metrics[metric]**2
+
+        return optimizer_metrics
+
     def report_per_parameter_metrics(self, param: torch.Tensor, name: str, optimizer_metrics: dict):
         lr = self.param_groups[0]['lr']
         eps = self.param_groups[0]['eps']
@@ -359,7 +382,7 @@ class DecoupledAdamW(AdamW):
         beta1, beta2 = self.param_groups[0]['betas']
         if param in self.state:
             param_optim_state = self.state[param]
-            step = param_optim_state['step']
+            step = param_optim_state['step'].item()
             bias_correction1 = 1 - beta1**step
             bias_correction2 = 1 - beta2**step
             denom = (param_optim_state['exp_avg_sq'].sqrt() / math.sqrt(bias_correction2)).add_(eps)
@@ -369,5 +392,6 @@ class DecoupledAdamW(AdamW):
             step_tensor.add_(param, alpha=-weight_decay * decay_factor)
             for metric in self.metric_functions:
                 optimizer_metrics[f'{metric}/{name}'] = self.metric_functions[metric](param, param_optim_state,
-                                                                                      step_tensor).item()
+                                                                                      step_tensor)
+
         return optimizer_metrics

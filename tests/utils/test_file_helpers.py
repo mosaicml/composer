@@ -16,6 +16,7 @@ from composer.utils.file_helpers import (ensure_folder_has_no_conflicting_files,
                                          format_name_with_dist, format_name_with_dist_and_time, get_file, is_tar,
                                          maybe_create_object_store_from_uri,
                                          maybe_create_remote_uploader_downloader_from_uri, parse_uri)
+from composer.utils.object_store import UCObjectStore
 from composer.utils.object_store.libcloud_object_store import LibcloudObjectStore
 from tests.common.markers import world_size
 from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
@@ -149,6 +150,33 @@ def test_get_file_local_path(tmp_path: pathlib.Path):
         assert f.read() == 'hi!'
 
 
+def test_get_file_local_path_overwrite_false(tmp_path: pathlib.Path):
+    tmpfile_name = os.path.join(tmp_path, 'file.txt')
+    with open(tmpfile_name, 'x') as f:
+        f.write('hi!')
+
+    with open(str(tmp_path / 'example'), 'w') as f:
+        f.write('already exists!')
+
+    with pytest.raises(FileExistsError):
+        get_file(path=tmpfile_name, object_store=None, destination=str(tmp_path / 'example'), overwrite=False)
+        with open(str(tmp_path / 'example'), 'r') as f:
+            assert f.read() == 'hi!'
+
+
+def test_get_file_local_path_overwrite_true(tmp_path: pathlib.Path):
+    tmpfile_name = os.path.join(tmp_path, 'file.txt')
+    with open(tmpfile_name, 'x') as f:
+        f.write('hi!')
+
+    with open(str(tmp_path / 'example'), 'w') as f:
+        f.write('already exists!')
+
+    get_file(path=tmpfile_name, object_store=None, destination=str(tmp_path / 'example'), overwrite=True)
+    with open(str(tmp_path / 'example'), 'r') as f:
+        assert f.read() == 'hi!'
+
+
 def test_get_file_local_path_not_found():
     with pytest.raises(FileNotFoundError):
         get_file(
@@ -255,8 +283,12 @@ def test_maybe_create_object_store_from_uri(monkeypatch):
     monkeypatch.setattr(file_helpers, 'S3ObjectStore', mock_s3_obj)
     mock_oci_obj = MagicMock()
     monkeypatch.setattr(file_helpers, 'OCIObjectStore', mock_oci_obj)
-    mock_gs_libcloud_obj = MagicMock()
-    monkeypatch.setattr(file_helpers, 'LibcloudObjectStore', mock_gs_libcloud_obj)
+    mock_gs_obj = MagicMock()
+    monkeypatch.setattr(file_helpers, 'GCSObjectStore', mock_gs_obj)
+    mock_uc_obj = MagicMock()
+    # un-mock the static method that validates the path
+    mock_uc_obj.validate_path.side_effect = UCObjectStore.validate_path
+    monkeypatch.setattr(file_helpers, 'UCObjectStore', mock_uc_obj)
 
     assert maybe_create_object_store_from_uri('checkpoint/for/my/model.pt') is None
 
@@ -266,26 +298,20 @@ def test_maybe_create_object_store_from_uri(monkeypatch):
     with pytest.raises(NotImplementedError):
         maybe_create_object_store_from_uri('wandb://my-cool/checkpoint/for/my/model.pt')
 
-    with pytest.raises(ValueError):
-        maybe_create_object_store_from_uri('gs://my-bucket/path')
-
-    os.environ['GCS_KEY'] = 'foo'
-    os.environ['GCS_SECRET'] = 'foo'
     maybe_create_object_store_from_uri('gs://my-bucket/path')
-    mock_gs_libcloud_obj.assert_called_once_with(
-        provider='google_storage',
-        container='my-bucket',
-        key_environ='GCS_KEY',
-        secret_environ='GCS_SECRET',
-    )
-    del os.environ['GCS_KEY']
-    del os.environ['GCS_SECRET']
+    mock_gs_obj.assert_called_once_with(bucket='my-bucket')
 
     maybe_create_object_store_from_uri('oci://my-bucket/path')
     mock_oci_obj.assert_called_once_with(bucket='my-bucket')
 
     with pytest.raises(NotImplementedError):
         maybe_create_object_store_from_uri('ms://bucket/checkpoint/for/my/model.pt')
+
+    maybe_create_object_store_from_uri('dbfs:/Volumes/catalog/schema/volume/checkpoint/model.pt')
+    mock_uc_obj.assert_called_once_with(path='Volumes/catalog/schema/volume/checkpoint/model.pt')
+
+    with pytest.raises(ValueError):
+        maybe_create_object_store_from_uri('dbfs:/checkpoint/for/my/model.pt')
 
 
 def test_maybe_create_remote_uploader_downloader_from_uri(monkeypatch):
@@ -314,29 +340,24 @@ def test_maybe_create_remote_uploader_downloader_from_uri(monkeypatch):
     with monkeypatch.context() as m:
         mock_remote_ud = MagicMock()
         m.setattr(loggers, 'RemoteUploaderDownloader', mock_remote_ud)
-
-        with pytest.raises(ValueError):
-            maybe_create_remote_uploader_downloader_from_uri('gs://my-nifty-gs-bucket/path/to/checkpoints.pt',
-                                                             loggers=[])
-
-        os.environ['GCS_KEY'] = 'foo'
-        os.environ['GCS_SECRET'] = 'foo'
         maybe_create_remote_uploader_downloader_from_uri('gs://my-nifty-gs-bucket/path/to/checkpoints.pt', loggers=[])
-        mock_remote_ud.assert_called_once_with(bucket_uri='libcloud://my-nifty-gs-bucket',
-                                               backend_kwargs={
-                                                   'provider': 'google_storage',
-                                                   'container': 'my-nifty-gs-bucket',
-                                                   'key_environ': 'GCS_KEY',
-                                                   'secret_environ': 'GCS_SECRET',
-                                               })
-        del os.environ['GCS_KEY']
-        del os.environ['GCS_SECRET']
+        mock_remote_ud.assert_called_once_with(bucket_uri='gs://my-nifty-gs-bucket'),
 
     with pytest.raises(NotImplementedError):
         maybe_create_remote_uploader_downloader_from_uri('wandb://my-cool/checkpoint/for/my/model.pt', loggers=[])
 
     with pytest.raises(NotImplementedError):
         maybe_create_remote_uploader_downloader_from_uri('ms://bucket/checkpoint/for/my/model.pt', loggers=[])
+
+    with monkeypatch.context() as m:
+        mock_remote_ud = MagicMock()
+        m.setattr(loggers, 'RemoteUploaderDownloader', mock_remote_ud)
+        maybe_create_remote_uploader_downloader_from_uri('dbfs:/Volumes/checkpoint/for/my/model.pt', loggers=[])
+        mock_remote_ud.assert_called_once_with(bucket_uri='dbfs:/Volumes/checkpoint/for/my/model.pt',
+                                               backend_kwargs={'path': 'Volumes/checkpoint/for/my/model.pt'})
+
+    with pytest.raises(ValueError):
+        maybe_create_remote_uploader_downloader_from_uri('dbfs:/checkpoint/for/my/model.pt', loggers=[])
 
 
 def test_ensure_folder_is_empty(tmp_path: pathlib.Path):

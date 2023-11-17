@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, TextIO, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, TextIO, Union
 
 import numpy as np
 import yaml
@@ -15,6 +15,7 @@ from composer.core.time import Time, TimeUnit
 from composer.loggers.logger import Logger, format_log_data_value
 from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import dist
+from composer.utils.import_helpers import MissingConditionalImportError
 
 if TYPE_CHECKING:
     from composer.core import State
@@ -48,6 +49,8 @@ class ConsoleLogger(LoggerDestination):
         if isinstance(log_interval, str):
             log_interval = Time.from_timestring(log_interval)
 
+        self.last_logged_batch = 0
+
         if log_interval.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH):
             raise ValueError('The `console_log_interval` argument must have units of EPOCH or BATCH.')
 
@@ -66,6 +69,7 @@ class ConsoleLogger(LoggerDestination):
         self.hparams_already_logged_to_console: bool = False
         self.logged_metrics: Dict[str, float] = {}
         self.eval_batch_idxs_to_log: Sequence[int] = []
+        self.tables: Dict[str, str] = {}
 
     def log_traces(self, traces: Dict[str, Any]):
         if self.should_log_traces:
@@ -76,6 +80,16 @@ class ConsoleLogger(LoggerDestination):
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
         # Lazy logging of hyperparameters.
         self.hparams.update(hyperparameters)
+
+    def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
+        try:
+            import pandas as pd
+        except ImportError as e:
+            raise MissingConditionalImportError(extra_deps_group='pandas',
+                                                conda_package='pandas',
+                                                conda_channel='conda-forge') from e
+        table = pd.DataFrame.from_records(data=rows, columns=columns).to_json(orient='split', index=False)
+        self.tables[name] = str(table)
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
         del step
@@ -96,16 +110,25 @@ class ConsoleLogger(LoggerDestination):
 
         if unit == TimeUnit.EPOCH and (cur_epoch % int(self.log_interval) == 0 or cur_epoch == 1):
             self.log_to_console(self.logged_metrics, prefix='Train ', state=state)
-            # Clear logged metrics.
-            self.logged_metrics = {}
+            self.last_logged_batch = int(state.timestamp.batch)
+            self.logged_metrics = {}  # Clear logged metrics.
 
     def batch_end(self, state: State, logger: Logger) -> None:
         cur_batch = int(state.timestamp.batch)
         unit = self.log_interval.unit
         if unit == TimeUnit.BATCH and (cur_batch % int(self.log_interval) == 0 or cur_batch == 1):
             self.log_to_console(self.logged_metrics, prefix='Train ', state=state)
-            # Clear logged metrics.
-            self.logged_metrics = {}
+            self.last_logged_batch = cur_batch
+            self.logged_metrics = {}  # Clear logged metrics.
+
+    def fit_end(self, state: State, logger: Logger) -> None:
+        # Always clear logged metrics so they don't get logged in a subsequent eval call.
+        cur_batch = int(state.timestamp.batch)
+        if self.last_logged_batch != cur_batch:
+            self.log_to_console(self.logged_metrics, prefix='Train ',
+                                state=state)  # log at the end of training if you didn't just log
+
+        self.logged_metrics = {}
 
     def eval_batch_end(self, state: State, logger: Logger) -> None:
         cur_batch = int(state.eval_timestamp.batch)
@@ -114,7 +137,8 @@ class ConsoleLogger(LoggerDestination):
 
     def eval_end(self, state: State, logger: Logger) -> None:
         # Log to the console at the end of eval no matter what log interval is selected.
-        self.log_to_console(state.eval_metric_values, prefix='Eval ', state=state, is_train=False)
+        self.log_to_console(self.logged_metrics, prefix='Eval ', state=state, is_train=False)
+        self.logged_metrics = {}
 
     def fit_start(self, state: State, logger: Logger) -> None:
         if not self.hparams_already_logged_to_console:
@@ -127,6 +151,7 @@ class ConsoleLogger(LoggerDestination):
             self._log_hparams_to_console()
 
     def eval_start(self, state: State, logger: Logger) -> None:
+        self.logged_metrics = {}  # Clear logged metrics before eval so they don't get logged subsequently.
         total_eval_batches = self._get_total_eval_batches(state)
         deciles = np.linspace(0, 1, NUM_EVAL_LOGGING_EVENTS)
         batch_idxs = np.arange(1, total_eval_batches + 1)
@@ -190,6 +215,8 @@ class ConsoleLogger(LoggerDestination):
         for data_name, data in data.items():
             data_str = format_log_data_value(data)
             log_str += f'\n\t {prefix}{data_name}: {data_str}'
+        for table_name, table in self.tables.items():
+            log_str += f'\n\t {prefix}{table_name}: {table}'
         self._log_to_console(log_str)
 
     def _log_to_console(self, log_str: str):

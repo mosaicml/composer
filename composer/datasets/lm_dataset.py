@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+import warnings
 from typing import List, cast
 
 from torch.utils.data import DataLoader, Dataset
@@ -48,6 +49,8 @@ def build_lm_dataloader(
             ``1.0``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    warnings.warn(DeprecationWarning('build_lm_dataloader is deprecated and will be removed in v0.18'))
+
     if global_batch_size % dist.get_world_size() != 0:
         raise ValueError(
             f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')

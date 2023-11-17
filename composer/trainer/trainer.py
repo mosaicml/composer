@@ -13,18 +13,23 @@ import logging
 import os
 import random
 import re
+import tempfile
+import textwrap
 import time
 import warnings
+from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
+from typing import (Any, Callable, ContextManager, Dict, Iterable, List, Mapping, Optional, Sequence, TextIO, Tuple,
+                    Union, cast)
 
 import coolname
 import torch
 import torch.distributed
 import torch.nn as nn
 import torch.utils.data
-from torch.cuda.amp.grad_scaler import GradScaler
+from packaging import version
+from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
@@ -32,22 +37,26 @@ from torchmetrics import Metric
 from composer.callbacks import CheckpointSaver, OptimizerMonitor
 from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException, Callback, DataSpec, Engine, Evaluator,
                            Event, Precision, PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode,
-                           ensure_data_spec, ensure_evaluator, ensure_time, get_precision_context)
+                           ensure_data_spec, ensure_evaluator, ensure_time, get_precision_context,
+                           validate_eval_automicrobatching)
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
-from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, ProgressBarLogger, RemoteUploaderDownloader,
-                              WandBLogger)
+from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, MosaicMLLogger, ProgressBarLogger,
+                              RemoteUploaderDownloader, WandBLogger)
+from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR
 from composer.models import ComposerModel
 from composer.optim import ComposerScheduler, DecoupledSGDW, compile_composer_scheduler
 from composer.profiler import Profiler
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
-from composer.trainer.dist_strategy import DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module
+from composer.trainer.dist_strategy import (DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module,
+                                            set_fsdp_default)
 from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectStore, Transform, checkpoint, dist,
-                            ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist, get_device,
-                            get_file, is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
-                            maybe_create_remote_uploader_downloader_from_uri, model_eval_mode, parse_uri,
-                            reproducibility)
+                            ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist,
+                            get_composer_env_dict, get_device, get_file, is_tpu_installed, map_collection,
+                            maybe_create_object_store_from_uri, maybe_create_remote_uploader_downloader_from_uri,
+                            model_eval_mode, parse_uri, reproducibility, using_torch_2)
+from composer.utils.misc import is_model_deepspeed
 
 if is_tpu_installed():
     import torch_xla.core.xla_model as xm
@@ -57,7 +66,7 @@ log = logging.getLogger(__name__)
 
 __all__ = ['Trainer']
 
-# syntax to shorten the Scheduler type annoations
+# syntax to shorten the Scheduler type annotations
 Scheduler = Union[ComposerScheduler, PyTorchScheduler]
 
 
@@ -98,14 +107,13 @@ def _get_default_scheduler_frequency(schedulers: Optional[Union[Scheduler, Seque
 def _filter_metrics(metrics: Dict[str, Metric], metric_names: Optional[List[str]]) -> Dict[str, Metric]:
     """Filter the metrics based on the given metric_names as regex strings (e.g. 'Accuracy', 'f1' for 'BinaryF1Score', 'Top-.' for 'Top-1 Accuracy' and 'Top-2 Accuracy', etc). If no metric_names are provided, all metrics will be returned."""
     metrics = deepcopy(metrics)
-    if not metric_names:
+    if metric_names is None:
         return metrics
-    else:
-        filtered_metrics = {}
-        for name, metric in metrics.items():
-            if any(re.match(f'.*{metric_name}.*', name, re.IGNORECASE) for metric_name in metric_names):
-                filtered_metrics[name] = metric
-        return filtered_metrics
+    filtered_metrics = {}
+    for name, metric in metrics.items():
+        if any(re.match(f'.*{metric_name}.*', name, re.IGNORECASE) for metric_name in metric_names):
+            filtered_metrics[name] = metric
+    return filtered_metrics
 
 
 def _validate_precision(precision: Precision, device: Device):
@@ -153,23 +161,14 @@ def _set_evaluator_interval_and_subset_num_batches(
                                  'run forever and never terminate.')
 
 
-def _is_auto_grad_accum(grad_accum: Union[int, str], device: Device):
-    if grad_accum == 'auto':
-        warnings.warn(("Setting `grad_accum='auto'` is an experimental feature which may cause "
-                       'uncaught Cuda Out of Memory errors. In this case, please manually '
-                       'set grad_accum explicitly to an integer instead.'))
-        if not isinstance(device, DeviceGPU):
-            raise ValueError('Can only use adaptive grad_accum on GPU. Please set grad_accum >= 1')
-        return True
-    else:
-        return False
-
-
-def _is_auto_microbatching(device_train_microbatch_size: Union[int, str], device: Device):
+def _is_auto_microbatching(device_train_microbatch_size: Optional[Union[int, str]], device: Device):
     if device_train_microbatch_size == 'auto':
-        warnings.warn(("Setting `device_train_microbatch_size='auto'` is an experimental feature which may cause "
-                       'uncaught Cuda Out of Memory errors. In this case, please manually '
-                       'set device_train_microbatch_size explicitly to an integer instead.'))
+        warnings.warn(("`device_train_microbatch_size='auto'` may potentially fail with unexpected "
+                       'CUDA errors. Auto microbatching attempts to catch CUDA Out of Memory errors '
+                       'and adjust the batch size, but it is possible CUDA will be put into an '
+                       'irrecoverable state due to PyTorch bugs, e.g. integer overflow. In this case, '
+                       'please manually set device_train_microbatch_size explicitly to an integer '
+                       'instead.'))
         if not isinstance(device, DeviceGPU):
             raise ValueError(
                 'Can only use adaptive device_train_microbatch_size on GPU. Please set device_train_microbatch_size >= 1.'
@@ -177,15 +176,6 @@ def _is_auto_microbatching(device_train_microbatch_size: Union[int, str], device
         return True
     else:
         return False
-
-
-def _get_initial_grad_accum(grad_accum: Union[int, str]):
-    if grad_accum == 'auto':
-        return 1
-    elif isinstance(grad_accum, int):
-        return grad_accum
-    else:
-        raise ValueError("grad_accum must be an int or ``'auto'``")
 
 
 def _get_initial_device_train_microbatch_size(device_train_microbatch_size: Optional[Union[int, str]],
@@ -197,15 +187,22 @@ def _get_initial_device_train_microbatch_size(device_train_microbatch_size: Opti
     `train_dataloader` is not set yet, returns None and this function will be called again when
     `train_dataloader` is set, such as when `fit()` is called.
     """
-    if auto_microbatching:
+    if device_train_microbatch_size is None or auto_microbatching:
         # Return None, this function will be called again when `train_dataloader` is set
         if train_dataloader is None:
             return None
         try:
             batch_size = getattr(train_dataloader, 'batch_size')
         except AttributeError as e:
+            # Error message when `device_train_microbatch_size` is None
+            # Note: This code path will be removed after `auto` is made default
+            if device_train_microbatch_size is None:
+                raise ValueError(
+                    '`device_train_microbatch_size` must be set when `state.train_dataloader` does not have a `batch_size` attribute.'
+                ) from e
+            # Error message when `device_train_microbatch_size` is 'auto'
             raise AttributeError(
-                'device_train_microbatch_size requires the `state.train_dataloader` to have a `batch_size` attribute.'
+                "`device_train_microbatch_size='auto'` requires the `state.train_dataloader` to have a `batch_size` attribute."
             ) from e
         return batch_size
     elif isinstance(device_train_microbatch_size, int):
@@ -227,37 +224,6 @@ def _is_cuda_oom(e: RuntimeError):
                       'error with non-contiguous inputs.')
         return True
     return False
-
-
-def _adjust_grad_accum(state: State, device_batch_size: int):
-    """Adjust grad_accum if we encounter OOM.
-
-    Args:
-        state (State): State of trainer.
-        device_batch_size (int): Batch size.
-    """
-    # If any rank hit CUDA OOM, update grad_accum and retry. Raise runtime error if training 1 sample
-    # at a time still resulted in CUDA out of memory.
-    assert state.grad_accum is not None
-    if state.grad_accum == device_batch_size:
-        raise RuntimeError(('CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
-                            'The GPU does not have enough memory to process even 1 sample during train.'))
-    else:
-        original_grad_accum = state.grad_accum
-        state.grad_accum = min(2 * state.grad_accum, device_batch_size)
-        warnings.warn(
-            RuntimeWarning('CUDA out of memory detected. Gradient Accumulation, the number of train microbatches, '
-                           f'increased from {original_grad_accum} -> {state.grad_accum}, '
-                           'and the batch will be retrained with a '
-                           f'micro-batchsize of {device_batch_size // state.grad_accum}'))
-    # Clear gradients in case failure happened during backwards pass
-    if hasattr(state, 'outputs'):
-        del state.outputs
-    if hasattr(state, 'loss'):
-        del state.loss
-    for optimizer in state.optimizers:
-        optimizer.zero_grad(set_to_none=True)
-    torch.cuda.empty_cache()
 
 
 def _adjust_device_train_microbatch_size(state: State):
@@ -285,34 +251,34 @@ def _adjust_device_train_microbatch_size(state: State):
         del state.loss
     for optimizer in state.optimizers:
         optimizer.zero_grad(set_to_none=True)
+    if state.scaler is not None:
+        state.scaler._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
     torch.cuda.empty_cache()
 
 
-def _adjust_eval_batch_split(state: State, device_batch_size: int):
-    """Adjust eval_batch_split if we encounter OOM.
+def _adjust_device_eval_microbatch_size(evaluator: Evaluator):
+    """Adjust device_eval_microbatch_size if we encounter OOM.
 
     Args:
-        state (State): State of trainer.
-        device_batch_size (int): Batch size.
+        evaluator (State): Current evaluator
     """
-    # If any rank hit CUDA OOM, update grad_accum and retry. Raise runtime error if training 1 sample
-    # at a time still resulted in CUDA out of memory.
-    if state.eval_batch_split == device_batch_size:
-        raise RuntimeError(('CUDA out of memory. The train loop failed with an internal microbatch of size 1.'
-                            'The GPU does not have enough memory to process even 1 sample in eval. '))
+    # If any rank hit CUDA OOM, update device_eval_microbatch_size and retry. Raise runtime error
+    # if evaluating 1 sample at a time still resulted in CUDA out of memory.
+    assert evaluator.device_eval_microbatch_size is not None
+    if evaluator.device_eval_microbatch_size == 1:
+        raise RuntimeError(('CUDA out of memory. The eval loop failed with an internal microbatch of size 1.'
+                            'The GPU does not have enough memory to process even 1 sample during eval.'))
     else:
-        original_eval_batch_split = state.eval_batch_split
-        state.eval_batch_split = min(2 * state.eval_batch_split, device_batch_size)
+        original_microbatch_size = evaluator.device_eval_microbatch_size
+        evaluator.device_eval_microbatch_size = max(int(original_microbatch_size / 2), 1)
         warnings.warn(
-            RuntimeWarning('CUDA out of memory detected. Number of eval microbatches '
-                           f'increased from {original_eval_batch_split} -> {state.eval_batch_split}, '
-                           'and the batch will be retrained with a '
-                           f'micro-batchsize of {device_batch_size // state.eval_batch_split}'))
+            RuntimeWarning('CUDA out of memory detected. Train microbatch size will be decreased from '
+                           f'{original_microbatch_size} -> {evaluator.device_eval_microbatch_size}.'))
     torch.cuda.empty_cache()
 
 
 def _distribute_and_get_random_seed(seed: Optional[int], device: Device):
-    if not seed:
+    if seed is None:
         seed = reproducibility.get_random_seed()
 
     # Ensure that each process has a seed = rank_zero_seed + global_rank
@@ -343,29 +309,10 @@ def _get_ddp_sync_strategy(ddp_sync_strategy: Optional[Union[str, DDPSyncStrateg
     return ddp_sync_strategy
 
 
-def _get_precision_context(precision: Precision, deepspeed_enabled: bool):
+def _get_precision_context(precision: Precision, precision_config: Optional[Dict[str, Any]], deepspeed_enabled: bool):
     if deepspeed_enabled:
         return contextlib.nullcontext()
-    return get_precision_context(precision)
-
-
-def _get_backwards_compatible_precision(precision: str):
-    if precision == 'fp16':
-        warnings.warn(
-            DeprecationWarning(
-                "'fp16' is deprecated as the naming is unclear and will be removed in 0.13. Use 'amp_fp16' instead."))
-        return Precision.AMP_FP16
-    if precision == 'amp':
-        warnings.warn(
-            DeprecationWarning(
-                "'amp' is deprecated as the naming is unclear and will be removed in 0.13. Use 'amp_fp16' instead."))
-        return Precision.AMP_FP16
-    if precision == 'bf16':
-        warnings.warn(
-            DeprecationWarning(
-                "'bf16' is deprecated as the naming is unclear and will be removed in 0.13. Use 'amp_bf16' instead."))
-        return Precision.AMP_BF16
-    return precision
+    return get_precision_context(precision, precision_config)
 
 
 def _generate_run_name() -> str:
@@ -476,6 +423,16 @@ class Trainer:
             This setting will end each epoch early to avoid additional training that will not be profiled.
 
             This parameter is ignored if ``train_dataloader`` is not specified.
+        spin_dataloaders (bool, optional): If ``True``, dataloaders will be spun up to the current timestamp
+            by skipping samples which have already been trained on. If a dataloader has a way to resume from
+            the current batch without spinning, this will be a no-op. This ensures dataloaders continue from
+            the same batch when resuming training. (default: ``True``)
+
+            .. note:: Spinning dataloaders can be potentially very slow but is required to skip samples which
+                have already been trained on. If it is acceptable to repeat samples when resuming training,
+                it is possible to resume faster by setting ``spin_dataloaders=False``. This may have severe
+                performance implications and is generally not recommended unless you confidently understand the
+                implications.
         max_duration (Time | str | int, optional): The maximum duration to train. Can be an integer, which will be
             interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), or a :class:`.Time` object.
 
@@ -526,12 +483,13 @@ class Trainer:
             Setting this to ``True`` will force schedulers to be stepped every batch,
             while ``False`` means schedulers stepped every epoch. ``None`` indicates the default behavior.
             (default: ``None``)
-        eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): The :class:`.DataLoader`,
-            :class:`.DataSpec`, :class:`.Evaluator`, or sequence of evaluators for the evaluation data.
+        eval_dataloader (Iterable | DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): The :class:`.Iterable`,
+            :class:`.DataLoader`, :class:`.DataSpec`, :class:`.Evaluator`, or sequence of evaluators for the evaluation data.
 
             To evaluate one or more specific metrics across one or more datasets, pass in an
-            :class:`.Evaluator`. If a :class:`.DataSpec` or :class:`.DataLoader` is passed in, then all
-            metrics returned by ``model.get_metrics()`` will be used during evaluation.
+            :class:`.Evaluator`. If a :class:`.DataLoader`, :class:`.DataSpec`, or :class:`.Iterable` is passed in, then all
+            metrics returned by ``model.get_metrics()`` will be used during evaluation. If a :class:`.Evaluator`
+            is specified in a list, all eval dataloaders must be :class:`.Evaluator` instances.
             ``None`` results in no evaluation. (default: ``None``)
         eval_interval (int | str | Time | (State, Event) -> bool, optional): Specifies how frequently to run evaluation.
             An integer, which will be interpreted to be epochs, a str (e.g. ``1ep``, or ``10ba``), a :class:`.Time`
@@ -568,8 +526,9 @@ class Trainer:
         loggers (LoggerDestination | Sequence[LoggerDestination], optional): The destinations to log training information to.
 
             .. seealso:: :mod:`composer.loggers` for the different loggers built into Composer.
-        run_name (str, optional): A name for this training run. If not specified, the timestamp will be combined with a
-            :doc:`coolname <coolname:index>`, e.g. ``1654298855-electric-zebra``.
+        run_name (str, optional): A name for this training run. If not specified, the env var
+            `COMPOSER_RUN_NAME` or `RUN_NAME` will be used if set. Otherwise, the timestamp will be
+            combined with a :doc:`coolname <coolname:index>`, e.g. ``1654298855-electric-zebra``.
         progress_bar (bool): Whether to show a progress bar. (default: ``True``)
         log_to_console (bool): Whether to print logging statements to the console. (default: ``False``)
         console_stream (TextIO | str, optional): The stream to write to. If a string, it can either be
@@ -622,7 +581,7 @@ class Trainer:
             If ``None`` then no checkpoint will be loaded. (default: ``None``)
         load_object_store (Union[ObjectStore, LoggerDestination], optional): If the ``load_path`` is in an
             object store (i.e. AWS S3 or Google Cloud Storage), an instance of :class:`.ObjectStore` or
-            :class:`.LoggerDestination` which will be used to retreive the checkpoint. Otherwise, if the
+            :class:`.LoggerDestination` which will be used to retrieve the checkpoint. Otherwise, if the
             checkpoint is a local filepath, set to ``None``. Also, it can be ``None`` if the ``load_path`` is
             an S3 URI because the appropriate object store will be automatically constructed in that case.
             Ignored if ``load_path`` is ``None``.
@@ -666,7 +625,7 @@ class Trainer:
         load_weights_only (bool, optional): Whether or not to only restore the weights from the checkpoint without
             restoring the associated state. Ignored if ``load_path`` is ``None``. (default: ``False``)
         load_strict_model_weights (bool, optional): Ensure that the set of weights in the checkpoint and model must exactly match.
-            Ignored if ``load_path`` is ``None``. (default: ``False``)
+            Ignored if ``load_path`` is ``None``. (default: ``True``)
         load_progress_bar (bool, optional): Display the progress bar for downloading the checkpoint.
             Ignored if ``load_path`` is either ``None`` or a local file path. (default: ``True``)
         load_ignore_keys (List[str] | (Dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
@@ -701,7 +660,6 @@ class Trainer:
             Example 2: ``load_exclude_algorithms = ["FusedLayerNorm", "Alibi"]`` would exclude FusedLayerNorm and Alibi from loading.
 
             (default: ``None``)
-
         save_folder (str, optional): Format string for the folder where checkpoints are saved.
             If ``None``, checkpoints will not be saved. Can also be a URI for S3 paths only.
             In the case of an S3 URI, the appropriate `~.RemoteUploader` object will be created
@@ -748,6 +706,9 @@ class Trainer:
 
             This parameter only controls how many checkpoints are kept locally; checkpoints are not deleted from
             remote file systems.
+        save_metrics (bool, optional): Whether to save the metrics. By default, metrics are not saved to checkpoint
+            as state usually does not need to be preserved and inconsistent state can cause issues when loading.
+            (default: ``False``)
         autoresume (bool, optional): Whether or not to enable autoresume, which allows for stopping and resuming
             training. This allows use of spot instances, as the training run is now fault tolerant.  This parameter
             requires ``save_folder`` and ``run_name`` to be specified and ``save_overwrite`` to be ``False``.
@@ -772,6 +733,9 @@ class Trainer:
             See :doc:`FSDP Documentation </notes/distributed_training>` for more details.
             To use FSDP with default values, set to the empty dictionary ``{}``. To
             disable FSDP, set to ``None``. (default: ``None``)
+        fsdp_auto_wrap (bool, optional): option to let trainer wrap the module, or if
+            the module is already wrapped outside, allow the user to disable auto-wrapping.
+
         device (Device | str, optional): The device to use for training, which can be ``'cpu'``, ``'gpu'``,
             ``'tpu'``, or ``'mps'``. (default: ``None``)
 
@@ -779,17 +743,8 @@ class Trainer:
         precision (Precision | str, optional): Numerical precision to use for training. One of ``fp32``, ``amp_bf16``
             or ``amp_fp16`` (recommended). (default: ``Precision.FP32`` if training on CPU; ``Precision.AMP_FP16`` if
             training on GPU)
-        grad_accum (Union[int, str], optional): The number of microbatches to split a per-device batch into. Gradients
-            are summed over the microbatches per device. If set to ``auto``, dynamically increases grad_accum
-            if microbatch is too large for GPU. (default: ``1``)
-
-            .. note:: This is implemented by taking the batch yielded by the ``train_dataloader`` and splitting
-                it into ``grad_accum`` sections. Each section is of size ``train_dataloader // grad_accum``.
-                If the batch size of the dataloader is not divisible by ``grad_accum``,
-                then the last section will be of size ``batch_size mod grad_accum``.
-
-            .. deprecated:: 0.12
-               Please use device_train_microbatch_size.
+        precision_config (Optional[Dict[str, Any]]): The config for FP8 scaling strategy. See parameters for
+            `DelayedScaling <https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/common.html?highlight=delayedscaling#transformer_engine.common.recipe.DelayedScaling>`_.
         device_train_microbatch_size (Union[int, str), optional): The number of samples to process on each device per
             microbatch during training. Gradients are summed over the microbatches per device. If set to ``auto``,
             dynamically decreases device_train_microbatch_size if microbatch is too large for GPU. (default: ``None``)
@@ -817,7 +772,7 @@ class Trainer:
 
             .. seealso:: :mod:`composer.utils.reproducibility` for more details on reproducibility.
         dist_timeout (float, optional): Timeout, in seconds, for initializing the distributed process group.
-            (default: ``1800.0``)
+            (default: ``300.0``)
         ddp_sync_strategy (str | DDPSyncStrategy, optional): The strategy to use for synchronizing gradients.
             Leave unset to let the trainer auto-configure this. See :class:`.DDPSyncStrategy`
             for more details.
@@ -832,6 +787,11 @@ class Trainer:
             ``logging.basicConfig`` won't be called).
 
             .. seealso:: The :mod:`logging` module in Python.
+        compile_config (Dict[str, Any], optional): Configuration for torch compile. Only supported with PyTorch 2.0 or higher.
+            Checkout [`torch.compile`](https://pytorch.org/get-started/pytorch-2.0/) for more details.
+            To use torch compile with default values, set it to empty dictionary ``{}``.
+            To use torch compile with custom config, set to a dictionary such as ``{'mode': 'max-autotune'}``.
+            To disable torch compile, set to ``None``. (default: ``None``)
 
     Attributes:
         state (State): The :class:`.State` object used to store training state.
@@ -851,6 +811,7 @@ class Trainer:
         train_dataloader: Optional[Union[Iterable, DataSpec, Dict[str, Any]]] = None,
         train_dataloader_label: str = 'train',
         train_subset_num_batches: int = -1,
+        spin_dataloaders: bool = True,
 
         # Stopping Condition
         max_duration: Optional[Union[int, str, Time]] = None,
@@ -889,7 +850,7 @@ class Trainer:
         load_path: Optional[str] = None,
         load_object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
         load_weights_only: bool = False,
-        load_strict_model_weights: bool = False,
+        load_strict_model_weights: bool = True,
         load_progress_bar: bool = True,
         load_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
         load_exclude_algorithms: Optional[List[str]] = None,
@@ -902,6 +863,7 @@ class Trainer:
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
         save_weights_only: bool = False,
         save_num_checkpoints_to_keep: int = -1,
+        save_metrics: bool = False,
 
         # Graceful Resumption
         autoresume: bool = False,
@@ -909,11 +871,12 @@ class Trainer:
         # DeepSpeed
         deepspeed_config: Optional[Dict[str, Any]] = None,
         fsdp_config: Optional[Dict[str, Any]] = None,
+        fsdp_auto_wrap: bool = True,
 
         # System/Numerics
         device: Optional[Union[str, Device]] = None,
         precision: Optional[Union[str, Precision]] = None,
-        grad_accum: Optional[Union[int, str]] = 1,
+        precision_config: Optional[Dict[str, Any]] = None,
         device_train_microbatch_size: Optional[Union[int, str]] = None,
 
         # Reproducibility
@@ -921,7 +884,7 @@ class Trainer:
         deterministic_mode: bool = False,
 
         # Distributed Training
-        dist_timeout: float = 1800.0,
+        dist_timeout: float = 300.0,
         ddp_sync_strategy: Optional[Union[str, DDPSyncStrategy]] = None,
 
         # Profiling
@@ -929,6 +892,9 @@ class Trainer:
 
         # Python logging
         python_log_level: Optional[str] = None,
+
+        # compile config for PyTorch 2.0 or higher
+        compile_config: Optional[Dict[str, Any]] = None,
     ):
 
         self.auto_log_hparams = auto_log_hparams
@@ -949,29 +915,56 @@ class Trainer:
         # Device
         device = get_device(device)
 
-        # Determine whether DeepSpeed and FSDP are enabled
-        self.deepspeed_config = deepspeed_config
-        self.fsdp_config = fsdp_config
-        self.deepspeed_enabled = self.deepspeed_config is not None
-        self.fsdp_enabled = self.fsdp_config is not None
-
         # Precision
         if precision is None:
             precision = Precision.AMP_FP16 if isinstance(device, DeviceGPU) else Precision.FP32
-        if isinstance(precision, str):
-            precision = _get_backwards_compatible_precision(precision)
+        elif isinstance(precision, str):
             precision = Precision(precision)
         _validate_precision(precision, device)
 
+        # check if provided model is compiled or not
+        is_torch_2_0 = using_torch_2()
+        is_model_compiled = False
+        if is_torch_2_0:
+            from torch._dynamo import OptimizedModule
+            if isinstance(model, OptimizedModule):
+                log.warning(f'Provided `model` is already compiled with `torch.compile`. Ignoring ' +
+                            f'parameter `compile_config` if provided. If you would like `Trainer` ' +
+                            f'to takes care of model compilation, provide a not-compiled model and ' +
+                            f'`compile_config` parameter.')
+                # The `torch.compile` function returns an object of type `torch._dynamo.OptimizedModule`
+                # which wraps the original `nn.Module` object and later patches its forward method to
+                # optimized `self.forward` method.
+                is_model_compiled = True
+                compiled_model = model._orig_mod
+                if not isinstance(compiled_model, ComposerModel):
+                    raise ValueError(f'Provided `model` must be a subclass of ComposerModel. ' +
+                                     f'Instead found as type `{type(compiled_model)}`')
+                compiled_model.forward = model.dynamo_ctx(
+                    compiled_model.forward)  # pyright: ignore [reportGeneralTypeIssues]
+                model = compiled_model
+
+        # Microbatching
+        auto_microbatching = _is_auto_microbatching(device_train_microbatch_size, device=device)
+        if auto_microbatching and profiler:
+            raise ValueError("`device_train_microbatch_size='auto'` is not compatible with the profiler. It is "
+                             "recommended to run a mini-run with `device_train_microbatch_size='auto'` to identify "
+                             'the optimal device_train_microbatch_size value and then manually specify that in a '
+                             'second run with profiler.')
+        self.first_batch_complete = False
+        # If auto_microbatching is True or `device_train_microbatch_size` is not specified, the microbatch size
+        # will be determined when dataloader is specified. train_dataloader is parsed after `Event.INIT` or in
+        # fit()
+        device_train_microbatch_size = _get_initial_device_train_microbatch_size(device_train_microbatch_size,
+                                                                                 auto_microbatching, None)
+
+        assert not isinstance(device_train_microbatch_size, str)
+
         # Distributed
-        if self.deepspeed_enabled or self.fsdp_enabled or dist.get_world_size() > 1:
+        if deepspeed_config is not None or fsdp_config is not None or dist.get_world_size() > 1:
             # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
             # And torch.distributed is always required for multi-rank training
             dist.initialize_dist(device, dist_timeout)
-
-        # Handle FSDP sharding
-        if self.fsdp_config is not None:
-            prepare_fsdp_module(model, optimizers, self.fsdp_config, precision)
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, device)
@@ -982,19 +975,27 @@ class Trainer:
             reproducibility.configure_deterministic_mode()
 
         # Optimizers and Schedulers
-        if not optimizers:
-            optimizers = DecoupledSGDW(model.parameters(), lr=0.1)
-            # hard-coding the optimizer in the warning, as repr(optimizers) would print an annoying, multi-line warning
-            warnings.warn(('No optimizer was specified. Defaulting to '
-                           f"{type(optimizers).__name__}(lr={optimizers.defaults['lr']})"))
+        if optimizers is None:
+            try:
+                optimizers = DecoupledSGDW(model.parameters(), lr=0.1)
+                # hard-coding the optimizer in the warning, as repr(optimizers) would print an annoying, multi-line warning
+                warnings.warn(('No optimizer was specified. Defaulting to '
+                               f"{type(optimizers).__name__}(lr={optimizers.defaults['lr']})"))
+            except ValueError as e:
+                if 'optimizer got an empty parameter list' in str(e):
+                    warnings.warn(
+                        'No optimizer was specified, and the model does not have parameters. Skipping auto-creating optimizer.'
+                    )
+                else:
+                    raise
 
-        num_optimizers = len(ensure_tuple(optimizers))
-        if num_optimizers != 1:
-            raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
+        if optimizers is not None:
+            num_optimizers = len(ensure_tuple(optimizers))
+            if num_optimizers != 1:
+                raise NotImplementedError(f'Only one optimizer is supported; found {num_optimizers} optimizers')
 
         # Move the model and optimizers to the device
-
-        if not (self.deepspeed_enabled or self.fsdp_enabled):
+        if deepspeed_config is None and fsdp_config is None:
             # check if model is already on tpu
             if isinstance(device, DeviceTPU) and 'xla' not in str(next(model.parameters()).device):
                 raise ValueError(
@@ -1006,47 +1007,9 @@ class Trainer:
                 # that need to be moved onto GPU.
             optimizers = map_collection(optimizers, device.optimizer_to_device)
 
-        # Microbatching
-        # To support backwards compatability, we currently support both device_train_microbatch_size
-        # and grad_accum. If both are specified with grad_accum=1, we will use device_train_microbatch_size.
-        if device_train_microbatch_size is not None:
-            using_device_microbatch_size = True
-            if grad_accum != 1:
-                raise ValueError(
-                    'Cannot use both device_train_microbatch_size and grad_accum. grad_accum is deprecated '
-                    'so it is recommended to use device_train_microbatch_size.')
-            grad_accum = None
-            auto_microbatching = _is_auto_microbatching(device_train_microbatch_size, device=device)
-            if auto_microbatching and profiler:
-                raise ValueError("`device_train_microbatch_size='auto'` is not compatible with the profiler. It is "
-                                 "recommended to run a mini-run with `device_train_microbatch_size='auto'` to identify "
-                                 'the optimal device_train_microbatch_size value and then manually specify that in a '
-                                 'second run with profiler.')
-            # If auto_microbatching is True, the microbatch size will be determined when dataloader
-            # is specified. train_dataloader is parsed after `Event.INIT` or in fit()
-            device_train_microbatch_size = _get_initial_device_train_microbatch_size(
-                device_train_microbatch_size, auto_microbatching, None)
-        elif grad_accum is not None:
-            using_device_microbatch_size = False
-            if grad_accum != 1:
-                warnings.warn(
-                    DeprecationWarning(
-                        f'grad_accum set to {grad_accum} but is deprecated and will be removed in 0.13. Please use device_train_microbatch_size instead.'
-                    ))
-            auto_microbatching = _is_auto_grad_accum(grad_accum, device=device)
-            if auto_microbatching and profiler:
-                raise ValueError("`grad_accum='auto'` is not compatible with the profiler. It is recommended to run "
-                                 "a mini-run with `grad_accum='auto'` to identify the optimal grad_accum value and "
-                                 'then manually specify that in a second run with profiler.')
-            grad_accum = _get_initial_grad_accum(grad_accum)
-        else:
-            raise ValueError('Either grad_accum or device_train_microbatch_size must be specified. As grad-accum '
-                             'is deprecated, we recommend using device_train_microbatch_size.')
-        eval_batch_split = 1
-        assert not isinstance(grad_accum, str)
-        assert not isinstance(device_train_microbatch_size, str)
-
         # Run Name
+        run_name = os.getenv('COMPOSER_RUN_NAME', None) if run_name is None else run_name
+        run_name = os.getenv('RUN_NAME', None) if run_name is None else run_name
         if run_name is None:
             if autoresume:
                 raise ValueError('When autoresume=True, the `run_name` must be specified.')
@@ -1060,26 +1023,30 @@ class Trainer:
             model=model,
             device=device,
             callbacks=callbacks,
-            grad_accum=grad_accum,
-            eval_batch_split=eval_batch_split,
             device_train_microbatch_size=device_train_microbatch_size,
             auto_microbatching=auto_microbatching,
-            using_device_microbatch_size=using_device_microbatch_size,
             precision=precision,
+            precision_config=precision_config,
             optimizers=optimizers,
             run_name=run_name,
+            save_metrics=save_metrics,
             deepspeed_config=deepspeed_config,
-            fsdp_config=fsdp_config,
+            fsdp_config=set_fsdp_default(fsdp_config) if fsdp_config is not None else None,
+            fsdp_auto_wrap=fsdp_auto_wrap,
         )
+
+        # Console Logging
+        loggers = list(ensure_tuple(loggers))
 
         # Profiler
         if profiler is not None:
             warnings.warn('The profiler is enabled. Using the profiler adds additional overhead when training.')
             self.state.profiler = profiler
+            for remote_uri in profiler.remote_filenames:
+                remote_ud = maybe_create_remote_uploader_downloader_from_uri(uri=remote_uri, loggers=loggers)
+                if remote_ud is not None:
+                    loggers.append(remote_ud)
             self.state.profiler.bind_to_state(self.state)
-
-        # Console Logging
-        loggers = list(ensure_tuple(loggers))
 
         if progress_bar and log_to_console:
             warnings.warn(
@@ -1089,11 +1056,11 @@ class Trainer:
 
         if any(isinstance(x, ProgressBarLogger) for x in loggers):
             warnings.warn(
-                DeprecationWarning(
-                    (f'Specifying the {ProgressBarLogger.__name__} via `loggers` is deprecated. Instead, '
-                     'please specify `progress_bar`, `console_stream` and `log_traces` arguments when '
-                     'constructing the trainer. If specified, these arguments will be ignored, as the '
-                     f'{ProgressBarLogger.__name__} was already created.')))
+                Warning((
+                    f'Specifying the {ProgressBarLogger.__name__} via `loggers` is not recommended as '
+                    'any values set for the following Trainer arguments will be ignored: `progress_bar`, `console_stream`, or `log_traces`. '
+                    'The recommended way of enabling a progress bar is to set `progress_bar` to True instead of '
+                    f'constructing a {ProgressBarLogger.__name__} instance.')))
         else:
             if progress_bar:
                 loggers.append(ProgressBarLogger(stream=console_stream, log_traces=log_traces))
@@ -1101,15 +1068,23 @@ class Trainer:
         # Console Logging
         if any(isinstance(x, ConsoleLogger) for x in loggers):
             warnings.warn(
-                DeprecationWarning((
-                    f'Specifying the {ConsoleLogger.__name__} via `loggers` is deprecated. Instead, '
-                    'please specify `log_to_console`, `console_stream`, `console_log_interval`, and `log_traces` arguments when '
-                    'constructing the trainer. If specified, these arguments will be ignored, as the '
-                    f'{ConsoleLogger.__name__} was already created.')))
+                Warning((
+                    f'Specifying the {ConsoleLogger.__name__} via `loggers` is not recommended as '
+                    'any values set for the following Trainer arguments will be ignored: `log_to_console`, `console_stream`, `log_traces`, and `console_log_interval`. '
+                    'The recommended way of enabling a console logging is to set `log_to_console` to True instead of '
+                    f'constructing a {ConsoleLogger.__name__} instance.')))
         else:
             if log_to_console:
                 loggers.append(
                     ConsoleLogger(stream=console_stream, log_interval=console_log_interval, log_traces=log_traces))
+
+        # MosaicML Logger
+        # Keep MosaicML logger above the RemoteUploaderDownloader so that fit end is reported before the final checkpoint begins uploading
+        if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and os.environ.get(
+                MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and not any(isinstance(x, MosaicMLLogger) for x in loggers):
+            log.info('Detected run on MosaicML platform. Adding MosaicMLLogger to loggers.')
+            mosaicml_logger = MosaicMLLogger()
+            loggers.append(mosaicml_logger)
 
         if save_folder is not None:
             remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
@@ -1137,6 +1112,11 @@ class Trainer:
         self._checkpoint_saver = None
         latest_remote_file_name = None
         if save_folder is not None:
+            if save_weights_only:
+                log.info(
+                    'save_weights_only=True now also saves metadata and integrations! Please adjust your workflow accordingly.'
+                )
+
             _, _, parsed_save_folder = parse_uri(save_folder)
 
             # If user passes a URI with s3:// and a bucket_name, but no other
@@ -1184,15 +1164,21 @@ class Trainer:
             self.local_hparams = extract_hparams(locals())
             self.logger.log_hyperparameters(self.local_hparams)
 
+        # Log composer version
+        composer_env_dict = get_composer_env_dict()
+        self.logger.log_hyperparameters({'composer_version': composer_env_dict['composer_version']})
+        self.logger.log_hyperparameters({'composer_commit_hash': str(composer_env_dict['composer_commit_hash'])})
+
         # Log gpus and nodes.
         device_name = self.state.device.__class__.__name__.lstrip('Device').lower()
         self.logger.log_hyperparameters({
             'num_nodes': int(dist.get_world_size() / dist.get_local_world_size()),
             f'num_{device_name}s_per_node': dist.get_local_world_size(),
+            'node_name': os.environ.get('NODENAME', 'unknown because NODENAME environment variable not set')
         })
 
         if not isinstance(self.state.model, ComposerModel):
-            raise ValueError('Provided model should be a subclass of ComposerModel.')
+            raise ValueError('Provided model must be a subclass of ComposerModel.')
 
         # After running Event.INIT, then set the "optional" elements of state that could be passed in on FIT instead of INIT
         # Setting these attributes here ensures that algorithms do not depend on unavailable attributes during Event.INIT
@@ -1207,10 +1193,16 @@ class Trainer:
         else:
             eval_metrics = deepcopy(self.state.model.get_metrics(is_train=False))
             model_metric_names = [str(k) for k in eval_metrics.keys()]
+            eval_dataloader = ensure_tuple(eval_dataloader)
+
+            evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in eval_dataloader]
+            if any(evaluator_types) and not all(evaluator_types):
+                raise ValueError('Mixing Evaluator with other classes is not allowed, please wrap'
+                                 'all other classes with the Evaluator class. These are the classes'
+                                 'that were detected:' + str([type(evaluator) for evaluator in eval_dataloader]))
 
             evaluators = [
-                ensure_evaluator(evaluator, default_metric_names=model_metric_names)
-                for evaluator in ensure_tuple(eval_dataloader)
+                ensure_evaluator(evaluator, default_metric_names=model_metric_names) for evaluator in eval_dataloader
             ]
             # match metric names to model metrics
             self.state.eval_metrics = {
@@ -1222,17 +1214,20 @@ class Trainer:
                 eval_interval=eval_interval,
                 subset_num_batches=eval_subset_num_batches,
             )
+
+            for evaluator in evaluators:
+                validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
         if len(evaluators) == 0:
             if eval_subset_num_batches != -1:
                 raise ValueError(
                     f'Specifying `eval_subset_num_batches={eval_subset_num_batches}` without an `eval_dataloader` '
                     'has no effect. If trying to run an evaluator, make sure `eval_dataloader` is specified. '
                     'Otherwise, set `eval_subset_num_batches` to default value -1.')
-            if eval_interval != 1:
+            if eval_interval != 0 and eval_interval != 1:
                 raise ValueError(
                     f'Specifying `eval_interval={eval_interval}` without an `eval_dataloader` has no effect. '
                     'If trying to run an evaluator, make sure `eval_dataloader` is specified. Otherwise, '
-                    'set `eval_interval` to default value 1.')
+                    'set `eval_interval` to 0 or default value 1.')
 
         self.state.evaluators = evaluators
 
@@ -1245,9 +1240,9 @@ class Trainer:
                 self.state.train_dataloader = pl.MpDeviceLoader(self.state.dataloader, xm.xla_device())
             else:
                 self.state.train_dataloader = self.state.dataloader
-            if self.state.using_device_microbatch_size:
-                self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
-                    self.state.device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
+            self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
+                self.state.device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
+        self.spin_dataloaders = spin_dataloaders
 
         # Max Duration
         if max_duration is not None:
@@ -1268,15 +1263,41 @@ class Trainer:
             self._scheduler_step_frequency = TimeUnit.BATCH if step_schedulers_every_batch else TimeUnit.EPOCH
 
         # Some algorithms require specific settings
-        self._backwards_create_graph = any(map(lambda x: x.backwards_create_graph, self.state.algorithms))
-        self._find_unused_parameters = any(map(lambda x: x.find_unused_parameters, self.state.algorithms))
+        self._backwards_create_graph = any((x.backwards_create_graph for x in self.state.algorithms))
+        self._find_unused_parameters = any((x.find_unused_parameters for x in self.state.algorithms))
         self._ddp_sync_strategy = _get_ddp_sync_strategy(ddp_sync_strategy, self._find_unused_parameters)
 
-        # If using DDP or DeepSpeed, we need to wrap the ComposerModel
-        # But store a reference to the original model for functions like `eval_forward`, `get_metrics`, etc.
+        # Suppressing GradScaler warnings as they are always created
+        # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
+        warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
+        self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
+
+        if self.state.fsdp_config is not None:
+            if version.parse(torch.__version__) < version.parse('1.13.0'):
+                raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
+            from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
+
+            # This state should never be reached, but we raise a ValueError just in case
+            if self._use_closures() and self.state.precision == Precision.AMP_FP16:
+                raise ValueError(f'Using closures and precision {self.state.precision} is not supported'
+                                 f' with FSDP. Please use another optimizer or precision type.')
+            self.state.scaler = ShardedGradScaler()
+
+        # suppressing FSDP warning when auto grad accum exits the forward pass before completing
+        warnings.filterwarnings(action='ignore', message='Forward order differs from that of the first iteration')
+
+        # If using DDP or DeepSpeed, we need to wrap the ComposerModel but store a reference to the
+        # original model for functions like `eval_forward`, `get_metrics`, etc.
         self._original_model = self.state.model
-        if not isinstance(self._original_model, ComposerModel):
-            raise ValueError('self.state.model must be a subclass of ComposerModel.')
+
+        # If using PyTorch DDP, the model must be loaded before it is wrapped with DDP.
+        # If using DeepSpeed, the engine must be initialized before the model is loaded.
+        # If using FSDP, the model must be wrapped and then loaded unless loading a monolith
+        # checkpoint on rank 0 only, in which case the model be loaded before it is wrapped.
+
+        # FSDP wrap if not using monolith checkpoint on rank 0 only
+        if self.state.fsdp_config is not None and fsdp_auto_wrap and not self.state.load_fsdp_monolith_rank0_only:
+            prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
@@ -1313,36 +1334,26 @@ class Trainer:
             if 'optimizers' in self.state.serialized_attributes:
                 self.state.serialized_attributes.remove('optimizers')
 
-        # If using DeepSpeed, the model must be loaded from checkpoint after the engine has been
-        # initialized, but if using PyTorch DDP, the model must be loaded before it is wrapped with
-        # DDP.
-
-        # suppressing GradScaler warnings as they are always created
-        # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
-        warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
-        self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
-
-        # suppressing FSDP warning when auto grad accum exits the forward pass before completing
-        warnings.filterwarnings(action='ignore', message='Forward order differs from that of the first iteration')
-
         # Load Checkpoint
         self._rng_state = None
         # If autoresume is enabled, first check for existing checkpoints to load
         if autoresume:
             log.info('Searching for a previous checkpoint to autoresume')
+            error_message = ''
             if save_folder is None:
-                raise ValueError('The `save_folder` must be specified when autoresume is enabled.')
+                error_message += 'The `save_folder` must be specified when autoresume is enabled. '
             if save_overwrite:
-                raise ValueError(
+                error_message += textwrap.dedent(
                     'The flag `save_overwrite` must be False when autoresume is enabled as autoresume always loads the '
-                    'latest existing checkpoint in `save_folder`.')
+                    'latest existing checkpoint in `save_folder`. ')
             if save_latest_filename is None:
-                raise ValueError(
-                    'The `save_latest_filename` must be specified so autoresume knows where to load checkpoints from.')
+                error_message += 'The `save_latest_filename` must be specified so autoresume knows where to load checkpoints from. '
             if run_name is None:
-                raise ValueError(
-                    'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name.'
-                )
+                error_message += 'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name. '
+            if error_message != '':
+                raise ValueError(error_message)
+            assert save_folder is not None
+            assert save_latest_filename is not None
 
             remote_ud_has_multiple_concurrent_uploads = [
                 isinstance(logger_destination, RemoteUploaderDownloader) and
@@ -1353,12 +1364,46 @@ class Trainer:
                     'Multiple concurrent uploads is not currently supported when using autoresume. Please set `num_concurrent_uploads` to 1 '
                     'for all `RemoteUploaderDownloader` instances.')
             assert latest_remote_file_name is not None
-            autoresume_checkpoint_path = self._get_autoresume_checkpoint(
-                save_folder=save_folder,
-                save_latest_filename=save_latest_filename,
-                save_latest_remote_file_name=latest_remote_file_name,
-                loggers=loggers,
-                load_progress_bar=load_progress_bar)
+            if self.state.fsdp_elastic_sharded_enabled:
+                ar_object_store = maybe_create_object_store_from_uri(save_folder)
+                # Symlink is on object store.
+                if ar_object_store is not None:
+                    with tempfile.TemporaryDirectory() as temp_dir:
+                        local_symlink_file = str(Path(temp_dir) / Path('autoresume.symlink'))
+                        formatted_latest_remote_file_name = format_name_with_dist(latest_remote_file_name,
+                                                                                  self.state.run_name) + '.symlink'
+                        rank0_formatted_latest_remote_file_name = dist.all_gather_object(
+                            formatted_latest_remote_file_name)[0]
+                        try:
+                            ar_object_store.download_object(rank0_formatted_latest_remote_file_name, local_symlink_file)
+                            with open(local_symlink_file, 'r') as f:
+                                real_path = f.read()
+                                log.debug(f'Read path {real_path} from symlink file')
+                            autoresume_checkpoint_path = ar_object_store.get_uri(real_path)
+                        except FileNotFoundError:
+                            autoresume_checkpoint_path = None
+                # Symlink is local.
+                else:
+                    save_latest_filename = format_name_with_dist(save_latest_filename, self.state.run_name)
+                    rank0_save_latest_filename = dist.all_gather_object(save_latest_filename)[0]
+                    save_folder = format_name_with_dist(save_folder, self.state.run_name)
+                    latest_checkpoint_path = os.path.join(save_folder, rank0_save_latest_filename)
+                    if os.path.exists(latest_checkpoint_path):
+                        latest_checkpoint_path = os.path.join(os.path.dirname(latest_checkpoint_path),
+                                                              os.readlink(latest_checkpoint_path))
+                        autoresume_checkpoint_path = latest_checkpoint_path
+                    else:
+                        autoresume_checkpoint_path = None
+
+            # Standard non-elastic codepath for autoresume.
+            else:
+                autoresume_checkpoint_path = self._get_autoresume_checkpoint(
+                    save_folder=save_folder,
+                    save_latest_filename=save_latest_filename,
+                    save_latest_remote_file_name=latest_remote_file_name,
+                    loggers=loggers,
+                    load_progress_bar=load_progress_bar)
+
             # Found latest checkpoint path, load that instead
             if autoresume_checkpoint_path:
                 load_path = autoresume_checkpoint_path
@@ -1393,6 +1438,11 @@ class Trainer:
             )
             self.state.run_name = run_name
 
+        # FSDP wrap if model is not yet wrapped and FSDP is enabled. This can happen if
+        # load_fsdp_monolith_rank0_only=True but no checkpoint was loaded.
+        if not self.state.fsdp_enabled and self.state.fsdp_config is not None and self.state.fsdp_auto_wrap and self.state.load_fsdp_monolith_rank0_only:
+            prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
+
         self.engine.run_event(Event.AFTER_LOAD)
 
         # reseed here. This helps with a couple of issues:
@@ -1405,9 +1455,26 @@ class Trainer:
         log.info(f'Setting seed to {self.state.seed}')
         reproducibility.seed_all(self.state.seed)
 
-        if not (self.deepspeed_enabled or self.fsdp_enabled) and dist.get_world_size() > 1:
-            # Only wrap the module if required
+        # DDP wrap if required
+        if not self.state.deepspeed_enabled and not self.state.fsdp_enabled and dist.get_world_size() > 1:
             self.state.model = prepare_ddp_module(self.state.model, self._find_unused_parameters)
+
+        # The model would need to be torch.compile()'d after being wrapped in a distributed strategy
+        # to take advantage of any graph breaks.
+        if is_torch_2_0 and not is_model_compiled and compile_config is not None:
+            compiled_model = torch.compile(  # pyright: ignore [reportGeneralTypeIssues]
+                self.state.model, **compile_config)
+            self.state.model = compiled_model._orig_mod
+            self.state.model.forward = compiled_model.dynamo_ctx(self.state.model.forward)
+            is_model_compiled = True
+            # update local_hparams to ensure the `is_model_compiled` is set correctly for
+            # debugging purpose and for unit test.
+            if self.auto_log_hparams:
+                self.local_hparams['is_model_compiled'] = is_model_compiled
+        elif not is_torch_2_0 and compile_config is not None:
+            raise ValueError(f'`torch.compile` is supported for PyTorch 2.0 or higher.' +
+                             f'Either update your PyTorch version or disable parameter by providing ' +
+                             f'`compile_config` to `None`.')
 
     @property
     def saved_checkpoints(self) -> List[str]:
@@ -1470,28 +1537,28 @@ class Trainer:
             f'Looking for autoresume checkpoint: {save_latest_remote_file_name} (remote), {latest_checkpoint_path} (local)'
         )
 
-        # If latest checkpoint is not saved locally, try to fetch from loggers
-        if not os.path.exists(latest_checkpoint_path) and (dist.get_global_rank() == 0 or self.deepspeed_enabled):
-            log.debug(f'Attempting to download the checkpoint on to rank {dist.get_global_rank()}')
-            os.makedirs(save_folder, exist_ok=True)
-            self._try_checkpoint_download(latest_checkpoint_path, save_latest_remote_file_name, loggers,
-                                          load_progress_bar)
+        if self.state.deepspeed_enabled or self.state.fsdp_sharded_state_dict_enabled:
+            # If latest checkpoint is not saved locally, try to fetch from loggers
+            if not os.path.exists(latest_checkpoint_path):
+                log.debug(f'Attempting to download the checkpoint on to rank {dist.get_global_rank()}')
+                os.makedirs(save_folder, exist_ok=True)
+                self._try_checkpoint_download(latest_checkpoint_path, save_latest_remote_file_name, loggers,
+                                              load_progress_bar)
 
-        # list of whether the checkpoint exists on each rank
-        latest_checkpoint_exists = dist.all_gather_object(os.path.exists(latest_checkpoint_path))
+            # List of whether the checkpoint exists on each rank
+            latest_checkpoint_exists = dist.all_gather_object(os.path.exists(latest_checkpoint_path))
 
-        if self.deepspeed_enabled:
-            # Require all ranks to have their own local checkpoint if we wish to restore from it for deepspeed
-            if not all(latest_checkpoint_exists):
+            if all(latest_checkpoint_exists):  # All paths exist, so return the path.
+                return latest_checkpoint_path
+            # Require all ranks to have their own local checkpoint if we wish to restore from it for
+            # deepspeed or fsdp + sharding
+            elif any(latest_checkpoint_exists):  # Some but not all exist, which is very bad.
                 missing_ranks = [n for (n, exist) in enumerate(latest_checkpoint_exists) if not exist]
-                raise RuntimeError(f'Deepspeed was enabled, but checkpoints missing on ranks: {missing_ranks}')
-
-            return latest_checkpoint_path
-        else:
-            # The checkpoint must at least exist for rank zero
-            if not latest_checkpoint_exists[0]:
+                mode = 'Deepspeed' if self.state.deepspeed_enabled else 'FSDP sharding'
+                raise RuntimeError(f'{mode} was enabled, but checkpoints missing on ranks: {missing_ranks}')
+            else:  # None of the paths exists, so no autoresume necessary.
                 return None
-
+        else:
             # broadcast the local checkpoint path to all ranks
             latest_checkpoint_path_list = [os.path.abspath(latest_checkpoint_path)]
             dist.broadcast_object_list(latest_checkpoint_path_list, src=0)
@@ -1502,23 +1569,42 @@ class Trainer:
             dist.broadcast_object_list(save_latest_remote_file_name_list, src=0)
             save_latest_remote_file_name = save_latest_remote_file_name_list[0]
 
-            # download the checkpoint on local rank 0 of all nodes
+            # try to download the checkpoint on local rank 0 of all nodes
             if dist.get_local_rank() == 0 and not os.path.exists(latest_checkpoint_path):
                 log.debug(f'Attempting to download the checkpoint {save_latest_remote_file_name} on to all nodes')
                 os.makedirs(save_folder, exist_ok=True)
                 self._try_checkpoint_download(latest_checkpoint_path, save_latest_remote_file_name, loggers,
                                               load_progress_bar)
+
+            signal_file_path = os.path.join(os.path.dirname(latest_checkpoint_path),
+                                            f'.node_{dist.get_node_rank()}_local_rank0_completed_autoresume')
+            if dist.get_local_rank() == 0:
+                os.makedirs(os.path.dirname(signal_file_path), exist_ok=True)
+                with open(signal_file_path, 'wb') as f:
+                    f.write(b'local_rank0_completed_autoresume')
+
+            # Avoid the collective call until the local rank zero has finished trying to download the checkpoint
+            # so that we don't timeout for large downloads. This syncs all processes on the node
+            with dist.local_rank_zero_download_and_wait(signal_file_path):
+                # Then, wait to ensure every node has finished downloading the checkpoint
+                dist.barrier()
+
+            if dist.get_local_rank() == 0:
+                os.remove(signal_file_path)
             dist.barrier()
-            # At this point the rank 0 filepath should exist on all ranks
-            latest_checkpoint_exists_on_all_ranks = self.state.device.tensor_to_device(
-                torch.tensor([os.path.exists(latest_checkpoint_path)], dtype=torch.uint8))
-            dist.all_reduce(latest_checkpoint_exists_on_all_ranks, reduce_operation='MIN')
+
+            # At this point the rank 0 filepath should exist on all ranks if the download succeeded
+            # list of whether the checkpoint exists on each rank
+            latest_checkpoint_exists = dist.all_gather_object(os.path.exists(latest_checkpoint_path))
 
             log.debug(
                 f'Checkpoint {latest_checkpoint_path} exists on rank {dist.get_global_rank()}? {os.path.exists(latest_checkpoint_path)}'
             )
 
-            if int(latest_checkpoint_exists_on_all_ranks.item()) == 0:
+            if not latest_checkpoint_exists[0]:
+                # If the checkpoint doesn't exist on rank 0, don't crash, so the initial autoresume run can succeed
+                return None
+            elif not all(latest_checkpoint_exists):
                 raise RuntimeError('Downloading the checkpoint to all nodes failed')
 
             return latest_checkpoint_path
@@ -1530,6 +1616,7 @@ class Trainer:
         train_dataloader: Optional[Union[Iterable, DataSpec, Dict[str, Any]]] = None,
         train_dataloader_label: str = 'train',
         train_subset_num_batches: Optional[int] = None,
+        spin_dataloaders: Optional[bool] = None,
 
         # Timing
         duration: Optional[Union[int, str, Time[int]]] = None,
@@ -1547,7 +1634,6 @@ class Trainer:
         eval_interval: Union[int, str, Time, Callable[[State, Event], bool]] = 1,
 
         # Numerics
-        grad_accum: Optional[Union[int, str]] = None,
         device_train_microbatch_size: Optional[Union[int, str]] = None,
         precision: Optional[Union[str, Precision]] = None,
     ):
@@ -1625,6 +1711,7 @@ class Trainer:
             train_dataloader (Iterable | DataSpec | Dict[str, Any], optional): See :class:`.Trainer`.
             train_dataloader_label (str, optional): See :class:`.Trainer`.
             train_subset_num_batches (int, optional): See :class:`.Trainer`.
+            spin_dataloaders (bool, optional): See :class:`.Trainer`.
             reset_time (bool): Whether to reset the :attr:`.State.timestamp` to zero values. Defaults to False.
 
                 If ``True``, the timestamp will be zeroed out, causing :class:`.ComposerScheduler` and
@@ -1656,22 +1743,29 @@ class Trainer:
             eval_dataloader (Iterable | DataSpec | Evaluator | Sequence[Evaluator], optional): See :class:`.Trainer`.
             eval_subset_num_batches (int, optional): See :class:`.Trainer`.
             eval_interval (int | str | Time | (State, Event) -> bool, optional): See :class:`.Trainer`.
-            grad_accum (int | str, optional): See :class:`.Trainer`.
             device_train_microbatch_size (int | str, optional): See :class:`.Trainer`.
             precision (Precision | str, optional): See :class:`.Trainer`.
         """
+        # Check Optimizer
+        if len(self.state.optimizers) == 0:
+            raise ValueError(f'No optimizer was specified when constructing the Trainer. As the '
+                             'model had no parameters, SGD was not created by default. This trainer '
+                             'object can only be used to evaluate or predict. Please specify a model '
+                             'with parameters and an optimizer for training.')
+
         # Train Dataloader
         if train_dataloader is not None:
             self._train_data_spec = ensure_data_spec(train_dataloader)
             self.state.set_dataloader(self._train_data_spec.dataloader, train_dataloader_label)
             self.state.train_dataloader = self.state.dataloader
-            if self.state.using_device_microbatch_size:
-                self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
-                    self.state.device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
+            self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
+                self.state.device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
         if self._train_data_spec is None:
             _raise_missing_argument_exception('train_dataloader')
         if train_subset_num_batches is not None:
             self.state.dataloader_len = train_subset_num_batches
+        if spin_dataloaders is not None:
+            self.spin_dataloaders = spin_dataloaders
 
         # Reset Time
         if reset_time:
@@ -1688,6 +1782,12 @@ class Trainer:
 
         if self.state.max_duration is None:
             _raise_missing_argument_exception('max_duration')
+
+        if self.state.dataloader_len is None and self.state.max_duration.unit == TimeUnit.EPOCH:
+            raise ValueError(
+                ('max_duration cannot be specified in epochs when using an infinite dataloader. Please either '
+                 'provide a dataloader with a length, specify max_duration in batches, samples, or tokens, or provide '
+                 'train_subset_num_batches.'))
 
         if self.state.max_duration <= self.state.timestamp.get(self.state.max_duration.unit) and not reset_time:
             raise ValueError(
@@ -1724,10 +1824,16 @@ class Trainer:
             # could be DDP / DeepSpeed wrapped.
             eval_metrics = self._original_model.get_metrics(is_train=False)
             metric_names = [str(k) for k in eval_metrics.keys()]
+            eval_dataloader = ensure_tuple(eval_dataloader)
+
+            evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in eval_dataloader]
+            if any(evaluator_types) and not all(evaluator_types):
+                raise ValueError('Mixing Evaluator with other classes is not allowed, please wrap'
+                                 'all other classes with the Evaluator class. These are the classes'
+                                 'that were detected:' + str([type(evaluator) for evaluator in eval_dataloader]))
 
             evaluators = [
-                ensure_evaluator(evaluator, default_metric_names=metric_names)
-                for evaluator in ensure_tuple(eval_dataloader)
+                ensure_evaluator(evaluator, default_metric_names=metric_names) for evaluator in eval_dataloader
             ]
 
             # match metric names to model metrics
@@ -1740,6 +1846,10 @@ class Trainer:
                 eval_interval=eval_interval,
                 subset_num_batches=eval_subset_num_batches,
             )
+
+            for evaluator in evaluators:
+                validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
+
             if len(evaluators) == 0:
                 if eval_subset_num_batches != -1:
                     raise ValueError('Specifying `eval_subset_num_batches` without an `eval_dataloader` has no effect.')
@@ -1749,9 +1859,7 @@ class Trainer:
             self.state.evaluators = evaluators
 
         # Microbatching
-        if grad_accum is not None and device_train_microbatch_size is not None:
-            raise ValueError('Cannot specify both `grad_accum` and `device_train_microbatch_size`.')
-        elif device_train_microbatch_size is not None:
+        if device_train_microbatch_size is not None:
             self.state.auto_microbatching = _is_auto_microbatching(device_train_microbatch_size,
                                                                    device=self.state.device)
             if self.state.auto_microbatching and self.state.profiler:
@@ -1761,22 +1869,11 @@ class Trainer:
                                  'second run with profiler.')
             self.state.device_train_microbatch_size = _get_initial_device_train_microbatch_size(
                 device_train_microbatch_size, self.state.auto_microbatching, self.state.train_dataloader)
-            self.state.using_device_microbatch_size = True
-        elif grad_accum is not None:
-            self.state.auto_microbatching = _is_auto_grad_accum(grad_accum, device=self.state.device)
-            if self.state.auto_microbatching and self.state.profiler:
-                raise ValueError("`grad_accum='auto'` is not compatible with the profiler. It is recommended to run "
-                                 "a mini-run with `grad_accum='auto'` to identify the optimal grad_accum value and "
-                                 'then manually specify that in a second run with profiler.')
-            self.state.grad_accum = _get_initial_grad_accum(grad_accum)
-            self.state.using_device_microbatch_size = False
 
         # Precision
         if precision is not None:
-            if isinstance(precision, str):
-                precision = _get_backwards_compatible_precision(precision)
             if Precision(precision) != self.state.precision:
-                if self.deepspeed_enabled:
+                if self.state.deepspeed_enabled:
                     raise ValueError('Changing the precision when using DeepSpeed is not supported')
                 precision = Precision(precision)
                 _validate_precision(precision, self.state.device)
@@ -1784,6 +1881,8 @@ class Trainer:
 
             # update scaler since precision was provided
             self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
+
+        self.first_batch_complete = False
         self._train_loop()
 
     def close(self):
@@ -1795,15 +1894,19 @@ class Trainer:
         dist.barrier()
 
     def _ensure_metrics_device_and_dtype(self, metrics: Dict[str, Metric]):
-        # HACK: DeepSpeed somehow manages to convert metric internal states to its own dtype. When
-        # running with FP16, this tends to result in overflows. Let's assume FP32 is good enough.
         for name, metric in metrics.items():
             # Safety check to ensure the metric and data are on the same device. Normally not
             # needed because the metric is automatically on the same device as the model.
             # See https://torchmetrics.readthedocs.io/en/latest/pages/overview.html for details.
             metrics[name] = self.state.device.module_to_device(metric)
-            metric.set_dtype(torch.float32)  # type: ignore
-
+            if is_model_deepspeed(self.state.model):
+                # HACK: DeepSpeed somehow manages to convert metric internal states to its own dtype. When
+                # running with FP16, this tends to result in overflows. Let's assume FP32 is good enough.
+                for key in metric._defaults:
+                    metric_data = getattr(metric, key)
+                    if isinstance(metric_data, torch.Tensor) and metric_data.dtype == torch.float16:
+                        metric_data = metric_data.to(torch.float32)  # type: ignore
+                        setattr(metric, key, metric_data)
         return metrics
 
     def _compute_and_log_metrics(self, dataloader_label: str, metrics: Dict[str, Metric]):
@@ -1835,8 +1938,8 @@ class Trainer:
                 self.state.eval_metrics[dataloader_label][metric_name] = metric
                 self.state.eval_metric_values[metric_name] = computed_metrics[metric_name]
 
-    def _spin_dataloaders(self):
-        """Spin the dataloaders to restore sampler state.
+    def _spin_dataloaders_to_cur_epoch(self):
+        """Spin the dataloaders to restore sampler state for current epoch.
 
         Only one batch must be loaded to seed the sampler's generator. since only the first batch is being loaded, the
         dataloader may not be completely iterated through.
@@ -1900,10 +2003,11 @@ class Trainer:
 
         use_grad_scaling = self._use_grad_scaling(self.state.precision, self.state.scaler)
 
-        self._spin_dataloaders()
+        if self.spin_dataloaders:
+            self._spin_dataloaders_to_cur_epoch()
 
         if self.state.timestamp.batch_in_epoch == 0 and self._rng_state is not None:
-            # only restore the rng state here if the step in the current epoch is zero.
+            # Only restore the rng state here if the step in the current epoch is zero.
             reproducibility.load_rng_state(self._rng_state)
             self._rng_state = None
 
@@ -1915,15 +2019,15 @@ class Trainer:
             try:
                 if int(self.state.timestamp.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
-                    self.logger.log_metrics({'epoch': int(self.state.timestamp.epoch)})
+                    self.logger.log_metrics({'time/epoch': self.state.timestamp.epoch.value})
 
                 dataloader = self.state.dataloader
                 if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
                     dataloader.sampler.set_epoch(int(self.state.timestamp.epoch))
 
                 for batch_idx, self.state.batch in enumerate(self._iter_dataloader(TrainerMode.TRAIN)):
-                    # Don't spin if dataloader handles it internally. Otherwise, if resuming, skip dataloader forward
-                    if 'train' not in self.state.dataset_resumption and batch_idx < int(
+                    # Spin dataloader forward unless dataloader handles internally with dataset_resumption
+                    if self.spin_dataloaders and 'train' not in self.state.dataset_resumption and batch_idx < int(
                             self.state.timestamp.batch_in_epoch):
                         # Restore the RNG state immediately before the next batch is yielded from the dataloader
                         if batch_idx + 1 == int(self.state.timestamp.batch_in_epoch) and self._rng_state is not None:
@@ -1936,16 +2040,23 @@ class Trainer:
                     rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
                     rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
 
-                    if self.deepspeed_enabled:
+                    if self.state.deepspeed_enabled:
                         self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
                     self.engine.run_event(Event.BATCH_START)
+
+                    # Log time values
                     self.logger.log_metrics({
-                        'trainer/global_step': int(self.state.timestamp.batch),
-                        'trainer/batch_idx': self.state.timestamp.batch_in_epoch.value,
+                        'time/batch': self.state.timestamp.batch.value,
+                        'time/sample': self.state.timestamp.sample.value,
+                        'time/batch_in_epoch': self.state.timestamp.batch_in_epoch.value,
+                        'time/sample_in_epoch': self.state.timestamp.sample_in_epoch.value,
                     })
+                    if rank_num_tokens > 0:
+                        self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
+                        self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
 
                     total_loss_dict = self._train_batch(use_grad_scaling)
 
@@ -1988,6 +2099,7 @@ class Trainer:
                             metrics=self.state.train_metrics,
                         )
 
+                    self.state.previous_timestamp = self.state.timestamp
                     self.state.timestamp = self.state.timestamp.to_next_batch(
                         samples=total_num_samples,
                         tokens=total_num_tokens,
@@ -2016,9 +2128,8 @@ class Trainer:
                     # This happens if the "break" did not trigger above, or if it
                     # did (e.g. duration specified in samples/batches/tokens), but it is still
                     # the end of the dataloader (i.e. next(dataloader) would raise StopIteration)
-                    self.state.timestamp = self.state.timestamp.to_next_epoch()
-
                     if self.state.train_metrics is not None:
+                        self.state.train_metrics = self._ensure_metrics_device_and_dtype(self.state.train_metrics)
                         self._compute_and_log_metrics(
                             dataloader_label='train',
                             metrics=self.state.train_metrics,
@@ -2027,6 +2138,9 @@ class Trainer:
                     if self._scheduler_step_frequency == TimeUnit.EPOCH:
                         for scheduler in self.state.schedulers:
                             scheduler.step()
+
+                    self.state.previous_timestamp = self.state.timestamp
+                    self.state.timestamp = self.state.timestamp.to_next_epoch()
 
                     self.engine.run_event(Event.EPOCH_END)
 
@@ -2040,6 +2154,18 @@ class Trainer:
             except BreakEpochException:
                 log.info(f'Skipping the rest of Epoch {int(self.state.timestamp.epoch)}')
 
+        # Log final time values
+        self.logger.log_metrics({
+            'time/epoch': self.state.timestamp.epoch.value,
+            'time/batch': self.state.timestamp.batch.value,
+            'time/sample': self.state.timestamp.sample.value,
+            'time/batch_in_epoch': self.state.timestamp.batch_in_epoch.value,
+            'time/sample_in_epoch': self.state.timestamp.sample_in_epoch.value,
+        })
+        if self.state.previous_timestamp is not None and self.state.timestamp.token.value - self.state.previous_timestamp.token.value > 0:
+            self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
+            self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
+
         self.engine.run_event(Event.FIT_END)
         self._run_evaluators(Event.FIT_END)
 
@@ -2049,36 +2175,35 @@ class Trainer:
 
         with torch.no_grad(),\
                 model_eval_mode(self.state.model),\
-                _get_precision_context(self.state.precision, self.deepspeed_enabled):
-            if hasattr(self._original_model, 'validate'):  # backwards compatibility check
-                warnings.warn(
-                    DeprecationWarning(
-                        'Using validate() is deprecated and will be removed in 0.13. Please use eval_forward() instead.'
-                    ))
-                assert isinstance(self._original_model.validate, Callable)
-                eval_outputs, target = self._original_model.validate(device_batch)
-
-                for _, metric in self.state.train_metrics.items():
-                    metric.update(eval_outputs, target)
-            else:
-                eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
-                for _, metric in self.state.train_metrics.items():
-                    self._original_model.update_metric(
-                        device_batch,
-                        eval_outputs,
-                        metric,
-                    )
+                _get_precision_context(self.state.precision, self.state.precision_config, self.state.deepspeed_enabled):
+            eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
+            for metric in self.state.train_metrics.values():
+                self._original_model.update_metric(
+                    device_batch,
+                    eval_outputs,
+                    metric,
+                )
 
     def _run_evaluators(self, event: Event):
         """Runs evaluators periodically during training."""
+        evaluators_executing = []
         for evaluator in self.state.evaluators:
             assert evaluator.eval_interval is not None, 'eval_interval should have been set on __init__() or fit()'
             assert evaluator.subset_num_batches is not None, 'subset_num_batches should have been set on __init__() or fit()'
-            if evaluator.eval_interval(self.state, event):
-                self._eval_loop(dataloader=evaluator.dataloader,
-                                dataloader_label=evaluator.label,
-                                subset_num_batches=evaluator.subset_num_batches,
-                                metrics=self.state.eval_metrics[evaluator.label])
+            evaluators_executing.append(evaluator.eval_interval(self.state, event))
+        if not any(evaluators_executing):
+            return
+
+        self.engine.run_event(Event.EVAL_BEFORE_ALL)
+        for index, evaluator in enumerate(self.state.evaluators):
+            if evaluators_executing[index]:
+                self._eval_loop(
+                    evaluator=evaluator,
+                    subset_num_batches=evaluator.subset_num_batches,
+                    metrics=self.state.eval_metrics[evaluator.label],
+                )
+
+        self.engine.run_event(Event.EVAL_AFTER_ALL)
 
     def _train_batch(self, use_grad_scaling: bool) -> Dict[str, torch.Tensor]:
         """Compute loss by training on a full batch of data.
@@ -2093,7 +2218,8 @@ class Trainer:
         """
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
 
-        # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop
+        # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop.
+        # Any in-place changes to a microbatch will be reflected in the device batch.
         device_batch = self.state.batch
 
         # Retry until we successfully complete training and return loss
@@ -2101,21 +2227,15 @@ class Trainer:
             # Reset train_metrics on every batch
             # Placing reset here ensures that if auto grad accum catches an OOM, incomplete metric state is cleared
             if self.state.train_metrics is not None:
-                for _, metric in self.state.train_metrics.items():
+                for metric in self.state.train_metrics.values():
                     metric.reset()
 
             total_loss_dict = {'loss/train/total': self.state.device.tensor_to_device(torch.zeros(size=(1,)))}
             found_cuda_oom = 0  # int since bool BOR not supported on all torch.distributed backends
             try:
                 assert self.state.scaler is not None
-                if self.state.using_device_microbatch_size:
-                    assert self.state.device_train_microbatch_size is not None
-                    microbatches = self._train_data_spec.split_batch(device_batch,
-                                                                     self.state.device_train_microbatch_size)
-                else:
-                    assert self.state.grad_accum is not None
-                    microbatches = self._train_data_spec._num_microbatches_split_batch(
-                        device_batch, self.state.grad_accum)
+                assert self.state.device_train_microbatch_size is not None
+                microbatches = self._train_data_spec.split_batch(device_batch, self.state.device_train_microbatch_size)
                 if self._use_closures():
                     for optimizer in self.state.optimizers:
                         if use_grad_scaling:
@@ -2123,11 +2243,11 @@ class Trainer:
                                                    closure=lambda loss_dict=total_loss_dict, **kwargs: self.
                                                    _train_microbatches(microbatches, loss_dict, **kwargs))
                         else:
-                            optimizer.step(closure=lambda **kwargs: self._train_microbatches(
-                                microbatches, total_loss_dict, **kwargs).item())
+                            optimizer.step(closure=lambda loss_dict=total_loss_dict, **kwargs: self._train_microbatches(
+                                microbatches, loss_dict, **kwargs).item())
                 else:
                     self._train_microbatches(microbatches, total_loss_dict)
-                    if not self.deepspeed_enabled:
+                    if not self.state.deepspeed_enabled:
                         for optimizer in self.state.optimizers:
                             if use_grad_scaling:
                                 self.state.scaler.step(optimizer)
@@ -2140,29 +2260,35 @@ class Trainer:
                 if self.state.auto_microbatching and _is_cuda_oom(e):
                     log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                     found_cuda_oom = 1
+                elif self.state.auto_microbatching and ('cuda' in str(e).lower() or 'c10' in str(e).lower()):
+                    raise RuntimeError(
+                        textwrap.dedent(
+                            'Encountered non-addressable cuda error while using auto microbatching. '
+                            'If this repeatedly occurs, set `device_train_microbatch_size` manually.')) from e
                 else:
                     raise
 
             if self.state.auto_microbatching:
-                # Propagate across all ranks if any rank hit CUDA OOM
-                found_cuda_oom = self.state.device.tensor_to_device(torch.tensor([found_cuda_oom], dtype=torch.uint8))
-                dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
-                if found_cuda_oom.item() == 1:
-                    device_batch_size = self._train_data_spec.get_num_samples_in_batch(device_batch)
-                    if self.state.using_device_microbatch_size:
-                        _adjust_device_train_microbatch_size(self.state)
-                    else:
-                        _adjust_grad_accum(self.state, device_batch_size)
+                all_ranks_finished = False
+                while not all_ranks_finished:
+                    # Propagate across all ranks if any rank hit CUDA OOM
+                    found_cuda_oom_tensor = self.state.device.tensor_to_device(
+                        torch.tensor([found_cuda_oom], dtype=torch.uint8))
+                    dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
+                    found_cuda_oom = found_cuda_oom_tensor.item()
+                    # Check if any rank is still not done with the batch. This may happen if only a
+                    # subset of ranks OOM, leaving some batches still in the forward pass
+                    all_ranks_finished_tensor = self.state.device.tensor_to_device(torch.tensor([1], dtype=torch.uint8))
+                    dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
+                    all_ranks_finished = all_ranks_finished_tensor.item() == 1
+                if found_cuda_oom == 1:
+                    _adjust_device_train_microbatch_size(self.state)
                     # Skip return and rerun after handling oom
                     continue
             # Log microbatch and return loss if we've completed without OOMing.
-            if self.state.using_device_microbatch_size:
-                assert self.state.device_train_microbatch_size is not None
-                self.logger.log_metrics(
-                    {'trainer/device_train_microbatch_size': self.state.device_train_microbatch_size})
-            else:
-                assert self.state.grad_accum is not None
-                self.logger.log_metrics({'trainer/grad_accum': self.state.grad_accum})
+            assert self.state.device_train_microbatch_size is not None
+            self.logger.log_metrics({'trainer/device_train_microbatch_size': self.state.device_train_microbatch_size})
+            self.first_batch_complete = True
             return total_loss_dict
 
     def _train_microbatches(self,
@@ -2182,7 +2308,19 @@ class Trainer:
         if ddp_sync or not isinstance(self.state.model, DistributedDataParallel):
             context = contextlib.nullcontext
         else:
-            context = cast(Callable[[], ContextManager], self.state.model.no_sync)
+            if self.state.auto_microbatching and not self.first_batch_complete:
+                # PyTorch DDP rebuilds gradient reduction buckets after 1) a forward pass where the
+                # no_sync context was not set 2) a backward pass 3) a forward pass. If only a
+                # subset of ranks OOM on the first batch, this will cause a deadlock since a rank
+                # that did not OOM will complete steps (1), (2), and (3) on the first succesful
+                # microbatch after the OOMs but an OOMing rank will have never completed (1) if
+                # using `SINGLE_AUTO_SYNC`. To avoid this, we force a sync on every microbatch for
+                # the first batch.
+                log.info('Auto microbatching requires syncing every microbatch (`MULTI_AUTO_SYNC`)'
+                         ' to avoid deadlock on first batch, so ddp_sync_strategy will be ignored.')
+                context = contextlib.nullcontext
+            else:
+                context = cast(Callable[[], ContextManager], self.state.model.no_sync)
 
         assert self._train_data_spec is not None
 
@@ -2194,15 +2332,17 @@ class Trainer:
 
             use_grad_scaling = self._use_grad_scaling(self.state.precision, self.state.scaler)
 
-            if not self.deepspeed_enabled:
+            if not self.state.deepspeed_enabled:
                 for optimizer in self.state.optimizers:
                     try:
                         optimizer.zero_grad(set_to_none=True)
                     except TypeError:
                         optimizer.zero_grad()
 
-            # tracker for gradient accumulation
+            # Tracker for gradient accumulation
             current_batch_size = sum([self._train_data_spec.get_num_samples_in_batch(batch) for batch in microbatches])
+            # Cache batch, which will be overwritten by microbatches. Restore after microbatches complete
+            current_batch = self.state.batch
 
             for microbatch_idx, self.state.batch in enumerate(microbatches):
                 is_final_microbatch = microbatch_idx + 1 == len(microbatches)
@@ -2214,6 +2354,9 @@ class Trainer:
                     if loss_key not in total_loss_dict:
                         total_loss_dict[loss_key] = self.state.device.tensor_to_device(torch.zeros(size=(1,)))
                     total_loss_dict[loss_key] += microbatch_loss
+
+            # Restore batch
+            self.state.batch = current_batch
 
             # Unscale gradients before `Event.AFTER_TRAIN_BATCH`
             if use_grad_scaling:
@@ -2241,31 +2384,61 @@ class Trainer:
         device_batch = deepcopy(self.state.batch)
 
         microbatch_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
-        sync_context = contextlib.nullcontext() if self.deepspeed_enabled else ddp_sync_context(
-            self.state,
-            is_final_microbatch,
-            self._ddp_sync_strategy,
-        )
+        if self.state.deepspeed_enabled or not isinstance(self.state.model, DistributedDataParallel):
+            sync_context = contextlib.nullcontext()
+        elif self.state.auto_microbatching and not self.first_batch_complete:
+            # PyTorch DDP rebuilds gradient reduction buckets after 1) a forward pass where the
+            # no_sync context was not set 2) a backward pass 3) a forward pass. If only a
+            # subset of ranks OOM on the first batch, this will cause a deadlock since a rank
+            # that did not OOM will complete steps (1), (2), and (3) on the first succesful
+            # microbatch after the OOMs but an OOMing rank will have never completed (1) if
+            # using `SINGLE_AUTO_SYNC`. To avoid this, we force a sync on every microbatch for
+            # the first batch.
+            log.info('Auto microbatching requires syncing every microbatch (`MULTI_AUTO_SYNC`)'
+                     ' to avoid deadlock on first batch, so ddp_sync_strategy will be ignored.')
+            sync_context = contextlib.nullcontext()
+        else:
+            sync_context = ddp_sync_context(
+                self.state,
+                is_final_microbatch,
+                self._ddp_sync_strategy,
+            )
 
         with sync_context:
-            # forward pass
+            # Forward pass
             self.engine.run_event(Event.BEFORE_FORWARD)
 
-            with _get_precision_context(self.state.precision, self.deepspeed_enabled):
+            with _get_precision_context(self.state.precision, self.state.precision_config,
+                                        self.state.deepspeed_enabled):
                 self.state.outputs = self.state.model(self.state.batch)
 
             self.engine.run_event(Event.AFTER_FORWARD)
 
-            # loss
+            # Check if other ranks OOMed after forward pass when using auto microbatching. This may
+            # happen when close to memory limit or with uneven memory usage across ranks
+            if self.state.auto_microbatching:
+                # Check if any other rank hit an OOM
+                found_cuda_oom_tensor = self.state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+                dist.all_reduce(found_cuda_oom_tensor, reduce_operation='MAX')
+                found_cuda_oom = found_cuda_oom_tensor.item()
+                # Signal current rank is still in batch
+                all_ranks_finished_tensor = self.state.device.tensor_to_device(torch.tensor([0], dtype=torch.uint8))
+                dist.all_reduce(all_ranks_finished_tensor, reduce_operation='MIN')
+
+                if found_cuda_oom == 1:
+                    raise RuntimeError('CUDA out of memory encountered on a different rank')
+
+            # Loss
             self.engine.run_event(Event.BEFORE_LOSS)
 
-            with _get_precision_context(self.state.precision, self.deepspeed_enabled):
+            with _get_precision_context(self.state.precision, self.state.precision_config,
+                                        self.state.deepspeed_enabled):
                 self.state.loss = self._original_model.loss(self.state.outputs, self.state.batch)
 
             assert self.state.loss is not None
             self.engine.run_event(Event.AFTER_LOSS)
 
-            # backward
+            # Backward Pass
             self.engine.run_event(Event.BEFORE_BACKWARD)
 
             microbatch_loss_dict = {}
@@ -2296,7 +2469,7 @@ class Trainer:
             if use_grad_scaling:
                 microbatch_loss = cast(torch.Tensor, self.state.scaler.scale(microbatch_loss))
 
-            if self.deepspeed_enabled:
+            if self.state.deepspeed_enabled:
                 self.state.deepspeed_model.backward(microbatch_loss)
 
             else:
@@ -2307,11 +2480,11 @@ class Trainer:
             self.engine.run_event(Event.AFTER_BACKWARD)
 
             # Use microbatch outputs to update training metrics
-            if self.state.train_metrics is not None:
+            if self.state.train_metrics is not None and len(self.state.train_metrics) != 0:
                 self.state.train_metrics = self._ensure_metrics_device_and_dtype(self.state.train_metrics)
                 self._eval_train_metrics(device_batch)
 
-        if self.deepspeed_enabled:
+        if self.state.deepspeed_enabled:
             self.state.deepspeed_model.step()
 
         return microbatch_loss_dict
@@ -2424,13 +2597,14 @@ class Trainer:
                 rank_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
 
                 # Fix the batch if using DeepSpeed
-                if self.deepspeed_enabled:
+                if self.state.deepspeed_enabled:
                     self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                 self.engine.run_event(Event.PREDICT_BATCH_START)
 
                 self.engine.run_event(Event.PREDICT_BEFORE_FORWARD)
-                with _get_precision_context(self.state.precision, self.deepspeed_enabled):
+                with _get_precision_context(self.state.precision, self.state.precision_config,
+                                            self.state.deepspeed_enabled):
                     self.state.outputs = self.state.model(self.state.batch)
                 self.engine.run_event(Event.PREDICT_AFTER_FORWARD)
 
@@ -2518,13 +2692,13 @@ class Trainer:
             glue_mrpc_task = Evaluator(
                 label='glue_mrpc',
                 dataloader=mrpc_dataloader,
-                metric_names=['BinaryF1Score', 'Accuracy']
+                metric_names=['BinaryF1Score', 'MulticlassAccuracy']
             )
 
             glue_mnli_task = Evaluator(
                 label='glue_mnli',
                 dataloader=mnli_dataloader,
-                metric_names=['Accuracy']
+                metric_names=['MulticlassAccuracy']
             )
 
             trainer = Trainer(
@@ -2538,35 +2712,44 @@ class Trainer:
 
         .. note::
 
-            This eval API was recently changed to better much the trainer fit API. Please migrate your
-            code to using the new design here. For backwards compatibility, the old API can still be
-            invoked by calling ``_eval_loop()``, however this is not recommended as this may be
-            removed in the future.
+            If evaluating with multiple GPUs using a DistributedSampler with `drop_last=False`, the last
+            batch will contain duplicate samples, which may affect metrics. To avoid this, as long as
+            the dataset passed to the DistributedSampler has a length defined, Composer will correctly
+            drop duplicate samples.
 
         Args:
-            eval_dataloader (DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): Dataloaders
+            eval_dataloader (Iterable | DataLoader | DataSpec | Evaluator | Sequence[Evaluator], optional): Dataloaders
                 for evaluation.  If not provided, defaults to using the
                 ``eval_dataloader`` provided to the trainer init().
             subset_num_batches (int, optional): Evaluate on this many batches. Default to ``-1`` (the entire
-                dataloader. Can also be provided in the trainer init()as ``eval_subset_num_batches``.
+                dataloader. Can also be provided in the trainer.__init__() as ``eval_subset_num_batches``.
 
         """
+        self.engine.run_event(Event.EVAL_STANDALONE_START)
+
         if eval_dataloader is not None:
             eval_passed_in = True
             eval_metrics = deepcopy(self._original_model.get_metrics(is_train=False))
             metric_names = [str(k) for k in eval_metrics.keys()]
 
+            eval_dataloader = ensure_tuple(eval_dataloader)
+
+            evaluator_types = [isinstance(evaluator, Evaluator) for evaluator in eval_dataloader]
+            if any(evaluator_types) and not all(evaluator_types):
+                raise ValueError('Mixing Evaluator with other classes is not allowed, please wrap'
+                                 'all other classes with the Evaluator class. These are the classes'
+                                 'that were detected:' + str([type(evaluator) for evaluator in eval_dataloader]))
+
             evaluators = [
-                ensure_evaluator(evaluator, default_metric_names=metric_names)
-                for evaluator in ensure_tuple(eval_dataloader)
+                ensure_evaluator(evaluator, default_metric_names=metric_names) for evaluator in eval_dataloader
             ]
 
             if self.state.eval_metrics:
                 for evaluator in evaluators:
                     if evaluator.label in self.state.eval_metrics:
                         warnings.warn(
-                            f'eval_dataloader label \'{evaluator.label}\' was already provided in'
-                            'trainer initialization. Existing data for that label will be overwritten.'
+                            f'eval_dataloader label \'{evaluator.label}\' was already provided in '
+                            'trainer initialization. Existing data for that label will be overwritten. '
                             'To prevent this in the future, assign unique label names.',
                             category=UserWarning)
 
@@ -2579,6 +2762,10 @@ class Trainer:
                 eval_interval='1ep',  # ignored
                 subset_num_batches=subset_num_batches,
             )
+
+            for evaluator in evaluators:
+                validate_eval_automicrobatching(evaluator.auto_microbatching, self.state.device)
+
             self.state.evaluators.extend(evaluators)  # Add evaluators to state.evaluators
         else:
             eval_passed_in = False
@@ -2587,36 +2774,30 @@ class Trainer:
             evaluators = self.state.evaluators
 
         for evaluator in evaluators:
+            eval_subset_num_batches = evaluator.subset_num_batches if subset_num_batches == -1 else subset_num_batches
             self._eval_loop(
-                dataloader=evaluator.dataloader,
-                dataloader_label=evaluator.label,
-                subset_num_batches=subset_num_batches,
+                evaluator=evaluator,
                 metrics=self.state.eval_metrics[evaluator.label],
+                subset_num_batches=eval_subset_num_batches,
             )
             if eval_passed_in:
                 self.state.evaluators.remove(evaluator)  # Remove them from state once eval is finished.
 
+        self.engine.run_event(Event.EVAL_STANDALONE_END)
+
     def _eval_loop(
         self,
-        dataloader: Union[Iterable, DataSpec, dict],
-        dataloader_label: str = 'eval',
-        *,
+        evaluator: Evaluator,
         metrics: Dict[str, Metric],
         subset_num_batches: Optional[int] = None,
     ):
         """Evaluate the model and log appropriate metrics.
 
         Args:
-            dataloader (DataLoader | DataSpec | dict): The class:`.DataLoader`, :class:`.DataSpec`, or
-                dict of :class:`.DataSpec` kwargs to use for evaluation
-            dataloader_label (str, optional): The dataloader label to use for logging metrics. Defaults to ``'eval'``.
+            evaluator (Evaluator): The evaluator to use for evaluation.
             metrics (Dict[str, Metric]): Dictionary mapping metric names to metrics to evaluate against.
             subset_num_batches (int, optional): If specified, evaluate on this many batches. Defaults to ``-1``,
                 which means to iterate over the entire dataloader.
-
-                This parameter has no effect if ``eval_dataloader`` is not specified, it is greater than
-                ``len(eval_dataloader)``, or ``eval_dataloader`` is an :class:`.Evaluator` (which is via
-                ``Evaluator(subset_num_batches=...)``.)
         """
         if subset_num_batches is None:
             subset_num_batches = -1
@@ -2626,13 +2807,8 @@ class Trainer:
         original_dataloader_label = self.state.dataloader_label
         original_num_batches = self.state.dataloader_len
 
-        # Unpack the dataloader
-        if isinstance(dataloader, dict):
-            # treat as DataSpec kwargs
-            dataloader = DataSpec(**dataloader)
-        if not isinstance(dataloader, DataSpec):
-            dataloader = DataSpec(dataloader)
-        data_spec = dataloader
+        # Unpack data_spec
+        data_spec = evaluator.dataloader
 
         # Reset the eval timestamp
         self.state.eval_timestamp = Timestamp()
@@ -2640,23 +2816,40 @@ class Trainer:
         last_wct = datetime.datetime.now()
 
         with torch.no_grad(), model_eval_mode(self.state.model):
-            self.state.set_dataloader(data_spec.dataloader, dataloader_label, subset_num_batches)
+            self.state.set_dataloader(data_spec.dataloader, evaluator.label, subset_num_batches)
             assert self.state.dataloader is not None, 'dataloader is set'
 
             self.engine.run_event(Event.EVAL_START)
 
             metrics = self._ensure_metrics_device_and_dtype(metrics)
 
-            for _, metric in metrics.items():
+            for metric in metrics.values():
                 metric.reset()
 
             dataloader = self.state.dataloader
+            dist_sampler = None
+            drop_last = None
+            dataset_len = None
+            last_batch = False
             if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
                 # The distributed sampler uses `set_epoch` to set the random seed
                 # Because evaluation can run on each batch, we use the batch to seed the sampler
                 # so each evaluation will get a proper shuffle.
                 # The epoch provided to `set_epoch` need not be sequential, so this is fine.
-                dataloader.sampler.set_epoch(int(self.state.timestamp.batch))
+                dist_sampler = dataloader.sampler
+                dist_sampler.set_epoch(int(self.state.timestamp.batch))
+                drop_last = dataloader.drop_last
+                # Only compute the dataset length if drop_last is False, as otherwise we don't need
+                # to remove any duplicate samples.
+                if drop_last == False:
+                    try:
+                        dataset_len = len(dist_sampler.dataset)  # type: ignore
+                    except AttributeError:
+                        warnings.warn("DistributedSampler's dataset does not have length defined. When "
+                                      '`drop_last=False`, metrics may be incorrect, as DistributedSampler '
+                                      'duplicates samples to make the dataset divisible by world size. To '
+                                      'fix this, provide a dataset with a length attribute to the '
+                                      'DistributedSampler to correctly drop duplicate samples.')
 
             for self.state.batch in self._iter_dataloader(TrainerMode.EVAL):
                 self.state.batch = self.state.device.batch_to_device(self.state.batch)
@@ -2667,7 +2860,14 @@ class Trainer:
                 rank_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
                 rank_num_tokens = data_spec.get_num_tokens_in_batch(self.state.batch)
 
-                if self.deepspeed_enabled:
+                # If using a distributed sampler, keep track of last_batch for metrics update
+                if dist_sampler is not None and drop_last == False and dataset_len is not None:
+                    batch_num_samples_tensor = self.state.device.tensor_to_device(torch.tensor(rank_num_samples))
+                    dist.all_reduce(batch_num_samples_tensor, reduce_operation='SUM')
+                    batch_num_samples = batch_num_samples_tensor.item()
+                    last_batch = self.state.eval_timestamp.sample + batch_num_samples >= dataset_len
+
+                if self.state.deepspeed_enabled:
                     self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                 self.engine.run_event(Event.EVAL_BATCH_START)
@@ -2679,59 +2879,88 @@ class Trainer:
                     # Note: We use uint8 instead of bool as BOR is not supported on all torch.distributed backends
                     found_cuda_oom = 0
                     try:
-                        for self.state.batch in data_spec._num_microbatches_split_batch(
-                                self.state.batch, self.state.eval_batch_split):
+                        microbatches = data_spec.split_batch(device_batch, evaluator.device_eval_microbatch_size)
+                        for i, self.state.batch in enumerate(microbatches):
+                            last_microbatch = i == len(microbatches) - 1
+                            skip_metric_update = False
+                            # Distributed samplers pad batches to be the same size. If using a
+                            # distributed sampler and on last batch, remove the padding
+                            if dist_sampler is not None and drop_last == False and dataset_len is not None and last_batch and last_microbatch:
+                                padding = dist_sampler.total_size - dataset_len
+                                if dist.get_global_rank() >= dist.get_world_size() - padding:
+                                    rank_num_samples -= 1
+                                    num_samples_in_microbatch = data_spec.get_num_samples_in_batch(self.state.batch)
+                                    # Skip updating metric if batch is only padded samples
+                                    if num_samples_in_microbatch == 1:
+                                        skip_metric_update = True
+                                    # Remove padded samples from batch
+                                    else:
+                                        self.state.batch = data_spec.split_batch(self.state.batch,
+                                                                                 num_samples_in_microbatch - 1)[0]
+
                             self.engine.run_event(Event.EVAL_BEFORE_FORWARD)
-                            with _get_precision_context(self.state.precision, self.deepspeed_enabled):
-                                if hasattr(self._original_model, 'validate'):  # backwards compatibility check
-                                    warnings.warn(
-                                        DeprecationWarning(
-                                            'Using validate() is deprecated and will be removed in 0.13. Please use eval_forward() instead.'
-                                        ))
-                                    assert isinstance(self._original_model.validate, Callable)
-                                    self.state.outputs, target = self._original_model.validate(self.state.batch)
-                                else:
-                                    self.state.outputs = self._original_model.eval_forward(self.state.batch)
-                                    target = None
+
+                            with _get_precision_context(self.state.precision, self.state.precision_config,
+                                                        self.state.deepspeed_enabled):
+                                self.state.outputs = self._original_model.eval_forward(self.state.batch)
 
                             self.engine.run_event(Event.EVAL_AFTER_FORWARD)
 
+                            # Skip metric update if batch is only padded samples. We do this after
+                            # forward as all models must run forward for FSDP.
+                            if skip_metric_update:
+                                continue
+
                             # Run in same precision context to avoid NaNs
-                            with _get_precision_context(self.state.precision, self.deepspeed_enabled):
+                            with _get_precision_context(self.state.precision, self.state.precision_config,
+                                                        self.state.deepspeed_enabled):
                                 if isinstance(self.state.device, DeviceMPS):
                                     # torchmetrics math has numerical errors on M1 devices
                                     # running the compute on CPU instead
-                                    outputs = self.state.outputs.cpu()
+                                    if isinstance(self.state.outputs, Mapping):
+                                        outputs = {}
+                                        for k, v in self.state.outputs.items():
+                                            if isinstance(v, torch.Tensor):
+                                                outputs[k] = v.cpu()
+                                            else:
+                                                outputs[k] = v
+                                    else:
+                                        outputs = self.state.outputs.cpu()
                                 else:
                                     outputs = self.state.outputs
 
-                                if hasattr(self._original_model, 'validate'):
-                                    for _, metric in self.state.train_metrics.items():
-                                        metric.update(outputs, target)
-                                else:
-                                    for _, metric in metrics.items():
-                                        self._original_model.update_metric(
-                                            self.state.batch,
-                                            outputs,
-                                            metric,
-                                        )
+                                for metric in metrics.values():
+                                    self._original_model.update_metric(
+                                        self.state.batch,
+                                        outputs,
+                                        metric,
+                                    )
 
                     except RuntimeError as e:
-                        if self.state.auto_microbatching and _is_cuda_oom(e):
+                        if evaluator.auto_microbatching and _is_cuda_oom(e):
                             log.debug((f"Rank {dist.get_global_rank()} OOM'd."))
                             found_cuda_oom = 1
+                        elif self.state.auto_microbatching and ('cuda' in str(e).lower() or 'c10' in str(e).lower()):
+                            raise ValueError(
+                                textwrap.dedent(
+                                    'Encountered non-addressable cuda error while using auto microbatching. '
+                                    'If this repeatedly occurs, set `device_eval_microbatch_size` manually.')) from e
                         else:
                             raise
-                    if self.state.auto_microbatching:
+                    if evaluator.auto_microbatching:
                         # Propagate across all ranks if any rank hit CUDA OOM
                         found_cuda_oom = self.state.device.tensor_to_device(
                             torch.tensor([found_cuda_oom], dtype=torch.uint8))
                         dist.all_reduce(found_cuda_oom, reduce_operation='MAX')
                         if found_cuda_oom.item() == 1:
-                            device_batch_size = data_spec.get_num_samples_in_batch(device_batch)
-                            _adjust_eval_batch_split(self.state, device_batch_size)
+                            _adjust_device_eval_microbatch_size(evaluator)
                             # Skip return and rerun after handling oom
                             continue
+                        # Log device_eval_microbatch_size if auto_microbatching is enabled
+                        self.logger.log_metrics({
+                            f'trainer/{evaluator.label}/device_eval_microbatch_size':
+                                evaluator.device_eval_microbatch_size
+                        })
                     # Break if we've successfully completed eval without OOMing.
                     break
 
@@ -2754,10 +2983,7 @@ class Trainer:
 
                 self.engine.run_event(Event.EVAL_BATCH_END)
 
-            self.logger.log_metrics({'epoch': self.state.timestamp.epoch.value})
-            self.logger.log_metrics({'trainer/global_step': self.state.timestamp.batch.value})
-
-            self._compute_and_log_metrics(dataloader_label=dataloader_label, metrics=metrics)
+            self._compute_and_log_metrics(dataloader_label=evaluator.label, metrics=metrics)
 
             self.engine.run_event(Event.EVAL_END)
 
@@ -2781,7 +3007,7 @@ class Trainer:
                 Occurs when attempting to use grad scaling without the scaler
                 enabled. Likely due to hardware not supporting the provided precision.
         """
-        if self.deepspeed_enabled:
+        if self.state.deepspeed_enabled:
             return False
 
         precision = Precision(precision)
@@ -2832,7 +3058,7 @@ class Trainer:
         We default to using closures unless AMP is enabled, in which case we only allow closures when using optimizers
         with the _step_supports_amp_closure flag.
         """
-        if self.deepspeed_enabled:
+        if self.state.deepspeed_enabled:
             return False
 
         if isinstance(self.state.device, DeviceTPU):
@@ -2869,6 +3095,21 @@ class Trainer:
             weights_only=weights_only,
         )
 
+    def save_checkpoint_to_save_folder(self):
+        """Checkpoints the training :class:`~.State` using a CheckpointSaver if it exists.
+
+        Raises:
+            ValueError: If ``_checkpoint_saver`` does not exist.
+
+        Returns:
+            None
+        """
+        if self._checkpoint_saver is None:
+            raise ValueError(
+                'In order to use save_checkpoint_to_save_folder you must pass a save_folder to the Trainer.')
+        else:
+            self._checkpoint_saver._save_checkpoint(self.state, self.logger)
+
     def export_for_inference(
         self,
         save_format: Union[str, ExportFormat],
@@ -2876,6 +3117,8 @@ class Trainer:
         save_object_store: Optional[ObjectStore] = None,
         sample_input: Optional[Any] = None,
         transforms: Optional[Sequence[Transform]] = None,
+        input_names: Optional[Sequence[str]] = None,
+        output_names: Optional[Sequence[str]] = None,
     ):
         """Export a model for inference.
 
@@ -2894,6 +3137,10 @@ class Trainer:
                 should accept the ``sample_input`` as is. (default: ``None``)
             transforms (Sequence[Transform], optional): transformations (usually optimizations) that should
                 be applied to the model. Each Transform should be a callable that takes a model and returns a modified model.
+            input_names (Sequence[str], optional): names to assign to the input nodes of the graph, in order. If set
+                to ``None``, the keys from the `sample_input` will be used. Fallbacks to ``["input"]``.
+            output_names (Sequence[str], optional): names to assign to the output nodes of the graph, in order. It set
+                to ``None``, it defaults to ``["output"]``.
 
         Returns:
             None
@@ -2909,4 +3156,6 @@ class Trainer:
                            logger=self.logger,
                            save_object_store=save_object_store,
                            sample_input=(sample_input, {}),
-                           transforms=transforms)
+                           transforms=transforms,
+                           input_names=input_names,
+                           output_names=output_names)

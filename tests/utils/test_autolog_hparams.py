@@ -6,9 +6,11 @@ from torch.utils.data import DataLoader
 
 from composer.algorithms import EMA
 from composer.callbacks import SpeedMonitor
+from composer.core import Precision
 from composer.loggers import InMemoryLogger
 from composer.trainer import Trainer
-from composer.utils import convert_flat_dict_to_nested_dict, convert_nested_dict_to_flat_dict, extract_hparams
+from composer.utils import (StringEnum, convert_flat_dict_to_nested_dict, convert_nested_dict_to_flat_dict,
+                            extract_hparams, using_torch_2)
 from tests.common.datasets import RandomClassificationDataset
 from tests.common.models import SimpleModel
 
@@ -41,6 +43,9 @@ def test_extract_hparams():
         def __init__(self):
             self.local_hparams = {'m': 11}
 
+    class Baz(StringEnum):
+        A = 'abc'
+
     locals_dict = {
         'a': 1.5,
         'b': {
@@ -52,7 +57,8 @@ def test_extract_hparams():
         'p': Bar(),
         '_g': 7,
         'h': None,
-        'i': True
+        'i': True,
+        'j': Baz.A,
     }
 
     expected_parsed_dict = {
@@ -70,6 +76,7 @@ def test_extract_hparams():
         },
         'h': None,
         'i': True,
+        'j': 'abc',
     }
 
     parsed_dict = extract_hparams(locals_dict)
@@ -83,6 +90,8 @@ def test_extract_hparams_trainer():
     trainer = Trainer(
         model=model,
         train_dataloader=train_dl,
+        device_train_microbatch_size=16,
+        precision=Precision.FP32,
         optimizers=optimizer,
         auto_log_hparams=True,
         progress_bar=False,
@@ -101,6 +110,7 @@ def test_extract_hparams_trainer():
         'train_dataloader': 'DataLoader',
         'train_dataloader_label': 'train',
         'train_subset_num_batches': -1,
+        'spin_dataloaders': True,
 
         # Stopping Condition
         'max_duration': None,
@@ -133,11 +143,16 @@ def test_extract_hparams_trainer():
         'log_traces': False,
         'auto_log_hparams': True,
 
+        # Compile
+        'compile_config': None,
+        'is_model_compiled': False,
+        'is_torch_2_0': using_torch_2(),
+
         # Load Checkpoint
         'load_path': None,
         'load_object_store': None,
         'load_weights_only': False,
-        'load_strict_model_weights': False,
+        'load_strict_model_weights': True,
         'load_progress_bar': True,
         'load_ignore_keys': None,
         'load_exclude_algorithms': None,
@@ -150,6 +165,7 @@ def test_extract_hparams_trainer():
         'save_interval': '1ep',
         'save_weights_only': False,
         'save_num_checkpoints_to_keep': -1,
+        'save_metrics': False,
 
         # Graceful Resumption
         'autoresume': False,
@@ -157,19 +173,20 @@ def test_extract_hparams_trainer():
         # DeepSpeed
         'deepspeed_config': None,
         'fsdp_config': None,
+        'fsdp_auto_wrap': True,
 
         # System/Numerics
         'device': 'DeviceCPU',
-        'precision': 'Precision',
-        'grad_accum': 1,
-        'device_train_microbatch_size': None,
+        'precision': 'fp32',
+        'precision_config': None,
+        'device_train_microbatch_size': 16,
 
         # Reproducibility
         'seed': 3,
         'deterministic_mode': False,
 
         # Distributed Training
-        'dist_timeout': 1800.0,
+        'dist_timeout': 300.0,
         'ddp_sync_strategy': None,
 
         # Profiling
@@ -179,11 +196,9 @@ def test_extract_hparams_trainer():
         'python_log_level': None,
         'auto_microbatching': False,
         'rank_zero_seed': 3,
-        'eval_batch_split': 1,
         'latest_remote_file_name': None,
         'num_optimizers': 1,
         'remote_ud_has_format_string': [False],
-        'using_device_microbatch_size': False
     }
 
     assert trainer.local_hparams == expected_hparams

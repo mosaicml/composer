@@ -8,9 +8,10 @@ Implemented as a wrapper using :class:`.ComposerTrainer`.
 
 from __future__ import annotations
 
+import warnings
 from typing import Optional
 
-from composer.metrics.nlp import HFCrossEntropy, Perplexity
+from composer.metrics.nlp import LanguageCrossEntropy, LanguagePerplexity
 from composer.models.huggingface import HuggingFaceModel
 from composer.utils.import_helpers import MissingConditionalImportError
 
@@ -83,6 +84,8 @@ def create_gpt2(use_pretrained: Optional[bool] = False,
         composer_model = create_gpt2()
 
     """
+    warnings.warn(DeprecationWarning('create_gpt2 is deprecated and will be removed in v0.18'))
+
     try:
         import transformers
     except ImportError as e:
@@ -112,4 +115,7 @@ def create_gpt2(use_pretrained: Optional[bool] = False,
     else:
         tokenizer = None
 
-    return HuggingFaceModel(model=model, tokenizer=tokenizer, metrics=[HFCrossEntropy(), Perplexity()])
+    return HuggingFaceModel(model=model,
+                            tokenizer=tokenizer,
+                            metrics=[LanguageCrossEntropy(), LanguagePerplexity()],
+                            use_logits=True)

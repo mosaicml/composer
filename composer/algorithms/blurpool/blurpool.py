@@ -26,7 +26,7 @@ def apply_blurpool(model: torch.nn.Module,
                    replace_maxpools: bool = True,
                    blur_first: bool = True,
                    min_channels: int = 16,
-                   optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None) -> torch.nn.Module:
+                   optimizers: Optional[Union[Optimizer, Sequence[Optimizer]]] = None) -> None:
     """Add anti-aliasing filters to strided :class:`torch.nn.Conv2d` and/or :class:`torch.nn.MaxPool2d` modules.
 
     These filters increase invariance to small spatial shifts in the input
@@ -55,9 +55,6 @@ def apply_blurpool(model: torch.nn.Module,
             then it is safe to omit this parameter. These optimizers will see
             the correct model parameters.
 
-    Returns:
-        The modified model
-
     Example:
         .. testcode::
 
@@ -77,8 +74,6 @@ def apply_blurpool(model: torch.nn.Module,
         )
     module_surgery.replace_module_classes(model, optimizers=optimizers, policies=transforms)
     _log_surgery_result(model)
-
-    return model
 
 
 class BlurPool(Algorithm):

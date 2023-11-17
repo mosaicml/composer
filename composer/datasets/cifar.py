@@ -9,6 +9,7 @@ The CIFAR datasets are a collection of labeled 32x32 colour images. Please refer
 
 import os
 import textwrap
+import warnings
 from typing import Any, Dict, List, Optional, Union
 
 import torch
@@ -52,6 +53,8 @@ def build_cifar10_dataloader(
         shuffle (bool): Shuffle the dataset. Default: ``True``.
         **dataloader_kwargs (Any): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    warnings.warn(DeprecationWarning('build_cifar10_dataloader is deprecated and will be removed in v0.18'))
+
     if global_batch_size % dist.get_world_size() != 0:
         raise ValueError(
             f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
@@ -119,6 +122,8 @@ def build_ffcv_cifar10_dataloader(
         ``False``.
         datadir (str | None, optional): Path to the non-FFCV data directory.
     """
+    warnings.warn(DeprecationWarning('build_ffcv_cifar10_dataloader is deprecated and will be removed in v0.18'))
+
     try:
         import ffcv
         from ffcv.fields.decoders import IntDecoder, SimpleRGBImageDecoder
@@ -314,11 +319,11 @@ def build_streaming_cifar10_dataloader(
         shuffle=shuffle,
         transform=transform,
         predownload=predownload,
-        keep_zip=keep_zip,
+        keep_zip=keep_zip if keep_zip is not None else False,
         download_retry=download_retry,
         download_timeout=download_timeout,
         validate_hash=validate_hash,
-        shuffle_seed=shuffle_seed,
+        shuffle_seed=shuffle_seed if shuffle_seed is not None else 9176,
         num_canonical_nodes=num_canonical_nodes,
         batch_size=batch_size,
     )

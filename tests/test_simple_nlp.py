@@ -14,7 +14,7 @@ def test_simple_nlp_classification():
     vocab_size = 100
     sequence_length = 32
     num_classes = 2
-    size = 100
+    size = 96
     batch_size = 8
 
     train_dataset = RandomTextClassificationDataset(size=size,
@@ -47,8 +47,8 @@ def test_simple_nlp_classification():
     trainer.eval()
 
     # Check that there is some train/eval accuracy
-    assert trainer.state.train_metrics['Accuracy'].compute() != 0.0
-    assert trainer.state.eval_metrics['eval']['Accuracy'].compute() != 0.0
+    assert trainer.state.train_metrics['MulticlassAccuracy'].compute() != 0.0
+    assert trainer.state.eval_metrics['eval']['MulticlassAccuracy'].compute() != 0.0
 
     predictions = trainer.predict(predict_dataloader)
 
@@ -63,7 +63,7 @@ def test_simple_nlp_mlm(tiny_bert_tokenizer, tiny_bert_model):
 
     vocab_size = tiny_bert_tokenizer.vocab_size
     sequence_length = 32
-    size = 100
+    size = 96
     batch_size = 8
 
     train_dataset = RandomTextLMDataset(size=size,

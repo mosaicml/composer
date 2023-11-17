@@ -115,14 +115,14 @@ class TestAlgorithms:
         dummy_state.algorithms = always_match_algorithms
         trace = run_event(event, dummy_state, dummy_logger)
 
-        assert all([tr.run for tr in trace.values()])
+        assert all(tr.run for tr in trace.values())
 
     def test_engine_trace_never(self, event: Event, dummy_state: State, never_match_algorithms: List[Algorithm],
                                 dummy_logger: Logger):
         dummy_state.algorithms = never_match_algorithms
         trace = run_event(event, dummy_state, dummy_logger)
 
-        assert all([tr.run is False for tr in trace.values()])
+        assert all(tr.run is False for tr in trace.values())
 
 
 def test_engine_is_dead_after_close(dummy_state: State, dummy_logger: Logger):
@@ -290,7 +290,8 @@ def test_logging(
     assert caplog.record_tuples == [
         ('composer.core.engine', 10, '[ep=0][ba=0][event=INIT]: Running event'),
         ('composer.core.engine', 10, '[ep=0][ba=0][event=INIT]: Running callback EventCounterCallback'),
-        ('composer.core.engine', 10, 'Closing the engine'),
+        ('composer.core.engine', 10, 'Closing the engine.'),
         ('composer.core.engine', 10, 'Closing callback EventCounterCallback'),
         ('composer.core.engine', 10, 'Post-closing callback EventCounterCallback'),
+        ('composer.core.engine', 10, 'Engine closed.'),
     ]

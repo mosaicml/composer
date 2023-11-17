@@ -4,6 +4,7 @@
 """A wrapper around `timm.create_model() <https://rwightman.github.io/pytorch-image-models/#load-a-pretrained-model>`_
 used to create :class:`.ComposerClassifier`."""
 
+import warnings
 from typing import Optional
 
 from composer.models.tasks import ComposerClassifier
@@ -47,20 +48,22 @@ def composer_timm(model_name: str,
 
         model = composer_timm(model_name='resnet18')  # creates a timm resnet18
     """
+    warnings.warn(DeprecationWarning('composer_timm is deprecated and will be removed in v0.18'))
     try:
         import timm
     except ImportError as e:
         raise MissingConditionalImportError(extra_deps_group='timm', conda_package='timm>=0.5.4',
                                             conda_channel=None) from e
-    model = timm.create_model(model_name=model_name,
-                              pretrained=pretrained,
-                              num_classes=num_classes,
-                              drop_rate=drop_rate,
-                              drop_path_rate=drop_path_rate,
-                              drop_block_rate=drop_block_rate,
-                              global_pool=global_pool,
-                              bn_momentum=bn_momentum,
-                              bn_eps=bn_eps)
+    model = timm.create_model(  # type: ignore (third-party)
+        model_name=model_name,
+        pretrained=pretrained,
+        num_classes=num_classes,
+        drop_rate=drop_rate,
+        drop_path_rate=drop_path_rate,
+        drop_block_rate=drop_block_rate,
+        global_pool=global_pool,
+        bn_momentum=bn_momentum,
+        bn_eps=bn_eps)
 
     composer_model = ComposerClassifier(module=model)
     return composer_model

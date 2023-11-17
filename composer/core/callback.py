@@ -369,6 +369,16 @@ class Callback(Serializable, abc.ABC):
         del state, logger  # unused
         pass
 
+    def eval_before_all(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`.Event.EVAL_BEFORE_ALL` event.
+
+        Args:
+            state (State): The training state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
     def eval_start(self, state: State, logger: Logger) -> None:
         """Called on the :attr:`.Event.EVAL_START` event.
 
@@ -427,6 +437,34 @@ class Callback(Serializable, abc.ABC):
             logger (Logger): The logger.
         """
         del state, logger  # unused
+        pass
+
+    def eval_after_all(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`.Event.EVAL_AFTER_ALL` event.
+
+        Args:
+            state (State): The training state.
+            logger (Logger): The logger.
+        """
+        del state, logger  # unused
+        pass
+
+    def eval_standalone_start(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`.Event.EVAL_STANDALONE_START` event.
+
+        Args:
+            state (State): The training state.
+            logger (Logger): The logger.
+        """
+        pass
+
+    def eval_standalone_end(self, state: State, logger: Logger) -> None:
+        """Called on the :attr:`.Event.EVAL_STANDALONE_END` event.
+
+        Args:
+            state (State): The training state.
+            logger (Logger): The logger.
+        """
         pass
 
     def fit_end(self, state: State, logger: Logger) -> None:

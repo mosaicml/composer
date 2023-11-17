@@ -20,7 +20,7 @@ import tqdm
 
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_callback
-from composer.utils.object_store import LibcloudObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore
+from composer.utils.object_store import GCSObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore, UCObjectStore
 
 if TYPE_CHECKING:
     from composer.core import Timestamp
@@ -337,7 +337,7 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
     Returns:
         Optional[ObjectStore]: Returns an :class:`composer.utils.ObjectStore` if the URI is of a supported format, otherwise None
     """
-    backend, bucket_name, _ = parse_uri(uri)
+    backend, bucket_name, path = parse_uri(uri)
     if backend == '':
         return None
     if backend == 's3':
@@ -346,21 +346,16 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
         raise NotImplementedError(f'There is no implementation for WandB load_object_store via URI. Please use '
                                   'WandBLogger')
     elif backend == 'gs':
-        if 'GCS_KEY' not in os.environ or 'GCS_SECRET' not in os.environ:
-            raise ValueError(
-                'You must set the GCS_KEY and GCS_SECRET env variable with you HMAC access id and secret respectively')
-
-        return LibcloudObjectStore(
-            provider='google_storage',
-            container=bucket_name,
-            key_environ='GCS_KEY',  # Name of env variable for HMAC access id.
-            secret_environ='GCS_SECRET',  # Name of env variable for HMAC secret.
-        )
+        return GCSObjectStore(bucket=bucket_name)
     elif backend == 'oci':
         return OCIObjectStore(bucket=bucket_name)
+    elif backend == 'dbfs':
+        # validate if the path conforms to the requirements for UC volume paths
+        UCObjectStore.validate_path(path)
+        return UCObjectStore(path=path)
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
-                                  's3 or one of the supported object stores')
+                                  'one of the supported object stores')
 
 
 def maybe_create_remote_uploader_downloader_from_uri(
@@ -381,7 +376,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
     """
     from composer.loggers import RemoteUploaderDownloader
     existing_remote_uds = [logger_dest for logger_dest in loggers if isinstance(logger_dest, RemoteUploaderDownloader)]
-    backend, bucket_name, _ = parse_uri(uri)
+    backend, bucket_name, path = parse_uri(uri)
     if backend == '':
         return None
     for existing_remote_ud in existing_remote_uds:
@@ -390,38 +385,64 @@ def maybe_create_remote_uploader_downloader_from_uri(
             warnings.warn(
                 f'There already exists a RemoteUploaderDownloader object to handle the uri: {uri} you specified')
             return None
-    if backend in ['s3', 'oci']:
+    if backend in ['s3', 'oci', 'gs']:
         return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}')
-
-    elif backend == 'gs':
-        if 'GCS_KEY' not in os.environ or 'GCS_SECRET' not in os.environ:
-            raise ValueError(
-                'You must set the GCS_KEY and GCS_SECRET env variable with you HMAC access id and secret respectively')
-        return RemoteUploaderDownloader(
-            bucket_uri=f'libcloud://{bucket_name}',
-            backend_kwargs={
-                'provider': 'google_storage',
-                'container': bucket_name,
-                'key_environ': 'GCS_KEY',  # Name of env variable for HMAC access id.
-                'secret_environ': 'GCS_SECRET',  # Name of env variable for HMAC secret.
-            })
 
     elif backend == 'wandb':
         raise NotImplementedError(f'There is no implementation for WandB via URI. Please use '
                                   'WandBLogger with log_artifacts set to True')
-
+    elif backend == 'dbfs':
+        # validate if the path conforms to the requirements for UC volume paths
+        UCObjectStore.validate_path(path)
+        return RemoteUploaderDownloader(bucket_uri=uri, backend_kwargs={'path': path})
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
-                                  's3 or one of the supported RemoteUploaderDownloader object stores')
+                                  'one of the supported RemoteUploaderDownloader object stores')
 
 
-def get_file(
-    path: str,
-    destination: str,
-    object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
-    overwrite: bool = False,
-    progress_bar: bool = True,
-):
+def list_remote_objects(remote_path: str) -> List[str]:
+    """List objects at the remote path.
+
+    Args:
+        remote_path (str): Remote object store path.
+
+    Returns:
+        A list of objects at the remote path.
+    """
+    object_store = maybe_create_object_store_from_uri(remote_path)
+    if object_store is None:
+        raise ValueError(f'Failed to create object store. The given path {remote_path} is a local path.')
+    _, _, prefix = parse_uri(remote_path)
+    objects = object_store.list_objects(prefix)
+    return objects
+
+
+def validate_remote_path():
+    """Entry point to composer_validate_remote_path cli command.
+
+    Validates a remote path.
+    If the remote path is valid, prints a list of objects at the path.
+    Otherwise, raises an error.
+    """
+    import sys
+    args = sys.argv
+    if len(args) == 1:
+        raise ValueError('Please provide a remote path.')
+    if len(args) > 2:
+        raise ValueError('Extra arguments found. Please provide only one remote path.')
+    remote_path = sys.argv[1]
+    objects = list_remote_objects(remote_path)
+    if len(objects) == 0:
+        raise ValueError(f'No objects at path {remote_path} found. Please check your path and your access credentials.')
+    objects_str = '\n'.join(objects)
+    print(f'Found {len(objects)} objects at {remote_path} \n{objects_str}')
+
+
+def get_file(path: str,
+             destination: str,
+             object_store: Optional[Union[ObjectStore, LoggerDestination]] = None,
+             overwrite: bool = False,
+             progress_bar: bool = True):
     """Get a file from a local folder, URL, or object store.
 
     Args:
@@ -481,13 +502,11 @@ def get_file(
                 log.debug(f'Read path {real_path} from symlink file.')
 
         # Recurse
-        return get_file(
-            path=real_path,
-            destination=destination,
-            object_store=object_store,
-            overwrite=overwrite,
-            progress_bar=progress_bar,
-        )
+        return get_file(path=real_path,
+                        destination=destination,
+                        object_store=object_store,
+                        overwrite=overwrite,
+                        progress_bar=progress_bar)
 
     try:
         _get_file(
@@ -501,13 +520,11 @@ def get_file(
         new_path = path + '.symlink'
         try:
             # Follow the symlink
-            return get_file(
-                path=new_path,
-                destination=destination,
-                object_store=object_store,
-                overwrite=overwrite,
-                progress_bar=progress_bar,
-            )
+            return get_file(path=new_path,
+                            destination=destination,
+                            object_store=object_store,
+                            overwrite=overwrite,
+                            progress_bar=progress_bar)
         except FileNotFoundError as ee:
             # Raise the original not found error first, which contains the path to the user-specified file
             raise e from ee
@@ -578,6 +595,10 @@ def _get_file(
     # It's a local filepath
     if not os.path.exists(path):
         raise FileNotFoundError(f'Local path {path} does not exist')
+
+    if os.path.exists(destination) and overwrite:
+        os.remove(destination)
+
     os.symlink(os.path.abspath(path), destination)
 
 

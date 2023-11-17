@@ -4,7 +4,7 @@
 """Contains commonly used models that are shared across the test suite."""
 import copy
 from functools import partial
-from typing import Any, Dict, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import pytest
 import torch
@@ -15,6 +15,34 @@ from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.models import ComposerClassifier, HuggingFaceModel
 
 
+class EmptyModel(ComposerClassifier):
+    """Always predict 0 with no parameters."""
+
+    def __init__(self, num_classes: int = 2):
+        super().__init__(module=torch.nn.Sequential(), num_classes=num_classes)
+
+    def forward(self, x):
+        out = torch.rand([x[1].shape[0], 2], dtype=x[0].dtype)
+        out[:, 0] = 0.99
+        out[:, 1] = 0.01
+        return out
+
+
+class ZeroModel(ComposerClassifier):
+    """Always predict 0."""
+
+    def __init__(self, num_classes: int = 2):
+        # Create dummy model as ComposerClassifier needs params for optimizer
+        net = torch.nn.Sequential(torch.nn.Linear(1, num_classes))
+        super().__init__(module=net, num_classes=num_classes)
+
+    def forward(self, x):
+        out = torch.rand([x[1].shape[0], 2], dtype=x[0].dtype)
+        out[:, 0] = 0.99
+        out[:, 1] = 0.01
+        return out
+
+
 class SimpleModel(ComposerClassifier):
     """Small classification model.
 
@@ -23,13 +51,20 @@ class SimpleModel(ComposerClassifier):
         num_classes (int): number of classes (default: 2)
     """
 
-    def __init__(self, num_features: int = 1, num_classes: int = 2) -> None:
+    def __init__(
+        self,
+        num_features: int = 1,
+        num_classes: int = 2,
+        num_hidden: int = 8,
+        device: str = 'cpu',
+        bias: bool = True,
+    ) -> None:
 
         self.num_features = num_features
         self.num_classes = num_classes
 
-        fc1 = torch.nn.Linear(num_features, 5)
-        fc2 = torch.nn.Linear(5, num_classes)
+        fc1 = torch.nn.Linear(num_features, num_hidden, device=device, bias=bias)
+        fc2 = torch.nn.Linear(num_hidden, num_classes, device=device, bias=bias)
 
         net = torch.nn.Sequential(
             torch.nn.AdaptiveAvgPool2d(1),
@@ -39,7 +74,8 @@ class SimpleModel(ComposerClassifier):
             fc2,
             torch.nn.Softmax(dim=-1),
         )
-        super().__init__(module=net)
+        net.param_init_fn = self.param_init_fn
+        super().__init__(module=net, num_classes=num_classes)
 
         # Important: It is crucial that the FC layers are bound to `self`
         # for the optimizer surgery tests.
@@ -48,6 +84,14 @@ class SimpleModel(ComposerClassifier):
         # as self.net[1]
         self.fc1 = fc1
         self.fc2 = fc2
+
+    def param_init_fn(self, module):
+        init_fn = partial(torch.nn.init.normal_, mean=0.0, std=0.1)
+
+        if isinstance(module, torch.nn.Linear):
+            init_fn(module.weight)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
 
 
 class SimpleMLP(torch.nn.Module):
@@ -83,7 +127,7 @@ class SimpleWeightTiedModel(ComposerClassifier):
             torch.nn.Softmax(dim=-1),
         )
 
-        super().__init__(module=net)
+        super().__init__(module=net, num_classes=num_features)
 
         self.mlp = mlp
         self.net = net
@@ -120,7 +164,7 @@ class EmbeddedWeightTiedModel(ComposerClassifier):
             torch.nn.Softmax(dim=-1),
         )
 
-        super().__init__(module=net)
+        super().__init__(module=net, num_classes=num_features)
 
         self.module.param_init_fn = self.param_init_fn
 
@@ -146,7 +190,11 @@ class SimpleConvModel(ComposerClassifier):
         num_classes (int): number of classes (default: 2)
     """
 
-    def __init__(self, num_channels: int = 3, num_classes: int = 2) -> None:
+    def __init__(self,
+                 num_channels: int = 3,
+                 num_classes: int = 2,
+                 norm: Optional[str] = None,
+                 norm_affine: bool = True) -> None:
 
         self.num_classes = num_classes
         self.num_channels = num_channels
@@ -154,6 +202,19 @@ class SimpleConvModel(ComposerClassifier):
         conv_args = {'kernel_size': (3, 3), 'padding': 1, 'stride': 2}
         conv1 = torch.nn.Conv2d(in_channels=num_channels, out_channels=8, **conv_args)
         conv2 = torch.nn.Conv2d(in_channels=8, out_channels=4, **conv_args)
+        norm_layer = None
+        if norm is None:
+            norm_layer = torch.nn.Identity()
+        elif norm == 'batch':
+            norm_layer = torch.nn.BatchNorm2d(4, affine=norm_affine)
+        elif norm == 'instance':
+            norm_layer = torch.nn.InstanceNorm2d(4, affine=norm_affine)
+        elif norm == 'layer':
+            norm_layer = torch.nn.LayerNorm(4, elementwise_affine=norm_affine)
+        elif norm == 'group':
+            norm_layer = torch.nn.GroupNorm(2, 4, affine=norm_affine)
+        else:
+            raise ValueError(f'Unknown norm: {norm}')
         pool = torch.nn.AdaptiveAvgPool2d(1)
         flatten = torch.nn.Flatten()
         fc1 = torch.nn.Linear(4, 16)
@@ -162,12 +223,13 @@ class SimpleConvModel(ComposerClassifier):
         net = torch.nn.Sequential(
             conv1,
             conv2,
+            norm_layer,
             pool,
             flatten,
             fc1,
             fc2,
         )
-        super().__init__(module=net)
+        super().__init__(module=net, num_classes=self.num_classes)
 
         # bind these to class for access during surgery tests
         self.conv1 = conv1
@@ -213,14 +275,17 @@ class Mean(torch.nn.Module):
 class SimpleTransformerBase(torch.nn.Module):
     """Base encoding transformer model for testing"""
 
-    def __init__(self, vocab_size: int = 100, d_model: int = 16):
+    def __init__(self, vocab_size: int = 10, d_model: int = 16):
         super().__init__()
         embedding = torch.nn.Embedding(vocab_size, 16)
         layer = torch.nn.TransformerEncoderLayer(d_model=d_model, nhead=2, dim_feedforward=d_model, dropout=0.3)
         # necessary to make the model scriptable
         layer.__constants__ = []
 
-        transformer = torch.nn.TransformerEncoder(layer, num_layers=2, norm=torch.nn.LayerNorm(d_model))
+        transformer = torch.nn.TransformerEncoder(layer,
+                                                  num_layers=2,
+                                                  norm=torch.nn.LayerNorm(d_model),
+                                                  enable_nested_tensor=False)
 
         # necessary to make the model scriptable
         transformer.__constants__ = []
@@ -236,15 +301,14 @@ class SimpleTransformerBase(torch.nn.Module):
 
 class SimpleTransformerMaskedLM(ComposerClassifier):
 
-    def __init__(self, vocab_size: int = 100):
+    def __init__(self, vocab_size: int = 10):
         self.vocab_size = vocab_size
         transformer_base = SimpleTransformerBase(vocab_size=vocab_size, d_model=16)
         lm_head = torch.nn.Linear(16, vocab_size)
 
         net = torch.nn.Sequential(transformer_base, lm_head)
 
-        mlm_metrics = MetricCollection(LanguageCrossEntropy(ignore_index=-100, vocab_size=vocab_size),
-                                       MaskedAccuracy(ignore_index=-100))
+        mlm_metrics = MetricCollection(LanguageCrossEntropy(ignore_index=-100), MaskedAccuracy(ignore_index=-100))
         loss = torch.nn.CrossEntropyLoss()
         super().__init__(module=net, train_metrics=mlm_metrics, val_metrics=mlm_metrics, loss_fn=loss)
 
@@ -286,7 +350,7 @@ class SimpleTransformerClassifier(ComposerClassifier):
 
         net = torch.nn.Sequential(transformer_base, pooler, dropout, classifier)
 
-        super().__init__(module=net)
+        super().__init__(module=net, num_classes=num_classes)
 
         self.transformer_base = transformer_base
         self.pooler = pooler
@@ -321,7 +385,7 @@ class ConvModel(ComposerClassifier):
             linear2,
         )
 
-        super().__init__(module=net)
+        super().__init__(module=net, num_classes=10)
 
         # bind these to class for access during surgery tests
         self.conv1 = conv1
@@ -351,7 +415,7 @@ class SimpleModelWithDropout(ComposerClassifier):
             torch.nn.Softmax(dim=-1),
         )
 
-        super().__init__(module=net)
+        super().__init__(module=net, num_classes=num_classes)
 
         self.fc1 = fc1
         self.fc2 = fc2
@@ -404,6 +468,31 @@ def configure_tiny_bert_hf_model(use_logits=True):
     return HuggingFaceModel(configure_tiny_bert_model(), configure_tiny_bert_tokenizer(), use_logits)
 
 
+def configure_tiny_deberta_model():
+    try:
+        return copy.deepcopy(pytest.tiny_deberta_model)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_deberta_tokenizer():
+    try:
+        return copy.deepcopy(pytest.tiny_deberta_tokenizer)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_deberta_config():
+    try:
+        return copy.deepcopy(pytest.tiny_deberta_config)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_deberta_hf_model(use_logits=True):
+    return HuggingFaceModel(configure_tiny_deberta_model(), configure_tiny_deberta_tokenizer(), use_logits)
+
+
 def configure_tiny_gpt2_model():
     try:
         return copy.deepcopy(pytest.tiny_gpt2_model)
@@ -427,3 +516,28 @@ def configure_tiny_gpt2_config():
 
 def configure_tiny_gpt2_hf_model(use_logits=True):
     return HuggingFaceModel(configure_tiny_gpt2_model(), configure_tiny_gpt2_tokenizer(), use_logits)
+
+
+def configure_tiny_t5_model():
+    try:
+        return copy.deepcopy(pytest.tiny_t5_model)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_t5_tokenizer():
+    try:
+        return copy.deepcopy(pytest.tiny_t5_tokenizer)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_t5_config():
+    try:
+        return copy.deepcopy(pytest.tiny_t5_config)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_t5_hf_model(use_logits=True):
+    return HuggingFaceModel(configure_tiny_t5_model(), configure_tiny_t5_tokenizer(), use_logits)

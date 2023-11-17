@@ -9,13 +9,13 @@ from urllib.parse import urlparse
 
 import pytest
 
-from composer.utils.object_store import LibcloudObjectStore, ObjectStore, S3ObjectStore, SFTPObjectStore
+from composer.utils.object_store import GCSObjectStore, LibcloudObjectStore, ObjectStore, S3ObjectStore, SFTPObjectStore
 from composer.utils.object_store.sftp_object_store import SFTPObjectStore
 from tests.utils.object_store.object_store_settings import get_object_store_ctx, object_stores
 
 
 @pytest.fixture
-def bucket_uri_and_kwargs(request, s3_bucket: str, sftp_uri: str, test_session_name: str):
+def bucket_uri_and_kwargs(request, s3_bucket: str, s3_ephemeral_prefix: str, sftp_uri: str, test_session_name: str):
     remote = request.node.get_closest_marker('remote') is not None
 
     if request.param is LibcloudObjectStore:
@@ -34,7 +34,7 @@ def bucket_uri_and_kwargs(request, s3_bucket: str, sftp_uri: str, test_session_n
     elif request.param is S3ObjectStore:
         if remote:
             bucket_uri = f's3://{s3_bucket}'
-            kwargs = {'bucket': s3_bucket, 'prefix': test_session_name}
+            kwargs = {'bucket': s3_bucket, 'prefix': s3_ephemeral_prefix + '/' + test_session_name}
         else:
             bucket_uri = 's3://my-bucket'
             kwargs = {'bucket': 'my-bucket', 'prefix': 'folder/subfolder'}
@@ -124,6 +124,8 @@ class TestObjectStore:
             assert uri == 'local://./tmpfile_object_name'
         elif isinstance(object_store, SFTPObjectStore):
             assert uri == 'sftp://test_user@localhost:23/tmpfile_object_name'
+        elif isinstance(object_store, GCSObjectStore):
+            assert uri == 'gs://mosaicml-composer-tests/streaming/'
         else:
             raise NotImplementedError(f'Object store {type(object_store)} not implemented.')
 

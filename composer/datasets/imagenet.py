@@ -8,6 +8,7 @@ Dataset <http://image-net.org/>`_ for more details.
 """
 
 import os
+import warnings
 from typing import Any, Dict, List, Optional
 
 import numpy as np
@@ -57,6 +58,8 @@ def build_imagenet_dataloader(
         crop size (int): The crop size to use. Default: ``224``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    warnings.warn(DeprecationWarning('build_imagenet_dataloader is deprecated and will be removed in v0.18'))
+
     if global_batch_size % dist.get_world_size() != 0:
         raise ValueError(
             f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
@@ -126,6 +129,8 @@ def build_synthetic_imagenet_dataloader(
         shuffle (bool): whether to shuffle the dataset. Default: ``True``.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    warnings.warn(DeprecationWarning('build_synthetic_imagenet_dataloader is deprecated and will be removed in v0.18'))
+
     if global_batch_size % dist.get_world_size() != 0:
         raise ValueError(
             f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
@@ -166,6 +171,7 @@ def write_ffcv_imagenet(
         split (str): 'train' or 'val'. Default: ``train``.
         num_workers (int): Number of workers to use for conversion. Default: ``8``.
     """
+    warnings.warn(DeprecationWarning('write_ffcv_imagenet is deprecated and will be removed in v0.18'))
 
     if dist.get_local_rank() == 0:
         ds = ImageFolder(os.path.join(datadir, split))
@@ -205,6 +211,8 @@ def build_ffcv_imagenet_dataloader(
         prefetch_factor (int): Number of batches to prefect. Default: ``2``.
         num_workers (int): Number of workers. Default: ``8``.
     """
+    warnings.warn(DeprecationWarning('build_ffcv_imagenet_dataloader is deprecated and will be removed in v0.18'))
+
     try:
         import ffcv
         from ffcv.fields.decoders import CenterCropRGBImageDecoder, IntDecoder, RandomResizedCropRGBImageDecoder
@@ -317,6 +325,9 @@ def build_streaming_imagenet1k_dataloader(
             Defaults to ``None``, which is interpreted as the number of nodes of the initial run.
         **dataloader_kwargs (Dict[str, Any]): Additional settings for the dataloader (e.g. num_workers, etc.)
     """
+    warnings.warn(
+        DeprecationWarning('build_streaming_imagenet1k_dataloader is deprecated and will be removed in v0.18'))
+
     if global_batch_size % dist.get_world_size() != 0:
         raise ValueError(
             f'global_batch_size ({global_batch_size}) must be divisible by world_size ({dist.get_world_size()}).')
@@ -352,11 +363,11 @@ def build_streaming_imagenet1k_dataloader(
         shuffle=shuffle,
         transform=transform,
         predownload=predownload,
-        keep_zip=keep_zip,
+        keep_zip=keep_zip if keep_zip is not None else False,
         download_retry=download_retry,
         download_timeout=download_timeout,
         validate_hash=validate_hash,
-        shuffle_seed=shuffle_seed,
+        shuffle_seed=shuffle_seed if shuffle_seed is not None else 9176,
         num_canonical_nodes=num_canonical_nodes,
         batch_size=batch_size,
     )

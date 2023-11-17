@@ -7,14 +7,15 @@ from __future__ import annotations
 
 import logging
 import pathlib
-from typing import TYPE_CHECKING, Callable, Dict, List, Sequence, Tuple, Union
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+from composer.profiler.json_trace_handler import JSONTraceHandler
 from composer.profiler.marker import Marker
 from composer.profiler.profiler_action import ProfilerAction
 from composer.profiler.system_profiler import SystemProfiler
 from composer.profiler.torch_profiler import TorchProfiler
 from composer.profiler.trace_handler import TraceHandler
-from composer.utils import ensure_tuple
+from composer.utils import ensure_tuple, parse_uri
 
 if TYPE_CHECKING:
     from composer.core import Callback, State
@@ -64,7 +65,7 @@ class Profiler:
                 )
 
         trace_handlers (TraceHandler | Sequence[TraceHandler]): Trace handlers which record and
-            save profiling data to traces.
+            save profiling data to traces. Additionally supports full object store paths.
         sys_prof_cpu (bool, optional): Whether to record cpu statistics. (default: ``True``).
         sys_prof_memory (bool, optional): Whether to record memory statistics. (default: ``False``).
         sys_prof_disk (bool, optional): Whether to record disk statistics. (default: ``False``).
@@ -74,6 +75,7 @@ class Profiler:
         torch_prof_folder (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
         torch_prof_filename (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
         torch_prof_remote_file_name (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Additionally supports full object store paths e.g: s3://bucket/path/to/file.
         torch_prof_overwrite (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
         torch_prof_use_gzip (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
         torch_prof_record_shapes (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
@@ -94,7 +96,7 @@ class Profiler:
         sys_prof_stats_thread_interval_seconds: float = 0.5,
         torch_prof_folder: str = '{run_name}/torch_traces',
         torch_prof_filename: str = 'rank{rank}.{batch}.pt.trace.json',
-        torch_prof_remote_file_name: str = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
+        torch_prof_remote_file_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
         torch_prof_overwrite: bool = False,
         torch_prof_use_gzip: bool = False,
         torch_prof_record_shapes: bool = False,
@@ -108,6 +110,21 @@ class Profiler:
         self.schedule = schedule
         self.state = None
         self._callbacks: List[Callback] = []
+        self.remote_filenames: List[str] = []
+        # First, add each remote file name to self.remote_filenames to create RemoteUploaderDownloader logger in trainer. [s3://bucket/path/to/file]
+        # Then modify remote file name to be a local path to pass into torch_profiler and system_profiler. e.g: path/to/file
+        if torch_prof_remote_file_name:
+            self.remote_filenames.append(torch_prof_remote_file_name)
+            _, _, torch_prof_remote_file_name = parse_uri(torch_prof_remote_file_name)
+        for handler in self._trace_handlers:
+            if isinstance(handler, JSONTraceHandler):
+                if handler.remote_file_name:
+                    self.remote_filenames.append(handler.remote_file_name)
+                    _, _, handler.remote_file_name = parse_uri(handler.remote_file_name)
+
+                if handler.merged_trace_remote_file_name:
+                    self.remote_filenames.append(handler.merged_trace_remote_file_name)
+                    _, _, handler.merged_trace_remote_file_name = parse_uri(handler.merged_trace_remote_file_name)
 
         if sys_prof_cpu or sys_prof_memory or sys_prof_disk or sys_prof_net:
             self._callbacks.append(
