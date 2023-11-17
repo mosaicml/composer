@@ -1325,6 +1325,6 @@ def test_checkpoint_validation(tmp_path):
     with open(checkpoint_filepath, 'w') as f:
         f.write('bad')
     with mock.patch.dict(os.environ,
-                         {'CHECKPOINT_VALIDATION_FUNCTION': 'tests.trainer.test_checkpoint._simple_validate'}):
+                         {'CHECKPOINT_VALIDATION_FUNCTION': 'tests.trainer.test_checkpoint.simple_validate'}):
         with pytest.raises(ValueError):
             _ensure_valid_checkpoint(checkpoint_filepath)
