@@ -528,7 +528,6 @@ def prepare_fsdp_module(
                 # Choose which modules to activation checkpoint according to the following priority:
                 # If module has attribute `module._activation_checkpointing = ...`, always respect it
                 # Otherwise checkpoint if root object `obj.activation_checkpointing_fn(module)` is true
-
                 def _check_fn(module: torch.nn.Module) -> bool:
                     if not is_torch_2_0 and isinstance(module, FlattenParamsWrapper):
                         return False
