@@ -7,11 +7,11 @@ from __future__ import annotations
 
 import collections.abc
 import fnmatch
+import json
 import logging
 import operator
 import os
 import time
-import json
 import warnings
 from concurrent.futures import wait
 from functools import reduce
