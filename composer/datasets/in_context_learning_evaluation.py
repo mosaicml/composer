@@ -124,7 +124,7 @@ class InContextLearningDataset(Dataset):
         prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
         example_delimiter (str): Separator that goes between individual (context, answer) pairs (e.g. '\n')
         continuation_delimiter: (str): Separator that goes between context and answer in each example (e.g. '\nA: ')
-        prelimiter (str): Text to be prepended before each example, including few shot examples 
+        prelimiter (str): Text to be prepended before each example, including few shot examples
         context_key (str): The key from the parsed dataset that the class will use as the "context" (i.e. the main content to be included in the prompt)
         answer_key (str): The key from the parsed dataset that the class will use as the "answer" (i.e. the main content to be predicted by the model)
         destination_path (str): Temporary path to store downloaded datasets
@@ -135,7 +135,7 @@ class InContextLearningDataset(Dataset):
             Values in the dict will be concatenated with ' ' seperating them. If not included, will use the columns already present in the HF dataset.
         stacked_keys (list(str)): keys in the output batch that must be converted to tensors with torch.stack()
         dont_split_keys (list(str)): keys in the ICL dictionary that should not be split among batches.
-        list_split_keys (list(str)): keys in the ICL dictionary that will be split as lists, resulting in microbatch_size sections of the list being inserted in every batch 
+        list_split_keys (list(str)): keys in the ICL dictionary that will be split as lists, resulting in microbatch_size sections of the list being inserted in every batch
         normal_split_keys (list(str)): keys in the ICL dictionary that will be split into chunks regularly
     """
 
@@ -206,18 +206,18 @@ class InContextLearningDataset(Dataset):
     def get_num_samples_in_batch(self, batch: dict) -> int:
         return batch['input_ids'].shape[0]
 
-    def check_defaults_are_set(self, dict_of_defaults:dict):
-        if all([v for v in dict_of_defaults.values()]):
+    def check_defaults_are_set(self, dict_of_defaults: dict):
+        if all(v for v in dict_of_defaults.values()):
             return
-        raise ValueError(f"{type(self).__name__} missing required variable(s): {''.join([k for k, v in dict_of_defaults.items() if not v])}") 
+        raise ValueError(
+            f"{type(self).__name__} missing required variable(s): {''.join([k for k, v in dict_of_defaults.items() if not v])}"
+        )
 
-    def _read_dataset(
-        self,
-        dataset_uri: str,
-        destination_path: str,
-        hf_loading_vars: dict = None,
-        hf_parsing_map: dict = None
-    ):
+    def _read_dataset(self,
+                      dataset_uri: str,
+                      destination_path: str,
+                      hf_loading_vars: dict = None,
+                      hf_parsing_map: dict = None):
         """
         Reads a dataset and handles parsing it from HuggingFace.
         Args:
@@ -228,7 +228,7 @@ class InContextLearningDataset(Dataset):
             hf_parsing_map (dict): Dictionary in the form of {icl_key: [hf_col1, hf_col2]} that will map one or more hf columns, in order, to ICL dataset cols
 
         Returns:
-            dataset: a loaded HF dataset 
+            dataset: a loaded HF dataset
         """
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
@@ -271,7 +271,7 @@ class InContextLearningDataset(Dataset):
             sample_idx (int): current sample idx
             preamble (str): text to occur at the beginning of the task. Generally instructions or a prompt.
             fewshot_rng (random.Random): seeded sampler to chose samples with
-        
+
         Returns:
             str: the original preamble with num_fewshot examples appended
         """
@@ -297,7 +297,7 @@ class InContextLearningDataset(Dataset):
 
         Returns:
 
-            str: The constructed context. The default output context is 
+            str: The constructed context. The default output context is
                  formatted as follows: f'{self.prelimiter}{sample[self.context_key]}{self.continuation_delimiter}'
         """
         ctxt = sample[self.context_key]
@@ -342,7 +342,7 @@ class InContextLearningDataset(Dataset):
         Runs text through the tokenizer and handles special cases.
         Args:
             prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
-            ctx (str): the specific example's derrived context 
+            ctx (str): the specific example's derrived context
             example (dict): the example as a dictionary. Used for additional processing in inherited classes.
 
         Returns:
@@ -391,9 +391,9 @@ class InContextLearningDataset(Dataset):
         The function that the dataloader uses to accumulate data into batches
         Args:
             data (list): list of tokenized datapoints (dicts returned by self._tokenize_example)
-        
+
         Returns:
-            dict: dictionary for a single batch 
+            dict: dictionary for a single batch
         """
         batch = {
             'input_ids': [],
@@ -429,7 +429,11 @@ class InContextLearningDataset(Dataset):
         # Don't split kwargs that don't change
         # Normally split torch tensors
         # List split lists of strings
-        self.check_defaults_are_set({"dont_split_keys":self.dont_split_keys,"list_split_keys":self.list_split_keys,"normal_split_keys":self.normal_split_keys})
+        self.check_defaults_are_set({
+            'dont_split_keys': self.dont_split_keys,
+            'list_split_keys': self.list_split_keys,
+            'normal_split_keys': self.normal_split_keys
+        })
         chunked = {}
         for k, v in batch.items():
             if k in self.dont_split_keys:
@@ -451,7 +455,7 @@ class InContextLearningDataset(Dataset):
 
 class InContextLearningQATaskDataset(InContextLearningDataset):
     """A dataset that construct batches for in-context learning question answering evaluation
-    QA tasks evaluate a model's ability to answer questions using a consistent format. 
+    QA tasks evaluate a model's ability to answer questions using a consistent format.
 
     The input format is expected to be a jsonl file with the following fields:
     - context: the question
@@ -488,12 +492,13 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
 
         self.max_answer_length = self.get_max_answer_length()
 
-    def _read_dataset(self,
-                      dataset_uri: str,
-                      destination_path: str,
-                      hf_loading_vars: dict = None,
-                      hf_parsing_map: dict = None,
-                      ):
+    def _read_dataset(
+        self,
+        dataset_uri: str,
+        destination_path: str,
+        hf_loading_vars: dict = None,
+        hf_parsing_map: dict = None,
+    ):
         dataset = super()._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_map)
         self.has_cot = 'chain_of_thought' in dataset.features
         return dataset.map(
@@ -504,7 +509,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
                 'chain_of_thought': examples.get('chain_of_thought', ''),
             })
 
-    def _get_answer_from_sample(self, sample : dict):
+    def _get_answer_from_sample(self, sample: dict):
         """
         Returns the answer from the sample. Applies chain of thought if self.has_cot is marked as true
         Args:
@@ -523,8 +528,8 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         Runs text through the tokenizer and handles special cases.
         Args:
             prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
-            ctx (str): the specific example's derrived context 
-            example (dict): the example as a dictionary. 
+            ctx (str): the specific example's derrived context
+            example (dict): the example as a dictionary.
 
         Returns:
             dict: dictionary with the tokenized data
@@ -557,9 +562,9 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         The function that the dataloader uses to accumulate data into batches
         Args:
             data (list): list of tokenized datapoints (dicts returned by self._tokenize_example)
-        
+
         Returns:
-            dict: dictionary for a single batch 
+            dict: dictionary for a single batch
         """
         batch = {
             'input_ids': [],
@@ -593,7 +598,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
 
 class InContextLearningLMTaskDataset(InContextLearningDataset):
     """A dataset that construct batches for in-context learning language modeling evaluation.
-    Language modeling tasks test a model's ability to properly predict tokens based on preceding tokens. 
+    Language modeling tasks test a model's ability to properly predict tokens based on preceding tokens.
 
 
     #TODO: Should I only list variables here that are different than InContextLearningDataset?
@@ -620,8 +625,8 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
         Runs text through the tokenizer and handles special cases.
         Args:
             prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
-            ctx (str): the specific example's derrived context 
-            example (dict): the example as a dictionary. 
+            ctx (str): the specific example's derrived context
+            example (dict): the example as a dictionary.
 
         Returns:
             dict: dictionary with the tokenized data
@@ -638,9 +643,9 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
         The function that the dataloader uses to accumulate data into batches
         Args:
             data (list): list of tokenized datapoints (dicts returned by self._tokenize_example)
-        
+
         Returns:
-            dict: dictionary for a single batch 
+            dict: dictionary for a single batch
         """
         batch = {'input_ids': [], 'continuation_indices': [], 'mode': 'icl_task', 'labels': []}
         for data_pair in data:
@@ -706,7 +711,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
             sample (dict): the sample from which to retrieve the answer
 
         Returns:
-            str: the full string of the correct answer based on the 'gold' key 
+            str: the full string of the correct answer based on the 'gold' key
         """
         choices = sample['choices']
         gold_idx = sample['gold']
@@ -717,8 +722,8 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         Runs text through the tokenizer and handles special cases.
         Args:
             prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
-            ctx (str): the specific example's derrived context 
-            example (dict): the example as a dictionary. 
+            ctx (str): the specific example's derrived context
+            example (dict): the example as a dictionary.
 
         Returns:
             dict: dictionary with the tokenized data
@@ -736,9 +741,9 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         The function that the dataloader uses to accumulate data into batches
         Args:
             data (list): list of tokenized datapoints (dicts returned by self._tokenize_example)
-        
+
         Returns:
-            dict: dictionary for a single batch 
+            dict: dictionary for a single batch
         """
         batch = {
             'input_ids': [],
@@ -795,7 +800,10 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         Returns:
             list: list of chunked batches
         """
-        self.check_defaults_are_set({"dont_split_keys":self.dont_split_keys,"normal_split_keys":self.normal_split_keys})
+        self.check_defaults_are_set({
+            'dont_split_keys': self.dont_split_keys,
+            'normal_split_keys': self.normal_split_keys
+        })
         chunked = {}
         for k, v in batch.items():
             if k in self.dont_split_keys:
@@ -893,9 +901,9 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         Runs text through the tokenizer and handles special cases.
         Args:
             prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
-            ctx (str): the specific example's derrived context 
-            example (dict): the example as a dictionary. 
-        
+            ctx (str): the specific example's derrived context
+            example (dict): the example as a dictionary.
+
         Returns:
             dict: dictionary with the tokenized data
         """
@@ -916,9 +924,9 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         The function that the dataloader uses to accumulate data into batches
         Args:
             data (list): list of tokenized datapoints (dicts returned by self._tokenize_example)
-        
+
         Returns:
-            dict: dictionary for a single batch 
+            dict: dictionary for a single batch
         """
         batch = {
             'input_ids': [],
@@ -1000,7 +1008,12 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         *args,
         **kwargs,
     ):
-        self.check_defaults_are_set({'pass_at_k': pass_at_k, 'generations_per_sample': generations_per_sample, "top_p": top_p,"top_k": top_k})
+        self.check_defaults_are_set({
+            'pass_at_k': pass_at_k,
+            'generations_per_sample': generations_per_sample,
+            'top_p': top_p,
+            'top_k': top_k
+        })
         if generations_per_sample < pass_at_k:
             raise ValueError(
                 f'generations_per_sample ({generations_per_sample}) must be greater than or equal to pass_at_k ({pass_at_k}) for code evaluation.'
@@ -1046,9 +1059,9 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         Runs text through the tokenizer and handles special cases.
         Args:
             prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
-            ctx (str): the specific example's derrived context 
-            example (dict): the example as a dictionary. 
-        
+            ctx (str): the specific example's derrived context
+            example (dict): the example as a dictionary.
+
         Returns:
             dict: dictionary with the tokenized data
         """
@@ -1068,9 +1081,9 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         The function that the dataloader uses to accumulate data into batches
         Args:
             data (list): list of tokenized datapoints (dicts returned by self._tokenize_example)
-        
+
         Returns:
-            dict: dictionary for a single batch 
+            dict: dictionary for a single batch
         """
         batch = {
             'input_ids': [],
@@ -1143,86 +1156,91 @@ def build_icl_dataloader(
 ) -> DataSpec:
     # TODO: Should this be some form of registry?
     if icl_task_type == 'multiple_choice':
-        dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri=dataset_uri,
-                                                             tokenizer=tokenizer,
-                                                             max_seq_len=max_seq_len,
-                                                             pad_tok_id=pad_tok_id,
-                                                             num_fewshot=num_fewshot,
-                                                             prompt_string=prompt_string,
-                                                             example_delimiter=example_delimiter,
-                                                             continuation_delimiter=continuation_delimiter,
-                                                             destination_path=destination_path,
-                                                             fewshot_random_seed=fewshot_random_seed,
-                                                             hf_loading_vars=hf_loading_vars,
-                                                             hf_parsing_map=hf_parsing_map,
-                                                             )
+        dataset = InContextLearningMultipleChoiceTaskDataset(
+            dataset_uri=dataset_uri,
+            tokenizer=tokenizer,
+            max_seq_len=max_seq_len,
+            pad_tok_id=pad_tok_id,
+            num_fewshot=num_fewshot,
+            prompt_string=prompt_string,
+            example_delimiter=example_delimiter,
+            continuation_delimiter=continuation_delimiter,
+            destination_path=destination_path,
+            fewshot_random_seed=fewshot_random_seed,
+            hf_loading_vars=hf_loading_vars,
+            hf_parsing_map=hf_parsing_map,
+        )
         batch_size = max(dataset.num_choices, batch_size)
         effective_batchsize = batch_size // dataset.num_choices
     elif icl_task_type == 'schema':
-        dataset = InContextLearningSchemaTaskDataset(dataset_uri=dataset_uri,
-                                                     tokenizer=tokenizer,
-                                                     max_seq_len=max_seq_len,
-                                                     pad_tok_id=pad_tok_id,
-                                                     num_fewshot=num_fewshot,
-                                                     prompt_string=prompt_string,
-                                                     example_delimiter=example_delimiter,
-                                                     continuation_delimiter=continuation_delimiter,
-                                                     destination_path=destination_path,
-                                                     fewshot_random_seed=fewshot_random_seed,
-                                                     hf_loading_vars=hf_loading_vars,
-                                                     hf_parsing_map=hf_parsing_map,
-                                                     )
+        dataset = InContextLearningSchemaTaskDataset(
+            dataset_uri=dataset_uri,
+            tokenizer=tokenizer,
+            max_seq_len=max_seq_len,
+            pad_tok_id=pad_tok_id,
+            num_fewshot=num_fewshot,
+            prompt_string=prompt_string,
+            example_delimiter=example_delimiter,
+            continuation_delimiter=continuation_delimiter,
+            destination_path=destination_path,
+            fewshot_random_seed=fewshot_random_seed,
+            hf_loading_vars=hf_loading_vars,
+            hf_parsing_map=hf_parsing_map,
+        )
         batch_size = max(dataset.num_choices, batch_size)
         effective_batchsize = batch_size // dataset.num_choices
     elif icl_task_type == 'language_modeling':
-        dataset = InContextLearningLMTaskDataset(dataset_uri=dataset_uri,
-                                                 tokenizer=tokenizer,
-                                                 max_seq_len=max_seq_len,
-                                                 pad_tok_id=pad_tok_id,
-                                                 num_fewshot=num_fewshot,
-                                                 prompt_string=prompt_string,
-                                                 example_delimiter=example_delimiter,
-                                                 continuation_delimiter=continuation_delimiter,
-                                                 destination_path=destination_path,
-                                                 fewshot_random_seed=fewshot_random_seed,
-                                                 hf_loading_vars=hf_loading_vars,
-                                                 hf_parsing_map=hf_parsing_map,
-                                                 )
+        dataset = InContextLearningLMTaskDataset(
+            dataset_uri=dataset_uri,
+            tokenizer=tokenizer,
+            max_seq_len=max_seq_len,
+            pad_tok_id=pad_tok_id,
+            num_fewshot=num_fewshot,
+            prompt_string=prompt_string,
+            example_delimiter=example_delimiter,
+            continuation_delimiter=continuation_delimiter,
+            destination_path=destination_path,
+            fewshot_random_seed=fewshot_random_seed,
+            hf_loading_vars=hf_loading_vars,
+            hf_parsing_map=hf_parsing_map,
+        )
         effective_batchsize = batch_size
     elif icl_task_type == 'question_answering':
-        dataset = InContextLearningQATaskDataset(dataset_uri=dataset_uri,
-                                                 tokenizer=tokenizer,
-                                                 max_seq_len=max_seq_len,
-                                                 pad_tok_id=pad_tok_id,
-                                                 num_fewshot=num_fewshot,
-                                                 prompt_string=prompt_string,
-                                                 example_delimiter=example_delimiter,
-                                                 continuation_delimiter=continuation_delimiter,
-                                                 destination_path=destination_path,
-                                                 prelimiter=prelimiter,
-                                                 fewshot_random_seed=fewshot_random_seed,
-                                                 hf_loading_vars=hf_loading_vars,
-                                                 hf_parsing_map=hf_parsing_map,
-                                                 cot_delimiter=cot_delimiter,
-                                                 )
+        dataset = InContextLearningQATaskDataset(
+            dataset_uri=dataset_uri,
+            tokenizer=tokenizer,
+            max_seq_len=max_seq_len,
+            pad_tok_id=pad_tok_id,
+            num_fewshot=num_fewshot,
+            prompt_string=prompt_string,
+            example_delimiter=example_delimiter,
+            continuation_delimiter=continuation_delimiter,
+            destination_path=destination_path,
+            prelimiter=prelimiter,
+            fewshot_random_seed=fewshot_random_seed,
+            hf_loading_vars=hf_loading_vars,
+            hf_parsing_map=hf_parsing_map,
+            cot_delimiter=cot_delimiter,
+        )
         effective_batchsize = batch_size
     elif icl_task_type == 'code_evaluation':
-        dataset = InContextLearningCodeEvalDataset(dataset_uri=dataset_uri,
-                                                   tokenizer=tokenizer,
-                                                   max_seq_len=max_seq_len,
-                                                   pad_tok_id=pad_tok_id,
-                                                   num_fewshot=num_fewshot,
-                                                   prompt_string=prompt_string,
-                                                   example_delimiter=example_delimiter,
-                                                   continuation_delimiter=continuation_delimiter,
-                                                   destination_path=destination_path,
-                                                   prelimiter=prelimiter,
-                                                   fewshot_random_seed=fewshot_random_seed,
-                                                   hf_loading_vars=hf_loading_vars,
-                                                   hf_parsing_map=hf_parsing_map,
-                                                   pass_at_k=pass_at_k,
-                                                   generations_per_sample=generations_per_sample,
-                                                   )
+        dataset = InContextLearningCodeEvalDataset(
+            dataset_uri=dataset_uri,
+            tokenizer=tokenizer,
+            max_seq_len=max_seq_len,
+            pad_tok_id=pad_tok_id,
+            num_fewshot=num_fewshot,
+            prompt_string=prompt_string,
+            example_delimiter=example_delimiter,
+            continuation_delimiter=continuation_delimiter,
+            destination_path=destination_path,
+            prelimiter=prelimiter,
+            fewshot_random_seed=fewshot_random_seed,
+            hf_loading_vars=hf_loading_vars,
+            hf_parsing_map=hf_parsing_map,
+            pass_at_k=pass_at_k,
+            generations_per_sample=generations_per_sample,
+        )
         effective_batchsize = batch_size
     else:
         raise Exception(f'Unrecognized ICL task type: {icl_task_type}')
@@ -1253,7 +1271,8 @@ def build_icl_dataloader(
     )
 
 
-def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_loading_vars: dict, hf_parsing_map: dict) -> Dict[str, str]:
+def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_loading_vars: dict,
+                                  hf_parsing_map: dict) -> Dict[str, str]:
     """If has_categories is enabled, we partition the dataset into a separate dataset for each category value in the data and write each partition to a local file.
 
     Args:
@@ -1274,7 +1293,7 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_lo
             conda_package='datasets',
             conda_channel='conda-forge',
         ) from e
-    if dataset_uri.startswith("hf://"):
+    if dataset_uri.startswith('hf://'):
         cur_dataset_uri = dataset_uri.replace('hf://', '')
         dataset = load_dataset(cur_dataset_uri, **hf_loading_vars)
         if hf_parsing_map:
@@ -1390,26 +1409,24 @@ def get_icl_task_dataloader(
         categories = sorted(output_files.keys())
         for category in categories:
             partition_uri = output_files[category]
-            result_dls[category] = build_icl_dataloader(
-                icl_task_type=icl_task_type,
-                dataset_uri=partition_uri,
-                tokenizer=tokenizer,
-                batch_size=batch_size,
-                max_seq_len=max_seq_len,
-                pad_tok_id=pad_tok_id,
-                num_fewshot=num_fewshot,
-                prompt_string=prompt_string,
-                example_delimiter=example_delimiter,
-                continuation_delimiter=continuation_delimiter,
-                destination_path=partition_uri + '_tmp',
-                prelimiter=question_prelimiter,
-                cot_delimiter=cot_delimiter,
-                fewshot_random_seed=fewshot_random_seed,
-                pass_at_k=pass_at_k,
-                generations_per_sample=generations_per_sample,
-                hf_loading_vars=hf_loading_vars,
-                hf_parsing_map=hf_parsing_map
-            )
+            result_dls[category] = build_icl_dataloader(icl_task_type=icl_task_type,
+                                                        dataset_uri=partition_uri,
+                                                        tokenizer=tokenizer,
+                                                        batch_size=batch_size,
+                                                        max_seq_len=max_seq_len,
+                                                        pad_tok_id=pad_tok_id,
+                                                        num_fewshot=num_fewshot,
+                                                        prompt_string=prompt_string,
+                                                        example_delimiter=example_delimiter,
+                                                        continuation_delimiter=continuation_delimiter,
+                                                        destination_path=partition_uri + '_tmp',
+                                                        prelimiter=question_prelimiter,
+                                                        cot_delimiter=cot_delimiter,
+                                                        fewshot_random_seed=fewshot_random_seed,
+                                                        pass_at_k=pass_at_k,
+                                                        generations_per_sample=generations_per_sample,
+                                                        hf_loading_vars=hf_loading_vars,
+                                                        hf_parsing_map=hf_parsing_map)
         return result_dls
     else:
         return build_icl_dataloader(
