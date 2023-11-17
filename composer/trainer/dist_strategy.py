@@ -217,7 +217,7 @@ def prepare_fsdp_module(
     is_torch_2_0 = using_torch_2()
     from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (CheckpointImpl,
                                                                              apply_activation_checkpointing,
-                                                                             checkpoint_wrapper, offload_wrapper)
+                                                                             checkpoint_wrapper)
     from torch.distributed.fsdp import FullyShardedDataParallel
     if not is_torch_2_0:
         from torch.distributed.fsdp.flatten_params_wrapper import FlattenParamsWrapper
@@ -512,6 +512,7 @@ def prepare_fsdp_module(
             # Activation Checkpointing
             if activation_checkpointing or activation_cpu_offload:
                 if version.parse(torch.__version__) > version.parse('2.1.0.dev'):
+                    from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import offload_wrapper
                     if not activation_checkpointing_reentrant:
                         first_wrap_fn = lambda m: checkpoint_wrapper(m, checkpoint_impl=CheckpointImpl.NO_REENTRANT
                                                                     ) if activation_checkpointing else (lambda module:
