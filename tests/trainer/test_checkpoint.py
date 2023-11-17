@@ -11,6 +11,7 @@ import tempfile
 import time
 from glob import glob
 from typing import Any, Dict, List, Optional, Union
+from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
@@ -29,7 +30,7 @@ from composer.optim import ExponentialScheduler
 from composer.trainer import trainer
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, is_tar
-from composer.utils.checkpoint import glob_filter
+from composer.utils.checkpoint import _ensure_valid_checkpoint, glob_filter
 from composer.utils.object_store.object_store import ObjectStore
 from composer.utils.object_store.s3_object_store import S3ObjectStore
 from tests.common import (RandomClassificationDataset, RandomImageDataset, RandomTextLMDataset, SimpleConvModel,
@@ -1289,6 +1290,41 @@ def test_rotate_checkpoints(
 
     dist.barrier()  # all ranks finish before cleaning up tmpdir
 
-def test_checkpoint_validation():
-    # Test validation occurs
-    pass
+
+def simple_validate(filepath: str):
+    with open(filepath, 'r') as f:
+        return f.read() == 'good'
+
+
+def test_checkpoint_validation(tmp_path):
+    checkpoint_filepath = tmp_path / 'dummy'
+    with open(checkpoint_filepath, 'w') as f:
+        f.write('good')
+
+    # No validation function specified.
+    result = _ensure_valid_checkpoint(checkpoint_filepath)
+    assert result == checkpoint_filepath
+
+    # Non-existent module specified.
+    with mock.patch.dict(os.environ, {'CHECKPOINT_VALIDATION_FUNCTION': 'bad_module.bad_function'}):
+        with pytest.raises(ModuleNotFoundError):
+            _ensure_valid_checkpoint(checkpoint_filepath)
+
+    # Non-existent function specified.
+    with mock.patch.dict(os.environ, {'CHECKPOINT_VALIDATION_FUNCTION': 'tests.trainer.test_checkpoint.bad_function'}):
+        with pytest.raises(AttributeError):
+            _ensure_valid_checkpoint(checkpoint_filepath)
+
+    # Correct usage and successful validation.
+    with mock.patch.dict(os.environ,
+                         {'CHECKPOINT_VALIDATION_FUNCTION': 'tests.trainer.test_checkpoint.simple_validate'}):
+        result = _ensure_valid_checkpoint(checkpoint_filepath)
+        assert result == checkpoint_filepath
+
+    # Correct usage and failed validation.
+    with open(checkpoint_filepath, 'w') as f:
+        f.write('bad')
+    with mock.patch.dict(os.environ,
+                         {'CHECKPOINT_VALIDATION_FUNCTION': 'tests.trainer.test_checkpoint._simple_validate'}):
+        with pytest.raises(ValueError):
+            _ensure_valid_checkpoint(checkpoint_filepath)
