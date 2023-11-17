@@ -997,6 +997,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         pass_at_k (int): k for how many chances the model gets to write passing code
         top_p (int): top_p sampling parameter for nucleus sampling
         top_k (int): top_k sampling parameter for number of samples to consider
+        temperature (float): temperture to use while sampling
     """
 
     def __init__(
@@ -1005,6 +1006,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         pass_at_k: int = 1,
         top_p: Optional[float] = 0.95,
         top_k: Optional[int] = 40,
+        temperature: Optional[int] = 1.0,
         *args,
         **kwargs,
     ):
@@ -1012,7 +1014,8 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             'pass_at_k': pass_at_k,
             'generations_per_sample': generations_per_sample,
             'top_p': top_p,
-            'top_k': top_k
+            'top_k': top_k,
+            'temperature': temperature
         })
         if generations_per_sample < pass_at_k:
             raise ValueError(
@@ -1039,6 +1042,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         self.max_prompt_length = self.get_max_prompt_length()
         self.top_p = top_p
         self.top_k = top_k
+        self.temperature = temperature
 
     def get_max_prompt_length(self):
         """
@@ -1106,7 +1110,8 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
                 'do_sample': True,
                 'top_p': self.top_p,
                 'top_k': self.top_k,
-                'use_cache': True,
+                'temperature': self.temperature,
+                'use_cache': True
             },
         }
         for sample in data:
@@ -1153,6 +1158,7 @@ def build_icl_dataloader(
     fewshot_random_seed: int,
     pass_at_k: int,
     generations_per_sample: int,
+    temperature: float,
 ) -> DataSpec:
     # TODO: Should this be some form of registry?
     if icl_task_type == 'multiple_choice':
@@ -1224,23 +1230,22 @@ def build_icl_dataloader(
         )
         effective_batchsize = batch_size
     elif icl_task_type == 'code_evaluation':
-        dataset = InContextLearningCodeEvalDataset(
-            dataset_uri=dataset_uri,
-            tokenizer=tokenizer,
-            max_seq_len=max_seq_len,
-            pad_tok_id=pad_tok_id,
-            num_fewshot=num_fewshot,
-            prompt_string=prompt_string,
-            example_delimiter=example_delimiter,
-            continuation_delimiter=continuation_delimiter,
-            destination_path=destination_path,
-            prelimiter=prelimiter,
-            fewshot_random_seed=fewshot_random_seed,
-            hf_loading_vars=hf_loading_vars,
-            hf_parsing_map=hf_parsing_map,
-            pass_at_k=pass_at_k,
-            generations_per_sample=generations_per_sample,
-        )
+        dataset = InContextLearningCodeEvalDataset(dataset_uri=dataset_uri,
+                                                   tokenizer=tokenizer,
+                                                   max_seq_len=max_seq_len,
+                                                   pad_tok_id=pad_tok_id,
+                                                   num_fewshot=num_fewshot,
+                                                   prompt_string=prompt_string,
+                                                   example_delimiter=example_delimiter,
+                                                   continuation_delimiter=continuation_delimiter,
+                                                   destination_path=destination_path,
+                                                   prelimiter=prelimiter,
+                                                   fewshot_random_seed=fewshot_random_seed,
+                                                   hf_loading_vars=hf_loading_vars,
+                                                   hf_parsing_map=hf_parsing_map,
+                                                   pass_at_k=pass_at_k,
+                                                   generations_per_sample=generations_per_sample,
+                                                   temperature=temperature)
         effective_batchsize = batch_size
     else:
         raise Exception(f'Unrecognized ICL task type: {icl_task_type}')
@@ -1344,6 +1349,7 @@ def get_icl_task_dataloader(
     destination_path: str = '',
     fewshot_random_seed: int = 1234,
     pass_at_k: int = 1,
+    temperature: float = 1.0,
     generations_per_sample: int = 1,
     cot_delimiter: str = '',
     has_categories: bool = False,
@@ -1426,26 +1432,26 @@ def get_icl_task_dataloader(
                                                         pass_at_k=pass_at_k,
                                                         generations_per_sample=generations_per_sample,
                                                         hf_loading_vars=hf_loading_vars,
-                                                        hf_parsing_map=hf_parsing_map)
+                                                        hf_parsing_map=hf_parsing_map,
+                                                        temperature=temperature)
         return result_dls
     else:
-        return build_icl_dataloader(
-            icl_task_type=icl_task_type,
-            dataset_uri=dataset_uri,
-            tokenizer=tokenizer,
-            batch_size=batch_size,
-            max_seq_len=max_seq_len,
-            pad_tok_id=pad_tok_id,
-            num_fewshot=num_fewshot,
-            prompt_string=prompt_string,
-            example_delimiter=example_delimiter,
-            hf_loading_vars=hf_loading_vars,
-            hf_parsing_map=hf_parsing_map,
-            continuation_delimiter=continuation_delimiter,
-            destination_path=destination_path,
-            prelimiter=question_prelimiter,
-            cot_delimiter=cot_delimiter,
-            fewshot_random_seed=fewshot_random_seed,
-            pass_at_k=pass_at_k,
-            generations_per_sample=generations_per_sample,
-        )
+        return build_icl_dataloader(icl_task_type=icl_task_type,
+                                    dataset_uri=dataset_uri,
+                                    tokenizer=tokenizer,
+                                    batch_size=batch_size,
+                                    max_seq_len=max_seq_len,
+                                    pad_tok_id=pad_tok_id,
+                                    num_fewshot=num_fewshot,
+                                    prompt_string=prompt_string,
+                                    example_delimiter=example_delimiter,
+                                    hf_loading_vars=hf_loading_vars,
+                                    hf_parsing_map=hf_parsing_map,
+                                    continuation_delimiter=continuation_delimiter,
+                                    destination_path=destination_path,
+                                    prelimiter=question_prelimiter,
+                                    cot_delimiter=cot_delimiter,
+                                    fewshot_random_seed=fewshot_random_seed,
+                                    pass_at_k=pass_at_k,
+                                    generations_per_sample=generations_per_sample,
+                                    temperature=temperature)
