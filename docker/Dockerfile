@@ -354,6 +354,11 @@ RUN pip install --no-cache-dir --upgrade \
         ipython${IPYTHON_VERSION} \
         urllib3${URLLIB3_VERSION}
 
+##################################################
+# Override NVIDIA mistaken env var for 11.8 images
+##################################################
+ARG NVIDIA_REQUIRE_CUDA_OVERRIDE
+ENV NVIDIA_REQUIRE_CUDA=${NVIDIA_REQUIRE_CUDA_OVERRIDE:-$NVIDIA_REQUIRE_CUDA}
 
 ################
 # Composer Image
