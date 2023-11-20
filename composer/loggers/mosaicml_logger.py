@@ -239,8 +239,8 @@ def format_data_to_json_serializable(data: Any):
         json.dumps(ret)  # Check if ret is JSON serializable
         return ret
     except RuntimeError as e:
-        warnings.warn('Encountered unexpected error while formatting data to be JSON serializable. '
-                      f'Returning empty string instead. Error: {str(e)}')
+        warnings.warn(f'Encountered unexpected error while formatting data of type {type(data)} to '
+                      f'be JSON serializable. Returning empty string instead. Error: {str(e)}')
         return ''
 
 
