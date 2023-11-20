@@ -225,16 +225,16 @@ def format_data_to_json_serializable(data: Any):
         ret = None
         if data is None:
             ret = 'None'
-        if isinstance(data, float):
+        elif isinstance(data, float):
             if math.isnan(data):
                 ret = 'NaN'
             elif math.isinf(data):
                 ret = 'Infinity' if data > 0 else '-Infinity'
             else:
                 ret = data
-        if type(data) in (str, int, bool):
+        elif type(data) in (str, int, bool):
             ret = data
-        if isinstance(data, torch.Tensor):
+        elif isinstance(data, torch.Tensor):
             if data.shape == () or reduce(operator.mul, data.shape, 1) == 1:
                 ret = format_data_to_json_serializable(data.cpu().item())
             else:

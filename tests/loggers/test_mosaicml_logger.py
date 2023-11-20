@@ -66,6 +66,7 @@ def test_format_data_to_json_serializable():
         'key8': float('nan'),
         'key9': float('inf'),
         'key10': float('-inf'),
+        'key11': torch.tensor([[1]]),
     }
     formatted_data = format_data_to_json_serializable(data)
 
@@ -82,8 +83,8 @@ def test_format_data_to_json_serializable():
         'key8': 'NaN',
         'key9': 'Infinity',
         'key10': '-Infinity',
+        'key11': 1,
     }
-
     assert formatted_data == expected_formatted_data
 
 
