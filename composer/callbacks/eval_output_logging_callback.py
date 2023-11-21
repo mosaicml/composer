@@ -59,6 +59,8 @@ class EvalOutputLogging(Callback):
         self.destination_file = None
 
     def _write_tables_to_output_dir(self, state: State):
+
+        
         try:
             import pandas as pd
         except ImportError as e:
