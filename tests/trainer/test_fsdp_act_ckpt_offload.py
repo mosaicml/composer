@@ -4,7 +4,7 @@
 import pytest
 import torch
 from packaging import version
-from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import CheckpointWrapper, OffloadWrapper
+from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import CheckpointWrapper
 
 from composer import Trainer
 from composer.models import ComposerModel
@@ -55,6 +55,8 @@ def test_fsdp_act_ckpt_offload(
 
     assert trainer.state.fsdp_enabled
     if version.parse(torch.__version__) > version.parse('2.1.0.dev'):
+        from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import OffloadWrapper
+
         if activation_checkpointing and activation_cpu_offload:
             assert isinstance(trainer.state.model.fc1._fsdp_wrapped_module, OffloadWrapper)
             assert isinstance(trainer.state.model.fc1._fsdp_wrapped_module._checkpoint_wrapped_module,
