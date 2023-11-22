@@ -530,21 +530,40 @@ def prepare_fsdp_module(
 
             # Activation Checkpointing
             if activation_checkpointing or activation_cpu_offload:
-                if not activation_checkpointing_reentrant:
-                    first_wrap_fn = lambda m: checkpoint_wrapper(m, checkpoint_impl=CheckpointImpl.NO_REENTRANT
-                                                                ) if activation_checkpointing else (lambda module:
-                                                                                                    module)
-                    second_wrap_fn = (
-                        lambda module: checkpoint_wrapper(
-                            first_wrap_fn(module),  # type: ignore reportGeneralTypeIssues
-                            checkpoint_impl=CheckpointImpl.NO_REENTRANT,
-                            offload_to_cpu=True)) if activation_cpu_offload else first_wrap_fn
+                if version.parse(torch.__version__) > version.parse('2.1.0.dev'):
+                    from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import offload_wrapper
+                    if not activation_checkpointing_reentrant:
+                        first_wrap_fn = lambda m: checkpoint_wrapper(m, checkpoint_impl=CheckpointImpl.NO_REENTRANT
+                                                                    ) if activation_checkpointing else (lambda module:
+                                                                                                        module)
+                        second_wrap_fn = (
+                            lambda module: offload_wrapper(
+                                first_wrap_fn(module)
+                                if activation_checkpointing else module,  # type: ignore reportGeneralTypeIssues
+                            )) if activation_cpu_offload else first_wrap_fn
+                    else:
+                        first_wrap_fn = checkpoint_wrapper if activation_checkpointing else (lambda module: module)
+                        second_wrap_fn = (
+                            lambda module: offload_wrapper(
+                                first_wrap_fn(module)
+                                if activation_checkpointing else module)  # type: ignore reportGeneralTypeIssues
+                        ) if activation_cpu_offload else first_wrap_fn
                 else:
-                    first_wrap_fn = checkpoint_wrapper if activation_checkpointing else (lambda module: module)
-                    second_wrap_fn = (
-                        lambda module: checkpoint_wrapper(
-                            first_wrap_fn(module),  # type: ignore reportGeneralTypeIssues
-                            offload_to_cpu=True)) if activation_cpu_offload else first_wrap_fn
+                    if not activation_checkpointing_reentrant:
+                        first_wrap_fn = lambda m: checkpoint_wrapper(m, checkpoint_impl=CheckpointImpl.NO_REENTRANT
+                                                                    ) if activation_checkpointing else (lambda module:
+                                                                                                        module)
+                        second_wrap_fn = (
+                            lambda module: checkpoint_wrapper(
+                                first_wrap_fn(module),  # type: ignore reportGeneralTypeIssues
+                                checkpoint_impl=CheckpointImpl.NO_REENTRANT,
+                                offload_to_cpu=True)) if activation_cpu_offload else first_wrap_fn
+                    else:
+                        first_wrap_fn = checkpoint_wrapper if activation_checkpointing else (lambda module: module)
+                        second_wrap_fn = (
+                            lambda module: checkpoint_wrapper(
+                                first_wrap_fn(module),  # type: ignore reportGeneralTypeIssues
+                                offload_to_cpu=True)) if activation_cpu_offload else first_wrap_fn
 
                 # Choose which modules to activation checkpoint according to the following priority:
                 # If module has attribute `module._activation_checkpointing = ...`, always respect it
