@@ -37,7 +37,7 @@ def test_fsdp_act_ckpt_offload(
     activation_cpu_offload: bool,
     world_size: int,
 ):
-    model = (SimpleModel())
+    model = SimpleModel()
 
     fsdp_config = {
         'activation_checkpointing': activation_checkpointing,
