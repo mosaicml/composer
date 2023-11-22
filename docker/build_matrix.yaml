@@ -151,7 +151,7 @@
   - mosaicml/pytorch:2.2.0_cu121-nightly20231024-python3.10-ubuntu20.04
   TARGET: pytorch_stage
   TORCHVISION_VERSION: 0.17.0
-  - AWS_OFI_NCCL_VERSION: ''
+- AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 12.1.0
   IMAGE_NAME: torch-nightly-2-2-0-20231121-cu121
