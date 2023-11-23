@@ -147,7 +147,7 @@ class InContextLearningDataset(Dataset):
         strip_dataset (bool): Boolean for whether to strip whitespace from data. Trailing whitespace can cause degenerative outputs,
             so unless whitespace should be preserved (for example in code), this should be set to True.
         hf_loading_vars (dict): A dictionary containing keyword arguments to be passed into `load_dataset` if dataset is being pulled from HF.
-        hf_parsing_map (Dict[str:List[str]]): A dictionary containing a from HF columns to ICL dataset keys. The dictionary should be formatted {icl_key:[hf_key1, hf_key1]}.
+        hf_parsing_map (Dict[str:List[str]]): A dictionary containing a mapping from HF columns to ICL dataset keys. The dictionary should be formatted {icl_key:[hf_key1, hf_key1]}.
             Values in the dict will be concatenated with ' ' seperating them. If not included, will use the columns already present in the HF dataset.
         stacked_keys (list(str)): keys in the output batch that must be converted to tensors with torch.stack()
         dont_split_keys (list(str)): keys in the ICL dictionary that should not be split among batches.
