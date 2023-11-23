@@ -331,7 +331,7 @@ class InContextLearningDataset(Dataset):
             sample (dict): the sample from which to retrieve the answer
 
         Returns:
-            str: the answer in from the sample
+            str: the answer in the sample
         """
         return sample[self.answer_key]
 
