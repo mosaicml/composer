@@ -125,7 +125,7 @@ def _get_fewshot_sample_idxs(dataset_size: int, num_fewshot: int, sample_idx: in
 class InContextLearningDataset(Dataset):
     """A base dataset that constructs batches for in-context learning task evaluations
 
-    The input format is expected to be a jsonl file with different fields based on the task or a link to a huggingface dataset.
+    The input format is expected to be a jsonl file with different fields based on the task or a link to a Hugging Face dataset.
 
     Args:
         dataset_uri (str): A local path, a remote path beginning with ``s3://`` or another backend, or a HuggingFace dataset uri.
