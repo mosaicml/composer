@@ -241,7 +241,7 @@ class InContextLearningDataset(Dataset):
                 Alternate backends must be supported by :meth:`composer.utils.maybe_create_object_store_from_uri`.
             destination_path (str): A local path where the data will be stored
             hf_loading_vars (dict): If parsing from HuggingFace, keyword args that will be passed into load_dataset
-            hf_parsing_map (dict): Dictionary in the form of {icl_key: [hf_col1, hf_col2]} that will map one or more hf columns, in order, to ICL dataset cols
+            hf_parsing_map (dict): Dictionary in the form of {icl_key: [hf_col1, hf_col2]} that will map one or more hf columns, in order, to ICL dataset columns
 
         Returns:
             dataset: a loaded HF dataset
