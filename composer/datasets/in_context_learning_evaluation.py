@@ -352,7 +352,7 @@ class InContextLearningDataset(Dataset):
         If there is an EOS token added, we need to remove it so it is not in the middle of the prompt,
         as the specific eval question's prompt will follow the preamble
         Args:
-            preamble (dict): a dictionary containing a the tokenized input
+            preamble (dict): a dictionary containing the tokenized input
 
         Returns:
             dict: the same dictionary with the final token conditionally removed
