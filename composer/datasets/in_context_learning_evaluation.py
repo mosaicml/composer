@@ -317,8 +317,8 @@ class InContextLearningDataset(Dataset):
 
         Args:
             sample (dict): the sample from which to construct the context
-            preceding_text (str): any preceding text, needed to if self.example_delimiter is needed at the beginning
-            add_answer (bool): bool for whether or not to add the answer on the end of the context (needed for fewshot examples)
+            preceding_text (str): any preceding text, used as a check for prepending self.example_delimiter
+            add_answer (bool): bool for whether or not to add the answer on the end of the context (e.g. for fewshot examples)
 
         Returns:
 
@@ -345,22 +345,22 @@ class InContextLearningDataset(Dataset):
         """
         return sample[self.answer_key]
 
-    def _fix_eos_on_preamble(self, preamble: dict):
+    def _fix_eos_on_preamble(self, input_ids: str):
         """
-        If the preamble is empty then preamble['input_ids'] will be a 0-length list,
+        If the input_ids is empty then input_ids['input_ids'] will be a 0-length list,
         unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
         If there is an EOS token added, we need to remove it so it is not in the middle of the prompt,
-        as the specific eval question's prompt will follow the preamble
+        as the specific eval question's prompt will follow theinput_ids 
         Args:
-            preamble (dict): a dictionary containing the tokenized input
+            input_ids (list): the tokenized input
 
         Returns:
-            dict: the same dictionary with the final token conditionally removed
+            input_ids: the tokenized input conditionally edited  
         """
-        if (self.tokenizer.eos_token_id is not None and len(preamble['input_ids']) > 1 and
-                preamble['input_ids'][-1] == self.tokenizer.eos_token_id):
-            preamble['input_ids'] = preamble['input_ids'][:-1]
-        return preamble
+        if (self.tokenizer.eos_token_id is not None and len(input_ids) > 1 and
+                input_ids[-1] == self.tokenizer.eos_token_id):
+            input_ids = input_ids[:-1]
+        return input_ids 
 
     def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: dict):
         """
@@ -375,7 +375,7 @@ class InContextLearningDataset(Dataset):
         """
         tokenized_example = {}
         preamble = self.tokenizer(prompt_and_fewshot)
-        preamble = self._fix_eos_on_preamble(preamble)
+        preamble['input_ids'] = self._fix_eos_on_preamble(preamble['input_ids'])
         tokenized_example['preamble'] = preamble
         if self.strip_data:
             # rstrip context because a prompt ending in a space results in degenerate output
@@ -933,7 +933,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         """
         tokenized_example = {}
         preamble = self.tokenizer(prompt_and_fewshot)
-        preamble = self._fix_eos_on_preamble(preamble)
+        preamble['input_ids'] = self._fix_eos_on_preamble(preamble['input_ids'])
         tokenized_example['preamble'] = preamble
         tokenized_example['context_options'] = [self.tokenizer(c, add_special_tokens=False) for c in context_options]
         continuation = example['continuation']
