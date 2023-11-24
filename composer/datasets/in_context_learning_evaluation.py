@@ -10,7 +10,6 @@ import random
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import torch
-import transformers
 from torch.utils.data import DataLoader, Dataset
 
 from composer.core import DataSpec
@@ -33,18 +32,21 @@ __all__ = [
 
 def _check_if_huggingface_uri(uri: str) -> bool:
     """
-    Takes a dataset uri and checks if it's a HuggingFace dataset uri
-    Returns False if a backend uri is present (ie 's3://', 'oci://') or if the uri is a local file
-    Returns True otherwise
+    Takes a dataset uri and checks if it's a HuggingFace dataset uri.
+    Returns False if a backend uri is present (ie 's3://', 'oci://') or if the uri is a local file.
+    Returns True otherwise.
     Args:
         uri (str): uri as a string
 
     Returns:
         bool: result of parsing uri as a HF uri 
     """
-    backend, _, _ = parse_uri(uri)
+    backend, _, path = parse_uri(uri)
     if backend == '':
-        return not os.path.isfile(uri)
+        _, ext = os.path.splitext(path)
+        # If there's any extension, it's a link to a local file. If no extention, HF path
+        return ext == ''
+    # If there's any backend, it's a cloud OCI and not HF
     return False
 
 
@@ -53,8 +55,10 @@ def strip_data(sample):
 
 
 def _tokenizer_needs_prefix_space(tokenizer) -> bool:
-    # Test for whether a prefix space is needed before the continuation.
-    # sentencepiece tokenization should not have a prefix space, but gpt2 style BPE should
+    """
+    Test for whether a prefix space is needed before the continuation.
+    Sentencepiece tokenization should not have a prefix space, but gpt2 style BPE should.
+    """
     return len(tokenizer(' a', add_special_tokens=False)['input_ids']) == 1
 
 
@@ -101,12 +105,18 @@ def _make_padded_input(context_enc, continuation_enc, max_seq_len, pad_tok_id, p
 
 
 def _get_fewshot_sample_idxs(dataset_size: int, num_fewshot: int, sample_idx: int, rng: random.Random):
-    # samples without replacement. if num_fewshot exceeds the number of unique samples,
-    # then we will have fewer than num_fewshot examples in context
-
-    # Simpler implementation (but will choose different actual ids which will break some tests)
-    # possible_fewshot_idxs = [i for i in range(0, dataset_size) if i != sample_idx]
-    # fewshot_idxs = set(rng.sample(possible_fewshot_idxs, num_fewshot))
+    """
+    Samples without replacement. If num_fewshot exceeds the number of unique samples,
+    then we will have fewer than num_fewshot examples in context.
+    Args:
+        dataset_size (int): length of the dataset
+        num_fewshot (int): number of examples to prepend
+        sample_idx (int): current sample index (excluded from fewshot choices)
+        rng (random.Random): rng for repeatable sample selection
+    
+    Returns:
+        list: indices of the examples chosen for fewshot selection
+    """
     num_fewshot = min(dataset_size - 1, num_fewshot)
     fewshot_idxs = set(rng.sample(range(0, dataset_size), num_fewshot))
 
@@ -403,7 +413,7 @@ class InContextLearningDataset(Dataset):
 
     def collate_fn(self, data):
         """
-        The function that the dataloader uses to accumulate data into batches
+        The function that the dataloader uses to accumulate data into batches.
         Args:
             data (list): list of tokenized datapoints (dicts returned by self._tokenize_example)
 
@@ -432,7 +442,7 @@ class InContextLearningDataset(Dataset):
 
     def split_batch(self, batch: Any, microbatch_size: int):
         """
-        Handling for certain specialty columns that must be split into batches in different formats
+        Handling for certain specialty columns that must be split into batches in different formats.
 
         Args:
             batch (dict): batch of data
@@ -469,7 +479,7 @@ class InContextLearningDataset(Dataset):
 
 
 class InContextLearningQATaskDataset(InContextLearningDataset):
-    """A dataset that construct batches for in-context learning question answering evaluation
+    """A dataset that construct batches for in-context learning question answering evaluation.
     QA tasks evaluate a model's ability to answer questions using a consistent format.
 
     The input format is expected to be a jsonl file with the following fields:
@@ -526,7 +536,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
 
     def _get_answer_from_sample(self, sample: dict):
         """
-        Returns the answer from the sample. Applies chain of thought if self.has_cot is marked as true
+        Returns the answer from the sample. Applies chain of thought if self.has_cot is marked as true.
         Args:
             sample (dict): the sample from which to retrieve the answer
 
@@ -555,7 +565,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
 
     def get_max_answer_length(self):
         f"""
-        Loops over the dataset and finds the longes answer length
+        Loops over the dataset and finds the longes answer length.
 
         Returns:
             int: the maximum answer length with an additional buffer of {_MAX_ANSWER_BUFFER_LENGTH} if chain of thought is present
@@ -574,7 +584,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
 
     def collate_fn(self, data):
         """
-        The function that the dataloader uses to accumulate data into batches
+        The function that the dataloader uses to accumulate data into batches.
         Args:
             data (list): list of tokenized datapoints (dicts returned by self._tokenize_example)
 
@@ -655,7 +665,7 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
 
     def collate_fn(self, data):
         """
-        The function that the dataloader uses to accumulate data into batches
+        The function that the dataloader uses to accumulate data into batches.
         Args:
             data (list): list of tokenized datapoints (dicts returned by self._tokenize_example)
 
@@ -679,13 +689,13 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
 
 
 class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
-    """A dataset that construct batches for in-context learning multiple choice evaluation
+    """A dataset that construct batches for in-context learning multiple choice evaluation.
 
     If each question has N answer choices, we construct N distinct inputs per question. In order to ensure
     consistency across multi-GPU, we set the batch size to be `min(N, batch_size)` so that all N
     inputs per question can stored in the same batch.
 
-    Each batch then consists of batch_size // N distinct questions and has the following the structure
+    Each batch then consists of batch_size // N distinct questions and has the following the structure.
 
     'input_ids': Input tensor batch x seqlen x # tokens
     'continuation_indices': List of |batch| consisting of tensors indicating which indices in the sequence correspond to the question answer (aka continuation)
@@ -721,7 +731,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
 
     def _get_answer_from_sample(self, sample: dict):
         """
-        Returns the correct answer from the sample's choices
+        Returns the correct answer from the sample's choices.
         Args:
             sample (dict): the sample from which to retrieve the answer
 
@@ -753,7 +763,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
 
     def collate_fn(self, data):
         """
-        The function that the dataloader uses to accumulate data into batches
+        The function that the dataloader uses to accumulate data into batches.
         Args:
             data (list): list of tokenized datapoints (dicts returned by self._tokenize_example)
 
@@ -845,7 +855,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
 
 
 class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskDataset):
-    """A dataset that constructs batches for in-context learning schema evaluation
+    """A dataset that constructs batches for in-context learning schema evaluation.
     A schema task involves sentences with a fill-in-the-blank where the user needs to choose the correct word
     to fill in from a set of N options. We use the partial evaluation technique from https://arxiv.org/abs/1806.02847
     to determine the model's choice of fill-in word.
@@ -880,7 +890,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
     def _construct_context(self, sample, preceding_text: str = '', add_answer: bool = False):
         """
         Takes a sample and  constructs a context. Optionally, appends this to preceeding text (such as a
-        prompt or fewshot examples), as well as optionally adds the correct answer (for fewshot examples)
+        prompt or fewshot examples), as well as optionally adds the correct answer (for fewshot examples).
 
         Args:
             sample (dict): the sample from which to construct the context
@@ -892,7 +902,6 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         context_options = sample['context_options']
         gold_idx = sample['gold']
         continuation = sample['continuation']
-        assert isinstance(gold_idx, int)
         if add_answer:
             context = context_options[gold_idx]
             if len(preceding_text) > 0:
@@ -936,7 +945,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
 
     def collate_fn(self, data):
         """
-        The function that the dataloader uses to accumulate data into batches
+        The function that the dataloader uses to accumulate data into batches.
         Args:
             data (list): list of tokenized datapoints (dicts returned by self._tokenize_example)
 
@@ -982,7 +991,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
 
 
 class InContextLearningCodeEvalDataset(InContextLearningDataset):
-    """A dataset that constructs batches for in-context learning code evaluation
+    """A dataset that constructs batches for in-context learning code evaluation.
 
     The input format is expected to be a jsonl file with the following fields:
     - task_id: label of given task
@@ -1061,7 +1070,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
 
     def get_max_prompt_length(self):
         """
-        Iterates through the dataset and finds the length of the longest prompt
+        Iterates through the dataset and finds the length of the longest prompt.
         Returns:
             int: maximum prompt length
         """
@@ -1097,7 +1106,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
 
     def collate_fn(self, data):
         """
-        The function that the dataloader uses to accumulate data into batches
+        The function that the dataloader uses to accumulate data into batches.
         Args:
             data (list): list of tokenized datapoints (dicts returned by self._tokenize_example)
 
@@ -1175,7 +1184,6 @@ def build_icl_dataloader(
     generations_per_sample: int,
     temperature: float,
 ) -> DataSpec:
-    # TODO: Should this be some form of registry?
     if icl_task_type == 'multiple_choice':
         dataset = InContextLearningMultipleChoiceTaskDataset(
             dataset_uri=dataset_uri,
@@ -1260,7 +1268,8 @@ def build_icl_dataloader(
                                                    hf_parsing_map=hf_parsing_map,
                                                    pass_at_k=pass_at_k,
                                                    generations_per_sample=generations_per_sample,
-                                                   temperature=temperature)
+                                                   temperature=temperature,
+                                                   )
         effective_batchsize = batch_size
     else:
         raise Exception(f'Unrecognized ICL task type: {icl_task_type}')
@@ -1345,7 +1354,6 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_lo
     return output_files
 
 
-# TODO: Where do we want to set our defaults?
 def get_icl_task_dataloader(
     icl_task_type: str,
     dataset_uri: str,
@@ -1447,7 +1455,8 @@ def get_icl_task_dataloader(
                                                         generations_per_sample=generations_per_sample,
                                                         hf_loading_vars=hf_loading_vars,
                                                         hf_parsing_map=hf_parsing_map,
-                                                        temperature=temperature)
+                                                        temperature=temperature,
+                                                        )
         return result_dls
     else:
         return build_icl_dataloader(icl_task_type=icl_task_type,
@@ -1468,4 +1477,5 @@ def get_icl_task_dataloader(
                                     fewshot_random_seed=fewshot_random_seed,
                                     pass_at_k=pass_at_k,
                                     generations_per_sample=generations_per_sample,
-                                    temperature=temperature)
+                                    temperature=temperature,
+                                    )

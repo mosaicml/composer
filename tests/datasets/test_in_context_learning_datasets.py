@@ -17,7 +17,7 @@ from composer import Evaluator
 from composer.core import DataSpec
 from composer.datasets.in_context_learning_evaluation import (InContextLearningCodeEvalDataset,
                                                               _get_fewshot_sample_idxs, _make_padded_input,
-                                                              get_icl_task_dataloader)
+                                                              get_icl_task_dataloader, _check_if_huggingface_uri)
 from composer.loggers import InMemoryLogger
 from composer.metrics import (InContextLearningCodeEvalAccuracy, InContextLearningLMAccuracy,
                               InContextLearningMultipleChoiceAccuracy, InContextLearningQAAccuracy)
@@ -74,6 +74,15 @@ def test_batch_padding_logic(tiny_gpt2_tokenizer):
     # the context (of len 2000) gets clipped to len 48 so that the whole continuation can fit
     assert continuation_spans[0] == 48 and continuation_spans[-1] == 2047
 
+
+@pytest.mark.parametrize('uri', ['tests/datasets/local_data/hellaswag_small.jsonl', 's3://oci/url/link.json', 'gcs://blah/blah.json'])
+def test_check_if_huggingface_uri_when_not_hf_uri(uri):
+    assert not _check_if_huggingface_uri(uri)
+
+
+@pytest.mark.parametrize('uri', ['L4NLP/LEval', 'mosaicml/instruct-v3'])
+def test_check_if_huggingface_uri_when_hf_uri(uri):
+    assert _check_if_huggingface_uri(uri)
 
 @pytest.mark.parametrize('padding_side', ['left', 'right', 'middle'])
 def test_make_padding(tiny_gpt2_tokenizer, padding_side):
