@@ -30,6 +30,7 @@ __all__ = [
     'get_icl_task_dataloader',
 ]
 
+
 def _check_if_huggingface_uri(uri: str) -> bool:
     """
     Takes a dataset uri and checks if it's a HuggingFace dataset uri.
@@ -39,7 +40,7 @@ def _check_if_huggingface_uri(uri: str) -> bool:
         uri (str): uri as a string
 
     Returns:
-        bool: result of parsing uri as a HF uri 
+        bool: result of parsing uri as a HF uri
     """
     backend, _, path = parse_uri(uri)
     if backend == '':
@@ -113,7 +114,7 @@ def _get_fewshot_sample_idxs(dataset_size: int, num_fewshot: int, sample_idx: in
         num_fewshot (int): number of examples to prepend
         sample_idx (int): current sample index (excluded from fewshot choices)
         rng (random.Random): rng for repeatable sample selection
-    
+
     Returns:
         list: indices of the examples chosen for fewshot selection
     """
@@ -350,17 +351,17 @@ class InContextLearningDataset(Dataset):
         If the input_ids is empty then input_ids['input_ids'] will be a 0-length list,
         unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
         If there is an EOS token added, we need to remove it so it is not in the middle of the prompt,
-        as the specific eval question's prompt will follow theinput_ids 
+        as the specific eval question's prompt will follow theinput_ids
         Args:
             input_ids (list): the tokenized input
 
         Returns:
-            input_ids: the tokenized input conditionally edited  
+            input_ids: the tokenized input conditionally edited
         """
         if (self.tokenizer.eos_token_id is not None and len(input_ids) > 1 and
                 input_ids[-1] == self.tokenizer.eos_token_id):
             input_ids = input_ids[:-1]
-        return input_ids 
+        return input_ids
 
     def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: dict):
         """
@@ -487,21 +488,9 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
     - answer: the preferred answer to the question
     - aliases: a list of aliases for the answer
 
-    #TODO: Should I only list variables here that are different than InContextLearningDataset?
-    Args:
-        dataset_uri (str): A local path, a remote path beginning with ``s3://`` or another backend, or a HuggingFace dataset link.
-            Alternate backends must be supported by :meth:`composer.utils.maybe_create_object_store_from_uri`.
-            Dataset must consist of rows of JSON data points with "context", "answer", and "aliases". See tests/datasets/local_data/triviaqa_small.jsonl.
-        tokenizer (transformers.PreTrainedTokenizerBase): The tokenizer used to map between strings and token ids
-        max_seq_len (int): The maximum sequence length supported by the model
-        pad_tok_id (int): The special token reserved for padding batches
-        num_fewshot (int): The number of complete fewshot examples to prepend before each test example
-        prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
-        example_delimiter (str): Separator that goes between individual (context, answer) pairs (e.g. '\n')
-        continuation_delimiter: (str): Separator that goes between context and answer in each example (e.g. '\nA: ')
-        destination_path (str): Temporary path to store downloaded datasets
-        prelimiter (str): String to put before each question (e.g. 'Q: ')
-        fewshot_random_seed (int): Random seed to use for fewshot sampling
+    See InContextLearningDataset for more details.
+
+    Additional Args:
         cot_delimiter (str): Delimiter to place between the chain of thought and continuations.
     """
 
@@ -625,21 +614,11 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
     """A dataset that construct batches for in-context learning language modeling evaluation.
     Language modeling tasks test a model's ability to properly predict tokens based on preceding tokens.
 
+    The input format is expected to be a jsonl file with the following fields:
+    - context: preceding text
+    - continuation: the expected continuation
 
-    #TODO: Should I only list variables here that are different than InContextLearningDataset?
-    Args:
-        dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
-            supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "context",
-            and "continuation". See tests/datasets/local_data/lambada_small.jsonl.
-        tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to transform data into batches
-        max_seq_len (int): The sequence length expected by the model
-        pad_tok_id (int): The special token reserved for padding the ends of batches
-        num_fewshot (int): The number of complete fewshot examples to prepend before each test example
-        prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
-        example_delimiter (str): Separator that goes between individual (context, continuation) pairs (e.g. '\n')
-        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
-        destination_path (str): Temporary path to store downloaded datasets
-        fewshot_random_seed (int): Random seed used to select fewshot examples
+    See InContextLearningDataset for more details.
     """
 
     def __init__(self, *args, **kwargs):
@@ -695,29 +674,21 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
     consistency across multi-GPU, we set the batch size to be `min(N, batch_size)` so that all N
     inputs per question can stored in the same batch.
 
+    The default input format is a jsonl file with the following fields:
+    - query: the preceding text, question, or document relevant to the choices
+    - gold: index of the correct choice under 'choices'
+    - choices: a list of strings, each being one of the potential choices
+
     Each batch then consists of batch_size // N distinct questions and has the following the structure.
+    - input_ids: Input tensor batch x seqlen x # tokens
+    - continuation_indices: List of |batch| consisting of tensors indicating which indices in the sequence correspond to the question answer (aka continuation)
+    - mode: Indicates to the model that this is an ICL task and may rely on a custom code path to properly update metrics
+    - labels: Identical to the input, used by the model to calculate loss/metrics
+    - gold_indices: List of length |batch_size // N| indicating for each question, which of the answers is correct (via an integer [0, N-1])
+    - choice_groupings: Indicates which indices of the batch correspond to which questions
 
-    'input_ids': Input tensor batch x seqlen x # tokens
-    'continuation_indices': List of |batch| consisting of tensors indicating which indices in the sequence correspond to the question answer (aka continuation)
-    'mode': Indicates to the model that this is an ICL task and may rely on a custom code path to properly update metrics
-    'labels': Identical to the input, used by the model to calculate loss/metrics
-    'gold_indices': List of length |batch_size // N| indicating for each question, which of the answers is correct (via an integer [0, N-1])
-    'choice_groupings': Indicates which indices of the batch correspond to which questions
-
-    #TODO: Should I only list variables here that are different than InContextLearningDataset?
-    Args:
-        dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
-            supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "query",
-            "choices", and "gold" index. See tests/datasets/local_data/piqa_small.jsonl.
-        tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to transform data into batches
-        max_seq_len (int): The sequence length expected by the model
-        pad_tok_id (int): The special token reserved for padding the ends of batches
-        num_fewshot (int): The number of complete fewshot examples to prepend before each test example
-        prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
-        example_delimiter (str): Separator that goes between individual (context, continuation) pairs (e.g. '\n')
-        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
-        destination_path (str): Temporary path to store downloaded datasets
-        fewshot_random_seed (int): Random seed used to select fewshot examples
+    Additional Args:
+        choices_key (str): the key under which the choices are stored in the saved dataset. Defaults to 'choices'.
     """
 
     def __init__(self, choices_key: str = 'choices', *args, **kwargs):
@@ -859,29 +830,19 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
     A schema task involves sentences with a fill-in-the-blank where the user needs to choose the correct word
     to fill in from a set of N options. We use the partial evaluation technique from https://arxiv.org/abs/1806.02847
     to determine the model's choice of fill-in word.
+
+    The default input format is a jsonl file with the following fields:
+    - context_options: list of strings corresponding to possible preceding context options for the continuation
+    - gold: index of the correct context from 'context_options'
+    - continuation: the finishing continuation
+
     Each batch then consists of batch_size // N distinct tasks and has the following the structure
-    'input_ids': Input tensor batch x seqlen x # tokens
-    'continuation_indices': List of |batch| consisting of tensors indicating which indices in the sequence correspond to the question answer (aka continuation)
-    'mode': Indicates to the model that this is an ICL task and may rely on a custom code path to properly update metrics
-    'labels': Identical to the input, used by the model to calculate loss/metrics
-    'gold_indices': List of length |batch_size // N| indicating for each question, which of the answers is correct (via an integer [0, N-1])
-    'choice_groupings': Indicates which indices of the batch correspond to which questions
-    #TODO: Should I only list variables here that are different than InContextLearningDataset?
-    Args:
-        dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
-            supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "query",
-            "choices", and "gold" index. See tests/datasets/local_data/piqa_small.jsonl.
-        tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to transform data into batches
-        batch_size (int): Size of a batch used for eval
-        max_seq_len (int): The sequence length expected by the model
-        pad_tok_id (int): The special token reserved for padding the ends of batches
-        num_fewshot (int): The number of complete fewshot examples to prepend before each test example
-        prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
-        example_delimiter (str): Separator that goes between individual (context, continuation) pairs (e.g. '\n')
-        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
-        destination_path (str): Temporary path to store downloaded datasets
-        fewshot_random_seed (int): Random seed used to select fewshot examples
-        choices_key (str)
+    - input_ids: Input tensor batch x seqlen x # tokens
+    - continuation_indices: List of |batch| consisting of tensors indicating which indices in the sequence correspond to the question answer (aka continuation)
+    - mode: Indicates to the model that this is an ICL task and may rely on a custom code path to properly update metrics
+    - labels: Identical to the input, used by the model to calculate loss/metrics
+    - gold_indices: List of length |batch_size // N| indicating for each question, which of the answers is correct (via an integer [0, N-1])
+    - choice_groupings: Indicates which indices of the batch correspond to which questions
     """
 
     def __init__(self, choices_key='context_options', *args, **kwargs):
@@ -993,7 +954,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
 class InContextLearningCodeEvalDataset(InContextLearningDataset):
     """A dataset that constructs batches for in-context learning code evaluation.
 
-    The input format is expected to be a jsonl file with the following fields:
+    The default input format is expected to be a jsonl file with the following fields:
     - task_id: label of given task
     - prompt: the code snippet that must be completed
     - entry_point: the entry to the function/code snippet to generate
@@ -1002,26 +963,37 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
     - test_inputs: list of test inputs
     - test_outputs: list of test outputs
     - language: the language of the code snippet
-    #TODO: Should I only list variables here that are different than InContextLearningDataset?
-    Args:
-        dataset_uri (str): Either a local path, or a remote path beginning with ``s3://``, or another backend
-        supported by :meth:`composer.utils.maybe_create_object_store_from_uri`. Dataset must consist of rows of JSON data points with "task_id",
-        "prompt", "entry_point", "canonical_solution", "test", "test_inputs", and "test_outputs". See tests/datasets/local_data/human_eval_small.jsonl.
-        tokenizer (Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]): The tokenizer used to map between strings and token ids
-        max_seq_len (int): The maximum sequence length supported by the model
-        pad_tok_id (int): The special token reserved for padding batches
-        num_fewshot (int): The number of complete fewshot examples to prepend before each test example
-        prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
-        example_delimiter (str): Separator that goes between individual (context, answer) pairs (e.g. '\n')
-        destination_path (str): Temporary path to store downloaded datasets
-        code_prelimiter (str): String to put before each code prompt (e.g. 'Q: ')
-        fewshot_random_seed (int): Random seed to use for fewshot sampling
-        generations_per_sample (int): how many outputs to generate per prompt
-        # TODO: is this correct?
-        pass_at_k (int): k for how many chances the model gets to write passing code
-        top_p (int): top_p sampling parameter for nucleus sampling
-        top_k (int): top_k sampling parameter for number of samples to consider
-        temperature (float): temperture to use while sampling
+
+    Each batch then consists of the following the structure
+    - input_ids: Input tensor batch x seqlen x # tokens
+    - mode: Indicates to the model that this is an ICL task and may rely on a custom code path to properly update metrics
+    - mode: always set to 'generate'
+    - labels:
+    - prompts:
+    - cannonical_solutions
+    - entry_points: list of entry points
+    - test_inputs: list of test inputs
+    - test_outputs: list of test outputs
+    - languages:  list of languages
+    - pass_at_k: passed value for pass_at_k
+    - generation_length: derrived maximum generation length
+    - generation_kwargs: Dictionary of kwargs neeeded for generation. Includes the following:
+        - pad_token_id: ID for padding token, derived automatically
+        - num_beams: how many beams to search for generations, always set to 1
+        - num_return_sequences: value passed for 'generations_per_sample',  how many generations per prompt
+        - do_sample: set to True, whether or not the model is sampling (#TODO: explain this better)
+        - top_p: passed top_p
+        - top_k: passed top_k
+        - temperature: passed temperature
+        - use_cache: True (#TODO explain this)
+
+    Additional Args:
+        # TODO: are these correct?
+        generations_per_sample (int) (defaults to 1): how many outputs to generate per prompt
+        pass_at_k (int) (defaults to 1): k for how many chances the model gets to write passing code
+        top_p (int) (defaults to 0.95): top_p sampling parameter for nucleus sampling
+        top_k (int) (defaults to 40): top_k sampling parameter for number of samples to consider
+        temperature (float) (defaults to 1.0): temperature to use while sampling
     """
 
     def __init__(
@@ -1253,23 +1225,24 @@ def build_icl_dataloader(
         )
         effective_batchsize = batch_size
     elif icl_task_type == 'code_evaluation':
-        dataset = InContextLearningCodeEvalDataset(dataset_uri=dataset_uri,
-                                                   tokenizer=tokenizer,
-                                                   max_seq_len=max_seq_len,
-                                                   pad_tok_id=pad_tok_id,
-                                                   num_fewshot=num_fewshot,
-                                                   prompt_string=prompt_string,
-                                                   example_delimiter=example_delimiter,
-                                                   continuation_delimiter=continuation_delimiter,
-                                                   destination_path=destination_path,
-                                                   prelimiter=prelimiter,
-                                                   fewshot_random_seed=fewshot_random_seed,
-                                                   hf_loading_vars=hf_loading_vars,
-                                                   hf_parsing_map=hf_parsing_map,
-                                                   pass_at_k=pass_at_k,
-                                                   generations_per_sample=generations_per_sample,
-                                                   temperature=temperature,
-                                                   )
+        dataset = InContextLearningCodeEvalDataset(
+            dataset_uri=dataset_uri,
+            tokenizer=tokenizer,
+            max_seq_len=max_seq_len,
+            pad_tok_id=pad_tok_id,
+            num_fewshot=num_fewshot,
+            prompt_string=prompt_string,
+            example_delimiter=example_delimiter,
+            continuation_delimiter=continuation_delimiter,
+            destination_path=destination_path,
+            prelimiter=prelimiter,
+            fewshot_random_seed=fewshot_random_seed,
+            hf_loading_vars=hf_loading_vars,
+            hf_parsing_map=hf_parsing_map,
+            pass_at_k=pass_at_k,
+            generations_per_sample=generations_per_sample,
+            temperature=temperature,
+        )
         effective_batchsize = batch_size
     else:
         raise Exception(f'Unrecognized ICL task type: {icl_task_type}')
@@ -1437,45 +1410,47 @@ def get_icl_task_dataloader(
         categories = sorted(output_files.keys())
         for category in categories:
             partition_uri = output_files[category]
-            result_dls[category] = build_icl_dataloader(icl_task_type=icl_task_type,
-                                                        dataset_uri=partition_uri,
-                                                        tokenizer=tokenizer,
-                                                        batch_size=batch_size,
-                                                        max_seq_len=max_seq_len,
-                                                        pad_tok_id=pad_tok_id,
-                                                        num_fewshot=num_fewshot,
-                                                        prompt_string=prompt_string,
-                                                        example_delimiter=example_delimiter,
-                                                        continuation_delimiter=continuation_delimiter,
-                                                        destination_path=partition_uri + '_tmp',
-                                                        prelimiter=question_prelimiter,
-                                                        cot_delimiter=cot_delimiter,
-                                                        fewshot_random_seed=fewshot_random_seed,
-                                                        pass_at_k=pass_at_k,
-                                                        generations_per_sample=generations_per_sample,
-                                                        hf_loading_vars=hf_loading_vars,
-                                                        hf_parsing_map=hf_parsing_map,
-                                                        temperature=temperature,
-                                                        )
+            result_dls[category] = build_icl_dataloader(
+                icl_task_type=icl_task_type,
+                dataset_uri=partition_uri,
+                tokenizer=tokenizer,
+                batch_size=batch_size,
+                max_seq_len=max_seq_len,
+                pad_tok_id=pad_tok_id,
+                num_fewshot=num_fewshot,
+                prompt_string=prompt_string,
+                example_delimiter=example_delimiter,
+                continuation_delimiter=continuation_delimiter,
+                destination_path=partition_uri + '_tmp',
+                prelimiter=question_prelimiter,
+                cot_delimiter=cot_delimiter,
+                fewshot_random_seed=fewshot_random_seed,
+                pass_at_k=pass_at_k,
+                generations_per_sample=generations_per_sample,
+                hf_loading_vars=hf_loading_vars,
+                hf_parsing_map=hf_parsing_map,
+                temperature=temperature,
+            )
         return result_dls
     else:
-        return build_icl_dataloader(icl_task_type=icl_task_type,
-                                    dataset_uri=dataset_uri,
-                                    tokenizer=tokenizer,
-                                    batch_size=batch_size,
-                                    max_seq_len=max_seq_len,
-                                    pad_tok_id=pad_tok_id,
-                                    num_fewshot=num_fewshot,
-                                    prompt_string=prompt_string,
-                                    example_delimiter=example_delimiter,
-                                    hf_loading_vars=hf_loading_vars,
-                                    hf_parsing_map=hf_parsing_map,
-                                    continuation_delimiter=continuation_delimiter,
-                                    destination_path=destination_path,
-                                    prelimiter=question_prelimiter,
-                                    cot_delimiter=cot_delimiter,
-                                    fewshot_random_seed=fewshot_random_seed,
-                                    pass_at_k=pass_at_k,
-                                    generations_per_sample=generations_per_sample,
-                                    temperature=temperature,
-                                    )
+        return build_icl_dataloader(
+            icl_task_type=icl_task_type,
+            dataset_uri=dataset_uri,
+            tokenizer=tokenizer,
+            batch_size=batch_size,
+            max_seq_len=max_seq_len,
+            pad_tok_id=pad_tok_id,
+            num_fewshot=num_fewshot,
+            prompt_string=prompt_string,
+            example_delimiter=example_delimiter,
+            hf_loading_vars=hf_loading_vars,
+            hf_parsing_map=hf_parsing_map,
+            continuation_delimiter=continuation_delimiter,
+            destination_path=destination_path,
+            prelimiter=question_prelimiter,
+            cot_delimiter=cot_delimiter,
+            fewshot_random_seed=fewshot_random_seed,
+            pass_at_k=pass_at_k,
+            generations_per_sample=generations_per_sample,
+            temperature=temperature,
+        )
