@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import os
 import random
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Optional, Union
 
 import torch
 from torch.utils.data import DataLoader, Dataset
@@ -51,7 +51,7 @@ def _check_if_huggingface_uri(uri: str) -> bool:
     return False
 
 
-def strip_data(sample):
+def strip_data(sample: dict) -> dict:
     return {k: v.strip() if isinstance(v, str) else v for k, v in sample.items()}
 
 
@@ -63,7 +63,8 @@ def _tokenizer_needs_prefix_space(tokenizer) -> bool:
     return len(tokenizer(' a', add_special_tokens=False)['input_ids']) == 1
 
 
-def _make_padded_input(context_enc, continuation_enc, max_seq_len, pad_tok_id, padding_side='right'):
+def _make_padded_input(context_enc: List, continuation_enc: List, max_seq_len: int, pad_tok_id: int, padding_side: str = 'right') -> Tuple[torch.tensor, torch.tensor]:
+    # TODO: docstring
     if len(continuation_enc) + len(context_enc) > max_seq_len:
         # clip from the end
         context_max_subseq_len = max_seq_len - len(continuation_enc)
@@ -105,7 +106,7 @@ def _make_padded_input(context_enc, continuation_enc, max_seq_len, pad_tok_id, p
     return inp, continuation_span
 
 
-def _get_fewshot_sample_idxs(dataset_size: int, num_fewshot: int, sample_idx: int, rng: random.Random):
+def _get_fewshot_sample_idxs(dataset_size: int, num_fewshot: int, sample_idx: int, rng: random.Random) -> List[int]:
     """
     Samples without replacement. If num_fewshot exceeds the number of unique samples,
     then we will have fewer than num_fewshot examples in context.
@@ -224,22 +225,24 @@ class InContextLearningDataset(Dataset):
             },
         )
 
-    def __getitem__(self, index: int):
+    def __getitem__(self, index: int) -> Dict:
         return self.encoded_dataset[index]
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.encoded_dataset)
 
     def get_num_samples_in_batch(self, batch: dict) -> int:
         return batch['input_ids'].shape[0]
 
-    def check_defaults_are_set(self, dict_of_defaults: dict):
+    def check_defaults_are_set(self, dict_of_defaults: dict) -> None:
         if all(v for v in dict_of_defaults.values()):
             return
         raise ValueError(
             f"{type(self).__name__} missing required variable(s): {''.join([k for k, v in dict_of_defaults.items() if not v])}"
         )
 
+    # TODO conditionally return dataset type?
+    # TODO make all type checking Dict and List or dict and list
     def _read_dataset(self,
                       dataset_uri: str,
                       destination_path: str,
@@ -311,7 +314,7 @@ class InContextLearningDataset(Dataset):
 
         return few_shot_text
 
-    def _construct_context(self, sample: dict, preceding_text: str = '', add_answer: bool = False):
+    def _construct_context(self, sample: dict, preceding_text: str = '', add_answer: bool = False) -> str:
         """
         Takes a sample and constructs a context. Optionally, appends this to preceeding text (such as a
         prompt or fewshot examples), as well as optionally adds the correct answer (for fewshot examples)
@@ -335,7 +338,7 @@ class InContextLearningDataset(Dataset):
             ctxt = f'{ctxt}{self._get_answer_from_sample(sample)}'
         return ctxt
 
-    def _get_answer_from_sample(self, sample: dict):
+    def _get_answer_from_sample(self, sample: Dict[str, Any]) -> str:
         """
         Returns the answer from the sample
         Args:
@@ -346,7 +349,7 @@ class InContextLearningDataset(Dataset):
         """
         return sample[self.answer_key]
 
-    def _fix_eos_on_preamble(self, input_ids: str):
+    def _fix_eos_on_preamble(self, input_ids: List[int]) -> List[int]:
         """
         If the input_ids is empty then input_ids['input_ids'] will be a 0-length list,
         unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
@@ -363,7 +366,7 @@ class InContextLearningDataset(Dataset):
             input_ids = input_ids[:-1]
         return input_ids
 
-    def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: dict):
+    def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: dict) -> Dict[str, Any]:
         """
         Runs text through the tokenizer and handles special cases.
         Args:
@@ -412,7 +415,8 @@ class InContextLearningDataset(Dataset):
         tokenized_example = self._tokenize_example(prompt_and_fewshot, ctxt, example)
         return tokenized_example
 
-    def collate_fn(self, data):
+    # TODO: confirm this typing?
+    def collate_fn(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
         The function that the dataloader uses to accumulate data into batches.
         Args:
@@ -441,7 +445,7 @@ class InContextLearningDataset(Dataset):
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
-    def split_batch(self, batch: Any, microbatch_size: int):
+    def split_batch(self, batch: Any, microbatch_size: int) -> List[Dict[str, Any]]:
         """
         Handling for certain specialty columns that must be split into batches in different formats.
 
@@ -523,7 +527,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
                 'chain_of_thought': examples.get('chain_of_thought', ''),
             })
 
-    def _get_answer_from_sample(self, sample: dict):
+    def _get_answer_from_sample(self, sample: dict) -> str:
         """
         Returns the answer from the sample. Applies chain of thought if self.has_cot is marked as true.
         Args:
@@ -537,7 +541,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         else:
             return sample[self.answer_key]
 
-    def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: dict):
+    def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: dict) -> Dict[str, Any]:
         """
         Runs text through the tokenizer and handles special cases.
         Args:
@@ -552,7 +556,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         tokenized_example['aliases'] = list(example.get('aliases', []))
         return tokenized_example
 
-    def get_max_answer_length(self):
+    def get_max_answer_length(self) -> int:
         f"""
         Loops over the dataset and finds the longes answer length.
 
@@ -571,7 +575,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         max_answer_length = max_answer_length + (_MAX_ANSWER_BUFFER_LENGTH if len(self.cot_delimiter) > 0 else 0)
         return max_answer_length
 
-    def collate_fn(self, data):
+    def collate_fn(self, data: dict) -> Dict[str, Any]:
         """
         The function that the dataloader uses to accumulate data into batches.
         Args:
@@ -624,7 +628,7 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
     def __init__(self, *args, **kwargs):
         super().__init__(answer_key='continuation', *args, **kwargs)
 
-    def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: dict):
+    def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: dict) -> Dict[str, Any]:
         """
         Runs text through the tokenizer and handles special cases.
         Args:
@@ -642,7 +646,7 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
         tokenized_example['continuation'] = self.tokenizer(cont, add_special_tokens=False)
         return tokenized_example
 
-    def collate_fn(self, data):
+    def collate_fn(self, data: Dict[str, any]) -> Dict[str, Any]:
         """
         The function that the dataloader uses to accumulate data into batches.
         Args:
@@ -700,7 +704,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         self.num_choices = len(self.dataset[0][choices_key])
         self.real_split_keys = ['input_ids', 'labels', 'attention_mask']
 
-    def _get_answer_from_sample(self, sample: dict):
+    def _get_answer_from_sample(self, sample: dict) -> str:
         """
         Returns the correct answer from the sample's choices.
         Args:
@@ -713,7 +717,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         gold_idx = sample['gold']
         return choices[gold_idx]
 
-    def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: dict):
+    def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: dict) -> Dict[str, Any]:
         """
         Runs text through the tokenizer and handles special cases.
         Args:
@@ -732,7 +736,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         tokenized_example['gold'] = example['gold']
         return tokenized_example
 
-    def collate_fn(self, data):
+    def collate_fn(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
         The function that the dataloader uses to accumulate data into batches.
         Args:
@@ -781,7 +785,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
     def get_num_samples_in_batch(self, batch) -> int:
         return batch['input_ids'].shape[0] // self.num_choices
 
-    def split_batch(self, batch: Any, microbatch_size: int):
+    def split_batch(self, batch: Any, microbatch_size: int) -> Dict[str, Any]:
         """Split batch while ensuring all continuations are in the same microbatch.
 
         In ICL Multiple Choice, we duplicate each data point for each possible continuation.
@@ -848,7 +852,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
     def __init__(self, choices_key='context_options', *args, **kwargs):
         super().__init__(choices_key=choices_key, *args, **kwargs)
 
-    def _construct_context(self, sample, preceding_text: str = '', add_answer: bool = False):
+    def _construct_context(self, sample, preceding_text: str = '', add_answer: bool = False) -> str:
         """
         Takes a sample and  constructs a context. Optionally, appends this to preceeding text (such as a
         prompt or fewshot examples), as well as optionally adds the correct answer (for fewshot examples).
@@ -881,7 +885,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
                 context_options = [f'{self.example_delimiter}{c}{cont_del}' for c in context_options]
             return context_options
 
-    def _tokenize_example(self, prompt_and_fewshot: str, context_options: List[str], example: dict):
+    def _tokenize_example(self, prompt_and_fewshot: str, context_options: List[str], example: dict) -> Dict[str, Any]:
         """
         Runs text through the tokenizer and handles special cases.
         Args:
@@ -904,7 +908,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         tokenized_example['gold'] = example['gold']
         return tokenized_example
 
-    def collate_fn(self, data):
+    def collate_fn(self, data) -> Dict[str, Any]:
         """
         The function that the dataloader uses to accumulate data into batches.
         Args:
@@ -1032,7 +1036,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             *args,
             **kwargs,
         )
-        # TODO: add temperature
         self.pass_at_k = pass_at_k
         self.generations_per_sample = generations_per_sample
         self.max_prompt_length = self.get_max_prompt_length()
@@ -1040,7 +1043,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         self.top_k = top_k
         self.temperature = temperature
 
-    def get_max_prompt_length(self):
+    def get_max_prompt_length(self) -> int:
         """
         Iterates through the dataset and finds the length of the longest prompt.
         Returns:
@@ -1054,7 +1057,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             )
         return max_prompt_length
 
-    def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: dict):
+    def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: dict) -> Dict[str, Any]:
         """
         Runs text through the tokenizer and handles special cases.
         Args:
@@ -1076,7 +1079,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         tokenized_example['language'] = example['language']
         return tokenized_example
 
-    def collate_fn(self, data):
+    def collate_fn(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
         The function that the dataloader uses to accumulate data into batches.
         Args:
