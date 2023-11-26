@@ -471,10 +471,43 @@ class InContextLearningDataset(Dataset):
 class InContextLearningRAGGenerationTaskDataset(InContextLearningDataset):
     """A dataset that construct batches for in-context learning RAG generation evaluation
     Rag generation tasks evaluate a model's ability to answer questions based on passages.
+
+    Args:
+        passage_delimiter (str): Delimiter to place between each passage.
+        passage_query_delimiter (str): Delimiter to place between the last passage and the query.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(
+            self,
+            passage_delimiter: str = '\nPassage: ',
+            passage_query_delimiter: str = '\nQuery: ',
+            *args,
+            **kwargs
+            ):
         super().__init__(*args, **kwargs)
+        self.passage_delimiter = passage_delimiter
+        self.passage_query_delimiter = passage_query_delimiter
+
+    def _construct_context(self, sample: dict, preceding_text: str = '', add_answer: bool = False):
+        """
+        Takes a sample and constructs a context. Optionally, appends this to preceeding text (such as a
+        prompt or fewshot examples), as well as optionally adds the correct answer (for fewshot examples)
+
+        Args:
+            sample (dict): the sample from which to construct the context
+            preceding_text (str): any preceding text, needed to if self.example_delimiter is needed at the beginning
+            add_answer (bool): bool for whether or not to add the answer on the end of the context (needed for fewshot examples)
+
+        Returns:
+
+            str: The constructed context. The default output context is
+                 formatted as follows: f'{self.prelimiter}{sample['self.passages_key']}{sample[self.context_key]}{self.continuation_delimiter}'
+        """
+        passages = passage_delimiter.lstrip('\n ')
+        passages += f'{passage_delimiter}'.join(sample['passages'])
+        query = sample['query']
+        context = f'{self.prelimiter}{pssgs}{self.passage_query_delimiter}{query}'
+        return context
 
 
 class InContextLearningQATaskDataset(InContextLearningDataset):
