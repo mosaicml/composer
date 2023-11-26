@@ -468,6 +468,15 @@ class InContextLearningDataset(Dataset):
         return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
 
 
+class InContextLearningRAGGenerationTaskDataset(InContextLearningDataset):
+    """A dataset that construct batches for in-context learning RAG generation evaluation
+    Rag generation tasks evaluate a model's ability to answer questions based on passages.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
 class InContextLearningQATaskDataset(InContextLearningDataset):
     """A dataset that construct batches for in-context learning question answering evaluation
     QA tasks evaluate a model's ability to answer questions using a consistent format.
