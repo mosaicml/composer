@@ -356,7 +356,7 @@ class RemoteUploaderDownloader(LoggerDestination):
         # Periodically check to see if any of the upload workers crashed
         # They would crash if:
         #   a) A file could not be uploaded, and the retry counter failed, or
-        #   b) allow_overwrite=False, but the file already exists,
+        #   b) overwrite=False, but the file already exists,
         if not self._all_workers_alive:
             if not self._exception_queue.empty():
                 exception = self._exception_queue.get_nowait()
@@ -615,7 +615,7 @@ def _upload_worker(
                     pass
                 else:
                     # Exceptions will be detected on the next batch_end or epoch_end event
-                    e = FileExistsError(f'Object {uri} already exists, but allow_overwrite was set to False.')
+                    e = FileExistsError(f'Object {uri} already exists, but overwrite was set to False.')
                     exception_queue.put_nowait(e)
                     raise e
             log.info('Uploading file %s to %s', file_path_to_upload, uri)

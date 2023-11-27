@@ -133,14 +133,18 @@ def set_fsdp_default(fsdp_config: Dict[str, Any]):
     fsdp_config.setdefault('activation_checkpointing_reentrant', True)
     fsdp_config.setdefault('activation_cpu_offload', False)
     fsdp_config.setdefault('backward_prefetch', 'BACKWARD_POST')
+    fsdp_config.setdefault('backward_prefetch_limit', 1)
     fsdp_config.setdefault('cpu_offload', False)
     fsdp_config.setdefault('flatten_parameters', True)
     fsdp_config.setdefault('forward_prefetch', False)
+    fsdp_config.setdefault('forward_prefetch_limit', 1)
     fsdp_config.setdefault('ignored_modules', None)
     fsdp_config.setdefault('keep_low_precision_grads', False)
     fsdp_config.setdefault('limit_all_gathers', True)
     fsdp_config.setdefault('load_monolith_rank0_only', False)
+    fsdp_config.setdefault('load_planner', None)
     fsdp_config.setdefault('mixed_precision', 'DEFAULT')
+    fsdp_config.setdefault('save_planner', None)
     fsdp_config.setdefault('sharded_ckpt_prefix_dir', 'ep{epoch}-ba{batch}')
     fsdp_config.setdefault('sharding_strategy', 'FULL_SHARD')
     fsdp_config.setdefault('state_dict_type', 'full')
@@ -506,23 +510,60 @@ def prepare_fsdp_module(
                 **kwargs,
             )
 
+            if hasattr(fsdp_obj, '_exec_order_data'):
+                if hasattr(fsdp_obj._exec_order_data, '_forward_prefetch_limit'):
+                    fsdp_obj._exec_order_data._forward_prefetch_limit = fsdp_config['forward_prefetch_limit']
+                else:
+                    warnings.warn('FSDP._exec_order_data does not have attribute _forward_prefetch_limit '
+                                  'which is unexpected and will result in `forward_prefetch_limit` from FSDP '
+                                  'config being ignored. Please open an issue to Composer to report this.')
+                if hasattr(fsdp_obj._exec_order_data, '_backward_prefetch_limit'):
+                    fsdp_obj._exec_order_data._backward_prefetch_limit = fsdp_config['backward_prefetch_limit']
+                else:
+                    warnings.warn('FSDP._exec_order_data does not have attribute _backward_prefetch_limit '
+                                  'which is unexpected and will result in `backward_prefetch_limit` from FSDP '
+                                  'config being ignored. Please open an issue to Composer to report this.')
+            else:
+                warnings.warn('FSDP does not have attribute _exec_order_data which is unexpected and will '
+                              'result in `forward_prefetch_limit` and `backward_prefetch_limit` from FSDP '
+                              'config being ignored. Please open an issue to Composer to report this.')
+
             # Activation Checkpointing
             if activation_checkpointing or activation_cpu_offload:
-                if not activation_checkpointing_reentrant:
-                    first_wrap_fn = lambda m: checkpoint_wrapper(m, checkpoint_impl=CheckpointImpl.NO_REENTRANT
-                                                                ) if activation_checkpointing else (lambda module:
-                                                                                                    module)
-                    second_wrap_fn = (
-                        lambda module: checkpoint_wrapper(
-                            first_wrap_fn(module),  # type: ignore reportGeneralTypeIssues
-                            checkpoint_impl=CheckpointImpl.NO_REENTRANT,
-                            offload_to_cpu=True)) if activation_cpu_offload else first_wrap_fn
+                if version.parse(torch.__version__) > version.parse('2.1.0.dev'):
+                    from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import offload_wrapper
+                    if not activation_checkpointing_reentrant:
+                        first_wrap_fn = lambda m: checkpoint_wrapper(m, checkpoint_impl=CheckpointImpl.NO_REENTRANT
+                                                                    ) if activation_checkpointing else (lambda module:
+                                                                                                        module)
+                        second_wrap_fn = (
+                            lambda module: offload_wrapper(
+                                first_wrap_fn(module)
+                                if activation_checkpointing else module,  # type: ignore reportGeneralTypeIssues
+                            )) if activation_cpu_offload else first_wrap_fn
+                    else:
+                        first_wrap_fn = checkpoint_wrapper if activation_checkpointing else (lambda module: module)
+                        second_wrap_fn = (
+                            lambda module: offload_wrapper(
+                                first_wrap_fn(module)
+                                if activation_checkpointing else module)  # type: ignore reportGeneralTypeIssues
+                        ) if activation_cpu_offload else first_wrap_fn
                 else:
-                    first_wrap_fn = checkpoint_wrapper if activation_checkpointing else (lambda module: module)
-                    second_wrap_fn = (
-                        lambda module: checkpoint_wrapper(
-                            first_wrap_fn(module),  # type: ignore reportGeneralTypeIssues
-                            offload_to_cpu=True)) if activation_cpu_offload else first_wrap_fn
+                    if not activation_checkpointing_reentrant:
+                        first_wrap_fn = lambda m: checkpoint_wrapper(m, checkpoint_impl=CheckpointImpl.NO_REENTRANT
+                                                                    ) if activation_checkpointing else (lambda module:
+                                                                                                        module)
+                        second_wrap_fn = (
+                            lambda module: checkpoint_wrapper(
+                                first_wrap_fn(module),  # type: ignore reportGeneralTypeIssues
+                                checkpoint_impl=CheckpointImpl.NO_REENTRANT,
+                                offload_to_cpu=True)) if activation_cpu_offload else first_wrap_fn
+                    else:
+                        first_wrap_fn = checkpoint_wrapper if activation_checkpointing else (lambda module: module)
+                        second_wrap_fn = (
+                            lambda module: checkpoint_wrapper(
+                                first_wrap_fn(module),  # type: ignore reportGeneralTypeIssues
+                                offload_to_cpu=True)) if activation_cpu_offload else first_wrap_fn
 
                 # Choose which modules to activation checkpoint according to the following priority:
                 # If module has attribute `module._activation_checkpointing = ...`, always respect it

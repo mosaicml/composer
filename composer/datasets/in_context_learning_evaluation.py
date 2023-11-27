@@ -10,6 +10,7 @@ import random
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import torch
+import transformers
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
