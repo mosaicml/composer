@@ -226,7 +226,7 @@ class InContextLearningDataset(Dataset):
         if all(v for v in dict_of_defaults.values()):
             return
         raise ValueError(
-            f"{type(self).__name__} missing required variable(s): {''.join([k for k, v in dict_of_defaults.items() if not v])}"
+            f"{type(self).__name__} missing required variable(s): {', '.join([k for k, v in dict_of_defaults.items() if not v])}"
         )
 
     def _read_dataset(self,
