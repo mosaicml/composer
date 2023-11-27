@@ -7,7 +7,7 @@ import hashlib
 import os
 import random
 import shutil
-import time
+import tempfile
 from typing import Callable, Optional
 
 from torch.utils.data import DataLoader
@@ -58,6 +58,8 @@ class EvalOutputLogging(Callback):
         self.hash = hashlib.sha256()
         self.destination_file = None
 
+    # with tempfile.NamedTemporaryFile
+    #  tmp_dir =
     def _write_tables_to_output_dir(self, state: State):
         try:
             import pandas as pd
@@ -66,16 +68,9 @@ class EvalOutputLogging(Callback):
                                                 conda_package='pandas',
                                                 conda_channel='conda-forge') from e
         # write tmp files
-        self.hash.update((str(time.time()) + str(random.randint(0, 1_000_000))).encode('utf-8'))
-        tmp_dir = os.getcwd() + '/' + self.hash.hexdigest()
-
-        if not os.path.exists(tmp_dir):
-            with dist.local_rank_zero_download_and_wait(tmp_dir):
-                if dist.get_local_rank() == 0:
-                    os.mkdir(tmp_dir)
 
         full_df = pd.DataFrame()
-        file_name = f'eval-outputs-ba{state.timestamp.batch.value}.tsv'
+        upload_file_name = f'eval-outputs-ba{state.timestamp.batch.value}.tsv'
 
         for benchmark in self.table:
             cols, rows = self.table[benchmark]
@@ -84,18 +79,14 @@ class EvalOutputLogging(Callback):
             df['benchmark'] = benchmark
             full_df = pd.concat([full_df, df], ignore_index=True)
 
-        with dist.local_rank_zero_download_and_wait(f'{tmp_dir}/{file_name}'):
-            if dist.get_local_rank() == 0:
-                with open(f'{tmp_dir}/{file_name}', 'wb') as f:
-                    full_df.to_csv(f, sep='\t', index=False)
+        tmp_file = ''
+        with tempfile.NamedTemporaryFile('wb') as f:
+            full_df.to_csv(f, sep='\t', index=False)
+            tmp_file = f.name
 
         # copy/upload tmp files
-        _write(destination_path=f'{self.output_directory}/{file_name}', src_file=f'{tmp_dir}/{file_name}')
-        os.remove(f'{tmp_dir}/{file_name}')
-        self.destination_file = f'{self.output_directory}/{file_name}'
-
-        # delete tmp files
-        os.rmdir(tmp_dir)
+        _write(destination_path=f'{self.output_directory}/{upload_file_name}', src_file=tmp_file)
+        self.destination_file = f'{self.output_directory}/{upload_file_name}'
 
     def _prep_response_cache(self, state, cache):
         benchmark = state.dataloader_label
