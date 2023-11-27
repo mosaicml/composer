@@ -12,14 +12,9 @@ jobs:
     strategy:
       matrix:
         include:
-          - name: 'gpu-3.10-1.13-vision-doctest'
-            container: mosaicml/pytorch_vision:1.13.1_cu117-python3.10-ubuntu20.04
-            markers: 'not daily and not remote and gpu and (vision or not vision) and (doctest or not doctest)'
-            pytest_command: 'coverage run -m pytest'
-            composer_package_name: 'mosaicml'
-          - name: 'gpu-3.10-2.0-vision-doctest'
-            container: mosaicml/pytorch_vision:2.0.1_cu117-python3.10-ubuntu20.04
-            markers: 'not daily and not remote and gpu and (vision or not vision) and (doctest or not doctest)'
+          - name: 'gpu-3.10-2.1'
+            container: mosaicml/pytorch:2.1.0_cu121-python3.10-ubuntu20.04
+            markers: 'not daily and not remote and gpu and (doctest or not doctest)'
             pytest_command: 'coverage run -m pytest'
             composer_package_name: 'mosaicml'
     name: ${{ matrix.name }}

@@ -19,9 +19,8 @@ from composer.loggers import Logger
 from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, PartialFilePath,
                             checkpoint, create_interval_scheduler, create_symlink_file, dist,
                             ensure_folder_has_no_conflicting_files, format_name_with_dist,
-                            format_name_with_dist_and_time, is_model_deepspeed, reproducibility)
+                            format_name_with_dist_and_time, is_model_deepspeed, reproducibility, using_torch_2)
 from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
-from composer.utils.misc import using_torch_2
 
 log = logging.getLogger(__name__)
 
@@ -304,14 +303,6 @@ class CheckpointSaver(Callback):  # noqa: D101
                 logger,
             )
 
-    def close(self, state: State, logger: Logger):
-        trained_at_least_one_batch = self.start_batch is not None and self.start_batch != state.timestamp.batch
-        if self.last_checkpoint_batch != state.timestamp.batch and trained_at_least_one_batch:
-            self._save_checkpoint(
-                state,
-                logger,
-            )
-
     def get_state_dict(self, state):
         return {
             'state': state.state_dict(),
@@ -391,7 +382,12 @@ class CheckpointSaver(Callback):  # noqa: D101
                 ).lstrip('/')
 
             log.debug(f'Uploading checkpoint to {remote_file_name}')
-            logger.upload_file(remote_file_name=remote_file_name, file_path=saved_path, overwrite=self.overwrite)
+            try:
+                logger.upload_file(remote_file_name=remote_file_name, file_path=saved_path, overwrite=self.overwrite)
+            except FileExistsError as e:
+                raise FileExistsError(
+                    f'Uploading checkpoint failed with error: {e}. overwrite was set to {self.overwrite}. To overwrite checkpoints with Trainer, set save_overwrite to True.'
+                ) from e
 
             # symlinks stay the same with sharded checkpointing
             if self.latest_remote_file_name is not None:

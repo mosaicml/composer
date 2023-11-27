@@ -5,6 +5,7 @@ import gc
 import logging
 import os
 import pathlib
+from concurrent.futures import Future
 
 import mcli
 import pytest
@@ -45,6 +46,15 @@ def disable_wandb(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureReques
     else:
         if not os.environ.get('WANDB_PROJECT'):
             monkeypatch.setenv('WANDB_PROJECT', 'pytest')
+
+
+@pytest.fixture(scope='session')
+def cleanup_dist():
+    """Ensure all dist tests clean up resources properly."""
+    yield
+    # Avoid race condition where a test is still writing to a file on one rank
+    # while the file system is being torn down on another rank.
+    dist.barrier()
 
 
 @pytest.fixture(autouse=True, scope='session')
@@ -109,7 +119,9 @@ def seed_all(rank_zero_seed: int, monkeypatch: pytest.MonkeyPatch):
 @pytest.fixture(autouse=True)
 def mapi_fixture(monkeypatch):
     # Composer auto-adds mosaicml logger when running on platform. Disable logging for tests.
-    mock_update = lambda *args, **kwargs: None
+    future_obj = Future()
+    future_obj.set_result(None)
+    mock_update = lambda *args, **kwargs: future_obj
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_update)
 
 

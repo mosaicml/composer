@@ -183,8 +183,18 @@ The full spec and defaults for Composer's `fsdp_config` is here:
 .. code:: python
 
     fsdp_config = {
-      'sharding_strategy': str = 'FULL_SHARD' | 'SHARD_GRAD_OP' | 'NO_SHARD', # Default: 'FULL_SHARD'
+      'activation_checkpointing': bool = True | False, # Default: False
+      'activation_checkpointing_reentrant': bool = True | False, # Default: True
+      'activation_cpu_offload': bool = True | False, # Default: False
+      'backward_prefetch': str = 'BACKWARD_PRE' | 'BACKWARD_POST' | 'NONE', # Default: 'BACKWARD_POST'
       'cpu_offload': bool = True | False, # Default: False, cpu_offload not supported yet
+      'flatten_parameters': bool = True | False, # Default: True
+      'forward_prefetch': bool = True | False, # Default: False
+      'ignored_modules': Optional[Iterable[torch.nn.Module]], # Default: None
+      'keep_low_precision_grads': bool = True | False, # Default: False
+      'limit_all_gathers': bool = True | False, # Default: False
+      'load_monolith_rank0_only': bool = True | False, # Default: False
+      'load_planner': torch.distributed.checkpoint.planner.LoadPlanner, # Default: None
       'mixed_precision': str = 'FULL' | 'DEFAULT' | 'PURE', # Default: 'DEFAULT'
       # Note: you can explicitly provide a dictionary too
       # 'mixed_precision': dict = {
@@ -192,13 +202,13 @@ The full spec and defaults for Composer's `fsdp_config` is here:
       #   'reduce_dtype': 'fp32' | 'fp16' | 'bf16',
       #   'buffer_dtype': 'fp32' | 'fp16' | 'bf16',
       # },
-      'backward_prefetch': str = 'BACKWARD_PRE' | 'BACKWARD_POST' | 'NONE', # Default: 'BACKWARD_POST'
-      'activation_checkpointing': bool = True | False, # Default: False
-      'activation_cpu_offload': bool = True | False, # Default: False
-      'verbose': bool = True | False,
-      'state_dict_type': str = 'full' | 'local' | 'sharded' # Default: full
-      'sharded_ckpt_prefix_dir': str = 'ep{epoch}-ba{batch}' # Default: 'ep{epoch}-ba{batch}'
-      'load_monolith_rank0_only': bool = True | False # Default: False
+      'save_planner': torch.distributed.checkpoint.planner.SavePlanner, # Default: None
+      'sharded_ckpt_prefix_dir': str = 'ep{epoch}-ba{batch}', # Default: 'ep{epoch}-ba{batch}'
+      'sharding_strategy': str = 'FULL_SHARD' | 'SHARD_GRAD_OP' | 'NO_SHARD', # Default: 'FULL_SHARD'
+      'state_dict_type': str = 'full' | 'local' | 'sharded', # Default: full
+      'sync_module_states': bool = True | False, # Default: False
+      'use_orig_params': bool = True | False, # Default: True
+      'verbose': bool = True | False, # Default: False
     }
 
 All values come with defaults and can be optionally defined in the :code:`fsdp_config`. Most parameters map directly to parameters in the `FSDP documentation <https://pytorch.org/docs/stable/fsdp.html#torch.distributed.fsdp.FullyShardedDataParallel>`__.

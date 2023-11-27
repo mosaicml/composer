@@ -38,7 +38,7 @@ ARG MOFED_VERSION=5.5-1.0.3.2
 
 # Version of EFA Drivers to install (for AWS Elastic Fabric Adapter support)
 # Leave blank for no EFA Drivers
-ARG AWS_OFI_NCCL_VERSION=v1.5.0-aws
+ARG AWS_OFI_NCCL_VERSION=v1.7.3-aws
 
 # Upgrade certifi to resolve CVE-2022-23491
 ARG CERTIFI_VERSION='>=2022.12.7'
@@ -210,7 +210,7 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
             torch==${PYTORCH_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
 	        torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} ; \
     fi
-RUN
+
 #####################################
 # Install EFA and AWS-OFI-NCCL plugin
 #####################################
@@ -221,6 +221,16 @@ ARG AWS_OFI_NCCL_VERSION
 ENV LD_LIBRARY_PATH=/usr/local/cuda/extras/CUPTI/lib64:/opt/amazon/openmpi/lib:/opt/amazon/efa/lib:/opt/aws-ofi-nccl/install/lib:$LD_LIBRARY_PATH
 ENV PATH=/opt/amazon/openmpi/bin/:/opt/amazon/efa/bin:$PATH
 ENV FI_EFA_USE_DEVICE_RDMA=1
+
+RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        hwloc \
+        libhwloc-dev && \
+    apt-get autoclean && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* ; \
+    fi
 
 RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
         cd /tmp && \
@@ -344,6 +354,11 @@ RUN pip install --no-cache-dir --upgrade \
         ipython${IPYTHON_VERSION} \
         urllib3${URLLIB3_VERSION}
 
+##################################################
+# Override NVIDIA mistaken env var for 11.8 images
+##################################################
+ARG NVIDIA_REQUIRE_CUDA_OVERRIDE
+ENV NVIDIA_REQUIRE_CUDA=${NVIDIA_REQUIRE_CUDA_OVERRIDE:-$NVIDIA_REQUIRE_CUDA}
 
 ################
 # Composer Image

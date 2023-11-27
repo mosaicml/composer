@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import textwrap
 from typing import TYPE_CHECKING, Optional, OrderedDict
@@ -23,6 +24,8 @@ if TYPE_CHECKING:
     from composer.core import State
 
 __all__ = ['TorchProfiler']
+
+log = logging.getLogger(__name__)
 
 
 class TorchProfiler(Callback):  # noqa: D101
@@ -43,7 +46,7 @@ class TorchProfiler(Callback):  # noqa: D101
 
     To view profiling results, run::
 
-        pip install tensorbaord torch_tb_profiler
+        pip install tensorboard torch_tb_profiler
         tensorboard --logdir path/to/torch/trace_folder
 
     .. note::
@@ -252,5 +255,12 @@ class TorchProfiler(Callback):  # noqa: D101
     def close(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
         if self.profiler is not None:
+            log.info(self.profiler.key_averages().table(sort_by='cpu_time_total', row_limit=20))
+            if self.profile_memory:
+                log.info(self.profiler.key_averages().table(sort_by='self_cpu_memory_usage', row_limit=20))
+            if torch.profiler.ProfilerActivity.CUDA in self.profiler.activities:
+                log.info(self.profiler.key_averages().table(sort_by='cuda_time_total', row_limit=20))
+                if self.profile_memory:
+                    log.info(self.profiler.key_averages().table(sort_by='self_cuda_memory_usage', row_limit=20))
             self.profiler.__exit__(None, None, None)
             self.profiler = None
