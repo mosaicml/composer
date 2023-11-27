@@ -1545,7 +1545,7 @@ def test_lm_spacing_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     assert second_batch_without_last_word.count(' UNIQUE ') == 1
 
 
-@pytest.mark.parametrize('dataset_uri', ['maxisawesome/test_dataset'])
+@pytest.mark.parametrize('dataset_uri', ['mosaicml/test_dataset'])
 @pytest.mark.parametrize('num_fewshot', [0, 1])
 @pytest.mark.parametrize('prompt_string', ['Complete the voiceline: ', ''])
 @pytest.mark.parametrize('hf_loading_vars', [{
@@ -1589,12 +1589,13 @@ def test_hf_dataloading_lm_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path
     max_idx = max(batch['continuation_indices'][0]).item()
     assert tokenizer.decode(batch['input_ids'][0][min_idx:max_idx + 1]) == ' and me.'
 
-    decoded_batch = tokenizer.decode(batch['input_ids'][batch['input_ids'] != tokenizer.eos_token_id])
-    # Pytorch kills our dim_size = 2 here and concatenates the two strings.
-    assert decoded_batch == "Looks like it's just you and me.There's a fine line between bravery and stupidity."
+    
+    decoded_batch = [tokenizer.decode(row[row != tokenizer.eos_token_id]) for row in batch['input_ids']]
+    assert decoded_batch[0] == "Looks like it's just you and me."
+    assert decoded_batch[1] == "There's a fine line between bravery and stupidity."
 
 
-@pytest.mark.parametrize('dataset_uri', ['maxisawesome/test_dataset'])
+@pytest.mark.parametrize('dataset_uri', ['mosaicml/test_dataset'])
 @pytest.mark.parametrize('num_fewshot', [0, 1])
 @pytest.mark.parametrize('prompt_string', ['What spell does this invoke? ', ''])
 @pytest.mark.parametrize('hf_loading_vars', [{

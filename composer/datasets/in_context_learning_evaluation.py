@@ -180,7 +180,6 @@ class InContextLearningDataset(Dataset):
             continuation_delimiter: str,
             destination_path: str,
             prelimiter: str = '',
-            # TODO: should this be used to both set and access the data / tokenized examples?
             context_key: str = 'context',
             answer_key: str = 'answer',
             strip_dataset: bool = True,
@@ -242,7 +241,6 @@ class InContextLearningDataset(Dataset):
             f"{type(self).__name__} missing required variable(s): {''.join([k for k, v in dict_of_defaults.items() if not v])}"
         )
 
-    # TODO conditionally return dataset type?
     def _read_dataset(self,
                       dataset_uri: str,
                       destination_path: str,
@@ -371,7 +369,7 @@ class InContextLearningDataset(Dataset):
         Runs text through the tokenizer and handles special cases.
         Args:
             prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
-            ctx (str): the specific example's derrived context
+            ctxt (str): the specific example's derrived context
             example (Dict): the example as a dictionary. Used for additional processing in inherited classes.
 
         Returns:
@@ -384,7 +382,7 @@ class InContextLearningDataset(Dataset):
         if self.strip_data:
             # rstrip context because a prompt ending in a space results in degenerate output
             ctxt = ctxt.rstrip()
-        tokenized_example[self.context_key] = self.tokenizer(ctxt, add_special_tokens=False)
+        tokenized_example['context'] = self.tokenizer(ctxt, add_special_tokens=False)
         return tokenized_example
 
     def _prep_example(
@@ -415,7 +413,6 @@ class InContextLearningDataset(Dataset):
         tokenized_example = self._tokenize_example(prompt_and_fewshot, ctxt, example)
         return tokenized_example
 
-    # TODO: confirm this typing?
     def collate_fn(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
         The function that the dataloader uses to accumulate data into batches.
@@ -432,7 +429,7 @@ class InContextLearningDataset(Dataset):
             'labels': [],
         }
         for data_pair in data:
-            context_enc = data_pair['preamble']['input_ids'] + data_pair[self.context_key]['input_ids']
+            context_enc = data_pair['preamble']['input_ids'] + data_pair['context']['input_ids']
 
             inp, continuation_span = _make_padded_input(context_enc, data_pair['continuation']['input_ids'],
                                                         self.max_seq_len, self.pad_tok_id)
@@ -558,7 +555,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
 
     def get_max_answer_length(self) -> int:
         f"""
-        Loops over the dataset and finds the longes answer length.
+        Loops over the dataset and finds the longest answer length.
 
         Returns:
             int: the maximum answer length with an additional buffer of {_MAX_ANSWER_BUFFER_LENGTH} if chain of thought is present
@@ -597,7 +594,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         }
         for sample in data:
             aliases = sample['aliases']
-            context_enc = sample['preamble']['input_ids'] + sample[self.context_key]['input_ids']
+            context_enc = sample['preamble']['input_ids'] + sample['context']['input_ids']
             inp, _ = _make_padded_input(
                 context_enc,
                 [],
@@ -757,7 +754,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
             choice_start_idx = len(batch['continuation_indices'])
 
             for choice in data_pair['choices']:
-                context_enc = data_pair['preamble']['input_ids'] + data_pair[self.context_key]['input_ids']
+                context_enc = data_pair['preamble']['input_ids'] + data_pair['context']['input_ids']
                 continuation_enc = choice['input_ids']
                 inp, continuation_span = _make_padded_input(context_enc, continuation_enc, self.max_seq_len,
                                                             self.pad_tok_id)
@@ -1052,7 +1049,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         for sample in self.encoded_dataset:
             max_prompt_length = max(
                 max_prompt_length,
-                len(sample['preamble']['input_ids'] + sample['prompt']['input_ids']),
+                len(sample['preamble']['input_ids'] + sample['context']['input_ids']),
             )
         return max_prompt_length
 
@@ -1113,7 +1110,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             },
         }
         for sample in data:
-            context_enc = sample['preamble']['input_ids'] + sample['prompt']['input_ids']
+            context_enc = sample['preamble']['input_ids'] + sample['context']['input_ids']
             inp, _ = _make_padded_input(
                 context_enc,
                 [],
@@ -1327,6 +1324,7 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_lo
                     f.write(json.dumps(l, ensure_ascii=False) + '\n')
         output_files[cat] = cat_dest
     return output_files
+
 
 
 def get_icl_task_dataloader(
