@@ -79,13 +79,11 @@ class EvalOutputLogging(Callback):
             df['benchmark'] = benchmark
             full_df = pd.concat([full_df, df], ignore_index=True)
 
-        tmp_file = ''
         with tempfile.NamedTemporaryFile('wb') as f:
             full_df.to_csv(f, sep='\t', index=False)
             tmp_file = f.name
-
-        # copy/upload tmp files
-        _write(destination_path=f'{self.output_directory}/{upload_file_name}', src_file=tmp_file)
+            # copy/upload tmp files
+            _write(destination_path=f'{self.output_directory}/{upload_file_name}', src_file=tmp_file)
         self.destination_file = f'{self.output_directory}/{upload_file_name}'
 
     def _prep_response_cache(self, state, cache):
