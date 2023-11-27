@@ -357,7 +357,7 @@ class InContextLearningDataset(Dataset):
         Runs text through the tokenizer and handles special cases.
         Args:
             prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
-            ctx (str): the specific example's derrived context
+            ctx (str): the specific example's derived context
             example (dict): the example as a dictionary. Used for additional processing in inherited classes.
 
         Returns:
@@ -484,9 +484,11 @@ class InContextLearningRAGGenerationTaskDataset(InContextLearningDataset):
             *args,
             **kwargs
             ):
-        super().__init__(*args, **kwargs)
+        kwargs.pop('passage_delimiter', None)
+        kwargs.pop('passage_query_delimiter', None)
         self.passage_delimiter = passage_delimiter
         self.passage_query_delimiter = passage_query_delimiter
+        super().__init__(*args, **kwargs)
 
     def _construct_context(self, sample: dict, preceding_text: str = '', add_answer: bool = False):
         """
@@ -499,15 +501,61 @@ class InContextLearningRAGGenerationTaskDataset(InContextLearningDataset):
             add_answer (bool): bool for whether or not to add the answer on the end of the context (needed for fewshot examples)
 
         Returns:
-
             str: The constructed context. The default output context is
                  formatted as follows: f'{self.prelimiter}{sample['self.passages_key']}{sample[self.context_key]}{self.continuation_delimiter}'
         """
-        passages = passage_delimiter.lstrip('\n ')
-        passages += f'{passage_delimiter}'.join(sample['passages'])
+        passages = self.passage_delimiter.lstrip('\n ')
+        passages += f'{self.passage_delimiter}'.join(sample['passages'])
         query = sample['query']
-        context = f'{self.prelimiter}{pssgs}{self.passage_query_delimiter}{query}'
+        context = f'{self.prelimiter}{passages}{self.passage_query_delimiter}{query}'
         return context
+
+    def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: dict):
+        """
+        Runs text through the tokenizer and handles special cases.
+        Args:
+            prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
+            ctx (str): the specific example's derived context
+            example (dict): the example as a dictionary.
+
+        Returns:
+            dict: dictionary with the tokenized data
+        """
+        tokenized_example = super()._tokenize_example(prompt_and_fewshot, ctxt, example)
+        answer = example['answers'][0]
+        tokenized_example['answer'] = self.tokenizer(answer, add_special_tokens=False)
+        return tokenized_example
+
+
+    def collate_fn(self, data):
+        """
+        The function that the dataloader uses to accumulate data into batches
+        Args:
+            data (list): list of tokenized datapoints (dicts returned by self._tokenize_example)
+
+        Returns:
+            dict: dictionary for a single batch
+        """
+        batch = {
+            'input_ids': [],
+            'continuation_indices': [],
+            'mode': 'icl_task',
+            'labels': [],
+            'answer_indices': []
+            }
+        for data_pair in data:
+            context_enc = data_pair['preamble']['input_ids'] + data_pair['context']['input_ids']
+            answer_enc = data_pair['answer']['input_ids']
+
+            inp, answer_span = _make_padded_input(context_enc, answer_enc, self.max_seq_len,
+                                                        self.pad_tok_id)
+            batch['input_ids'].append(inp)
+            batch['answer_indices'].append(answer_span)
+            batch['labels'].append(inp)
+
+        batch = {k: torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
+        batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
+        return batch
 
 
 class InContextLearningQATaskDataset(InContextLearningDataset):
@@ -585,7 +633,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         Runs text through the tokenizer and handles special cases.
         Args:
             prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
-            ctx (str): the specific example's derrived context
+            ctx (str): the specific example's derived context
             example (dict): the example as a dictionary.
 
         Returns:
@@ -682,7 +730,7 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
         Runs text through the tokenizer and handles special cases.
         Args:
             prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
-            ctx (str): the specific example's derrived context
+            ctx (str): the specific example's derived context
             example (dict): the example as a dictionary.
 
         Returns:
@@ -779,7 +827,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         Runs text through the tokenizer and handles special cases.
         Args:
             prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
-            ctx (str): the specific example's derrived context
+            ctx (str): the specific example's derived context
             example (dict): the example as a dictionary.
 
         Returns:
@@ -958,7 +1006,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         Runs text through the tokenizer and handles special cases.
         Args:
             prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
-            ctx (str): the specific example's derrived context
+            ctx (str): the specific example's derived context
             example (dict): the example as a dictionary.
 
         Returns:
@@ -1120,7 +1168,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         Runs text through the tokenizer and handles special cases.
         Args:
             prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
-            ctx (str): the specific example's derrived context
+            ctx (str): the specific example's derived context
             example (dict): the example as a dictionary.
 
         Returns:
@@ -1304,6 +1352,24 @@ def build_icl_dataloader(
                                                    generations_per_sample=generations_per_sample,
                                                    temperature=temperature)
         effective_batchsize = batch_size
+    elif icl_task_type == 'rag':
+        dataset = InContextLearningRAGGenerationTaskDataset(
+            dataset_uri=dataset_uri,
+            tokenizer=tokenizer,
+            max_seq_len=max_seq_len,
+            pad_tok_id=pad_tok_id,
+            num_fewshot=num_fewshot,
+            prompt_string=prompt_string,
+            example_delimiter=example_delimiter,
+            continuation_delimiter=continuation_delimiter,
+            passage_delimiter='\nPassage: ',
+            passage_query_delimiter='\nQuery: ',
+            destination_path=destination_path,
+            fewshot_random_seed=fewshot_random_seed,
+            hf_loading_vars=hf_loading_vars,
+            hf_parsing_map=hf_parsing_map,   
+        )
+        effective_batchsize = batch_size
     else:
         raise Exception(f'Unrecognized ICL task type: {icl_task_type}')
 
@@ -1316,6 +1382,7 @@ def build_icl_dataloader(
             InContextLearningMultipleChoiceTaskDataset,
             InContextLearningQATaskDataset,
             InContextLearningCodeEvalDataset,
+            InContextLearningRAGGenerationTaskDataset,
         ),
     ):
         split_batch = dataset.split_batch
