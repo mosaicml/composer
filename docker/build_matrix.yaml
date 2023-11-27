@@ -4,6 +4,7 @@
   CUDA_VERSION: 12.1.0
   IMAGE_NAME: torch-2-1-0-cu121
   MOFED_VERSION: 5.5-1.0.3.2
+  NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
   PYTHON_VERSION: '3.10'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
@@ -18,6 +19,7 @@
   CUDA_VERSION: 12.1.0
   IMAGE_NAME: torch-2-1-0-cu121-aws
   MOFED_VERSION: ''
+  NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
   PYTHON_VERSION: '3.10'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
@@ -32,6 +34,7 @@
   CUDA_VERSION: ''
   IMAGE_NAME: torch-2-1-0-cpu
   MOFED_VERSION: ''
+  NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
   PYTHON_VERSION: '3.10'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
@@ -46,6 +49,12 @@
   CUDA_VERSION: 11.8.0
   IMAGE_NAME: torch-2-0-1-cu118
   MOFED_VERSION: 5.5-1.0.3.2
+  NVIDIA_REQUIRE_CUDA_OVERRIDE: cuda>=11.8 brand=tesla,driver>=470,driver<471 brand=tesla,driver>=515,driver<516
+    brand=unknown,driver>=470,driver<471 brand=unknown,driver>=515,driver<516 brand=nvidia,driver>=470,driver<471
+    brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=470,driver<471 brand=nvidiartx,driver>=515,driver<516
+    brand=geforce,driver>=470,driver<471 brand=geforce,driver>=515,driver<516 brand=quadro,driver>=470,driver<471
+    brand=quadro,driver>=515,driver<516 brand=titan,driver>=470,driver<471 brand=titan,driver>=515,driver<516
+    brand=titanrtx,driver>=470,driver<471 brand=titanrtx,driver>=515,driver<516
   PYTHON_VERSION: '3.10'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
@@ -59,6 +68,12 @@
   CUDA_VERSION: 11.8.0
   IMAGE_NAME: torch-2-0-1-cu118-aws
   MOFED_VERSION: ''
+  NVIDIA_REQUIRE_CUDA_OVERRIDE: cuda>=11.8 brand=tesla,driver>=470,driver<471 brand=tesla,driver>=515,driver<516
+    brand=unknown,driver>=470,driver<471 brand=unknown,driver>=515,driver<516 brand=nvidia,driver>=470,driver<471
+    brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=470,driver<471 brand=nvidiartx,driver>=515,driver<516
+    brand=geforce,driver>=470,driver<471 brand=geforce,driver>=515,driver<516 brand=quadro,driver>=470,driver<471
+    brand=quadro,driver>=515,driver<516 brand=titan,driver>=470,driver<471 brand=titan,driver>=515,driver<516
+    brand=titanrtx,driver>=470,driver<471 brand=titanrtx,driver>=515,driver<516
   PYTHON_VERSION: '3.10'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
@@ -72,6 +87,7 @@
   CUDA_VERSION: ''
   IMAGE_NAME: torch-2-0-1-cpu
   MOFED_VERSION: ''
+  NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
   PYTHON_VERSION: '3.10'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
@@ -85,6 +101,7 @@
   CUDA_VERSION: 11.7.1
   IMAGE_NAME: torch-1-13-1-cu117
   MOFED_VERSION: 5.5-1.0.3.2
+  NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
   PYTHON_VERSION: '3.10'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
@@ -98,6 +115,7 @@
   CUDA_VERSION: 11.7.1
   IMAGE_NAME: torch-1-13-1-cu117-aws
   MOFED_VERSION: ''
+  NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
   PYTHON_VERSION: '3.10'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
@@ -111,6 +129,7 @@
   CUDA_VERSION: ''
   IMAGE_NAME: torch-1-13-1-cpu
   MOFED_VERSION: ''
+  NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
   PYTHON_VERSION: '3.10'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
@@ -134,31 +153,31 @@
   TORCHVISION_VERSION: 0.17.0
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04
-  COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.16.4
+  COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.17.0
   CUDA_VERSION: 12.1.0
-  IMAGE_NAME: composer-0-16-4
+  IMAGE_NAME: composer-0-17-0
   MOFED_VERSION: 5.5-1.0.3.2
   PYTHON_VERSION: '3.10'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.1.0
   TAGS:
-  - mosaicml/composer:0.16.4
+  - mosaicml/composer:0.17.0
   - mosaicml/composer:latest
   TARGET: composer_stage
   TORCHVISION_VERSION: 0.16.0
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: ubuntu:20.04
-  COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.16.4
+  COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.17.0
   CUDA_VERSION: ''
-  IMAGE_NAME: composer-0-16-4-cpu
+  IMAGE_NAME: composer-0-17-0-cpu
   MOFED_VERSION: 5.5-1.0.3.2
   PYTHON_VERSION: '3.10'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.1.0
   TAGS:
-  - mosaicml/composer:0.16.4_cpu
+  - mosaicml/composer:0.17.0_cpu
   - mosaicml/composer:latest_cpu
   TARGET: composer_stage
   TORCHVISION_VERSION: 0.16.0
