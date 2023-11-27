@@ -153,31 +153,31 @@
   TORCHVISION_VERSION: 0.17.0
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04
-  COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.17.0
+  COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.17.1
   CUDA_VERSION: 12.1.0
-  IMAGE_NAME: composer-0-17-0
+  IMAGE_NAME: composer-0-17-1
   MOFED_VERSION: 5.5-1.0.3.2
   PYTHON_VERSION: '3.10'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.1.0
   TAGS:
-  - mosaicml/composer:0.17.0
+  - mosaicml/composer:0.17.1
   - mosaicml/composer:latest
   TARGET: composer_stage
   TORCHVISION_VERSION: 0.16.0
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: ubuntu:20.04
-  COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.17.0
+  COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.17.1
   CUDA_VERSION: ''
-  IMAGE_NAME: composer-0-17-0-cpu
+  IMAGE_NAME: composer-0-17-1-cpu
   MOFED_VERSION: 5.5-1.0.3.2
   PYTHON_VERSION: '3.10'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.1.0
   TAGS:
-  - mosaicml/composer:0.17.0_cpu
+  - mosaicml/composer:0.17.1_cpu
   - mosaicml/composer:latest_cpu
   TARGET: composer_stage
   TORCHVISION_VERSION: 0.16.0
