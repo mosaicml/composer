@@ -4,6 +4,7 @@
 import csv
 import json
 import os
+import time
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -452,6 +453,8 @@ def test_mlflow_logging_works(tmp_path, device):
                       eval_interval=eval_interval,
                       device=device)
     trainer.fit()
+    # Allow async logging to finish.
+    time.sleep(3)
     test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(
