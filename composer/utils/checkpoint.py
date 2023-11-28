@@ -308,6 +308,7 @@ def _get_module_name_mapping(model: torch.nn.Module) -> tuple[dict[str, str], in
                 process_group_index = dist.get_global_rank() % custom_process_group_size
                 pg_world_size = max(pg_world_size, custom_process_group_size)
                 new_module_name = module_name.replace('_fsdp_wrapped_module.', '')
+                new_module_name = new_module_name.replace('_checkpoint_wrapped_module.', '')
                 for k in module.state_dict().keys():
                     full_module_name = '.'.join((new_module_name, k))
                     module_name_mapping[full_module_name] = full_module_name + f'_pgidx{process_group_index}'
@@ -334,7 +335,7 @@ def _rename_optimizers_state_dict(optimizers_state_dict: dict[str, dict[str, dic
             replace_key = k
             if k in module_name_mapping.keys():
                 replace_key = module_name_mapping[k]
-            renamed_optimizers[replace_key] = v 
+            renamed_optimizers[replace_key] = v
         optimizers[optimizer]['state'] = renamed_optimizers
 
     return optimizers
