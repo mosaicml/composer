@@ -233,6 +233,7 @@ def _main():
         'CUDA_VERSION': '12.1.0',
         'IMAGE_NAME': 'torch-nightly-2-2-0-20231024-cu121',
         'MOFED_VERSION': '5.5-1.0.3.2',
+        'NVIDIA_REQUIRE_CUDA_OVERRIDE': _get_cuda_override('12.1.0'),
         'PYTHON_VERSION': '3.10',
         'PYTORCH_VERSION': '2.2.0',
         'PYTORCH_NIGHTLY_URL': 'https://download.pytorch.org/whl/nightly/cu121',
@@ -272,6 +273,7 @@ def _main():
                 composer_version=composer_version,
                 use_cuda=use_cuda,
             ),
+            'NVIDIA_REQUIRE_CUDA_OVERRIDE': _get_cuda_override(cuda_version),
         }
 
         composer_entries.append(entry)
