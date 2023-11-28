@@ -725,7 +725,6 @@ def test_code_eval_split_batch(dataset_uri, tmp_path):
         'labels': str,
         'prompts': str,
         'tests': str,
-        # 'canonical_solutions': str,
         'entry_points': str,
         'test_inputs': list,
         'test_outputs': list,
