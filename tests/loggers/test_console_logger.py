@@ -241,6 +241,7 @@ def test_console_logger_eval(
     assert actual_num_eval_log_lines == expected_num_eval_lines
 
 
+@pytest.mark.filterwarnings('ignore:UserWarning: The ``compute`` method of metric.*:UserWarning')
 def test_console_logger_eval_empty_dataloader(
     console_logger_test_stream,
     console_logger_test_file_path,
