@@ -1020,7 +1020,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
     - mode: always set to 'generate'
     - labels: exact solution for the coding problem
     - prompts: prompt for the task
-    - cannonical_solutions: exact solutions
     - entry_points: list of entry points
     - test_inputs: list of test inputs
     - test_outputs: list of test outputs
@@ -1076,7 +1075,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             dont_split_keys=['mode', 'generation_length', 'pass_at_k', 'generation_kwargs'],
             normal_split_keys=['input_ids', 'attention_mask'],
             list_split_keys=[
-                'labels', 'tests', 'canonical_solutions', 'entry_points', 'test_inputs', 'test_outputs', 'prompts',
+                'labels', 'tests', 'entry_points', 'test_inputs', 'test_outputs', 'prompts',
                 'languages'
             ],
             *args,
@@ -1140,7 +1139,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             'labels': [],
             'prompts': [],  # list of prompts
             'tests': [],  # list of tests
-            'canonical_solutions': [],  # list of solutions
             'entry_points': [],  # list of entry points
             'test_inputs': [],  # list of test inputs
             'test_outputs': [],  # list of test outputs
@@ -1170,10 +1168,8 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             )
 
             batch['input_ids'].append(inp)
-            batch['canonical_solutions'].append(sample['canonical_solution'])
             batch['prompts'].append(sample['prompt_text'])
             batch['tests'].append(sample['test'])
-            # TODO: why use this twice?
             batch['labels'].append(sample['canonical_solution'])
             batch['entry_points'].append(sample['entry_point'])
             batch['test_inputs'].append(sample['test_inputs'])

@@ -725,7 +725,7 @@ def test_code_eval_split_batch(dataset_uri, tmp_path):
         'labels': str,
         'prompts': str,
         'tests': str,
-        'canonical_solutions': str,
+        # 'canonical_solutions': str,
         'entry_points': str,
         'test_inputs': list,
         'test_outputs': list,
@@ -873,9 +873,7 @@ def test_code_eval_test_cases(dataset_uri, tmp_path):
     assert any(item[0] != tokenizer.eos_token_id for item in batch['input_ids'])  # longest should be pushed left
 
     mod = types.ModuleType('test_module')
-    for prompt, solution, inputs, outputs, entry_point in zip(batch['prompts'], batch['canonical_solutions'],
-                                                              batch['test_inputs'], batch['test_outputs'],
-                                                              batch['entry_points']):
+    for prompt, solution, inputs, outputs, entry_point in zip(batch['prompts'], batch['labels'], batch['test_inputs'], batch['test_outputs'], batch['entry_points']):
         exec(prompt + solution, mod.__dict__)
         for test_input, test_output in zip(inputs, outputs):
             result = mod.__dict__[entry_point](*eval(test_input))
