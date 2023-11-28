@@ -56,6 +56,33 @@ def _get_cuda_version_tag(cuda_version: str):
     return 'cu' + ''.join(cuda_version.split('.')[:2])
 
 
+def _get_cuda_override(cuda_version: str):
+    if cuda_version == '12.1.0':
+        cuda_121_override_string = ('cuda>=12.1 brand=tesla,driver>=515,driver<516 '
+                    'brand=unknown,driver>=515,driver<516 '
+                    'brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=515,driver<516 '
+                    'brand=geforce,driver>=515,driver<516 brand=geforcertx,driver>=515,driver<516 ' 
+                    'brand=quadro,driver>=515,driver<516 brand=quadrortx,driver>=515,driver<516 '
+                    'brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=515,driver<516')
+        
+        return cuda_121_override_string
+
+    if cuda_version == '11.8.0':
+        cuda_118_override_string = ('cuda>=11.8 brand=tesla,driver>=470,driver<471 '
+                            'brand=tesla,driver>=515,driver<516 brand=unknown,driver>=470,driver<471 '
+                            'brand=unknown,driver>=515,driver<516 brand=nvidia,driver>=470,driver<471 '
+                            'brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=470,driver<471 '
+                            'brand=nvidiartx,driver>=515,driver<516 brand=geforce,driver>=470,driver<471 '
+                            'brand=geforce,driver>=515,driver<516 brand=quadro,driver>=470,driver<471 '
+                            'brand=quadro,driver>=515,driver<516 brand=titan,driver>=470,driver<471 '
+                            'brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=470,driver<471 '
+                            'brand=titanrtx,driver>=515,driver<516')
+        
+        return cuda_118_override_string
+    
+    return ''
+
+
 def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: str, stage: str, interconnect: str):
     if stage == 'pytorch_stage':
         base_image_name = 'mosaicml/pytorch'
@@ -136,17 +163,6 @@ def _main():
 
         cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
 
-        override_string = ('cuda>=11.8 brand=tesla,driver>=470,driver<471 '
-                           'brand=tesla,driver>=515,driver<516 brand=unknown,driver>=470,driver<471 '
-                           'brand=unknown,driver>=515,driver<516 brand=nvidia,driver>=470,driver<471 '
-                           'brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=470,driver<471 '
-                           'brand=nvidiartx,driver>=515,driver<516 brand=geforce,driver>=470,driver<471 '
-                           'brand=geforce,driver>=515,driver<516 brand=quadro,driver>=470,driver<471 '
-                           'brand=quadro,driver>=515,driver<516 brand=titan,driver>=470,driver<471 '
-                           'brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=470,driver<471 '
-                           'brand=titanrtx,driver>=515,driver<516')
-        nvidia_require_cuda_override = '' if cuda_version != '11.8.0' else override_string
-
         entry = {
             'IMAGE_NAME':
                 _get_image_name(pytorch_version, cuda_version, stage, interconnect),
@@ -175,7 +191,7 @@ def _main():
             'PYTORCH_NIGHTLY_VERSION':
                 '',
             'NVIDIA_REQUIRE_CUDA_OVERRIDE':
-                nvidia_require_cuda_override,
+                _get_cuda_override(cuda_version),
         }
 
         # Only build EFA image on latest python with cuda on pytorch_stage

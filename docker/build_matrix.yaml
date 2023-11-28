@@ -4,7 +4,10 @@
   CUDA_VERSION: 12.1.0
   IMAGE_NAME: torch-2-1-0-cu121
   MOFED_VERSION: 5.5-1.0.3.2
-  NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
+  NVIDIA_REQUIRE_CUDA_OVERRIDE: cuda>=12.1 brand=tesla,driver>=515,driver<516 brand=unknown,driver>=515,driver<516
+    brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=515,driver<516 brand=geforce,driver>=515,driver<516
+    brand=geforcertx,driver>=515,driver<516 brand=quadro,driver>=515,driver<516 brand=quadrortx,driver>=515,driver<516
+    brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=515,driver<516
   PYTHON_VERSION: '3.10'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
@@ -19,7 +22,10 @@
   CUDA_VERSION: 12.1.0
   IMAGE_NAME: torch-2-1-0-cu121-aws
   MOFED_VERSION: ''
-  NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
+  NVIDIA_REQUIRE_CUDA_OVERRIDE: cuda>=12.1 brand=tesla,driver>=515,driver<516 brand=unknown,driver>=515,driver<516
+    brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=515,driver<516 brand=geforce,driver>=515,driver<516
+    brand=geforcertx,driver>=515,driver<516 brand=quadro,driver>=515,driver<516 brand=quadrortx,driver>=515,driver<516
+    brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=515,driver<516
   PYTHON_VERSION: '3.10'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
