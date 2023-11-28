@@ -58,12 +58,17 @@ def _get_cuda_version_tag(cuda_version: str):
 
 def _get_cuda_override(cuda_version: str):
     if cuda_version == '12.1.0':
-        cuda_121_override_string = ('cuda>=12.1 brand=tesla,driver>=515,driver<516 '
-                    'brand=unknown,driver>=515,driver<516 '
-                    'brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=515,driver<516 '
-                    'brand=geforce,driver>=515,driver<516 brand=geforcertx,driver>=515,driver<516 ' 
-                    'brand=quadro,driver>=515,driver<516 brand=quadrortx,driver>=515,driver<516 '
-                    'brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=515,driver<516')
+        cuda_121_override_string = ('cuda>=12.1 brand=tesla,driver>=470,driver<471 '
+                        'brand=unknown,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 '
+                        'brand=nvidiartx,driver>=470,driver<471 brand=geforce,driver>=470,driver<471 '
+                        'brand=geforcertx,driver>=470,driver<471 brand=quadro,driver>=470,driver<471 '
+                        'brand=quadrortx,driver>=470,driver<471 brand=titan,driver>=470,driver<471 '
+                        'brand=titanrtx,driver>=470,driver<471 brand=tesla,driver>=515,driver<516 '
+                        'brand=unknown,driver>=515,driver<516 brand=nvidia,driver>=515,driver<516 '
+                        'brand=nvidiartx,driver>=515,driver<516 brand=geforce,driver>=515,driver<516 '
+                        'brand=geforcertx,driver>=515,driver<516 brand=quadro,driver>=515,driver<516 '
+                        'brand=quadrortx,driver>=515,driver<516 brand=titan,driver>=515,driver<516 '
+                        'brand=titanrtx,driver>=515,driver<516')
         
         return cuda_121_override_string
 
