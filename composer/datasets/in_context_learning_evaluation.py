@@ -219,7 +219,7 @@ class InContextLearningDataset(Dataset):
             self.dataset = self.dataset.map(strip_data)
 
         fewshot_rng = random.Random(fewshot_random_seed)
-        self.encoded_dataset = self.dataset.map(
+        self.dataset = self.dataset.map(
             self._prep_example,
             with_indices=True,
             fn_kwargs={
@@ -230,10 +230,10 @@ class InContextLearningDataset(Dataset):
         )
 
     def __getitem__(self, index: int) -> Dict:
-        return self.encoded_dataset[index]
+        return self.dataset[index]
 
     def __len__(self) -> int:
-        return len(self.encoded_dataset)
+        return len(self.dataset)
 
     def get_num_samples_in_batch(self, batch: Dict) -> int:
         return batch['input_ids'].shape[0]
@@ -1095,7 +1095,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             int: maximum prompt length
         """
         max_prompt_length = 0
-        for sample in self.encoded_dataset:
+        for sample in self.dataset:
             max_prompt_length = max(
                 max_prompt_length,
                 len(sample['preamble']['input_ids'] + sample['context']['input_ids']),
