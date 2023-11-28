@@ -241,8 +241,13 @@ def test_console_logger_eval(
     assert actual_num_eval_log_lines == expected_num_eval_lines
 
 
-def test_console_logger_eval_empty_dataloader():
+def test_console_logger_eval_empty_dataloader(
+    console_logger_test_stream,
+    console_logger_test_file_path,
+):
     test_console_logger_eval(
+        console_logger_test_stream,
+        console_logger_test_file_path,
         eval_interval_unit='ba',
         max_duration_unit='ba',
         eval_interval=2,
