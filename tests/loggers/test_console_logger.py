@@ -174,6 +174,7 @@ def test_console_logger_fit(
 @pytest.mark.parametrize('max_duration_unit', ['ba', 'ep'])
 @pytest.mark.parametrize('eval_interval', [2, 3])
 @pytest.mark.parametrize('max_duration', [8, 9])
+@pytest.mark.parametrize('eval_dataset_size', [24])
 def test_console_logger_eval(
     console_logger_test_stream,
     console_logger_test_file_path,
@@ -181,11 +182,11 @@ def test_console_logger_eval(
     max_duration,
     eval_interval_unit,
     max_duration_unit,
+    eval_dataset_size,
 ):
     batch_size = 4
     dataset_size = 16
     eval_batch_size = 2
-    eval_dataset_size = 24
     batches_per_epoch = math.ceil(dataset_size / batch_size)
 
     model = SimpleModel()
@@ -238,6 +239,16 @@ def test_console_logger_eval(
         num_eval_progress_lines_per_eval_event + num_eval_metrics_per_event)
 
     assert actual_num_eval_log_lines == expected_num_eval_lines
+
+
+def test_console_logger_eval_empty_dataloader():
+    test_console_logger_eval(
+        eval_interval_unit='ba',
+        max_duration_unit='ba',
+        eval_interval=2,
+        max_duration=8,
+        eval_dataset_size=0,
+    )
 
 
 def test_log_to_console_and_progress_bar_warning():
