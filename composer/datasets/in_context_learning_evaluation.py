@@ -191,7 +191,9 @@ class InContextLearningDataset(Dataset):
                  stacked_keys: List[str] = None,
                  dont_split_keys: List[str] = None,
                  list_split_keys: List[str] = None,
-                 normal_split_keys: List[str] = None):
+                 normal_split_keys: List[str] = None,
+                 ):
+        
         self.tokenizer = tokenizer
         self.prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
 
@@ -199,8 +201,8 @@ class InContextLearningDataset(Dataset):
         self.pad_tok_id = pad_tok_id
         self.num_fewshot = num_fewshot
         # TODO: check this is correct for all dataset types
+        # TODO: change how this is set, using default is unintuitive rn
         self.padding_side = 'left'
-
         self.prelimiter = prelimiter
         self.example_delimiter = example_delimiter
         self.continuation_delimiter = continuation_delimiter
@@ -484,6 +486,7 @@ class InContextLearningDataset(Dataset):
         return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
 
 
+# TODO: write tests for this class
 class InContextLearningRAGGenerationTaskDataset(InContextLearningDataset):
     """A dataset that construct batches for in-context learning RAG generation evaluation
     Rag generation tasks evaluate a model's ability to answer questions based on passages.
@@ -506,23 +509,24 @@ class InContextLearningRAGGenerationTaskDataset(InContextLearningDataset):
         self.passage_query_delimiter = passage_query_delimiter
         super().__init__(*args, **kwargs)
 
-    def _construct_context(self, sample: dict, preceding_text: str = '', add_answer: bool = False):
+    def _construct_context(self, example: dict, preceding_text: str = '', add_answer: bool = False):
         """
-        Takes a sample and constructs a context. Optionally, appends this to preceeding text (such as a
+        Takes a example and constructs a context. Optionally, appends this to preceeding text (such as a
         prompt or fewshot examples), as well as optionally adds the correct answer (for fewshot examples)
 
         Args:
-            sample (dict): the sample from which to construct the context
+            example (dict): the example from which to construct the context
             preceding_text (str): any preceding text, needed to if self.example_delimiter is needed at the beginning
             add_answer (bool): bool for whether or not to add the answer on the end of the context (needed for fewshot examples)
 
         Returns:
             str: The constructed context. The default output context is
-                 formatted as follows: f'{self.prelimiter}{sample['self.passages_key']}{sample[self.context_key]}{self.continuation_delimiter}'
+                 formatted as follows: f'{self.prelimiter}{example['self.passages_key']}{example[self.context_key]}{self.continuation_delimiter}'
         """
         passages = self.passage_delimiter.lstrip('\n ')
-        passages += f'{self.passage_delimiter}'.join(sample['passages'])
-        query = sample['query']
+        passages += f'{self.passage_delimiter}'.join(example['passages'])
+        query = example['query']
+        # TODO: add few_shot capabilities
         context = f'{self.prelimiter}{passages}{self.passage_query_delimiter}{query}'
         return context
 
