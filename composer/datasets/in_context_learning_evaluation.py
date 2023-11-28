@@ -35,7 +35,6 @@ def _check_if_huggingface_uri(uri: str) -> bool:
     """
     Takes a dataset uri and checks if it's a HuggingFace dataset uri.
     Returns False if a backend uri is present (ie 's3://', 'oci://') or if the uri is a local file.
-    Returns True otherwise.
     Args:
         uri (str): uri as a string
 
@@ -43,11 +42,11 @@ def _check_if_huggingface_uri(uri: str) -> bool:
         bool: result of parsing uri as a HF uri
     """
     backend, _, path = parse_uri(uri)
+    # If there's any backend, it's a cloud OCI and not HF
     if backend == '':
         _, ext = os.path.splitext(path)
         # If there's any extension, it's a link to a local file. If no extention, HF path
         return ext == ''
-    # If there's any backend, it's a cloud OCI and not HF
     return False
 
 
