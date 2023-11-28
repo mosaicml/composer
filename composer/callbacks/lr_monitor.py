@@ -49,6 +49,5 @@ class LRMonitor(Callback):
         for optimizer in state.optimizers:
             lrs = [group['lr'] for group in optimizer.param_groups]
             name = optimizer.__class__.__name__
-            for lr in lrs:
-                for idx, lr in enumerate(lrs):
-                    logger.log_metrics({f'lr-{name}/group{idx}': lr})
+            for idx, lr in enumerate(lrs):
+                logger.log_metrics({f'lr-{name}/group{idx}': lr})
