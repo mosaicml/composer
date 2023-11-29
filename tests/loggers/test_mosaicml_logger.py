@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 from composer.core import Callback, Time, TimeUnit
 from composer.loggers import WandBLogger
 from composer.loggers.mosaicml_logger import (MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR, MosaicMLLogger,
-                                              format_data_to_json_serializable,)
+                                              format_data_to_json_serializable)
 from composer.trainer import Trainer
 from composer.utils import dist, get_composer_env_dict
 from tests.callbacks.callback_settings import get_cb_kwargs, get_cb_model_and_datasets, get_cbs_and_marks
