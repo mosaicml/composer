@@ -318,6 +318,8 @@ def _get_module_name_mapping(model: torch.nn.Module) -> tuple[dict[str, str], in
 def _rename_model_state_dict(model_state_dict, module_name_mapping: dict[str, str]):
     modified_state_dict = {}
     for k, v in model_state_dict.items():
+        if '_flat_param' in k:
+            continue
         if k in module_name_mapping.keys():
             modified_state_dict[module_name_mapping[k]] = v
         else:
@@ -326,7 +328,8 @@ def _rename_model_state_dict(model_state_dict, module_name_mapping: dict[str, st
     return modified_state_dict
 
 
-def _rename_optimizers_state_dict(optimizers_state_dict: dict[str, dict[str, dict[str, Any]]], module_name_mapping: dict[str, str]) -> dict[str, dict[str, dict[str, Any]]]:
+def _rename_optimizers_state_dict(optimizers_state_dict: dict[str, dict[str, dict[str, Any]]],
+                                  module_name_mapping: dict[str, str]) -> dict[str, dict[str, dict[str, Any]]]:
     optimizers = {}
     for optimizer in optimizers_state_dict.keys():
         optimizers[optimizer] = optimizers_state_dict[optimizer]
@@ -484,8 +487,8 @@ def load_sharded_checkpoint(
                 # print(state_dict.keys())
                 # print(state_dict)
                 optim_state = load_sharded_optimizer_state_dict_with_logs(model_state_dict=state_dict,
-                                                                optimizer_key='optimizers',
-                                                                storage_reader=storage_reader)
+                                                                          optimizer_key='optimizers',
+                                                                          storage_reader=storage_reader)
                 log.debug('Strip _pgidx from optimizer state dict keys')
                 local_idx = f'_pgidx{dist.get_local_rank()}'
                 log.debug('Get ptr to optimizer state dict')
@@ -876,7 +879,9 @@ def save_checkpoint(
         import torch.distributed.checkpoint as dist_cp
         log.debug('Saving sharded checkpoints to %s...', save_filename)
 
-        dist_cp.save_state_dict(state_dict=state_dict, storage_writer=dist_cp.FileSystemWriter(dirname), planner=RenameSavePlanner(state.model))
+        dist_cp.save_state_dict(state_dict=state_dict,
+                                storage_writer=dist_cp.FileSystemWriter(dirname),
+                                planner=RenameSavePlanner(state.model))
 
     # Only rank 0 saves the state_dict unless you are using sharded checkpointing with torch <2.0
     elif dist.get_global_rank() == 0 or state.fsdp_sharded_state_dict_enabled:
@@ -1009,20 +1014,19 @@ from torch.distributed.checkpoint.default_planner import (
 )
 from torch.distributed.checkpoint._nested_dict import flatten_state_dict
 from torch.distributed.checkpoint._sharded_tensor_utils import (
-    _flatten_sharded_tensors,
-)
+    _flatten_sharded_tensors,)
 
 from torch.distributed.checkpoint.metadata import STORAGE_TYPES, ChunkStorageMetadata, TensorStorageMetadata, MetadataIndex
 from torch.distributed.checkpoint.planner import LoadPlan, ReadItem
 from torch.distributed.checkpoint.planner_helpers import _chunk_for_shard, _create_read_item_for_tensor
-from torch.distributed.checkpoint.resharding import (
-    _shards_get_overlap_region_wrt_saved_tensor,
-    _check_shard_metadata_pair_overlap
-)
+from torch.distributed.checkpoint.resharding import (_shards_get_overlap_region_wrt_saved_tensor,
+                                                     _check_shard_metadata_pair_overlap)
+
 
 def _create_read_items(fqn: str, md: STORAGE_TYPES, obj: Any) -> List[ReadItem]:
-        local_chunks = [_chunk_for_shard(shard.metadata) for shard in obj.local_shards()]
-        return create_read_items_for_chunk_list(fqn, md, local_chunks)
+    local_chunks = [_chunk_for_shard(shard.metadata) for shard in obj.local_shards()]
+    return create_read_items_for_chunk_list(fqn, md, local_chunks)
+
 
 def create_read_items_for_chunk_list(
     fqn: str,
@@ -1057,25 +1061,19 @@ def create_read_items_for_chunk_list(
             if '_pgidx' in fqn:
                 pgidx = fqn[-1]
                 offset_storage_md.offsets = torch.Size(
-                    [total_size * int(pgidx) + offset_storage_md.offsets[0],
-                    *offset_storage_md.offsets[1:]]
-                )
-            if not _check_shard_metadata_pair_overlap(
-                shard, offset_storage_md
-            ):
+                    [total_size * int(pgidx) + offset_storage_md.offsets[0], *offset_storage_md.offsets[1:]])
+            if not _check_shard_metadata_pair_overlap(shard, offset_storage_md):
                 continue
 
             storage_offsets = []
             dest_offsets = []
             lengths = []
             for (
-                dim,
-                offset_for_saved_tensor,
-                offset_for_current_tensor,
-                length,
-            ) in _shards_get_overlap_region_wrt_saved_tensor(
-                saved_shard=offset_storage_md, current_shard=shard
-            ):
+                    dim,
+                    offset_for_saved_tensor,
+                    offset_for_current_tensor,
+                    length,
+            ) in _shards_get_overlap_region_wrt_saved_tensor(saved_shard=offset_storage_md, current_shard=shard):
                 storage_offsets.append(offset_for_saved_tensor)
                 dest_offsets.append(offset_for_current_tensor)
                 lengths.append(length)
@@ -1087,18 +1085,14 @@ def create_read_items_for_chunk_list(
                 dest_fqn = fqn[:-7]
             read_items.append(
                 _create_read_item_for_tensor(
-                    dest_index=MetadataIndex(
-                        dest_fqn, shard.offsets, idx
-                    ),
+                    dest_index=MetadataIndex(dest_fqn, shard.offsets, idx),
                     dest_offsets=dest_offsets,
-                    storage_index=MetadataIndex(
-                        fqn, storage_md.offsets, storage_idx
-                    ),
+                    storage_index=MetadataIndex(fqn, storage_md.offsets, storage_idx),
                     storage_offsets=storage_offsets,
                     lengths=lengths,
-                )
-            )
+                ))
     return read_items
+
 
 class RenameLoadPlanner(DefaultLoadPlanner):
     """
@@ -1148,16 +1142,14 @@ class RenameLoadPlanner(DefaultLoadPlanner):
         self.original_state_dict = state_dict
 
         log.debug(f'Copy state dict')
-        state_dict = { k: v for k, v in self.original_state_dict.items() }
-        state_dict['state'] = { k: v for k, v in self.original_state_dict['state'].items() if k != 'model' }
-        state_dict['state']['model'] = { k: v for k, v in self.original_state_dict['state']['model'].items() }
+        state_dict = {k: v for k, v in self.original_state_dict.items()}
+        state_dict['state'] = {k: v for k, v in self.original_state_dict['state'].items() if k != 'model'}
+        state_dict['state']['model'] = {k: v for k, v in self.original_state_dict['state']['model'].items()}
 
         log.debug('rename state dict')
         if self.name_conversion_dict:
             log.debug('rename state dict')
-            model_state_dict = _rename_model_state_dict(
-                state_dict['state']['model'], self.name_conversion_dict
-            )
+            model_state_dict = _rename_model_state_dict(state_dict['state']['model'], self.name_conversion_dict)
             log.debug('reassign model state dict')
             state_dict['state']['model'] = model_state_dict
 
@@ -1202,6 +1194,7 @@ class RenameLoadPlanner(DefaultLoadPlanner):
 
         return LoadPlan(requests)
 
+
 class RenameSavePlanner(DefaultSavePlanner):
     """
     RankSavePlanner extends __init__ and set_up_planner to rename modules
@@ -1233,9 +1226,7 @@ class RenameSavePlanner(DefaultSavePlanner):
             dedup_replicated_tensors,
         )
 
-    def set_up_planner(
-        self, state_dict, is_coordinator: bool
-    ) -> None:
+    def set_up_planner(self, state_dict, is_coordinator: bool) -> None:
         """Renames the state dict and optimizer state dict.
 
         Args:
@@ -1243,18 +1234,15 @@ class RenameSavePlanner(DefaultSavePlanner):
             is_coordinator: See parent class.
         """
         if self.name_conversion_dict:
-            model_state_dict = _rename_model_state_dict(
-                state_dict['state']['model'], self.name_conversion_dict
-            )
+            model_state_dict = _rename_model_state_dict(state_dict['state']['model'], self.name_conversion_dict)
             state_dict['state']['model'] = model_state_dict
 
             if 'optimizers' in state_dict.keys():
-                optimizers = _rename_optimizers_state_dict(
-                    state_dict['optimizers'], self.name_conversion_dict
-                )
+                optimizers = _rename_optimizers_state_dict(state_dict['optimizers'], self.name_conversion_dict)
                 state_dict['optimizers'] = optimizers
 
         super().set_up_planner(state_dict, is_coordinator)
+
 
 def load_sharded_optimizer_state_dict_with_logs(
     model_state_dict,
@@ -1310,11 +1298,7 @@ def load_sharded_optimizer_state_dict_with_logs(
     log.debug('Start sharded ckpt')
     from torch.distributed.checkpoint.optimizer import _get_state_dict_2d_layout, _create_colwise_spec, _alloc_tensor, _ReaderWithOffset
     from torch._utils import _get_device_module
-    from torch.distributed.checkpoint.utils import (
-        _element_wise_add,
-        _element_wise_sub,
-        _normalize_device_info
-    )
+    from torch.distributed.checkpoint.utils import (_element_wise_add, _element_wise_sub, _normalize_device_info)
     from torch.distributed.checkpoint._nested_dict import unflatten_state_dict
     from torch.distributed.checkpoint.metadata import (
         BytesStorageMetadata,
@@ -1331,8 +1315,7 @@ def load_sharded_optimizer_state_dict_with_logs(
     from torch.distributed._shard.sharded_tensor.api import ShardedTensor
     import torch.distributed.checkpoint as dist_cp
     from torch.distributed._shard.sharding_spec.chunk_sharding_spec import (
-        ChunkShardingSpec,
-    )
+        ChunkShardingSpec,)
     from torch.distributed.distributed_c10d import _get_default_group
     from torch.distributed.fsdp._shard_utils import _create_chunk_sharded_tensor
     log.debug(f'Finish imports')
@@ -1395,37 +1378,22 @@ def load_sharded_optimizer_state_dict_with_logs(
             spec_key = key_path[2]
             alloc_size = layout_specs.get(spec_key, (None, value.size))[1]
 
-            st_md = sharding_spec.build_metadata(
-                torch.Size(alloc_size), value.properties
-            )
+            st_md = sharding_spec.build_metadata(torch.Size(alloc_size), value.properties)
             local_shards = []
             current_rank = torch.distributed.get_rank(dp_pg)
             for shard_md in st_md.shards_metadata:
-                if (
-                    cast(_remote_device, shard_md.placement).rank()
-                    != current_rank
-                ):
+                if (cast(_remote_device, shard_md.placement).rank() != current_rank):
                     continue
                 local_shards.append(
                     Shard(
-                        tensor=_alloc_tensor(
-                            value.properties, shard_md.shard_sizes, dp_pg_device_type
-                        ),
+                        tensor=_alloc_tensor(value.properties, shard_md.shard_sizes, dp_pg_device_type),
                         metadata=shard_md,
-                    )
-                )
+                    ))
 
-            st = ShardedTensor._init_from_local_shards_and_global_metadata(
-                local_shards, st_md, process_group=dp_pg
-            )
+            st = ShardedTensor._init_from_local_shards_and_global_metadata(local_shards, st_md, process_group=dp_pg)
 
-            if (
-                spec_key in layout_specs
-                and layout_specs[spec_key][0] is not None
-            ):
-                fqn_to_offset[key] = cast(
-                    Sequence[int], layout_specs[spec_key][0]
-                )
+            if (spec_key in layout_specs and layout_specs[spec_key][0] is not None):
+                fqn_to_offset[key] = cast(Sequence[int], layout_specs[spec_key][0])
 
             state_dict[key] = st
 
