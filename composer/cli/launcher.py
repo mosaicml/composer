@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import trace
 import traceback
 from argparse import ArgumentParser
 from typing import Any, Dict, List
@@ -494,6 +495,7 @@ def main():
         # what failed. No need to re-raise the exception, as `aggregate_process_returncode`
         # will return an appropriate error code, which will cause the script to exit.
         traceback.print_exc()
+        log.error(traceback.format_exc())
         print('Killing training processes')
     finally:
         _cleanup_processes(processes)
