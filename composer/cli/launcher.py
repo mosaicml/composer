@@ -21,12 +21,16 @@ import psutil
 import torch
 
 import composer
-from composer.utils import get_free_tcp_port
+from composer.utils import get_free_tcp_port, json_log_formatter
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
 
 log = logging.getLogger(__name__)
-
+log.setLevel(logging.DEBUG)
+std_console_handler = logging.StreamHandler(stream=sys.stdout)
+std_console_handler.setLevel(logging.DEBUG)
+std_console_handler.setFormatter(json_log_formatter.JsonLogFormatter())
+log.addHandler(std_console_handler)
 
 def _get_parser():
     parser = ArgumentParser(description='Utility for launching distributed machine learning jobs.')
