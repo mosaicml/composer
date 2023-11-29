@@ -593,7 +593,6 @@ class TestCheckpointLoading:
 
         assert trainer_1.state.run_name == trainer_2.state.run_name
 
-
     @pytest.mark.parametrize('load_path,load_object_store',
                              [('s3://my-bucket/my-run-name/my-checkpoints', None),
                               ('s3://my-bucket/my-run-name/my-checkpoints', S3ObjectStore(bucket='my-bucket')),
