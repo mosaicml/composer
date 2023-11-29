@@ -167,6 +167,46 @@ class TestTrainerInit():
                         auto_log_hparams=True,
                         compile_config={})
 
+    def test_eval_metrics(self):
+        model = SimpleModel()
+        train_dataloader = DataLoader(RandomClassificationDataset(size=1), batch_size=1)
+        all_metrics = model.get_metrics(is_train=False)
+
+        # Test default eval metrics
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            eval_dataloader=Evaluator(label='eval',
+                                      dataloader=DataLoader(RandomClassificationDataset(size=1), batch_size=1)),
+        )
+
+        assert trainer.state.eval_metrics['eval'] == all_metrics
+
+        # Test empty eval metrics
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            eval_dataloader=Evaluator(label='eval',
+                                      dataloader=DataLoader(RandomClassificationDataset(size=1), batch_size=1),
+                                      metric_names=[]),
+        )
+
+        assert trainer.state.eval_metrics['eval'] == {}
+
+        # Test selected eval metrics
+        single_metric = next(iter(all_metrics))
+        trainer = Trainer(
+            model=model,
+            train_dataloader=train_dataloader,
+            eval_dataloader=Evaluator(label='eval',
+                                      dataloader=DataLoader(RandomClassificationDataset(size=1), batch_size=1),
+                                      metric_names=[single_metric]),
+        )
+
+        eval_metric_names = trainer.state.eval_metrics['eval'].keys()
+        assert len(eval_metric_names) == 1
+        assert next(iter(eval_metric_names)) == single_metric
+
 
 def _assert_optimizer_is_on_device(optimizer: torch.optim.Optimizer):
     for state in optimizer.state.values():

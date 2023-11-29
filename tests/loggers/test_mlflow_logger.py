@@ -484,7 +484,9 @@ def test_mlflow_logging_works(tmp_path, device):
     param_path = run_file_path / Path('params')
     actual_params_list = [param_filepath.stem for param_filepath in param_path.iterdir()]
 
-    expected_params_list = ['num_cpus_per_node', 'node_name', 'num_nodes', 'rank_zero_seed']
+    expected_params_list = [
+        'num_cpus_per_node', 'node_name', 'num_nodes', 'rank_zero_seed', 'composer_version', 'composer_commit_hash'
+    ]
     assert set(expected_params_list) == set(actual_params_list)
 
 

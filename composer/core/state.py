@@ -351,7 +351,7 @@ class State(Serializable):
             before the dataloader is evaluated. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
             ``0``.
         device_train_microbatch_size (int): The size of each train microbatch per device.
-        loss (torch.Tensor | Sequence[torch.Tensor]): The most recently computed loss.
+        loss (torch.Tensor | Sequence[torch.Tensor] | Dict[Any, torch.Tensor]): The most recently computed loss.
         model (torch.nn.Module): The training model.
 
             .. note::
@@ -549,7 +549,7 @@ class State(Serializable):
 
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None
-        self.loss: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
+        self.loss: Union[torch.Tensor, Sequence[torch.Tensor], Dict[Any, torch.Tensor]] = torch.Tensor()
         self.outputs: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
 
         # These attributes will be serialized using .state_dict(), and loaded with .load_state_dict()
@@ -825,6 +825,7 @@ class State(Serializable):
         """
         metadata_dict = {}
         metadata_dict['composer_env_info'] = get_composer_env_dict()
+        metadata_dict['torch_version'] = torch.__version__
         metadata_dict['device'] = self.device.name
         metadata_dict['precision'] = self.precision.value
         metadata_dict['world_size'] = dist.get_world_size()

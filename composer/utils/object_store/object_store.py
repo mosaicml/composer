@@ -78,12 +78,11 @@ class ObjectStore(abc.ABC):
         """
         raise NotImplementedError(f'{type(self).__name__}.get_uri is not implemented')
 
-    def upload_object(
-        self,
-        object_name: str,
-        filename: Union[str, pathlib.Path],
-        callback: Optional[Callable[[int, int], None]] = None,
-    ) -> None:
+    def upload_object(self,
+                      object_name: str,
+                      filename: Union[str, pathlib.Path],
+                      callback: Optional[Callable[[int, int], None]] = None,
+                      **kwargs) -> None:
         """Upload an object currently located on a disk.
 
         Args:
@@ -91,11 +90,14 @@ class ObjectStore(abc.ABC):
             filename (str | pathlib.Path): Path the the object on disk
             callback ((int, int) -> None, optional): If specified, the callback is periodically called with the number of bytes
                 uploaded and the total size of the object being uploaded.
+            **kwargs: other arguments to the upload object function are supported
+                and will be passed in to the underlying object store upload call.
+                Currently only used for S3ObjectStore.
 
         Raises:
             ObjectStoreTransientError: If there was a transient connection issue with uploading the object.
         """
-        del object_name, filename, callback  # unused
+        del object_name, filename, callback, kwargs  # unused
         raise NotImplementedError(f'{type(self).__name__}.upload_object is not implemented')
 
     def get_object_size(self, object_name: str) -> int:

@@ -582,7 +582,18 @@ def _is_registered_causal_lm(model: transformers.PreTrainedModel) -> bool:
         raise MissingConditionalImportError(extra_deps_group='nlp',
                                             conda_package='transformers',
                                             conda_channel='conda-forge') from e
-    causal_lm_classes = list(MODEL_FOR_CAUSAL_LM_MAPPING.values())
+
+    # This try/except is needed until https://github.com/huggingface/transformers/issues/26778
+    # is resolved in a release. This means that this attempt to automatically detect causal LMs
+    # does not currently work in an environment with flash attention <2 installed.
+    try:
+        causal_lm_classes = list(MODEL_FOR_CAUSAL_LM_MAPPING.values())
+    except RuntimeError as e:
+        if 'Failed to import transformers.models' in str(e):
+            MODEL_FOR_CAUSAL_LM_MAPPING = {}
+            return False
+        else:
+            raise e
     return any(isinstance(model, causal_lm_class) for causal_lm_class in causal_lm_classes)
 
 
