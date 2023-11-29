@@ -227,8 +227,7 @@ def test_console_logger_eval(
         batches_per_logging_event = batches_per_epoch * eval_interval
         expected_num_eval_logging_events, remainder = divmod(max_duration, batches_per_logging_event)
 
-    num_progress_events_due_to_eval_interval = NUM_EVAL_LOGGING_EVENTS
-    num_eval_progress_lines_per_eval_event = num_progress_events_due_to_eval_interval
+    num_eval_progress_lines_per_eval_event = NUM_EVAL_LOGGING_EVENTS if eval_dataset_size > 0 else 1
     # An eval logging event always happens at fit_end, so if one would not normally fall at
     # last batch or epoch, then add an extra event to the expected.
     if remainder:
