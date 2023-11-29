@@ -223,4 +223,4 @@ class ConsoleLogger(LoggerDestination):
     def _log_to_console(self, log_str: str):
         """Logs to the console, avoiding interleaving with a progress bar."""
         # write directly to self.stream; no active progress bar
-        print(log_str, file=self.stream, flush=True)
+        #print(log_str, file=self.stream, flush=True)
