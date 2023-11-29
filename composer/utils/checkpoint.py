@@ -320,7 +320,7 @@ def _rename_model_state_dict(model_state_dict, module_name_mapping: dict[str, st
     for k, v in model_state_dict.items():
         if '_flat_param' in k:
             continue
-        if k in module_name_mapping.keys():
+        if module_name_mapping and k in module_name_mapping.keys():
             modified_state_dict[module_name_mapping[k]] = v
         else:
             modified_state_dict[k] = v
@@ -1147,11 +1147,10 @@ class RenameLoadPlanner(DefaultLoadPlanner):
         state_dict['state']['model'] = {k: v for k, v in self.original_state_dict['state']['model'].items()}
 
         log.debug('rename state dict')
-        if self.name_conversion_dict:
-            log.debug('rename state dict')
-            model_state_dict = _rename_model_state_dict(state_dict['state']['model'], self.name_conversion_dict)
-            log.debug('reassign model state dict')
-            state_dict['state']['model'] = model_state_dict
+        log.debug('rename state dict')
+        model_state_dict = _rename_model_state_dict(state_dict['state']['model'], self.name_conversion_dict)
+        log.debug('reassign model state dict')
+        state_dict['state']['model'] = model_state_dict
 
         log.debug('Load sharded optimizer state dict')
         if self.flatten_sharded_tensors:
@@ -1233,10 +1232,10 @@ class RenameSavePlanner(DefaultSavePlanner):
             state_dict: See parent class.
             is_coordinator: See parent class.
         """
-        if self.name_conversion_dict:
-            model_state_dict = _rename_model_state_dict(state_dict['state']['model'], self.name_conversion_dict)
-            state_dict['state']['model'] = model_state_dict
+        model_state_dict = _rename_model_state_dict(state_dict['state']['model'], self.name_conversion_dict)
+        state_dict['state']['model'] = model_state_dict
 
+        if self.name_conversion_dict:
             if 'optimizers' in state_dict.keys():
                 optimizers = _rename_optimizers_state_dict(state_dict['optimizers'], self.name_conversion_dict)
                 state_dict['optimizers'] = optimizers
