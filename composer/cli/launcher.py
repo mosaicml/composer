@@ -468,6 +468,10 @@ def main():
     std_console_handler.setLevel(logging.DEBUG)
     std_console_handler.setFormatter(json_log_formatter.JsonLogFormatter())
     log.addHandler(std_console_handler)
+    err_console_handler = logging.StreamHandler(stream=sys.stderr)
+    err_console_handler.setLevel(logging.DEBUG)
+    err_console_handler.setFormatter(json_log_formatter.JsonLogFormatter())
+    log.addHandler(err_console_handler)
 
     processes = {}
 
@@ -498,7 +502,6 @@ def main():
         # what failed. No need to re-raise the exception, as `aggregate_process_returncode`
         # will return an appropriate error code, which will cause the script to exit.
         # traceback.print_exc()
-        print('there is a problem!' + traceback.format_exc())
         log.critical(f'Exception occurred: {e}')
         log.critical("Traceback (most recent call last):\n" + traceback.format_exc())
         print('Killing training processes')
