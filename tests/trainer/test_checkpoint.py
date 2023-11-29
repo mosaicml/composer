@@ -577,6 +577,7 @@ class TestCheckpointLoading:
             run_name='big-chungus',
             autoresume=True,
             load_path='ignore_me.pt',  # this should be ignored
+            load_ignore_keys=['*'],  # this should be ignored
             loggers=[self.get_logger(tmp_path)] if use_object_store else [],
         )
 
@@ -591,6 +592,7 @@ class TestCheckpointLoading:
                 trainer_2.state.eval_metrics), 'Original metrics do not equal metrics from loaded checkpoint.'
 
         assert trainer_1.state.run_name == trainer_2.state.run_name
+
 
     @pytest.mark.parametrize('load_path,load_object_store',
                              [('s3://my-bucket/my-run-name/my-checkpoints', None),
