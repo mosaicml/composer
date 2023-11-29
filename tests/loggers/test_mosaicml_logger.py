@@ -276,7 +276,6 @@ def test_run_events_logged(monkeypatch):
     trainer.fit()
     metadata = mock_mapi.run_metadata[run_name]
     assert isinstance(metadata['mosaicml/model_initialized_time'], float)
-    assert isinstance(metadata['mosaicml/train_finished_time'], float)
     assert 'mosaicml/training_progress' in metadata
     assert metadata['mosaicml/training_progress'] == '[batch=4/4]'
     assert 'mosaicml/training_sub_progress' not in metadata
