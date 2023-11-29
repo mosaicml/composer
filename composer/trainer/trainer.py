@@ -915,6 +915,10 @@ class Trainer:
             composer_logger_handler.setLevel(logging.DEBUG)
             composer_logger_handler.setFormatter(JsonLogFormatter())
             logging.getLogger('composer').addHandler(composer_logger_handler)
+            err_console_handler = logging.StreamHandler(stream=sys.stderr)
+            err_console_handler.setLevel(logging.WARN)
+            err_console_handler.setFormatter(JsonLogFormatter())
+            logging.getLogger('composer').addHandler(err_console_handler)
 
         algorithms = list(ensure_tuple(algorithms))
 
