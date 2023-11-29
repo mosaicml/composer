@@ -318,6 +318,8 @@ def _get_module_name_mapping(model: torch.nn.Module) -> tuple[dict[str, str], in
 def _rename_model_state_dict(model_state_dict, module_name_mapping: dict[str, str]):
     modified_state_dict = {}
     for k, v in model_state_dict.items():
+        if '_flat_param' in k:
+            continue
         if k in module_name_mapping.keys():
             modified_state_dict[module_name_mapping[k]] = v
         else:
