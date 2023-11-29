@@ -13,6 +13,7 @@ import logging
 import os
 import random
 import re
+import sys
 import tempfile
 import textwrap
 import time
@@ -21,7 +22,7 @@ from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
 from typing import (Any, Callable, ContextManager, Dict, Iterable, List, Mapping, Optional, Sequence, TextIO, Tuple,
-                    Union, cast)
+                    Union, cast,)
 
 import coolname
 import torch
@@ -38,10 +39,10 @@ from composer.callbacks import CheckpointSaver, OptimizerMonitor
 from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException, Callback, DataSpec, Engine, Evaluator,
                            Event, Precision, PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode,
                            ensure_data_spec, ensure_evaluator, ensure_time, get_precision_context,
-                           validate_eval_automicrobatching)
+                           validate_eval_automicrobatching,)
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, MosaicMLLogger, ProgressBarLogger,
-                              RemoteUploaderDownloader, WandBLogger)
+                              RemoteUploaderDownloader, WandBLogger,)
 from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR
 from composer.models import ComposerModel
 from composer.optim import ComposerScheduler, DecoupledSGDW, compile_composer_scheduler
@@ -50,12 +51,13 @@ from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _par
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
 from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.dist_strategy import (DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module,
-                                            set_fsdp_default)
+                                            set_fsdp_default,)
 from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectStore, Transform, checkpoint, dist,
                             ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist,
                             get_composer_env_dict, get_device, get_file, is_tpu_installed, map_collection,
                             maybe_create_object_store_from_uri, maybe_create_remote_uploader_downloader_from_uri,
-                            model_eval_mode, parse_uri, reproducibility, using_torch_2)
+                            model_eval_mode, parse_uri, reproducibility, using_torch_2,)
+from composer.utils.json_log_formatter import JsonLogFormatter
 from composer.utils.misc import is_model_deepspeed
 
 if is_tpu_installed():
@@ -909,6 +911,10 @@ class Trainer:
                 f'%(asctime)s: rank{dist.get_global_rank()}[%(process)d][%(threadName)s]: %(levelname)s: %(name)s: %(message)s'
             )
             logging.getLogger('composer').setLevel(self.python_log_level.upper())
+            composer_logger_handler = logging.StreamHandler(stream=sys.stdout)
+            composer_logger_handler.setLevel(logging.DEBUG)
+            composer_logger_handler.setFormatter(JsonLogFormatter())
+            logging.getLogger('composer').addHandler(composer_logger_handler)
 
         algorithms = list(ensure_tuple(algorithms))
 
