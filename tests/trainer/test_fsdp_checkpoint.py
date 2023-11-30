@@ -856,10 +856,6 @@ def test_mismatch_timestamp_error(
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning')
-<<<<<<< HEAD
-def test_cleanup_sharded_checkpoints(world_size, tmp_path: pathlib.Path, state_dict_type: str, num_ckpts_to_keep: int,
-                                     batches_to_train: int, s3_bucket, s3_ephemeral_prefix, request):
-=======
 def test_cleanup_sharded_checkpoints(
     world_size,
     tmp_path: pathlib.Path,
@@ -870,7 +866,6 @@ def test_cleanup_sharded_checkpoints(
     s3_ephemeral_prefix,
     request,
 ):
->>>>>>> dev
     if state_dict_type == 'local' and using_torch_2():
         pytest.xfail(('Loading a state_dict_type="local" checkpoint with strict=True '
                       'errors out. See https://github.com/pytorch/pytorch/issues/102667 '
