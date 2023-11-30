@@ -150,14 +150,8 @@ class MosaicMLLogger(LoggerDestination):
         """Flush buffered metadata to MosaicML if enough time has passed since last flush."""
         if self._enabled and (time.time() - self.time_last_logged > self.log_interval or force_flush):
             try:
-                current_metadata = self.buffered_metadata
-                log.info('current metadata', current_metadata)
                 f = mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=True, protect=True)
-                keys_to_delete = list(current_metadata.keys())
-                for key in keys_to_delete:
-                    if key in self.buffered_metadata:
-                        del self.buffered_metadata[key]
-                # self.buffered_metadata = {}
+                self.buffered_metadata = {}
                 self.time_last_logged = time.time()
                 self._futures.append(f)
                 done, incomplete = wait(self._futures, timeout=0.01)
