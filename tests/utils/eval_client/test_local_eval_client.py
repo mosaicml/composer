@@ -28,9 +28,11 @@ from tests.common.markers import world_size
     ],
 )
 @world_size(1, 2)
-def test_local_invoke(code: str, result: str, language: str, world_size: int):
+def test_local_invoke(code: str, result: str, language: str, world_size: int, tmp_path: str):
     """Test invocation function for LocalEvalClient with code that succeeds, fails compilation, times out, and is incorrect in C, C++, Python, JS.
     """
+    import os
+    os.makedirs(os.path.dirname(tmp_path), exist_ok=True)
     eval_client = LocalEvalClient()
     input = '(1,)' if language == 'python' else '1'
     assert eval_client.invoke([[[{
