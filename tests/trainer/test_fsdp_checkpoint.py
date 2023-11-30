@@ -558,11 +558,6 @@ def test_fsdp_full_state_dict_load_with_ema(
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning')
-<<<<<<< HEAD
-def test_fsdp_partitioned_state_dict_load(world_size, tmp_path: pathlib.Path, state_dict_type: str, autoresume: bool,
-                                          precision: str, optimizer: str, weights_only: bool, use_remote, s3_bucket,
-                                          s3_ephemeral_prefix, request):
-=======
 def test_fsdp_partitioned_state_dict_load(
     world_size,
     tmp_path: pathlib.Path,
@@ -576,7 +571,6 @@ def test_fsdp_partitioned_state_dict_load(
     s3_ephemeral_prefix,
     request,
 ):
->>>>>>> dev
     if weights_only and autoresume:
         pytest.xfail('Weights only with autoresume is not supported')
     if state_dict_type == 'local' and using_torch_2():
