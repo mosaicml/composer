@@ -286,7 +286,7 @@ class InContextLearningDataset(Dataset):
         """
         Formats the fewshot prompt for test example `example_idx`.
 
-        Randomly select `num_fewshot` samples from the dataset (excluding the example at `example_idx`) and constructs
+        Randomly selects `num_fewshot` samples from the dataset (excluding the example at `example_idx`) and constructs
         contextes with answers appended.
 
         Returns the formatted prompt_string + concatenated list of formatted few shot examples as a string.
@@ -311,8 +311,8 @@ class InContextLearningDataset(Dataset):
 
     def _construct_context(self, example: Dict, preceding_text: str = '', add_answer: bool = False) -> str:
         """
-        Takes an example and constructs a context. Optionally adds the correct answer (for fewshot examples)
-        and handles example delemiters
+        Takes an example and constructs a context, ie the input the model reads for this example. 
+        Optionally adds the correct answer (for fewshot examples) and handles example delemiters
 
         Args:
             example (Dict): the example from which to construct the context
@@ -348,7 +348,7 @@ class InContextLearningDataset(Dataset):
         If the input_ids is empty then input_ids['input_ids'] will be a 0-length List,
         unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
         If there is an EOS token added, we need to remove it so it is not in the middle of the prompt,
-        as the specific eval question's prompt will follow theinput_ids
+        as the specific eval question's prompt will follow the input_ids
         Args:
             input_ids (List): the tokenized input
 
@@ -1195,19 +1195,19 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             'input_ids': [],
             'mode': 'generate',
             'labels': [],
-            'prompts': [],  # list of prompts
-            'tests': [],  # list of tests
-            'entry_points': [],  # list of entry points
-            'test_inputs': [],  # list of test inputs
-            'test_outputs': [],  # list of test outputs
-            'languages': [],  # list of languages
+            'prompts': [],  
+            'tests': [],  
+            'entry_points': [],  
+            'test_inputs': [],  
+            'test_outputs': [], 
+            'languages': [],  
             'pass_at_k': self.pass_at_k,
             'generation_length': self.max_seq_len - self.max_prompt_length,
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
                 # TODO: specify this?
                 'num_beams': 1,  # single beam
-                'num_return_sequences': self.generations_per_sample,  # how many gens per prompt
+                'num_return_sequences': self.generations_per_sample,  
                 'do_sample': True,
                 'top_p': self.top_p,
                 'top_k': self.top_k,
