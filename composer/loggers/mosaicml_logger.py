@@ -154,14 +154,6 @@ class MosaicMLLogger(LoggerDestination):
                 self.buffered_metadata = {}
                 self.time_last_logged = time.time()
                 self._futures.append(f)
-                done, incomplete = wait(self._futures, timeout=0.01)
-                log.info(f'Logged {len(done)} metadata to MosaicML, waiting on {len(incomplete)}')
-                # Raise any exceptions
-                for f in done:
-                    if f.exception() is not None:
-                        raise f.exception()  # type: ignore
-                self._futures.extend(list(incomplete))
-                log.info(f'After adding {len(incomplete)} incomplete futures, we have {len(self._futures)} total futures and {len(set(self._futures))} total unique futures')
             except Exception:
                 log.exception('Failed to log metadata to Mosaic')  # Prints out full traceback
                 if self.ignore_exceptions:
@@ -170,6 +162,20 @@ class MosaicMLLogger(LoggerDestination):
                 else:
                     log.info('Raising exception. To ignore exceptions, set ignore_exceptions=True.')
                     raise
+        try:
+            done, incomplete_temp = wait(self._futures, timeout=0.01)
+            # Remove completed futures from the list
+            self._futures = [f for f in self._futures if f not in done or f in incomplete_temp]
+            log.info(f'Logged {len(done)} metadata to MosaicML, waiting on {len(self._futures)}')
+
+            # Raise any exceptions from completed futures
+            for f in done:
+                if f.exception() is not None:
+                    raise f.exception()  # type: ignore
+
+            log.info(f'We have {len(self._futures)} total futures waiting to be completed')
+        except Exception:
+            log.exception('Error while processing futures')
 
     def _get_training_progress_metrics(self, state: State) -> Dict[str, Any]:
         """Calculates training progress metrics.
