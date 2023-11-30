@@ -154,13 +154,13 @@ class MosaicMLLogger(LoggerDestination):
                 self.buffered_metadata = {}
                 self.time_last_logged = time.time()
                 self._futures.append(f)
-                done, incomplete = wait(self._futures, timeout=0.1)
+                done, incomplete = wait(self._futures, timeout=0.01)
                 log.info(f'Logged {len(done)} metadata to MosaicML, waiting on {len(incomplete)}')
                 # Raise any exceptions
                 for f in done:
                     if f.exception() is not None:
                         raise f.exception()  # type: ignore
-                self._futures = list(incomplete)
+                self._futures.extend(list(incomplete))
             except Exception:
                 log.exception('Failed to log metadata to Mosaic')  # Prints out full traceback
                 if self.ignore_exceptions:
