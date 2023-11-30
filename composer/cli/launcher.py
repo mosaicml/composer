@@ -357,6 +357,9 @@ def _monitor_processes(processes: Dict[int, subprocess.Popen]):
 
 
 def _print_process_exit_status(global_rank: int, process: subprocess.Popen):
+    log.info('in print_process_exit_status')
+    log.info(f'process.stdout: {process.stdout}')
+    log.info(f'process.stderr: {process.stderr}')
     if process.stdout is None:
         output = None
     else:
@@ -463,15 +466,15 @@ def main():
     args = _parse_args()
 
     logging.basicConfig()
-    log.setLevel(logging.WARN)
-    std_console_handler = logging.StreamHandler(stream=sys.stdout)
-    std_console_handler.setLevel(logging.WARN)
-    std_console_handler.setFormatter(json_log_formatter.JsonLogFormatter())
-    log.addHandler(std_console_handler)
-    err_console_handler = logging.StreamHandler(stream=sys.stderr)
-    err_console_handler.setLevel(logging.WARN)
-    err_console_handler.setFormatter(json_log_formatter.JsonLogFormatter())
-    log.addHandler(err_console_handler)
+    log.setLevel(logging.INFO)
+    # std_console_handler = logging.StreamHandler(stream=sys.stdout)
+    # std_console_handler.setLevel(logging.WARN)
+    # std_console_handler.setFormatter(json_log_formatter.JsonLogFormatter())
+    # log.addHandler(std_console_handler)
+    # err_console_handler = logging.StreamHandler(stream=sys.stderr)
+    # err_console_handler.setLevel(logging.WARN)
+    # err_console_handler.setFormatter(json_log_formatter.JsonLogFormatter())
+    # log.addHandler(err_console_handler)
 
     processes = {}
 
@@ -482,6 +485,7 @@ def main():
         args.stderr = f'{log_tmpdir.name}/rank{{rank}}.stderr.txt'
 
     try:
+        log.info('Launching process')
         _launch_processes(nproc=args.nproc,
                           world_size=args.world_size,
                           base_rank=args.base_rank,
@@ -495,12 +499,14 @@ def main():
                           training_script=args.training_script,
                           training_script_args=args.training_script_args,
                           processes=processes)
+        log.info('Monitoring process')
         _monitor_processes(processes)
     except Exception as e:
         # Print the exception first, then kill the training processes, since killing
         # may take up to CLEANUP_TIMEOUT seconds, and the user should know immediately
         # what failed. No need to re-raise the exception, as `aggregate_process_returncode`
         # will return an appropriate error code, which will cause the script to exit.
+        log.info('Returning traceback')
         traceback.print_exc()
         log.critical(f'Exception occurred: {e}')
         log.critical("Traceback (most recent call last):\n" + traceback.format_exc())
