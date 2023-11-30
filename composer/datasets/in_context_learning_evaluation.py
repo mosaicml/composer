@@ -469,15 +469,15 @@ class InContextLearningDataset(Dataset):
         })
         chunked = {}
         for k, v in batch.items():
-            if k in self.dont_split_keys:
+            if type(v) in [str, int, dict]:
                 # Defer broadcasting until we know num_chunks
                 pass
-            elif k in self.list_split_keys:
+            elif type(v) == list:
                 chunked[k] = _split_list(v, microbatch_size)
-            elif k in self.normal_split_keys:
+            elif type(v) == torch.Tensor:
                 chunked[k] = _default_split_batch(v, microbatch_size)
             else:
-                raise ValueError(f'Unexpected key {k}')
+                raise ValueError(f'Unexpected key {k}, value , type {type(v)}')
         num_chunks = len(chunked['input_ids'])
         for k, v in batch.items():
             if isinstance(v, (int, float, str, bool, Dict)):
