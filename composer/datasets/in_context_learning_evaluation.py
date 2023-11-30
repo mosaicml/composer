@@ -164,9 +164,6 @@ class InContextLearningDataset(Dataset):
         hf_parsing_map (Dict[str, List[str]]): A dictionary containing a mapping from HF columns to ICL dataset keys. The dictionary should be formatted {icl_key:[hf_key1, hf_key1]}.
             Values in the dict will be concatenated with ' ' seperating them. If not included, will use the columns already present in the HF dataset.
         stacked_keys (List(str)): keys in the output batch that must be converted to tensors with torch.stack()
-        dont_split_keys (List(str)): keys in the ICL dictionary that should not be split among batches.
-        list_split_keys (List(str)): keys in the ICL dictionary that will be split as lists, resulting in microbatch_size sections of the list being inserted in every batch
-        normal_split_keys (List(str)): keys in the ICL dictionary that will be split into chunks regularly
     """
 
     def __init__(
@@ -670,6 +667,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         for example in data:
             aliases = example['aliases']
             context_enc = example['preamble']['input_ids'] + example['context']['input_ids']
+            # TODO: if no cont_span, then don't need to stack labels
             inp, _ = _make_padded_input(
                 context_enc,
                 [],
