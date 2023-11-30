@@ -50,6 +50,3 @@ def patch_pytorch():
         # Monkey patch partial state dict handling
         _state_dict_utils._sharded_pre_load_state_dict_hook = (_sharded_pre_load_state_dict_hook)
 
-    else:
-        # Nothing to patch yet for torch >= 2.1.1
-        pass
