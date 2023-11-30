@@ -48,7 +48,25 @@ def _make_padded_input(context_enc: List,
                        max_seq_len: int,
                        pad_tok_id: int,
                        padding_side: str = 'right') -> Tuple[torch.tensor, torch.tensor]:
-    # TODO: docstring
+    """
+    Takes an encoded context and continuation and clips the beginning of the context if they're too long.
+    Adds the padding token to the specified side.
+
+    Args:
+        context_enc (List): the encoded input to the model
+        continuation_enc (List): the encoded desired output for the example
+        max_seq_list (int): maximum length sequences can be
+        pad_tok_id (int): the token id we pad with
+        padding_side (str): which side to pad the context on. Can be 'right' or 'left
+
+    Returns:
+        input (torch.tensor): the padded and encoded context 
+        continuation_span (torch.tensor): the _inclusive_ range of indices corresponding to the continuation
+     
+
+    """
+
+    # TODO: Not obvious this happens here, should probably be it's own funciton
     if len(continuation_enc) + len(context_enc) > max_seq_len:
         # clip from the end
         context_max_subseq_len = max_seq_len - len(continuation_enc)
@@ -59,7 +77,6 @@ def _make_padded_input(context_enc: List,
 
         context_enc = context_enc[-(context_max_subseq_len):]
 
-    # continuation span is the _inclusive_ range of indices corresponding to the continuation
     continuation_span = torch.tensor(range(len(context_enc), len(context_enc) + len(continuation_enc)))
     inp = torch.tensor(
         (context_enc + continuation_enc),
@@ -718,7 +735,7 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
 
     def collate_fn(self, data: Dict[str, any]) -> Dict[str, Any]:
         """
-        The function that the dataloader uses to accumulate data into batches.
+        Accumulate examples into batches
         Args:
             data (List): list of tokenized datapoints (dicts returned by self._tokenize_example)
 
