@@ -163,7 +163,7 @@ class InContextLearningDataset(Dataset):
         hf_loading_vars (Dict): A dictionary containing keyword arguments to be passed into `load_dataset` if dataset is being pulled from HF.
         hf_parsing_map (Dict[str, List[str]]): A dictionary containing a mapping from HF columns to ICL dataset keys. The dictionary should be formatted {icl_key:[hf_key1, hf_key1]}.
             Values in the dict will be concatenated with ' ' seperating them. If not included, will use the columns already present in the HF dataset.
-        stacked_keys (List(str)): keys in the output batch that must be converted to tensors with torch.stack()
+        tokenize_labels (bool): Whether or not the labels should be tokenized. Used in metric calculation and for direct comparison
     """
 
     def __init__(
@@ -184,7 +184,7 @@ class InContextLearningDataset(Dataset):
         strip_dataset: bool = True,
         hf_loading_vars: Dict = None,
         hf_parsing_map: Dict = None,
-        stacked_keys: List[str] = None,
+        tokenize_labels: bool = True,
     ):
 
         self.tokenizer = tokenizer
@@ -201,7 +201,7 @@ class InContextLearningDataset(Dataset):
         self.continuation_delimiter = continuation_delimiter
         self.context_key = context_key
         self.answer_key = answer_key
-        self.stacked_keys = stacked_keys or ['input_ids', 'labels']
+        self.tokenize_labels = tokenize_labels 
 
         hf_loading_vars = hf_loading_vars or {}
         self.dataset = self._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_map)
@@ -426,8 +426,11 @@ class InContextLearningDataset(Dataset):
             'labels': [],
         }
         for data_pair in data:
+            # TODO: move this to tokenize_example
             context_enc = data_pair['preamble']['input_ids'] + data_pair['context']['input_ids']
 
+            # TODO: use self.answer_key 
+            # TODO: write a boolean tokenize_labels
             inp, continuation_span = _make_padded_input(context_enc, data_pair['continuation']['input_ids'],
                                                         self.max_seq_len, self.pad_tok_id)
 
@@ -435,7 +438,10 @@ class InContextLearningDataset(Dataset):
             batch['continuation_indicies'].append(continuation_span)
             batch['labels'].append(inp)
 
-        batch = {k: torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
+        batch['input_ids'] = torch.stack(batch['input_ids'])
+        if self.tokenize_labels:
+            batch['labels'] = torch.stack(batch['labels'])
+        
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
@@ -549,7 +555,9 @@ class InContextLearningRAGGenerationTaskDataset(InContextLearningDataset):
             batch['answer_indices'].append(answer_span)
             batch['labels'].append(inp)
 
-        batch = {k: torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
+        batch['input_ids'] = torch.stack(batch['input_ids'])
+        if self.tokenize_labels:
+            batch['labels'] = torch.stack(batch['labels'])
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
@@ -573,9 +581,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
     def __init__(self, cot_delimiter: str = '', *args, **kwargs):
         self.cot_delimiter = cot_delimiter
         self.has_cot = False
-        super().__init__(stacked_keys=['input_ids'],
-                         *args,
-                         **kwargs)
+        super().__init__(tokenize_labels=False, *args, **kwargs)
 
         self.max_answer_length = self.get_max_answer_length()
 
@@ -667,7 +673,6 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         for example in data:
             aliases = example['aliases']
             context_enc = example['preamble']['input_ids'] + example['context']['input_ids']
-            # TODO: if no cont_span, then don't need to stack labels
             inp, _ = _make_padded_input(
                 context_enc,
                 [],
@@ -679,7 +684,9 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
             batch['input_ids'].append(inp)
             batch['labels'].append(aliases)
 
-        batch = {k: torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
+        batch['input_ids'] = torch.stack(batch['input_ids'])
+        if self.tokenize_labels:
+            batch['labels'] = torch.stack(batch['labels'])
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
@@ -737,7 +744,9 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
             batch['continuation_indices'].append(continuation_span)
             batch['labels'].append(inp)
 
-        batch = {k: torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
+        batch['input_ids'] = torch.stack(batch['input_ids'])
+        if self.tokenize_labels:
+            batch['labels'] = torch.stack(batch['labels'])
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
@@ -846,7 +855,9 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         # since the batch may consist of multiple questions, the choice_groupings indicates
         # which contiguous sequences of elements in the batch correspond to which question
         # gold_indices indicates which of the [0, N-1] choices is the correct one for each question.
-        batch = {k: torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
+        batch['input_ids'] = torch.stack(batch['input_ids'])
+        if self.tokenize_labels:
+            batch['labels'] = torch.stack(batch['labels'])
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
@@ -1059,7 +1070,9 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         # since the batch may consist of multiple questions, the choice_groupings indicates
         # which contiguous sequences of elements in the batch correspond to which question
         # gold_indices indicates which of the [0, N-1] choices is the correct one for each question.
-        batch = {k: torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
+        batch['input_ids'] = torch.stack(batch['input_ids'])
+        if self.tokenize_labels:
+            batch['labels'] = torch.stack(batch['labels'])
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
@@ -1135,7 +1148,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             context_key='prompt',
             answer_key='canonical_solution',
             strip_dataset=False,
-            stacked_keys=['input_ids'],
+            tokenize_labels=False,
             *args,
             **kwargs,
         )
@@ -1234,7 +1247,9 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             batch['test_outputs'].append(example['test_outputs'])
             batch['languages'].append(example['language'])
 
-        batch = {k: torch.stack(v) if k in self.stacked_keys else v for k, v in batch.items()}
+        batch['input_ids'] = torch.stack(batch['input_ids'])
+        if self.tokenize_labels:
+            batch['labels'] = torch.stack(batch['labels'])
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
