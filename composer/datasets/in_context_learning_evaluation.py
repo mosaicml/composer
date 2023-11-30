@@ -144,7 +144,7 @@ class InContextLearningDataset(Dataset):
         strip_dataset (bool): Boolean for whether to strip whitespace from data. Trailing whitespace can cause degenerative outputs,
             so unless whitespace should be preserved (for example in code), this should be set to True.
         hf_loading_vars (Dict): A dictionary containing keyword arguments to be passed into `load_dataset` if dataset is being pulled from HF.
-        hf_parsing_map (Dict[str:List[str]]): A dictionary containing a mapping from HF columns to ICL dataset keys. The dictionary should be formatted {icl_key:[hf_key1, hf_key1]}.
+        hf_parsing_map (Dict[str, List[str]]): A dictionary containing a mapping from HF columns to ICL dataset keys. The dictionary should be formatted {icl_key:[hf_key1, hf_key1]}.
             Values in the dict will be concatenated with ' ' seperating them. If not included, will use the columns already present in the HF dataset.
         stacked_keys (List(str)): keys in the output batch that must be converted to tensors with torch.stack()
         dont_split_keys (List(str)): keys in the ICL dictionary that should not be split among batches.
@@ -268,7 +268,7 @@ class InContextLearningDataset(Dataset):
             dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
         return dataset
 
-    def _generate_few_shot_text(
+    def _generate_few_shot_prompt(
         self,
         num_fewshot: int,
         example_idx: int,
@@ -397,7 +397,7 @@ class InContextLearningDataset(Dataset):
         Returns:
             Dict: contains a dictionary with the tokenized data
         """
-        prompt_and_fewshot = self._generate_few_shot_text(num_fewshot, example_idx, prompt_string, fewshot_rng)
+        prompt_and_fewshot = self._generate_few_shot_prompt(num_fewshot, example_idx, prompt_string, fewshot_rng)
         ctxt = self._construct_context(example, prompt_and_fewshot, add_answer=False)
         tokenized_example = self._tokenize_example(prompt_and_fewshot, ctxt, example)
         return tokenized_example
@@ -991,7 +991,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         Returns:
             Dict: contains a dictionary with the tokenized data
         """
-        prompt_and_fewshot = self._generate_few_shot_text(num_fewshot, example_idx, prompt_string, fewshot_rng)
+        prompt_and_fewshot = self._generate_few_shot_prompt(num_fewshot, example_idx, prompt_string, fewshot_rng)
         ctxt = self._construct_multiple_contexts(example, prompt_and_fewshot)
         tokenized_example = self._tokenize_example(prompt_and_fewshot, ctxt, example)
         return tokenized_example
