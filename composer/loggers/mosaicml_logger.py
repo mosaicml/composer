@@ -97,7 +97,7 @@ class MosaicMLLogger(LoggerDestination):
         log.debug(f'Logging model initialized time to metadata')
         self._log_metadata({'model_initialized_time': time.time()})
         for num in range(30):
-            self._log_metadata({'num': num})
+            self._log_metadata({f'num/{num}': num})
             self._flush_metadata(force_flush=True)
         # Log WandB run URL if it exists. Must run on after_load as WandB is setup on event init
         for callback in state.callbacks:
@@ -150,8 +150,12 @@ class MosaicMLLogger(LoggerDestination):
         """Flush buffered metadata to MosaicML if enough time has passed since last flush."""
         if self._enabled and (time.time() - self.time_last_logged > self.log_interval or force_flush):
             try:
+                current_metadata = self.buffered_metadata
+                log.info('current metadata', current_metadata)
                 f = mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=True, protect=True)
-                self.buffered_metadata = {}
+                for key in current_metadata:
+                    self.buffered_metadata["current_metadata"].pop(key, None)
+                # self.buffered_metadata = {}
                 self.time_last_logged = time.time()
                 self._futures.append(f)
                 done, incomplete = wait(self._futures, timeout=0.01)
@@ -161,6 +165,7 @@ class MosaicMLLogger(LoggerDestination):
                     if f.exception() is not None:
                         raise f.exception()  # type: ignore
                 self._futures.extend(list(incomplete))
+                log.info(f'After adding {len(incomplete)} incomplete futures, we have {len(self._futures)} total futures and {len(set(self._futures))} total unique futures')
             except Exception:
                 log.exception('Failed to log metadata to Mosaic')  # Prints out full traceback
                 if self.ignore_exceptions:
