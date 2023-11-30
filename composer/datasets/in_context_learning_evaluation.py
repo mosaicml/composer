@@ -60,9 +60,9 @@ def _make_padded_input(context_enc: List,
         padding_side (str): which side to pad the context on. Can be 'right' or 'left
 
     Returns:
-        input (torch.tensor): the padded and encoded context
+        input (torch.tensor): the padded and encoded context 
         continuation_span (torch.tensor): the _inclusive_ range of indices corresponding to the continuation
-
+     
 
     """
 
@@ -201,7 +201,7 @@ class InContextLearningDataset(Dataset):
         self.continuation_delimiter = continuation_delimiter
         self.context_key = context_key
         self.answer_key = answer_key
-        self.tokenize_labels = tokenize_labels
+        self.tokenize_labels = tokenize_labels 
 
         hf_loading_vars = hf_loading_vars or {}
         self.dataset = self._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_map)
@@ -311,7 +311,7 @@ class InContextLearningDataset(Dataset):
 
     def _construct_context(self, example: Dict, preceding_text: str = '', add_answer: bool = False) -> str:
         """
-        Takes an example and constructs a context, ie the input the model reads for this example.
+        Takes an example and constructs a context, ie the input the model reads for this example. 
         Optionally adds the correct answer (for fewshot examples) and handles example delemiters
 
         Args:
@@ -410,6 +410,13 @@ class InContextLearningDataset(Dataset):
         tokenized_example = self._tokenize_example(prompt_and_fewshot, ctxt, example)
         return tokenized_example
 
+    def _convert_tokens_to_tensors(self, batch: Dict) -> Dict[str, Any]:
+        batch['input_ids'] = torch.stack(batch['input_ids'])
+        if self.tokenize_labels:
+            batch['labels'] = torch.stack(batch['labels'])
+        batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
+        return batch
+
     def collate_fn(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
         The function that the dataloader uses to accumulate data into batches.
@@ -439,11 +446,7 @@ class InContextLearningDataset(Dataset):
             batch['continuation_indicies'].append(continuation_span)
             batch['labels'].append(inp)
 
-        batch['input_ids'] = torch.stack(batch['input_ids'])
-        if self.tokenize_labels:
-            batch['labels'] = torch.stack(batch['labels'])
-
-        batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
+        batch = self._convert_tokens_to_tensors(batch)
         return batch
 
     def split_batch(self, batch: Any, microbatch_size: int) -> List[Dict[str, Any]]:
@@ -556,10 +559,7 @@ class InContextLearningRAGGenerationTaskDataset(InContextLearningDataset):
             batch['answer_indices'].append(answer_span)
             batch['labels'].append(inp)
 
-        batch['input_ids'] = torch.stack(batch['input_ids'])
-        if self.tokenize_labels:
-            batch['labels'] = torch.stack(batch['labels'])
-        batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
+        batch = self._convert_tokens_to_tensors(batch)
         return batch
 
 
@@ -685,10 +685,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
             batch['input_ids'].append(inp)
             batch['labels'].append(aliases)
 
-        batch['input_ids'] = torch.stack(batch['input_ids'])
-        if self.tokenize_labels:
-            batch['labels'] = torch.stack(batch['labels'])
-        batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
+        batch = self._convert_tokens_to_tensors(batch)
         return batch
 
 
@@ -736,7 +733,7 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
         """
         batch = {'input_ids': [], 'continuation_indices': [], 'mode': 'icl_task', 'labels': []}
         # self.default_batch = {'input_ids': [], 'continuation_indices': [], 'mode': 'icl_task', 'labels': []}
-        # batch = self.defatul_batch
+        # batch = self.defatul_batch 
         # batch_mapping = {
         #     "input_ids": 'context',
         #     "continuation_indices": 'continuation',
@@ -758,6 +755,8 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
         #         else:
         #             batch[batch_key].append(data_pair[data_key])
 
+
+
         for data_pair in data:
             context_enc = data_pair['preamble']['input_ids'] + data_pair['context']['input_ids']
             continuation_enc = data_pair['continuation']['input_ids']
@@ -768,10 +767,7 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
             batch['continuation_indices'].append(continuation_span)
             batch['labels'].append(inp)
 
-        batch['input_ids'] = torch.stack(batch['input_ids'])
-        if self.tokenize_labels:
-            batch['labels'] = torch.stack(batch['labels'])
-        batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
+        batch = self._convert_tokens_to_tensors(batch)
         return batch
 
 
@@ -801,7 +797,9 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
     """
 
     def __init__(self, choices_key: str = 'choices', *args, **kwargs):
-        super().__init__(context_key='query', *args, **kwargs)
+        super().__init__(context_key='query',
+                         *args,
+                         **kwargs)
         self.num_choices = len(self.dataset[0][choices_key])
 
     def _get_answer_from_example(self, example: Dict) -> str:
@@ -877,10 +875,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         # since the batch may consist of multiple questions, the choice_groupings indicates
         # which contiguous sequences of elements in the batch correspond to which question
         # gold_indices indicates which of the [0, N-1] choices is the correct one for each question.
-        batch['input_ids'] = torch.stack(batch['input_ids'])
-        if self.tokenize_labels:
-            batch['labels'] = torch.stack(batch['labels'])
-        batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
+        batch = self._convert_tokens_to_tensors(batch)
         return batch
 
     def get_num_samples_in_batch(self, batch) -> int:
@@ -1092,10 +1087,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         # since the batch may consist of multiple questions, the choice_groupings indicates
         # which contiguous sequences of elements in the batch correspond to which question
         # gold_indices indicates which of the [0, N-1] choices is the correct one for each question.
-        batch['input_ids'] = torch.stack(batch['input_ids'])
-        if self.tokenize_labels:
-            batch['labels'] = torch.stack(batch['labels'])
-        batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
+        batch = self._convert_tokens_to_tensors(batch)
         return batch
 
 
@@ -1230,19 +1222,19 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             'input_ids': [],
             'mode': 'generate',
             'labels': [],
-            'prompts': [],
-            'tests': [],
-            'entry_points': [],
-            'test_inputs': [],
-            'test_outputs': [],
-            'languages': [],
+            'prompts': [],  
+            'tests': [],  
+            'entry_points': [],  
+            'test_inputs': [],  
+            'test_outputs': [], 
+            'languages': [],  
             'pass_at_k': self.pass_at_k,
             'generation_length': self.max_seq_len - self.max_prompt_length,
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
                 # TODO: specify this?
                 'num_beams': 1,  # single beam
-                'num_return_sequences': self.generations_per_sample,
+                'num_return_sequences': self.generations_per_sample,  
                 'do_sample': True,
                 'top_p': self.top_p,
                 'top_k': self.top_k,
@@ -1269,10 +1261,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             batch['test_outputs'].append(example['test_outputs'])
             batch['languages'].append(example['language'])
 
-        batch['input_ids'] = torch.stack(batch['input_ids'])
-        if self.tokenize_labels:
-            batch['labels'] = torch.stack(batch['labels'])
-        batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
+        batch = self._convert_tokens_to_tensors(batch)
         return batch
 
 
