@@ -467,14 +467,14 @@ def main():
 
     logging.basicConfig()
     log.setLevel(logging.INFO)
-    # std_console_handler = logging.StreamHandler(stream=sys.stdout)
-    # std_console_handler.setLevel(logging.WARN)
-    # std_console_handler.setFormatter(json_log_formatter.JsonLogFormatter())
-    # log.addHandler(std_console_handler)
-    # err_console_handler = logging.StreamHandler(stream=sys.stderr)
-    # err_console_handler.setLevel(logging.WARN)
-    # err_console_handler.setFormatter(json_log_formatter.JsonLogFormatter())
-    # log.addHandler(err_console_handler)
+    std_console_handler = logging.StreamHandler(stream=sys.stdout)
+    std_console_handler.setLevel(logging.INFO)
+    std_console_handler.setFormatter(json_log_formatter.JsonLogFormatter())
+    log.addHandler(std_console_handler)
+    err_console_handler = logging.StreamHandler(stream=sys.stderr)
+    err_console_handler.setLevel(logging.INFO)
+    err_console_handler.setFormatter(json_log_formatter.JsonLogFormatter())
+    log.addHandler(err_console_handler)
 
     processes = {}
 

@@ -154,7 +154,7 @@ class MosaicMLLogger(LoggerDestination):
                 log.info('current metadata', current_metadata)
                 f = mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=True, protect=True)
                 for key in current_metadata:
-                    self.buffered_metadata["current_metadata"].pop(key, None)
+                    del self.buffered_metadata[key]
                 # self.buffered_metadata = {}
                 self.time_last_logged = time.time()
                 self._futures.append(f)
