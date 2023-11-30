@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader, Dataset
 
 from composer.core import DataSpec
 from composer.core.data_spec import _default_split_batch, _split_list
-from composer.utils import MissingConditionalImportError, dist, get_file, parse_uri
+from composer.utils import MissingConditionalImportError, dist, get_file
 
 if TYPE_CHECKING:
     import transformers
@@ -29,25 +29,6 @@ __all__ = [
     'InContextLearningQATaskDataset',
     'get_icl_task_dataloader',
 ]
-
-
-def _check_if_huggingface_uri(uri: str) -> bool:
-    """
-    Takes a dataset uri and checks if it's a HuggingFace dataset uri.
-    Returns False if a backend uri is present (ie 's3://', 'oci://') or if the uri is a local file.
-    Args:
-        uri (str): uri as a string
-
-    Returns:
-        bool: result of parsing uri as a HF uri
-    """
-    backend, _, path = parse_uri(uri)
-    # If there's any backend, it's a cloud OCI and not HF
-    if backend == '':
-        _, ext = os.path.splitext(path)
-        # If there's any extension, it's a link to a local file. If no extention, HF path
-        return ext == ''
-    return False
 
 
 def strip_data(example: Dict) -> Dict:
@@ -171,29 +152,30 @@ class InContextLearningDataset(Dataset):
         normal_split_keys (List(str)): keys in the ICL dictionary that will be split into chunks regularly
     """
 
-    def __init__(self,
-                 dataset_uri: str,
-                 tokenizer: transformers.PreTrainedTokenizerBase,
-                 max_seq_len: int,
-                 pad_tok_id: int,
-                 num_fewshot: int,
-                 fewshot_random_seed: int,
-                 prompt_string: str,
-                 example_delimiter: str,
-                 continuation_delimiter: str,
-                 destination_path: str,
-                 prelimiter: str = '',
-                 context_key: str = 'context',
-                 answer_key: str = 'answer',
-                 strip_dataset: bool = True,
-                 hf_loading_vars: Dict = None,
-                 hf_parsing_map: Dict = None,
-                 stacked_keys: List[str] = None,
-                 dont_split_keys: List[str] = None,
-                 list_split_keys: List[str] = None,
-                 normal_split_keys: List[str] = None,
-                 ):
-        
+    def __init__(
+        self,
+        dataset_uri: str,
+        tokenizer: transformers.PreTrainedTokenizerBase,
+        max_seq_len: int,
+        pad_tok_id: int,
+        num_fewshot: int,
+        fewshot_random_seed: int,
+        prompt_string: str,
+        example_delimiter: str,
+        continuation_delimiter: str,
+        destination_path: str,
+        prelimiter: str = '',
+        context_key: str = 'context',
+        answer_key: str = 'answer',
+        strip_dataset: bool = True,
+        hf_loading_vars: Dict = None,
+        hf_parsing_map: Dict = None,
+        stacked_keys: List[str] = None,
+        dont_split_keys: List[str] = None,
+        list_split_keys: List[str] = None,
+        normal_split_keys: List[str] = None,
+    ):
+
         self.tokenizer = tokenizer
         self.prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
 
@@ -271,7 +253,8 @@ class InContextLearningDataset(Dataset):
                 conda_package='datasets',
                 conda_channel='conda-forge',
             ) from e
-        if _check_if_huggingface_uri(dataset_uri):
+        if 'hf://' in dataset_uri:
+            dataset_uri = dataset_uri.replace('hf://', '')
             dataset = load_dataset(dataset_uri, **hf_loading_vars)
             if hf_parsing_map:
                 dataset_parsing_func = lambda example: {
@@ -343,12 +326,12 @@ class InContextLearningDataset(Dataset):
 
     def _get_answer_from_example(self, example: Dict[str, Any]) -> str:
         """
-        Returns the answer from the example 
+        Returns the answer from the example
         Args:
             example (Dict): the example from which to retrieve the answer
 
         Returns:
-            str: the answer in the example 
+            str: the answer in the example
         """
         return example[self.answer_key]
 
@@ -496,13 +479,11 @@ class InContextLearningRAGGenerationTaskDataset(InContextLearningDataset):
         passage_query_delimiter (str): Delimiter to place between the last passage and the query.
     """
 
-    def __init__(
-            self,
-            passage_delimiter: str = '\nPassage: ',
-            passage_query_delimiter: str = '\nQuery: ',
-            *args,
-            **kwargs
-            ):
+    def __init__(self,
+                 passage_delimiter: str = '\nPassage: ',
+                 passage_query_delimiter: str = '\nQuery: ',
+                 *args,
+                 **kwargs):
         kwargs.pop('passage_delimiter', None)
         kwargs.pop('passage_query_delimiter', None)
         self.passage_delimiter = passage_delimiter
@@ -546,7 +527,6 @@ class InContextLearningRAGGenerationTaskDataset(InContextLearningDataset):
         tokenized_example['answer'] = self.tokenizer(answer, add_special_tokens=False)
         return tokenized_example
 
-
     def collate_fn(self, data):
         """
         The function that the dataloader uses to accumulate data into batches
@@ -556,19 +536,12 @@ class InContextLearningRAGGenerationTaskDataset(InContextLearningDataset):
         Returns:
             dict: dictionary for a single batch
         """
-        batch = {
-            'input_ids': [],
-            'continuation_indices': [],
-            'mode': 'icl_task',
-            'labels': [],
-            'answer_indices': []
-            }
+        batch = {'input_ids': [], 'continuation_indices': [], 'mode': 'icl_task', 'labels': [], 'answer_indices': []}
         for data_pair in data:
             context_enc = data_pair['preamble']['input_ids'] + data_pair['context']['input_ids']
             answer_enc = data_pair['answer']['input_ids']
 
-            inp, answer_span = _make_padded_input(context_enc, answer_enc, self.max_seq_len,
-                                                        self.pad_tok_id)
+            inp, answer_span = _make_padded_input(context_enc, answer_enc, self.max_seq_len, self.pad_tok_id)
             batch['input_ids'].append(inp)
             batch['answer_indices'].append(answer_span)
             batch['labels'].append(inp)
@@ -1167,10 +1140,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             stacked_keys=['input_ids'],
             dont_split_keys=['mode', 'generation_length', 'pass_at_k', 'generation_kwargs'],
             normal_split_keys=['input_ids', 'attention_mask'],
-            list_split_keys=[
-                'labels', 'tests', 'entry_points', 'test_inputs', 'test_outputs', 'prompts',
-                'languages'
-            ],
+            list_split_keys=['labels', 'tests', 'entry_points', 'test_inputs', 'test_outputs', 'prompts', 'languages'],
             *args,
             **kwargs,
         )
@@ -1398,7 +1368,7 @@ def build_icl_dataloader(
             destination_path=destination_path,
             fewshot_random_seed=fewshot_random_seed,
             hf_loading_vars=hf_loading_vars,
-            hf_parsing_map=hf_parsing_map,   
+            hf_parsing_map=hf_parsing_map,
         )
         effective_batchsize = batch_size
     else:
@@ -1454,7 +1424,8 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_lo
             conda_package='datasets',
             conda_channel='conda-forge',
         ) from e
-    if _check_if_huggingface_uri(dataset_uri):
+    if 'hf://' in dataset_uri:
+        dataset_uri = dataset_uri.replace('hf://', '')
         dataset = load_dataset(dataset_uri, **hf_loading_vars)
         if hf_parsing_map:
             dataset_parsing_func = lambda example: {
