@@ -188,9 +188,6 @@ class InContextLearningDataset(Dataset):
         hf_loading_vars: Dict = None,
         hf_parsing_map: Dict = None,
         stacked_keys: List[str] = None,
-        dont_split_keys: List[str] = None,
-        list_split_keys: List[str] = None,
-        normal_split_keys: List[str] = None,
     ):
 
         self.tokenizer = tokenizer
@@ -208,9 +205,6 @@ class InContextLearningDataset(Dataset):
         self.context_key = context_key
         self.answer_key = answer_key
         self.stacked_keys = stacked_keys or ['input_ids', 'labels']
-        self.dont_split_keys = dont_split_keys or []
-        self.list_split_keys = list_split_keys or []
-        self.normal_split_keys = normal_split_keys or []
 
         hf_loading_vars = hf_loading_vars or {}
         self.dataset = self._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_map)
@@ -462,14 +456,9 @@ class InContextLearningDataset(Dataset):
         # Don't split kwargs that don't change
         # Normally split torch tensors
         # List split lists of strings
-        self.check_defaults_are_set({
-            'dont_split_keys': self.dont_split_keys,
-            'list_split_keys': self.list_split_keys,
-            'normal_split_keys': self.normal_split_keys
-        })
         chunked = {}
         for k, v in batch.items():
-            if type(v) in [str, int, dict]:
+            if type(v) in [str, float, int, dict, bool]:
                 # Defer broadcasting until we know num_chunks
                 pass
             elif type(v) == list:
@@ -477,10 +466,10 @@ class InContextLearningDataset(Dataset):
             elif type(v) == torch.Tensor:
                 chunked[k] = _default_split_batch(v, microbatch_size)
             else:
-                raise ValueError(f'Unexpected key {k}, value , type {type(v)}')
+                raise ValueError(f'Unexpected value type {type(v)} with key {k}')
         num_chunks = len(chunked['input_ids'])
         for k, v in batch.items():
-            if isinstance(v, (int, float, str, bool, Dict)):
+            if isinstance(v, (int, float, str, bool, dict)):
                 chunked[k] = [v] * num_chunks
 
         return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
@@ -588,9 +577,6 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         self.cot_delimiter = cot_delimiter
         self.has_cot = False
         super().__init__(stacked_keys=['input_ids'],
-                         dont_split_keys=['mode', 'generation_length', 'generation_kwargs', 'cot_delimiter'],
-                         normal_split_keys=['input_ids', 'attention_mask'],
-                         list_split_keys=['labels'],
                          *args,
                          **kwargs)
 
@@ -785,12 +771,9 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
 
     def __init__(self, choices_key: str = 'choices', *args, **kwargs):
         super().__init__(context_key='query',
-                         dont_split_keys=['mode'],
-                         normal_split_keys=['gold_indices'],
                          *args,
                          **kwargs)
         self.num_choices = len(self.dataset[0][choices_key])
-        self.real_split_keys = ['input_ids', 'labels', 'attention_mask']
 
     def _get_answer_from_example(self, example: Dict) -> str:
         """
@@ -888,32 +871,32 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         Returns:
             list: list of chunked batches
         """
-        self.check_defaults_are_set({
-            'dont_split_keys': self.dont_split_keys,
-            'normal_split_keys': self.normal_split_keys
-        })
         chunked = {}
         for k, v in batch.items():
-            if k in self.dont_split_keys:
+            if type(v) in [str, int, dict, bool]:
                 # Defer broadcasting primitives until we know num_chunks
                 pass
-            elif k == 'continuation_indices':
-                # List of lists, so we have to directly call _split_list
-                chunked[k] = _split_list(v, microbatch_size * self.num_choices)
-            elif k == 'choice_groupings':
-                # List of lists, so we have to directly call _split_list
-                chunked[k] = _split_list(v, microbatch_size)
-            elif k in self.real_split_keys:
+            elif type(v) == list:
+                element_type = type(v[0])
+                # list of tensors - 'continuation_indices'
+                if element_type == torch.Tensor:
+                    chunked[k] = _split_list(v, microbatch_size * self.num_choices)
+                # list of tuples - 'choice_groupings'
+                elif element_type == tuple:
+                    chunked[k] = _split_list(v, microbatch_size)
+                # list - 'gold_indices'
+                else:
+                    chunked[k] = _default_split_batch(v, microbatch_size)
+            elif type(v) == torch.Tensor:
                 chunked[k] = _default_split_batch(v, microbatch_size * self.num_choices)
-            elif k in self.normal_split_keys:
-                chunked[k] = _default_split_batch(v, microbatch_size)
             else:
-                raise ValueError(f'Unexpected key {k}')
+                raise ValueError(f'Unexpected value type {type(v)} with key {k}')
         num_chunks = len(chunked['input_ids'])
         # Broadcast primitives to all chunks
         for k, v in batch.items():
             if isinstance(v, (int, float, str, bool)):
                 chunked[k] = [v] * num_chunks
+
         return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
 
 
@@ -1155,9 +1138,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             answer_key='canonical_solution',
             strip_dataset=False,
             stacked_keys=['input_ids'],
-            dont_split_keys=['mode', 'generation_length', 'pass_at_k', 'generation_kwargs'],
-            normal_split_keys=['input_ids', 'attention_mask'],
-            list_split_keys=['labels', 'tests', 'entry_points', 'test_inputs', 'test_outputs', 'prompts', 'languages'],
             *args,
             **kwargs,
         )
