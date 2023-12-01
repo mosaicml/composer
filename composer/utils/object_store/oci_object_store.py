@@ -11,6 +11,7 @@ import pathlib
 import uuid
 from typing import Callable, List, Optional, Union
 
+from composer.utils import dist
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
 
@@ -180,6 +181,8 @@ class OCIObjectStore(ObjectStore):
                 with open(part_file_name, 'rb') as infile:
                     outfile.write(infile.read())
                 os.remove(part_file_name)
+
+        dist.barrier()
 
         if overwrite:
             os.replace(tmp_path, filename)
