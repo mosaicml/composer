@@ -267,20 +267,25 @@ class TorchProfiler(Callback):  # noqa: D101
                                    file_path=trace_file_name,
                                    overwrite=self.overwrite)
 
+            log.debug(f'Memory profiler enabled: {self.memory_filename}')
             if self.memory_filename is not None:
                 memory_trace_file_name = os.path.join(
                     folder_name,
                     format_name_with_dist_and_time(self.memory_filename, run_name=state.run_name, timestamp=timestamp),
                 )
+                log.debug(f'Saving memory trace to {memory_trace_file_name}')
                 memory_trace_file_dirname = os.path.dirname(memory_trace_file_name)
                 if memory_trace_file_dirname:
                     os.makedirs(memory_trace_file_dirname, exist_ok=True)
                 prof.export_memory_timeline(memory_trace_file_name)
+                log.debug(f'Uploaded memory trace to {self.memory_remote_file_name}')
                 if self.memory_remote_file_name is not None:
                     memory_trace_remote_file_name = format_name_with_dist_and_time(self.memory_remote_file_name,
                                                                                    run_name=state.run_name,
                                                                                    timestamp=timestamp)
                     memory_trace_remote_file_name = memory_trace_remote_file_name.lstrip('/')
+                    log.debug(
+                        f'Uploading memory trace to {memory_trace_remote_file_name} from {memory_trace_file_name}')
                     logger.upload_file(remote_file_name=memory_trace_remote_file_name,
                                        file_path=memory_trace_file_name,
                                        overwrite=self.overwrite)
