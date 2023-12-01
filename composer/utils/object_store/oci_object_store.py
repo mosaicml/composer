@@ -119,11 +119,14 @@ class OCIObjectStore(ObjectStore):
 
     def _download_part(self, object_name, filename, start_byte, end_byte, part_number):
         range_header = f'bytes={start_byte}-{end_byte}'
-        tmp_part_path = str(filename) + f'.part_{part_number}.{uuid.uuid4()}.tmp'
-        response = self.client.get_object(self.namespace, self.bucket, object_name, range=range_header)
+        tmp_part_path = f'{str(filename)}.part_{part_number}.{uuid.uuid4()}.tmp'
+        response = self.client.get_object(namespace_name=self.namespace,
+                                          bucket_name=self.bucket,
+                                          object_name=object_name,
+                                          range=range_header)
         with open(tmp_part_path, 'wb') as f:
             f.write(response.data.content)
-        return tmp_part_path
+        return part_number, tmp_part_path
 
     def download_object(
         self,
@@ -145,25 +148,35 @@ class OCIObjectStore(ObjectStore):
         # Get the size of the object
         head_object_response = self.client.head_object(self.namespace, self.bucket, object_name)
         object_size = head_object_response.headers['content-length']
-        # Calculate the part size
-        part_size = -(-int(object_size) // num_parts)  # Ceiling division
+        # Calculate the part sizes
+        base_part_size = int(object_size) // num_parts
+        remainder = int(object_size) % num_parts
+        part_sizes = [base_part_size] * num_parts
+        for i in range(remainder):
+            part_sizes[i] += 1
+        part_sizes = [part_size for part_size in part_sizes if part_size > 0]
 
         try:
             # Download parts in parallel
-            args_list = []
-            for i in range(num_parts):
-                start_byte = i * part_size
-                end_byte = min(start_byte + part_size - 1, int(object_size) - 1)
-                args_list.append((object_name, filename, start_byte, end_byte, i))
+            parts = []
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                parts = list(executor.map(lambda p: self._download_part(*p), args_list))
+                futures = []
+                start_byte = 0
+                for i, part_size in enumerate(part_sizes):
+                    end_byte = start_byte + part_size - 1
+                    futures.append(executor.submit(self._download_part, object_name, filename, start_byte, end_byte, i))
+                    start_byte = end_byte + 1
+
+                for future in concurrent.futures.as_completed(futures):
+                    parts.append(future.result())
+                parts = sorted(parts, key=lambda x: x[0])
         except Exception as e:
             _reraise_oci_errors(self.get_uri(object_name), e)
 
         # Combine parts
-        tmp_path = str(filename) + f'.{uuid.uuid4()}.tmp'
+        tmp_path = f'{str(filename)}.{uuid.uuid4()}.tmp'
         with open(tmp_path, 'wb') as outfile:
-            for part_file_name in parts:
+            for i, part_file_name in parts:
                 with open(part_file_name, 'rb') as infile:
                     outfile.write(infile.read())
                 os.remove(part_file_name)
