@@ -21,7 +21,7 @@ import psutil
 import torch
 
 import composer
-from composer.utils import get_free_tcp_port, json_log_formatter
+from composer.utils import get_free_tcp_port
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
 
@@ -466,15 +466,7 @@ def main():
     args = _parse_args()
 
     logging.basicConfig()
-    log.setLevel(logging.INFO)
-    std_console_handler = logging.StreamHandler(stream=sys.stdout)
-    std_console_handler.setLevel(logging.INFO)
-    std_console_handler.setFormatter(json_log_formatter.JsonLogFormatter())
-    log.addHandler(std_console_handler)
-    err_console_handler = logging.StreamHandler(stream=sys.stderr)
-    err_console_handler.setLevel(logging.INFO)
-    err_console_handler.setFormatter(json_log_formatter.JsonLogFormatter())
-    log.addHandler(err_console_handler)
+    log.setLevel(logging.INFO if args.verbose else logging.WARN)
 
     processes = {}
 

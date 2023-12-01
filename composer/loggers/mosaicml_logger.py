@@ -150,8 +150,10 @@ class MosaicMLLogger(LoggerDestination):
         """Flush buffered metadata to MosaicML if enough time has passed since last flush."""
         if self._enabled and (time.time() - self.time_last_logged > self.log_interval or force_flush):
             try:
-                f = mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=True, protect=True)
-                self.buffered_metadata = {}
+                current_metadata = self.buffered_metadata.copy()
+                f = mcli.update_run_metadata(self.run_name, current_metadata, future=True, protect=True)
+                self.buffered_metadata = {k:v for (k,v) in self.buffered_metadata.items() if (k,v) not in current_metadata.items()}
+                log.info(f'There are {len(self.buffered_metadata)} new keys that have been added while processing')
                 self.time_last_logged = time.time()
                 self._futures.append(f)
             except Exception:
@@ -163,9 +165,9 @@ class MosaicMLLogger(LoggerDestination):
                     log.info('Raising exception. To ignore exceptions, set ignore_exceptions=True.')
                     raise
         try:
-            done, incomplete_temp = wait(self._futures, timeout=0.01)
+            done, _ = wait(self._futures, timeout=0.01)
             # Remove completed futures from the list
-            self._futures = [f for f in self._futures if f not in done or f in incomplete_temp]
+            self._futures = [f for f in self._futures if f not in done]
             log.info(f'Logged {len(done)} metadata to MosaicML, waiting on {len(self._futures)}')
 
             # Raise any exceptions from completed futures
@@ -174,8 +176,9 @@ class MosaicMLLogger(LoggerDestination):
                     raise f.exception()  # type: ignore
 
             log.info(f'We have {len(self._futures)} total futures waiting to be completed')
-        except Exception:
-            log.exception('Error while processing futures')
+            log.info(f'Current buffered metadata: {self.buffered_metadata}')
+        except Exception as e:
+            log.exception('Error while processing futures' + str(e))
 
     def _get_training_progress_metrics(self, state: State) -> Dict[str, Any]:
         """Calculates training progress metrics.
