@@ -184,7 +184,7 @@ class TorchProfiler(Callback):  # noqa: D101
         filename: str = 'rank{rank}.{batch}.pt.trace.json',
         remote_file_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
         memory_filename: Optional[str] = 'rank{rank}.{batch}.pt.trace.memory.html',
-        memory_remote_file_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.memory.html',
+        memory_remote_file_name: Optional[str] = '{run_name}/torch_memory_traces/rank{rank}.{batch}.pt.trace.memory.html',
         overwrite: bool = False,
         use_gzip: bool = False,
         record_shapes: bool = False,
