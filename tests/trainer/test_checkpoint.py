@@ -578,6 +578,7 @@ class TestCheckpointLoading:
             run_name='big-chungus',
             autoresume=True,
             load_path='ignore_me.pt',  # this should be ignored
+            load_ignore_keys=['*'],  # this should be ignored
             loggers=[self.get_logger(tmp_path)] if use_object_store else [],
         )
 
