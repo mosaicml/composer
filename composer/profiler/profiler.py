@@ -76,6 +76,9 @@ class Profiler:
         torch_prof_filename (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
         torch_prof_remote_file_name (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
             Additionally supports full object store paths e.g: s3://bucket/path/to/file.
+        torch_prof_memory_filename (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+        torch_prof_memory_remote_file_name (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Additionally supports full object store paths e.g: s3://bucket/path/to/file.
         torch_prof_overwrite (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
         torch_prof_use_gzip (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
         torch_prof_record_shapes (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
@@ -97,6 +100,8 @@ class Profiler:
         torch_prof_folder: str = '{run_name}/torch_traces',
         torch_prof_filename: str = 'rank{rank}.{batch}.pt.trace.json',
         torch_prof_remote_file_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
+        torch_prof_memory_filename: str = 'rank{rank}.{batch}.pt.memory_trace.json',
+        torch_prof_memory_remote_file_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.memory_trace.json',
         torch_prof_overwrite: bool = False,
         torch_prof_use_gzip: bool = False,
         torch_prof_record_shapes: bool = False,
@@ -116,6 +121,9 @@ class Profiler:
         if torch_prof_remote_file_name:
             self.remote_filenames.append(torch_prof_remote_file_name)
             _, _, torch_prof_remote_file_name = parse_uri(torch_prof_remote_file_name)
+        if torch_prof_memory_remote_file_name:
+            self.remote_filenames.append(torch_prof_memory_remote_file_name)
+            _, _, torch_prof_memory_remote_file_name = parse_uri(torch_prof_memory_remote_file_name)
         for handler in self._trace_handlers:
             if isinstance(handler, JSONTraceHandler):
                 if handler.remote_file_name:
@@ -139,6 +147,8 @@ class Profiler:
                 TorchProfiler(filename=torch_prof_filename,
                               folder=torch_prof_folder,
                               remote_file_name=torch_prof_remote_file_name,
+                              memory_filename=torch_prof_memory_filename,
+                              memory_remote_file_name=torch_prof_memory_remote_file_name,
                               num_traces_to_keep=torch_prof_num_traces_to_keep,
                               overwrite=torch_prof_overwrite,
                               record_shapes=torch_prof_record_shapes,

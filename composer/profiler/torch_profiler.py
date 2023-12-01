@@ -92,13 +92,50 @@ class TorchProfiler(Callback):  # noqa: D101
 
             Each rank (process) will save traces to::
 
-                awesome-training-run/torch_traces/ep1-ba42-rank0.json
-                awesome-training-run/torch_traces/ep1-ba42-rank1.json
-                awesome-training-run/torch_traces/ep1-ba42-rank2.json
+                awesome-training-run/torch_traces/ep1-ba42-rank0.pt.trace.json
+                awesome-training-run/torch_traces/ep1-ba42-rank1.pt.trace.json
+                awesome-training-run/torch_traces/ep1-ba42-rank2.pt.trace.json
                 ...
 
         remote_file_name (str, optional): Format string for a Torch Profiler trace file's remote file name.
             Defaults to ``'{{run_name}}/torch_traces/rank{{rank}}.{{batch}}.pt.trace.json'``.
+
+            Whenever a trace file is saved, it is also uploaded as a file according to this format string.
+            The same format variables as for ``filename`` are available.
+
+            .. seealso:: :doc:`Uploading Files</trainer/file_uploading>` for notes for file uploading.
+
+            Leading slashes (``'/'``) will be stripped.
+
+            To disable uploading trace files, set this parameter to ``None``.
+        memory_filename (str, optional): A format string describing how to name Torch Profiler memory trace files.
+            Defaults to ``'rank{{rank}}.{{batch}}.pt.trace.memory.html'``.
+
+            At the end of each batch where :meth:`~composer.profiler.Profiler.get_action` returns
+            :attr:`~composer.profiler._profiler_action.ProfilerAction.ACTIVE_AND_SAVE`, trace files are saved
+            approximately to ``{{folder.format(...)}}/{{memory_filename.format(...)}}``.
+
+            The following format variables are available:
+
+            {textwrap.indent(FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, prefix='            ')}
+
+            Consider the following scenario, where:
+
+            *   The :attr:`~.State.run_name` is ``'awesome-training-run'``.
+            *   The default ``trace_folder='{{run_name}}/torch_traces'`` is used.
+            *   The default ``name='rank{{rank}}.{{batch}}.pt.trace.memory.html'`` is used.
+            *   The current epoch count is ``1``.
+            *   The current batch count is ``42``.
+
+            Each rank (process) will save traces to::
+
+                awesome-training-run/torch_traces/ep1-ba42-rank0.pt.trace.memory.html
+                awesome-training-run/torch_traces/ep1-ba42-rank1.pt.trace.memory.html
+                awesome-training-run/torch_traces/ep1-ba42-rank2.pt.trace.memory.html
+                ...
+
+        remote_memory_file_name (str, optional): Format string for a Torch Profiler memory trace file's remote file name.
+            Defaults to ``'{{run_name}}/torch_traces/rank{{rank}}.{{batch}}.pt.trace.memory.json'``.
 
             Whenever a trace file is saved, it is also uploaded as a file according to this format string.
             The same format variables as for ``filename`` are available.
@@ -146,6 +183,8 @@ class TorchProfiler(Callback):  # noqa: D101
         folder: str = '{run_name}/torch_traces',
         filename: str = 'rank{rank}.{batch}.pt.trace.json',
         remote_file_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
+        memory_filename: Optional[str] = 'rank{rank}.{batch}.pt.trace.memory.html',
+        remote_memory_file_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.memory.html',
         *,
         overwrite: bool = False,
         use_gzip: bool = False,
@@ -157,12 +196,20 @@ class TorchProfiler(Callback):  # noqa: D101
     ) -> None:
         self.overwrite = overwrite
         self.folder = folder
-        if use_gzip and not filename.endswith('.gz'):
-            filename += '.gz'
+        if use_gzip:
+            if not filename.endswith('.gz'):
+                filename += '.gz'
+            if memory_filename is not None and not memory_filename.endswith('.html'):
+                memory_filename += '.gz'
         self.filename = filename
-        if use_gzip and remote_file_name is not None and not remote_file_name.endswith('.gz'):
-            remote_file_name += '.gz'
+        self.memory_filename = memory_filename
+        if use_gzip:
+            if remote_file_name is not None and not remote_file_name.endswith('.gz'):
+                remote_file_name += '.gz'
+            if remote_memory_file_name is not None and not remote_memory_file_name.endswith('.gz'):
+                remote_memory_file_name += '.gz'
         self.remote_file_name = remote_file_name
+        self.remote_memory_file_name = remote_memory_file_name
         self.record_shapes = record_shapes
         self.profile_memory = profile_memory
         self.with_stack = with_stack
@@ -220,10 +267,26 @@ class TorchProfiler(Callback):  # noqa: D101
                 logger.upload_file(remote_file_name=trace_remote_file_name,
                                    file_path=trace_file_name,
                                    overwrite=self.overwrite)
+                
+            memory_trace_file_name = os.path.join(
+                folder_name,
+                format_name_with_dist_and_time(self.memory_filename, run_name=state.run_name, timestamp=timestamp),
+            )
+            memory_trace_file_dirname = os.path.dirname(memory_trace_file_name)
+            if memory_trace_file_dirname:
+                os.makedirs(memory_trace_file_dirname, exist_ok=True)
+            prof.export_memory_timeline(memory_trace_file_name)
+            if self.remote_memory_file_name is not None:
+                memory_trace_remote_file_name = format_name_with_dist_and_time(self.remote_memory_file_name,
+                                                                                run_name=state.run_name,
+                                                                                timestamp=timestamp)
+                memory_trace_remote_file_name = memory_trace_remote_file_name.lstrip('/')
+                logger.upload_file(remote_file_name=memory_trace_remote_file_name,
+                                   file_path=memory_trace_file_name,
+                                   overwrite=self.overwrite)
 
             if self.num_traces_to_keep >= 0:
                 while len(self.saved_traces) > self.num_traces_to_keep:
-
                     # self.saved_traces is an ordered dict, so the zeroth item will be the oldest checkpoint
                     timestamp, filepaths = next(iter(self.saved_traces.items()))
                     if dist.get_global_rank() < len(filepaths):
