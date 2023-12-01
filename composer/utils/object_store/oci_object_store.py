@@ -10,8 +10,8 @@ import os
 import pathlib
 import uuid
 from typing import Callable, List, Optional, Union
+import time
 
-from composer.utils import dist
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
 
@@ -182,7 +182,8 @@ class OCIObjectStore(ObjectStore):
                     outfile.write(infile.read())
                 os.remove(part_file_name)
 
-        dist.barrier()
+        # Go to sleep for a bit
+        time.sleep(60)
 
         if overwrite:
             os.replace(tmp_path, filename)
