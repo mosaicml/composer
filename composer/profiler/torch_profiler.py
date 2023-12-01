@@ -134,7 +134,7 @@ class TorchProfiler(Callback):  # noqa: D101
                 awesome-training-run/torch_traces/ep1-ba42-rank2.pt.trace.memory.html
                 ...
 
-        remote_memory_file_name (str, optional): Format string for a Torch Profiler memory trace file's remote file name.
+        memory_remote_file_name (str, optional): Format string for a Torch Profiler memory trace file's remote file name.
             Defaults to ``'{{run_name}}/torch_traces/rank{{rank}}.{{batch}}.pt.trace.memory.json'``.
 
             Whenever a trace file is saved, it is also uploaded as a file according to this format string.
@@ -184,8 +184,7 @@ class TorchProfiler(Callback):  # noqa: D101
         filename: str = 'rank{rank}.{batch}.pt.trace.json',
         remote_file_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
         memory_filename: Optional[str] = 'rank{rank}.{batch}.pt.trace.memory.html',
-        remote_memory_file_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.memory.html',
-        *,
+        memory_remote_file_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.memory.html',
         overwrite: bool = False,
         use_gzip: bool = False,
         record_shapes: bool = False,
@@ -206,10 +205,10 @@ class TorchProfiler(Callback):  # noqa: D101
         if use_gzip:
             if remote_file_name is not None and not remote_file_name.endswith('.gz'):
                 remote_file_name += '.gz'
-            if remote_memory_file_name is not None and not remote_memory_file_name.endswith('.gz'):
-                remote_memory_file_name += '.gz'
+            if memory_remote_file_name is not None and not memory_remote_file_name.endswith('.gz'):
+                memory_remote_file_name += '.gz'
         self.remote_file_name = remote_file_name
-        self.remote_memory_file_name = remote_memory_file_name
+        self.memory_remote_file_name = memory_remote_file_name
         self.record_shapes = record_shapes
         self.profile_memory = profile_memory
         self.with_stack = with_stack
@@ -267,23 +266,24 @@ class TorchProfiler(Callback):  # noqa: D101
                 logger.upload_file(remote_file_name=trace_remote_file_name,
                                    file_path=trace_file_name,
                                    overwrite=self.overwrite)
-                
-            memory_trace_file_name = os.path.join(
-                folder_name,
-                format_name_with_dist_and_time(self.memory_filename, run_name=state.run_name, timestamp=timestamp),
-            )
-            memory_trace_file_dirname = os.path.dirname(memory_trace_file_name)
-            if memory_trace_file_dirname:
-                os.makedirs(memory_trace_file_dirname, exist_ok=True)
-            prof.export_memory_timeline(memory_trace_file_name)
-            if self.remote_memory_file_name is not None:
-                memory_trace_remote_file_name = format_name_with_dist_and_time(self.remote_memory_file_name,
-                                                                                run_name=state.run_name,
-                                                                                timestamp=timestamp)
-                memory_trace_remote_file_name = memory_trace_remote_file_name.lstrip('/')
-                logger.upload_file(remote_file_name=memory_trace_remote_file_name,
-                                   file_path=memory_trace_file_name,
-                                   overwrite=self.overwrite)
+
+            if self.memory_filename is not None:
+                memory_trace_file_name = os.path.join(
+                    folder_name,
+                    format_name_with_dist_and_time(self.memory_filename, run_name=state.run_name, timestamp=timestamp),
+                )
+                memory_trace_file_dirname = os.path.dirname(memory_trace_file_name)
+                if memory_trace_file_dirname:
+                    os.makedirs(memory_trace_file_dirname, exist_ok=True)
+                prof.export_memory_timeline(memory_trace_file_name)
+                if self.memory_remote_file_name is not None:
+                    memory_trace_remote_file_name = format_name_with_dist_and_time(self.memory_remote_file_name,
+                                                                                   run_name=state.run_name,
+                                                                                   timestamp=timestamp)
+                    memory_trace_remote_file_name = memory_trace_remote_file_name.lstrip('/')
+                    logger.upload_file(remote_file_name=memory_trace_remote_file_name,
+                                       file_path=memory_trace_file_name,
+                                       overwrite=self.overwrite)
 
             if self.num_traces_to_keep >= 0:
                 while len(self.saved_traces) > self.num_traces_to_keep:
