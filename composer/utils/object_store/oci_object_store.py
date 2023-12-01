@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import os
 import pathlib
 import uuid
@@ -116,12 +117,21 @@ class OCIObjectStore(ObjectStore):
         except Exception as e:
             _reraise_oci_errors(self.get_uri(object_name), e)
 
+    def _download_part(self, object_name, filename, start_byte, end_byte, part_number):
+        range_header = f'bytes={start_byte}-{end_byte}'
+        tmp_part_path = str(filename) + f'.part_{part_number}.{uuid.uuid4()}.tmp'
+        response = self.client.get_object(self.namespace, self.bucket, object_name, range=range_header)
+        with open(tmp_part_path, 'wb') as f:
+            f.write(response.data.content)
+        return tmp_part_path
+
     def download_object(
         self,
         object_name: str,
         filename: Union[str, pathlib.Path],
         overwrite: bool = False,
         callback: Optional[Callable[[int, int], None]] = None,
+        num_parts: int = 10,
     ):
         del callback
         if os.path.exists(filename) and not overwrite:
@@ -132,17 +142,31 @@ class OCIObjectStore(ObjectStore):
             os.makedirs(dirname, exist_ok=True)
         tmp_path = str(filename) + f'.{uuid.uuid4()}.tmp'
 
+        # Get the size of the object
+        head_object_response = self.client.head_object(self.namespace, self.bucket, object_name)
+        object_size = head_object_response.headers['content-length']
+        # Calculate the part size
+        part_size = -(-int(object_size) // num_parts)  # Ceiling division
+
         try:
-            response = self.client.get_object(
-                namespace_name=self.namespace,
-                bucket_name=self.bucket,
-                object_name=object_name,
-            )
+            # Download parts in parallel
+            args_list = []
+            for i in range(num_parts):
+                start_byte = i * part_size
+                end_byte = min(start_byte + part_size - 1, int(object_size) - 1)
+                args_list.append((object_name, filename, start_byte, end_byte, i))
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                parts = list(executor.map(lambda p: self._download_part(*p), args_list))
         except Exception as e:
             _reraise_oci_errors(self.get_uri(object_name), e)
 
-        with open(tmp_path, 'wb') as f:
-            f.write(response.data.content)
+        # Combine parts
+        tmp_path = str(filename) + f'.{uuid.uuid4()}.tmp'
+        with open(tmp_path, 'wb') as outfile:
+            for part_file_name in parts:
+                with open(part_file_name, 'rb') as infile:
+                    outfile.write(infile.read())
+                os.remove(part_file_name)
 
         if overwrite:
             os.replace(tmp_path, filename)
