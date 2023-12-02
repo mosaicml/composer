@@ -8,7 +8,6 @@ from __future__ import annotations
 import concurrent.futures
 import os
 import pathlib
-import time
 import uuid
 from tempfile import TemporaryDirectory
 from typing import Callable, List, Optional, Union
@@ -184,9 +183,6 @@ class OCIObjectStore(ObjectStore):
                 for i, part_file_name in parts:
                     with open(part_file_name, 'rb') as infile:
                         outfile.write(infile.read())
-
-        # Go to sleep for a bit
-        time.sleep(60)
 
         if overwrite:
             os.replace(tmp_path, filename)
