@@ -8,9 +8,10 @@ from __future__ import annotations
 import concurrent.futures
 import os
 import pathlib
-import uuid
-from typing import Callable, List, Optional, Union
 import time
+import uuid
+from tempfile import TemporaryDirectory
+from typing import Callable, List, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
@@ -144,7 +145,6 @@ class OCIObjectStore(ObjectStore):
         dirname = os.path.dirname(filename)
         if dirname:
             os.makedirs(dirname, exist_ok=True)
-        tmp_path = str(filename) + f'.{uuid.uuid4()}.tmp'
 
         # Get the size of the object
         head_object_response = self.client.head_object(self.namespace, self.bucket, object_name)
@@ -157,30 +157,33 @@ class OCIObjectStore(ObjectStore):
             part_sizes[i] += 1
         part_sizes = [part_size for part_size in part_sizes if part_size > 0]
 
-        try:
-            # Download parts in parallel
-            parts = []
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                futures = []
-                start_byte = 0
-                for i, part_size in enumerate(part_sizes):
-                    end_byte = start_byte + part_size - 1
-                    futures.append(executor.submit(self._download_part, object_name, filename, start_byte, end_byte, i))
-                    start_byte = end_byte + 1
+        tmp_part_dir = os.path.join(dirname, f'{str(filename)}-parts-{uuid.uuid4()}')
+        os.makedirs(tmp_part_dir, exist_ok=True)
+        with TemporaryDirectory(dir=tmp_part_dir) as temp_dir:
+            try:
+                # Download parts in parallel
+                parts = []
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    futures = []
+                    start_byte = 0
+                    for i, part_size in enumerate(part_sizes):
+                        end_byte = start_byte + part_size - 1
+                        futures.append(
+                            executor.submit(self._download_part, object_name, temp_dir, start_byte, end_byte, i))
+                        start_byte = end_byte + 1
 
-                for future in concurrent.futures.as_completed(futures):
-                    parts.append(future.result())
-                parts = sorted(parts, key=lambda x: x[0])
-        except Exception as e:
-            _reraise_oci_errors(self.get_uri(object_name), e)
+                    for future in concurrent.futures.as_completed(futures):
+                        parts.append(future.result())
+                    parts = sorted(parts, key=lambda x: x[0])
+            except Exception as e:
+                _reraise_oci_errors(self.get_uri(object_name), e)
 
-        # Combine parts
-        tmp_path = f'{str(filename)}.{uuid.uuid4()}.tmp'
-        with open(tmp_path, 'wb') as outfile:
-            for i, part_file_name in parts:
-                with open(part_file_name, 'rb') as infile:
-                    outfile.write(infile.read())
-                os.remove(part_file_name)
+            # Combine parts
+            tmp_path = f'{str(filename)}.{uuid.uuid4()}.tmp'
+            with open(tmp_path, 'wb') as outfile:
+                for i, part_file_name in parts:
+                    with open(part_file_name, 'rb') as infile:
+                        outfile.write(infile.read())
 
         # Go to sleep for a bit
         time.sleep(60)
