@@ -371,6 +371,9 @@ def prepare_fsdp_module(
                 continue
 
             def _param_init_fn(module: torch.nn.Module) -> None:
+                print(f'[{dist.get_global_rank()}] _param_init_fn for {type(module)}')
+                # module.to_empty(device=torch.cuda.current_device(), recurse=False)
+                # print(f'[{dist.get_global_rank()}] emptied {type(module)}')
                 # A dictionary of all tied parameter pointers to module names
                 tied_pointers = {}
 
@@ -434,14 +437,23 @@ def prepare_fsdp_module(
                         setattr(dest_mod, attr, src_params)
 
                 if hasattr(obj, 'param_init_fn') and isinstance(obj.param_init_fn, Callable):
+                    print(f'[{dist.get_global_rank()}] applying {type(module)}')
+                    def _nested_fsdp_safe_apply(module: torch.nn.Module) -> None:
+                        if not isinstance(module, FullyShardedDataParallel):
+                            module.apply(obj.param_init_fn)
+                        else:
+                            meta_safe_apply(module, obj.param_init_fn, module_name='')
+
                     module.apply(obj.param_init_fn)
                 elif hasattr(module, 'reset_parameters') and isinstance(module.reset_parameters, Callable):
+                    print(f'[{dist.get_global_rank()}] reseting {type(module)}')
                     module.reset_parameters()
                 else:
                     raise ValueError(
                         f'Object `{obj_name}` does not have a ``param_init_fn`` or a ``reset_parameters`` function. '
                         'This leaves parameters without initialization. Please add a ``param_init_fn`` or ``reset_parameters`` '
                         f'to module `{obj_name}`.')
+                print(f'[{dist.get_global_rank()}] done _param_init_fn {type(module)}')
 
             if version.parse(torch.__version__) > version.parse('2.1.0.dev'):
                 # CustomPolicy is only supported in torch v2.1.0-rc1 or higher
