@@ -467,7 +467,8 @@ class InContextLearningExecutionPredictionTaskDataset(Dataset):
                         self.samples[fewshot_idx]['test_inputs'],
                         self.samples[fewshot_idx]['test_outputs'],
                     )
-                    test_idx = random.choice(range(0, len(test_in)))
+                    
+                    test_idx = fewshot_rng.choice(range(0, len(test_in)))
                     assert_stmt = self._write_assert_statement(self.samples[sample_idx]['language'], entry_point,
                                                                self.stringify_input(test_in[test_idx]),
                                                                test_out[test_idx], idx)
