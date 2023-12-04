@@ -132,7 +132,7 @@ extra_deps['dev'] = [
     'GitPython==3.1.40',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
-    'cryptography==41.0.5',
+    'cryptography==41.0.7',
     'pytest-httpserver>=1.0.4,<1.1',
     'setuptools<=59.5.0',
 ]
