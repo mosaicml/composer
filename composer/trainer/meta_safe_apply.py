@@ -50,6 +50,8 @@ def meta_safe_apply(self, fn, ignored_modules: Set, module_name: str):
             return False
 
     for key, param in self._parameters.items():
+        from composer.utils import dist
+        print(f'[{dist.get_global_rank()}] {key=}')
         curr_name = concatenate_strings([module_name, key])
         if param is None or curr_name in ignored_modules:
             continue
@@ -58,7 +60,9 @@ def meta_safe_apply(self, fn, ignored_modules: Set, module_name: str):
         # `with torch.no_grad():`
         with torch.no_grad():
             param_applied = fn(param)
+        print(f'[{dist.get_global_rank()}] {id(param)} {id(param_applied)}')
         should_use_set_data = compute_should_use_set_data(param, param_applied)
+        print(f'[{dist.get_global_rank()}] {should_use_set_data=}')
         if should_use_set_data:
             param.data = param_applied
             out_param = param
