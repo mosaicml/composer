@@ -43,6 +43,25 @@ def _tokenizer_needs_prefix_space(tokenizer: transformers.PreTrainedTokenizerBas
     return len(tokenizer(' a', add_special_tokens=False)['input_ids']) == 1
 
 
+def _trim_context(context_enc: List, continuation_enc: List, max_seq_len: int) -> List:
+    if len(continuation_enc) + len(context_enc) > max_seq_len:
+        context_max_subseq_len = max_seq_len - len(continuation_enc)
+
+        if context_max_subseq_len < 0:
+            # can't support continuations which are longer than the max seq len
+            raise Exception(f'Dataset included continuation longer than the max seq len')
+
+        # TODO: is this true?
+        # clip from the end
+        context_enc = context_enc[-(context_max_subseq_len):]
+    return context_enc
+
+
+def _get_continuation_span(context_enc: List, continuation_enc: List) -> list:
+    return torch.tensor(range(len(context_enc), len(context_enc) + len(continuation_enc)))
+    # return list(range(len(context_enc), len(context_enc) + len(continuation_enc)))
+
+
 def _make_padded_input(context_enc: List,
                        continuation_enc: List,
                        max_seq_len: int,
@@ -66,24 +85,13 @@ def _make_padded_input(context_enc: List,
 
     """
 
-    # TODO: Not obvious this happens here, should probably be it's own funciton
-    if len(continuation_enc) + len(context_enc) > max_seq_len:
-        # clip from the end
-        context_max_subseq_len = max_seq_len - len(continuation_enc)
-
-        if context_max_subseq_len < 0:
-            raise Exception(f'Dataset included continuation longer than the max seq len')
-            # can't support continuations which are longer than the max seq len
-
-        context_enc = context_enc[-(context_max_subseq_len):]
-
-    continuation_span = torch.tensor(range(len(context_enc), len(context_enc) + len(continuation_enc)))
     inp = torch.tensor(
         (context_enc + continuation_enc),
         dtype=torch.long,
     )
     (inp_len,) = inp.shape
 
+    print(padding_side)
     # pad length from seq to padding_length
     if padding_side == 'right':
         inp = torch.cat(
@@ -104,7 +112,7 @@ def _make_padded_input(context_enc: List,
     else:
         raise ValueError(f"Unknown padding_side {padding_side}. padding_side must be either 'left' or 'right'")
 
-    return inp, continuation_span
+    return inp
 
 
 def _get_fewshot_sample_idxs(dataset_size: int, num_fewshot: int, example_idx: int, rng: random.Random) -> List[int]:
@@ -182,6 +190,9 @@ class InContextLearningDataset(Dataset):
         context_key: str = 'context',
         answer_key: str = 'answer',
         strip_dataset: bool = True,
+        padding_side: str = 'right',
+        default_batch: Dict = None,
+        batch_mapping: Dict = None,
         hf_loading_vars: Dict = None,
         hf_parsing_map: Dict = None,
         tokenize_labels: bool = True,
@@ -195,13 +206,15 @@ class InContextLearningDataset(Dataset):
         self.num_fewshot = num_fewshot
         # TODO: check this is correct for all dataset types
         # TODO: change how this is set, using default is unintuitive rn
-        self.padding_side = 'left'
+        self.padding_side = padding_side
         self.prelimiter = prelimiter
         self.example_delimiter = example_delimiter
         self.continuation_delimiter = continuation_delimiter
         self.context_key = context_key
         self.answer_key = answer_key
         self.tokenize_labels = tokenize_labels
+        self.batch_mapping = batch_mapping
+        self.default_batch = default_batch
 
         hf_loading_vars = hf_loading_vars or {}
         self.dataset = self._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_map)
@@ -373,12 +386,30 @@ class InContextLearningDataset(Dataset):
         """
         tokenized_example = {}
         preamble = self.tokenizer(prompt_and_fewshot)
-        preamble['input_ids'] = self._fix_eos_on_preamble(preamble['input_ids'])
-        tokenized_example['preamble'] = preamble
+        preamble = self._fix_eos_on_preamble(preamble['input_ids'])
         if self.strip_data:
             # rstrip context because a prompt ending in a space results in degenerate output
             ctxt = ctxt.rstrip()
-        tokenized_example['context'] = self.tokenizer(ctxt, add_special_tokens=False)
+        tokenized_context = self.tokenizer(ctxt, add_special_tokens=False)['input_ids']
+        tokenized_context = preamble + tokenized_context
+
+        if self.tokenize_labels:
+            tokenized_answer = self.tokenizer(self._get_answer_from_example(example))['input_ids']
+            trimmed_context = _trim_context(tokenized_context, tokenized_answer, self.max_seq_len)
+            continuation_indices = _get_continuation_span(trimmed_context, tokenized_answer)
+            padded_context = _make_padded_input(trimmed_context, tokenized_answer, self.max_seq_len, self.pad_tok_id,
+                                                self.padding_side)
+
+            tokenized_example[self.context_key] = padded_context
+            tokenized_example[self.answer_key] = tokenized_answer
+            tokenized_example['continuation_indices'] = continuation_indices
+        else:
+            trimmed_context = _trim_context(tokenized_context, [], self.max_seq_len)
+            padded_context = _make_padded_input(trimmed_context, [], self.max_seq_len, self.pad_tok_id,
+                                                self.padding_side)
+
+            tokenized_example[self.context_key] = padded_context
+            tokenized_example[self.answer_key] = self._get_answer_from_example(example)
         return tokenized_example
 
     def _prep_example(
@@ -411,10 +442,11 @@ class InContextLearningDataset(Dataset):
         return tokenized_example
 
     def _convert_tokens_to_tensors(self, batch: Dict) -> Dict[str, Any]:
-        batch['input_ids'] = torch.stack(batch['input_ids'])
+        # zzzz HF converts ur torch tensors into lists so need to convert them back
+        batch['input_ids'] = torch.stack(list(map(torch.tensor, batch['input_ids'])))
         if self.tokenize_labels:
-            batch['labels'] = torch.stack(batch['labels'])
-        batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
+            batch['labels'] = torch.stack(list(map(torch.tensor, batch['labels'])))
+            batch['continuation_indices'] = list(map(torch.tensor, batch['continuation_indices']))
         return batch
 
     def collate_fn(self, data: Dict[str, Any]) -> Dict[str, Any]:
@@ -426,33 +458,17 @@ class InContextLearningDataset(Dataset):
         Returns:
             Dict: dictionary for a single batch
         """
-        # TODO: move preamble + context to tokenize_example
-        # TODO: use self.answer_key in other classes
-        # TODO: use tokenize_labels in other classes
-        # TODO: extract input_ids in tokenize_example
         batch = self.default_batch
-        batch_mapping = {
-            "input_ids": 'context',
-            "continuation_indices": 'continuation',
-            "labels": 'context'
-        }
         for data_pair in data:
-            for batch_key, data_key in batch_mapping:
-                if data_key == self.context_key:
-                    if self.tokenize_labels:
-                        # NOTE: this will be run twice if more than one batch_key uses the input (like in LM task)
-                        inp, cont_span = _make_padded_input(data_pair[self.context_key], data_pair[self.answer_key], self.max_seq_len, self.pad_tok_id)
-                        batch[batch_key].append(inp)
-                        batch['continuation_indices'].append(cont_span)
-                    else:
-                        inp, _ = _make_padded_input(data_pair[data_key], data_pair[self.answer_key], self.max_seq_len, self.pad_tok_id)
-                        batch[batch_key].append(inp)
-                else:
-                    batch[batch_key].append(data_pair[data_key])
+            for batch_key, data_key in self.batch_mapping.items():
+                batch[batch_key].append(data_pair[data_key])
+            if 'continuation_indices' in data_pair:
+                batch['continuation_indices'].append(data_pair['continuation_indices'])
 
         batch = self._convert_tokens_to_tensors(batch)
+        batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
+        # import IPython; IPython.embed()
         return batch
-
 
     def split_batch(self, batch: Any, microbatch_size: int) -> List[Dict[str, Any]]:
         """
@@ -542,7 +558,7 @@ class InContextLearningRAGGenerationTaskDataset(InContextLearningDataset):
         """
         tokenized_example = super()._tokenize_example(prompt_and_fewshot, ctxt, example)
         answer = example['answers'][0]
-        tokenized_example['answer'] = self.tokenizer(answer, add_special_tokens=False)
+        tokenized_example['answer'] = self.tokenizer(answer, add_special_tokens=False)['input_ids']
         return tokenized_example
 
     def collate_fn(self, data):
@@ -556,8 +572,8 @@ class InContextLearningRAGGenerationTaskDataset(InContextLearningDataset):
         """
         batch = {'input_ids': [], 'continuation_indices': [], 'mode': 'icl_task', 'labels': [], 'answer_indices': []}
         for data_pair in data:
-            context_enc = data_pair['preamble']['input_ids'] + data_pair['context']['input_ids']
-            answer_enc = data_pair['answer']['input_ids']
+            context_enc = data_pair['context']
+            answer_enc = data_pair['answer']
 
             inp, answer_span = _make_padded_input(context_enc, answer_enc, self.max_seq_len, self.pad_tok_id)
             batch['input_ids'].append(inp)
@@ -565,6 +581,7 @@ class InContextLearningRAGGenerationTaskDataset(InContextLearningDataset):
             batch['labels'].append(inp)
 
         batch = self._convert_tokens_to_tensors(batch)
+        batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
 
@@ -587,9 +604,29 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
     def __init__(self, cot_delimiter: str = '', *args, **kwargs):
         self.cot_delimiter = cot_delimiter
         self.has_cot = False
-        super().__init__(tokenize_labels=False, *args, **kwargs)
-
-        self.max_answer_length = self.get_max_answer_length()
+        super().__init__(
+            default_batch={
+                'input_ids': [],
+                'mode': 'generate',
+                'labels': [],
+                'cot_delimiter': self.cot_delimiter,
+                'generation_length': 0,
+                'generation_kwargs': {
+                    'pad_token_id': 0,
+                    'use_cache': True
+                }
+            },
+            batch_mapping={
+                # TODO: self.context_key?
+                'input_ids': 'context',
+                'labels': 'aliases',
+            },
+            padding_side='left',
+            tokenize_labels=False,
+            *args,
+            **kwargs)
+        # self.max_answer_length = self.get_max_answer_length()
+        self.default_batch['generation_kwargs'] = self.pad_tok_id
 
     def _read_dataset(
         self,
@@ -600,13 +637,17 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
     ):
         dataset = super()._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_map)
         self.has_cot = 'chain_of_thought' in dataset.features
-        return dataset.map(
+        dataset = dataset.map(
             lambda examples: {
                 'context': examples['context'],
                 'answer': examples['answer'],
                 'aliases': set([examples['answer']] + examples.get('aliases', [])),
                 'chain_of_thought': examples.get('chain_of_thought', ''),
             })
+        max_answer_length = self._get_max_answer_length(dataset)
+        self.max_seq_len = self.max_seq_len - max_answer_length
+        self.default_batch['generation_length'] = max_answer_length
+        return dataset
 
     def _get_answer_from_example(self, example: Dict) -> str:
         """
@@ -637,7 +678,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         tokenized_example['aliases'] = list(example.get('aliases', []))
         return tokenized_example
 
-    def get_max_answer_length(self) -> int:
+    def _get_max_answer_length(self, dataset) -> int:
         f"""
         Loops over the dataset and finds the longest answer length.
 
@@ -645,7 +686,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
             int: the maximum answer length with an additional buffer of {_MAX_ANSWER_BUFFER_LENGTH} if chain of thought is present
         """
         max_answer_length = 0
-        for example in self.dataset:
+        for example in dataset:
             all_answers = [example[self.answer_key]] + list(example.get('aliases', []))
             for answer in all_answers:
                 if self.has_cot:
@@ -656,46 +697,33 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         max_answer_length = max_answer_length + (_MAX_ANSWER_BUFFER_LENGTH if len(self.cot_delimiter) > 0 else 0)
         return max_answer_length
 
-    def collate_fn(self, data: Dict) -> Dict[str, Any]:
-        """
-        The function that the dataloader uses to accumulate data into batches.
-        Args:
-            data (List): list of tokenized datapoints (dicts returned by self._tokenize_example)
+    # def collate_fn(self, data: Dict) -> Dict[str, Any]:
+    #     """
+    #     The function that the dataloader uses to accumulate data into batches.
+    #     Args:
+    #         data (List): list of tokenized datapoints (dicts returned by self._tokenize_example)
 
-        Returns:
-            Dict: dictionary for a single batch
-        """
-        # batch_mapping = {
-        #     'input_ids': self.context_key,
-        #     'labels': 'aliases',
-        # }
-        batch = {
-            'input_ids': [],
-            'mode': 'generate',
-            'labels': [],
-            'cot_delimiter': self.cot_delimiter,
-            'generation_length': self.max_answer_length,
-            'generation_kwargs': {
-                'pad_token_id': self.pad_tok_id,
-                'use_cache': True
-            },
-        }
-        for example in data:
-            aliases = example['aliases']
-            context_enc = example['preamble']['input_ids'] + example['context']['input_ids']
-            inp, _ = _make_padded_input(
-                context_enc,
-                [],
-                self.max_seq_len - self.max_answer_length,
-                self.pad_tok_id,
-                padding_side=self.padding_side,
-            )
+    #     Returns:
+    #         Dict: dictionary for a single batch
+    #     """
+    #     batch = self.default_batch
+    #     for example in data:
+    #         aliases = example['aliases']
+    #         context_enc = example['preamble'] + example['context']
+    #         inp, _ = _make_padded_input(
+    #             context_enc,
+    #             [],
+    #             self.max_seq_len - self.max_answer_length,
+    #             self.pad_tok_id,
+    #             padding_side=self.padding_side,
+    #         )
 
-            batch['input_ids'].append(inp)
-            batch['labels'].append(aliases)
+    #         batch['input_ids'].append(inp)
+    #         batch['labels'].append(aliases)
 
-        batch = self._convert_tokens_to_tensors(batch)
-        return batch
+    #     batch = self._convert_tokens_to_tensors(batch)
+    #     batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
+    #     return batch
 
 
 class InContextLearningLMTaskDataset(InContextLearningDataset):
@@ -711,69 +739,46 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
     """
 
     def __init__(self, *args, **kwargs):
-        super().__init__(answer_key='continuation', *args, **kwargs)
-        self.default_batch = {'input_ids': [], 'continuation_indices': [], 'mode': 'icl_task', 'labels': []}
+        super().__init__(
+            answer_key='continuation',
+            default_batch={
+                'input_ids': [],
+                'continuation_indices': [],
+                'mode': 'icl_task',
+                'labels': []
+            },
+            batch_mapping={
+                'input_ids': 'context',
+                # "continuation_indices": 'continuation',
+                'labels': 'context'
+            },
+            padding_side='right',
+            *args,
+            **kwargs)
 
-    def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
-        """
-        Runs text through the tokenizer and handles special cases.
-        Args:
-            prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
-            ctx (str): the specific example's derrived context
-            example (Dict): the example as a dictionary.
-
-        Returns:
-            Dict: dictionary with the tokenized data
-        """
-        tokenized_example = super()._tokenize_example(prompt_and_fewshot, ctxt, example)
-        cont = example['continuation']
+    def _get_answer_from_example(self, example: Dict[str, Any]) -> str:
+        cont = example[self.answer_key]
         if self.prefix_space and not cont.startswith(' '):
             cont = f' {cont}'
-        tokenized_example['continuation'] = self.tokenizer(cont, add_special_tokens=False)
-        return tokenized_example
+        return cont
 
-    def collate_fn(self, data: Dict[str, any]) -> Dict[str, Any]:
-        """
-        Accumulate examples into batches
-        Args:
-            data (List): list of tokenized datapoints (dicts returned by self._tokenize_example)
+    # def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
+    #     """
+    #     Runs text through the tokenizer and handles special cases.
+    #     Args:
+    #         prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
+    #         ctx (str): the specific example's derrived context
+    #         example (Dict): the example as a dictionary.
 
-        Returns:
-            Dict: dictionary for a single batch
-        """
-        # batch = {'input_ids': [], 'continuation_indices': [], 'mode': 'icl_task', 'labels': []}
-        batch = self.defatul_batch
-        batch_mapping = {
-            "input_ids": 'context',
-            "continuation_indices": 'continuation',
-            "labels": 'context'
-        }
-        for data_pair in data:
-            for batch_key, data_key in batch_mapping:
-                if data_key == self.context_key:
-                    if self.tokenize_labels:
-                        # NOTE: this will be run twice if more than one batch_key uses the input (like in LM task)
-                        inp, cont_span = _make_padded_input(data_pair[self.context_key], data_pair[self.answer_key], self.max_seq_len, self.pad_tok_id)
-                        batch[batch_key].append(inp)
-                        batch['continuation_indices'].append(cont_span)
-                    else:
-                        inp, _ = _make_padded_input(data_pair[data_key], data_pair[self.answer_key], self.max_seq_len, self.pad_tok_id)
-                        batch[batch_key].append(inp)
-                else:
-                    batch[batch_key].append(data_pair[data_key])
-
-        # for data_pair in data:
-        #     context_enc = data_pair['preamble']['input_ids'] + data_pair['context']['input_ids']
-        #     continuation_enc = data_pair['continuation']['input_ids']
-
-        #     inp, continuation_span = _make_padded_input(context_enc, continuation_enc, self.max_seq_len,
-        #                                                 self.pad_tok_id)
-        #     batch['input_ids'].append(inp)
-        #     batch['continuation_indices'].append(continuation_span)
-        #     batch['labels'].append(inp)
-
-        batch = self._convert_tokens_to_tensors(batch)
-        return batch
+    #     Returns:
+    #         Dict: dictionary with the tokenized data
+    #     """
+    #     tokenized_example = super()._tokenize_example(prompt_and_fewshot, ctxt, example)
+    #     cont = example['continuation']
+    #     if self.prefix_space and not cont.startswith(' '):
+    #         cont = f' {cont}'
+    #     tokenized_example['continuation'] = self.tokenizer(cont, add_special_tokens=False)['input_ids']
+    #     return tokenized_example
 
 
 class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
@@ -802,7 +807,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
     """
 
     def __init__(self, choices_key: str = 'choices', *args, **kwargs):
-        super().__init__(context_key='query', *args, **kwargs)
+        super().__init__(context_key='query', padding_side='right', *args, **kwargs)
         self.num_choices = len(self.dataset[0][choices_key])
 
     def _get_answer_from_example(self, example: Dict) -> str:
@@ -833,7 +838,9 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         choices = example['choices']
         if self.prefix_space:
             choices = [(f' {choice}' if not choice.startswith(' ') else choice) for choice in choices]
-        tokenized_example['choices'] = [self.tokenizer(choice, add_special_tokens=False) for choice in choices]
+        tokenized_example['choices'] = [
+            self.tokenizer(choice, add_special_tokens=False)['input_ids'] for choice in choices
+        ]
         tokenized_example['gold'] = example['gold']
         return tokenized_example
 
@@ -858,8 +865,8 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
             choice_start_idx = len(batch['continuation_indices'])
 
             for choice in data_pair['choices']:
-                context_enc = data_pair['preamble']['input_ids'] + data_pair['context']['input_ids']
-                continuation_enc = choice['input_ids']
+                context_enc = data_pair['preamble'] + data_pair['context']
+                continuation_enc = choice
                 inp, continuation_span = _make_padded_input(context_enc, continuation_enc, self.max_seq_len,
                                                             self.pad_tok_id)
 
@@ -879,6 +886,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         # which contiguous sequences of elements in the batch correspond to which question
         # gold_indices indicates which of the [0, N-1] choices is the correct one for each question.
         batch = self._convert_tokens_to_tensors(batch)
+        batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
     def get_num_samples_in_batch(self, batch) -> int:
@@ -951,6 +959,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
     """
 
     def __init__(self, choices_key='context_options', *args, **kwargs):
+        # padding_side = left
         super().__init__(choices_key=choices_key, *args, **kwargs)
 
     def _construct_context(self, example, preceding_text: str = '', add_answer: bool = False) -> str:
@@ -1038,13 +1047,15 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         """
         tokenized_example = {}
         preamble = self.tokenizer(prompt_and_fewshot)
-        preamble['input_ids'] = self._fix_eos_on_preamble(preamble['input_ids'])
+        preamble = self._fix_eos_on_preamble(preamble['input_ids'])
         tokenized_example['preamble'] = preamble
-        tokenized_example['context_options'] = [self.tokenizer(c, add_special_tokens=False) for c in context_options]
+        tokenized_example['context_options'] = [
+            self.tokenizer(c, add_special_tokens=False)['input_ids'] for c in context_options
+        ]
         continuation = example['continuation']
         if self.prefix_space:
             continuation = (f' {continuation}' if not continuation.startswith(' ') else continuation)
-        tokenized_example['continuation'] = self.tokenizer(continuation, add_special_tokens=False)
+        tokenized_example['continuation'] = self.tokenizer(continuation, add_special_tokens=False)['input_ids']
         tokenized_example['gold'] = example['gold']
         return tokenized_example
 
@@ -1065,13 +1076,22 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
             'gold_indices': [],
             'choice_groupings': [],
         }
+        # batch_map = {
+        #     "gold_indices": "gold",
+        #     "input_ids": "context",
+        #     "labels": "context"
+        # }
+        # for data_pair in data:
+        #     continuation_start_idx = len(batch['continuation_indices'])
+        #     for context in context_options[self.choices_key]:
+
         for data_pair in data:
             continuation_start_idx = len(batch['continuation_indices'])
             context_options = data_pair['context_options']
 
             for context in context_options:
-                context_enc = data_pair['preamble']['input_ids'] + context['input_ids']
-                continuation_enc = data_pair['continuation']['input_ids']
+                context_enc = data_pair['preamble'] + context
+                continuation_enc = data_pair['continuation']
                 inp, continuation_span = _make_padded_input(context_enc, continuation_enc, self.max_seq_len,
                                                             self.pad_tok_id)
 
@@ -1091,6 +1111,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         # which contiguous sequences of elements in the batch correspond to which question
         # gold_indices indicates which of the [0, N-1] choices is the correct one for each question.
         batch = self._convert_tokens_to_tensors(batch)
+        batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
 
@@ -1149,32 +1170,62 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         *args,
         **kwargs,
     ):
-        self.check_defaults_are_set({
-            'pass_at_k': pass_at_k,
-            'generations_per_sample': generations_per_sample,
-            'top_p': top_p,
-            'top_k': top_k,
-            'temperature': temperature
-        })
-        if generations_per_sample < pass_at_k:
-            raise ValueError(
-                f'generations_per_sample ({generations_per_sample}) must be greater than or equal to pass_at_k ({pass_at_k}) for code evaluation.'
-            )
-
+        # self.check_defaults_are_set({
+        #     'pass_at_k': pass_at_k,
+        #     'generations_per_sample': generations_per_sample,
+        #     'top_p': top_p,
+        #     'top_k': top_k,
+        #     'temperature': temperature
+        # })
+        # if generations_per_sample < pass_at_k:
+        #     raise ValueError(
+        #         f'generations_per_sample ({generations_per_sample}) must be greater than or equal to pass_at_k ({pass_at_k}) for code evaluation.'
+        #     )
+        batch_mapping = {
+            'input_ids': 'prompt',
+            'prompts': 'prompt_text',
+            'tests': 'test',
+            'labels': 'canonical_solution',
+            'entry_points': 'entry_point',
+            'test_inputs': 'test_inputs',
+            'test_outputs': 'test_outputs',
+            'languages': 'language'
+        }
         super().__init__(
             context_key='prompt',
             answer_key='canonical_solution',
             strip_dataset=False,
             tokenize_labels=False,
+            padding_side='left',
+            batch_mapping=batch_mapping,
             *args,
             **kwargs,
         )
-        self.pass_at_k = pass_at_k
-        self.generations_per_sample = generations_per_sample
         self.max_prompt_length = self.get_max_prompt_length()
-        self.top_p = top_p
-        self.top_k = top_k
-        self.temperature = temperature
+        self.default_batch = {
+            'input_ids': [],
+            'mode': 'generate',
+            'labels': [],
+            'prompts': [],
+            'tests': [],
+            'entry_points': [],
+            'test_inputs': [],
+            'test_outputs': [],
+            'languages': [],
+            'pass_at_k': pass_at_k,
+            'generation_length': self.max_seq_len - self.max_prompt_length,
+            'generation_kwargs': {
+                'pad_token_id': self.pad_tok_id,
+                # TODO: specify this?
+                'num_beams': 1,  # single beam
+                'num_return_sequences': generations_per_sample,
+                'do_sample': True,
+                'top_p': top_p,
+                'top_k': top_k,
+                'temperature': temperature,
+                'use_cache': True
+            },
+        }
 
     def get_max_prompt_length(self) -> int:
         """
@@ -1186,7 +1237,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         for example in self.dataset:
             max_prompt_length = max(
                 max_prompt_length,
-                len(example['preamble']['input_ids'] + example['context']['input_ids']),
+                len(example[self.context_key]),
             )
         return max_prompt_length
 
@@ -1212,69 +1263,61 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         tokenized_example['language'] = example['language']
         return tokenized_example
 
-    def collate_fn(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        The function that the dataloader uses to accumulate data into batches.
-        Args:
-            data (List): list of tokenized datapoints (dicts returned by self._tokenize_example)
+    # def collate_fn(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    #     """
+    #     The function that the dataloader uses to accumulate data into batches.
+    #     Args:
+    #         data (List): list of tokenized datapoints (dicts returned by self._tokenize_example)
 
-        Returns:
-            Dict: dictionary for a single batch
-        """
-        # batch_mapping = {
-        #     'input_ids': self.context_key,
-        #     'labels': self.answer_key,
-        #     'tests': 'test',
-        #     'entry_points': 'entry_point',
-        #     'test_inputs': 'test_input',
-        #     'test_outputs': 'test_outputs',
-        #     'languages': 'language'
-        # }
-        batch = {
-            'input_ids': [],
-            'mode': 'generate',
-            'labels': [],
-            'prompts': [],
-            'tests': [],
-            'entry_points': [],
-            'test_inputs': [],
-            'test_outputs': [],
-            'languages': [],
-            'pass_at_k': self.pass_at_k,
-            'generation_length': self.max_seq_len - self.max_prompt_length,
-            'generation_kwargs': {
-                'pad_token_id': self.pad_tok_id,
-                # TODO: specify this?
-                'num_beams': 1,  # single beam
-                'num_return_sequences': self.generations_per_sample,
-                'do_sample': True,
-                'top_p': self.top_p,
-                'top_k': self.top_k,
-                'temperature': self.temperature,
-                'use_cache': True
-            },
-        }
-        for example in data:
-            context_enc = example['preamble']['input_ids'] + example['context']['input_ids']
-            inp, _ = _make_padded_input(
-                context_enc,
-                [],
-                self.max_prompt_length,
-                self.pad_tok_id,
-                padding_side=self.padding_side,
-            )
+    #     Returns:
+    #         Dict: dictionary for a single batch
+    #     """
+    #     batch = {
+    #         'input_ids': [],
+    #         'mode': 'generate',
+    #         'labels': [],
+    #         'prompts': [],
+    #         'tests': [],
+    #         'entry_points': [],
+    #         'test_inputs': [],
+    #         'test_outputs': [],
+    #         'languages': [],
+    #         'pass_at_k': self.pass_at_k,
+    #         'generation_length': self.max_seq_len - self.max_prompt_length,
+    #         'generation_kwargs': {
+    #             'pad_token_id': self.pad_tok_id,
+    #             # TODO: specify this?
+    #             'num_beams': 1,  # single beam
+    #             'num_return_sequences': self.generations_per_sample,
+    #             'do_sample': True,
+    #             'top_p': self.top_p,
+    #             'top_k': self.top_k,
+    #             'temperature': self.temperature,
+    #             'use_cache': True
+    #         },
+    #     }
+    #     for example in data:
+    #         # context_enc = example[self.context_key]
+    #         # inp, _ = _make_padded_input(
+    #         #     context_enc,
+    #         #     [],
+    #         #     self.max_prompt_length,
+    #         #     self.pad_tok_id,
+    #         #     padding_side=self.padding_side,
+    #         # )
 
-            batch['input_ids'].append(inp)
-            batch['prompts'].append(example['prompt_text'])
-            batch['tests'].append(example['test'])
-            batch['labels'].append(example['canonical_solution'])
-            batch['entry_points'].append(example['entry_point'])
-            batch['test_inputs'].append(example['test_inputs'])
-            batch['test_outputs'].append(example['test_outputs'])
-            batch['languages'].append(example['language'])
+    #         batch['input_ids'].append(example[self.context_key])
+    #         batch['prompts'].append(example['prompt_text'])
+    #         batch['tests'].append(example['test'])
+    #         batch['labels'].append(example['canonical_solution'])
+    #         batch['entry_points'].append(example['entry_point'])
+    #         batch['test_inputs'].append(example['test_inputs'])
+    #         batch['test_outputs'].append(example['test_outputs'])
+    #         batch['languages'].append(example['language'])
 
-        batch = self._convert_tokens_to_tensors(batch)
-        return batch
+    #     batch = self._convert_tokens_to_tensors(batch)
+    #     batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
+    #     return batch
 
 
 def build_icl_dataloader(

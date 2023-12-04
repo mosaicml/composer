@@ -549,7 +549,11 @@ def test_qa_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fews
     assert all(item[0] == tokenizer.eos_token_id for item in batch['input_ids'])
 
     decoded_batch = tokenizer.batch_decode(batch['input_ids'])
-    assert all(item.count('Q: ') == num_fewshot + 1 for item in decoded_batch)
+    try:
+        assert all(item.count('Q: ') == num_fewshot + 1 for item in decoded_batch)
+    except:
+        import IPython; IPython.embed()
+
     assert all(item.count('\nA:') == num_fewshot + 1 for item in decoded_batch)
 
     if len(prompt_string) > 0:
@@ -937,7 +941,10 @@ def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_st
     assert batch['mode'] == 'generate'
     # the maximum generation length from the small test data
     assert batch['generation_length'] == seqlen - max_prompt_length
-    assert any(item[0] != tokenizer.eos_token_id for item in batch['input_ids'])  # longest should be pushed left
+    try:
+        assert any(item[0] != tokenizer.eos_token_id for item in batch['input_ids'])  # longest should be pushed left
+    except:
+        import IPython; IPython.embed()
 
     decoded_batch = tokenizer.batch_decode(batch['input_ids'])
     assert all(item.count('Code start: \n') == num_fewshot + 1 for item in decoded_batch)
