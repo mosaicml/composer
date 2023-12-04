@@ -162,7 +162,8 @@ class ConsoleLogger(LoggerDestination):
         # Remove index of last batch, so that we don't print progress at end of last batch and then
         # at eval end.
         last_batch_idx = total_eval_batches
-        self.eval_batch_idxs_to_log.remove(last_batch_idx)
+        if last_batch_idx in self.eval_batch_idxs_to_log:  # eval_batch_idxs_to_log may be empty
+            self.eval_batch_idxs_to_log.remove(last_batch_idx)
         if not self.hparams_already_logged_to_console:
             self.hparams_already_logged_to_console = True
             self._log_hparams_to_console()

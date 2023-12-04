@@ -20,7 +20,8 @@ import warnings
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
+from typing import (Any, Callable, ContextManager, Dict, Iterable, List, Mapping, Optional, Sequence, TextIO, Tuple,
+                    Union, cast)
 
 import coolname
 import torch
@@ -51,10 +52,10 @@ from composer.trainer._scaler import ClosureGradScaler
 from composer.trainer.dist_strategy import (DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module,
                                             set_fsdp_default)
 from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectStore, Transform, checkpoint, dist,
-                            ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist, get_device,
-                            get_file, is_tpu_installed, map_collection, maybe_create_object_store_from_uri,
-                            maybe_create_remote_uploader_downloader_from_uri, model_eval_mode, parse_uri,
-                            reproducibility, using_torch_2)
+                            ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist,
+                            get_composer_env_dict, get_device, get_file, is_tpu_installed, map_collection,
+                            maybe_create_object_store_from_uri, maybe_create_remote_uploader_downloader_from_uri,
+                            model_eval_mode, parse_uri, reproducibility, using_torch_2)
 from composer.utils.misc import is_model_deepspeed
 
 if is_tpu_installed():
@@ -106,14 +107,13 @@ def _get_default_scheduler_frequency(schedulers: Optional[Union[Scheduler, Seque
 def _filter_metrics(metrics: Dict[str, Metric], metric_names: Optional[List[str]]) -> Dict[str, Metric]:
     """Filter the metrics based on the given metric_names as regex strings (e.g. 'Accuracy', 'f1' for 'BinaryF1Score', 'Top-.' for 'Top-1 Accuracy' and 'Top-2 Accuracy', etc). If no metric_names are provided, all metrics will be returned."""
     metrics = deepcopy(metrics)
-    if not metric_names:
+    if metric_names is None:
         return metrics
-    else:
-        filtered_metrics = {}
-        for name, metric in metrics.items():
-            if any(re.match(f'.*{metric_name}.*', name, re.IGNORECASE) for metric_name in metric_names):
-                filtered_metrics[name] = metric
-        return filtered_metrics
+    filtered_metrics = {}
+    for name, metric in metrics.items():
+        if any(re.match(f'.*{metric_name}.*', name, re.IGNORECASE) for metric_name in metric_names):
+            filtered_metrics[name] = metric
+    return filtered_metrics
 
 
 def _validate_precision(precision: Precision, device: Device):
@@ -1078,17 +1078,18 @@ class Trainer:
                 loggers.append(
                     ConsoleLogger(stream=console_stream, log_interval=console_log_interval, log_traces=log_traces))
 
-        if save_folder is not None:
-            remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
-            if remote_ud is not None:
-                loggers.append(remote_ud)
-
         # MosaicML Logger
+        # Keep MosaicML logger above the RemoteUploaderDownloader so that fit end is reported before the final checkpoint begins uploading
         if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and os.environ.get(
                 MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and not any(isinstance(x, MosaicMLLogger) for x in loggers):
             log.info('Detected run on MosaicML platform. Adding MosaicMLLogger to loggers.')
             mosaicml_logger = MosaicMLLogger()
             loggers.append(mosaicml_logger)
+
+        if save_folder is not None:
+            remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
+            if remote_ud is not None:
+                loggers.append(remote_ud)
 
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
@@ -1162,6 +1163,11 @@ class Trainer:
         if self.auto_log_hparams:
             self.local_hparams = extract_hparams(locals())
             self.logger.log_hyperparameters(self.local_hparams)
+
+        # Log composer version
+        composer_env_dict = get_composer_env_dict()
+        self.logger.log_hyperparameters({'composer_version': composer_env_dict['composer_version']})
+        self.logger.log_hyperparameters({'composer_commit_hash': str(composer_env_dict['composer_commit_hash'])})
 
         # Log gpus and nodes.
         device_name = self.state.device.__class__.__name__.lstrip('Device').lower()
@@ -1404,8 +1410,11 @@ class Trainer:
                 # Disable object_store since _get_autoresume_checkpoint will download the checkpoint
                 # To the save folder, if needed.
                 load_object_store = None
-                # Disable `load_weights_only` since this applies only to the initial training run
+                # Set load arguments to defaults as this applies only to the initial non-autoresume
+                # load. We do not reset `load_strict_model_weights` for models with frozen layers.
                 load_weights_only = False
+                load_ignore_keys = None
+                load_exclude_algorithms = None
                 log.info('Autoresuming training from checkpoint')
             else:
                 log.info('No previous autoresume checkpoint found')
@@ -2911,7 +2920,15 @@ class Trainer:
                                 if isinstance(self.state.device, DeviceMPS):
                                     # torchmetrics math has numerical errors on M1 devices
                                     # running the compute on CPU instead
-                                    outputs = self.state.outputs.cpu()
+                                    if isinstance(self.state.outputs, Mapping):
+                                        outputs = {}
+                                        for k, v in self.state.outputs.items():
+                                            if isinstance(v, torch.Tensor):
+                                                outputs[k] = v.cpu()
+                                            else:
+                                                outputs[k] = v
+                                    else:
+                                        outputs = self.state.outputs.cpu()
                                 else:
                                     outputs = self.state.outputs
 
