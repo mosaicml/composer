@@ -387,7 +387,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             except FileExistsError as e:
                 raise FileExistsError(
                     f'Uploading checkpoint failed with error: {e}. overwrite was set to {self.overwrite}. To overwrite checkpoints with Trainer, set save_overwrite to True.'
-                )
+                ) from e
 
             # symlinks stay the same with sharded checkpointing
             if self.latest_remote_file_name is not None:
