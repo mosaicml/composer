@@ -63,8 +63,8 @@ from torch.utils.data import DataLoader
 from tests.common import RandomImageDataset
 
 cnn_composer_model = composer_resnet('resnet50')
-my_train_dataloader = DataLoader(RandomImageDataset(), size=2, batch_size=2)
-my_eval_dataloader = DataLoader(RandomImageDataset(), size=2, batch_size=2)
+my_train_dataloader = DataLoader(RandomImageDataset(size=2), batch_size=2)
+my_eval_dataloader = DataLoader(RandomImageDataset(size=2), batch_size=2)
 ```
 -->
 <!--pytest-codeblocks:cont-->
