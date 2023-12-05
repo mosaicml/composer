@@ -988,6 +988,7 @@ class InContextLearningCodeEvalDataset(Dataset):
         self.max_prompt_length = 0
         self.top_p = top_p
         self.top_k = top_k
+        self.max_answer_length = 0
         fewshot_rng = random.Random(fewshot_random_seed)
         self.encoded_dataset = self.prep_examples(num_fewshot, prompt_string, example_delimiter, code_prelimiter,
                                                   fewshot_rng)
@@ -1011,6 +1012,7 @@ class InContextLearningCodeEvalDataset(Dataset):
         """
         max_prompt_length = 0
         examples = []
+        max_answer_length = 0
         for sample_idx in tqdm(range(len(self.samples))):
             encoded_example = {}
 
@@ -1052,8 +1054,12 @@ class InContextLearningCodeEvalDataset(Dataset):
             max_prompt_length = max(
                 max_prompt_length,
                 len(encoded_example['preamble']['input_ids'] + encoded_example['prompt']['input_ids']))
+            max_answer_length = max(
+                max_answer_length,
+                len(self.tokenizer(encoded_example['canonical_solution'], add_special_tokens=False)['input_ids']))
 
         self.max_prompt_length = max_prompt_length
+        self.max_answer_length = max_answer_length + _MAX_ANSWER_BUFFER_LENGTH
         return examples
 
     def __getitem__(self, index):
@@ -1103,7 +1109,7 @@ class InContextLearningCodeEvalDataset(Dataset):
             'test_outputs': test_outputs,  # list of test outputs
             'languages': languages,  # list of languages
             'pass_at_k': self.pass_at_k,
-            'generation_length': self.max_seq_len - self.max_prompt_length,
+            'generation_length': min(self.max_answer_length, self.max_seq_len - self.max_prompt_length),
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
                 'num_beams': 1,  # single beam

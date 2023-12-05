@@ -778,7 +778,7 @@ def test_code_eval_sentpiece_dataloader(dataset_uri, tmp_path, num_fewshot, prom
     assert tuple(batch['attention_mask'].shape) == (batch_size, max_prompt_length)
     assert batch['mode'] == 'generate'
     # the maximum generation length from the small test data
-    assert batch['generation_length'] == seqlen - max_prompt_length
+    assert batch['generation_length'] == 129
     assert any(item[0] != tokenizer.eos_token_id for item in batch['input_ids'])  # longest should be pushed left
 
     decoded_batch = tokenizer.batch_decode(batch['input_ids'])
@@ -863,7 +863,7 @@ def test_code_eval_test_cases(dataset_uri, tmp_path):
     assert tuple(batch['attention_mask'].shape) == (batch_size, max_prompt_length)
     assert batch['mode'] == 'generate'
     # the maximum generation length from the small test data
-    assert batch['generation_length'] == seqlen - max_prompt_length
+    assert batch['generation_length'] == 129
     assert any(item[0] != tokenizer.eos_token_id for item in batch['input_ids'])  # longest should be pushed left
 
     mod = types.ModuleType('test_module')
@@ -941,7 +941,7 @@ def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_st
     assert tuple(batch['attention_mask'].shape) == (batch_size, max_prompt_length)
     assert batch['mode'] == 'generate'
     # the maximum generation length from the small test data
-    assert batch['generation_length'] == seqlen - max_prompt_length
+    assert batch['generation_length'] == 122
     assert any(item[0] != tokenizer.eos_token_id for item in batch['input_ids'])  # longest should be pushed left
 
     decoded_batch = tokenizer.batch_decode(batch['input_ids'])
