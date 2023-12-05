@@ -93,16 +93,18 @@ class MosaicMLLogger(LoggerDestination):
         self._log_metadata(metrics)
 
     def after_load(self, state: State, logger: Logger) -> None:
+        after_load_metadata = {}
         # Log model data downloaded and initialized for run events
         log.debug(f'Logging model initialized time to metadata')
-        self._log_metadata({'model_initialized_time': time.time()})
+        after_load_metadata['model_initialized_time'] =  time.time()
         # Log WandB run URL if it exists. Must run on after_load as WandB is setup on event init
         for callback in state.callbacks:
             if isinstance(callback, WandBLogger):
                 run_url = callback.run_url
                 if run_url is not None:
-                    self._log_metadata({'wandb/run_url': run_url})
-        self._flush_metadata(force_flush=True)
+                    after_load_metadata['wandb/run_url'] = run_url
+        self._log_metadata(after_load_metadata)
+        self._flush_metadata()
 
     def batch_start(self, state: State, logger: Logger) -> None:
         if state.dataloader_len is not None and self._enabled:
@@ -147,8 +149,8 @@ class MosaicMLLogger(LoggerDestination):
         """Flush buffered metadata to MosaicML if enough time has passed since last flush."""
         if self._enabled and (time.time() - self.time_last_logged > self.log_interval or force_flush):
             try:
+                print(self.buffered_metadata)
                 f = mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=True, protect=True)
-                self.buffered_metadata = {}
                 self.time_last_logged = time.time()
                 self._futures.append(f)
                 done, incomplete = wait(self._futures, timeout=0.01)
