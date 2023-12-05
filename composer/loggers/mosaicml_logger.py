@@ -107,7 +107,7 @@ class MosaicMLLogger(LoggerDestination):
                 else:
                     log.debug('WandB run URL not found, not logging to metadata')
         self._log_metadata(after_load_metadata)
-        self._flush_metadata()
+        self._flush_metadata(force_flush=True)
 
     def batch_start(self, state: State, logger: Logger) -> None:
         if state.dataloader_len is not None and self._enabled:
