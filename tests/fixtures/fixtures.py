@@ -268,7 +268,7 @@ def tiny_opt_config_helper():
         'n_embd': 2,
         'n_head': 2,
         'n_layer': 2,
-        'vocab_size': 50266,
+        'vocab_size': 50272,
     }
     return transformers.AutoConfig.from_pretrained('facebook/opt-125m', **tiny_overrides)
 
