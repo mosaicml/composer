@@ -343,3 +343,13 @@ def test_epoch_zero_no_dataloader_progress_metrics():
     assert training_progress['training_progress'] == '[epoch=1/3]'
     assert 'training_sub_progress' in training_progress
     assert training_progress['training_sub_progress'] == '[batch=1]'
+
+
+def test_buffered_metadata(monkeypatch):
+    run_name = 'test-run-name'
+    monkeypatch.setenv('RUN_NAME', run_name)
+    mosaic_logger = MosaicMLLogger()
+    mosaic_logger.buffered_metadata = {'key1': 'value1', 'key2': 'value2'}
+    mosaic_logger._flush_metadata()
+    # confirm that buffered metadata has not been removed
+    assert mosaic_logger.buffered_metadata == {'key1': 'value1', 'key2': 'value2'}
