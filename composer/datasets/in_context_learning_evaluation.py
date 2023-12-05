@@ -425,7 +425,7 @@ class InContextLearningExecutionPredictionTaskDataset(Dataset):
         return res
 
     @staticmethod
-    def _write_assert_statement(language, fn_name, input_val, output_val, fewshot_idx = ""):
+    def _write_assert_statement(language, fn_name, input_val, output_val, fewshot_idx=''):
         if language == 'python':
             if output_val is not None:
                 return f'\n\ndef test{fewshot_idx}():\n\tassert {fn_name}({input_val}) == {output_val}'
@@ -467,11 +467,11 @@ class InContextLearningExecutionPredictionTaskDataset(Dataset):
                         self.samples[fewshot_idx]['test_inputs'],
                         self.samples[fewshot_idx]['test_outputs'],
                     )
-                    
+
                     test_idx = fewshot_rng.choice(range(0, len(test_in)))
                     assert_stmt = self._write_assert_statement(self.samples[sample_idx]['language'], entry_point,
                                                                self.stringify_input(test_in[test_idx]),
-                                                               test_out[test_idx], idx)
+                                                               test_out[test_idx], str(idx))
                     example = f"""{example_delimiter}{prompt}{soln}{assert_stmt}"""
 
                     preamble += example
