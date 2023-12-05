@@ -120,7 +120,7 @@ class OCIObjectStore(ObjectStore):
 
     def _download_part(self, object_name, filename, start_byte, end_byte, part_number):
         range_header = f'bytes={start_byte}-{end_byte}'
-        tmp_part_path = f'{str(filename)}.part_{part_number}.{uuid.uuid4()}.tmp'
+        tmp_part_path = os.path.join(filename, f'part-{part_number}-{uuid.uuid4()}.tmp')
         response = self.client.get_object(namespace_name=self.namespace,
                                           bucket_name=self.bucket,
                                           object_name=object_name,
@@ -156,9 +156,7 @@ class OCIObjectStore(ObjectStore):
             part_sizes[i] += 1
         part_sizes = [part_size for part_size in part_sizes if part_size > 0]
 
-        tmp_part_dir = os.path.join(dirname, f'{str(filename)}-parts-{uuid.uuid4()}')
-        os.makedirs(tmp_part_dir, exist_ok=True)
-        with TemporaryDirectory(dir=tmp_part_dir) as temp_dir:
+        with TemporaryDirectory(dir=dirname, prefix=f'{str(filename)}') as temp_dir:
             try:
                 # Download parts in parallel
                 parts = []
@@ -178,16 +176,16 @@ class OCIObjectStore(ObjectStore):
                 _reraise_oci_errors(self.get_uri(object_name), e)
 
             # Combine parts
-            tmp_path = f'{str(filename)}.{uuid.uuid4()}.tmp'
+            tmp_path = os.path.join(temp_dir, f'{str(filename)}-{uuid.uuid4()}.tmp')
             with open(tmp_path, 'wb') as outfile:
                 for i, part_file_name in parts:
                     with open(part_file_name, 'rb') as infile:
                         outfile.write(infile.read())
 
-        if overwrite:
-            os.replace(tmp_path, filename)
-        else:
-            os.rename(tmp_path, filename)
+            if overwrite:
+                os.replace(tmp_path, filename)
+            else:
+                os.rename(tmp_path, filename)
 
     def list_objects(self, prefix: Optional[str] = None) -> List[str]:
         if prefix is None:
