@@ -308,12 +308,12 @@ def test_schema_task_dataloader_sentpiece_tokenizer(dataset_uri, tmp_path):
 
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 1])
-def test_lm_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
+def test_lm_task_dataloader_opt_tokenizer(tiny_opt_tokenizer, dataset_uri, num_fewshot, tmp_path):
     pytest.importorskip('datasets')
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
-    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
+    tokenizer = tiny_opt_tokenizer
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 2
     seqlen = 64
@@ -349,12 +349,12 @@ def test_lm_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 1])
-def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
+def test_mc_task_dataloader_opt_tokenizer(tiny_opt_tokenizer, dataset_uri, num_fewshot, tmp_path):
     pytest.importorskip('datasets')
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
-    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
+    tokenizer = tiny_opt_tokenizer
 
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 4
@@ -399,12 +399,12 @@ def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 1])
-def test_mc_split_batch(dataset_uri, num_fewshot, tmp_path):
+def test_mc_split_batch(tiny_opt_tokenizer, dataset_uri, num_fewshot, tmp_path):
     pytest.importorskip('datasets')
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
-    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
+    tokenizer = tiny_opt_tokenizer
 
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 2
@@ -459,11 +459,11 @@ def test_mc_split_batch(dataset_uri, num_fewshot, tmp_path):
 
 
 @pytest.mark.parametrize('dataset_uri', ['triviaqa_small.jsonl'])
-def test_qa_split_batch(dataset_uri, tmp_path):
+def test_qa_split_batch(tiny_opt_tokenizer, dataset_uri, tmp_path):
     pytest.importorskip('datasets')
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
-    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m')
+    tokenizer = tiny_opt_tokenizer
 
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
@@ -1175,12 +1175,13 @@ def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenize
 @device('gpu')
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [0, 5])
-def test_qa_task_evaluation_opt_tokenizer(device, world_size, num_fewshot, dataset_uri, tmp_path):
+def test_qa_task_evaluation_opt_tokenizer(device, world_size, tiny_opt_tokenizer, tiny_opt_model, num_fewshot,
+                                          dataset_uri, tmp_path):
     pytest.importorskip('datasets')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
-    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m')
+    tokenizer = tiny_opt_tokenizer
 
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
@@ -1200,7 +1201,7 @@ def test_qa_task_evaluation_opt_tokenizer(device, world_size, num_fewshot, datas
 
     evaluator = Evaluator(label='triviaqa', dataloader=dl, metric_names=['InContextLearningQAAccuracy'])
     model = HuggingFaceModel(
-        model=AutoModelForCausalLM.from_pretrained('facebook/opt-125m'),
+        model=tiny_opt_model,
         tokenizer=tokenizer,
         eval_metrics=[InContextLearningQAAccuracy()],
         use_logits=True,
@@ -1217,12 +1218,13 @@ def test_qa_task_evaluation_opt_tokenizer(device, world_size, num_fewshot, datas
 @device('gpu')
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [5])
-def test_qa_task_evaluation_with_cot_opt_tokenizer(device, world_size, num_fewshot, dataset_uri, tmp_path):
+def test_qa_task_evaluation_with_cot_opt_tokenizer(device, world_size, tiny_opt_tokenizer, tiny_opt_model, num_fewshot,
+                                                   dataset_uri, tmp_path):
     pytest.importorskip('datasets')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
-    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m')
+    tokenizer = tiny_opt_tokenizer
 
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
@@ -1243,7 +1245,7 @@ def test_qa_task_evaluation_with_cot_opt_tokenizer(device, world_size, num_fewsh
 
     evaluator = Evaluator(label='gsm8k', dataloader=dl, metric_names=['InContextLearningQAAccuracy'])
     model = HuggingFaceModel(
-        model=AutoModelForCausalLM.from_pretrained('facebook/opt-125m'),
+        model=tiny_opt_model,
         tokenizer=tokenizer,
         eval_metrics=[InContextLearningQAAccuracy()],
         use_logits=True,
@@ -1360,14 +1362,14 @@ def test_code_eval_requires_valid_envvar(monkeypatch):
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [0])
 @pytest.mark.parametrize('generations_per_sample', [1, 2])
-def test_code_eval_microbatching(monkeypatch, device, world_size, num_fewshot, dataset_uri, tmp_path,
-                                 generations_per_sample):
+def test_code_eval_microbatching(monkeypatch, device, world_size, tiny_opt_tokenizer, tiny_opt_model, num_fewshot,
+                                 dataset_uri, tmp_path, generations_per_sample):
     pytest.importorskip('datasets')
     monkeypatch.setenv('CODE_EVAL_DEVICE', 'LOCAL')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
-    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m')
+    tokenizer = tiny_opt_tokenizer
 
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
@@ -1391,7 +1393,7 @@ def test_code_eval_microbatching(monkeypatch, device, world_size, num_fewshot, d
                           metric_names=['InContextLearningCodeEvalAccuracy'],
                           device_eval_microbatch_size=1)
     model = HuggingFaceModel(
-        model=AutoModelForCausalLM.from_pretrained('facebook/opt-125m'),
+        model=tiny_opt_model,
         tokenizer=tokenizer,
         eval_metrics=[InContextLearningCodeEvalAccuracy()],
         use_logits=True,
