@@ -196,6 +196,7 @@ class InContextLearningDataset(Dataset):
         hf_loading_vars: Dict = None,
         hf_parsing_map: Dict = None,
         tokenize_labels: bool = True,
+        generation_kwargs: Dict = None,
     ):
 
         self.tokenizer = tokenizer
@@ -204,7 +205,6 @@ class InContextLearningDataset(Dataset):
         self.max_seq_len = max_seq_len
         self.pad_tok_id = pad_tok_id
         self.num_fewshot = num_fewshot
-        # TODO: check this is correct for all dataset types
         self.padding_side = padding_side
         self.padding_size = padding_size if padding_size else self.max_seq_len
         self.prelimiter = prelimiter
@@ -215,6 +215,7 @@ class InContextLearningDataset(Dataset):
         self.tokenize_labels = tokenize_labels
         self.batch_mapping = batch_mapping
         self.default_batch = default_batch
+        self._update_generation_kwargs(generation_kwargs if generation_kwargs else {})
 
         hf_loading_vars = hf_loading_vars or {}
         self.dataset = self._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_map)
@@ -242,12 +243,10 @@ class InContextLearningDataset(Dataset):
     def get_num_samples_in_batch(self, batch: Dict) -> int:
         return batch['input_ids'].shape[0]
 
-    def check_defaults_are_set(self, dict_of_defaults: dict) -> None:
-        if all(v for v in dict_of_defaults.values()):
-            return
-        raise ValueError(
-            f"{type(self).__name__} missing required variable(s): {', '.join([k for k, v in dict_of_defaults.items() if not v])}"
-        )
+    def _update_generation_kwargs(self, generation_kwargs):
+        if 'generation_kwargs' not in self.default_batch:
+            self.default_batch['generation_kwargs'] = {}
+        self.default_batch.update(generation_kwargs)
 
     def _read_dataset(self,
                       dataset_uri: str,
@@ -625,6 +624,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
             'input_ids': self.context_key,
             'labels': 'aliases',
         }
+        self._update_generation_kwargs(kwargs.get('generation_kwargs',{}))
 
     def _read_dataset(
         self,
@@ -766,6 +766,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
             'gold_indices': [],
             'choice_groupings': [],
         }
+        # TODO: is there something cleaner here?
         context_key = kwargs.pop('context_key', 'query')
         super().__init__(context_key=context_key, default_batch=default_batch, padding_side='right', *args, **kwargs)
         self.num_choices = len(self.dataset[0][self.choices_key])
@@ -833,6 +834,13 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
     def collate_fn(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
         The function that the dataloader uses to accumulate data into batches.
+        We run each distinct query + answer choice through the model separately and determine which
+        answer has the lowest per-token-perplexity.
+       
+        If each question has N possible choices, all N must be grouped together as distinct elements of the batch
+        since the batch may consist of multiple questions, the choice_groupings indicates
+        which contiguous sequences of elements in the batch correspond to which question
+        gold_indices indicates which of the [0, N-1] choices is the correct one for each question.
         Args:
             data (List): list of tokenized datapoints (dicts returned by self._tokenize_example)
 
@@ -852,13 +860,6 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
             choice_end_idx = len(batch['continuation_indices'])
             batch['choice_groupings'].append((choice_start_idx, choice_end_idx))
 
-        # We run each distinct query + answer choice through the model separately and determine which
-        # answer has the lowest per-token-perplexity.
-        #
-        # If each question has N possible choices, all N must be grouped together as distinct elements of the batch
-        # since the batch may consist of multiple questions, the choice_groupings indicates
-        # which contiguous sequences of elements in the batch correspond to which question
-        # gold_indices indicates which of the [0, N-1] choices is the correct one for each question.
         batch = self._convert_tokens_to_tensors(batch)
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
@@ -1084,7 +1085,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         - do_sample: determines whether model is sampling or greedily decoding. Always set to True
         - top_p: the cumulative probability of parameter highest probability vocabulary tokens to keep for nucleus sampling. Must be between 0 and 1
         - top_k: the number of highest probability vocabulary tokens to keep for top-k-filtering. Between 1 and infinity.
-        - temperature: randomness used during prediction. 1.0 is deterministic. defaults to 1.0
         - use_cache: Whether or not to use past key values to speed up sampling. Always set to True
 
     Additional Args:
@@ -1093,7 +1093,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         pass_at_k (int) (defaults to 1): k for how many chances the model gets to write passing code
         top_p (int) (defaults to 0.95): top_p sampling parameter for nucleus sampling
         top_k (int) (defaults to 40): top_k sampling parameter for number of samples to consider
-        temperature (float) (defaults to 1.0): temperature to use while sampling
     """
 
     def __init__(
@@ -1102,7 +1101,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         pass_at_k: int = 1,
         top_p: Optional[float] = 0.95,
         top_k: Optional[int] = 40,
-        temperature: Optional[int] = 1.0,
         *args,
         **kwargs,
     ):
@@ -1151,10 +1149,11 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
                 'do_sample': True,
                 'top_p': top_p,
                 'top_k': top_k,
-                'temperature': temperature,
                 'use_cache': True
             },
         }
+        self._update_generation_kwargs(kwargs['generation_kwargs'])
+    
 
     def get_max_prompt_length(self) -> int:
         """
@@ -1164,7 +1163,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         """
         max_prompt_length = 0
         for example in self.dataset:
-            # Will this elimante tokens we want to keep?
+            # TODO: Will this elimante tokens we want to keep?
             unpadded_example = [token for token in example[self.context_key] if token != self.pad_tok_id]
             max_prompt_length = max(
                 max_prompt_length,
@@ -1228,7 +1227,7 @@ def build_icl_dataloader(
     fewshot_random_seed: int,
     pass_at_k: int,
     generations_per_sample: int,
-    temperature: float,
+    generation_kwargs: Dict,
 ) -> DataSpec:
     if icl_task_type == 'multiple_choice':
         dataset = InContextLearningMultipleChoiceTaskDataset(
@@ -1244,6 +1243,7 @@ def build_icl_dataloader(
             fewshot_random_seed=fewshot_random_seed,
             hf_loading_vars=hf_loading_vars,
             hf_parsing_map=hf_parsing_map,
+            generation_kwargs=generation_kwargs,
         )
         batch_size = max(dataset.num_choices, batch_size)
         effective_batchsize = batch_size // dataset.num_choices
@@ -1261,6 +1261,7 @@ def build_icl_dataloader(
             fewshot_random_seed=fewshot_random_seed,
             hf_loading_vars=hf_loading_vars,
             hf_parsing_map=hf_parsing_map,
+            generation_kwargs=generation_kwargs,
         )
         batch_size = max(dataset.num_choices, batch_size)
         effective_batchsize = batch_size // dataset.num_choices
@@ -1278,6 +1279,7 @@ def build_icl_dataloader(
             fewshot_random_seed=fewshot_random_seed,
             hf_loading_vars=hf_loading_vars,
             hf_parsing_map=hf_parsing_map,
+            generation_kwargs=generation_kwargs,
         )
         effective_batchsize = batch_size
     elif icl_task_type == 'question_answering':
@@ -1296,6 +1298,7 @@ def build_icl_dataloader(
             hf_loading_vars=hf_loading_vars,
             hf_parsing_map=hf_parsing_map,
             cot_delimiter=cot_delimiter,
+            generation_kwargs=generation_kwargs,
         )
         effective_batchsize = batch_size
     elif icl_task_type == 'code_evaluation':
@@ -1315,7 +1318,7 @@ def build_icl_dataloader(
             hf_parsing_map=hf_parsing_map,
             pass_at_k=pass_at_k,
             generations_per_sample=generations_per_sample,
-            temperature=temperature,
+            generation_kwargs=generation_kwargs,
         )
         effective_batchsize = batch_size
     elif icl_task_type == 'rag':
@@ -1334,6 +1337,7 @@ def build_icl_dataloader(
             fewshot_random_seed=fewshot_random_seed,
             hf_loading_vars=hf_loading_vars,
             hf_parsing_map=hf_parsing_map,
+            generation_kwargs=generation_kwargs,
         )
         effective_batchsize = batch_size
     else:
@@ -1433,16 +1437,16 @@ def get_icl_task_dataloader(
     prompt_string: str,  # e.g. 'translate english to french:'
     example_delimiter: str,  # e.g. '\n'
     continuation_delimiter: str = '',
-    question_prelimiter: str = '',  # e.g. 'Question: '
-    hf_loading_vars: Dict = None,
-    hf_parsing_map: Dict = None,
     destination_path: str = '',
+    question_prelimiter: str = '',  # e.g. 'Question: '
     fewshot_random_seed: int = 1234,
     pass_at_k: int = 1,
-    temperature: float = 1.0,
     generations_per_sample: int = 1,
     cot_delimiter: str = '',
     has_categories: bool = False,
+    hf_loading_vars: Dict = None,
+    hf_parsing_map: Dict = None,
+    generation_kwargs: Dict = None,
 ) -> Union[DataSpec, Dict[str, DataSpec]]:
     """
     This constructs a dataloader (or dataloaders if has_categories is True) capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
@@ -1525,7 +1529,7 @@ def get_icl_task_dataloader(
                 generations_per_sample=generations_per_sample,
                 hf_loading_vars=hf_loading_vars,
                 hf_parsing_map=hf_parsing_map,
-                temperature=temperature,
+                generation_kwargs=generation_kwargs,
             )
         return result_dls
     else:
@@ -1548,5 +1552,5 @@ def get_icl_task_dataloader(
             fewshot_random_seed=fewshot_random_seed,
             pass_at_k=pass_at_k,
             generations_per_sample=generations_per_sample,
-            temperature=temperature,
+            generation_kwargs=generation_kwargs,
         )
