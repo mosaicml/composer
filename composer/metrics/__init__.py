@@ -5,29 +5,19 @@
 
 from composer.metrics.map import MAP
 from composer.metrics.metrics import CrossEntropy, Dice, LossMetric, MIoU
-from composer.metrics.nlp import (BinaryF1Score, InContextLearningCodeEvalAccuracy, InContextLearningLMAccuracy,
+from composer.metrics.nlp import (BinaryF1Score, InContextLearningCodeEvalAccuracy,
+                                  InContextLearningCodeExecutionPredictionAccuracy, InContextLearningLMAccuracy,
                                   InContextLearningLMExpectedCalibrationError,
                                   InContextLearningMCExpectedCalibrationError, InContextLearningMetric,
                                   InContextLearningMultipleChoiceAccuracy, InContextLearningQAAccuracy,
                                   LanguageCrossEntropy, LanguagePerplexity, MaskedAccuracy)
 
 __all__ = [
-    'MAP',
-    'MIoU',
-    'Dice',
-    'CrossEntropy',
-    'LossMetric',
-    'BinaryF1Score',
-    'LanguageCrossEntropy',
-    'MaskedAccuracy',
-    'LanguagePerplexity',
-    'InContextLearningLMAccuracy',
-    'InContextLearningMultipleChoiceAccuracy',
-    'InContextLearningQAAccuracy',
-    'InContextLearningMCExpectedCalibrationError',
-    'InContextLearningLMExpectedCalibrationError',
-    'InContextLearningMetric',
-    'InContextLearningCodeEvalAccuracy',
+    'MAP', 'MIoU', 'Dice', 'CrossEntropy', 'LossMetric', 'BinaryF1Score', 'LanguageCrossEntropy', 'MaskedAccuracy',
+    'LanguagePerplexity', 'InContextLearningLMAccuracy', 'InContextLearningMultipleChoiceAccuracy',
+    'InContextLearningQAAccuracy', 'InContextLearningMCExpectedCalibrationError',
+    'InContextLearningLMExpectedCalibrationError', 'InContextLearningMetric', 'InContextLearningCodeEvalAccuracy',
+    'InContextLearningCodeExecutionPredictionAccuracy'
 ]
 
 METRIC_DEFAULT_CTORS = {
@@ -35,4 +25,5 @@ METRIC_DEFAULT_CTORS = {
     'InContextLearningMultipleChoiceAccuracy': InContextLearningMultipleChoiceAccuracy,
     'InContextLearningQAAccuracy': InContextLearningQAAccuracy,
     'InContextLearningCodeEvalAccuracy': InContextLearningCodeEvalAccuracy,
+    'InContextLearningCodeExecutionPredictionAccuracy': InContextLearningCodeExecutionPredictionAccuracy,
 }

@@ -16,11 +16,13 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from composer import Evaluator
 from composer.core import DataSpec
 from composer.datasets.in_context_learning_evaluation import (InContextLearningCodeEvalDataset,
+                                                              InContextLearningExecutionPredictionTaskDataset,
                                                               _get_fewshot_sample_idxs, _make_padded_input,
                                                               get_icl_task_dataloader)
 from composer.loggers import InMemoryLogger
-from composer.metrics import (InContextLearningCodeEvalAccuracy, InContextLearningLMAccuracy,
-                              InContextLearningMultipleChoiceAccuracy, InContextLearningQAAccuracy)
+from composer.metrics import (InContextLearningCodeEvalAccuracy, InContextLearningCodeExecutionPredictionAccuracy,
+                              InContextLearningLMAccuracy, InContextLearningMultipleChoiceAccuracy,
+                              InContextLearningQAAccuracy)
 from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
 from composer.utils import dist, reproducibility
@@ -901,6 +903,62 @@ def test_code_eval_pass_at_k_validity(dataset_uri, tmp_path):
 
 
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
+@pytest.mark.parametrize('num_fewshot', [2])
+def test_code_execution_prediction_task_dataloader(dataset_uri, tmp_path, num_fewshot):
+    pytest.importorskip('datasets')
+
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+
+    tokenizer = AutoTokenizer.from_pretrained('mosaicml/mpt-7b')
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    batch_size = 8
+    seqlen = 2048
+
+    prompt_string = """Below is a list of python functions each followed by a correct assert statement testing its behavior. The final assert statement is incomplete; your task is to complete the final assert statement so that it passes."""
+
+    dl = get_icl_task_dataloader(
+        'code_execution_prediction',
+        dataset_uri,
+        tokenizer,
+        batch_size,
+        max_seq_len=seqlen,
+        pad_tok_id=tokenizer.eos_token_id,
+        num_fewshot=num_fewshot,
+        prompt_string=prompt_string,
+        example_delimiter='\n\n####\n\n',
+        destination_path=str(tmp_path / f'icl_{num_fewshot}.jsonl'),
+    )
+    assert isinstance(dl, DataSpec)
+
+    assert isinstance(dl.dataloader, DataLoader)  # pyright
+    batch = next(dl.dataloader._get_iterator())
+    max_prompt_length = 0
+    max_answer_length = 0
+    if isinstance(dl.dataloader.dataset, InContextLearningExecutionPredictionTaskDataset):
+        max_prompt_length = dl.dataloader.dataset.max_prompt_length
+        max_answer_length = dl.dataloader.dataset.max_answer_length
+    assert tuple(batch['input_ids'].shape) == (batch_size, max_prompt_length)
+    assert tuple(batch['attention_mask'].shape) == (batch_size, max_prompt_length)
+    assert batch['mode'] == 'generate'
+    # the maximum generation length from the small test data
+    assert batch['generation_length'] == max_answer_length
+
+    decoded_batch = tokenizer.batch_decode(batch['input_ids'])
+    assert all((item.count('assert') - prompt_string.count('assert')) == num_fewshot + 1 for item in decoded_batch)
+    assert batch['labels'] == [
+        "['(()())', '((()))', '()', '((())()())']", "['()', '(())', '((()))', '(((())))']", "['(()(())((())))']",
+        "['()', '(())', '(()())']", 'True', 'False', 'True', 'False'
+    ]
+
+    assert decoded_batch[0].endswith(
+        '"""\nBelow is a list of python functions each followed by a correct assert statement testing its behavior. The final assert statement is incomplete; your task is to complete the final assert statement so that it passes.\n"""\n\n####\n\nfrom typing import List\n\n\ndef has_close_elements(numbers: List[float], threshold: float) -> bool:\n    """ Check if in given list of numbers, are any two numbers closer to each other than\n    given threshold.\n    >>> has_close_elements([1.0, 2.0, 3.0], 0.5)\n    False\n    >>> has_close_elements([1.0, 2.8, 3.0, 4.0, 5.0, 2.0], 0.3)\n    True\n    """\n    for idx, elem in enumerate(numbers):\n        for idx2, elem2 in enumerate(numbers):\n            if idx!= idx2:\n                distance = abs(elem - elem2)\n                if distance < threshold:\n                    return True\n\n    return False\n\n\ndef test0():\n\tassert has_close_elements([1.0, 2.0, 3.9, 4.0, 5.0, 2.2], 0.3) == True\n\n####\n\nfrom typing import List\n\n\ndef filter_by_substring(strings: List[str], substring: str) -> List[str]:\n    """ Filter an input list of strings only for ones that contain given substring\n    >>> filter_by_substring([], \'a\')\n    []\n    >>> filter_by_substring([\'abc\', \'bacd\', \'cde\', \'array\'], \'a\')\n    [\'abc\', \'bacd\', \'array\']\n    """\n    return [x for x in strings if substring in x]\n\n\ndef test1():\n\tassert filter_by_substring([], "john") == []\n\n####\n\nfrom typing import List\n\n\ndef separate_paren_groups(paren_string: str) -> List[str]:\n    """ Input to this function is a string containing multiple groups of nested parentheses. Your goal is to\n    separate those group into separate strings and return the list of those.\n    Separate groups are balanced (each open brace is properly closed) and not nested within each other\n    Ignore any spaces in the input string.\n    >>> separate_paren_groups(\'( ) (( )) (( )( ))\')\n    [\'()\', \'(())\', \'(()())\']\n    """\n    result = []\n    current_string = []\n    current_depth = 0\n\n    for c in paren_string:\n        if c == \'(\':\n            current_depth += 1\n            current_string.append(c)\n        elif c == \')\':\n            current_depth -= 1\n            current_string.append(c)\n\n            if current_depth == 0:\n                result.append(\'\'.join(current_string))\n                current_string.clear()\n\n    return result\n\n\ndef test():\n\tassert separate_paren_groups("(()()) ((())) () ((())()())") =='
+    )
+    assert decoded_batch[1].endswith(
+        '"""\nBelow is a list of python functions each followed by a correct assert statement testing its behavior. The final assert statement is incomplete; your task is to complete the final assert statement so that it passes.\n"""\n\n####\n\nfrom typing import List\n\n\ndef has_close_elements(numbers: List[float], threshold: float) -> bool:\n    """ Check if in given list of numbers, are any two numbers closer to each other than\n    given threshold.\n    >>> has_close_elements([1.0, 2.0, 3.0], 0.5)\n    False\n    >>> has_close_elements([1.0, 2.8, 3.0, 4.0, 5.0, 2.0], 0.3)\n    True\n    """\n    for idx, elem in enumerate(numbers):\n        for idx2, elem2 in enumerate(numbers):\n            if idx!= idx2:\n                distance = abs(elem - elem2)\n                if distance < threshold:\n                    return True\n\n    return False\n\n\ndef test0():\n\tassert has_close_elements([1.0, 2.0, 3.9, 4.0, 5.0, 2.2], 0.3) == True\n\n####\n\nfrom typing import List\n\n\ndef filter_by_substring(strings: List[str], substring: str) -> List[str]:\n    """ Filter an input list of strings only for ones that contain given substring\n    >>> filter_by_substring([], \'a\')\n    []\n    >>> filter_by_substring([\'abc\', \'bacd\', \'cde\', \'array\'], \'a\')\n    [\'abc\', \'bacd\', \'array\']\n    """\n    return [x for x in strings if substring in x]\n\n\ndef test1():\n\tassert filter_by_substring([], "john") == []\n\n####\n\nfrom typing import List\n\n\ndef separate_paren_groups(paren_string: str) -> List[str]:\n    """ Input to this function is a string containing multiple groups of nested parentheses. Your goal is to\n    separate those group into separate strings and return the list of those.\n    Separate groups are balanced (each open brace is properly closed) and not nested within each other\n    Ignore any spaces in the input string.\n    >>> separate_paren_groups(\'( ) (( )) (( )( ))\')\n    [\'()\', \'(())\', \'(()())\']\n    """\n    result = []\n    current_string = []\n    current_depth = 0\n\n    for c in paren_string:\n        if c == \'(\':\n            current_depth += 1\n            current_string.append(c)\n        elif c == \')\':\n            current_depth -= 1\n            current_string.append(c)\n\n            if current_depth == 0:\n                result.append(\'\'.join(current_string))\n                current_string.clear()\n\n    return result\n\n\ndef test():\n\tassert separate_paren_groups("() (()) ((())) (((())))") =='
+    )
+
+
+@pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 1, 2, 3])
 @pytest.mark.parametrize('prompt_string', ['Please code:\n', ''])
 @pytest.mark.parametrize('generations_per_sample', range(1, 5))
@@ -1498,6 +1556,57 @@ def test_code_eval_task_evaluation(monkeypatch, device, world_size, num_fewshot,
     torch.use_deterministic_algorithms(True)
     assert 'metrics/humaneval/InContextLearningCodeEvalAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/humaneval/InContextLearningCodeEvalAccuracy'][0][1].item() == 0
+
+
+@pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
+@device('gpu')
+@world_size(1, 2)
+@pytest.mark.parametrize('num_fewshot', [0, 2])
+@pytest.mark.parametrize('generations_per_sample', [1])
+@pytest.mark.filterwarnings(r'ignore: Input length of input_ids is')
+def test_code_execution_prediction_task_evaluation(monkeypatch, device, world_size, num_fewshot, dataset_uri,
+                                                   tiny_gpt2_tokenizer, tiny_gpt2_model, tmp_path,
+                                                   generations_per_sample):
+    pytest.importorskip('datasets')
+    torch.cuda.empty_cache()
+    monkeypatch.setenv('CODE_EVAL_DEVICE', 'LOCAL')
+    in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    tokenizer = tiny_gpt2_tokenizer
+    tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
+    gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
+    dl = get_icl_task_dataloader(
+        'code_execution_prediction',
+        dataset_uri,
+        tokenizer,
+        2,
+        max_seq_len=150 if num_fewshot == 0 else 450,
+        pad_tok_id=tokenizer.eos_token_id,
+        num_fewshot=num_fewshot,
+        prompt_string='',
+        example_delimiter='\n',
+        continuation_delimiter=': ',
+        destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
+        generations_per_sample=generations_per_sample,
+    )
+
+    evaluator = Evaluator(label='humaneval',
+                          dataloader=dl,
+                          metric_names=['InContextLearningCodeExecutionPredictionAccuracy'])
+    model = HuggingFaceModel(
+        model=tiny_gpt2_model,
+        tokenizer=tiny_gpt2_tokenizer,
+        eval_metrics=[InContextLearningCodeExecutionPredictionAccuracy()],
+        use_logits=True,
+    )
+
+    trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
+    torch.use_deterministic_algorithms(False)
+    trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
+    torch.use_deterministic_algorithms(True)
+    assert 'metrics/humaneval/InContextLearningCodeExecutionPredictionAccuracy' in in_memory_logger.data.keys()
+    assert in_memory_logger.data['metrics/humaneval/InContextLearningCodeExecutionPredictionAccuracy'][0][1].item() == 0
 
 
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
