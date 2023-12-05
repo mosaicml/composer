@@ -100,8 +100,8 @@ def test_mc_task_dataloader_subcategories(dataset_uri, tiny_gpt2_tokenizer, tmp_
 
     tokenizer = tiny_gpt2_tokenizer
     dataset_uri = f'{local_data}/{dataset_uri}'
-    batch_size = 8
-    seqlen = 2048
+    batch_size = 2
+    seqlen = 64
     dls = get_icl_task_dataloader('multiple_choice',
                                   dataset_uri,
                                   tokenizer,
@@ -145,7 +145,7 @@ def test_lm_task_dataloader_extra_space(dataset_uri, tiny_gpt2_tokenizer, tmp_pa
     tokenizer = tiny_gpt2_tokenizer
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 2
-    seqlen = 2048
+    seqlen = 64
     dl = get_icl_task_dataloader('language_modeling',
                                  dataset_uri,
                                  tokenizer,
@@ -186,7 +186,7 @@ def test_lm_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     tokenizer = tiny_gpt2_tokenizer
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 2
-    seqlen = 2048
+    seqlen = 64
     dl = get_icl_task_dataloader('language_modeling',
                                  dataset_uri,
                                  tokenizer,
@@ -224,7 +224,7 @@ def test_schema_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     tokenizer = tiny_gpt2_tokenizer
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 2
-    seqlen = 2048
+    seqlen = 64
     dl = get_icl_task_dataloader('schema',
                                  dataset_uri,
                                  tokenizer,
@@ -269,7 +269,7 @@ def test_schema_task_dataloader_sentpiece_tokenizer(dataset_uri, tmp_path):
     tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b', use_fast=False)
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 2
-    seqlen = 2048
+    seqlen = 64
     dl = get_icl_task_dataloader('schema',
                                  dataset_uri,
                                  tokenizer,
@@ -316,7 +316,7 @@ def test_lm_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 2
-    seqlen = 2048
+    seqlen = 64
     dl = get_icl_task_dataloader('language_modeling',
                                  dataset_uri,
                                  tokenizer,
@@ -357,8 +357,8 @@ def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
 
     dataset_uri = f'{local_data}/{dataset_uri}'
-    batch_size = 4
-    seqlen = 2048
+    batch_size = 2
+    seqlen = 64
     dl = get_icl_task_dataloader('multiple_choice',
                                  dataset_uri,
                                  tokenizer,
@@ -407,8 +407,8 @@ def test_mc_split_batch(dataset_uri, num_fewshot, tmp_path):
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
 
     dataset_uri = f'{local_data}/{dataset_uri}'
-    batch_size = 4
-    seqlen = 2048
+    batch_size = 2
+    seqlen = 64
     dl = get_icl_task_dataloader('multiple_choice',
                                  dataset_uri,
                                  tokenizer,
@@ -472,7 +472,7 @@ def test_qa_split_batch(dataset_uri, tmp_path):
         dataset_uri,
         tokenizer,
         8,
-        max_seq_len=1024,
+        max_seq_len=64,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=0,
         prompt_string='',
@@ -521,7 +521,7 @@ def test_qa_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fews
     tokenizer = tiny_gpt2_tokenizer
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 2
-    seqlen = 2048
+    seqlen = 64
     # empirical number from the small test dataset
     maximum_answer_length = 9
     dl = get_icl_task_dataloader('question_answering',
@@ -571,7 +571,7 @@ def test_qa_task_with_cot_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path,
     tokenizer = tiny_gpt2_tokenizer
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 2
-    seqlen = 2048
+    seqlen = 64
     # empirical number from the small test dataset
     maximum_answer_length = 157
     dl = get_icl_task_dataloader('question_answering',
@@ -634,7 +634,7 @@ def test_mc_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     tokenizer = tiny_gpt2_tokenizer
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 2
-    seqlen = 2048
+    seqlen = 64
     dl = get_icl_task_dataloader('multiple_choice',
                                  dataset_uri,
                                  tokenizer,
@@ -684,7 +684,7 @@ def test_code_eval_split_batch(dataset_uri, tmp_path):
         dataset_uri,
         tokenizer,
         8,
-        max_seq_len=1024,
+        max_seq_len=64,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=2,
         prompt_string='',
@@ -748,8 +748,8 @@ def test_code_eval_sentpiece_dataloader(dataset_uri, tmp_path, num_fewshot, prom
 
     tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b')
     dataset_uri = f'{local_data}/{dataset_uri}'
-    batch_size = 9
-    seqlen = 2048
+    batch_size = 2
+    seqlen = 64
 
     dl = get_icl_task_dataloader('code_evaluation',
                                  dataset_uri,
@@ -833,8 +833,8 @@ def test_code_eval_test_cases(dataset_uri, tmp_path):
 
     tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b')
     dataset_uri = f'{local_data}/{dataset_uri}'
-    batch_size = 9
-    seqlen = 2048
+    batch_size = 2
+    seqlen = 64
 
     dl = get_icl_task_dataloader('code_evaluation',
                                  dataset_uri,
@@ -881,8 +881,8 @@ def test_code_eval_pass_at_k_validity(dataset_uri, tmp_path):
 
     tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b')
     dataset_uri = f'{local_data}/{dataset_uri}'
-    batch_size = 9
-    seqlen = 2048
+    batch_size = 2
+    seqlen = 64
 
     with pytest.raises(ValueError, match=r'.* pass_at_k .*'):
         get_icl_task_dataloader('code_evaluation',
@@ -911,8 +911,8 @@ def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_st
 
     tokenizer = AutoTokenizer.from_pretrained('mosaicml/mpt-7b')
     dataset_uri = f'{local_data}/{dataset_uri}'
-    batch_size = 9
-    seqlen = 2048
+    batch_size = 2
+    seqlen = 64
 
     dl = get_icl_task_dataloader('code_evaluation',
                                  dataset_uri,
@@ -1042,7 +1042,7 @@ def test_schema_task_evaluation(num_fewshot, dataset_uri, tiny_gpt2_tokenizer, t
         dataset_uri,
         tokenizer,
         8,
-        max_seq_len=1024,
+        max_seq_len=64,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
         prompt_string='',
@@ -1089,7 +1089,7 @@ def test_mc_task_evaluation_subcategories(device, world_size, dataset_uri, num_f
                                   dataset_uri,
                                   tokenizer,
                                   8,
-                                  max_seq_len=1024,
+                                  max_seq_len=64,
                                   pad_tok_id=tokenizer.eos_token_id,
                                   num_fewshot=num_fewshot,
                                   prompt_string='',
@@ -1142,7 +1142,7 @@ def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenize
         dataset_uri,
         tokenizer,
         8,
-        max_seq_len=1024,
+        max_seq_len=64,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
         prompt_string='',
@@ -1189,7 +1189,7 @@ def test_qa_task_evaluation_opt_tokenizer(device, world_size, num_fewshot, datas
         dataset_uri,
         tokenizer,
         2,
-        max_seq_len=1024,
+        max_seq_len=64,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
         prompt_string='',
@@ -1231,7 +1231,7 @@ def test_qa_task_evaluation_with_cot_opt_tokenizer(device, world_size, num_fewsh
         dataset_uri,
         tokenizer,
         2,
-        max_seq_len=1024,
+        max_seq_len=64,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
         prompt_string='',
@@ -1274,7 +1274,7 @@ def test_qa_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_g
         dataset_uri,
         tokenizer,
         2,
-        max_seq_len=1024,
+        max_seq_len=64,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
         prompt_string='',
@@ -1317,7 +1317,7 @@ def test_qa_task_with_cot_evaluation(device, world_size, num_fewshot, dataset_ur
         dataset_uri,
         tokenizer,
         2,
-        max_seq_len=1024,
+        max_seq_len=64,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
         prompt_string='',
@@ -1376,7 +1376,7 @@ def test_code_eval_microbatching(monkeypatch, device, world_size, num_fewshot, d
         dataset_uri,
         tokenizer,
         2,
-        max_seq_len=150,
+        max_seq_len=64,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
         prompt_string='',
@@ -1426,7 +1426,7 @@ def test_code_eval_sentpiece_evaluation(monkeypatch, device, world_size, num_few
         dataset_uri,
         tokenizer,
         2,
-        max_seq_len=175,
+        max_seq_len=64,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
         prompt_string='',
@@ -1474,7 +1474,7 @@ def test_code_eval_task_evaluation(monkeypatch, device, world_size, num_fewshot,
         dataset_uri,
         tokenizer,
         2,
-        max_seq_len=150 if num_fewshot == 0 else 450,
+        max_seq_len=64 * num_fewshot,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
         prompt_string='',
@@ -1509,7 +1509,7 @@ def test_lm_spacing_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     tokenizer = tiny_gpt2_tokenizer
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 1
-    seqlen = 2048
+    seqlen = 64
     dl = get_icl_task_dataloader('language_modeling',
                                  dataset_uri,
                                  tokenizer,
