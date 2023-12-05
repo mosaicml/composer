@@ -1410,8 +1410,11 @@ class Trainer:
                 # Disable object_store since _get_autoresume_checkpoint will download the checkpoint
                 # To the save folder, if needed.
                 load_object_store = None
-                # Disable `load_weights_only` since this applies only to the initial training run
+                # Set load arguments to defaults as this applies only to the initial non-autoresume
+                # load. We do not reset `load_strict_model_weights` for models with frozen layers.
                 load_weights_only = False
+                load_ignore_keys = None
+                load_exclude_algorithms = None
                 log.info('Autoresuming training from checkpoint')
             else:
                 log.info('No previous autoresume checkpoint found')
