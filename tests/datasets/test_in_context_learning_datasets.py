@@ -1231,7 +1231,7 @@ def test_qa_task_evaluation_with_cot_opt_tokenizer(device, world_size, num_fewsh
         dataset_uri,
         tokenizer,
         2,
-        max_seq_len=64,
+        max_seq_len=256,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
         prompt_string='',
@@ -1317,7 +1317,7 @@ def test_qa_task_with_cot_evaluation(device, world_size, num_fewshot, dataset_ur
         dataset_uri,
         tokenizer,
         2,
-        max_seq_len=64,
+        max_seq_len=256,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
         prompt_string='',
@@ -1359,7 +1359,7 @@ def test_code_eval_requires_valid_envvar(monkeypatch):
 @device('gpu')
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [0])
-@pytest.mark.parametrize('generations_per_sample', range(1, 3))
+@pytest.mark.parametrize('generations_per_sample', [1, 2])
 def test_code_eval_microbatching(monkeypatch, device, world_size, num_fewshot, dataset_uri, tmp_path,
                                  generations_per_sample):
     pytest.importorskip('datasets')
@@ -1376,7 +1376,7 @@ def test_code_eval_microbatching(monkeypatch, device, world_size, num_fewshot, d
         dataset_uri,
         tokenizer,
         2,
-        max_seq_len=64,
+        max_seq_len=256,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
         prompt_string='',
@@ -1409,7 +1409,7 @@ def test_code_eval_microbatching(monkeypatch, device, world_size, num_fewshot, d
 @device('gpu')
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [0])
-@pytest.mark.parametrize('generations_per_sample', range(1, 3))
+@pytest.mark.parametrize('generations_per_sample', [1, 2])
 def test_code_eval_sentpiece_evaluation(monkeypatch, device, world_size, num_fewshot, dataset_uri, tiny_t5_tokenizer,
                                         tiny_t5_model, tmp_path, generations_per_sample):
     pytest.importorskip('datasets')
@@ -1426,7 +1426,7 @@ def test_code_eval_sentpiece_evaluation(monkeypatch, device, world_size, num_few
         dataset_uri,
         tokenizer,
         2,
-        max_seq_len=64,
+        max_seq_len=256,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
         prompt_string='',
