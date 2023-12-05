@@ -1415,7 +1415,6 @@ def test_code_eval_microbatching(monkeypatch, device, world_size, tiny_opt_token
 def test_code_eval_sentpiece_evaluation(monkeypatch, device, world_size, num_fewshot, dataset_uri, tiny_t5_tokenizer,
                                         tiny_t5_model, tmp_path, generations_per_sample):
     pytest.importorskip('datasets')
-    torch.cuda.empty_cache()
     monkeypatch.setenv('CODE_EVAL_DEVICE', 'LOCAL')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -1463,7 +1462,6 @@ def test_code_eval_sentpiece_evaluation(monkeypatch, device, world_size, num_few
 def test_code_eval_task_evaluation(monkeypatch, device, world_size, num_fewshot, dataset_uri, tiny_gpt2_tokenizer,
                                    tiny_gpt2_model, tmp_path, generations_per_sample):
     pytest.importorskip('datasets')
-    torch.cuda.empty_cache()
     monkeypatch.setenv('CODE_EVAL_DEVICE', 'LOCAL')
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
