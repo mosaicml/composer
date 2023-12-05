@@ -11,7 +11,7 @@ import pytest
 import torch
 import transformers
 from torch.utils.data import DataLoader
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoTokenizer
 
 from composer import Evaluator
 from composer.core import DataSpec
