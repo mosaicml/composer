@@ -20,7 +20,7 @@ from torchvision import models
 from torch.utils.data import DataLoader
 from tests.common import RandomImageDataset
 
-my_train_dataloader = DataLoader(RandomImageDataset(), size=2, batch_size=2)
+my_train_dataloader = DataLoader(RandomImageDataset(size=2), batch_size=2)
 my_cnn_model = models.resnet18()
 ```
 -->
