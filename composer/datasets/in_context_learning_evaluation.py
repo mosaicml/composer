@@ -325,7 +325,7 @@ class InContextLearningDataset(Dataset):
     def _construct_context(self, example: Dict, preceding_text: str = '', add_answer: bool = False) -> str:
         """
         Takes an example and constructs a context, ie the input the model reads for this example.
-        Optionally adds the correct answer (for fewshot examples) and handles example delemiters
+        Optionally adds the correct answer (for fewshot examples) and handles example delimiters
 
         Args:
             example (Dict): the example from which to construct the context
@@ -414,6 +414,7 @@ class InContextLearningDataset(Dataset):
 
             tokenized_example[self.context_key] = padded_context
             tokenized_example[self.answer_key] = self._get_answer_from_example(example)
+
         return tokenized_example
 
     def _prep_example(
@@ -1028,7 +1029,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         tokenized_example = {}
         preamble = self.tokenizer(prompt_and_fewshot)
         preamble = self._fix_eos_on_preamble(preamble['input_ids'])
-        encoded_contexts = [self.tokenizer(c, add_special_tokens=False)['input_ids'] for c in context_options]
+        encoded_contexts = [preamble + self.tokenizer(c, add_special_tokens=False)['input_ids'] for c in context_options]
         continuation = example['continuation']
         if self.prefix_space:
             continuation = (f' {continuation}' if not continuation.startswith(' ') else continuation)
