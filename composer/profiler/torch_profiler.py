@@ -257,16 +257,16 @@ class TorchProfiler(Callback):  # noqa: D101
             trace_file_dirname = os.path.dirname(trace_file_name)
             if trace_file_dirname:
                 os.makedirs(trace_file_dirname, exist_ok=True)
-            # prof.export_chrome_trace(trace_file_name)
-            # state.profiler.record_chrome_json_trace_file(trace_file_name)
-            # if self.remote_file_name is not None:
-            #     trace_remote_file_name = format_name_with_dist_and_time(self.remote_file_name,
-            #                                                             run_name=state.run_name,
-            #                                                             timestamp=timestamp)
-            #     trace_remote_file_name = trace_remote_file_name.lstrip('/')
-            #     logger.upload_file(remote_file_name=trace_remote_file_name,
-            #                        file_path=trace_file_name,
-            #                        overwrite=self.overwrite)
+            prof.export_chrome_trace(trace_file_name)
+            state.profiler.record_chrome_json_trace_file(trace_file_name)
+            if self.remote_file_name is not None:
+                trace_remote_file_name = format_name_with_dist_and_time(self.remote_file_name,
+                                                                        run_name=state.run_name,
+                                                                        timestamp=timestamp)
+                trace_remote_file_name = trace_remote_file_name.lstrip('/')
+                logger.upload_file(remote_file_name=trace_remote_file_name,
+                                   file_path=trace_file_name,
+                                   overwrite=self.overwrite)
 
             log.debug(f'Memory profiler enabled: {self.memory_filename}')
             if self.memory_filename is not None:
