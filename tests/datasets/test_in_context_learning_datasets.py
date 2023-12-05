@@ -15,9 +15,9 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from composer import Evaluator
 from composer.core import DataSpec
-from composer.datasets.in_context_learning_evaluation import (InContextLearningCodeEvalDataset,
+from composer.datasets.in_context_learning_evaluation import (InContextLearningCodeEvalDataset, _get_continuation_span,
                                                               _get_fewshot_sample_idxs, _make_padded_input,
-                                                              get_icl_task_dataloader)
+                                                              _trim_context, get_icl_task_dataloader)
 from composer.loggers import InMemoryLogger
 from composer.metrics import (InContextLearningCodeEvalAccuracy, InContextLearningLMAccuracy,
                               InContextLearningMultipleChoiceAccuracy, InContextLearningQAAccuracy)
@@ -67,9 +67,13 @@ def test_fewshot_sample_idxs_randomness():
 
 
 def test_batch_padding_logic(tiny_gpt2_tokenizer):
+    # def test_get_continuation_span(tiny_gpt2_tokenizer):
     continuation = tiny_gpt2_tokenizer(' dog' * 2000)['input_ids']
     context = tiny_gpt2_tokenizer(' cat' * 2000)['input_ids']
-    _, continuation_spans = _make_padded_input(context, continuation, 2048, tiny_gpt2_tokenizer.eos_token_id)
+    trimmed_context = _trim_context(context, continuation, 2048)
+    continuation_spans = _get_continuation_span(trimmed_context, continuation)
+    # TODO is this correct? Add more tests
+    # padded_input = _get_continuation_span(trimmed_context, continuation)
     # the context (of len 2000) gets clipped to len 48 so that the whole continuation can fit
     assert continuation_spans[0] == 48 and continuation_spans[-1] == 2047
 
@@ -82,7 +86,7 @@ def test_make_padding(tiny_gpt2_tokenizer, padding_side):
     error_context = contextlib.nullcontext() if padding_side in {'left', 'right'} else pytest.raises(ValueError)
 
     with error_context:
-        input_ids, _ = _make_padded_input(context, [], 2048, padding_id, padding_side=padding_side)
+        input_ids = _make_padded_input(context, [], 2048, padding_id, padding_side=padding_side)
 
         if padding_side == 'left':
             assert input_ids[0] == tiny_gpt2_tokenizer.eos_token_id
@@ -549,11 +553,7 @@ def test_qa_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fews
     assert all(item[0] == tokenizer.eos_token_id for item in batch['input_ids'])
 
     decoded_batch = tokenizer.batch_decode(batch['input_ids'])
-    try:
-        assert all(item.count('Q: ') == num_fewshot + 1 for item in decoded_batch)
-    except:
-        import IPython; IPython.embed()
-
+    assert all(item.count('Q: ') == num_fewshot + 1 for item in decoded_batch)
     assert all(item.count('\nA:') == num_fewshot + 1 for item in decoded_batch)
 
     if len(prompt_string) > 0:
@@ -941,10 +941,7 @@ def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_st
     assert batch['mode'] == 'generate'
     # the maximum generation length from the small test data
     assert batch['generation_length'] == seqlen - max_prompt_length
-    try:
-        assert any(item[0] != tokenizer.eos_token_id for item in batch['input_ids'])  # longest should be pushed left
-    except:
-        import IPython; IPython.embed()
+    assert any(item[0] != tokenizer.eos_token_id for item in batch['input_ids'])  # longest should be pushed left
 
     decoded_batch = tokenizer.batch_decode(batch['input_ids'])
     assert all(item.count('Code start: \n') == num_fewshot + 1 for item in decoded_batch)
