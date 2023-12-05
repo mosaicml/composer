@@ -11,7 +11,8 @@ from composer.metrics.nlp import (BinaryF1Score, InContextLearningCodeEvalAccura
                                   InContextLearningExpectedCalibrationError, InContextLearningLMAccuracy,
                                   InContextLearningLMExpectedCalibrationError,
                                   InContextLearningMCExpectedCalibrationError, InContextLearningMultipleChoiceAccuracy,
-                                  InContextLearningQAAccuracy, LanguageCrossEntropy, LanguagePerplexity, MaskedAccuracy)
+                                  InContextLearningMultipleChoiceBrierScore, InContextLearningQAAccuracy,
+                                  LanguageCrossEntropy, LanguagePerplexity, MaskedAccuracy)
 
 
 @pytest.mark.parametrize('ignore_index', [-100])
@@ -303,7 +304,6 @@ def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):
         for context, continuation in zip(contexts, continuations)
     ]
     inputs = torch.tensor([input + [pad] * (2048 - len(input)) for input in inputs])
-
     cont_idxs = []
     for context, continuation in zip(contexts, continuations):
         start = len(tiny_gpt2_tokenizer(context)['input_ids'])
@@ -318,7 +318,6 @@ def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):
         'choice_groupings': choice_groupings
     }
     logits = torch.nn.functional.one_hot(inputs.roll(-1), num_classes=pad + 1).float()
-
     # for the first two, the correct answer is continuation 0
     # make the answer correct by making continuation 0 more likely for both answers
     start, end = cont_idxs[1].tolist()[0] - 1, cont_idxs[1].tolist()[-1]
@@ -333,6 +332,56 @@ def test_in_context_learning_mc_accuracy(tiny_gpt2_tokenizer):
 
     metric.update(batch, logits, batch['labels'])
     assert metric.compute() == 0.5
+
+
+def test_in_context_learning_mc_brier_score():
+
+    gold_indices = [0, 0]
+    choice_groupings = [(0, 2), (2, 4)]
+
+    seqlen = 2
+    vocab_size = 2
+    num_qs = 4
+
+    batch = {
+        'gold_indices': gold_indices,
+        'choice_groupings': choice_groupings,
+        'labels': (torch.ones((num_qs, seqlen)) * (vocab_size - 1)).long(),
+        'continuation_indices': [(torch.ones(1) * (seqlen - 1)).long()] * num_qs
+    }
+    logits = (torch.nn.functional.one_hot(batch['labels'].long(), num_classes=vocab_size) * 100000).float()
+    metric = InContextLearningMultipleChoiceBrierScore()
+
+    metric.update(batch, logits, batch['labels'])
+    assert metric.compute() == 0.25  # it assigns equal probability to all answers, yielding brier score 0.25
+
+    batch = {
+        'gold_indices': gold_indices,
+        'choice_groupings': choice_groupings,
+        'labels': (torch.ones((num_qs, seqlen)) * (vocab_size - 1)).long(),
+        'continuation_indices': [(torch.ones(1) * (seqlen - 1)).long()] * num_qs
+    }
+    logits = (torch.nn.functional.one_hot(batch['labels'].long(), num_classes=vocab_size) * 100000).float()
+    logits[1] = logits[1] * 0
+    logits[3] = logits[3] * 0
+
+    metric = InContextLearningMultipleChoiceBrierScore()
+    metric.update(batch, logits, batch['labels'])
+    assert metric.compute() == 0.0  # it assigns probability 1.0 to correct answers
+
+    batch = {
+        'gold_indices': gold_indices,
+        'choice_groupings': choice_groupings,
+        'labels': (torch.ones((num_qs, seqlen)) * (vocab_size - 1)).long(),
+        'continuation_indices': [(torch.ones(1) * (seqlen - 1)).long()] * num_qs
+    }
+    logits = (torch.nn.functional.one_hot(batch['labels'].long(), num_classes=vocab_size) * 100000).float()
+    logits[0] = logits[0] * 0
+    logits[2] = logits[2] * 0
+
+    metric = InContextLearningMultipleChoiceBrierScore()
+    metric.update(batch, logits, batch['labels'])
+    assert metric.compute() == 1.0  # it assigns probability 0.0 to correct answers
 
 
 def test_in_context_learning_mc_ece(tiny_gpt2_tokenizer):
