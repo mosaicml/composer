@@ -16,7 +16,7 @@
 from torch.utils.data import DataLoader
 from tests.common import RandomImageDataset
 
-train_dataloader = DataLoader(RandomImageDataset(), size=2, batch_size=2)
+train_dataloader = DataLoader(RandomImageDataset(size=2), batch_size=2)
 ```
 -->
 <!--pytest-codeblocks:cont-->
