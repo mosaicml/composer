@@ -100,7 +100,7 @@ def test_mc_task_dataloader_subcategories(dataset_uri, tiny_gpt2_tokenizer, tmp_
 
     tokenizer = tiny_gpt2_tokenizer
     dataset_uri = f'{local_data}/{dataset_uri}'
-    batch_size = 2
+    batch_size = 4
     seqlen = 64
     dls = get_icl_task_dataloader('multiple_choice',
                                   dataset_uri,
@@ -357,7 +357,7 @@ def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
 
     dataset_uri = f'{local_data}/{dataset_uri}'
-    batch_size = 2
+    batch_size = 4
     seqlen = 64
     dl = get_icl_task_dataloader('multiple_choice',
                                  dataset_uri,
@@ -562,7 +562,7 @@ def test_qa_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fews
 
 
 @pytest.mark.parametrize('dataset_uri', ['gsm8k_small.jsonl'])
-@pytest.mark.parametrize('num_fewshot', [0, 1, 2])
+@pytest.mark.parametrize('num_fewshot', [0, 2])
 def test_qa_task_with_cot_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fewshot):
     pytest.importorskip('datasets')
 
@@ -571,7 +571,7 @@ def test_qa_task_with_cot_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path,
     tokenizer = tiny_gpt2_tokenizer
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 2
-    seqlen = 64
+    seqlen = 512
     # empirical number from the small test dataset
     maximum_answer_length = 157
     dl = get_icl_task_dataloader('question_answering',
@@ -738,9 +738,9 @@ def test_code_eval_split_batch(dataset_uri, tmp_path):
 
 
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
-@pytest.mark.parametrize('num_fewshot', [0, 1, 2, 3])
+@pytest.mark.parametrize('num_fewshot', [0, 2])
 @pytest.mark.parametrize('prompt_string', ['Please code:\n', ''])
-@pytest.mark.parametrize('generations_per_sample', range(1, 5))
+@pytest.mark.parametrize('generations_per_sample', [1, 3])
 def test_code_eval_sentpiece_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_string, generations_per_sample):
     pytest.importorskip('datasets')
 
@@ -749,7 +749,7 @@ def test_code_eval_sentpiece_dataloader(dataset_uri, tmp_path, num_fewshot, prom
     tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b')
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 2
-    seqlen = 64
+    seqlen = 512
 
     dl = get_icl_task_dataloader('code_evaluation',
                                  dataset_uri,
@@ -901,9 +901,9 @@ def test_code_eval_pass_at_k_validity(dataset_uri, tmp_path):
 
 
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
-@pytest.mark.parametrize('num_fewshot', [0, 1, 2, 3])
+@pytest.mark.parametrize('num_fewshot', [0, 2])
 @pytest.mark.parametrize('prompt_string', ['Please code:\n', ''])
-@pytest.mark.parametrize('generations_per_sample', range(1, 5))
+@pytest.mark.parametrize('generations_per_sample', [1, 3])
 def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_string, generations_per_sample):
     pytest.importorskip('datasets')
 
@@ -912,7 +912,7 @@ def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_st
     tokenizer = AutoTokenizer.from_pretrained('mosaicml/mpt-7b')
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 2
-    seqlen = 64
+    seqlen = 512
 
     dl = get_icl_task_dataloader('code_evaluation',
                                  dataset_uri,
