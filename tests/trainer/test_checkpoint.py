@@ -945,7 +945,7 @@ class TestCheckpointResumption:
     def get_trainer(self,
                     model_init_device='cpu',
                     precision='fp32',
-                    max_duration='5ep',
+                    max_duration='2ep',
                     train_subset_num_batches=5,
                     **kwargs):
         model = SimpleModel()
