@@ -259,7 +259,7 @@ class SpeedMonitor(Callback):
     def batch_end(self, state: State, logger: Logger):
         # Add the new element
         self.history_samples.append(state.timestamp.sample.value)
-        self.history_tokens.append(state.timestamp.sample.tokens)
+        self.history_tokens.append(state.timestamp.token.value)
         self.history_wct.append(state.timestamp.total_wct.total_seconds())
 
         # Log the throughput
