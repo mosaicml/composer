@@ -1749,6 +1749,7 @@ class Trainer:
             device_train_microbatch_size (int | str, optional): See :class:`.Trainer`.
             precision (Precision | str, optional): See :class:`.Trainer`.
         """
+        print(f'Fit {random.getstate()}')
         # Check Optimizer
         if len(self.state.optimizers) == 0:
             raise ValueError(f'No optimizer was specified when constructing the Trainer. As the '
@@ -2019,6 +2020,7 @@ class Trainer:
         last_wct = datetime.datetime.now()
 
         while self.state.timestamp < self.state.max_duration:
+            print(f'Fit {self.state.timestamp} {random.getstate()}')
             try:
                 if int(self.state.timestamp.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
