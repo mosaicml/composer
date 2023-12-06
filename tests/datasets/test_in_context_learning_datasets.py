@@ -763,6 +763,7 @@ def test_code_eval_sentpiece_dataloader(dataset_uri, tmp_path, num_fewshot, prom
                                  num_fewshot=num_fewshot,
                                  prompt_string=prompt_string,
                                  example_delimiter='\n',
+                                 continuation_delimiter='',
                                  question_prelimiter='Code start: \n',
                                  destination_path=str(tmp_path / f'icl_{num_fewshot}.jsonl'),
                                  generations_per_sample=generations_per_sample)
@@ -848,6 +849,7 @@ def test_code_eval_test_cases(dataset_uri, tmp_path):
                                  num_fewshot=0,
                                  prompt_string='',
                                  example_delimiter='\n',
+                                 continuation_delimiter='',
                                  question_prelimiter='Code start: \n',
                                  destination_path=str(tmp_path / f'icl_.jsonl'),
                                  generations_per_sample=1)
@@ -896,6 +898,7 @@ def test_code_eval_pass_at_k_validity(dataset_uri, tmp_path):
                                 num_fewshot=0,
                                 prompt_string='',
                                 example_delimiter='\n',
+                                continuation_delimiter='',
                                 question_prelimiter='Code start: \n',
                                 destination_path=str(tmp_path / f'icl_.jsonl'),
                                 pass_at_k=10,
@@ -925,6 +928,7 @@ def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_st
                                  num_fewshot=num_fewshot,
                                  prompt_string=prompt_string,
                                  example_delimiter='\n',
+                                 continuation_delimiter='',
                                  question_prelimiter='Code start: \n',
                                  destination_path=str(tmp_path / f'icl_{num_fewshot}.jsonl'),
                                  generations_per_sample=generations_per_sample)

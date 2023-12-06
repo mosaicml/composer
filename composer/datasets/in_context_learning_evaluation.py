@@ -59,7 +59,6 @@ def _trim_context(context_enc: List, continuation_enc: List, max_seq_len: int) -
 
 def _get_continuation_span(context_enc: List, continuation_enc: List) -> list:
     return torch.tensor(range(len(context_enc), len(context_enc) + len(continuation_enc)))
-    # return list(range(len(context_enc), len(context_enc) + len(continuation_enc)))
 
 
 def _make_padded_input(context_enc: List,
@@ -213,9 +212,9 @@ class InContextLearningDataset(Dataset):
         self.context_key = context_key
         self.answer_key = answer_key
         self.tokenize_labels = tokenize_labels
-        self.batch_mapping = batch_mapping
-        self.default_batch = default_batch
-        self._update_generation_kwargs(generation_kwargs if generation_kwargs else {})
+        self.batch_mapping = batch_mapping or {}
+        self.default_batch = default_batch or {}
+        self._update_generation_kwargs(generation_kwargs or {})
 
         hf_loading_vars = hf_loading_vars or {}
         self.dataset = self._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_map)
@@ -243,10 +242,19 @@ class InContextLearningDataset(Dataset):
     def get_num_samples_in_batch(self, batch: Dict) -> int:
         return batch['input_ids'].shape[0]
 
-    def _update_generation_kwargs(self, generation_kwargs):
+    def _update_generation_kwargs(self, generation_kwargs: Dict) -> None:
+        """
+        Updates self.default_batch with the passed in generation_kwargs.
+        This must be run after self.default_batch is set (for example, if self.default_batch is set after __init__() is run,
+        likely because default_batch needs a class variable like self.pad_tok_id or self.max_answer_length).
+
+        Args:
+
+        """
         if 'generation_kwargs' not in self.default_batch:
             self.default_batch['generation_kwargs'] = {}
-        self.default_batch.update(generation_kwargs)
+        if generation_kwargs:
+            self.default_batch['generation_kwargs'].update(generation_kwargs)
 
     def _read_dataset(self,
                       dataset_uri: str,
@@ -607,6 +615,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
     def __init__(self, cot_delimiter: str = '', *args, **kwargs):
         self.cot_delimiter = cot_delimiter
         self.has_cot = False
+        self.max_answer_length = 0
         super().__init__(padding_side='left', tokenize_labels=False, *args, **kwargs)
         # NOTE: set these after init call bcus they take class vars
         self.default_batch = {
@@ -624,7 +633,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
             'input_ids': self.context_key,
             'labels': 'aliases',
         }
-        self._update_generation_kwargs(kwargs.get('generation_kwargs',{}))
+        self._update_generation_kwargs(kwargs.get('generation_kwargs'))
 
     def _read_dataset(
         self,
@@ -1088,8 +1097,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         - use_cache: Whether or not to use past key values to speed up sampling. Always set to True
 
     Additional Args:
-        # TODO: are these correct?
-        generations_per_sample (int) (defaults to 1): how many outputs to generate per prompt
+        generations_per_sample (int) (defaults to 1): The number of independently computed returned sequences for each element in the batch
         pass_at_k (int) (defaults to 1): k for how many chances the model gets to write passing code
         top_p (int) (defaults to 0.95): top_p sampling parameter for nucleus sampling
         top_k (int) (defaults to 40): top_k sampling parameter for number of samples to consider
@@ -1118,6 +1126,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             'test_outputs': 'test_outputs',
             'languages': 'language'
         }
+        # Linting complains if this is not set in init
         self.max_prompt_length = 0
         super().__init__(
             context_key='prompt',
@@ -1152,7 +1161,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
                 'use_cache': True
             },
         }
-        self._update_generation_kwargs(kwargs['generation_kwargs'])
+        self._update_generation_kwargs(kwargs.get('generation_kwargs'))
     
 
     def get_max_prompt_length(self) -> int:
@@ -1175,8 +1184,10 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         self.max_prompt_length = self.get_max_prompt_length()
 
         def _trim_padding(example):
-            full_prompt = [token for token in example[self.context_key] if token != self.pad_tok_id]
-            full_prompt = _trim_context(full_prompt, [], self.max_prompt_length)
+            # Remove padding tokens applied during tokenization
+            unpadded_prompt = [token for token in example[self.context_key] if token != self.pad_tok_id]
+            # Pad only to max_promp_length
+            full_prompt = _trim_context(unpadded_prompt, [], self.max_prompt_length)
             padded_context = _make_padded_input(full_prompt, [], self.max_prompt_length, self.pad_tok_id,
                                                 self.padding_side)
 
