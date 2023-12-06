@@ -2020,7 +2020,7 @@ class Trainer:
         last_wct = datetime.datetime.now()
 
         while self.state.timestamp < self.state.max_duration:
-            log.info(f'Fit {self.state.timestamp} {random.getstate()}')
+            log.info(f'Train {self.state.timestamp}\n {random.getstate()}')
             try:
                 if int(self.state.timestamp.batch_in_epoch) == 0:
                     self.engine.run_event(Event.EPOCH_START)
@@ -2031,6 +2031,7 @@ class Trainer:
                     dataloader.sampler.set_epoch(int(self.state.timestamp.epoch))
 
                 for batch_idx, self.state.batch in enumerate(self._iter_dataloader(TrainerMode.TRAIN)):
+                    log.info(f'Train {self.state.timestamp}\n {random.getstate()}')
                     # Spin dataloader forward unless dataloader handles internally with dataset_resumption
                     if self.spin_dataloaders and 'train' not in self.state.dataset_resumption and batch_idx < int(
                             self.state.timestamp.batch_in_epoch):
