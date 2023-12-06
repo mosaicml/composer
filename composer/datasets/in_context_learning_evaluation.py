@@ -81,7 +81,6 @@ def _make_padded_input(context_enc: List,
         input (torch.tensor): the padded and encoded context
         continuation_span (torch.tensor): the _inclusive_ range of indices corresponding to the continuation
 
-
     """
 
     inp = torch.tensor(
@@ -365,7 +364,7 @@ class InContextLearningDataset(Dataset):
 
     def _fix_eos_on_preamble(self, input_ids: List[int]) -> List[int]:
         """
-        If the input_ids is empty then input_ids['input_ids'] will be a 0-length List,
+        If the input_ids is empty then input_ids will be a 0-length List,
         unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
         If there is an EOS token added, we need to remove it so it is not in the middle of the prompt,
         as the specific eval question's prompt will follow the input_ids
@@ -453,6 +452,7 @@ class InContextLearningDataset(Dataset):
         tokenized_example = self._tokenize_example(prompt_and_fewshot, ctxt, example)
         return tokenized_example
 
+    # TODO: Maybe make this not a class function
     def _convert_tokens_to_tensors(self, batch: Dict) -> Dict[str, Any]:
         # zzzz HF converts ur torch tensors into lists so need to convert them back
         batch['input_ids'] = torch.stack(list(map(torch.tensor, batch['input_ids'])))
@@ -461,6 +461,7 @@ class InContextLearningDataset(Dataset):
             batch['continuation_indices'] = list(map(torch.tensor, batch['continuation_indices']))
         return batch
 
+    # TODO: Test this?
     def collate_fn(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
         The function that the dataloader uses to accumulate data into batches.
@@ -740,6 +741,7 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
         return cont
 
 
+# TODO: ensure tests
 class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
     """
     A dataset that construct batches for in-context learning multiple choice evaluation.
@@ -921,6 +923,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
 
 
+# TODO: ensure tests
 class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskDataset):
     """
     A dataset that constructs batches for in-context learning schema evaluation.
@@ -1164,24 +1167,24 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         self._update_generation_kwargs(kwargs.get('generation_kwargs'))
     
 
-    def get_max_prompt_length(self) -> int:
+    def adjust_padding(self):
         """
-        Iterates through the dataset and finds the length of the longest prompt.
+        Adjusts padding to the maximum prompt size rather than max_seq_len. 
+        Needs to be done after the dataset has been processed because we can't get the prompt length
+        until after we've tokenized it.
+
         Returns:
-            int: maximum prompt length
+            dataset: 
         """
         max_prompt_length = 0
         for example in self.dataset:
-            # TODO: Will this elimante tokens we want to keep?
+            # TODO: Will this elimanate tokens we want to keep?
             unpadded_example = [token for token in example[self.context_key] if token != self.pad_tok_id]
             max_prompt_length = max(
                 max_prompt_length,
                 len(unpadded_example),
             )
-        return max_prompt_length
-
-    def adjust_padding(self):
-        self.max_prompt_length = self.get_max_prompt_length()
+        self.max_prompt_length = max_prompt_length
 
         def _trim_padding(example):
             # Remove padding tokens applied during tokenization
@@ -1198,14 +1201,8 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
 
     def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
         """
-        Runs text through the tokenizer and handles special cases.
-        Args:
-            prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
-            ctx (str): the specific example's derrived context
-            example (Dict): the example as a dictionary.
-
-        Returns:
-            Dict: dictionary with the tokenized data
+        Adds extra code task details to the example dictionary.
+        See InContextLearningDataset for more details
         """
         tokenized_example = super()._tokenize_example(prompt_and_fewshot, ctxt, example)
         tokenized_example['prompt_text'] = example['prompt']
@@ -1508,6 +1505,7 @@ def get_icl_task_dataloader(
         # TODO: is this right?
         pass_at_k (int): k for how many chances the model gets to write passing code
         generations_per_sample (int): how many outputs to generate per prompt
+
         cot_delimiter (str): Delimiter to place between the chain of thought and continuations.
         has_categories: (bool): If ``True``, we will search the dataset file for a category key, and partition the dataset into a separate dataloader for each category occurring in the data.
 

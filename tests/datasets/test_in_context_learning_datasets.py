@@ -15,7 +15,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from composer import Evaluator
 from composer.core import DataSpec
-from composer.datasets.in_context_learning_evaluation import (InContextLearningCodeEvalDataset, _get_continuation_span,
+from composer.datasets.in_context_learning_evaluation import (InContextLearningDataset, InContextLearningQATaskDataset, InContextLearningCodeEvalDataset, strip_data, _tokenizer_needs_prefix_space,
+                                                              _get_continuation_span,
                                                               _get_fewshot_sample_idxs, _make_padded_input,
                                                               _trim_context, get_icl_task_dataloader)
 from composer.loggers import InMemoryLogger
@@ -25,6 +26,92 @@ from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
 from composer.utils import dist, reproducibility
 from tests.common import device, world_size
+
+def test_strip_data():
+    data_to_strip = {"strip_data": "  boo!  \n", "has_space": "  wa hoo!", "end_space": "yoohoo!  "}
+    stripped_data = strip_data(data_to_strip)
+    for k, v in stripped_data.items():
+        assert k in data_to_strip
+        assert not v[0].isspace()
+        assert not v[-1].isspace()
+
+def test_tokenizer_needs_prefix_space_when_space_not_needed(tiny_gpt2_tokenizer):
+    # TODO: get a tokenizer that does not need prefix space
+    assert not _tokenizer_needs_prefix_space(tiny_gpt2_tokenizer)
+
+def test_tokenizer_needs_prefix_space_when_space_needed():
+    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
+    assert _tokenizer_needs_prefix_space(tokenizer)
+
+def test_trim_context():
+    context = [0] * 99 + [1] * 2037
+    continuation = [2] * 10
+    max_seq_len = 2048
+    trimmed_context = _trim_context(context, continuation, max_seq_len=max_seq_len)
+    assert len(trimmed_context) == 2038
+    assert trimmed_context[0] == 0
+    assert trimmed_context[1] == 1
+
+def test_trim_context_no_continuation():
+    context = [0] * 2048
+    max_seq_len = 2048
+    trimmed_context = _trim_context(context, [], max_seq_len=max_seq_len)
+    assert len(trimmed_context) == 2048
+    context = [0] * 3000  + [1]
+    max_seq_len = 2048
+    trimmed_context = _trim_context(context, [], max_seq_len=max_seq_len)
+    assert len(trimmed_context) == 2048
+    assert trimmed_context[-1] == 1
+
+
+def test_get_continuation_span():
+    context = [0] * 200
+    continuation = [1] * 3
+    cont_span = _get_continuation_span(context, continuation)
+    assert torch.all(torch.eq(cont_span, torch.tensor([200, 201, 202])))
+    continuation = [1] 
+    cont_span = _get_continuation_span(context, continuation)
+    assert torch.all(torch.eq(cont_span, torch.tensor([200])))
+
+@pytest.mark.parametrize('padding_side', ['left', 'right', 'middle'])
+def test_make_padding(tiny_gpt2_tokenizer, padding_side):
+    context = tiny_gpt2_tokenizer(' cat' * 2000)['input_ids']
+    padding_id = tiny_gpt2_tokenizer.eos_token_id
+
+    error_context = contextlib.nullcontext() if padding_side in {'left', 'right'} else pytest.raises(ValueError)
+
+    with error_context:
+        input_ids = _make_padded_input(context, [], 2048, padding_id, padding_side=padding_side)
+
+        if padding_side == 'left':
+            assert input_ids[0] == tiny_gpt2_tokenizer.eos_token_id
+            assert input_ids[48:].tolist() == context
+        elif padding_side == 'right':
+            assert input_ids[-1] == tiny_gpt2_tokenizer.eos_token_id
+            assert input_ids[:-48].tolist() == context
+
+
+def test_batch_padding_logic_no_padding(tiny_gpt2_tokenizer):
+    continuation = tiny_gpt2_tokenizer(' dog' * 2000)['input_ids']
+    context = tiny_gpt2_tokenizer(' cat' * 2000)['input_ids']
+    max_seq_len = 2048
+    trimmed_context = _trim_context(context, continuation, max_seq_len)
+    continuation_spans = _get_continuation_span(trimmed_context, continuation)
+    padded_input = _make_padded_input(trimmed_context, continuation, max_seq_len, tiny_gpt2_tokenizer.pad_token_id, padding_side='right')
+    assert continuation_spans[0] == 48 and continuation_spans[-1] == 2047
+    assert len(padded_input) == 2048
+    assert tiny_gpt2_tokenizer.pad_token_id not in padded_input
+
+def test_batch_padding_logic_with_padding(tiny_gpt2_tokenizer):
+    continuation = tiny_gpt2_tokenizer(' dog' * 200)['input_ids']
+    context = tiny_gpt2_tokenizer(' cat' * 200)['input_ids']
+    max_seq_len = 2048
+    trimmed_context = _trim_context(context, continuation, max_seq_len)
+    continuation_spans = _get_continuation_span(trimmed_context, continuation)
+    padded_input = _make_padded_input(trimmed_context, continuation, max_seq_len, tiny_gpt2_tokenizer.pad_token_id, padding_side='right')
+    assert continuation_spans[0] == 200 and continuation_spans[-1] == 399
+    assert len(padded_input) == 2048
+    assert padded_input[-1] == tiny_gpt2_tokenizer.pad_token_id
 
 
 def test_fewshot_sample_idxs():
@@ -66,34 +153,272 @@ def test_fewshot_sample_idxs_randomness():
     assert rng_1_sample_2 != rng_3_sample_2
 
 
-def test_batch_padding_logic(tiny_gpt2_tokenizer):
-    # def test_get_continuation_span(tiny_gpt2_tokenizer):
-    continuation = tiny_gpt2_tokenizer(' dog' * 2000)['input_ids']
-    context = tiny_gpt2_tokenizer(' cat' * 2000)['input_ids']
-    trimmed_context = _trim_context(context, continuation, 2048)
-    continuation_spans = _get_continuation_span(trimmed_context, continuation)
-    # TODO is this correct? Add more tests
-    # padded_input = _get_continuation_span(trimmed_context, continuation)
-    # the context (of len 2000) gets clipped to len 48 so that the whole continuation can fit
-    assert continuation_spans[0] == 48 and continuation_spans[-1] == 2047
+def test_update_generation_kwargs(tiny_gpt2_tokenizer, tmp_path):
+    tokenizer = tiny_gpt2_tokenizer
+    seqlen = 2048
+    num_fewshot = 0
+    prompt_string = ''
+    hf_loading_vars = {
+        'split': 'test',
+        'name': 'invoker',
+    }
+    hf_parsing_map = {'context': ['quas', 'wex', 'exort'], 'answer': ['spell']}
+    gen_kwargs = {"test_arg1": 1, "test_arg2": 2}
+
+    dl = InContextLearningDataset(dataset_uri='hf://mosaicml/test_dataset',
+                                 tokenizer=tokenizer,
+                                 max_seq_len=seqlen,
+                                 pad_tok_id=tokenizer.eos_token_id,
+                                 num_fewshot=num_fewshot,
+                                 fewshot_random_seed=1,
+                                 prompt_string=prompt_string,
+                                 example_delimiter='\n',
+                                 prelimiter='Orbs: ',
+                                 continuation_delimiter='\nSpell:',
+                                 destination_path=str(tmp_path / 'test_dataset_lm_juggernaut.jsonl'),
+                                 hf_loading_vars=hf_loading_vars,
+                                 hf_parsing_map=hf_parsing_map,
+                                 generation_kwargs=gen_kwargs
+                                 )
+    assert dl.default_batch['generation_kwargs'] == {"test_arg1":1, "test_arg2":2}
 
 
-@pytest.mark.parametrize('padding_side', ['left', 'right', 'middle'])
-def test_make_padding(tiny_gpt2_tokenizer, padding_side):
-    context = tiny_gpt2_tokenizer(' cat' * 2000)['input_ids']
-    padding_id = tiny_gpt2_tokenizer.eos_token_id
+def test_update_generation_kwargs_no_kwargs(tiny_gpt2_tokenizer, tmp_path):
+    tokenizer = tiny_gpt2_tokenizer
+    seqlen = 2048
+    num_fewshot = 0
+    prompt_string = ''
+    hf_loading_vars = {
+        'split': 'test',
+        'name': 'invoker',
+    }
+    hf_parsing_map = {'context': ['quas', 'wex', 'exort'], 'answer': ['spell']}
 
-    error_context = contextlib.nullcontext() if padding_side in {'left', 'right'} else pytest.raises(ValueError)
+    dl = InContextLearningDataset(dataset_uri='hf://mosaicml/test_dataset',
+                                 tokenizer=tokenizer,
+                                 max_seq_len=seqlen,
+                                 pad_tok_id=tokenizer.eos_token_id,
+                                 num_fewshot=num_fewshot,
+                                 fewshot_random_seed=1,
+                                 prompt_string=prompt_string,
+                                 example_delimiter='\n',
+                                 prelimiter='Orbs: ',
+                                 continuation_delimiter='\nSpell:',
+                                 destination_path=str(tmp_path / 'test_dataset_lm_juggernaut.jsonl'),
+                                 hf_loading_vars=hf_loading_vars,
+                                 hf_parsing_map=hf_parsing_map)
+    assert not dl.default_batch['generation_kwargs']
 
-    with error_context:
-        input_ids = _make_padded_input(context, [], 2048, padding_id, padding_side=padding_side)
 
-        if padding_side == 'left':
-            assert input_ids[0] == tiny_gpt2_tokenizer.eos_token_id
-            assert input_ids[48:].tolist() == context
-        elif padding_side == 'right':
-            assert input_ids[-1] == tiny_gpt2_tokenizer.eos_token_id
-            assert input_ids[:-48].tolist() == context
+def test_generate_few_shot_prompt():
+    pass
+
+def test_construct_context(tiny_gpt2_tokenizer, tmp_path):
+    tokenizer = tiny_gpt2_tokenizer
+    seqlen = 2048
+    num_fewshot = 0
+    prompt_string = ''
+    hf_loading_vars = {
+        'split': 'test',
+        'name': 'invoker',
+    }
+    hf_parsing_map = {'context': ['quas', 'wex', 'exort'], 'answer': ['spell']}
+
+    dl = InContextLearningDataset(dataset_uri='hf://mosaicml/test_dataset',
+                                 tokenizer=tokenizer,
+                                 max_seq_len=seqlen,
+                                 pad_tok_id=tokenizer.eos_token_id,
+                                 num_fewshot=num_fewshot,
+                                 fewshot_random_seed=1,
+                                 prompt_string=prompt_string,
+                                 example_delimiter='\n',
+                                 prelimiter='Orbs: ',
+                                 continuation_delimiter='\nSpell: ',
+                                 destination_path=str(tmp_path / 'test_dataset_lm_juggernaut.jsonl'),
+                                 hf_loading_vars=hf_loading_vars,
+                                 hf_parsing_map=hf_parsing_map)
+    constructed_context = dl._construct_context({'context':'quas quas exort', 'answer': 'ice wall'})
+    assert constructed_context == 'Orbs: quas quas exort\nSpell: '
+    constructed_context = dl._construct_context({'context':'quas quas exort', 'answer': 'ice wall'}, add_answer=True)
+    assert constructed_context == 'Orbs: quas quas exort\nSpell: ice wall'
+    constructed_context = dl._construct_context({'context':'quas quas exort', 'answer': 'ice wall'}, preceding_text='The harsh White Waste beckons!', add_answer=True)
+    assert constructed_context == '\nOrbs: quas quas exort\nSpell: ice wall'
+
+def test_get_answer_from_example(tiny_gpt2_tokenizer, tmp_path):
+    tokenizer = tiny_gpt2_tokenizer
+    seqlen = 2048
+    num_fewshot = 0
+    prompt_string = ''
+    hf_loading_vars = {
+        'split': 'test',
+        'name': 'invoker',
+    }
+    hf_parsing_map = {'context': ['quas', 'wex', 'exort'], 'answer': ['spell']}
+
+    dl = InContextLearningDataset(dataset_uri='hf://mosaicml/test_dataset',
+                                 tokenizer=tokenizer,
+                                 max_seq_len=seqlen,
+                                 pad_tok_id=tokenizer.eos_token_id,
+                                 num_fewshot=num_fewshot,
+                                 fewshot_random_seed=1,
+                                 prompt_string=prompt_string,
+                                 example_delimiter='\n',
+                                 prelimiter='Orbs: ',
+                                 continuation_delimiter='\nSpell:',
+                                 destination_path=str(tmp_path / 'test_dataset_lm_juggernaut.jsonl'),
+                                 hf_loading_vars=hf_loading_vars,
+                                 hf_parsing_map=hf_parsing_map)
+    answer = dl._get_answer_from_example({'context': "wex exort exort", 'answer': 'alacrity'})
+    assert answer == 'alacrity'
+
+def test_fix_eos_on_preamble(tmp_path):
+    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
+    seqlen = 2048
+    num_fewshot = 0
+    prompt_string = ''
+    hf_loading_vars = {
+        'split': 'test',
+        'name': 'invoker',
+    }
+    hf_parsing_map = {'context': ['quas', 'wex', 'exort'], 'answer': ['spell']}
+
+    dl = InContextLearningDataset(dataset_uri='hf://mosaicml/test_dataset',
+                                 tokenizer=tokenizer,
+                                 max_seq_len=seqlen,
+                                 pad_tok_id=tokenizer.eos_token_id,
+                                 num_fewshot=num_fewshot,
+                                 fewshot_random_seed=1,
+                                 prompt_string=prompt_string,
+                                 example_delimiter='\n',
+                                 prelimiter='Orbs: ',
+                                 continuation_delimiter='\nSpell:',
+                                 destination_path=str(tmp_path / 'test_dataset_lm_juggernaut.jsonl'),
+                                 hf_loading_vars=hf_loading_vars,
+                                 hf_parsing_map=hf_parsing_map)
+    preamble = 'blah blah blah.'
+    tokenized_preamble = tokenizer.encode(preamble)
+    tokenized_preamble += [tokenizer.eos_token_id]
+    fixed_preamble = dl._fix_eos_on_preamble(tokenized_preamble)
+    assert tokenized_preamble[:-1] == fixed_preamble 
+    assert fixed_preamble[-1] != tokenizer.eos_token_id
+
+def test_tokenize_eample(tiny_gpt2_tokenizer, tmp_path):
+
+    pass
+
+def test_qa_set_cot_no_cot(tmp_path):
+    pytest.importorskip('datasets')
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+    dataset_uri = f'{local_data}/triviaqa_small.jsonl'
+    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m')
+
+    tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
+    gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
+    dl = InContextLearningQATaskDataset(
+        dataset_uri=dataset_uri,
+        tokenizer=tokenizer,
+        max_seq_len=1024,
+        pad_tok_id=tokenizer.eos_token_id,
+        num_fewshot=0,
+        fewshot_random_seed=1234,
+        prompt_string='',
+        example_delimiter='\n',
+        continuation_delimiter=': ',
+        destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
+    )
+    assert not dl.has_cot
+
+def test_qa_set_cot_has_cot(tmp_path):
+    pytest.importorskip('datasets')
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+    dataset_uri = f'{local_data}/gsm8k_small.jsonl'
+    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m')
+
+    tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
+    gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
+    dl = InContextLearningQATaskDataset(
+        dataset_uri=dataset_uri,
+        tokenizer=tokenizer,
+        max_seq_len=1024,
+        pad_tok_id=tokenizer.eos_token_id,
+        num_fewshot=0,
+        fewshot_random_seed=1234,
+        prompt_string='',
+        example_delimiter='\n',
+        continuation_delimiter=': ',
+        destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
+    )
+    assert dl.has_cot
+
+def test_qa_get_max_answer_length():
+    pass
+
+def test_qa_get_answer_from_example():
+    pass
+
+def test_qa_tokenize_example():
+    pass
+
+def test_lm_get_answer_from_example():
+    pass
+
+def test_code_adjust_padding(tiny_gpt2_tokenizer, tmp_path):
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+    dataset_uri = f'{local_data}/human_eval_small.jsonl'
+    tokenizer = tiny_gpt2_tokenizer
+    seqlen = 2048
+    num_fewshot = 0
+    prompt_string = ''
+    gen_kwargs = {"temperature": .9, "top_p": .95, "num_beams": 9000}
+
+    dl = InContextLearningCodeEvalDataset(
+            dataset_uri=dataset_uri,
+            tokenizer=tokenizer,
+            max_seq_len=seqlen,
+            pad_tok_id=tokenizer.eos_token_id,
+            num_fewshot=num_fewshot,
+            fewshot_random_seed=1,
+            prompt_string=prompt_string,
+            example_delimiter='\n',
+            prelimiter='Code start:',
+            continuation_delimiter='\nPlease code:',
+            destination_path=str(tmp_path / 'test_human_eval_small.jsonl'),
+            generation_kwargs=gen_kwargs,
+            generations_per_sample=10,
+        )
+    
+    assert all([len(data['prompt']) == 148 for data in dl.dataset])
+    
+
+def test_code_update_gen_kwargs(tiny_gpt2_tokenizer, tmp_path):
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+    dataset_uri = f'{local_data}/human_eval_small.jsonl'
+    tokenizer = tiny_gpt2_tokenizer
+    seqlen = 2048
+    num_fewshot = 0
+    prompt_string = ''
+    gen_kwargs = {"temperature": .9, "top_p": .95, "num_beams": 9000}
+
+    dl = InContextLearningCodeEvalDataset(
+            dataset_uri=dataset_uri,
+            tokenizer=tokenizer,
+            max_seq_len=seqlen,
+            pad_tok_id=tokenizer.eos_token_id,
+            num_fewshot=num_fewshot,
+            fewshot_random_seed=1,
+            prompt_string=prompt_string,
+            example_delimiter='\n',
+            prelimiter='Code start:',
+            continuation_delimiter='\nPlease code:',
+            destination_path=str(tmp_path / 'test_human_eval_small.jsonl'),
+            generation_kwargs=gen_kwargs,
+            generations_per_sample=10,
+        )
+    assert dl.default_batch['generation_kwargs']['num_beams'] == 9000
+    assert dl.default_batch['generation_kwargs']['top_p'] == .95
+    assert dl.default_batch['generation_kwargs']['top_k'] == 40
+    assert dl.default_batch['generation_kwargs']['temperature'] == .9
+    assert dl.default_batch['generation_kwargs']['do_sample'] == True
 
 
 @pytest.mark.parametrize('dataset_uri', ['mmlu_small.jsonl'])
