@@ -1084,7 +1084,7 @@ def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenize
     tokenizer = tiny_gpt2_tokenizer
 
     # seed because the fewshot selection is currently unseeded
-    reproducibility.seed_all(1234)
+    reproducibility.seed_all(12345)
     dl = get_icl_task_dataloader(
         'multiple_choice',
         dataset_uri,
