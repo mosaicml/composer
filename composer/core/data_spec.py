@@ -64,7 +64,7 @@ def _split_mapping(m, microbatch_size: int):
         return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
     except:
         lens = {k: len(v) for k, v in chunked.items()}
-        print(f"Failed returning batches. Here's the dictionary: {lens}")
+        raise Exception(f"Failed returning batches. Here's the dictionary: {lens}")
 
 
 def _check_list_is_primitives(l):
