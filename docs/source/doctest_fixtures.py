@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # disabling general type issues because of monkeypatching
-#yright: reportGeneralTypeIssues=none
+# pyright: reportGeneralTypeIssues=none
 
 """Fixtures available in doctests.
 
@@ -88,6 +88,9 @@ if sys.path[0] != _repo_root:
 
 from tests.common import SimpleModel
 from tests.common.datasets import RandomTextClassificationDataset
+
+# Disable mosaicml logger
+os.environ['MOSAICML_PLATFORM'] = 'False'
 
 # Disable wandb
 os.environ['WANDB_MODE'] = 'disabled'

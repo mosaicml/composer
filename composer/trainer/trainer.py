@@ -2474,7 +2474,6 @@ class Trainer:
 
             if self.state.deepspeed_enabled:
                 self.state.deepspeed_model.backward(microbatch_loss)
-
             else:
                 # Scale loss based on the number of samples in the microbatch to maintain gradient numerics
                 microbatch_loss.mul_(microbatch_num_samples / current_batch_size)
