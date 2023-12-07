@@ -69,6 +69,8 @@ if __name__ == '__main__':
 
     export PYTHONUNBUFFERED=1
 
+    export MOSAICML_PLATFORM=False
+
     make test PYTEST='{args.pytest_command}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
 
     make test-dist PYTEST='{args.pytest_command}' EXTRA_ARGS="$COMMON_ARGS" WORLD_SIZE=2
