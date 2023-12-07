@@ -2212,19 +2212,26 @@ class Trainer:
         self._run_evaluators(Event.FIT_END)
 
     def _eval_train_metrics(self, device_batch):
+        log.info(f'[Train 2215] {self.state.timestamp}\n {random.getstate()}')
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
         assert self.state.train_metrics is not None, 'The train metrics should be set on __init__ or fit()'
 
+        log.info(f'[Train 2219] {self.state.timestamp}\n {random.getstate()}')
         with torch.no_grad(),\
                 model_eval_mode(self.state.model),\
                 _get_precision_context(self.state.precision, self.state.precision_config, self.state.deepspeed_enabled):
+            log.info(f'[Train 2223] {self.state.timestamp}\n {random.getstate()}')
             eval_outputs = self._original_model.eval_forward(device_batch, self.state.outputs)
+            log.info(f'[Train 2225] {self.state.timestamp}\n {random.getstate()}')
             for metric in self.state.train_metrics.values():
+                log.info(f'[Train 2227] {self.state.timestamp}\n {random.getstate()}')
                 self._original_model.update_metric(
                     device_batch,
                     eval_outputs,
                     metric,
                 )
+                log.info(f'[Train 2233] {self.state.timestamp}\n {random.getstate()}')
+        log.info(f'[Train 2234] {self.state.timestamp}\n {random.getstate()}')
 
     def _run_evaluators(self, event: Event):
         """Runs evaluators periodically during training."""
