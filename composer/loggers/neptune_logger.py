@@ -10,7 +10,9 @@ __all__ = ['NeptuneLogger']
 
 import os
 import pathlib
+import textwrap
 import warnings
+from functools import partial
 from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Union
 
 import numpy as np
@@ -249,11 +251,18 @@ class NeptuneLogger(LoggerDestination):
         if not self._enabled:
             return
 
+        unused_args = (masks, mask_class_labels, use_table)  # Unused
+        if any(unused_args):
+            warnings.warn(
+                textwrap.dedent(f"""NeptuneLogger does not support masks, class labels, or tables of images,
+                                  but got {masks=}, {mask_class_labels=}, {use_table=}"""))
+
         if not isinstance(images, Sequence) and images.ndim <= 3:
             images = [images]
 
-        for img in images:
-            self.base_handler[name].append(img, step=step)
+        images = list(map(partial(_validate_image, channels_last=channels_last), images),)
+
+        self.base_handler[name].extend(images, step=step)
 
     def post_close(self) -> None:
         if not self._enabled:
@@ -262,3 +271,20 @@ class NeptuneLogger(LoggerDestination):
         if self._neptune_run:
             self._neptune_run.stop()
             self._neptune_run = None
+
+
+def _validate_image(img: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:
+    if isinstance(img, torch.Tensor):
+        img = img.data.cpu().numpy()
+
+    if not isinstance(img, np.ndarray):
+        raise ValueError(f'Image should be of type np.ndarray or torch.Tensor. Got {type(img)}')
+
+    # Error out for empty arrays or weird arrays of dimension 0.
+    if np.any(np.equal(img.shape, 0)):
+        raise ValueError(f'Got an image (shape {img.shape}) with at least one dimension being 0! ')
+
+    if not channels_last:
+        img = np.moveaxis(img, 0, -1)
+
+    return img
