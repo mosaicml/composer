@@ -249,7 +249,6 @@ def _session_tiny_gpt2_tokenizer():  # type: ignore
     return tiny_gpt2_tokenizer_helper()
 
 
-# OPT
 def tiny_opt_model_helper(config):
     transformers = pytest.importorskip('transformers')
 
