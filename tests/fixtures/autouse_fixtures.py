@@ -47,6 +47,28 @@ def disable_wandb(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureReques
 
 
 @pytest.fixture(scope='session')
+def track_random():
+    print('Monkeypatch random')
+    import random
+    import traceback
+
+    # Original random.seed function
+    original_random_seed = random.seed
+
+    # Wrapper function for random.seed
+    def patched_random_seed(*args, **kwargs):
+        print("Random seed is being altered. Stack trace:")
+        traceback.print_stack()
+        # Call the original random.seed function
+        original_random_seed(*args, **kwargs)
+
+    # Patch the random.seed function
+    random.seed = patched_random_seed
+
+    # Now, whenever random.seed is called in your program, it will print a stack trace
+
+
+@pytest.fixture(scope='session')
 def cleanup_dist():
     """Ensure all dist tests clean up resources properly."""
     yield
