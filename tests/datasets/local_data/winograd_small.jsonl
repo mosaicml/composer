@@ -2,9 +2,3 @@
 {"context_options": ["The city councilmen refused the demonstrators a permit because the city councilmen", "The city councilmen refused the demonstrators a permit because the demonstrators"], "continuation": "advocated violence.", "gold": 1}
 {"context_options": ["The trophy doesn't fit into the brown suitcase because the trophy", "The trophy doesn't fit into the brown suitcase because the suitcase"], "continuation": "is too large.", "gold": 0}
 {"context_options": ["The trophy doesn't fit into the brown suitcase because the trophy", "The trophy doesn't fit into the brown suitcase because the suitcase"], "continuation": "is too small.", "gold": 1}
-{"context_options": ["Joan made sure to thank Susan for all the help Joan", "Joan made sure to thank Susan for all the help Susan"], "continuation": "had recieved.", "gold": 0}
-{"context_options": ["Joan made sure to thank Susan for all the help Joan", "Joan made sure to thank Susan for all the help Susan"], "continuation": "had given.", "gold": 1}
-{"context_options": ["Paul tried to call George on the phone, but Paul", "Paul tried to call George on the phone, but George"], "continuation": "wasn't successful.", "gold": 0}
-{"context_options": ["Paul tried to call George on the phone, but Paul", "Paul tried to call George on the phone, but George"], "continuation": "wasn't available.", "gold": 1}
-{"context_options": ["The lawyer asked the witness a question, but the lawyer", "The lawyer asked the witness a question, but the witness"], "continuation": "was reluctant to repeat it.", "gold": 0}
-{"context_options": ["The lawyer asked the witness a question, but the lawyer", "The lawyer asked the witness a question, but the witness"], "continuation": "was reluctant to answer it.", "gold": 1}
