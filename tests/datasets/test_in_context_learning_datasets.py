@@ -1123,7 +1123,7 @@ def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenize
 @device('gpu')
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [0, 5])
-@pytest.mark.filterwarnings('ignore:.*The dataloader_len (2) is greater than the length.*')
+@pytest.mark.filterwarnings(r'ignore:.*The dataloader_len (2) is greater than the length.*:UserWarning')
 def test_qa_task_evaluation_opt_tokenizer(device, world_size, tiny_opt_tokenizer, tiny_opt_model, num_fewshot,
                                           dataset_uri, tmp_path):
     pytest.importorskip('datasets')
