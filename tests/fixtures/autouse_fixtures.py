@@ -46,26 +46,41 @@ def disable_wandb(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureReques
             monkeypatch.setenv('WANDB_PROJECT', 'pytest')
 
 
-@pytest.fixture(scope='session')
-def track_random():
-    print('Monkeypatch random')
-    import random
-    import traceback
+# @pytest.fixture(scope='session')
+# def track_random():
+#     print('Monkeypatch random')
+#     import random
+#     import traceback
 
-    # Original random.seed function
-    original_random_seed = random.seed
+#     # Original random.seed function
+#     original_random_seed = random.seed
 
-    # Wrapper function for random.seed
-    def patched_random_seed(*args, **kwargs):
-        print("Random seed is being altered. Stack trace:")
-        traceback.print_stack()
-        # Call the original random.seed function
-        original_random_seed(*args, **kwargs)
+#     # Wrapper function for random.seed
+#     def patched_random_seed(*args, **kwargs):
+#         print("Random seed is being altered. Stack trace:")
+#         traceback.print_stack()
+#         # Call the original random.seed function
+#         original_random_seed(*args, **kwargs)
 
-    # Patch the random.seed function
-    random.seed = patched_random_seed
+#     # Patch the random.seed function
+#     random.seed = patched_random_seed
 
-    # Now, whenever random.seed is called in your program, it will print a stack trace
+#     # Now, whenever random.seed is called in your program, it will print a stack trace
+
+import random
+import traceback
+def patched_random_seed(*args, **kwargs):
+    print("Random seed is being altered. Stack trace:")
+    traceback.print_stack()
+    original_random_seed(*args, **kwargs)
+
+# Store the original random.seed function
+original_random_seed = random.seed
+
+@pytest.fixture
+def patch_random_seed(monkeypatch):
+    # Use monkeypatch to replace random.seed
+    monkeypatch.setattr(random, 'seed', patched_random_seed)
 
 
 @pytest.fixture(scope='session')
