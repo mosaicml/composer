@@ -86,10 +86,12 @@ if __name__ == '__main__':
         scheduling={'max_duration': args.timeout / 60 / 60},
         env_variables=[
             {
-                'MOSAICML_PLATFORM': 'False'
+                'key': 'MOSAICML_PLATFORM',
+                'value': 'False',
             },
             {
-                'PYTHONUNBUFFERED': '1'
+                'key': 'PYTHONUNBUFFERED',
+                'value': '1',
             },
         ],
     )
