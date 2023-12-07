@@ -461,7 +461,6 @@ class InContextLearningDataset(Dataset):
             batch['continuation_indices'] = list(map(torch.tensor, batch['continuation_indices']))
         return batch
 
-    # TODO: Test this?
     def collate_fn(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
         The function that the dataloader uses to accumulate data into batches.
@@ -989,7 +988,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
     """
     A dataset that constructs batches for in-context learning code evaluation.
 
-    The default input format is expected to be a jsonl file with the following fields:
+    The input format is expected to be a jsonl file with the following fields:
     - task_id: label of given task
     - prompt: the code snippet that must be completed
     - entry_point: the entry to the function/code snippet to generate
@@ -1011,28 +1010,24 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
     - languages:  list of languages
     - pass_at_k: passed value for pass_at_k
     - generation_length: derrived maximum generation length
-    - generation_kwargs: Dictionary of kwargs neeeded for generation. Includes the following:
+    - generation_kwargs: Dictionary of kwargs neeeded for generation. Includes the following, which will be individually overwritten 
+        by keys in generaiton_kwargs if set (see https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig 
+        for more details):
         - pad_token_id: ID for padding token, derived automatically
-        - num_beams: how many beams to search for generations, always set to 1
+        - num_beams: how many beams to search for generations, set to 1
         - num_return_sequences: value passed for 'generations_per_sample', how many generations per prompt
         - do_sample: determines whether model is sampling or greedily decoding. Always set to True
-        - top_p: the cumulative probability of parameter highest probability vocabulary tokens to keep for nucleus sampling. Must be between 0 and 1
-        - top_k: the number of highest probability vocabulary tokens to keep for top-k-filtering. Between 1 and infinity.
         - use_cache: Whether or not to use past key values to speed up sampling. Always set to True
 
     Additional Args:
         generations_per_sample (int) (defaults to 1): The number of independently computed returned sequences for each element in the batch
         pass_at_k (int) (defaults to 1): k for how many chances the model gets to write passing code
-        top_p (int) (defaults to 0.95): top_p sampling parameter for nucleus sampling
-        top_k (int) (defaults to 40): top_k sampling parameter for number of samples to consider
     """
 
     def __init__(
         self,
         generations_per_sample: int,
         pass_at_k: int = 1,
-        top_p: Optional[float] = 0.95,
-        top_k: Optional[int] = 40,
         *args,
         **kwargs,
     ):
@@ -1080,8 +1075,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
                 'num_beams': 1,  # single beam
                 'num_return_sequences': generations_per_sample,
                 'do_sample': True,
-                'top_p': top_p,
-                'top_k': top_k,
                 'use_cache': True
             },
         }
@@ -1393,21 +1386,22 @@ def get_icl_task_dataloader(
         max_seq_len (int): The sequence length expected by the model
         pad_tok_id (int): The special token reserved for padding the ends of batches
         num_fewshot (int): The number of complete fewshot examples to pad each test example with
-        prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
-        example_delimiter (str): Separator that goes between individual examples (e.g. '\n')
-        continuation_delimiter: (str): Separator that goes between context and continuation in each example (e.g. '->')
-        question_prelimiter: (str): Text to be prepended before each context segement in each eval example. (e.g. 'Q:', 'The following is a paragraph containing...')
-        hf_loading_vars (Dict): A dictionary containing keyword arguments to be passed into `load_dataset` if dataset is being pulled from HF.
-        hf_parsing_map (Dict[str:List[str]]): A dictionary containing a from HF columns to ICL dataset keys. The dictionary should be formatted {icl_key:[hf_key1, hf_key1]}.
-            Values in the dict will be concatenated with ' ' seperating them. If not included, will use the columns already present in the HF dataset.
-        destination_path: (str): This is the local file where remote datasets will be saved.
-        fewshot_random_seed (int): Random seed to use for fewshot sampling
-        # TODO: is this right?
-        pass_at_k (int): k for how many chances the model gets to write passing code
-        generations_per_sample (int): how many outputs to generate per prompt
+        prompt_string (str, default = ''): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
+        example_delimiter (str, default = '\n'): Separator that goes between individual examples (e.g. '\n')
+        continuation_delimiter: (str, default = ' '): Separator that goes between context and continuation in each example (e.g. '->')
+        destination_path: (str, default = ''): This is the local file where remote datasets will be saved.
+        question_prelimiter: (str, default = ''): Text to be prepended before each context segement in each eval example. (e.g. 'Q:', 'The following is a paragraph containing...')
+        fewshot_random_seed (int, default = 1234): Random seed to use for fewshot sampling
 
-        cot_delimiter (str): Delimiter to place between the chain of thought and continuations.
+        pass_at_k (int): k for how many chances the model gets to write passing code.
+        generations_per_sample (int): how many outputs to generate per prompt. Passed in generation_kwargs under "num_return_sequences" and overwritten by generation_kwargs dict.
+        cot_delimiter (str): Delimiter to place between chain of thoughts and continuations.
         has_categories: (bool): If ``True``, we will search the dataset file for a category key, and partition the dataset into a separate dataloader for each category occurring in the data.
+
+        hf_loading_vars (Dict, default = None): A dictionary containing keyword arguments to be passed into `load_dataset` if dataset is being pulled from HF.
+        hf_parsing_map (Dict, default = None): A dictionary containing a from HF columns to ICL dataset keys. The dictionary should be formatted {icl_key:[hf_key1, hf_key1]}.
+            Values in the dict will be concatenated with ' ' seperating them. If not included, will use the columns already present in the HF dataset.
+        generation_kwargs (dict):
 
     Returns:
         DataLoader: A dataloader used for performing in-context learning evaluation on the dataset provided.
