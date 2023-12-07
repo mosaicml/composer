@@ -1920,43 +1920,27 @@ class Trainer:
             dataloader_label (str): The dataloader label.
             metrics (Dict[str, Metric]): The metrics to compute.
         """
-        log.info(f'[Train 1923] {self.state.timestamp}\n {random.getstate()}')
         metrics = deepcopy(metrics)
 
         # log computed metrics
-        log.info(f'[Train 1927] {self.state.timestamp}\n {random.getstate()}')
         computed_metrics = {}
-        log.info(f'[Train 1929] {self.state.timestamp}\n {random.getstate()}')
         for metric_name, metric in metrics.items():
-            log.info(f'[Train 1931] {self.state.timestamp}\n {random.getstate()}')
             computed_metrics[metric_name] = metric.compute()
-            log.info(f'[Train 1933] {self.state.timestamp}\n {random.getstate()}')
 
-        log.info(f'[Train 1935] {self.state.timestamp}\n {random.getstate()}')
         self.logger.log_metrics(
             {f'metrics/{dataloader_label}/{name}': val for (name, val) in computed_metrics.items()},)
 
         # store metric instances
-        log.info(f'[Train 1940] {self.state.timestamp}\n {random.getstate()}')
         for metric_name, metric in metrics.items():
-            log.info(f'[Train 1942] {self.state.timestamp}\n {random.getstate()}')
             assert isinstance(metric, Metric)
-            log.info(f'[Train 1944] {self.state.timestamp}\n {random.getstate()}')
             if dataloader_label == 'train':
-                log.info(f'[Train 1946] {self.state.timestamp}\n {random.getstate()}')
                 self.state.train_metrics[metric_name] = metric
-                log.info(f'[Train 1948] {self.state.timestamp}\n {random.getstate()}')
                 self.state.train_metric_values[metric_name] = computed_metrics[metric_name]
-                log.info(f'[Train 1950] {self.state.timestamp}\n {random.getstate()}')
             else:
-                log.info(f'[Train 1952] {self.state.timestamp}\n {random.getstate()}')
                 if dataloader_label not in self.state.eval_metrics:
                     self.state.eval_metrics[dataloader_label] = {}
-                log.info(f'[Train 1955] {self.state.timestamp}\n {random.getstate()}')
                 self.state.eval_metrics[dataloader_label][metric_name] = metric
-                log.info(f'[Train 1957] {self.state.timestamp}\n {random.getstate()}')
                 self.state.eval_metric_values[metric_name] = computed_metrics[metric_name]
-        log.info(f'[Train 1959] {self.state.timestamp}\n {random.getstate()}')
 
     def _spin_dataloaders_to_cur_epoch(self):
         """Spin the dataloaders to restore sampler state for current epoch.
@@ -2055,14 +2039,10 @@ class Trainer:
                             self._rng_state = None
                         continue
 
-                    log.info(f'[Train 2042] {self.state.timestamp}\n {random.getstate()}')
-
                     self.state.batch = self.state.device.batch_to_device(self.state.batch)
                     self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
                     rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
                     rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
-
-                    log.info(f'[Train 2049] {self.state.timestamp}\n {random.getstate()}')
 
                     if self.state.deepspeed_enabled:
                         self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
@@ -2070,8 +2050,6 @@ class Trainer:
                     self.engine.run_event(Event.AFTER_DATALOADER)
 
                     self.engine.run_event(Event.BATCH_START)
-
-                    log.info(f'[Train 2058] {self.state.timestamp}\n {random.getstate()}')
 
                     # Log time values
                     self.logger.log_metrics({
@@ -2086,8 +2064,6 @@ class Trainer:
 
                     total_loss_dict = self._train_batch(use_grad_scaling)
 
-                    log.info(f'[Train 2073] {self.state.timestamp}\n {random.getstate()}')
-
                     if use_grad_scaling:
                         self.state.scaler.update()
 
@@ -2099,8 +2075,6 @@ class Trainer:
                         }
                         self.state.total_loss_dict = total_loss_dict
                         self.logger.log_metrics(total_loss_dict)
-
-                    log.info(f'[Train 2087] {self.state.timestamp}\n {random.getstate()}')
 
                     # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
                     # next batch's wall clock time. The time accumulation must be done here so schedulers
@@ -2116,8 +2090,6 @@ class Trainer:
                         batch_time,
                     )
 
-                    log.info(f'[Train 2103] {self.state.timestamp}\n {random.getstate()}')
-
                     # `now` is actually in the past, but want to include the time it takes to perform this reduction
                     last_wct = now
 
@@ -2131,8 +2103,6 @@ class Trainer:
                             metrics=self.state.train_metrics,
                         )
 
-                    log.info(f'[Train 2118] {self.state.timestamp}\n {random.getstate()}')
-
                     self.state.previous_timestamp = self.state.timestamp
                     self.state.timestamp = self.state.timestamp.to_next_batch(
                         samples=total_num_samples,
@@ -2142,19 +2112,13 @@ class Trainer:
 
                     self.engine.run_event(Event.BATCH_END)
 
-                    log.info(f'[Train 2129] {self.state.timestamp}\n {random.getstate()}')
-
                     # Pause the timing during evaluation
                     # Evaluation time is tracked separately in state.eval_timestamp
                     duration = datetime.datetime.now() - last_wct
                     self._run_evaluators(Event.BATCH_END)
                     last_wct = datetime.datetime.now() - duration
 
-                    log.info(f'[Train 2137] {self.state.timestamp}\n {random.getstate()}')
-
                     self.engine.run_event(Event.BATCH_CHECKPOINT)
-
-                    log.info(f'[Train 2141] {self.state.timestamp}\n {random.getstate()}')
 
                     if self.state.timestamp >= self.state.max_duration:
                         # If max_duration is specified in batches, samples, or tokens, and
@@ -2162,8 +2126,6 @@ class Trainer:
                         # to finish the epoch early and finish training.
                         finished_epoch_early = True
                         break
-
-                    log.info(f'[Train 2150] {self.state.timestamp}\n {random.getstate()}')
 
                 if not finished_epoch_early or self.state.dataloader_len == self.state.timestamp.batch_in_epoch:
                     # Trigger the epoch end events if the dataloader was exhausted.
@@ -2450,15 +2412,11 @@ class Trainer:
             # Forward pass
             self.engine.run_event(Event.BEFORE_FORWARD)
 
-            log.info(f'[Train 2437] {self.state.timestamp}\n {random.getstate()}')
-
             with _get_precision_context(self.state.precision, self.state.precision_config,
                                         self.state.deepspeed_enabled):
                 self.state.outputs = self.state.model(self.state.batch)
 
             self.engine.run_event(Event.AFTER_FORWARD)
-
-            log.info(f'[Train 2445] {self.state.timestamp}\n {random.getstate()}')
 
             # Check if other ranks OOMed after forward pass when using auto microbatching. This may
             # happen when close to memory limit or with uneven memory usage across ranks
@@ -2477,8 +2435,6 @@ class Trainer:
             # Loss
             self.engine.run_event(Event.BEFORE_LOSS)
 
-            log.info(f'[Train 2464] {self.state.timestamp}\n {random.getstate()}')
-
             with _get_precision_context(self.state.precision, self.state.precision_config,
                                         self.state.deepspeed_enabled):
                 self.state.loss = self._original_model.loss(self.state.outputs, self.state.batch)
@@ -2488,8 +2444,6 @@ class Trainer:
 
             # Backward Pass
             self.engine.run_event(Event.BEFORE_BACKWARD)
-
-            log.info(f'[Train 2476] {self.state.timestamp}\n {random.getstate()}')
 
             microbatch_loss_dict = {}
             # If total loss key is present, copy loss
@@ -2512,8 +2466,6 @@ class Trainer:
                 # Include total loss
                 microbatch_loss_dict['total'] = microbatch_loss
 
-            log.info(f'[Train 2499] {self.state.timestamp}\n {random.getstate()}')
-
             # For each loss to log: detach, clone, mean, then multiply by (microbatch size) / (batch size)
             for k, loss in microbatch_loss_dict.items():
                 microbatch_loss_dict[k] = loss.detach().clone().mean() * (microbatch_num_samples / current_batch_size)
@@ -2528,18 +2480,12 @@ class Trainer:
                 microbatch_loss.mul_(microbatch_num_samples / current_batch_size)
                 microbatch_loss.backward(create_graph=self._backwards_create_graph)
 
-            log.info(f'[Train 2515] {self.state.timestamp}\n {random.getstate()}')
-
             self.engine.run_event(Event.AFTER_BACKWARD)
-
-            log.info(f'[Train 2519] {self.state.timestamp}\n {random.getstate()}')
 
             # Use microbatch outputs to update training metrics
             if self.state.train_metrics is not None and len(self.state.train_metrics) != 0:
                 self.state.train_metrics = self._ensure_metrics_device_and_dtype(self.state.train_metrics)
                 self._eval_train_metrics(device_batch)
-
-            log.info(f'[Train 2526] {self.state.timestamp}\n {random.getstate()}')
 
         if self.state.deepspeed_enabled:
             self.state.deepspeed_model.step()
