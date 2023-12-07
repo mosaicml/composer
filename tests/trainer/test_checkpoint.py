@@ -948,6 +948,7 @@ class TestCheckpointResumption:
                     max_duration='2ep',
                     train_subset_num_batches=5,
                     **kwargs):
+        model = SimpleModel()
         model.fc1.to(model_init_device)
         model.fc2.to(model_init_device)
         optimizer = torch.optim.Adam(model.parameters())
@@ -1018,7 +1019,6 @@ class TestCheckpointResumption:
         final_checkpoint: str,
         seed: Optional[int],
         tmp_path: pathlib.Path,
-        patch_random_methods,
     ):
 
         # all ranks use rank 0 folder
