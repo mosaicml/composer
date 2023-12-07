@@ -144,7 +144,6 @@ class SimpleDeterministicModel(ComposerClassifier):
                 torch.nn.init.zeros_(module.bias)
 
 
-
 class SimpleMLP(torch.nn.Module):
 
     def __init__(self, num_features: int, device: str):
