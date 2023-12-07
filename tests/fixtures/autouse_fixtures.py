@@ -46,49 +46,6 @@ def disable_wandb(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureReques
             monkeypatch.setenv('WANDB_PROJECT', 'pytest')
 
 
-# @pytest.fixture(scope='session')
-# def track_random():
-#     print('Monkeypatch random')
-#     import random
-#     import traceback
-
-#     # Original random.seed function
-#     original_random_seed = random.seed
-
-#     # Wrapper function for random.seed
-#     def patched_random_seed(*args, **kwargs):
-#         print("Random seed is being altered. Stack trace:")
-#         traceback.print_stack()
-#         # Call the original random.seed function
-#         original_random_seed(*args, **kwargs)
-
-#     # Patch the random.seed function
-#     random.seed = patched_random_seed
-
-#     # Now, whenever random.seed is called in your program, it will print a stack trace
-
-import random
-import traceback
-def patched_function(original_function):
-    def wrapper(*args, **kwargs):
-        state_before = random.getstate()
-        result = original_function(*args, **kwargs)
-        state_after = random.getstate()
-
-        if state_before != state_after:
-            print(f"Random state changed by {original_function.__name__}. Stack trace:")
-            traceback.print_stack()
-
-        return result
-    return wrapper
-
-@pytest.fixture
-def patch_random_methods(monkeypatch):
-    for method_name in ['random', 'randint', 'shuffle', 'choice', 'randrange']:  # Add other methods as needed
-        original_method = getattr(random, method_name)
-        monkeypatch.setattr(random, method_name, patched_function(original_method))
-
-
 @pytest.fixture(scope='session')
 def cleanup_dist():
     """Ensure all dist tests clean up resources properly."""
