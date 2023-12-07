@@ -13,10 +13,12 @@ from composer.utils import dist
 from tests.common import (EmbeddedWeightTiedModel, RandomClassificationDataset, SimpleModel, SimpleWeightTiedModel,
                           world_size)
 
+_INIT_DEVICES = ['cpu', 'meta', 'mixed']
+_MIXED_PRECISION_TYPES = ['FULL', 'DEFAULT', 'PURE']
 
 @pytest.mark.parametrize('model', [SimpleWeightTiedModel, EmbeddedWeightTiedModel])
-@pytest.mark.parametrize('mixed_precision', ['FULL', 'DEFAULT', 'PURE'])
-@pytest.mark.parametrize('device', ['cpu', 'meta'])
+@pytest.mark.parametrize('mixed_precision', _MIXED_PRECISION_TYPES)
+@pytest.mark.parametrize('device', _INIT_DEVICES)
 @pytest.mark.parametrize('reentrant', [True, False])
 @world_size(2)
 @pytest.mark.gpu
@@ -31,7 +33,14 @@ def test_fsdp_device_initialization(model: ComposerClassifier, mixed_precision: 
 
     """
     num_classes = 10
-    model = model(num_features=num_classes, device=device)
+
+    resolved_device = device
+    if device == 'mixed':
+        if dist.get_local_rank() == 0:
+            resolved_device = 'cpu'
+        else:
+            resolved_device = 'meta'
+    model = model(num_features=num_classes, device=resolved_device)
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
@@ -42,7 +51,8 @@ def test_fsdp_device_initialization(model: ComposerClassifier, mixed_precision: 
         train_dataloader=dataloader,
         fsdp_config={
             'activation_checkpointing_reentrant': reentrant,
-            'mixed_precision': mixed_precision
+            'mixed_precision': mixed_precision,
+            'sync_module_states': True if device == 'mixed' else False,
         },
         max_duration='3ba',
     )
@@ -64,7 +74,7 @@ def test_fsdp_device_initialization(model: ComposerClassifier, mixed_precision: 
 
 
 @pytest.mark.parametrize('model', [SimpleModel])
-@pytest.mark.parametrize('mixed_precision', ['FULL', 'DEFAULT', 'PURE'])
+@pytest.mark.parametrize('mixed_precision', _MIXED_PRECISION_TYPES)
 @pytest.mark.gpu
 @world_size(2)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),

@@ -369,154 +369,138 @@ def prepare_fsdp_module(
             # Skip wrapping submodules which are explicitly marked with no wrap
             if hasattr(obj, '_fsdp_wrap') and not bool(obj._fsdp_wrap):
                 continue
+            
+            # Rather than verifying these changes with older PyTorch versions, we are fixing forward here
+            if version.parse(torch.__version__) > version.parse('2.1.0'):
+                # A dictionary of all tied parameter pointers to (module, attr) tuples
+                tied_pointers = {}
 
-            # A dictionary of all tied parameter pointers to module names
-            tied_pointers = {}
+                # Goes through all modules finding which weights have the same pointers
+                for _, mod in obj.named_modules():
+                    for attr in ['weight', 'bias']:
+                        if hasattr(mod, attr):
+                            mod_attr = getattr(mod, attr)
+                            if mod_attr is None:
+                                continue
 
-            # Goes through all modules finding which weights have the same pointers
-            for _, mod in obj.named_modules():
-                for attr in ['weight', 'bias']:
-                    if hasattr(mod, attr):
-                        mod_attr = getattr(mod, attr)
-                        if mod_attr is None:
-                            continue
+                            ptr = id(mod_attr)
+                            mod_attr_list = tied_pointers.get(ptr, [])
+                            mod_attr_list.append((mod, attr))
+                            tied_pointers[ptr] = mod_attr_list
 
-                        ptr = id(mod_attr)
-                        mod_attr_list = tied_pointers.get(ptr, [])
-                        mod_attr_list.append((mod, attr))
-                        tied_pointers[ptr] = mod_attr_list
+                # Dictionary mapping the source module to a list of (target module, source attr, target attr) tuples
+                source_mod_to_mod_attr = {}
+                for mod_attr_list in tied_pointers.values():
+                    # If there is only one module for this pointer, then there is no weight tying
+                    if len(mod_attr_list) == 1:
+                        continue
 
-                        # ptr = id(mod_attr)
-                        # ptr_attr = (ptr, attr)
-                        # name_list = tied_pointers.get(ptr_attr, [])
-                        # name_list.append(name)
-                        # tied_pointers[ptr_attr] = name_list
-
-            source_mod_to_mod_attr = {}
-            for mod_attr_list in tied_pointers.values():
-                if len(mod_attr_list) == 1:
-                    continue
-                first_mod, first_attr = mod_attr_list[0]
-                source_mod_to_mod_attr[first_mod] = [(target_mod, first_attr, dest_attr) for target_mod, dest_attr in mod_attr_list[1:]]
-
-            # # Creates a dictionary of module names that should be tied together
-            # tied_mod_names = collections.defaultdict(list)
-            # # Creates a set of modules we should not initialize
-            # should_not_init_params = set()
-            # for ptr_attr_type, mod_names in tied_pointers.items():
-            #     # No modules for this pointer are tied
-            #     if len(mod_names) == 1:
-            #         continue
-            #     _, attr_type = ptr_attr_type
-            #     first = next(mod_names.__iter__())
-            #     for elem in mod_names:
-            #         should_not_init_params.add('.'.join([elem, attr_type]))
-            #         tied_mod_names[(first, attr_type)].append(elem)
-            #     # Make sure at least one of the tied parameters is initialized
-            #     should_not_init_params.remove('.'.join([first, attr_type]))
-
-            print(f'[{dist.get_global_rank()}] SHOULD NOT INIT {source_mod_to_mod_attr=}')
-
-            def _param_init_fn(module: torch.nn.Module) -> None:
-                print(f'[{dist.get_global_rank()}] _param_init_fn for {type(module)} {id(module)} {id(module.weight) if hasattr(module, "weight") else "no weight"}')
-                is_meta = any(param.is_meta for param in module.parameters())
-                print(f'[{dist.get_global_rank()}] 1 {is_meta=} current device {torch.cuda.current_device()}')
-                module.to_empty(device=torch.cuda.current_device(), recurse=False)
-
-                if module in source_mod_to_mod_attr:
-                    print(f'[{dist.get_global_rank()}] redoing weight tying')
-                    for target_mod, first_attr, dest_attr in source_mod_to_mod_attr[module]:
-                        setattr(target_mod, dest_attr, getattr(module, first_attr))
-
-                if hasattr(obj, 'param_init_fn') and isinstance(obj.param_init_fn, Callable):
-                    obj.param_init_fn(module)
-                elif hasattr(module, 'reset_parameters') and isinstance(module.reset_parameters, Callable):
-                    module.reset_parameters()
-                else:
-                    raise ValueError(
-                        f'Object `{obj_name}` does not have a ``param_init_fn`` or a ``reset_parameters`` function. '
-                        'This leaves parameters without initialization. Please add a ``param_init_fn`` or ``reset_parameters`` '
-                        f'to module `{obj_name}`.')
-                print(f'[{dist.get_global_rank()}] params actually inited {type(module)}')
+                    # Arbitrarily choose the first module as the source module
+                    first_mod, first_attr = mod_attr_list[0]
+                    source_mod_to_mod_attr[first_mod] = [(target_mod, first_attr, dest_attr) for target_mod, dest_attr in mod_attr_list[1:]]
                 
-                # A dictionary of all tied parameter pointers to module names
-                # tied_pointers = {}
+                # Clean up no longer needed module references for memory safety
+                del tied_pointers
 
-                # # Goes through all modules finding which weights have the same pointers
-                # for name, mod in module.named_modules():
-                #     # Since FSDP recursively wraps, at parent modules we can encounter already
-                #     # wrapped weights, as a result we should skip any modules with `_fsdp_wrapped_module.`
-                #     if '_fsdp_wrapped_module' in name:
-                #         continue
-                #     for attr in ['weight', 'bias']:
-                #         if hasattr(mod, attr):
-                #             mod_attr = getattr(mod, attr)
-                #             if mod_attr is None:
-                #                 continue
-                #             ptr = id(mod_attr)
-                #             ptr_attr = (ptr, attr)
-                #             name_list = tied_pointers.get(ptr_attr, [])
-                #             name_list.append(name)
-                #             tied_pointers[ptr_attr] = name_list
+                def _param_init_fn(module: torch.nn.Module) -> None:
+                    # If we do not have any parameters or buffers on meta device, we do not need to call the parameter init function.
+                    # It is assumed that whatever process moved the parameters off of meta device initialized them.
+                    # We expect this to occur if we have tied weights, as the second module will already have the weights initialized.
+                    is_meta = any(param.is_meta for param in module.parameters()) or any(buffer.is_meta for buffer in module.buffers())
+                    if not is_meta:
+                        return
 
-                # # Creates a dictionary of module names that should be tied together
-                # tied_mod_names = collections.defaultdict(list)
-                # # Creates a set of modules we should not initialize
-                # should_not_init_params = set()
-                # for ptr_attr_type, mod_names in tied_pointers.items():
-                #     # No modules for this pointer are tied
-                #     if len(mod_names) == 1:
-                #         continue
-                #     _, attr_type = ptr_attr_type
-                #     first = next(mod_names.__iter__())
-                #     for elem in mod_names:
-                #         should_not_init_params.add('.'.join([elem, attr_type]))
-                #         tied_mod_names[(first, attr_type)].append(elem)
-                #     # Make sure at least one of the tied parameters is initialized
-                #     should_not_init_params.remove('.'.join([first, attr_type]))
+                    # Move all parameters and buffers to the current device
+                    module.to_empty(device=torch.cuda.current_device(), recurse=False)
 
-                # print(f'[{dist.get_global_rank()}] before {id(obj[0].fc1.weight)} {id(obj[1].fc1.weight)}')
-                # print(f'[{dist.get_global_rank()}] {should_not_init_params=}')
-                # meta_safe_apply(module,
-                #                 lambda t: torch.empty_like(t, device=f'cuda:{torch.cuda.current_device()}'),
-                #                 should_not_init_params,
-                #                 module_name='')
-                # print(f'[{dist.get_global_rank()}] after {id(obj[0].fc1.weight)} {id(obj[1].fc1.weight)}')
+                    # Redo weight tying, which will have been broken by the above line that moves parameters off of meta device
+                    if module in source_mod_to_mod_attr:
+                        for target_mod, first_attr, dest_attr in source_mod_to_mod_attr[module]:
+                            setattr(target_mod, dest_attr, getattr(module, first_attr))
 
-                # if len(tied_mod_names) > 0:
-                #     warnings.warn(('The passed in model appears to have tied weights. In order to '
-                #                    'support effective weight tying, the tied modules need to be '
-                #                    'in the same FSDP module. If the weights are not properly tied '
-                #                    'it can lead to loss spikes. We have tried our best to ensure '
-                #                    'the tied weights are in the same FSDP module.'))
+                    # Run the specified initialization
+                    if hasattr(obj, 'param_init_fn') and isinstance(obj.param_init_fn, Callable):
+                        obj.param_init_fn(module)
+                    elif hasattr(module, 'reset_parameters') and isinstance(module.reset_parameters, Callable):
+                        module.reset_parameters()
+                    else:
+                        raise ValueError(
+                            f'Object `{obj_name}` does not have a ``param_init_fn`` or a ``reset_parameters`` function. '
+                            'This leaves parameters without initialization. Please add a ``param_init_fn`` or ``reset_parameters`` '
+                            f'to module `{obj_name}`.')
+            else:
+                def _param_init_fn(module: torch.nn.Module) -> None:
+                    # A dictionary of all tied parameter pointers to module names
+                    tied_pointers = {}
 
-                # # Redoes weight tying
-                # print(f'[{dist.get_global_rank()}] retying {tied_mod_names=}')
-                # for name_attr, tied_names in tied_mod_names.items():
-                #     name, attr = name_attr
-                #     src_mod = module.get_submodule(name)
-                #     # We need to make sure the source and destination
-                #     # modules end up in the same FSDP module otherwise
-                #     # with sharding weight tying gets violated
-                #     src_mod._fsdp_wrap = False  # type: ignore
-                #     src_params = getattr(src_mod, attr)
-                #     for tied_name in tied_names:
-                #         dest_mod = module.get_submodule(tied_name)
-                #         dest_mod._fsdp_wrap = False  # type: ignore
-                #         setattr(dest_mod, attr, src_params)
+                    # Goes through all modules finding which weights have the same pointers
+                    for name, mod in module.named_modules():
+                        # Since FSDP recursively wraps, at parent modules we can encounter already
+                        # wrapped weights, as a result we should skip any modules with `_fsdp_wrapped_module.`
+                        if '_fsdp_wrapped_module' in name:
+                            continue
+                        for attr in ['weight', 'bias']:
+                            if hasattr(mod, attr):
+                                mod_attr = getattr(mod, attr)
+                                if mod_attr is None:
+                                    continue
+                                ptr = id(mod_attr)
+                                ptr_attr = (ptr, attr)
+                                name_list = tied_pointers.get(ptr_attr, [])
+                                name_list.append(name)
+                                tied_pointers[ptr_attr] = name_list
 
-                # if hasattr(obj, 'param_init_fn') and isinstance(obj.param_init_fn, Callable):
-                #     print(f'[{dist.get_global_rank()}] applying {type(module)}')
-                #     module.apply(obj.param_init_fn)
-                # elif hasattr(module, 'reset_parameters') and isinstance(module.reset_parameters, Callable):
-                #     print(f'[{dist.get_global_rank()}] reseting {type(module)}')
-                #     module.reset_parameters()
-                # else:
-                #     raise ValueError(
-                #         f'Object `{obj_name}` does not have a ``param_init_fn`` or a ``reset_parameters`` function. '
-                #         'This leaves parameters without initialization. Please add a ``param_init_fn`` or ``reset_parameters`` '
-                #         f'to module `{obj_name}`.')
-                print(f'[{dist.get_global_rank()}] done _param_init_fn {type(module)}')
+                    # Creates a dictionary of module names that should be tied together
+                    tied_mod_names = collections.defaultdict(list)
+                    # Creates a set of modules we should not initialize
+                    should_not_init_params = set()
+                    for ptr_attr_type, mod_names in tied_pointers.items():
+                        # No modules for this pointer are tied
+                        if len(mod_names) == 1:
+                            continue
+                        _, attr_type = ptr_attr_type
+                        first = next(mod_names.__iter__())
+                        for elem in mod_names:
+                            should_not_init_params.add('.'.join([elem, attr_type]))
+                            tied_mod_names[(first, attr_type)].append(elem)
+                        # Make sure at least one of the tied parameters is initialized
+                        should_not_init_params.remove('.'.join([first, attr_type]))
+
+                    meta_safe_apply(module,
+                                    lambda t: torch.empty_like(t, device=f'cuda:{torch.cuda.current_device()}'),
+                                    should_not_init_params,
+                                    module_name='')
+
+                    if len(tied_mod_names) > 0:
+                        warnings.warn(('The passed in model appears to have tied weights. In order to '
+                                    'support effective weight tying, the tied modules need to be '
+                                    'in the same FSDP module. If the weights are not properly tied '
+                                    'it can lead to loss spikes. We have tried our best to ensure '
+                                    'the tied weights are in the same FSDP module.'))
+
+                    # Redoes weight tying
+                    for name_attr, tied_names in tied_mod_names.items():
+                        name, attr = name_attr
+                        src_mod = module.get_submodule(name)
+                        # We need to make sure the source and destination
+                        # modules end up in the same FSDP module otherwise
+                        # with sharding weight tying gets violated
+                        src_mod._fsdp_wrap = False  # type: ignore
+                        src_params = getattr(src_mod, attr)
+                        for tied_name in tied_names:
+                            dest_mod = module.get_submodule(tied_name)
+                            dest_mod._fsdp_wrap = False  # type: ignore
+                            setattr(dest_mod, attr, src_params)
+
+                    if hasattr(obj, 'param_init_fn') and isinstance(obj.param_init_fn, Callable):
+                        module.apply(obj.param_init_fn)
+                    elif hasattr(module, 'reset_parameters') and isinstance(module.reset_parameters, Callable):
+                        module.reset_parameters()
+                    else:
+                        raise ValueError(
+                            f'Object `{obj_name}` does not have a ``param_init_fn`` or a ``reset_parameters`` function. '
+                            'This leaves parameters without initialization. Please add a ``param_init_fn`` or ``reset_parameters`` '
+                            f'to module `{obj_name}`.')
 
             if version.parse(torch.__version__) > version.parse('2.1.0.dev'):
                 # CustomPolicy is only supported in torch v2.1.0-rc1 or higher
