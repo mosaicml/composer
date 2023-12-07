@@ -1123,7 +1123,7 @@ def test_mc_task_evaluation(device, num_fewshot, dataset_uri, tiny_gpt2_tokenize
 @device('gpu')
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [0, 5])
-@pytest.mark.filterwarnings(r'ignore:.*The dataloader_len \(2\) is greater than the length.*:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:The dataloader_len \(2\) is greater than the length.*:UserWarning')
 def test_qa_task_evaluation_opt_tokenizer(device, world_size, tiny_opt_tokenizer, tiny_opt_model, num_fewshot,
                                           dataset_uri, tmp_path):
     pytest.importorskip('datasets')
@@ -1167,7 +1167,7 @@ def test_qa_task_evaluation_opt_tokenizer(device, world_size, tiny_opt_tokenizer
 @device('gpu')
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [5])
-@pytest.mark.filterwarnings('ignore:.*The dataloader_len (2) is greater than the length.*')
+@pytest.mark.filterwarnings(r'ignore:The dataloader_len \(2\) is greater than the length.*:UserWarning')
 def test_qa_task_evaluation_with_cot_opt_tokenizer(device, world_size, tiny_opt_tokenizer, tiny_opt_model, num_fewshot,
                                                    dataset_uri, tmp_path):
     pytest.importorskip('datasets')
@@ -1212,7 +1212,7 @@ def test_qa_task_evaluation_with_cot_opt_tokenizer(device, world_size, tiny_opt_
 @device('gpu')
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [0, 5])
-@pytest.mark.filterwarnings('ignore:.*The dataloader_len (2) is greater than the length.*')
+@pytest.mark.filterwarnings(r'ignore:The dataloader_len \(2\) is greater than the length.*:UserWarning')
 def test_qa_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tiny_gpt2_model,
                             tmp_path):
     pytest.importorskip('datasets')
@@ -1256,7 +1256,7 @@ def test_qa_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_g
 @device('gpu')
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [5])
-@pytest.mark.filterwarnings('ignore:.*The dataloader_len (2) is greater than the length.*')
+@pytest.mark.filterwarnings(r'ignore:The dataloader_len \(2\) is greater than the length.*:UserWarning')
 def test_qa_task_with_cot_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tiny_gpt2_model,
                                      tmp_path):
     pytest.importorskip('datasets')
@@ -1314,7 +1314,7 @@ def test_code_eval_requires_valid_envvar(monkeypatch):
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [0])
 @pytest.mark.parametrize('generations_per_sample', [1, 2])
-@pytest.mark.filterwarnings('ignore:.*The dataloader_len (2) is greater than the length.*')
+@pytest.mark.filterwarnings(r'ignore:The dataloader_len \(2\) is greater than the length.*:UserWarning')
 def test_code_eval_microbatching(monkeypatch, device, world_size, tiny_opt_tokenizer, tiny_opt_model, num_fewshot,
                                  dataset_uri, tmp_path, generations_per_sample):
     pytest.importorskip('datasets')
@@ -1365,7 +1365,7 @@ def test_code_eval_microbatching(monkeypatch, device, world_size, tiny_opt_token
 @world_size(1, 2)
 @pytest.mark.parametrize('num_fewshot', [0])
 @pytest.mark.parametrize('generations_per_sample', [1, 2])
-@pytest.mark.filterwarnings('ignore:.*The dataloader_len (2) is greater than the length.*')
+@pytest.mark.filterwarnings(r'ignore:The dataloader_len \(2\) is greater than the length.*:UserWarning')
 def test_code_eval_sentpiece_evaluation(monkeypatch, device, world_size, num_fewshot, dataset_uri, tiny_t5_tokenizer,
                                         tiny_t5_model, tmp_path, generations_per_sample):
     pytest.importorskip('datasets')
@@ -1413,7 +1413,7 @@ def test_code_eval_sentpiece_evaluation(monkeypatch, device, world_size, num_few
 @pytest.mark.parametrize('num_fewshot', [0, 2])
 @pytest.mark.parametrize('generations_per_sample', [1])
 @pytest.mark.filterwarnings(r'ignore: Input length of input_ids is')
-@pytest.mark.filterwarnings('ignore:.*The dataloader_len (2) is greater than the length.*')
+@pytest.mark.filterwarnings(r'ignore:The dataloader_len \(2\) is greater than the length.*:UserWarning')
 def test_code_eval_task_evaluation(monkeypatch, device, world_size, num_fewshot, dataset_uri, tiny_gpt2_tokenizer,
                                    tiny_gpt2_model, tmp_path, generations_per_sample):
     pytest.importorskip('datasets')
