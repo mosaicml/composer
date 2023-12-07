@@ -1,11 +1,13 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 import os
-import pathlib
 import uuid
-from unittest.mock import MagicMock
+from pathlib import Path
+from typing import Sequence
+from unittest.mock import MagicMock, patch
 
 import pytest
+import torch
 from torch.utils.data import DataLoader
 
 from composer import Trainer
@@ -40,8 +42,10 @@ def test_neptune_init(test_neptune_logger):
 
     assert test_neptune_logger.neptune_run is not None
 
+    test_neptune_logger.neptune_run.sync()
     assert test_neptune_logger.neptune_run[NeptuneLogger.INTEGRATION_VERSION_KEY].fetch() == __version__
-    assert test_neptune_logger.neptune_run['sys/tags'].fetch() == {'rank0', 'dummy-run-name'}
+    assert test_neptune_logger.neptune_run['sys/name'].fetch() == 'dummy-run-name'
+    assert test_neptune_logger.base_handler['rank'].fetch() == 0
 
 
 @device('cpu')
@@ -83,7 +87,7 @@ def test_neptune_logging(device, test_neptune_logger):
 def test_upload_and_download_file(test_neptune_logger, tmp_path, dummy_state):
     neptune_artifact_name = 'test-neptune-artifact-' + str(uuid.uuid4())
     tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
-    save_folder = pathlib.Path(tmp_paths[0])
+    save_folder = Path(tmp_paths[0])
     file_content = 'hello from Neptune!'
 
     dummy_neptune_artifact_path = save_folder / 'neptune_artifact.txt'
@@ -110,3 +114,36 @@ def test_upload_and_download_file(test_neptune_logger, tmp_path, dummy_state):
 
     with open(str(dst_path), 'r') as fp:
         assert fp.read() == file_content
+
+
+def test_neptune_log_image(test_neptune_logger):
+    pytest.importorskip('neptune', reason='neptune is optional')
+
+    with patch('neptune.attributes.FileSeries.extend', MagicMock()) as mock_extend:
+        image_variants = [
+            (torch.rand(4, 4), False),  # 2D image
+            (torch.rand(2, 3, 4, 4), False),  # multiple images, not channels last
+            (torch.rand(2, 3, 4, 4, dtype=torch.float64), False),  # same as above but with float64
+            (torch.rand(3, 4, 4), False),  # with channels, not channels last
+            ([torch.rand(4, 4, 3)], True),  # with channels, channels last
+            (torch.rand(2, 4, 4, 3), True),  # multiple images, channels last
+            ([torch.rand(4, 4, 3), torch.rand(4, 4, 3)], True)  # multiple images in list
+        ]
+
+        expected_num_images_total = 0
+        for (images, channels_last) in image_variants:
+            if isinstance(images, Sequence):
+                expected_num_images = len(images)
+                np_images = [image.to(torch.float32).numpy() for image in images]
+
+            else:
+                expected_num_images = 1 if images.ndim < 4 else images.shape[0]
+                np_images = images.to(torch.float32).numpy()
+            test_neptune_logger.log_images(images=images, channels_last=channels_last)
+            test_neptune_logger.log_images(images=np_images, channels_last=channels_last)
+
+            expected_num_images *= 2  # One set of torch tensors, one set of numpy arrays
+            expected_num_images_total += expected_num_images
+
+        test_neptune_logger.post_close()
+        assert mock_extend.call_count == 2 * len(image_variants)  # One set of torch tensors, one set of numpy arrays

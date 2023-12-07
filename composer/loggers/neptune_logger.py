@@ -16,7 +16,9 @@ from functools import partial
 from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Union
 
 import numpy as np
+import pytest
 import torch
+from neptune.types import File
 
 from composer._version import __version__
 from composer.loggers import LoggerDestination
@@ -138,11 +140,11 @@ class NeptuneLogger(LoggerDestination):
     @property
     def base_handler(self):
         """Gets a handler for the base logging namespace.
-    
+
         Use the handler to log extra metadata to the run and organize it under the base namespace (default: "training").
         You can operate on it like a run object: Access a path inside the handler and assign metadata to it with "=" or
         other [Neptune logging methods](https://docs.neptune.ai/logging/methods/).
-    
+
         Example:
             >>> neptune_logger = NeptuneLogger()
             >>> trainer = Trainer(loggers=neptune_logger, ...)
@@ -251,18 +253,13 @@ class NeptuneLogger(LoggerDestination):
         if not self._enabled:
             return
 
-        unused_args = (masks, mask_class_labels, use_table)  # Unused
-        if any(unused_args):
-            warnings.warn(
-                textwrap.dedent(f"""NeptuneLogger does not support masks, class labels, or tables of images,
-                                  but got {masks=}, {mask_class_labels=}, {use_table=}"""))
-
         if not isinstance(images, Sequence) and images.ndim <= 3:
-            images = [images]
+            images = _validate_image(images, channels_last=channels_last)
+            self.base_handler[name].append(File.as_image(images), step=step)
 
-        images = list(map(partial(_validate_image, channels_last=channels_last), images),)
-
-        self.base_handler[name].extend(images, step=step)
+        else:
+            images = list(map(partial(_validate_image, channels_last=channels_last), images))
+            self.base_handler[name].extend([File.as_image(img) for img in images])
 
     def post_close(self) -> None:
         if not self._enabled:
@@ -276,9 +273,6 @@ class NeptuneLogger(LoggerDestination):
 def _validate_image(img: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:
     if isinstance(img, torch.Tensor):
         img = img.data.cpu().numpy()
-
-    if not isinstance(img, np.ndarray):
-        raise ValueError(f'Image should be of type np.ndarray or torch.Tensor. Got {type(img)}')
 
     # Error out for empty arrays or weird arrays of dimension 0.
     if np.any(np.equal(img.shape, 0)):
