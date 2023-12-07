@@ -1749,7 +1749,6 @@ class Trainer:
             device_train_microbatch_size (int | str, optional): See :class:`.Trainer`.
             precision (Precision | str, optional): See :class:`.Trainer`.
         """
-        log.info(f'Fit {random.getstate()}')
         # Check Optimizer
         if len(self.state.optimizers) == 0:
             raise ValueError(f'No optimizer was specified when constructing the Trainer. As the '
