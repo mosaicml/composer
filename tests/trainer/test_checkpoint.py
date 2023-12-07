@@ -1019,7 +1019,7 @@ class TestCheckpointResumption:
         final_checkpoint: str,
         seed: Optional[int],
         tmp_path: pathlib.Path,
-        patch_random_seed,
+        patch_random_methods,
     ):
 
         # all ranks use rank 0 folder

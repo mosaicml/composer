@@ -69,18 +69,24 @@ def disable_wandb(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureReques
 
 import random
 import traceback
-def patched_random_seed(*args, **kwargs):
-    print("Random seed is being altered. Stack trace:")
-    traceback.print_stack()
-    original_random_seed(*args, **kwargs)
+def patched_function(original_function):
+    def wrapper(*args, **kwargs):
+        state_before = random.getstate()
+        result = original_function(*args, **kwargs)
+        state_after = random.getstate()
 
-# Store the original random.seed function
-original_random_seed = random.seed
+        if state_before != state_after:
+            print(f"Random state changed by {original_function.__name__}. Stack trace:")
+            traceback.print_stack()
+
+        return result
+    return wrapper
 
 @pytest.fixture
-def patch_random_seed(monkeypatch):
-    # Use monkeypatch to replace random.seed
-    monkeypatch.setattr(random, 'seed', patched_random_seed)
+def patch_random_methods(monkeypatch):
+    for method_name in ['random', 'randint', 'shuffle', 'choice', 'randrange']:  # Add other methods as needed
+        original_method = getattr(random, method_name)
+        monkeypatch.setattr(random, method_name, patched_function(original_method))
 
 
 @pytest.fixture(scope='session')
