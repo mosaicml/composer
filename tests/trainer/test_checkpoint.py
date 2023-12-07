@@ -33,9 +33,8 @@ from composer.utils.checkpoint import glob_filter
 from composer.utils.object_store.object_store import ObjectStore
 from composer.utils.object_store.s3_object_store import S3ObjectStore
 from tests.common import (RandomClassificationDataset, RandomImageDataset, RandomTextLMDataset, SimpleConvModel,
-                          SimpleModel, SimpleTransformerMaskedLM, deep_compare, device)
+                          SimpleDeterministicModel, SimpleModel, SimpleTransformerMaskedLM, deep_compare, device)
 from tests.common.markers import world_size
-from tests.common.models import SimpleDeterministicModel
 
 
 class DummyStatefulCallback(Callback):

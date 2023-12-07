@@ -10,9 +10,10 @@ from tests.common.datasets import (InfiniteClassificationDataset, ParityDataset,
                                    RandomTextLMDataset, SimpleDataset)
 from tests.common.events import EventCounterCallback
 from tests.common.markers import device, world_size
-from tests.common.models import (ConvModel, EmbeddedWeightTiedModel, EmptyModel, SimpleConvModel, SimpleModel,
-                                 SimpleModelWithDropout, SimpleTransformerClassifier, SimpleTransformerMaskedLM,
-                                 SimpleWeightTiedModel, ZeroModel)
+from tests.common.models import (ConvModel, EmbeddedWeightTiedModel, EmptyModel, SimpleConvModel,
+                                 SimpleDeterministicModel, SimpleModel, SimpleModelWithDropout,
+                                 SimpleTransformerClassifier, SimpleTransformerMaskedLM, SimpleWeightTiedModel,
+                                 ZeroModel)
 from tests.common.state import assert_state_equivalent
 
 
@@ -33,6 +34,7 @@ __all__ = [
     'ZeroModel',
     'EmptyModel',
     'SimpleModel',
+    'SimpleDeterministicModel',
     'SimpleTransformerClassifier',
     'SimpleTransformerMaskedLM',
     'EmbeddedWeightTiedModel',
