@@ -1920,27 +1920,43 @@ class Trainer:
             dataloader_label (str): The dataloader label.
             metrics (Dict[str, Metric]): The metrics to compute.
         """
+        log.info(f'[Train 1923] {self.state.timestamp}\n {random.getstate()}')
         metrics = deepcopy(metrics)
 
         # log computed metrics
+        log.info(f'[Train 1927] {self.state.timestamp}\n {random.getstate()}')
         computed_metrics = {}
+        log.info(f'[Train 1929] {self.state.timestamp}\n {random.getstate()}')
         for metric_name, metric in metrics.items():
+            log.info(f'[Train 1931] {self.state.timestamp}\n {random.getstate()}')
             computed_metrics[metric_name] = metric.compute()
+            log.info(f'[Train 1933] {self.state.timestamp}\n {random.getstate()}')
 
+        log.info(f'[Train 1935] {self.state.timestamp}\n {random.getstate()}')
         self.logger.log_metrics(
             {f'metrics/{dataloader_label}/{name}': val for (name, val) in computed_metrics.items()},)
 
         # store metric instances
+        log.info(f'[Train 1940] {self.state.timestamp}\n {random.getstate()}')
         for metric_name, metric in metrics.items():
+            log.info(f'[Train 1942] {self.state.timestamp}\n {random.getstate()}')
             assert isinstance(metric, Metric)
+            log.info(f'[Train 1944] {self.state.timestamp}\n {random.getstate()}')
             if dataloader_label == 'train':
+                log.info(f'[Train 1946] {self.state.timestamp}\n {random.getstate()}')
                 self.state.train_metrics[metric_name] = metric
+                log.info(f'[Train 1948] {self.state.timestamp}\n {random.getstate()}')
                 self.state.train_metric_values[metric_name] = computed_metrics[metric_name]
+                log.info(f'[Train 1950] {self.state.timestamp}\n {random.getstate()}')
             else:
+                log.info(f'[Train 1952] {self.state.timestamp}\n {random.getstate()}')
                 if dataloader_label not in self.state.eval_metrics:
                     self.state.eval_metrics[dataloader_label] = {}
+                log.info(f'[Train 1955] {self.state.timestamp}\n {random.getstate()}')
                 self.state.eval_metrics[dataloader_label][metric_name] = metric
+                log.info(f'[Train 1957] {self.state.timestamp}\n {random.getstate()}')
                 self.state.eval_metric_values[metric_name] = computed_metrics[metric_name]
+        log.info(f'[Train 1959] {self.state.timestamp}\n {random.getstate()}')
 
     def _spin_dataloaders_to_cur_epoch(self):
         """Spin the dataloaders to restore sampler state for current epoch.
