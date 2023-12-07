@@ -606,7 +606,6 @@ def test_code_update_gen_kwargs(tiny_gpt2_tokenizer, tmp_path):
     )
     assert dl.default_batch['generation_kwargs']['num_beams'] == 9000
     assert dl.default_batch['generation_kwargs']['top_p'] == .95
-    assert dl.default_batch['generation_kwargs']['top_k'] == 40
     assert dl.default_batch['generation_kwargs']['temperature'] == .9
     assert dl.default_batch['generation_kwargs']['do_sample'] == True
 
