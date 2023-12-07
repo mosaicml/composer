@@ -35,6 +35,7 @@ from composer.utils.object_store.s3_object_store import S3ObjectStore
 from tests.common import (RandomClassificationDataset, RandomImageDataset, RandomTextLMDataset, SimpleConvModel,
                           SimpleModel, SimpleTransformerMaskedLM, deep_compare, device)
 from tests.common.markers import world_size
+from tests.common.models import SimpleDeterministicModel
 
 
 class DummyStatefulCallback(Callback):
@@ -948,7 +949,7 @@ class TestCheckpointResumption:
                     max_duration='2ep',
                     train_subset_num_batches=5,
                     **kwargs):
-        model = SimpleModel()
+        model = SimpleDeterministicModel()
         model.fc1.to(model_init_device)
         model.fc2.to(model_init_device)
         optimizer = torch.optim.Adam(model.parameters())
