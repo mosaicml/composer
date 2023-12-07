@@ -452,7 +452,7 @@ class InContextLearningDataset(Dataset):
         tokenized_example = self._tokenize_example(prompt_and_fewshot, ctxt, example)
         return tokenized_example
 
-    # TODO: Maybe make this not a class function
+    # TODO: Maybe make this not a class function. Also, could make our padding operations work on lists
     def _convert_tokens_to_tensors(self, batch: Dict) -> Dict[str, Any]:
         # zzzz HF converts ur torch tensors into lists so need to convert them back
         batch['input_ids'] = torch.stack(list(map(torch.tensor, batch['input_ids'])))
@@ -736,6 +736,7 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
 
     def _get_answer_from_example(self, example: Dict[str, Any], in_context=False) -> str:
         cont = example[self.answer_key]
+        # Should this be in the base class?
         if self.prefix_space and not cont.startswith(' ') and not in_context:
             cont = f' {cont}'
         return cont
@@ -847,7 +848,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         The function that the dataloader uses to accumulate data into batches.
         We run each distinct query + answer choice through the model separately and determine which
         answer has the lowest per-token-perplexity.
-       
+
         If each question has N possible choices, all N must be grouped together as distinct elements of the batch
         since the batch may consist of multiple questions, the choice_groupings indicates
         which contiguous sequences of elements in the batch correspond to which question
@@ -1042,7 +1043,9 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         tokenized_example = {}
         preamble = self.tokenizer(prompt_and_fewshot)
         preamble = self._fix_eos_on_preamble(preamble['input_ids'])
-        encoded_contexts = [preamble + self.tokenizer(c, add_special_tokens=False)['input_ids'] for c in context_options]
+        encoded_contexts = [
+            preamble + self.tokenizer(c, add_special_tokens=False)['input_ids'] for c in context_options
+        ]
         continuation = example['continuation']
         if self.prefix_space:
             continuation = (f' {continuation}' if not continuation.startswith(' ') else continuation)
@@ -1165,16 +1168,15 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             },
         }
         self._update_generation_kwargs(kwargs.get('generation_kwargs'))
-    
 
     def adjust_padding(self):
         """
-        Adjusts padding to the maximum prompt size rather than max_seq_len. 
+        Adjusts padding to the maximum prompt size rather than max_seq_len.
         Needs to be done after the dataset has been processed because we can't get the prompt length
         until after we've tokenized it.
 
         Returns:
-            dataset: 
+            dataset:
         """
         max_prompt_length = 0
         for example in self.dataset:
