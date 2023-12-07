@@ -1083,8 +1083,8 @@ class Trainer:
         if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and os.environ.get(
                 MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and not any(isinstance(x, MosaicMLLogger) for x in loggers):
             log.info('Detected run on MosaicML platform. Adding MosaicMLLogger to loggers.')
-            mosaicml_logger = MosaicMLLogger()
-            loggers.append(mosaicml_logger)
+            # mosaicml_logger = MosaicMLLogger()
+            # loggers.append(mosaicml_logger)
 
         if save_folder is not None:
             remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
