@@ -67,8 +67,6 @@ if __name__ == '__main__':
 
     export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}' {s3_bucket_flag} {clear_tmp_path_flag}"
 
-    export PYTHONUNBUFFERED=1
-
     make test PYTEST='{args.pytest_command}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
 
     make test-dist PYTEST='{args.pytest_command}' EXTRA_ARGS="$COMMON_ARGS" WORLD_SIZE=2
@@ -86,6 +84,16 @@ if __name__ == '__main__':
         integrations=[git_integration],
         command=command,
         scheduling={'max_duration': args.timeout / 60 / 60},
+        env_variables=[
+            {
+                'key': 'MOSAICML_PLATFORM',
+                'value': 'False',
+            },
+            {
+                'key': 'PYTHONUNBUFFERED',
+                'value': '1',
+            },
+        ],
     )
 
     # Create run
