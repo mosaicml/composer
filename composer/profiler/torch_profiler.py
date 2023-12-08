@@ -11,6 +11,7 @@ import os
 import textwrap
 from typing import TYPE_CHECKING, Optional, OrderedDict
 
+import torch.cuda
 import torch.profiler
 from torch.profiler.profiler import ProfilerAction as TorchProfilerAction
 
@@ -346,7 +347,7 @@ class TorchProfiler(Callback):  # noqa: D101
 
                     export_memory_timeline_html(mem_tl, memory_trace_file_name, torch.cuda.current_device())
                 else:
-                    prof.export_memory_timeline(memory_trace_file_name, torch.cuda.current_device())
+                    prof.export_memory_timeline(memory_trace_file_name, str(torch.cuda.current_device()))
                 log.debug(f'Uploaded memory trace to {self.memory_remote_file_name}')
                 if self.memory_remote_file_name is not None:
                     memory_trace_remote_file_name = format_name_with_dist_and_time(self.memory_remote_file_name,
