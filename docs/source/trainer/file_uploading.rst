@@ -88,7 +88,8 @@ To store files remotely, in the ``loggers`` argument to the Trainer constructor,
 
 .. seealso::
 
-    The built-in :class:`~composer.loggers.wandb_logger.WandBLogger` and
+    The built-in :class:`~composer.loggers.wandb_logger.WandBLogger`,
+    :class:`~composer.loggers.neptune_logger.NeptuneLogger and
     :class:`~composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader`
     implement this method -- see the examples below.
 
@@ -103,11 +104,15 @@ to upload them. Otherwise, you could run into an infinite loop!
 Where can I remotely store files?
 ---------------------------------
 
-Composer includes two built-in LoggerDestinations to store artifacts:
+Composer includes three built-in LoggerDestinations to store artifacts:
 
 *   The :class:`~composer.loggers.wandb_logger.WandBLogger` can upload Composer training files
     as `W & B Artifacts <https://docs.wandb.ai/ref/python/artifact>`_, which are associated with the corresponding
     W & B project.
+
+*   The :class:`~composer.logger.neptune_logger.NeptuneLogger` can upload Composer training files
+    as `Neptune Files <https://docs.neptune.ai/logging/files>`_, which are associated with the corresponding
+    Neptune project.
 
 *   The :class:`~composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader` can upload Composer training files
     to any cloud storage backend or remote filesystem. We include integrations for AWS S3 and SFTP

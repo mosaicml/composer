@@ -41,18 +41,19 @@ and also saves them to the file
     :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED
 
     from composer import Trainer
-    from composer.loggers import WandBLogger, CometMLLogger, MLFlowLogger, FileLogger
+    from composer.loggers import WandBLogger, CometMLLogger, MLFlowLogger, NeptuneLogger, FileLogger
 
     wandb_logger = WandBLogger()
     cometml_logger = CometMLLogger()
     mlflow_logger = MLFlowLogger()
+    neptune_logger = NeptuneLogger()
     file_logger = FileLogger(filename="log.txt")
 
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
         eval_dataloader=eval_dataloader,
-        loggers=[wandb_logger, cometml_logger, mlflow_logger, file_logger],
+        loggers=[wandb_logger, cometml_logger, mlflow_logger, neptune_logger, file_logger],
     )
 
 .. testcleanup::
@@ -73,6 +74,7 @@ Available Loggers
     ~wandb_logger.WandBLogger
     ~mlflow_logger.MLFlowLogger
     ~cometml_logger.CometMLLogger
+    ~neptune_logger.NeptuneLogger
     ~progress_bar_logger.ProgressBarLogger
     ~tensorboard_logger.TensorboardLogger
     ~in_memory_logger.InMemoryLogger

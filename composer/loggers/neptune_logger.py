@@ -10,13 +10,11 @@ __all__ = ['NeptuneLogger']
 
 import os
 import pathlib
-import textwrap
 import warnings
 from functools import partial
 from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Union
 
 import numpy as np
-import pytest
 import torch
 from neptune.types import File
 
