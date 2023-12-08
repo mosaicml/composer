@@ -86,6 +86,16 @@ def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str]) -> Union[Pat
     return checkpoint_filepath
 
 
+def _torch_load_with_validation(checkpoint_filepath: Union[Path, str], map_location: str) -> Any:
+    """Validates and loads a torch checkpoint.
+
+    Args:
+        checkpoint_filepath (Union[Path,str]): The path to the checkpoint file.
+        map_location (str): The location to load the checkpoint to.
+    """
+    return torch.load(_ensure_valid_checkpoint(checkpoint_filepath), map_location=map_location)
+
+
 def _format_path_with_rank_zero(path: str) -> str:
     """Formats ``path`` with the rank zero values."""
     return path.format(
@@ -734,9 +744,6 @@ def safe_torch_load(
         map_location: The location to load the checkpoint to.
         load_fsdp_monolith_rank0_only: Whether the checkpoint is a monolith FSDP checkpoint.
     """
-    # Validate the checkpoint file.
-    composer_states_filepath = _ensure_valid_checkpoint(composer_states_filepath)
-
     try:
         if load_fsdp_monolith_rank0_only:
             log.info(
@@ -745,7 +752,7 @@ def safe_torch_load(
             model = None
             optimizer = None
             if dist.get_global_rank() == 0:
-                state_dict_list[0] = torch.load(composer_states_filepath, map_location=map_location)
+                state_dict_list[0] = _torch_load_with_validation(composer_states_filepath, map_location=map_location)
                 # Don't broadcast model/optimizer state if they exist
                 if 'model' in state_dict_list[0]['state']:
                     model = state_dict_list[0]['state']['model']
@@ -766,7 +773,7 @@ def safe_torch_load(
 
             return state_dict
         else:
-            return torch.load(composer_states_filepath, map_location=map_location)
+            return _torch_load_with_validation(composer_states_filepath, map_location=map_location)
     except TypeError as e:
         if 'Accuracy.__new__() missing 1 required positional argument' in str(e):
             raise Exception('As of v0.10.0, torchmetrics introduces a new required argument to Accuracy which '
