@@ -302,12 +302,6 @@ class Time(Generic[TValue], Serializable):
             raise RuntimeError(f'Cannot divide {self} by {other} since they have different units.')
         return Time(self.value / other.value, TimeUnit.DURATION)
 
-    def __floordiv__(self, other: Union[int, float, Time, str]) -> Time[int]:
-        other = self._parse(other)
-        if self.unit != other.unit:
-            raise RuntimeError(f'Cannot divide {self} by {other} since they have different units.')
-        return Time(self.value // other.value, TimeUnit.DURATION)
-
     def __mod__(self, other: Union[int, float, Time, str]) -> Time[TValue]:
         other = self._parse(other)
         if self.unit != other.unit:

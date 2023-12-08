@@ -54,8 +54,6 @@ def test_time_math():
     assert t4 * 2 == Time.from_timestring('1dur')
     assert t1 / t2 == t4
     assert t2 / 2 == t1
-    assert t3 // 2 == t1
-    assert t3 // t2 == t1
     assert t3 % t3 == Time.from_timestring('0ep')
     assert t3 % t2 == t1
 
@@ -90,9 +88,6 @@ def test_invalid_math():
 
     with pytest.raises(RuntimeError):
         _ = t1 / t2
-
-    with pytest.raises(RuntimeError):
-        _ = t1 // t2
 
     with pytest.raises(RuntimeError):
         _ = t1 % t2

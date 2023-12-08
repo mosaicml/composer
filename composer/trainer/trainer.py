@@ -2019,7 +2019,9 @@ class Trainer:
         last_wct = datetime.datetime.now()
 
         if self.state.max_duration is None:
-            raise RuntimeError('max_duration must be specified when calling Trainer.fit()')
+            # This is essentially just a type check, as max_duration should always be
+            # asserted to be not None when Trainer.fit() is called
+            raise RuntimeError('max_duration must be specified when initializing the Trainer')
 
         while self.state.timestamp < self.state.max_duration:
             try:
