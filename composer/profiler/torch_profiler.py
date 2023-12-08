@@ -194,22 +194,25 @@ class TorchProfiler(Callback):  # noqa: D101
         with_stack: bool = False,
         with_flops: bool = True,
         num_traces_to_keep: int = -1,
-        memory_custom_plot: bool = False,
+        memory_custom_plot: bool = True,
     ) -> None:
         self.overwrite = overwrite
         self.folder = folder
         if use_gzip:
             if not filename.endswith('.gz'):
                 filename += '.gz'
-            if memory_filename is not None and not memory_filename.endswith('.html'):
-                memory_filename += '.gz'
         self.filename = filename
+        if memory_filename is not None:
+            assert memory_filename.endswith('.html'), f'memory_filename must end with .html, got {memory_filename}'
         self.memory_filename = memory_filename
+
         if use_gzip:
             if remote_file_name is not None and not remote_file_name.endswith('.gz'):
                 remote_file_name += '.gz'
-            if memory_remote_file_name is not None and not memory_remote_file_name.endswith('.gz'):
-                memory_remote_file_name += '.gz'
+        if memory_remote_file_name is not None:
+            assert memory_remote_file_name.endswith(
+                '.html'), f'memory_remote_file_name must end with .html, got {memory_remote_file_name}'
+
         self.remote_file_name = remote_file_name
         self.memory_remote_file_name = memory_remote_file_name
         self.record_shapes = record_shapes
@@ -252,7 +255,7 @@ class TorchProfiler(Callback):  # noqa: D101
             assert state.profiler is not None
 
             timestamp = state.timestamp
-            if not (self.filename is None and self.memory_filename is not None):
+            if self.filename is not None:
                 trace_file_name = os.path.join(
                     folder_name,
                     format_name_with_dist_and_time(self.filename, run_name=state.run_name, timestamp=timestamp),
@@ -282,72 +285,11 @@ class TorchProfiler(Callback):  # noqa: D101
                 if memory_trace_file_dirname:
                     os.makedirs(memory_trace_file_dirname, exist_ok=True)
                 if self.memory_custom_plot:
-                    from base64 import b64encode
-                    from os import remove
-                    from tempfile import NamedTemporaryFile
-
-                    import matplotlib.pyplot as plt
-                    import numpy as np
-                    from torch.profiler._memory_profiler import (_CATEGORY_TO_COLORS, _CATEGORY_TO_INDEX,
-                                                                 MemoryProfileTimeline)
-
-                    # Construct the memory timeline plot data
-                    mem_tl = MemoryProfileTimeline(prof._memory_profile())
-
-                    def export_memory_timeline_html(mem_tl, path, device, figsize=(20, 12), title=None) -> None:
-                        # Check if user has matplotlib installed, return gracefully if not.
-                        import importlib.util
-
-                        matplotlib_spec = importlib.util.find_spec('matplotlib')
-                        if matplotlib_spec is None:
-                            print('export_memory_timeline_html failed because matplotlib was not found.')
-                            return
-
-                        mt = mem_tl._coalesce_timeline(device)
-                        times, sizes = np.array(mt[0]), np.array(mt[1])
-                        stacked = np.cumsum(sizes, axis=1) / 1024**3
-                        max_memory_allocated = torch.cuda.max_memory_allocated()
-                        max_memory_reserved = torch.cuda.max_memory_reserved()
-
-                        # Plot memory timeline as stacked data
-                        fig = plt.figure(figsize=figsize, dpi=80)
-                        axes = fig.gca()
-                        for category, color in _CATEGORY_TO_COLORS.items():
-                            i = _CATEGORY_TO_INDEX[category]
-                            axes.fill_between(times / 1e3, stacked[:, i], stacked[:, i + 1], color=color, alpha=0.7)
-                        fig.legend(['Unknown' if i is None else i.name for i in _CATEGORY_TO_COLORS])
-                        axes.set_xlabel('Time (us)')
-                        axes.set_ylabel('Memory (GB)')
-                        _, end = axes.get_ylim()
-                        axes.grid(True)
-                        axes.set_yticks(np.arange(0, end, 1))
-                        title = '\n\n'.join(([title] if title else []) + [
-                            f'Max memory allocated: {max_memory_allocated/(10**9):.2f} GB \n'
-                            f'Max memory reserved: {max_memory_reserved/(10**9):.2f} GB'
-                        ])
-                        axes.set_title(title)
-
-                        # Embed the memory timeline image into the HTML file
-                        tmpfile = NamedTemporaryFile('wb', suffix='.png', delete=False)
-                        tmpfile.close()
-                        fig.savefig(tmpfile.name, format='png')
-
-                        with open(tmpfile.name, 'rb') as tmp:
-                            encoded = b64encode(tmp.read()).decode('utf-8')
-                            html = f"""<html>
-                                    <head><meta charset="utf-8" /><title>GPU Memory Timeline HTML</title></head>
-                                    <body>
-                                    <img src='data:image/png;base64,{encoded}'>
-                                    </body>
-                                    </html>"""
-
-                            with open(path, 'w') as f:
-                                f.write(html)
-                        remove(tmpfile.name)
-
-                    export_memory_timeline_html(mem_tl, memory_trace_file_name, torch.cuda.current_device())
+                    from composer.profiler.utils import export_memory_timeline_html
+                    export_memory_timeline_html(prof, memory_trace_file_name,
+                                                torch.cuda.current_device())  # type: ignore
                 else:
-                    prof.export_memory_timeline(memory_trace_file_name, str(torch.cuda.current_device()))
+                    prof.export_memory_timeline(memory_trace_file_name, torch.cuda.current_device())  # type: ignore
                 log.debug(f'Uploaded memory trace to {self.memory_remote_file_name}')
                 if self.memory_remote_file_name is not None:
                     memory_trace_remote_file_name = format_name_with_dist_and_time(self.memory_remote_file_name,
