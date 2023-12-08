@@ -271,7 +271,7 @@ class TorchProfiler(Callback):  # noqa: D101
                                        file_path=trace_file_name,
                                        overwrite=self.overwrite)
 
-            log.debug(f'Memory profiler enabled: {self.memory_filename}')
+            log.debug(f'Memory profiler enabled: {self.memory_filename if self.memory_filename else False}')
             if self.memory_filename is not None:
                 memory_trace_file_name = os.path.join(
                     folder_name,
