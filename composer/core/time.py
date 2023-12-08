@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import datetime
 import re
-import warnings
 from typing import Any, Dict, Generic, Optional, TypeVar, Union, cast
 
 from composer.core.serializable import Serializable
@@ -429,39 +428,39 @@ class Timestamp(Serializable):
         epoch_wct: Optional[datetime.timedelta] = None,
         batch_wct: Optional[datetime.timedelta] = None,
     ):
-        epoch = ensure_time(epoch, TimeUnit.EPOCH)
+        epoch = Time.from_input(epoch, TimeUnit.EPOCH)
         if epoch.unit != TimeUnit.EPOCH:
             raise ValueError(f'The `epoch` argument has units of {epoch.unit}; not {TimeUnit.EPOCH}.')
         self._epoch = epoch
 
-        batch = ensure_time(batch, TimeUnit.BATCH)
+        batch = Time.from_input(batch, TimeUnit.BATCH)
         if batch.unit != TimeUnit.BATCH:
             raise ValueError(f'The `batch` argument has units of {batch.unit}; not {TimeUnit.BATCH}.')
         self._batch = batch
 
-        sample = ensure_time(sample, TimeUnit.SAMPLE)
+        sample = Time.from_input(sample, TimeUnit.SAMPLE)
         if sample.unit != TimeUnit.SAMPLE:
             raise ValueError(f'The `sample` argument has units of {sample.unit}; not {TimeUnit.SAMPLE}.')
         self._sample = sample
 
-        token = ensure_time(token, TimeUnit.TOKEN)
+        token = Time.from_input(token, TimeUnit.TOKEN)
         if token.unit != TimeUnit.TOKEN:
             raise ValueError(f'The `token` argument has units of {token.unit}; not {TimeUnit.TOKEN}.')
         self._token = token
 
-        batch_in_epoch = ensure_time(batch_in_epoch, TimeUnit.BATCH)
+        batch_in_epoch = Time.from_input(batch_in_epoch, TimeUnit.BATCH)
         if batch_in_epoch.unit != TimeUnit.BATCH:
             raise ValueError((f'The `batch_in_epoch` argument has units of {batch_in_epoch.unit}; '
                               f'not {TimeUnit.BATCH}.'))
         self._batch_in_epoch = batch_in_epoch
 
-        sample_in_epoch = ensure_time(sample_in_epoch, TimeUnit.SAMPLE)
+        sample_in_epoch = Time.from_input(sample_in_epoch, TimeUnit.SAMPLE)
         if sample_in_epoch.unit != TimeUnit.SAMPLE:
             raise ValueError((f'The `sample_in_epoch` argument has units of {sample_in_epoch.unit}; '
                               f'not {TimeUnit.SAMPLE}.'))
         self._sample_in_epoch = sample_in_epoch
 
-        token_in_epoch = ensure_time(token_in_epoch, TimeUnit.TOKEN)
+        token_in_epoch = Time.from_input(token_in_epoch, TimeUnit.TOKEN)
         if token_in_epoch.unit != TimeUnit.TOKEN:
             raise ValueError((f'The `token_in_epoch` argument has units of {token_in_epoch.unit}; '
                               f'not {TimeUnit.TOKEN}.'))
@@ -819,6 +818,4 @@ def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str
     Returns:
         Time: An instance of :class:`.Time`.
     """
-    warnings.warn('ensure_time is deprecated. Use Time.from_input instead.', DeprecationWarning)
-
     return Time.from_input(maybe_time, int_unit)

@@ -2018,6 +2018,9 @@ class Trainer:
         finished_epoch_early = False
         last_wct = datetime.datetime.now()
 
+        if self.state.max_duration is None:
+            raise RuntimeError('max_duration must be specified when calling Trainer.fit()')
+
         while self.state.timestamp < self.state.max_duration:
             try:
                 if int(self.state.timestamp.batch_in_epoch) == 0:
