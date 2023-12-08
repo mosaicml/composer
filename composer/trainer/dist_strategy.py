@@ -413,7 +413,7 @@ def prepare_fsdp_module(
                         return
 
                     # Move all parameters and buffers to the current device
-                    module.to_empty(device=torch.cuda.current_device(), recurse=False)
+                    module.to_empty(device=f'cuda:{torch.cuda.current_device()}', recurse=False)
 
                     # Redo weight tying, which will have been broken by the above line that moves parameters off of meta device
                     if module in source_mod_to_mod_attr:
