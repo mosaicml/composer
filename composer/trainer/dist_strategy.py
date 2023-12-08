@@ -368,7 +368,7 @@ def prepare_fsdp_module(
             # Skip wrapping submodules which are explicitly marked with no wrap
             if hasattr(obj, '_fsdp_wrap') and not bool(obj._fsdp_wrap):
                 continue
-            
+
             # Rather than verifying these changes with older PyTorch versions, we are fixing forward here
             if version.parse(torch.__version__) > version.parse('2.1.0'):
                 # A dictionary of all tied parameter pointers to (module, attr) tuples
@@ -396,16 +396,19 @@ def prepare_fsdp_module(
 
                     # Arbitrarily choose the first module as the source module
                     first_mod, first_attr = mod_attr_list[0]
-                    source_mod_to_mod_attr[first_mod] = [(target_mod, first_attr, dest_attr) for target_mod, dest_attr in mod_attr_list[1:]]
-                
+                    source_mod_to_mod_attr[first_mod] = [
+                        (target_mod, first_attr, dest_attr) for target_mod, dest_attr in mod_attr_list[1:]
+                    ]
+
                 # Clean up no longer needed module references for memory safety
                 del tied_pointers
 
                 def _param_init_fn(module: torch.nn.Module) -> None:
-                    # If we do not have any parameters or buffers on meta device, we do not need to call the parameter init function.
+                    # If we do not have any parameters or buffers on meta device managed by this module directly, we do not need to call the parameter init function.
                     # It is assumed that whatever process moved the parameters off of meta device initialized them.
                     # We expect this to occur if we have tied weights, as the second module will already have the weights initialized.
-                    is_meta = any(param.is_meta for param in module.parameters()) or any(buffer.is_meta for buffer in module.buffers())
+                    is_meta = any(param.is_meta for param in module.parameters(recurse=False)) or any(
+                        buffer.is_meta for buffer in module.buffers(recurse=False))
                     if not is_meta:
                         return
 
@@ -428,6 +431,7 @@ def prepare_fsdp_module(
                             'This leaves parameters without initialization. Please add a ``param_init_fn`` or ``reset_parameters`` '
                             f'to module `{obj_name}`.')
             else:
+
                 def _param_init_fn(module: torch.nn.Module) -> None:
                     # A dictionary of all tied parameter pointers to module names
                     tied_pointers = {}
@@ -472,10 +476,10 @@ def prepare_fsdp_module(
 
                     if len(tied_mod_names) > 0:
                         warnings.warn(('The passed in model appears to have tied weights. In order to '
-                                    'support effective weight tying, the tied modules need to be '
-                                    'in the same FSDP module. If the weights are not properly tied '
-                                    'it can lead to loss spikes. We have tried our best to ensure '
-                                    'the tied weights are in the same FSDP module.'))
+                                       'support effective weight tying, the tied modules need to be '
+                                       'in the same FSDP module. If the weights are not properly tied '
+                                       'it can lead to loss spikes. We have tried our best to ensure '
+                                       'the tied weights are in the same FSDP module.'))
 
                     # Redoes weight tying
                     for name_attr, tied_names in tied_mod_names.items():
