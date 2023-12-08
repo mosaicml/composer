@@ -1,25 +1,29 @@
+# Copyright 2022 MosaicML Composer authors
+# SPDX-License-Identifier: Apache-2.0
+
+import importlib.util
 from base64 import b64encode
 from os import remove
 from tempfile import NamedTemporaryFile
-import numpy as np
-from torch.profiler._memory_profiler import MemoryProfileTimeline, _CATEGORY_TO_COLORS, _CATEGORY_TO_INDEX
-import importlib.util
-from torch.profiler.profiler import profile as TorchProfile
 from typing import Optional
+
+import numpy as np
 import torch.cuda
+from torch.profiler._memory_profiler import _CATEGORY_TO_COLORS, _CATEGORY_TO_INDEX, MemoryProfileTimeline
+from torch.profiler.profiler import profile as TorchProfile
 
 
 def export_memory_timeline_html(prof: TorchProfile,
                                 path: str,
-                                device: Optional[str | int] = None,
+                                device: Optional[str] = None,
                                 figsize=(20, 12),
                                 title=None) -> None:
     # Default to device 0, if unset. Fallback on cpu.
-    if device is None and prof.use_device and prof.use_device != "cuda":
-        device = prof.use_device + ":0"
+    if device is None and prof.use_device and prof.use_device != 'cuda':
+        device = prof.use_device + ':0'
 
     if device is None:
-        device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
     # Construct the memory timeline plot data
     mem_tl = MemoryProfileTimeline(prof._memory_profile())
