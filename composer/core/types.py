@@ -21,7 +21,7 @@ import torch.utils.data
 
 from composer.utils import StringEnum
 
-__all__ = ['Batch', 'PyTorchScheduler', 'JSON', 'MemoryFormat', 'TrainerMode', 'BreakEpochException']
+__all__ = ['Batch', 'PyTorchScheduler', 'JSON', 'MemoryFormat', 'TrainerMode']
 
 Batch = Any
 
@@ -35,14 +35,6 @@ except:
     PyTorchScheduler = torch.optim.lr_scheduler._LRScheduler
 
 JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
-
-
-class BreakEpochException(Exception):
-    """Raising this exception will immediately end the current epoch.
-
-    If you're wondering whether you should use this, the answer is no.
-    """
-    pass
 
 
 class TrainerMode(StringEnum):
