@@ -422,8 +422,7 @@ def prepare_fsdp_module(
 
                     # Run the specified initialization
                     if hasattr(obj, 'param_init_fn') and isinstance(obj.param_init_fn, Callable):
-                        # obj.param_init_fn(module)
-                        module.apply(obj.param_init_fn)
+                        obj.param_init_fn(module)
                     elif hasattr(module, 'reset_parameters') and isinstance(module.reset_parameters, Callable):
                         module.reset_parameters()
                     else:
