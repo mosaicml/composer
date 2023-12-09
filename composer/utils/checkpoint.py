@@ -63,7 +63,7 @@ def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str]) -> Union[Pat
     """Ensures that the checkpoint at checkpoint_filepath is valid.
 
     using the function specified by the CHECKPOINT_VALIDATION_FUNCTION environment variable.
-    If CHECKPOINT_VALIDATION_FUNCTION, we skip validation.
+    If CHECKPOINT_VALIDATION_FUNCTION is not set, we skip validation.
 
     Args:
         checkpoint_filepath (Union[Path,str]): The path to the checkpoint file.
