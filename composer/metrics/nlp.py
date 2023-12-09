@@ -9,6 +9,7 @@ import re
 import string
 import warnings
 from typing import Any, Dict, List, Mapping, Optional, Union
+from copy import deepcopy
 
 import numpy as np
 import torch
@@ -16,6 +17,7 @@ from torch import Tensor
 from torch.nn import functional as F
 from torchmetrics import Metric
 
+from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient, MosaicMLLambdaEvalClient
 
 log = logging.getLogger(__name__)
@@ -286,6 +288,108 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
         assert isinstance(self.correct, Tensor)
         assert isinstance(self.total, Tensor)
         return self.correct / self.total
+
+class InContextLearningLLMAsAJudge(InContextLearningMetric):
+    r"""Computes accuracy for In-context learning (ICL) question answering (QA) tasks.
+
+    ICL QA tasks consist of some number of example question answering tasks (referred to as the 'context'), followed by a test task where the model must
+    match one of the possible answer aliases (referred to as the 'continuation').
+
+    For example, the model may be provided the context below and evaluated on its ability to correctly predict the continuation.
+
+    Context: `Question: Who was president of the United States in 2012?\nAnswer: Barack Obama\nQuestion: Is water wet?\nAnswer: `
+    Continuation: [`yes`, `no`]
+
+    Both predictions and answers will be normalized before comparison.
+
+    Adds metric state variables:
+        correct (float): The number of instances where the prediction was a prefix for any of the answer aliases.
+        total (float): The number of total instances that were predicted.
+
+    Args:
+        dist_sync_on_step (bool, optional): Synchronize metric state across processes at
+            each forward() before returning the value at the step. Default: ``False``.
+    """
+
+    # Make torchmetrics call update only once
+    full_state_update = False
+
+    BASE_EQUIVALENCE_PROMPT = """
+        Please determine whether the following two statements or answers are equivalent. Respond only with "Yes" or "No". Any other response is considered invalid.
+        Statement 1: The sky is blue.
+        Statement 2: The sky is blue.
+        Result: Yes
+
+        Statement 1: Computer hard drive
+        Statement 2: Solid state drive
+        Result: No
+
+        Statement 1: Potatos are nutritious.
+        Statement 2: Taters have many healthy benefits.
+        Result: Yes
+
+        Statement 1: Pytorch
+        Statement 2: Tensorflow
+        Result: No
+
+        Statement 1: We are so back
+        Statement 2: It's so over
+        Result: No
+
+        Statement 1: {statement1}
+        Statement 2: {statement2}
+        Result: 
+    """
+
+    def __init__(self, dist_sync_on_step: bool = False, tokenizer: Optional[Any] = None, prompt: Optional[str] = None, judge_delimiter: Optional[str] = None):
+        # state from multiple processes
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.base_openai_call_input = { 
+            "engine":"text-davinci-002",  # You can change the engine as needed
+            "temperature":0.0,
+            "max_tokens":3,  
+            "n":1,  
+            "stop":None,  
+        }
+        self.init_openai()
+    
+    def init_openai(self):
+        try:
+            import openai
+        except ImportError as e:
+            raise MissingConditionalImportError(
+                extra_deps_group='openai',
+                conda_package='openai',
+                conda_channel='conda-forge') from e
+        openai.api_key = os.environ["OPENAI_API_KEY"]
+
+
+    def call_judge(self, judge_input: str) -> List[str]:
+        openai_call_input = deepcopy(self.base_openai_call_input)
+        openai_call_input['prompt'] = judge_input
+        response = openai.Completion.create(**openai_call_input)
+        return response.choices[0]["message"]["content"]
+
+
+    def update(self, outputs: List[str], labels: List[List[str]], batch: Optional[Dict[str, Any]] = None):
+        for sample_output, sample_labels in zip(outputs, labels):
+            judge_input = self.BASE_EQUIVALENCE_PROMPT.format(statement1=sample_output, statement2=sample_labels[0])
+            result = self.call_judge(judge_input)
+            if result.endswith("Yes"):
+                self.correct += torch.tensor(1.0)
+            elif result.endswith("No"):
+                pass
+            else:
+                raise ValueError(f"Judge returned unexpected value: {result}")
+            self.total += torch.tensor(1.0)
+
+    def compute(self):
+        assert isinstance(self.correct, Tensor)
+        assert isinstance(self.total, Tensor)
+        return self.correct / self.total
+
 
 
 class InContextLearningLMAccuracy(InContextLearningMetric):
