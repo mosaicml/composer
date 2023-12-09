@@ -77,7 +77,6 @@ if __name__ == '__main__':
     '''
     config = RunConfig(
         name=name,
-        cluster=args.cluster,
         compute={
             'cluster': args.cluster,
             'gpu_type': args.gpu_type,
