@@ -1,6 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+"""Utility functions for torch profiler."""
+
 import importlib.util
 from base64 import b64encode
 from os import remove
@@ -9,7 +11,7 @@ from typing import Optional
 
 import numpy as np
 import torch.cuda
-from torch.profiler._memory_profiler import _CATEGORY_TO_COLORS, _CATEGORY_TO_INDEX, MemoryProfileTimeline
+from packaging import version
 from torch.profiler.profiler import profile as TorchProfile
 
 
@@ -18,6 +20,13 @@ def export_memory_timeline_html(prof: TorchProfile,
                                 device: Optional[str] = None,
                                 figsize=(20, 12),
                                 title=None) -> None:
+    """Exports a memory timeline to an HTML file. Similar to the PyTorch plotting function, but with adjusted axis tickers and grids."""
+    if version.parse(torch.__version__) <= version.parse('2.1.0.dev'):  # type: ignore
+        print('export_memory_timeline_html failed because memory timeline is supported after PyTorch 2.1.0.')
+        return
+
+    from torch.profiler._memory_profiler import _CATEGORY_TO_COLORS, _CATEGORY_TO_INDEX, MemoryProfileTimeline
+
     # Default to device 0, if unset. Fallback on cpu.
     if device is None and prof.use_device and prof.use_device != 'cuda':
         device = prof.use_device + ':0'
