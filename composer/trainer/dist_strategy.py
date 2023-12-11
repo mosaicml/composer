@@ -375,17 +375,12 @@ def prepare_fsdp_module(
                 tied_pointers = {}
 
                 # Goes through all modules finding which weights have the same pointers
-                for _, mod in obj.named_modules():
-                    for attr in ['weight', 'bias']:
-                        if hasattr(mod, attr):
-                            mod_attr = getattr(mod, attr)
-                            if mod_attr is None:
-                                continue
-
-                            ptr = id(mod_attr)
-                            mod_attr_list = tied_pointers.get(ptr, [])
-                            mod_attr_list.append((mod, attr))
-                            tied_pointers[ptr] = mod_attr_list
+                for mod in obj.modules():
+                    for attr_name, attr in mod.named_parameters(recurse=False):
+                        ptr = id(attr)
+                        mod_attr_list = tied_pointers.get(ptr, [])
+                        mod_attr_list.append((mod, attr_name))
+                        tied_pointers[ptr] = mod_attr_list
 
                 # Dictionary mapping the source module to a list of (target module, source attr, target attr) tuples
                 source_mod_to_mod_attr = {}
