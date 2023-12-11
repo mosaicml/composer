@@ -4,6 +4,7 @@
 import csv
 import json
 import os
+import time
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -284,7 +285,6 @@ def test_mlflow_log_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
         metadata={'task': 'llm/v1/completions'},
         task='text-generation',
     )
-    test_mlflow_logger._flush()
     test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(mlflow_exp_name, tracking_uri=mlflow_uri)
@@ -328,7 +328,6 @@ def test_mlflow_save_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
         metadata={'task': 'llm/v1/completions'},
         task='text-generation',
     )
-    test_mlflow_logger._flush()
     test_mlflow_logger.post_close()
 
     loaded_model = mlflow.transformers.load_model(local_mlflow_save_path, return_type='components')
@@ -372,7 +371,6 @@ def test_mlflow_register_model(tmp_path, monkeypatch):
                                              registry_uri='databricks-uc')
     assert mlflow.get_registry_uri() == 'databricks-uc'
 
-    test_mlflow_logger._flush()
     test_mlflow_logger.post_close()
 
 
@@ -411,7 +409,6 @@ def test_mlflow_register_model_non_databricks(tmp_path, monkeypatch):
                                              tags=None,
                                              registry_uri='my_registry_uri')
 
-    test_mlflow_logger._flush()
     test_mlflow_logger.post_close()
 
 
@@ -456,7 +453,8 @@ def test_mlflow_logging_works(tmp_path, device):
                       eval_interval=eval_interval,
                       device=device)
     trainer.fit()
-    test_mlflow_logger._flush()
+    # Allow async logging to finish.
+    time.sleep(3)
     test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(
@@ -527,7 +525,6 @@ def test_mlflow_log_image_works(tmp_path, device):
                       device=device)
 
     trainer.fit()
-    test_mlflow_logger._flush()
     test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(
