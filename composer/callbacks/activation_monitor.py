@@ -98,12 +98,7 @@ class ActivationMonitor(Callback):
         self.handles = []
 
         # Check that the interval timestring is parsable and convert into time object
-        if isinstance(interval, int):
-            self.interval = Time(interval, TimeUnit.BATCH)
-        elif isinstance(interval, str):
-            self.interval = Time.from_timestring(interval)
-        elif isinstance(interval, Time):
-            self.interval = interval
+        self.interval = Time.from_input(interval, TimeUnit.BATCH)
 
         if self.interval.unit == TimeUnit.BATCH and self.interval < Time.from_timestring('10ba'):
             warnings.warn(f'Currently the ActivationMonitor`s interval is set to {self.interval} '
