@@ -188,6 +188,7 @@ class TorchProfiler(Callback):  # noqa: D101
         memory_filename: Optional[str] = 'rank{rank}.{batch}.pt.trace.memory.html',
         memory_remote_file_name: Optional[
             str] = '{run_name}/torch_memory_traces/rank{rank}.{batch}.pt.trace.memory.html',
+        memory_custom_plot: bool = True,
         overwrite: bool = False,
         use_gzip: bool = False,
         record_shapes: bool = False,
@@ -195,27 +196,29 @@ class TorchProfiler(Callback):  # noqa: D101
         with_stack: bool = False,
         with_flops: bool = True,
         num_traces_to_keep: int = -1,
-        memory_custom_plot: bool = True,
     ) -> None:
         self.overwrite = overwrite
         self.folder = folder
+
         if use_gzip:
             if not filename.endswith('.gz'):
                 filename += '.gz'
         self.filename = filename
-        if memory_filename is not None:
-            assert memory_filename.endswith('.html'), f'memory_filename must end with .html, got {memory_filename}'
-        self.memory_filename = memory_filename
 
         if use_gzip:
             if remote_file_name is not None and not remote_file_name.endswith('.gz'):
                 remote_file_name += '.gz'
+        self.remote_file_name = remote_file_name
+
+        if memory_filename is not None:
+            assert memory_filename.endswith('.html'), f'memory_filename must end with .html, got {memory_filename}'
+        self.memory_filename = memory_filename
+
         if memory_remote_file_name is not None:
             assert memory_remote_file_name.endswith(
                 '.html'), f'memory_remote_file_name must end with .html, got {memory_remote_file_name}'
-
-        self.remote_file_name = remote_file_name
         self.memory_remote_file_name = memory_remote_file_name
+
         self.record_shapes = record_shapes
         self.profile_memory = profile_memory
         self.with_stack = with_stack
@@ -256,6 +259,8 @@ class TorchProfiler(Callback):  # noqa: D101
             assert state.profiler is not None
 
             timestamp = state.timestamp
+
+            log.info(f'PyTorch Chrome trace profiler enabled: {self.filename if self.filename else False}')
             if self.filename is not None:
                 trace_file_name = os.path.join(
                     folder_name,
@@ -275,9 +280,11 @@ class TorchProfiler(Callback):  # noqa: D101
                                        file_path=trace_file_name,
                                        overwrite=self.overwrite)
 
-            log.debug(f'Memory profiler enabled: {self.memory_filename if self.memory_filename else False}')
+            log.info(
+                f'PyTorch memory timeline profiler enabled: {self.memory_filename if self.memory_filename else False}')
             if self.memory_filename is not None:
                 if version.parse(torch.__version__) > version.parse('2.1.0.dev'):  # type: ignore
+                    # memory timeline profiling is only supported in torch v2.1.0-rc1 or higher
                     memory_trace_file_name = os.path.join(
                         folder_name,
                         format_name_with_dist_and_time(self.memory_filename,

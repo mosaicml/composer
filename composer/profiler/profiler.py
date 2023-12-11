@@ -79,7 +79,6 @@ class Profiler:
         torch_prof_memory_filename (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
         torch_prof_memory_remote_file_name (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
             Additionally supports full object store paths e.g: s3://bucket/path/to/file.
-        torch_prof_memory_custom_plot (bool, optional): Whether to plot the memory timeline with grid. (default: ``False``).
         torch_prof_overwrite (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
         torch_prof_use_gzip (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
         torch_prof_record_shapes (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
@@ -104,7 +103,6 @@ class Profiler:
         torch_prof_memory_filename: str = 'rank{rank}.{batch}.pt.memory_trace.html',
         torch_prof_memory_remote_file_name: Optional[
             str] = '{run_name}/torch_memory_traces/rank{rank}.{batch}.pt.memory_trace.html',
-        torch_prof_memory_custom_plot: bool = False,
         torch_prof_overwrite: bool = False,
         torch_prof_use_gzip: bool = False,
         torch_prof_record_shapes: bool = False,
@@ -152,7 +150,6 @@ class Profiler:
                               remote_file_name=torch_prof_remote_file_name,
                               memory_filename=torch_prof_memory_filename,
                               memory_remote_file_name=torch_prof_memory_remote_file_name,
-                              memory_custom_plot=torch_prof_memory_custom_plot,
                               num_traces_to_keep=torch_prof_num_traces_to_keep,
                               overwrite=torch_prof_overwrite,
                               record_shapes=torch_prof_record_shapes,
