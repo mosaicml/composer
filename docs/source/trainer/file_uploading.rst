@@ -111,7 +111,7 @@ Composer includes three built-in LoggerDestinations to store artifacts:
     W & B project.
 
 *   The :class:`~composer.logger.neptune_logger.NeptuneLogger` can upload Composer training files
-    as `Neptune Files <https://docs.neptune.ai/logging/files>`_, which are associated with the corresponding
+    as `Neptune Files <https://docs.neptune.ai/api/field_types/#file>`_, which are associated with the corresponding
     Neptune project.
 
 *   The :class:`~composer.loggers.remote_uploader_downloader.RemoteUploaderDownloader` can upload Composer training files
