@@ -6,7 +6,7 @@
 import argparse
 import time
 
-from mcli import RunConfig, RunStatus, create_run, follow_run_logs, stop_run, wait_for_run_status
+from mcli import RunConfig, RunStatus, create_run, follow_run_logs, wait_for_run_status
 
 if __name__ == '__main__':
 
@@ -77,9 +77,11 @@ if __name__ == '__main__':
     '''
     config = RunConfig(
         name=name,
-        cluster=args.cluster,
-        gpu_type=args.gpu_type,
-        gpu_num=args.gpu_num,
+        compute={
+            'cluster': args.cluster,
+            'gpu_type': args.gpu_type,
+            'gpus': args.gpu_num
+        },
         image=args.image,
         integrations=[git_integration],
         command=command,
