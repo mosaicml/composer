@@ -49,7 +49,7 @@ class ImageVisualizer(Callback):
             This callback only works with wandb logging for now.
 
     Args:
-        interval (str | Time, optional): Time string specifying how often to log train images. For example, ``interval='1ep'``
+        interval (int | str | Time, optional): Time string specifying how often to log train images. For example, ``interval='1ep'``
             means images are logged once every epoch, while ``interval='100ba'`` means images are logged once every 100
             batches. Eval images are logged once at the start of each eval. Default: ``"100ba"``.
         mode (str, optional): How to log the image labels. Valid values are ``"input"`` (input only)
@@ -86,10 +86,7 @@ class ImageVisualizer(Callback):
             raise ValueError(f'Invalid mode: {mode}')
 
         # Check that the interval timestring is parsable and convert into time object
-        if isinstance(interval, int):
-            self.interval = Time(interval, TimeUnit.BATCH)
-        if isinstance(interval, str):
-            self.interval = Time.from_timestring(interval)
+        self.interval = Time.from_input(interval, TimeUnit.BATCH)
 
         # Verify that the interval has supported units
         if self.interval.unit not in [TimeUnit.BATCH, TimeUnit.EPOCH]:
