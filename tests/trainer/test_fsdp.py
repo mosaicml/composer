@@ -15,7 +15,7 @@ from composer.utils import dist
 from tests.common import (EmbeddedWeightTiedModel, RandomClassificationDataset, SimpleModel, SimpleWeightTiedModel,
                           world_size)
 
-_INIT_DEVICES = ['cpu', 'meta', 'mixed']
+_INIT_DEVICES = ['cpu', 'meta', 'mixed', 'cuda']
 _MIXED_PRECISION_TYPES = ['FULL', 'DEFAULT', 'PURE']
 
 
