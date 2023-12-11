@@ -2017,6 +2017,11 @@ class Trainer:
         finished_epoch_early = False
         last_wct = datetime.datetime.now()
 
+        if self.state.max_duration is None:
+            # This is essentially just a type check, as max_duration should always be
+            # asserted to be not None when Trainer.fit() is called
+            raise RuntimeError('max_duration must be specified when initializing the Trainer')
+
         while self.state.timestamp < self.state.max_duration:
             if int(self.state.timestamp.batch_in_epoch) == 0:
                 self.engine.run_event(Event.EPOCH_START)
