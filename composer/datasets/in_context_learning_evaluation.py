@@ -8,7 +8,7 @@ import copy
 import json
 import os
 import random
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Union
 
 import torch
 from torch.utils.data import DataLoader, Dataset
@@ -142,9 +142,20 @@ def _get_fewshot_sample_idxs(dataset_size: int, num_fewshot: int, example_idx: i
 
 class InContextLearningDataset(Dataset):
     """
-    A base dataset that constructs batches for in-context learning task evaluations
+    A base dataset that constructs batches for in-context learning task evaluations.
+    The input format is expected to be a jsonl file or a link to a Hugging Face dataset.
 
-    The input format is expected to be a jsonl file with different fields based on the task or a link to a Hugging Face dataset.
+    When creating a new ICL Dataset, the most likely to be reimplemented methods are the following:
+        - _construct_context(): takes a single example dictionary and formulates the context as a string for that eval question.
+        - _get_answer_from_example(): takes a single example dictionary and formulates the correct, ground truth answer as a string.
+        - _tokenize_example(): tokenizes the example and adds any extra content from the original dictionary that needs to be passed downstream.
+        - _read_dataset(): loads the dataset and does basic parsing. If custom parsing must be done, this is a good place to do so (See InContextLearningQATaskDataset._read_dataset())
+
+    Additionally, base_batch and batch_mapping must be defined.
+        - base_batch (Dict): the base that the dataset will use to construct a batch. This should contain static values, like generation_kwargs or mode,
+                             and empty lists for values that will need to be accumulated from each example.
+        - batch_mapping (Dict): A mapping with keys that are keys in the batch and values that are columns in the loaded dataset.
+                                collate_fn will use this mapping to create batches from self.dataset
 
     Args:
         dataset_uri (str): A local path, a remote path beginning with ``s3://`` or another backend, or a HuggingFace dataset uri.
@@ -169,6 +180,7 @@ class InContextLearningDataset(Dataset):
         hf_parsing_map (Dict[str, List[str]]): A dictionary containing a mapping from HF columns to ICL dataset keys. The dictionary should be formatted {icl_key:[hf_key1, hf_key1]}.
             Values in the dict will be concatenated with ' ' seperating them. If not included, will use the columns already present in the HF dataset.
         tokenize_labels (bool): Whether or not the labels should be tokenized. Used in metric calculation and for direct comparison
+        generation_kwargs (Dict): A dictionary containing any
     """
 
     def __init__(
@@ -189,7 +201,7 @@ class InContextLearningDataset(Dataset):
         strip_dataset: bool = True,
         padding_side: str = 'right',
         padding_size: int = None,
-        default_batch: Dict = None,
+        base_batch: Dict = None,
         batch_mapping: Dict = None,
         hf_loading_vars: Dict = None,
         hf_parsing_map: Dict = None,
@@ -212,7 +224,7 @@ class InContextLearningDataset(Dataset):
         self.answer_key = answer_key
         self.tokenize_labels = tokenize_labels
         self.batch_mapping = batch_mapping or {}
-        self.default_batch = default_batch or {}
+        self.base_batch = base_batch or {}
         self._update_generation_kwargs(generation_kwargs or {})
 
         hf_loading_vars = hf_loading_vars or {}
@@ -243,17 +255,17 @@ class InContextLearningDataset(Dataset):
 
     def _update_generation_kwargs(self, generation_kwargs: Dict) -> None:
         """
-        Updates self.default_batch with the passed in generation_kwargs.
-        This must be run after self.default_batch is set (for example, if self.default_batch is set after __init__() is run,
-        likely because default_batch needs a class variable like self.pad_tok_id or self.max_answer_length).
+        Updates self.base_batch with the passed in generation_kwargs.
+        This must be run after self.base_batch is set (for example, if self.base_batch is set after __init__() is run,
+        likely because base_batch needs a class variable like self.pad_tok_id or self.max_answer_length).
 
         Args:
 
         """
-        if 'generation_kwargs' not in self.default_batch:
-            self.default_batch['generation_kwargs'] = {}
+        if 'generation_kwargs' not in self.base_batch:
+            self.base_batch['generation_kwargs'] = {}
         if generation_kwargs:
-            self.default_batch['generation_kwargs'].update(generation_kwargs)
+            self.base_batch['generation_kwargs'].update(generation_kwargs)
 
     def _read_dataset(self,
                       dataset_uri: str,
@@ -360,7 +372,10 @@ class InContextLearningDataset(Dataset):
         Returns:
             str: the answer in the example
         """
-        return example[self.answer_key]
+        cont = example[self.answer_key]
+        if self.prefix_space and not cont.startswith(' ') and not in_context:
+            cont = f' {cont}'
+        return cont
 
     def _fix_eos_on_preamble(self, input_ids: List[int]) -> List[int]:
         """
@@ -470,7 +485,7 @@ class InContextLearningDataset(Dataset):
         Returns:
             Dict: dictionary for a single batch
         """
-        batch = copy.deepcopy(self.default_batch)
+        batch = copy.deepcopy(self.base_batch)
         for data_pair in data:
             for batch_key, data_key in self.batch_mapping.items():
                 batch[batch_key].append(data_pair[data_key])
@@ -536,7 +551,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         self.max_answer_length = 0
         super().__init__(padding_side='left', tokenize_labels=False, *args, **kwargs)
         # NOTE: set these after init call bcus they take class vars
-        self.default_batch = {
+        self.base_batch = {
             'input_ids': [],
             'mode': 'generate',
             'labels': [],
@@ -637,7 +652,7 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
 
     def __init__(self, *args, **kwargs):
         super().__init__(answer_key='continuation',
-                         default_batch={
+                         base_batch={
                              'input_ids': [],
                              'continuation_indices': [],
                              'mode': 'icl_task',
@@ -650,13 +665,6 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
                          padding_side='right',
                          *args,
                          **kwargs)
-
-    def _get_answer_from_example(self, example: Dict[str, Any], in_context=False) -> str:
-        cont = example[self.answer_key]
-        # Should this be in the base class?
-        if self.prefix_space and not cont.startswith(' ') and not in_context:
-            cont = f' {cont}'
-        return cont
 
 
 # TODO: ensure tests
@@ -687,7 +695,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
 
     def __init__(self, choices_key: str = 'choices', *args, **kwargs):
         self.choices_key = choices_key
-        default_batch = {
+        base_batch = {
             'input_ids': [],
             'continuation_indices': [],
             'mode': 'icl_task',
@@ -697,7 +705,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         }
         # TODO: is there something cleaner here?
         context_key = kwargs.pop('context_key', 'query')
-        super().__init__(context_key=context_key, default_batch=default_batch, padding_side='right', *args, **kwargs)
+        super().__init__(context_key=context_key, base_batch=base_batch, padding_side='right', *args, **kwargs)
         self.num_choices = len(self.dataset[0][self.choices_key])
         self.batch_mapping_per_choice = {'input_ids': 'context', 'labels': 'context'}
         self.batch_map_per_example = {'gold_indices': 'gold'}
@@ -741,7 +749,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         tokenized_example[self.context_key] = []
         tokenized_example[self.answer_key] = []
         tokenized_example['continuation_indices'] = []
-        # NOTE: Treating tokenize_labels as True for all MC datasets (required for our accuracy anyway)
+        # NOTE: Treating tokenize_labels as True for all MC datasets (required for our MC accuracy metric)
         for choice in example[self.choices_key]:
             if self.prefix_space:
                 choice = f' {choice}' if not choice.startswith(' ') else choice
@@ -776,7 +784,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         Returns:
             Dict: dictionary for a single batch
         """
-        batch = copy.deepcopy(self.default_batch)
+        batch = copy.deepcopy(self.base_batch)
         for data_pair in data:
             choice_start_idx = len(batch['continuation_indices'])
             # TODO: use batch_mappings? Could be fine as is
@@ -865,7 +873,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
 
     def __init__(self, choices_key='context_options', *args, **kwargs):
         super().__init__(choices_key=choices_key, context_key=choices_key, *args, **kwargs)
-        self.default_batch = {
+        self.base_batch = {
             'input_ids': [],
             'continuation_indices': [],
             'mode': 'icl_task',
@@ -1010,8 +1018,8 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
     - languages:  list of languages
     - pass_at_k: passed value for pass_at_k
     - generation_length: derrived maximum generation length
-    - generation_kwargs: Dictionary of kwargs neeeded for generation. Includes the following, which will be individually overwritten 
-        by keys in generaiton_kwargs if set (see https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig 
+    - generation_kwargs: Dictionary of kwargs neeeded for generation. Includes the following, which will be individually overwritten
+        by keys in generaiton_kwargs if set (see https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig
         for more details):
         - pad_token_id: ID for padding token, derived automatically
         - num_beams: how many beams to search for generations, set to 1
@@ -1058,7 +1066,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             **kwargs,
         )
         self.dataset = self.adjust_padding()
-        self.default_batch = {
+        self.base_batch = {
             'input_ids': [],
             'mode': 'generate',
             'labels': [],
@@ -1294,7 +1302,7 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_lo
             conda_package='datasets',
             conda_channel='conda-forge',
         ) from e
-    if 'hf://' in dataset_uri:
+    if dataset_uri.startswith('hf://'):
         dataset_uri = dataset_uri.replace('hf://', '')
         dataset = load_dataset(dataset_uri, **hf_loading_vars)
         if hf_parsing_map:

@@ -196,7 +196,7 @@ def test_update_generation_kwargs(tiny_gpt2_tokenizer, tmp_path):
                                   hf_loading_vars=hf_loading_vars,
                                   hf_parsing_map=hf_parsing_map,
                                   generation_kwargs=gen_kwargs)
-    assert dl.default_batch['generation_kwargs'] == {'test_arg1': 1, 'test_arg2': 2}
+    assert dl.base_batch['generation_kwargs'] == {'test_arg1': 1, 'test_arg2': 2}
 
 
 def test_update_generation_kwargs_no_kwargs(tiny_gpt2_tokenizer, tmp_path):
@@ -223,7 +223,7 @@ def test_update_generation_kwargs_no_kwargs(tiny_gpt2_tokenizer, tmp_path):
                                   destination_path=str(tmp_path / 'test_dataset_lm_juggernaut.jsonl'),
                                   hf_loading_vars=hf_loading_vars,
                                   hf_parsing_map=hf_parsing_map)
-    assert not dl.default_batch['generation_kwargs']
+    assert not dl.base_batch['generation_kwargs']
 
 
 def test_construct_context(tiny_gpt2_tokenizer, tmp_path):
@@ -604,10 +604,10 @@ def test_code_update_gen_kwargs(tiny_gpt2_tokenizer, tmp_path):
         generation_kwargs=gen_kwargs,
         generations_per_sample=10,
     )
-    assert dl.default_batch['generation_kwargs']['num_beams'] == 9000
-    assert dl.default_batch['generation_kwargs']['top_p'] == .95
-    assert dl.default_batch['generation_kwargs']['temperature'] == .9
-    assert dl.default_batch['generation_kwargs']['do_sample'] == True
+    assert dl.base_batch['generation_kwargs']['num_beams'] == 9000
+    assert dl.base_batch['generation_kwargs']['top_p'] == .95
+    assert dl.base_batch['generation_kwargs']['temperature'] == .9
+    assert dl.base_batch['generation_kwargs']['do_sample'] == True
 
 
 @pytest.mark.parametrize('dataset_uri', ['mmlu_small.jsonl'])
