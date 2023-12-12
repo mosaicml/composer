@@ -149,8 +149,7 @@ class OCIObjectStore(ObjectStore):
         head_object_response = self.client.head_object(self.namespace, self.bucket, object_name)
         object_size = head_object_response.headers['content-length']
         # Calculate the part sizes
-        base_part_size = int(object_size) // num_parts
-        remainder = int(object_size) % num_parts
+        base_part_size, remainder = divmod(int(object_size), num_parts)
         part_sizes = [base_part_size] * num_parts
         for i in range(remainder):
             part_sizes[i] += 1
