@@ -330,7 +330,7 @@ class InContextLearningDataset(Dataset):
 
     def _construct_context(self, example: Dict, preceding_text: str = '', add_answer: bool = False) -> str:
         """
-        Takes an example and constructs a context, ie the input the model reads for this example.
+        Takes an example and constructs a context, i.e. the input the model reads for this example.
         Optionally adds the correct answer (for fewshot examples) and handles example delimiters
 
         Args:
