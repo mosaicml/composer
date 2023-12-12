@@ -7,6 +7,7 @@ import logging
 import os
 import re
 import string
+import random
 import warnings
 from typing import Any, Dict, List, Mapping, Optional, Union
 from copy import deepcopy
@@ -27,6 +28,7 @@ __all__ = [
     'InContextLearningMultipleChoiceAccuracy',
     'InContextLearningQAAccuracy',
     'InContextLearningCodeEvalAccuracy',
+    'InContextLearningLLMAsAJudge',
     'BinaryF1Score',
     'LanguageCrossEntropy',
     'MaskedAccuracy',
@@ -315,7 +317,7 @@ class InContextLearningLLMAsAJudge(InContextLearningMetric):
     full_state_update = False
 
     BASE_EQUIVALENCE_PROMPT = """
-        Please determine whether the following two statements or answers are equivalent. Respond only with "Yes" or "No". Any other response is considered invalid.
+        Please determine whether the supplied statements or answers are equivalent. Respond only with "Yes" or "No". Any other result is considered invalid.
         Statement 1: The sky is blue.
         Statement 2: The sky is blue.
         Result: Yes
@@ -335,61 +337,77 @@ class InContextLearningLLMAsAJudge(InContextLearningMetric):
         Statement 1: We are so back
         Statement 2: It's so over
         Result: No
+        
+        Statement 1:  yes
+        Statement 2: Yes
+        Result: Yes
 
+    """
+    BASE_USER_INPOUT = """
         Statement 1: {statement1}
         Statement 2: {statement2}
         Result: 
     """
 
-    def __init__(self, dist_sync_on_step: bool = False, tokenizer: Optional[Any] = None, prompt: Optional[str] = None, judge_delimiter: Optional[str] = None):
+    def __init__(self, dist_sync_on_step: bool = False, tokenizer: Optional[Any] = None, prompt: Optional[str] = None):
         # state from multiple processes
         super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('invalid_judge_response', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.base_openai_call_input = { 
-            "engine":"text-davinci-002",  # You can change the engine as needed
-            "temperature":0.0,
-            "max_tokens":3,  
-            "n":1,  
-            "stop":None,  
-        }
-        self.init_openai()
-    
+        # TODO: allow different models
+        # self.init_openai()
+        self.client = None
+
     def init_openai(self):
         try:
-            import openai
+            from openai import OpenAI
         except ImportError as e:
             raise MissingConditionalImportError(
                 extra_deps_group='openai',
                 conda_package='openai',
                 conda_channel='conda-forge') from e
-        openai.api_key = os.environ["OPENAI_API_KEY"]
+        self.client = OpenAI()
 
+    def call_judge(self, sample_answer, sample_label) -> List[str]:
+        # TODO: allow different models
+        if not self.client:
+            self.init_openai()  
+        openai_user_input = deepcopy(self.BASE_USER_INPOUT)
 
-    def call_judge(self, judge_input: str) -> List[str]:
-        openai_call_input = deepcopy(self.base_openai_call_input)
-        openai_call_input['prompt'] = judge_input
-        response = openai.Completion.create(**openai_call_input)
-        return response.choices[0]["message"]["content"]
+        # Randomly choose the true answer or the model output to be the first statment
+        # to avoid some model bias
+        if random.random() < .5:
+            formatted_input = openai_user_input.format(statement1=sample_answer, statement2=sample_label)
+        else:
+            formatted_input = openai_user_input.format(statement1=sample_label, statement2=sample_answer)
+        response = self.client.chat.completions.create(
+            # TODO: allow configurations
+            model="gpt-3.5-turbo",
+            messages=[{'role': 'system', 'content': self.BASE_EQUIVALENCE_PROMPT},
+                      { 'role': 'user', 'content': formatted_input}],
+            max_tokens=10
+        )
 
+        return response.choices[0].message.content 
 
     def update(self, outputs: List[str], labels: List[List[str]], batch: Optional[Dict[str, Any]] = None):
-        for sample_output, sample_labels in zip(outputs, labels):
-            judge_input = self.BASE_EQUIVALENCE_PROMPT.format(statement1=sample_output, statement2=sample_labels[0])
-            result = self.call_judge(judge_input)
+        for sample_output, sample_label in zip(outputs, labels):
+            import IPython; IPython.embed()
+            result = self.call_judge(sample_output, sample_label)
             if result.endswith("Yes"):
                 self.correct += torch.tensor(1.0)
             elif result.endswith("No"):
                 pass
             else:
-                raise ValueError(f"Judge returned unexpected value: {result}")
+                print(result)
+                self.invalid_judge_response += torch.tensor(1.0)
             self.total += torch.tensor(1.0)
 
     def compute(self):
         assert isinstance(self.correct, Tensor)
         assert isinstance(self.total, Tensor)
         return self.correct / self.total
-
 
 
 class InContextLearningLMAccuracy(InContextLearningMetric):
