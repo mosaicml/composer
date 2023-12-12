@@ -365,7 +365,7 @@ class InContextLearningDataset(Dataset):
     def _fix_eos_on_preamble(self, input_ids: List[int]) -> List[int]:
         """
         If the input_ids is empty then input_ids will be a 0-length List,
-        unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
+        unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer).
         If there is an EOS token added, we need to remove it so it is not in the middle of the prompt,
         as the specific eval question's prompt will follow the input_ids
         Args:
