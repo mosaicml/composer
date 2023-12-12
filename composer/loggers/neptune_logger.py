@@ -156,9 +156,6 @@ class NeptuneLogger(LoggerDestination):
     def init(self, state: 'State', logger: 'Logger') -> None:
         del logger  # unused
 
-        if not self._rank_zero_only:
-            self.base_handler['rank'] = dist.get_global_rank()
-
         if self._enabled:
             self.neptune_run['sys/name'] = state.run_name
             self.neptune_run[self.INTEGRATION_VERSION_KEY] = __version__
@@ -271,6 +268,8 @@ class NeptuneLogger(LoggerDestination):
 def _validate_image(img: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:
     if isinstance(img, torch.Tensor):
         img = img.data.cpu().numpy()
+
+    assert isinstance(img, np.ndarray)
 
     # Error out for empty arrays or weird arrays of dimension 0.
     if np.any(np.equal(img.shape, 0)):
