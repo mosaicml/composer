@@ -364,10 +364,10 @@ class InContextLearningDataset(Dataset):
 
     def _fix_eos_on_preamble(self, input_ids: List[int]) -> List[int]:
         """
-        If the input_ids is empty then input_ids will be a 0-length List,
+        If the input_ids is empty then input_ids will be a 0-length List
         unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer).
         If there is an EOS token added, we need to remove it so it is not in the middle of the prompt,
-        as the specific eval question's prompt will follow the input_ids
+        as the specific eval question's prompt will follow the input_ids.
         Args:
             input_ids (List): the tokenized input
 
@@ -516,7 +516,7 @@ class InContextLearningDataset(Dataset):
 
 class InContextLearningQATaskDataset(InContextLearningDataset):
     """
-    A dataset that construct batches for in-context learning question answering evaluation.
+    A dataset that constructs batches for in-context learning question answering evaluation.
     QA tasks evaluate a model's ability to answer questions using a consistent format.
 
     The input format is expected to be a jsonl file with the following fields:
@@ -625,7 +625,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
 
 class InContextLearningLMTaskDataset(InContextLearningDataset):
     """
-    A dataset that construct batches for in-context learning language modeling evaluation.
+    A dataset that constructs batches for in-context learning language modeling evaluation.
     Language modeling tasks test a model's ability to properly predict tokens based on preceding tokens.
 
     The input format is expected to be a jsonl file with the following fields:
