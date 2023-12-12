@@ -3,8 +3,8 @@
 
 import os
 import pathlib
-import pytest
 
+import pytest
 import torch
 from packaging import version
 
