@@ -4,25 +4,31 @@
 """Utility functions for torch profiler."""
 
 import importlib.util
+import logging
 from base64 import b64encode
 from os import remove
 from tempfile import NamedTemporaryFile
-from typing import Optional
+from typing import Any, Optional
 
 import numpy as np
+import torch
 import torch.cuda
 from packaging import version
 from torch.profiler.profiler import profile as TorchProfile
+
+log = logging.getLogger(__name__)
 
 
 def export_memory_timeline_html(prof: TorchProfile,
                                 path: str,
                                 device: Optional[str] = None,
                                 figsize=(20, 12),
-                                title=None) -> None:
+                                title=None,
+                                yxis_step_size: float = 1.0,
+                                return_fig: bool = False) -> Optional[None | Any]:
     """Exports a memory timeline to an HTML file. Similar to the PyTorch plotting function, but with adjusted axis tickers and grids."""
-    if version.parse(torch.__version__) <= version.parse('2.1.0.dev'):  # type: ignore
-        print('export_memory_timeline_html failed because memory timeline is supported after PyTorch 2.1.0.')
+    if version.parse(torch.__version__) <= version.parse('2.1.0.dev'):
+        log.warning('export_memory_timeline_html failed because memory timeline is supported after PyTorch 2.1.0.')
         return
 
     from torch.profiler._memory_profiler import _CATEGORY_TO_COLORS, _CATEGORY_TO_INDEX, MemoryProfileTimeline
@@ -40,7 +46,7 @@ def export_memory_timeline_html(prof: TorchProfile,
     # Check if user has matplotlib installed, return gracefully if not.
     matplotlib_spec = importlib.util.find_spec('matplotlib')
     if matplotlib_spec is None:
-        print('export_memory_timeline_html failed because matplotlib was not found.')
+        log.warning('export_memory_timeline_html failed because matplotlib was not found.')
         return
     import matplotlib.pyplot as plt
 
@@ -61,12 +67,15 @@ def export_memory_timeline_html(prof: TorchProfile,
     axes.set_ylabel('Memory (GB)')
     _, end = axes.get_ylim()
     axes.grid(True)
-    axes.set_yticks(np.arange(0, end, 1))
+    axes.set_yticks(np.arange(0, end, yxis_step_size))
     title = '\n\n'.join(([title] if title else []) + [
         f'Max memory allocated: {max_memory_allocated/(10**9):.2f} GB \n'
         f'Max memory reserved: {max_memory_reserved/(10**9):.2f} GB'
     ])
     axes.set_title(title)
+
+    if return_fig:
+        return fig
 
     # Embed the memory timeline image into the HTML file
     tmpfile = NamedTemporaryFile('wb', suffix='.png', delete=False)
@@ -84,4 +93,5 @@ def export_memory_timeline_html(prof: TorchProfile,
 
         with open(path, 'w') as f:
             f.write(html)
+    print('Memory timeline exported to', path, '.')
     remove(tmpfile.name)
