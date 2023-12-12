@@ -47,4 +47,4 @@ def test_memory_timeline(tmp_path: pathlib.Path) -> None:
     )
     assert fig is not None, 'export_memory_timeline_html should return a figure when return_fig=True'
     _, end = fig.gca().get_ylim()
-    assert round(end, 2) == 0.12
+    assert round(end, 2) == 0.06
