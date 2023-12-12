@@ -93,5 +93,5 @@ def export_memory_timeline_html(prof: TorchProfile,
 
         with open(path, 'w') as f:
             f.write(html)
-    print('Memory timeline exported to', path, '.')
+    log.debug('Memory timeline exported to', path, '.')
     remove(tmpfile.name)
