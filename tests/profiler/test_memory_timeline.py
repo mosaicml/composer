@@ -38,7 +38,7 @@ def test_memory_timeline(tmp_path: pathlib.Path) -> None:
     memory_profile = prof._memory_profile()
     timeline = memory_profile.timeline
 
-    # this checks the default memory timeline event value (t == -1), https://github.com/pytorch/pytorch/blob/main/torch/profiler/_memory_profiler.py#L715
+    # this checks the default memory timeline event value (t == -1) for preexisting tensors
     assert all((t == -1) if action == _memory_profiler.Action.PREEXISTING else (t > 0) for t, action, _, _ in timeline)
 
     fig = export_memory_timeline_html(
