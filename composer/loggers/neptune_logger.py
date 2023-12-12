@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Union
 
 import numpy as np
 import torch
-from neptune.types import File
 
 from composer._version import __version__
 from composer.loggers import LoggerDestination
@@ -156,6 +155,8 @@ class NeptuneLogger(LoggerDestination):
     def init(self, state: 'State', logger: 'Logger') -> None:
         del logger  # unused
 
+        self.base_handler['rank'] = dist.get_global_rank()
+
         if self._enabled:
             self.neptune_run['sys/name'] = state.run_name
             self.neptune_run[self.INTEGRATION_VERSION_KEY] = __version__
@@ -247,6 +248,8 @@ class NeptuneLogger(LoggerDestination):
     ):
         if not self._enabled:
             return
+
+        from neptune.types import File
 
         if not isinstance(images, Sequence) and images.ndim <= 3:
             images = _validate_image(images, channels_last=channels_last)
