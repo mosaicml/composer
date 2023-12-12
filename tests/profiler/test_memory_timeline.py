@@ -3,6 +3,7 @@
 
 import os
 import pathlib
+import pytest
 
 import torch
 from packaging import version
@@ -10,8 +11,9 @@ from packaging import version
 from composer.profiler.utils import export_memory_timeline_html
 
 
+@pytest.mark.gpu
 def test_memory_timeline(tmp_path: pathlib.Path) -> None:
-    if version.parse(torch.__version__) <= version.parse('2.1.0.dev'):  # type: ignore
+    if version.parse(torch.__version__) <= version.parse('2.1.0.dev'):
         # memory timeline is supported after PyTorch 2.1.0.
         return
     import torch.profiler._memory_profiler as _memory_profiler
