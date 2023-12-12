@@ -224,7 +224,7 @@ def _main():
         if interconnect != 'EFA':
             entry['AWS_OFI_NCCL_VERSION'] = ''
         else:
-            entry['AWS_OFI_NCCL_VERSION'] = 'v1.7.3-aws'
+            entry['AWS_OFI_NCCL_VERSION'] = 'v1.7.4-aws'
 
         pytorch_entries.append(entry)
     nightly_entry = {
