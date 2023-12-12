@@ -8,7 +8,7 @@ import logging
 from base64 import b64encode
 from os import remove
 from tempfile import NamedTemporaryFile
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import numpy as np
 import torch
@@ -25,7 +25,7 @@ def export_memory_timeline_html(prof: TorchProfile,
                                 figsize=(20, 12),
                                 title=None,
                                 yxis_step_size: float = 1.0,
-                                return_fig: bool = False) -> Optional[None | Any]:
+                                return_fig: bool = False) -> Optional[Union[None, Any]]:
     """Exports a memory timeline to an HTML file. Similar to the PyTorch plotting function, but with adjusted axis tickers and grids."""
     if version.parse(torch.__version__) <= version.parse('2.1.0.dev'):
         log.warning('export_memory_timeline_html failed because memory timeline is supported after PyTorch 2.1.0.')
