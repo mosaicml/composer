@@ -53,7 +53,7 @@ class MLFlowLogger(LoggerDestination):
         synchronous (bool, optional): Whether to log synchronously. If ``True``, Mlflow will log
             synchronously to the MLflow backend. If ``False``, Mlflow will log asynchronously. (default: ``False``)
         log_system_metrics (bool, optional): Whether to log system metrics. If ``True``, Mlflow will
-            log system metrics (CPU/GPU/memory/network usage) during training.
+            log system metrics (CPU/GPU/memory/network usage) during training. (default: ``True``)
     """
 
     def __init__(
