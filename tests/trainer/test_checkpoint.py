@@ -11,8 +11,7 @@ import tempfile
 import time
 from glob import glob
 from typing import Any, Dict, List, Optional, Union
-from unittest import mock
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
@@ -1307,25 +1306,23 @@ def test_checkpoint_validation(tmp_path):
     assert result == checkpoint_filepath
 
     # Non-existent module specified.
-    with mock.patch.dict(os.environ, {'CHECKPOINT_VALIDATION_FUNCTION': 'bad_module.bad_function'}):
+    with patch.dict(os.environ, {'CHECKPOINT_VALIDATION_FUNCTION': 'bad_module.bad_function'}):
         with pytest.raises(ModuleNotFoundError):
             _ensure_valid_checkpoint(checkpoint_filepath)
 
     # Non-existent function specified.
-    with mock.patch.dict(os.environ, {'CHECKPOINT_VALIDATION_FUNCTION': 'tests.trainer.test_checkpoint.bad_function'}):
+    with patch.dict(os.environ, {'CHECKPOINT_VALIDATION_FUNCTION': 'tests.trainer.test_checkpoint.bad_function'}):
         with pytest.raises(AttributeError):
             _ensure_valid_checkpoint(checkpoint_filepath)
 
     # Correct usage and successful validation.
-    with mock.patch.dict(os.environ,
-                         {'CHECKPOINT_VALIDATION_FUNCTION': 'tests.trainer.test_checkpoint.simple_validate'}):
+    with patch.dict(os.environ, {'CHECKPOINT_VALIDATION_FUNCTION': 'tests.trainer.test_checkpoint.simple_validate'}):
         result = _ensure_valid_checkpoint(checkpoint_filepath)
         assert result == checkpoint_filepath
 
     # Correct usage and failed validation.
     with open(checkpoint_filepath, 'w') as f:
         f.write('bad')
-    with mock.patch.dict(os.environ,
-                         {'CHECKPOINT_VALIDATION_FUNCTION': 'tests.trainer.test_checkpoint.simple_validate'}):
+    with patch.dict(os.environ, {'CHECKPOINT_VALIDATION_FUNCTION': 'tests.trainer.test_checkpoint.simple_validate'}):
         with pytest.raises(ValueError):
             _ensure_valid_checkpoint(checkpoint_filepath)
