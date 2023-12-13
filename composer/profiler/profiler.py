@@ -45,6 +45,7 @@ class Profiler:
                 def new_profiler_init(self, dummy_ellipsis=None, **kwargs):
                     if 'trace_handlers' not in kwargs:
                         kwargs['trace_handlers'] = []
+                    kwargs['torch_prof_memory_filename'] = None
                     original_profiler_init(self, **kwargs)
 
                 Profiler.__init__ = new_profiler_init
@@ -242,7 +243,7 @@ class Profiler:
 
                 from composer.profiler import Profiler, cyclic_schedule
 
-                profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+                profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[], torch_prof_memory_filename=None)
                 profiler.bind_to_state(state)
                 state.profiler = profiler
 
