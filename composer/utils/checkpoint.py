@@ -40,7 +40,7 @@ _DEEPSPEED_TAG = 'deepspeed'  # always tag with the same, deterministic name. We
 _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME = f'__{dist.get_global_rank()}_0.distcp'
 
 
-def _get_checkpoint_validation_function(name: str) -> Callable[[Union[Path, str]], bool]:
+def _get_checkpoint_validation_function() -> Optional[Callable[[Union[Path, str]], bool]]:
     """Get the validation function by name.
 
     Args:
@@ -51,6 +51,9 @@ def _get_checkpoint_validation_function(name: str) -> Callable[[Union[Path, str]
         Callable[[Union[Path, str]], bool] The checkpoint validation function that returns
             True given a valid checkpoint and False otherwise.
     """
+    name = os.environ.get('CHECKPOINT_VALIDATION_FUNCTION', None)
+    if name is None:
+        return None
     splits = name.split('.')
     module_name, fn_name = '.'.join(splits[:-1]), splits[-1]
     module = import_module(module_name)
@@ -71,15 +74,13 @@ def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str]) -> Union[Pat
     Raises:
         ValueError if checkpoint file is invalid.
     """
-    fn_name = os.environ.get('CHECKPOINT_VALIDATION_FUNCTION', None)
+    # Get the validation function by name.
+    validate = _get_checkpoint_validation_function()
 
     # No function name has been specified.
-    if fn_name is None:
+    if validate is None:
         log.debug('No validation function specified. Skipping checkpoint validation.')
         return checkpoint_filepath
-
-    # Get the validation function by name.
-    validate = _get_checkpoint_validation_function(fn_name)
 
     # Validate the checkpoint.
     if not validate(checkpoint_filepath):
@@ -402,6 +403,8 @@ def load_sharded_checkpoint(
         """FileSystemReader that validates checkpoint files prior to reading."""
 
         def __init__(self, path: str):
+            if _get_checkpoint_validation_function() is None:
+                log.info('No checkpoint validation function found when loading sharded checkpoints.')
             super().__init__(path)
 
         def read_data(self, plan: LoadPlan, planner: LoadPlanner):
