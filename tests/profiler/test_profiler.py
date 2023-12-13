@@ -73,8 +73,7 @@ def test_marker(dummy_state: State):
     dummy_state.profiler = profiler
     marker = profiler.marker('name',
                              actions=[ProfilerAction.SKIP, ProfilerAction.WARMUP, ProfilerAction.ACTIVE],
-                             categories=['cat1'],
-                             torch_prof_memory_filename=None)
+                             categories=['cat1'])
     marker.start()  # call #1
     with pytest.raises(RuntimeError):
         marker.start()  # cannot call start twice without finishing
