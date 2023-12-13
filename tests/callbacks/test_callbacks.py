@@ -53,7 +53,9 @@ class TestCallbacks:
         """Test that callbacks do not crash when Event.FIT_START and Event.FIT_END is called multiple times."""
         cb_kwargs = get_cb_kwargs(cb_cls)
         dummy_state.callbacks.append(cb_cls(**cb_kwargs))
-        dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[])
+        dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP,
+                                        trace_handlers=[],
+                                        torch_prof_memory_filename=None)
         dummy_state.profiler.bind_to_state(dummy_state)
 
         logger = Logger(dummy_state)
@@ -71,7 +73,9 @@ class TestCallbacks:
         """Test that callbacks do not crash when .close() and .post_close() are called multiple times."""
         cb_kwargs = get_cb_kwargs(cb_cls)
         dummy_state.callbacks.append(cb_cls(**cb_kwargs))
-        dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[])
+        dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP,
+                                        trace_handlers=[],
+                                        torch_prof_memory_filename=None)
         dummy_state.profiler.bind_to_state(dummy_state)
 
         logger = Logger(dummy_state)
@@ -85,7 +89,9 @@ class TestCallbacks:
         """Test that callbacks do not crash when INIT/.close()/.post_close() are called multiple times in that order."""
         cb_kwargs = get_cb_kwargs(cb_cls)
         dummy_state.callbacks.append(cb_cls(**cb_kwargs))
-        dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[])
+        dummy_state.profiler = Profiler(schedule=lambda _: ProfilerAction.SKIP,
+                                        trace_handlers=[],
+                                        torch_prof_memory_filename=None)
         dummy_state.profiler.bind_to_state(dummy_state)
 
         logger = Logger(dummy_state)
@@ -125,7 +131,9 @@ class TestCallbackTrains:
             device_train_microbatch_size=device_train_microbatch_size,
             callbacks=callbacks,
             loggers=loggers,
-            profiler=Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[]),
+            profiler=Profiler(schedule=lambda _: ProfilerAction.SKIP,
+                              trace_handlers=[],
+                              torch_prof_memory_filename=None),
         )
 
     def test_trains(self, cb_cls: Type[Callback], device_train_microbatch_size: int, _remote: bool):
