@@ -889,8 +889,8 @@ def test_mismatch_timestamp_error(
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.parametrize('state_dict_type', ['sharded'])
-@pytest.mark.parametrize('num_ckpts_to_keep', [-1])
+@pytest.mark.parametrize('state_dict_type', ['sharded', 'local'])
+@pytest.mark.parametrize('num_ckpts_to_keep', [-1, 1, 2, 3])
 @pytest.mark.parametrize('batches_to_train', [3])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
