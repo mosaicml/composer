@@ -1,18 +1,17 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import os
+import pathlib
 from typing import Union
 from unittest.mock import MagicMock
 
 import pytest
+import torch
+from packaging import version
 
 from composer.core import State
 from composer.profiler import Profiler, ProfilerAction, SystemProfiler, TorchProfiler, cyclic_schedule
-from packaging import version
-import os
-import pathlib
-import torch
-
 from composer.profiler.utils import export_memory_timeline_html
 
 
