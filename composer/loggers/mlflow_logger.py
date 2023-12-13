@@ -47,7 +47,7 @@ class MLFlowLogger(LoggerDestination):
             (default: ``10``).
         model_registry_prefix (str, optional): The prefix to use when registering models.
             If registering to Unity Catalog, must be in the format ``{catalog_name}.{schema_name}``.
-            (default: empty string)
+            (default: `''`)
         model_registry_uri (str, optional): The URI of the model registry to use. To register models
             to Unity Catalog, set to ``databricks-uc``. (default: None)
         synchronous (bool, optional): Whether to log synchronously. If ``True``, Mlflow will log
