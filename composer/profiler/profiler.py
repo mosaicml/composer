@@ -100,7 +100,7 @@ class Profiler:
         torch_prof_folder: str = '{run_name}/torch_traces',
         torch_prof_filename: str = 'rank{rank}.{batch}.pt.trace.json',
         torch_prof_remote_file_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
-        torch_prof_memory_filename: Optional[str] = None,
+        torch_prof_memory_filename: Optional[str] = 'rank{rank}.{batch}.pt.memory_trace.html',
         torch_prof_memory_remote_file_name: Optional[
             str] = '{run_name}/torch_memory_traces/rank{rank}.{batch}.pt.memory_trace.html',
         torch_prof_overwrite: bool = False,
@@ -149,16 +149,10 @@ class Profiler:
                     f'torch_prof_memory_filename is set. Generating the memory timeline graph requires all the three flags torch_prof_with_stack, torch_prof_record_shapes, and torch_prof_profile_memory to be true. Got torch_prof_with_stack={torch_prof_with_stack}, torch_prof_record_shapes={torch_prof_record_shapes}, torch_prof_profile_memory={torch_prof_profile_memory}'
                 )
             log.info(
-                f'Memory profiling is enabled and uses {torch_prof_memory_filename} as the filename to generate the memory timeline graph'
+                f'Memory profiling is enabled and uses {torch_prof_memory_filename} as the filename to generate the memory timeline graph. To disable the memory timeline graph generation, explicitly set torch_prof_memory_filename to None.'
             )
-
-        if (torch_prof_with_stack and torch_prof_record_shapes and
-                torch_prof_profile_memory) and torch_prof_memory_filename is None:
-
-            log.info(
-                f'Memory profiling is enabled but torch_prof_memory_filename is not set. Using {"rank{rank}.{batch}.pt.memory_trace.html"} as the filename for the memory timeline graph.'
-            )
-            torch_prof_memory_filename = 'rank{rank}.{batch}.pt.memory_trace.html'
+        else:
+            log.info(f'torch_prof_memory_filename is explicitly set to None. Memory timeline will not be be generated.')
 
         if torch_prof_record_shapes or torch_prof_profile_memory or torch_prof_with_stack or torch_prof_with_flops:
             self._callbacks.append(
