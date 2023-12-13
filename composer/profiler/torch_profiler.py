@@ -188,7 +188,6 @@ class TorchProfiler(Callback):  # noqa: D101
         memory_filename: Optional[str] = 'rank{rank}.{batch}.pt.trace.memory.html',
         memory_remote_file_name: Optional[
             str] = '{run_name}/torch_memory_traces/rank{rank}.{batch}.pt.trace.memory.html',
-        memory_custom_plot: bool = True,
         overwrite: bool = False,
         use_gzip: bool = False,
         record_shapes: bool = False,
@@ -226,7 +225,6 @@ class TorchProfiler(Callback):  # noqa: D101
         self.num_traces_to_keep = num_traces_to_keep
         self.saved_traces = OrderedDict()
         self.profiler: Optional[torch.profiler.profile] = None
-        self.memory_custom_plot = memory_custom_plot
 
     def init(self, state: State, logger: Logger) -> None:
         if state.profiler is None:
@@ -295,12 +293,9 @@ class TorchProfiler(Callback):  # noqa: D101
                     memory_trace_file_dirname = os.path.dirname(memory_trace_file_name)
                     if memory_trace_file_dirname:
                         os.makedirs(memory_trace_file_dirname, exist_ok=True)
-                    if self.memory_custom_plot:
-                        from composer.profiler.utils import export_memory_timeline_html
-                        export_memory_timeline_html(prof, memory_trace_file_name,
-                                                    torch.cuda.current_device())  # type: ignore
-                    else:
-                        prof.export_memory_timeline(memory_trace_file_name, torch.cuda.current_device())  # type: ignore
+                    from composer.profiler.utils import export_memory_timeline_html
+                    export_memory_timeline_html(prof, memory_trace_file_name,
+                                                torch.cuda.current_device())  # type: ignore
                     log.debug(f'Uploaded memory trace to {self.memory_remote_file_name}')
                     if self.memory_remote_file_name is not None:
                         memory_trace_remote_file_name = format_name_with_dist_and_time(self.memory_remote_file_name,

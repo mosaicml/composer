@@ -100,7 +100,7 @@ class Profiler:
         torch_prof_folder: str = '{run_name}/torch_traces',
         torch_prof_filename: str = 'rank{rank}.{batch}.pt.trace.json',
         torch_prof_remote_file_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
-        torch_prof_memory_filename: str = 'rank{rank}.{batch}.pt.memory_trace.html',
+        torch_prof_memory_filename: Optional[str] = None,
         torch_prof_memory_remote_file_name: Optional[
             str] = '{run_name}/torch_memory_traces/rank{rank}.{batch}.pt.memory_trace.html',
         torch_prof_overwrite: bool = False,
@@ -142,6 +142,21 @@ class Profiler:
                                profile_disk=sys_prof_disk,
                                profile_net=sys_prof_net,
                                stats_thread_interval_seconds=sys_prof_stats_thread_interval_seconds))
+
+        if torch_prof_memory_filename is not None:
+            if not (torch_prof_with_stack and torch_prof_record_shapes and torch_prof_profile_memory):
+                raise ValueError(
+                    f'torch_prof_memory_filename is set. Generating the memory timeline graph requires all the three flags torch_prof_with_stack, torch_prof_record_shapes, and torch_prof_profile_memory to be true. Got torch_prof_with_stack={torch_prof_with_stack}, torch_prof_record_shapes={torch_prof_record_shapes}, torch_prof_profile_memory={torch_prof_profile_memory}'
+                )
+            log.info(
+                f'Memory profiling is enabled and uses {torch_prof_memory_filename} as the filename to generate the memory timeline graph'
+            )
+
+        if (torch_prof_with_stack and torch_prof_record_shapes and
+                torch_prof_profile_memory) and torch_prof_memory_filename is None:
+            log.info(
+                f'Memory profiling is enabled but torch_prof_memory_filename is not set. Using {"rank{rank}.{batch}.pt.memory_trace.html"} as the filename for the memory timeline graph.'
+            )
 
         if torch_prof_record_shapes or torch_prof_profile_memory or torch_prof_with_stack or torch_prof_with_flops:
             self._callbacks.append(
