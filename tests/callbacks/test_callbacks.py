@@ -131,7 +131,9 @@ class TestCallbackTrains:
             device_train_microbatch_size=device_train_microbatch_size,
             callbacks=callbacks,
             loggers=loggers,
-            profiler=Profiler(schedule=lambda _: ProfilerAction.SKIP, trace_handlers=[]),
+            profiler=Profiler(schedule=lambda _: ProfilerAction.SKIP,
+                              trace_handlers=[],
+                              torch_prof_memory_filename=None),
         )
 
     def test_trains(self, cb_cls: Type[Callback], device_train_microbatch_size: int, _remote: bool):
