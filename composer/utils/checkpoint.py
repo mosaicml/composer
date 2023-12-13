@@ -20,7 +20,6 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 import torch
 from packaging import version
-from torch.distributed.checkpoint.metadata import Metadata
 
 from composer.utils import dist, reproducibility
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist,
@@ -385,6 +384,7 @@ def load_sharded_checkpoint(
     _validate_load_planner(load_planner)
 
     from torch.distributed import checkpoint as dist_cp
+    from torch.distributed.checkpoint.metadata import Metadata
     from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
     from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
 
