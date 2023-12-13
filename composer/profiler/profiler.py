@@ -62,6 +62,7 @@ class Profiler:
                         active=4,
                         repeat=1,
                     ),
+                    torch_prof_memory_filename=None,
                 )
 
         trace_handlers (TraceHandler | Sequence[TraceHandler]): Trace handlers which record and
