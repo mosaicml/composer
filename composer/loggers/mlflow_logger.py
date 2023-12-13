@@ -51,7 +51,7 @@ class MLFlowLogger(LoggerDestination):
         model_registry_uri (str, optional): The URI of the model registry to use. To register models
             to Unity Catalog, set to ``databricks-uc``. (default: None)
         synchronous (bool, optional): Whether to log synchronously. If ``True``, Mlflow will log
-            synchronously to the MLflow backend. If ``False``, Mlflow will log asynchronously.
+            synchronously to the MLflow backend. If ``False``, Mlflow will log asynchronously. (default: ``False``)
         log_system_metrics (bool, optional): Whether to log system metrics. If ``True``, Mlflow will
             log system metrics (CPU/GPU/memory/network usage) during training.
     """
