@@ -154,9 +154,11 @@ class Profiler:
 
         if (torch_prof_with_stack and torch_prof_record_shapes and
                 torch_prof_profile_memory) and torch_prof_memory_filename is None:
+
             log.info(
                 f'Memory profiling is enabled but torch_prof_memory_filename is not set. Using {"rank{rank}.{batch}.pt.memory_trace.html"} as the filename for the memory timeline graph.'
             )
+            torch_prof_memory_filename = 'rank{rank}.{batch}.pt.memory_trace.html'
 
         if torch_prof_record_shapes or torch_prof_profile_memory or torch_prof_with_stack or torch_prof_with_flops:
             self._callbacks.append(
