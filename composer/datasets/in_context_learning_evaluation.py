@@ -540,6 +540,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
             'input_ids': [],
             'mode': 'generate',
             'labels': [],
+            'answer': [],
             'cot_delimiter': self.cot_delimiter,
             'generation_length': self.max_answer_length,
             'generation_kwargs': {
@@ -550,6 +551,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         self.batch_mapping = {
             'input_ids': self.context_key,
             'labels': 'aliases',
+            'answer': 'answer'
         }
         self._update_generation_kwargs(kwargs.get('generation_kwargs'))
 

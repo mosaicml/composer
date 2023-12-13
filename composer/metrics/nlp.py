@@ -315,39 +315,47 @@ class InContextLearningLLMAsAJudge(InContextLearningMetric):
 
     # Make torchmetrics call update only once
     full_state_update = False
+# Respond with either "Yes" or "No" if you are able to make a distinction, or "Invalid" if the statements are malformatted. 
+# Any response other than one "Yes", "No", or "Invalid" is unusable and will not be scored, so please adhere to the instructions carefully.
 
-    BASE_EQUIVALENCE_PROMPT = """
-        Please determine whether the supplied statements or answers are equivalent. Respond only with "Yes" or "No". Any other result is considered invalid.
-        Statement 1: The sky is blue.
-        Statement 2: The sky is blue.
-        Result: Yes
+    BASE_EQUIVALENCE_PROMPT = """Please determine whether the supplied statements or answers are equivalent. 
+If one statment has a long continuation, only consider the first segment of the statement.
+Respond with either "Yes" or "No". Any response other than one "Yes" or "No" is unusable and will not be scored, so please adhere to the instructions carefully.
+Here are some examples to help you understand the task. They are not a part of the statements we are comparing.
 
-        Statement 1: Computer hard drive
-        Statement 2: Solid state drive
-        Result: No
+Statement 1: The sky is blue.
+Statement 2: The sky is blue.
+Result: Yes
 
-        Statement 1: Potatos are nutritious.
-        Statement 2: Taters have many healthy benefits.
-        Result: Yes
+Statement 1: Computer hard drive
+Statement 2: Solid state drive
+Result: No
 
-        Statement 1: Pytorch
-        Statement 2: Tensorflow
-        Result: No
+Statement 1: Potatos are nutritious.
+Statement 2: Taters have many healthy benefits.
+Result: Yes
 
-        Statement 1: We are so back
-        Statement 2: It's so over
-        Result: No
-        
-        Statement 1:  yes
-        Statement 2: Yes
-        Result: Yes
+Statement 1: Pytorch
+Statement 2: no.
+Result: No
 
-    """
-    BASE_USER_INPOUT = """
-        Statement 1: {statement1}
-        Statement 2: {statement2}
-        Result: 
-    """
+Statement 1: The American team was the first to win the World Championship.
+Statement 2: America
+Result: Yes 
+
+Statement 1:  Yes\nQuestion: What is the name of the British Army_s first major infantry regiment?\nAnswer: The
+Statement 2: Yes
+Result: Yes
+
+Statement 1:  Dik-dik\nQuestion: What type of animal is a kik-kik?\nAnswer: D
+Statement 2: Antelope
+Result: No
+
+The statements follow:
+"""
+    BASE_USER_INPOUT = """Statement 1: {statement1}
+Statement 2: {statement2}
+Result: """
 
     def __init__(self, dist_sync_on_step: bool = False, tokenizer: Optional[Any] = None, prompt: Optional[str] = None):
         # state from multiple processes
@@ -371,13 +379,13 @@ class InContextLearningLLMAsAJudge(InContextLearningMetric):
 
     def call_judge(self, sample_answer, sample_label) -> List[str]:
         # TODO: allow different models
-        if not self.client:
-            self.init_openai()  
         openai_user_input = deepcopy(self.BASE_USER_INPOUT)
+        if sample_answer.startswith(' '):
+            sample_answer = sample_answer.lstrip()
 
         # Randomly choose the true answer or the model output to be the first statment
         # to avoid some model bias
-        if random.random() < .5:
+        if random.random() <= .5:
             formatted_input = openai_user_input.format(statement1=sample_answer, statement2=sample_label)
         else:
             formatted_input = openai_user_input.format(statement1=sample_label, statement2=sample_answer)
@@ -388,23 +396,35 @@ class InContextLearningLLMAsAJudge(InContextLearningMetric):
                       { 'role': 'user', 'content': formatted_input}],
             max_tokens=10
         )
+        if "Yes" not in response.choices[0].message.content and "No" not in response.choices[0].message.content:
+            print("Found an illformatted response:")
+            print(formatted_input + response.choices[0].message.content)
 
         return response.choices[0].message.content 
 
-    def update(self, outputs: List[str], labels: List[List[str]], batch: Optional[Dict[str, Any]] = None):
-        for sample_output, sample_label in zip(outputs, labels):
-            import IPython; IPython.embed()
-            result = self.call_judge(sample_output, sample_label)
+    def update(self, batch: Dict[str, Any], outputs: List[str], labels: List[List[str]]):
+        if not self.client:
+            self.init_openai()  
+        for sample_output, sample_answer in zip(outputs, batch['answer']):
+            sample_output = sample_output.split("\n")[0]
+            result = self.call_judge(sample_output, sample_answer)
             if result.endswith("Yes"):
                 self.correct += torch.tensor(1.0)
             elif result.endswith("No"):
                 pass
             else:
-                print(result)
                 self.invalid_judge_response += torch.tensor(1.0)
             self.total += torch.tensor(1.0)
 
+        # OpenAI Client can't be copied by deepcopy and will throw an error, so we delete it after we use it
+        # Initializatin takes ~12 ms
+        del self.client
+        self.client = None
+
     def compute(self):
+        print('correct:', self.correct)
+        print('total:', self.total)
+        print('invalid:', self.invalid_judge_response)
         assert isinstance(self.correct, Tensor)
         assert isinstance(self.total, Tensor)
         return self.correct / self.total
