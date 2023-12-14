@@ -11,7 +11,7 @@ import tempfile
 import time
 from glob import glob
 from typing import Any, Dict, List, Optional, Union
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import torch
@@ -29,7 +29,7 @@ from composer.optim import ExponentialScheduler
 from composer.trainer import trainer
 from composer.trainer.trainer import Trainer
 from composer.utils import dist, is_tar
-from composer.utils.checkpoint import glob_filter
+from composer.utils.checkpoint import _ensure_valid_checkpoint, glob_filter
 from composer.utils.object_store.object_store import ObjectStore
 from composer.utils.object_store.s3_object_store import S3ObjectStore
 from tests.common import (RandomClassificationDataset, RandomImageDataset, RandomTextLMDataset, SimpleConvModel,
@@ -577,6 +577,7 @@ class TestCheckpointLoading:
             run_name='big-chungus',
             autoresume=True,
             load_path='ignore_me.pt',  # this should be ignored
+            load_ignore_keys=['*'],  # this should be ignored
             loggers=[self.get_logger(tmp_path)] if use_object_store else [],
         )
 
@@ -1288,3 +1289,40 @@ def test_rotate_checkpoints(
     assert len(symlink_files) == ((1 if not deepspeed_enabled else world_size) if num_keep != 0 else 0)
 
     dist.barrier()  # all ranks finish before cleaning up tmpdir
+
+
+def simple_validate(filepath: str):
+    with open(filepath, 'r') as f:
+        return f.read() == 'good'
+
+
+def test_checkpoint_validation(tmp_path):
+    checkpoint_filepath = tmp_path / 'dummy'
+    with open(checkpoint_filepath, 'w') as f:
+        f.write('good')
+
+    # No validation function specified.
+    result = _ensure_valid_checkpoint(checkpoint_filepath)
+    assert result == checkpoint_filepath
+
+    # Non-existent module specified.
+    with patch.dict(os.environ, {'CHECKPOINT_VALIDATION_FUNCTION': 'bad_module.bad_function'}):
+        with pytest.raises(ModuleNotFoundError):
+            _ensure_valid_checkpoint(checkpoint_filepath)
+
+    # Non-existent function specified.
+    with patch.dict(os.environ, {'CHECKPOINT_VALIDATION_FUNCTION': 'tests.trainer.test_checkpoint.bad_function'}):
+        with pytest.raises(AttributeError):
+            _ensure_valid_checkpoint(checkpoint_filepath)
+
+    # Correct usage and successful validation.
+    with patch.dict(os.environ, {'CHECKPOINT_VALIDATION_FUNCTION': 'tests.trainer.test_checkpoint.simple_validate'}):
+        result = _ensure_valid_checkpoint(checkpoint_filepath)
+        assert result == checkpoint_filepath
+
+    # Correct usage and failed validation.
+    with open(checkpoint_filepath, 'w') as f:
+        f.write('bad')
+    with patch.dict(os.environ, {'CHECKPOINT_VALIDATION_FUNCTION': 'tests.trainer.test_checkpoint.simple_validate'}):
+        with pytest.raises(ValueError):
+            _ensure_valid_checkpoint(checkpoint_filepath)

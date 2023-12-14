@@ -63,6 +63,7 @@ trainer = Trainer(model=model,
                       ),
                       torch_prof_folder=torch_trace_dir,
                       torch_prof_overwrite=True,
+                      torch_prof_memory_filename=None,
                   ))
 # [trainer-end]
 

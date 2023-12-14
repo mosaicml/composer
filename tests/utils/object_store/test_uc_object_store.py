@@ -18,8 +18,10 @@ from tests.common import RandomClassificationDataset, SimpleModel
 @pytest.fixture
 def ws_client(monkeypatch):
     mock_files = MagicMock()
+    mock_api_client = MagicMock()
     mock_ws_client = MagicMock()
     monkeypatch.setattr(mock_ws_client, 'files', mock_files)
+    monkeypatch.setattr(mock_ws_client, 'api_client', mock_api_client)
     return mock_ws_client
 
 
@@ -61,7 +63,10 @@ def test_uc_object_store_without_env():
         UCObjectStore(path='Volumes/test-volume/')
 
 
-def test_uc_object_store_invalid_prefix():
+def test_uc_object_store_invalid_prefix(monkeypatch):
+    monkeypatch.setenv('DATABRICKS_HOST', 'test-host')
+    monkeypatch.setenv('DATABRICKS_TOKEN', 'test-token')
+
     with pytest.raises(ValueError):
         UCObjectStore(path='root/')
     with pytest.raises(ValueError):
@@ -97,8 +102,8 @@ def test_upload_object(ws_client, uc_object_store, tmp_path):
     with open(file_to_upload, 'wb') as f:
         f.write(bytes(range(20)))
 
-    uc_object_store.upload_object(object_name='train.txt', filename=file_to_upload)
-    ws_client.files.upload.assert_called_with('/Volumes/catalog/schema/volume/train.txt', ANY)
+    uc_object_store.upload_object(object_name='path/train.txt', filename=file_to_upload)
+    ws_client.files.upload.assert_called_with('/Volumes/catalog/schema/volume/path/train.txt', ANY)
 
 
 @pytest.mark.parametrize('result', ['success', 'file_exists', 'overwrite_file', 'not_found', 'error'])
@@ -151,6 +156,66 @@ def test_download_object(ws_client, uc_object_store, tmp_path, result: str):
 
         with pytest.raises(ObjectStoreTransientError):
             uc_object_store.download_object(object_name, file_to_download)
+    else:
+        raise NotImplementedError(f'Test for result={result} is not implemented.')
+
+
+@pytest.mark.parametrize('result', ['success', 'prefix_none', 'not_found', 'error'])
+def test_list_objects(ws_client, uc_object_store, result):
+    expected_files = [
+        '/Volumes/catalog/volume/schema/path/to/folder/file1.txt',
+        '/Volumes/catalog/volume/schema/path/to/folder/file2.txt',
+    ]
+    uc_list_api_response = {
+        'files': [{
+            'path': '/Volumes/catalog/volume/schema/path/to/folder/file1.txt',
+            'is_dir': False
+        }, {
+            'path': '/Volumes/catalog/volume/schema/path/to/folder/file2.txt',
+            'is_dir': False
+        }, {
+            'path': '/Volumes/catalog/volume/schema/path/to/folder/samples/',
+            'is_dir': True
+        }]
+    }
+
+    prefix = 'Volumes/catalog/schema/volume/path/to/folder'
+
+    if result == 'success':
+        ws_client.api_client.do.return_value = uc_list_api_response
+        actual_files = uc_object_store.list_objects(prefix=prefix)
+
+        assert actual_files == expected_files
+        ws_client.api_client.do.assert_called_once_with(
+            method='GET',
+            path=uc_object_store._UC_VOLUME_LIST_API_ENDPOINT,
+            data='{"path": "/Volumes/catalog/schema/volume/path/to/folder"}',
+            headers={'Source': 'mosaicml/composer'})
+
+    elif result == 'prefix_none':
+        ws_client.api_client.do.return_value = uc_list_api_response
+        actual_files = uc_object_store.list_objects(prefix=None)
+
+        assert actual_files == expected_files
+        ws_client.api_client.do.assert_called_once_with(method='GET',
+                                                        path=uc_object_store._UC_VOLUME_LIST_API_ENDPOINT,
+                                                        data='{"path": "/Volumes/catalog/schema/volume/."}',
+                                                        headers={'Source': 'mosaicml/composer'})
+
+    elif result == 'not_found':
+        db_core = pytest.importorskip('databricks.sdk.core', reason='requires databricks')
+        ws_client.api_client.do.side_effect = db_core.DatabricksError(
+            'The path you provided does not exist or is not a directory.', error_code='NOT_FOUND')
+        with pytest.raises(FileNotFoundError):
+            uc_object_store.list_objects(prefix=prefix)
+
+    elif result == 'error':
+        db_core = pytest.importorskip('databricks.sdk.core', reason='requires databricks')
+        ws_client.api_client.do.side_effect = db_core.DatabricksError
+
+        with pytest.raises(ObjectStoreTransientError):
+            uc_object_store.list_objects(prefix=prefix)
+
     else:
         raise NotImplementedError(f'Test for result={result} is not implemented.')
 

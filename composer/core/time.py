@@ -223,20 +223,12 @@ class Time(Generic[TValue], Serializable):
         """
         return str(self)
 
-    def _parse(self, other: object) -> Time:
+    def _parse(self, other: Union[int, float, Time, str]) -> Time:
         # parse ``other`` into a Time object
-        if isinstance(other, Time):
-            return other
-        if isinstance(other, int):
-            return Time(other, self.unit)
-        if isinstance(other, str):
-            other_parsed = Time.from_timestring(other)
-            return other_parsed
-
-        raise TypeError(f'Cannot convert type {other} to {self.__class__.__name__}')
+        return Time.from_input(other, self.unit)
 
     def _cmp(self, other: Union[int, float, Time, str]) -> int:
-        # When doing comparisions, and other is an integer (or float), we can safely infer
+        # When doing comparisons, and other is an integer (or float), we can safely infer
         # the unit from self.unit
         # E.g. calls like this should be allowed: if batch < 42: do_something()
         # This eliminates the need to call .value everywhere
@@ -302,7 +294,7 @@ class Time(Generic[TValue], Serializable):
     def __float__(self):
         return float(self.value)
 
-    def __truediv__(self, other: object) -> Time[float]:
+    def __truediv__(self, other: Union[int, float, Time, str]) -> Time[float]:
         if isinstance(other, (float, int)):
             return Time(type(self.value)(self.value / other), self.unit)
         other = self._parse(other)
@@ -310,7 +302,13 @@ class Time(Generic[TValue], Serializable):
             raise RuntimeError(f'Cannot divide {self} by {other} since they have different units.')
         return Time(self.value / other.value, TimeUnit.DURATION)
 
-    def __mul__(self, other: object):
+    def __mod__(self, other: Union[int, float, Time, str]) -> Time[TValue]:
+        other = self._parse(other)
+        if self.unit != other.unit:
+            raise RuntimeError(f'Cannot take mod of {self} by {other} since they have different units.')
+        return Time(self.value % other.value, self.unit)
+
+    def __mul__(self, other: Union[int, float, Time, str]):
         if isinstance(other, (float, int)):
             # Scale by the value.
             return Time(type(self.value)(self.value * other), self.unit)
@@ -321,11 +319,42 @@ class Time(Generic[TValue], Serializable):
         real_type = float if real_unit == TimeUnit.DURATION else int
         return Time(real_type(self.value * other.value), real_unit)
 
-    def __rmul__(self, other: object):
+    def __rmul__(self, other: Union[int, float, Time, str]):
         return self * other
 
     def __hash__(self):
         return hash((self.value, self.unit))
+
+    @classmethod
+    def from_input(cls,
+                   i: Union[str, int, float, 'Time'],
+                   default_int_unit: Optional[Union[TimeUnit, str]] = None) -> Time:
+        """Parse a time input into a :class:`Time` instance.
+
+        Args:
+            i (str | int | Time): The time input.
+            default_int_unit (TimeUnit, optional): The default unit to use if ``i`` is an integer
+
+        >>> Time.from_input("5ep")
+        Time(5, TimeUnit.EPOCH)
+        >>> Time.from_input(5, TimeUnit.EPOCH)
+        Time(5, TimeUnit.EPOCH)
+
+        Returns:
+            Time: An instance of :class:`Time`.
+        """
+        if isinstance(i, Time):
+            return i
+
+        if isinstance(i, str):
+            return Time.from_timestring(i)
+
+        if isinstance(i, int) or isinstance(i, float):
+            if default_int_unit is None:
+                raise RuntimeError('default_int_unit must be specified when constructing Time from an integer.')
+            return Time(i, default_int_unit)
+
+        raise RuntimeError(f'Cannot convert type {i} to {cls.__name__}')
 
     @classmethod
     def from_timestring(cls, timestring: str) -> Time:
@@ -393,39 +422,39 @@ class Timestamp(Serializable):
         epoch_wct: Optional[datetime.timedelta] = None,
         batch_wct: Optional[datetime.timedelta] = None,
     ):
-        epoch = ensure_time(epoch, TimeUnit.EPOCH)
+        epoch = Time.from_input(epoch, TimeUnit.EPOCH)
         if epoch.unit != TimeUnit.EPOCH:
             raise ValueError(f'The `epoch` argument has units of {epoch.unit}; not {TimeUnit.EPOCH}.')
         self._epoch = epoch
 
-        batch = ensure_time(batch, TimeUnit.BATCH)
+        batch = Time.from_input(batch, TimeUnit.BATCH)
         if batch.unit != TimeUnit.BATCH:
             raise ValueError(f'The `batch` argument has units of {batch.unit}; not {TimeUnit.BATCH}.')
         self._batch = batch
 
-        sample = ensure_time(sample, TimeUnit.SAMPLE)
+        sample = Time.from_input(sample, TimeUnit.SAMPLE)
         if sample.unit != TimeUnit.SAMPLE:
             raise ValueError(f'The `sample` argument has units of {sample.unit}; not {TimeUnit.SAMPLE}.')
         self._sample = sample
 
-        token = ensure_time(token, TimeUnit.TOKEN)
+        token = Time.from_input(token, TimeUnit.TOKEN)
         if token.unit != TimeUnit.TOKEN:
             raise ValueError(f'The `token` argument has units of {token.unit}; not {TimeUnit.TOKEN}.')
         self._token = token
 
-        batch_in_epoch = ensure_time(batch_in_epoch, TimeUnit.BATCH)
+        batch_in_epoch = Time.from_input(batch_in_epoch, TimeUnit.BATCH)
         if batch_in_epoch.unit != TimeUnit.BATCH:
             raise ValueError((f'The `batch_in_epoch` argument has units of {batch_in_epoch.unit}; '
                               f'not {TimeUnit.BATCH}.'))
         self._batch_in_epoch = batch_in_epoch
 
-        sample_in_epoch = ensure_time(sample_in_epoch, TimeUnit.SAMPLE)
+        sample_in_epoch = Time.from_input(sample_in_epoch, TimeUnit.SAMPLE)
         if sample_in_epoch.unit != TimeUnit.SAMPLE:
             raise ValueError((f'The `sample_in_epoch` argument has units of {sample_in_epoch.unit}; '
                               f'not {TimeUnit.SAMPLE}.'))
         self._sample_in_epoch = sample_in_epoch
 
-        token_in_epoch = ensure_time(token_in_epoch, TimeUnit.TOKEN)
+        token_in_epoch = Time.from_input(token_in_epoch, TimeUnit.TOKEN)
         if token_in_epoch.unit != TimeUnit.TOKEN:
             raise ValueError((f'The `token_in_epoch` argument has units of {token_in_epoch.unit}; '
                               f'not {TimeUnit.TOKEN}.'))
@@ -563,7 +592,7 @@ class Timestamp(Serializable):
             return self.token
         raise ValueError(f'Invalid unit: {unit}')
 
-    def _parse(self, other: object) -> Time:
+    def _parse(self, other: Union[int, float, Time, str]) -> Time:
         # parse ``other`` into a Time object
         if isinstance(other, Time):
             return other
@@ -573,7 +602,7 @@ class Timestamp(Serializable):
 
         raise TypeError(f'Cannot convert type {other} to {self.__class__.__name__}')
 
-    def __eq__(self, other: object):
+    def __eq__(self, other: Union[int, float, Time, str]):
         if not isinstance(other, (Time, Timestamp, str)):
             return NotImplemented
         if isinstance(other, Timestamp):
@@ -582,7 +611,7 @@ class Timestamp(Serializable):
         self_counter = self.get(other.unit)
         return self_counter == other
 
-    def __ne__(self, other: object):
+    def __ne__(self, other: Union[int, float, Time, str]):
         if not isinstance(other, (Time, Timestamp, str)):
             return NotImplemented
         if isinstance(other, Timestamp):
@@ -591,28 +620,28 @@ class Timestamp(Serializable):
         self_counter = self.get(other.unit)
         return self_counter != other
 
-    def __lt__(self, other: object):
+    def __lt__(self, other: Union[int, float, Time, str]):
         if not isinstance(other, (Time, str)):
             return NotImplemented
         other = self._parse(other)
         self_counter = self.get(other.unit)
         return self_counter < other
 
-    def __le__(self, other: object):
+    def __le__(self, other: Union[int, float, Time, str]):
         if not isinstance(other, (Time, str)):
             return NotImplemented
         other = self._parse(other)
         self_counter = self.get(other.unit)
         return self_counter <= other
 
-    def __gt__(self, other: object):
+    def __gt__(self, other: Union[int, float, Time, str]):
         if not isinstance(other, (Time, str)):
             return NotImplemented
         other = self._parse(other)
         self_counter = self.get(other.unit)
         return self_counter > other
 
-    def __ge__(self, other: object):
+    def __ge__(self, other: Union[int, float, Time, str]):
         if not isinstance(other, (Time, str)):
             return NotImplemented
         other = self._parse(other)
@@ -783,10 +812,4 @@ def ensure_time(maybe_time: Union[Time, str, int], int_unit: Union[TimeUnit, str
     Returns:
         Time: An instance of :class:`.Time`.
     """
-    if isinstance(maybe_time, str):
-        return Time.from_timestring(maybe_time)
-    if isinstance(maybe_time, int):
-        return Time(maybe_time, int_unit)
-    if isinstance(maybe_time, Time):
-        return maybe_time
-    raise TypeError(f'Unsupported type for ensure_time: {type(maybe_time)}')
+    return Time.from_input(maybe_time, int_unit)

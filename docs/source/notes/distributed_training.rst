@@ -188,7 +188,6 @@ The full spec and defaults for Composer's `fsdp_config` is here:
       'activation_cpu_offload': bool = True | False, # Default: False
       'backward_prefetch': str = 'BACKWARD_PRE' | 'BACKWARD_POST' | 'NONE', # Default: 'BACKWARD_POST'
       'cpu_offload': bool = True | False, # Default: False, cpu_offload not supported yet
-      'flatten_parameters': bool = True | False, # Default: True
       'forward_prefetch': bool = True | False, # Default: False
       'ignored_modules': Optional[Iterable[torch.nn.Module]], # Default: None
       'keep_low_precision_grads': bool = True | False, # Default: False

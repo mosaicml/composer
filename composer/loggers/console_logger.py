@@ -44,11 +44,7 @@ class ConsoleLogger(LoggerDestination):
                  stream: Union[str, TextIO] = sys.stderr,
                  log_traces: bool = False) -> None:
 
-        if isinstance(log_interval, int):
-            log_interval = Time(log_interval, TimeUnit.EPOCH)
-        if isinstance(log_interval, str):
-            log_interval = Time.from_timestring(log_interval)
-
+        log_interval = Time.from_input(log_interval, TimeUnit.EPOCH)
         self.last_logged_batch = 0
 
         if log_interval.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH):

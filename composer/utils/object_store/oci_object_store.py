@@ -5,9 +5,11 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import os
 import pathlib
 import uuid
+from tempfile import TemporaryDirectory
 from typing import Callable, List, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
@@ -116,12 +118,24 @@ class OCIObjectStore(ObjectStore):
         except Exception as e:
             _reraise_oci_errors(self.get_uri(object_name), e)
 
+    def _download_part(self, object_name, filename, start_byte, end_byte, part_number):
+        range_header = f'bytes={start_byte}-{end_byte}'
+        tmp_part_path = os.path.join(filename, f'part-{part_number}-{uuid.uuid4()}.tmp')
+        response = self.client.get_object(namespace_name=self.namespace,
+                                          bucket_name=self.bucket,
+                                          object_name=object_name,
+                                          range=range_header)
+        with open(tmp_part_path, 'wb') as f:
+            f.write(response.data.content)
+        return part_number, tmp_part_path
+
     def download_object(
         self,
         object_name: str,
         filename: Union[str, pathlib.Path],
         overwrite: bool = False,
         callback: Optional[Callable[[int, int], None]] = None,
+        num_parts: int = 10,
     ):
         del callback
         if os.path.exists(filename) and not overwrite:
@@ -130,24 +144,47 @@ class OCIObjectStore(ObjectStore):
         dirname = os.path.dirname(filename)
         if dirname:
             os.makedirs(dirname, exist_ok=True)
-        tmp_path = str(filename) + f'.{uuid.uuid4()}.tmp'
 
-        try:
-            response = self.client.get_object(
-                namespace_name=self.namespace,
-                bucket_name=self.bucket,
-                object_name=object_name,
-            )
-        except Exception as e:
-            _reraise_oci_errors(self.get_uri(object_name), e)
+        # Get the size of the object
+        head_object_response = self.client.head_object(self.namespace, self.bucket, object_name)
+        object_size = head_object_response.headers['content-length']
+        # Calculate the part sizes
+        base_part_size, remainder = divmod(int(object_size), num_parts)
+        part_sizes = [base_part_size] * num_parts
+        for i in range(remainder):
+            part_sizes[i] += 1
+        part_sizes = [part_size for part_size in part_sizes if part_size > 0]
 
-        with open(tmp_path, 'wb') as f:
-            f.write(response.data.content)
+        with TemporaryDirectory(dir=dirname, prefix=f'{str(filename)}') as temp_dir:
+            try:
+                # Download parts in parallel
+                parts = []
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    futures = []
+                    start_byte = 0
+                    for i, part_size in enumerate(part_sizes):
+                        end_byte = start_byte + part_size - 1
+                        futures.append(
+                            executor.submit(self._download_part, object_name, temp_dir, start_byte, end_byte, i))
+                        start_byte = end_byte + 1
 
-        if overwrite:
-            os.replace(tmp_path, filename)
-        else:
-            os.rename(tmp_path, filename)
+                    for future in concurrent.futures.as_completed(futures):
+                        parts.append(future.result())
+                    parts = sorted(parts, key=lambda x: x[0])
+            except Exception as e:
+                _reraise_oci_errors(self.get_uri(object_name), e)
+
+            # Combine parts
+            tmp_path = os.path.join(temp_dir, f'{str(filename)}-{uuid.uuid4()}.tmp')
+            with open(tmp_path, 'wb') as outfile:
+                for i, part_file_name in parts:
+                    with open(part_file_name, 'rb') as infile:
+                        outfile.write(infile.read())
+
+            if overwrite:
+                os.replace(tmp_path, filename)
+            else:
+                os.rename(tmp_path, filename)
 
     def list_objects(self, prefix: Optional[str] = None) -> List[str]:
         if prefix is None:
