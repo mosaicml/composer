@@ -428,7 +428,7 @@ def load_sharded_checkpoint(
             _ensure_valid_checkpoint(metadata_file_path)
             return super().read_metadata()
 
-    # A subclass of FileSystemReader that downloads files from the object store before reading them from the local filesystem.
+    # A subclass of FileSystemReaderWithValidation that downloads files from the object store before reading them from the local filesystem.
     class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
         def __init__(self, source_path: str, destination_path: str, object_store):
