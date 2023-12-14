@@ -145,17 +145,20 @@ class InContextLearningDataset(Dataset):
     A base dataset that constructs batches for in-context learning task evaluations.
     The input format is expected to be a jsonl file or a link to a Hugging Face dataset.
 
-    When creating a new ICL Dataset, the most likely to be reimplemented methods are the following:
+    When creating a new ICL Dataset, it is most likely that you will need to reimplemented methods are the following:
         - _construct_context(): takes a single example dictionary and formulates the context as a string for that eval question.
         - _get_answer_from_example(): takes a single example dictionary and formulates the correct, ground truth answer as a string.
         - _tokenize_example(): tokenizes the example and adds any extra content from the original dictionary that needs to be passed downstream.
-        - _read_dataset(): loads the dataset and does basic parsing. If custom parsing must be done, this is a good place to do so (See InContextLearningQATaskDataset._read_dataset())
+        - _read_dataset(): loads the dataset and does basic parsing. If additional parsing must be done, this is a good place to do so (See InContextLearningQATaskDataset._read_dataset())
 
     Additionally, base_batch and batch_mapping must be defined.
         - base_batch (Dict): the base that the dataset will use to construct a batch. This should contain static values, like generation_kwargs or mode,
                              and empty lists for values that will need to be accumulated from each example.
+                             NOTE: Sometimes, you will need to set base_batch directly after the init call, usually in order to use class variables 
+                                   like self.pad_tok_id or self.max_answer_length. If you manually set generation_kwargs at this time, you'll need to call self._update_generation_kwargs() again
+                                   after setting self.base_batch.
         - batch_mapping (Dict): A mapping with keys that are keys in the batch and values that are columns in the loaded dataset.
-                                collate_fn will use this mapping to create batches from self.dataset
+                                collate_fn will use this mapping to create batches from self.dataset.
 
     Args:
         dataset_uri (str): A local path, a remote path beginning with ``s3://`` or another backend, or a HuggingFace dataset uri.
@@ -163,24 +166,28 @@ class InContextLearningDataset(Dataset):
             A local dataset must consist of rows of JSON data points with different fields based on the task.
             The default keys expected are "context" and "answer".
         tokenizer (transformers.PreTrainedTokenizerBase): The tokenizer used to map between strings and token ids
-        max_seq_len (int): The maximum sequence length supported by the model
-        pad_tok_id (int): The special token reserved for padding batches
-        num_fewshot (int): The number of complete fewshot examples to prepend before each test example
-        fewshot_random_seed (int): Random seed to use for fewshot sampling
-        prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french')
-        example_delimiter (str): Separator that goes between individual (context, answer) pairs (e.g. '\n')
-        continuation_delimiter: (str): Separator that goes between context and answer in each example (e.g. '\nA: ')
-        prelimiter (str): Text to be prepended before each example, including few shot examples
-        context_key (str): The key from the parsed dataset that the class will use as the "context" (i.e. the main content to be included in the prompt)
-        answer_key (str): The key from the parsed dataset that the class will use as the "answer" (i.e. the main content to be predicted by the model)
-        destination_path (str): Temporary path to store downloaded datasets
+        max_seq_len (int): The maximum sequence length supported by the model.
+        pad_tok_id (int): The special token reserved for padding batches.
+        num_fewshot (int): The number of complete fewshot examples to prepend before each test example.
+        fewshot_random_seed (int): Random seed to use for fewshot sampling.
+        prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'translate english to french').
+        example_delimiter (str): Separator that goes between individual (context, answer) pairs (e.g. '\n').
+        continuation_delimiter: (str): Separator that goes between context and answer in each example (e.g. '\nA: ').
+        destination_path (str): Temporary path to store downloaded datasets.
+        prelimiter (str): Text to be prepended before each example, including few shot examples (e.g. "Question: ").
+        context_key (str): The key in the loaded dataset that contains the context.
+        answer_key (str): The key in the loaded dataset that contains the answer.
         strip_dataset (bool): Boolean for whether to strip whitespace from data. Trailing whitespace can cause degenerative outputs,
             so unless whitespace should be preserved (for example in code), this should be set to True.
+        padding_side (str): Side of the content and answer on which to apply padding. Can be either 'right' or 'left'.
+        padding_size (int): The final size of the tensor after padding. Defaults to max_sequence_length.
+        base_batch (Dict): The base dictionary upon which a batch is created. See above for more details.
+        base_mapping (Dict): A mapping of batch keys to dataset columns, used to create batches. See above for more details.
         hf_loading_vars (Dict): A dictionary containing keyword arguments to be passed into `load_dataset` if dataset is being pulled from HF.
         hf_parsing_map (Dict[str, List[str]]): A dictionary containing a mapping from HF columns to ICL dataset keys. The dictionary should be formatted {icl_key:[hf_key1, hf_key1]}.
-            Values in the dict will be concatenated with ' ' seperating them. If not included, will use the columns already present in the HF dataset.
-        tokenize_labels (bool): Whether or not the labels should be tokenized. Used in metric calculation and for direct comparison
-        generation_kwargs (Dict): A dictionary containing any
+            Columns will be concatenated with ' ' seperating them. If not included, will load whatever columns are already present in the HF dataset.
+        tokenize_labels (bool): Whether or not the labels should be tokenized. Generally determined by which metric a dataset uses.
+        generation_kwargs (Dict): A dictionary containing extra keyword arguments to be passed along to the model's generate function.
     """
 
     def __init__(
@@ -260,6 +267,7 @@ class InContextLearningDataset(Dataset):
         likely because base_batch needs a class variable like self.pad_tok_id or self.max_answer_length).
 
         Args:
+            dict: keyword arguments that be written into base_batch['generation_kwargs']
 
         """
         if 'generation_kwargs' not in self.base_batch:

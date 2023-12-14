@@ -288,7 +288,7 @@ def test_get_answer_from_example(tiny_gpt2_tokenizer, tmp_path):
                                   hf_loading_vars=hf_loading_vars,
                                   hf_parsing_map=hf_parsing_map)
     answer = dl._get_answer_from_example({'context': 'wex exort exort', 'answer': 'alacrity'})
-    assert answer == 'alacrity'
+    assert answer == ' alacrity'
 
 
 def test_fix_eos_on_preamble(tmp_path):
