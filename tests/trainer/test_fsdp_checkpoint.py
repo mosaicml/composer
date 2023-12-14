@@ -550,14 +550,18 @@ def test_fsdp_full_state_dict_load_with_ema(
 @pytest.mark.gpu
 @world_size(2)
 @pytest.mark.parametrize('is_valid_checkpoint', [True, False])
-@pytest.mark.parametrize('state_dict_type', ['full', 'sharded'])
+@pytest.mark.parametrize('state_dict_type', ['sharded', 'full'])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning')
 def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_checkpoint: bool, state_dict_type: str):
-    from torch.distributed.checkpoint.api import CheckpointException
+    # Set the error expectations.
+    expectation = does_not_raise() if is_valid_checkpoint else pytest.raises((ValueError))
+    if using_torch_2() and state_dict_type == 'sharded':
+        from torch.distributed.checkpoint import CheckpointException
+        expectation = pytest.raises(CheckpointException)
 
     def mock_get_checkpoint_validation_function():
         return lambda _: is_valid_checkpoint
@@ -571,9 +575,13 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
     trainer.fit()
     trainer.close()
 
-    expectation = does_not_raise() if is_valid_checkpoint else pytest.raises((ValueError, CheckpointException))
-
-    checkpoint_relpath = 'ba1-rank0.pt' if state_dict_type == 'full' else 'ba1'
+    # Determine the checkpoint path for loading.
+    checkpoint_relpath = 'ba1-rank0.pt'
+    if state_dict_type == 'sharded':
+        if using_torch_2():
+            checkpoint_relpath = 'ba1'
+        else:
+            checkpoint_relpath = 'ba1/ba1-rank{rank}.pt'
 
     # Load checkpoints with checkpoint validation.
     with expectation:
