@@ -153,6 +153,7 @@ class InContextLearningQATaskDataset(Dataset):
         question_prelimiter: str,
         fewshot_random_seed: int,
         cot_delimiter: str = '',
+        generation_kwargs: Optional[dict] = None
     ):
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
@@ -172,6 +173,7 @@ class InContextLearningQATaskDataset(Dataset):
         self.padding_side = 'left'
         self.max_answer_length = 0
         fewshot_rng = random.Random(fewshot_random_seed)
+        self.generation_kwargs = generation_kwargs if generation_kwargs else {}
         self.encoded_dataset = self._prep_examples(num_fewshot, prompt_string, example_delimiter,
                                                    continuation_delimiter, question_prelimiter, fewshot_rng,
                                                    cot_delimiter)
@@ -298,16 +300,19 @@ class InContextLearningQATaskDataset(Dataset):
             # beginning with `cot_delimiter`
             cot_delimiter = sample['cot_delimiter']
 
+        generation_kwargs = {
+                'pad_token_id': self.pad_tok_id,
+                'use_cache': True,
+                'eos_token_id': self.tokenizer.eos_token_id
+            }
+        generation_kwargs.update(self.generation_kwargs)
         batch = {
             'input_ids': torch.stack(inputs),
             'mode': 'generate',
             'labels': answers,
             'cot_delimiter': cot_delimiter,
             'generation_length': self.max_answer_length,
-            'generation_kwargs': {
-                'pad_token_id': self.pad_tok_id,
-                'use_cache': True
-            }
+            'generation_kwargs': self.generation_kwargs
         }
 
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
@@ -947,6 +952,8 @@ class InContextLearningCodeEvalDataset(Dataset):
         pass_at_k: int = 1,
         top_p: Optional[float] = 0.95,
         top_k: Optional[int] = 40,
+        generation_kwargs: Optional[dict] = None
+
     ):
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
@@ -958,6 +965,8 @@ class InContextLearningCodeEvalDataset(Dataset):
             if dist.get_local_rank() == 0:
                 get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
+        self.generation_kwargs = generation_kwargs if generation_kwargs else {}
+
         self.samples = list(
             dataset.map(
                 lambda examples: {
@@ -1089,6 +1098,17 @@ class InContextLearningCodeEvalDataset(Dataset):
             test_outputs.append(test_output)
             languages.append(language)
 
+        generation_kwargs = {
+                'pad_token_id': self.pad_tok_id,
+                'num_beams': 1,  # single beam
+                'num_return_sequences': self.generations_per_sample,  # how many gens per prompt
+                'do_sample': True,
+                'top_p': self.top_p,
+                'top_k': self.top_k,
+                'use_cache': True,
+                'eos_token_id': self.tokenizer.eos_token_id
+            }
+        generation_kwargs.update(self.generation_kwargs)
         batch = {
             'input_ids': torch.stack(inputs),
             'mode': 'generate',
@@ -1102,15 +1122,7 @@ class InContextLearningCodeEvalDataset(Dataset):
             'languages': languages,  # list of languages
             'pass_at_k': self.pass_at_k,
             'generation_length': self.max_seq_len - self.max_prompt_length,
-            'generation_kwargs': {
-                'pad_token_id': self.pad_tok_id,
-                'num_beams': 1,  # single beam
-                'num_return_sequences': self.generations_per_sample,  # how many gens per prompt
-                'do_sample': True,
-                'top_p': self.top_p,
-                'top_k': self.top_k,
-                'use_cache': True,
-            }
+            'generation_kwargs': generation_kwargs
         }
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
@@ -1165,6 +1177,7 @@ def build_icl_dataloader(
     fewshot_random_seed: int = 1234,
     pass_at_k: int = 1,
     generations_per_sample: int = 1,
+    generation_kwargs: Optional[dict] = None
 ) -> DataSpec:
     if icl_task_type == 'multiple_choice':
         dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri,
@@ -1216,7 +1229,8 @@ def build_icl_dataloader(
                                                  destination_path=destination_path,
                                                  question_prelimiter=question_prelimiter,
                                                  fewshot_random_seed=fewshot_random_seed,
-                                                 cot_delimiter=cot_delimiter)
+                                                 cot_delimiter=cot_delimiter,
+                                                 generation_kwargs=generation_kwargs)
         effective_batchsize = batch_size
     elif icl_task_type == 'code_evaluation':
         dataset = InContextLearningCodeEvalDataset(dataset_uri,
@@ -1230,7 +1244,9 @@ def build_icl_dataloader(
                                                    code_prelimiter=question_prelimiter,
                                                    fewshot_random_seed=fewshot_random_seed,
                                                    pass_at_k=pass_at_k,
-                                                   generations_per_sample=generations_per_sample)
+                                                   generations_per_sample=generations_per_sample,
+                                                   generation_kwargs=generation_kwargs
+)
         effective_batchsize = batch_size
     else:
         raise Exception(f'Unrecognized ICL task type: {icl_task_type}')
@@ -1316,7 +1332,9 @@ def get_icl_task_dataloader(
         pass_at_k: int = 1,
         generations_per_sample: int = 1,
         cot_delimiter: str = '',
-        has_categories: bool = False) -> Union[DataSpec, Dict[str, DataSpec]]:
+        has_categories: bool = False,
+            generation_kwargs: Optional[dict] = None
+) -> Union[DataSpec, Dict[str, DataSpec]]:
     """This constructs a dataloader (or dataloaders if has_categories is True) capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
 
     >>> dl = get_icl_task_dataloader(
@@ -1386,6 +1404,7 @@ def get_icl_task_dataloader(
                 fewshot_random_seed,
                 pass_at_k,
                 generations_per_sample,
+                generation_kwargs
             )
         return result_dls
     else:
@@ -1406,4 +1425,5 @@ def get_icl_task_dataloader(
             fewshot_random_seed,
             pass_at_k,
             generations_per_sample,
+            generation_kwargs
         )
