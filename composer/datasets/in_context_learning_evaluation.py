@@ -312,7 +312,7 @@ class InContextLearningQATaskDataset(Dataset):
             'labels': answers,
             'cot_delimiter': cot_delimiter,
             'generation_length': self.max_answer_length,
-            'generation_kwargs': self.generation_kwargs
+            'generation_kwargs': generation_kwargs
         }
 
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
