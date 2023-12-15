@@ -264,6 +264,13 @@ def prepare_fsdp_module(
         # `nn.Module.named_parameters`.
         # Setting it to `True` is mandatory when using `torch.compile()`.
         kwargs['use_orig_params'] = fsdp_config['use_orig_params']
+        print(version.parse(torch.__version__))
+        if version.parse(torch.__version__.split('.dev')[0]) >= version.parse('2.2.0'):
+            from torch.distributed._tensor import init_device_mesh
+            kwargs['device_mesh'] = init_device_mesh(
+            'cuda',
+            (dist.get_world_size(),),
+        )
 
     # necessary variables for optimizers with multiple param groups in FSDP
     num_param_groups = None
@@ -455,6 +462,7 @@ def prepare_fsdp_module(
                     if ret and auto_microbatching:
                         module.register_forward_hook(sync_hook)
                         module.register_full_backward_hook(sync_hook)
+                    print(module, '\n', ret)
                     return ret
 
                 _auto_wrap_policy = CustomPolicy(lambda_fn)
