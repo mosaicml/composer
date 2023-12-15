@@ -9,8 +9,10 @@ import os
 import pathlib
 import textwrap
 import uuid
+from contextlib import nullcontext as does_not_raise
 from functools import partial
 from typing import Any, Callable, Optional, Sequence
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -543,6 +545,56 @@ def test_fsdp_full_state_dict_load_with_ema(
         )
 
     trainer2.close()
+
+
+@pytest.mark.gpu
+@world_size(2)
+@pytest.mark.parametrize('is_valid_checkpoint', [True, False])
+@pytest.mark.parametrize('state_dict_type', ['sharded', 'full'])
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                    reason='requires PyTorch 1.13 or higher')
+@pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning')
+def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_checkpoint: bool, state_dict_type: str):
+    # Set the error expectations.
+    expectation = does_not_raise()
+    if not is_valid_checkpoint:
+        if using_torch_2() and state_dict_type == 'sharded':
+            from torch.distributed.checkpoint import CheckpointException
+            expectation = pytest.raises(CheckpointException)
+        else:
+            expectation = pytest.raises(ValueError)
+
+    def mock_get_checkpoint_validation_function():
+        return lambda _: is_valid_checkpoint
+
+    tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
+    save_folder = os.path.join(tmp_paths[0], 'checkpoints')
+    fsdp_config = FSDPConfig(state_dict_type=state_dict_type)
+
+    # First trainer saves checkpoints.
+    trainer = get_trainer(save_folder=save_folder, fsdp_config=fsdp_config, max_duration='1ba')
+    trainer.fit()
+    trainer.close()
+
+    # Determine the checkpoint path for loading.
+    checkpoint_relpath = 'ba1-rank0.pt'
+    if state_dict_type == 'sharded':
+        if using_torch_2():
+            checkpoint_relpath = 'ba1'
+        else:
+            checkpoint_relpath = 'ba1/ba1-rank{rank}.pt'
+
+    # Load checkpoints with checkpoint validation.
+    with expectation:
+        with patch('composer.utils.checkpoint._get_checkpoint_validation_function',
+                   mock_get_checkpoint_validation_function):
+            trainer = get_trainer(load_path=os.path.join(save_folder, checkpoint_relpath),
+                                  max_duration='2ba',
+                                  fsdp_config=fsdp_config)
+            trainer.fit()
+            trainer.close()
 
 
 @pytest.mark.gpu

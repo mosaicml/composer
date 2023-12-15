@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import pathlib
@@ -46,6 +47,8 @@ class UCObjectStore(ObjectStore):
             not other Databricks Filesystems.
     """
 
+    _UC_VOLUME_LIST_API_ENDPOINT = '/api/2.0/fs/list'
+
     def __init__(self, path: str) -> None:
         try:
             from databricks.sdk import WorkspaceClient
@@ -73,7 +76,7 @@ class UCObjectStore(ObjectStore):
         """
         path = os.path.normpath(path)
         if not path.startswith('Volumes'):
-            raise ValueError('Databricks Unity Catalog Volumes paths should start with "/Volumes".')
+            raise ValueError('Databricks Unity Catalog Volumes paths should start with "Volumes".')
 
         dirs = path.split(os.sep)
         if len(dirs) < 4:
@@ -203,12 +206,27 @@ class UCObjectStore(ObjectStore):
     def list_objects(self, prefix: Optional[str]) -> List[str]:
         """List all objects in the object store with the given prefix.
 
+         .. note::
+
+            This function removes the directories from the returned list.
+
         Args:
             prefix (str): The prefix to search for.
 
         Returns:
             list[str]: A list of object names that match the prefix.
         """
-        # TODO: Implement this function once UC volumes list endpoint is available in the SDK
-        del prefix  # unused
-        raise NotImplementedError(f'{type(self).__name__}.list_objects is not implemented')
+        if not prefix:
+            prefix = self.prefix
+
+        from databricks.sdk.core import DatabricksError
+        try:
+            data = json.dumps({'path': self._get_object_path(prefix)})
+            # NOTE: This API is in preview and should not be directly used outside of this instance
+            resp = self.client.api_client.do(method='GET',
+                                             path=self._UC_VOLUME_LIST_API_ENDPOINT,
+                                             data=data,
+                                             headers={'Source': 'mosaicml/composer'})
+            return [f['path'] for f in resp.get('files', []) if not f['is_dir']]
+        except DatabricksError as e:
+            _wrap_errors(self.get_uri(prefix), e)

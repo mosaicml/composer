@@ -85,8 +85,8 @@ def test_fsdp_device_initialization(model: ComposerClassifier, mixed_precision: 
 @pytest.mark.parametrize('device', _INIT_DEVICES)
 @world_size(2)
 @pytest.mark.gpu
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='FSDP requires PyTorch 1.13 or higher')
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.1.0'),
+                    reason='This has only been fixed and tested starting with torch 2.1.0')
 def test_fsdp_inits_params_once(model: ComposerClassifier, device: str, world_size: int, expected_param_inits: int):
     resolved_device = device
     if device == 'mixed':
