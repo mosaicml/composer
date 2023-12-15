@@ -249,6 +249,42 @@ def _session_tiny_gpt2_tokenizer():  # type: ignore
     return tiny_gpt2_tokenizer_helper()
 
 
+def tiny_opt_model_helper(config):
+    transformers = pytest.importorskip('transformers')
+
+    return transformers.AutoModelForCausalLM.from_config(config)
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_opt_model(_session_tiny_opt_config):  # type: ignore
+    return tiny_opt_model_helper(_session_tiny_opt_config)
+
+
+def tiny_opt_config_helper():
+    transformers = pytest.importorskip('transformers')
+
+    tiny_overrides = {'n_embd': 2, 'n_head': 2, 'n_layer': 2, 'vocab_size': 50272}
+    return transformers.AutoConfig.from_pretrained('facebook/opt-125m', **tiny_overrides)
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_opt_config():  # type: ignore
+    return tiny_opt_config_helper()
+
+
+def tiny_opt_tokenizer_helper():
+    transformers = pytest.importorskip('transformers')
+
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('facebook/opt-125m')
+    hf_tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+    return hf_tokenizer
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_opt_tokenizer():  # type: ignore
+    return tiny_opt_tokenizer_helper()
+
+
 def tiny_t5_config_helper():
     transformers = pytest.importorskip('transformers')
 
@@ -327,6 +363,21 @@ def tiny_gpt2_tokenizer(_session_tiny_gpt2_tokenizer):
 @pytest.fixture
 def tiny_gpt2_model(_session_tiny_gpt2_model):
     return copy.deepcopy(_session_tiny_gpt2_model)
+
+
+@pytest.fixture
+def tiny_opt_config(_session_tiny_opt_config):
+    return copy.deepcopy(_session_tiny_opt_config)
+
+
+@pytest.fixture
+def tiny_opt_tokenizer(_session_tiny_opt_tokenizer):
+    return copy.deepcopy(_session_tiny_opt_tokenizer)
+
+
+@pytest.fixture
+def tiny_opt_model(_session_tiny_opt_model):
+    return copy.deepcopy(_session_tiny_opt_model)
 
 
 @pytest.fixture
