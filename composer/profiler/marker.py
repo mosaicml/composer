@@ -40,7 +40,7 @@ class Marker:
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[], torch_prof_memory_filename=None)
             profiler.bind_to_state(state)
 
         .. doctest::
@@ -57,7 +57,7 @@ class Marker:
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[], torch_prof_memory_filename=None)
             profiler.bind_to_state(state)
 
         .. doctest::
@@ -124,7 +124,7 @@ class Marker:
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[], torch_prof_memory_filename=None)
             profiler.bind_to_state(state)
 
         .. doctest::
@@ -187,7 +187,7 @@ class Marker:
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[], torch_prof_memory_filename=None)
             profiler.bind_to_state(state)
 
         .. doctest::
@@ -213,7 +213,7 @@ class Marker:
         .. testsetup::
 
             from composer.profiler import Profiler, cyclic_schedule
-            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+            profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[], torch_prof_memory_filename=None)
             profiler.bind_to_state(state)
 
         .. doctest::

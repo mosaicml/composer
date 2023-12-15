@@ -16,7 +16,7 @@ Block-wise stochastic depth assigns every residual block a probability of droppi
 from torch.utils.data import DataLoader
 from tests.common import RandomImageDataset
 
-train_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
+train_dataloader = DataLoader(RandomImageDataset(size=2), batch_size=2)
 ```
 -->
 <!--pytest-codeblocks:cont-->
@@ -65,8 +65,8 @@ for epoch in range(1):
 from torch.utils.data import DataLoader
 from tests.common import RandomImageDataset
 
-train_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
-eval_dataloader = DataLoader(RandomImageDataset(), batch_size=2)
+train_dataloader = DataLoader(RandomImageDataset(size=2), batch_size=2)
+eval_dataloader = DataLoader(RandomImageDataset(size=2), batch_size=2)
 ```
 -->
 <!--pytest-codeblocks:cont-->

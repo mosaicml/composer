@@ -102,10 +102,7 @@ class SlackLogger(LoggerDestination):
         # Create a regex of all keys to include
         self.regex_all_keys = '(' + ')|('.join(include_keys) + ')'
 
-        if isinstance(log_interval, int):
-            self.log_interval = Time(log_interval, TimeUnit.EPOCH)
-        if isinstance(log_interval, str):
-            self.log_interval = Time.from_timestring(log_interval)
+        self.log_interval = Time.from_input(log_interval, TimeUnit.EPOCH)
         if self.log_interval.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH):
             raise ValueError('The `slack logger log_interval` argument must have units of EPOCH or BATCH.')
 

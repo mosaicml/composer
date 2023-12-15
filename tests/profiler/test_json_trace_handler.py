@@ -34,6 +34,7 @@ def test_json_trace_profiler_handler(tmp_path: pathlib.Path):
         torch_prof_profile_memory=False,
         torch_prof_with_stack=False,
         torch_prof_with_flops=False,
+        torch_prof_memory_filename=None,
     )
     trainer = Trainer(
         model=SimpleModel(),
