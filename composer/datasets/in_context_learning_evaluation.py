@@ -860,7 +860,6 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
 
 
-# TODO: ensure tests
 class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskDataset):
     """
     A dataset that constructs batches for in-context learning schema evaluation.
