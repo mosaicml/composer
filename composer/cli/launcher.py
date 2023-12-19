@@ -466,19 +466,20 @@ def main():
 
     logging.basicConfig()
     # log.setLevel(logging.INFO if args.verbose else logging.WARN)
-    log.setLevel(logging.INFO)
+    log.setLevel(logging.DEBUG)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG)
+    console_handler.setFormatter(JsonLogFormatter())
+    log.addHandler(console_handler)
+    log.info(f"Logger Propagate: {log.propagate}")
     for handler in log.handlers:
-        if isinstance(handler, logging.StreamHandler) and (handler.stream == sys.stdout or handler.stream == sys.stderr):
-            handler.setFormatter(JsonLogFormatter())
-    print(f"Logger Propagate: {log.propagate}")
-    for handler in log.handlers:
-        print("\nHandler:", handler)
-        print(f"  Handler Level: {logging.getLevelName(handler.level)}")
-        print(f"  Handler Formatter: {handler.formatter}")
+        log.info("\nHandler:", handler)
+        log.info(f"  Handler Level: {logging.getLevelName(handler.level)}")
+        log.info(f"  Handler Formatter: {handler.formatter}")
         if hasattr(handler, 'stream'):
-            print(f"  Handler Stream: {handler.stream}")
+            log.info(f"  Handler Stream: {handler.stream}")
         if hasattr(handler, 'baseFilename'):
-            print(f"  Handler File: {handler.baseFilename}")
+            log.info(f"  Handler File: {handler.baseFilename}")
 
     processes = {}
 
@@ -510,11 +511,10 @@ def main():
         # may take up to CLEANUP_TIMEOUT seconds, and the user should know immediately
         # what failed. No need to re-raise the exception, as `aggregate_process_returncode`
         # will return an appropriate error code, which will cause the script to exit.
-        log.info('Returning traceback')
-        # traceback.print_exc()
         log.error(f'Exception occurred: {e}')
-        log.error("Traceback (most recent call last):\n" + traceback.format_exc())
-        print('Killing training processes')
+        log.error("Traceback (most recent call last):\n" + "".join(traceback.format_exc()))
+        traceback.print_exc()
+        
     finally:
         _cleanup_processes(processes)
         log_tmpdir.cleanup()
