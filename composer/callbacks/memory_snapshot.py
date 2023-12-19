@@ -22,7 +22,7 @@ __all__ = ['MemorySnapshot']
 class MemorySnapshot(Callback):
     """Logs the memory snapshot of the model.
 
-    This callback calls the torch memory snapshot API (see :func:`torch.cuda.memory._snapshot`) to record a model's tensor memory allocation over a user defined interval. This provides a fine-grained GPU memory visualization for debugging GPU OOMs. Captured memory snapshots will show memory events including allocations, frees and OOMs, along with their stack traces over one interval.
+    This callback calls the torch memory snapshot API (see :func:`torch.cuda.memory._snapshot`) to record a model's tensor memory allocation over a user defined interval (only once through time [skip_batches, skip_batches + interval]). This provides a fine-grained GPU memory visualization for debugging GPU OOMs. Captured memory snapshots will show memory events including allocations, frees and OOMs, along with their stack traces over one interval.
 
     Example:
         .. doctest::
@@ -122,17 +122,13 @@ class MemorySnapshot(Callback):
             self._enabled = False
 
     def start_record_memory_history(self) -> None:
-        if not torch.cuda.is_available():
-            log.info('CUDA unavailable. Not recording memory history')
-            return
+        assert torch.cuda.is_available()
 
         log.info('Starting snapshot record_memory_history')
         torch.cuda.memory._record_memory_history(max_entries=self.max_entries)
 
     def stop_record_memory_history(self) -> None:
-        if not torch.cuda.is_available():
-            log.info('CUDA unavailable. Not recording memory history')
-            return
+        assert torch.cuda.is_available()
 
         log.info('Stopping snapshot record_memory_history')
         torch.cuda.memory._record_memory_history()
@@ -142,20 +138,20 @@ class MemorySnapshot(Callback):
             log.info('CUDA unavailable. Not exporting memory snapshot')
             return
 
-        if self.filename:
-            assert self.folder_name, 'folder_name must be set in init'
-            filename = os.path.join(
-                self.folder_name,
-                format_name_with_dist_and_time(self.filename, run_name=state.run_name, timestamp=state.timestamp))
-            try:
-                log.info(f'Saving memory snapshot to local file: {filename}')
-                torch.cuda.memory._dump_snapshot(filename)
-            except Exception as e:
-                log.error(f'Failed to capture memory snapshot {e}')
-                return
-            if self.remote_file_name is not None:
-                remote_file_name = format_name_with_dist_and_time(self.remote_file_name,
-                                                                  run_name=state.run_name,
-                                                                  timestamp=state.timestamp)
-                log.info(f'Uploading memory snapshot to remote: {self.remote_file_name}')
-                logger.upload_file(remote_file_name=remote_file_name, file_path=filename, overwrite=self.overwrite)
+        assert self.filename
+        assert self.folder_name, 'folder_name must be set in init'
+        filename = os.path.join(
+            self.folder_name,
+            format_name_with_dist_and_time(self.filename, run_name=state.run_name, timestamp=state.timestamp))
+        try:
+            log.info(f'Saving memory snapshot to local file: {filename}')
+            torch.cuda.memory._dump_snapshot(filename)
+        except Exception as e:
+            log.error(f'Failed to capture memory snapshot {e}')
+            return
+        if self.remote_file_name is not None:
+            remote_file_name = format_name_with_dist_and_time(self.remote_file_name,
+                                                              run_name=state.run_name,
+                                                              timestamp=state.timestamp)
+            log.info(f'Uploading memory snapshot to remote: {self.remote_file_name}')
+            logger.upload_file(remote_file_name=remote_file_name, file_path=filename, overwrite=self.overwrite)

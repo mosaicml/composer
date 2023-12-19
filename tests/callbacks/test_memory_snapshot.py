@@ -10,7 +10,21 @@ from composer import State, Trainer
 from composer.callbacks import MemorySnapshot
 from composer.loggers import LoggerDestination
 from composer.trainer import Trainer
-from tests.common import RandomClassificationDataset, SimpleModel
+from tests.common import RandomClassificationDataset, SimpleModel, device
+
+
+@device('cpu', 'gpu')
+def test_memory_snapshot_warnings_on_cpu_models(device: str):
+    # Error if the user sets device=cpu even when cuda is available
+    del device  # unused. always using cpu
+    with pytest.warns(UserWarning, match='The memory snapshot only works on CUDA devices'):
+        Trainer(
+            model=SimpleModel(),
+            callbacks=MemorySnapshot(),
+            device='cpu',
+            train_dataloader=DataLoader(RandomClassificationDataset()),
+            max_duration='1ba',
+        )
 
 
 class FileUploaderTracker(LoggerDestination):
@@ -25,7 +39,7 @@ class FileUploaderTracker(LoggerDestination):
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('interval', ['1ba', '3ba'])
-def test_memory_snapshot(interval: str, tmp_path: pathlib.Path):
+def test_memory_snapshot(interval: str):
     # Construct the callbacks
     skip_batches = 1
     memory_snapshot = MemorySnapshot(skip_batches=skip_batches, interval=interval)
