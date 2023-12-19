@@ -548,11 +548,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
                 'use_cache': True
             }
         }
-        self.batch_mapping = {
-            'input_ids': self.context_key,
-            'labels': 'aliases',
-            'answer': 'answer'
-        }
+        self.batch_mapping = {'input_ids': self.context_key, 'labels': 'aliases', 'answer': 'answer'}
         self._update_generation_kwargs(kwargs.get('generation_kwargs'))
 
     def _read_dataset(
@@ -1012,8 +1008,8 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
     - languages:  list of languages
     - pass_at_k: passed value for pass_at_k
     - generation_length: derrived maximum generation length
-    - generation_kwargs: Dictionary of kwargs neeeded for generation. Includes the following, which will be individually overwritten 
-        by keys in generaiton_kwargs if set (see https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig 
+    - generation_kwargs: Dictionary of kwargs neeeded for generation. Includes the following, which will be individually overwritten
+        by keys in generaiton_kwargs if set (see https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig
         for more details):
         - pad_token_id: ID for padding token, derived automatically
         - num_beams: how many beams to search for generations, set to 1
@@ -1130,11 +1126,16 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         tokenized_example['language'] = example['language']
         return tokenized_example
 
+
 class MTBench(InContextLearningDataset):
     """
     """
 
-    def __init__( self, *args, **kwargs,):
+    def __init__(
+        self,
+        *args,
+        **kwargs,
+    ):
         batch_mapping = {
             'input_ids': 'prompt',
             'prompts': 'prompt_text',
@@ -1225,7 +1226,6 @@ class MTBench(InContextLearningDataset):
         tokenized_example['test_outputs'] = example['test_outputs']
         tokenized_example['language'] = example['language']
         return tokenized_example
-
 
 
 def build_icl_dataloader(
