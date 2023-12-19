@@ -467,11 +467,13 @@ def main():
     args = _parse_args()
 
     logging.basicConfig()
-    json_formatter = JsonLogFormatter()
-    log.setLevel(logging.INFO if args.verbose else logging.WARN)
+    # log.setLevel(logging.INFO if args.verbose else logging.WARN)
+    log.setLevel(logging.INFO)
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(JsonLogFormatter())
+    log.addHandler(console_handler)
     for handler in logging.getLogger(__name__).handlers:
-        if hasattr(handler, 'stream') and handler.stream in [sys.stderr, sys.stdout]:
-            handler.setFormatter(json_formatter)
+        print(handler)
 
     processes = {}
 
@@ -505,8 +507,8 @@ def main():
         # will return an appropriate error code, which will cause the script to exit.
         log.info('Returning traceback')
         traceback.print_exc()
-        log.critical(f'Exception occurred: {e}')
-        log.critical("Traceback (most recent call last):\n" + traceback.format_exc())
+        log.error(f'Exception occurred: {e}')
+        log.error("Traceback (most recent call last):\n" + traceback.format_exc())
         print('Killing training processes')
     finally:
         _cleanup_processes(processes)
