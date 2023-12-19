@@ -908,8 +908,11 @@ class Trainer:
                 # threads / processes
                 # format=
                 # f'%(asctime)s: rank{dist.get_global_rank()}[%(process)d][%(threadName)s]: %(levelname)s: %(name)s: %(message)s',
-                format = JsonLogFormatter(dist=dist)
             )
+            json_formatter = JsonLogFormatter(dist=dist)
+            for handler in logging.root.handlers:
+                if hasattr(handler, 'stream') and handler.stream in [sys.stderr, sys.stdout]:
+                    handler.setFormatter(json_formatter)
             logging.getLogger('composer').setLevel(self.python_log_level.upper())
 
         algorithms = list(ensure_tuple(algorithms))
