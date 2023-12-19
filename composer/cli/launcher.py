@@ -359,8 +359,6 @@ def _monitor_processes(processes: Dict[int, subprocess.Popen]):
 
 def _print_process_exit_status(global_rank: int, process: subprocess.Popen):
     log.info('in print_process_exit_status')
-    log.info(f'process.stdout: {process.stdout}')
-    log.info(f'process.stderr: {process.stderr}')
     if process.stdout is None:
         output = None
     else:
@@ -469,11 +467,18 @@ def main():
     logging.basicConfig()
     # log.setLevel(logging.INFO if args.verbose else logging.WARN)
     log.setLevel(logging.INFO)
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(JsonLogFormatter())
-    log.addHandler(console_handler)
-    for handler in logging.getLogger(__name__).handlers:
-        print(handler)
+    for handler in log.handlers:
+        if isinstance(handler, logging.StreamHandler) and (handler.stream == sys.stdout or handler.stream == sys.stderr):
+            handler.setFormatter(JsonLogFormatter())
+    print(f"Logger Propagate: {log.propagate}")
+    for handler in log.handlers:
+        print("\nHandler:", handler)
+        print(f"  Handler Level: {logging.getLevelName(handler.level)}")
+        print(f"  Handler Formatter: {handler.formatter}")
+        if hasattr(handler, 'stream'):
+            print(f"  Handler Stream: {handler.stream}")
+        if hasattr(handler, 'baseFilename'):
+            print(f"  Handler File: {handler.baseFilename}")
 
     processes = {}
 
@@ -506,7 +511,7 @@ def main():
         # what failed. No need to re-raise the exception, as `aggregate_process_returncode`
         # will return an appropriate error code, which will cause the script to exit.
         log.info('Returning traceback')
-        traceback.print_exc()
+        # traceback.print_exc()
         log.error(f'Exception occurred: {e}')
         log.error("Traceback (most recent call last):\n" + traceback.format_exc())
         print('Killing training processes')
