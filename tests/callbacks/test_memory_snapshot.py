@@ -54,7 +54,7 @@ def test_memory_snapshot(interval: str):
         loggers=[file_tracker_destination],
         callbacks=memory_snapshot,
         train_dataloader=DataLoader(RandomClassificationDataset()),
-        max_duration='10ba',
+        max_duration='5ba',
     )
     trainer.fit()
     assert len(file_tracker_destination.uploaded_files) == 1

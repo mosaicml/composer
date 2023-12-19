@@ -153,5 +153,6 @@ class MemorySnapshot(Callback):
             remote_file_name = format_name_with_dist_and_time(self.remote_file_name,
                                                               run_name=state.run_name,
                                                               timestamp=state.timestamp)
-            log.info(f'Uploading memory snapshot to remote: {self.remote_file_name}')
+            remote_file_name = remote_file_name.lstrip('/')
+            log.info(f'Uploading memory snapshot to remote: {remote_file_name} from {filename}')
             logger.upload_file(remote_file_name=remote_file_name, file_path=filename, overwrite=self.overwrite)
