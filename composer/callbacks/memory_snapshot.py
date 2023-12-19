@@ -122,13 +122,11 @@ class MemorySnapshot(Callback):
             self._enabled = False
 
     def start_record_memory_history(self) -> None:
-        assert torch.cuda.is_available()
 
         log.info('Starting snapshot record_memory_history')
         torch.cuda.memory._record_memory_history(max_entries=self.max_entries)
 
     def stop_record_memory_history(self) -> None:
-        assert torch.cuda.is_available()
 
         log.info('Stopping snapshot record_memory_history')
         torch.cuda.memory._record_memory_history()
