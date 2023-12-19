@@ -22,7 +22,7 @@ __all__ = ['MemorySnapshot']
 class MemorySnapshot(Callback):
     """Logs the memory snapshot of the model.
 
-    This callback calls the torch memory snapshot API (see :func:`torch.cuda.memory._snapshot`) to record tensors' memory allocation of the model over a user defined interval, and provides a fine-grained GPU memory visualization for debugging GPU OOMs. Captured memory snapshots will show memory events including allocations, frees and OOMs, along with their stack traces.
+    This callback calls the torch memory snapshot API (see :func:`torch.cuda.memory._snapshot`) to record a model's tensor memory allocation over a user defined interval. This provides a fine-grained GPU memory visualization for debugging GPU OOMs. Captured memory snapshots will show memory events including allocations, frees and OOMs, along with their stack traces over one interval.
 
     Example:
         .. doctest::
