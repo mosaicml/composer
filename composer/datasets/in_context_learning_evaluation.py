@@ -8,6 +8,7 @@ import json
 import os
 import random
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+import time
 
 import torch
 import transformers
@@ -20,6 +21,12 @@ from composer.utils import MissingConditionalImportError, dist, get_file
 
 if TYPE_CHECKING:
     import transformers
+
+try:
+    import tensorrt_llm
+    TENSORRT_LLM = True
+except:
+    TENSORRT_LLM = False
 
 # Allow models to have slightly more tokens than were used in the most verbose CoT in the dataset
 _MAX_ANSWER_BUFFER_LENGTH = 10
@@ -160,9 +167,16 @@ class InContextLearningQATaskDataset(Dataset):
             raise MissingConditionalImportError(extra_deps_group='nlp',
                                                 conda_package='datasets',
                                                 conda_channel='conda-forge') from e
-        with dist.local_rank_zero_download_and_wait(destination_path):
-            if dist.get_local_rank() == 0:
+        if TENSORRT_LLM == False:
+            with dist.local_rank_zero_download_and_wait(destination_path):
+                if dist.get_local_rank() == 0:
+                    get_file(dataset_uri, destination_path, overwrite=True)
+        else:
+            if tensorrt_llm.mpi_rank() == 0:
                 get_file(dataset_uri, destination_path, overwrite=True)
+            else:
+                while not os.path.exists(destination_path):
+                    time.sleep(0.1)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
         self.samples = self._read_dataset(dataset)
         self.samples = strip_data(self.samples)
@@ -379,9 +393,16 @@ class InContextLearningLMTaskDataset(Dataset):
             raise MissingConditionalImportError(extra_deps_group='nlp',
                                                 conda_package='datasets',
                                                 conda_channel='conda-forge') from e
-        with dist.local_rank_zero_download_and_wait(destination_path):
-            if dist.get_local_rank() == 0:
+        if TENSORRT_LLM == False:
+            with dist.local_rank_zero_download_and_wait(destination_path):
+                if dist.get_local_rank() == 0:
+                    get_file(dataset_uri, destination_path, overwrite=True)
+        else:
+            if tensorrt_llm.mpi_rank() == 0:
                 get_file(dataset_uri, destination_path, overwrite=True)
+            else:
+                while not os.path.exists(destination_path):
+                    time.sleep(0.1)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
         self.samples = list(
             dataset.map(lambda examples: {
@@ -543,10 +564,16 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
             raise MissingConditionalImportError(extra_deps_group='nlp',
                                                 conda_package='datasets',
                                                 conda_channel='conda-forge') from e
-
-        with dist.local_rank_zero_download_and_wait(destination_path):
-            if dist.get_local_rank() == 0:
+        if TENSORRT_LLM == False:
+            with dist.local_rank_zero_download_and_wait(destination_path):
+                if dist.get_local_rank() == 0:
+                    get_file(dataset_uri, destination_path, overwrite=True)
+        else:
+            if tensorrt_llm.mpi_rank() == 0:
                 get_file(dataset_uri, destination_path, overwrite=True)
+            else:
+                while not os.path.exists(destination_path):
+                    time.sleep(0.1)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
         self.samples = list(
             dataset.map(lambda examples: {
@@ -771,10 +798,16 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
             raise MissingConditionalImportError(extra_deps_group='nlp',
                                                 conda_package='datasets',
                                                 conda_channel='conda-forge') from e
-
-        with dist.local_rank_zero_download_and_wait(destination_path):
-            if dist.get_local_rank() == 0:
+        if TENSORRT_LLM == False:
+            with dist.local_rank_zero_download_and_wait(destination_path):
+                if dist.get_local_rank() == 0:
+                    get_file(dataset_uri, destination_path, overwrite=True)
+        else:
+            if tensorrt_llm.mpi_rank() == 0:
                 get_file(dataset_uri, destination_path, overwrite=True)
+            else:
+                while not os.path.exists(destination_path):
+                    time.sleep(0.1)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
         self.samples = list(
             dataset.map(
@@ -954,9 +987,17 @@ class InContextLearningCodeEvalDataset(Dataset):
             raise MissingConditionalImportError(extra_deps_group='nlp',
                                                 conda_package='datasets',
                                                 conda_channel='conda-forge') from e
-        with dist.local_rank_zero_download_and_wait(destination_path):
-            if dist.get_local_rank() == 0:
+        if TENSORRT_LLM == False:
+            with dist.local_rank_zero_download_and_wait(destination_path):
+                if dist.get_local_rank() == 0:
+                    get_file(dataset_uri, destination_path, overwrite=True)
+        else:
+            if tensorrt_llm.mpi_rank() == 0:
                 get_file(dataset_uri, destination_path, overwrite=True)
+            else:
+                while not os.path.exists(destination_path):
+                    time.sleep(0.1)
+ 
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
         self.samples = list(
             dataset.map(
@@ -1281,9 +1322,16 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str) -> Di
         raise MissingConditionalImportError(extra_deps_group='nlp',
                                             conda_package='datasets',
                                             conda_channel='conda-forge') from e
-    with dist.local_rank_zero_download_and_wait(destination_path):
-        if dist.get_local_rank() == 0:
+    if TENSORRT_LLM == False:
+        with dist.local_rank_zero_download_and_wait(destination_path):
+            if dist.get_local_rank() == 0:
+                get_file(dataset_uri, destination_path, overwrite=True)
+    else:
+        if tensorrt_llm.mpi_rank() == 0:
             get_file(dataset_uri, destination_path, overwrite=True)
+        else:
+            while not os.path.exists(destination_path):
+                time.sleep(0.1)
     dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
     if 'category' not in dataset.features.keys():
         raise Exception(
