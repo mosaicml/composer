@@ -28,6 +28,8 @@ if TYPE_CHECKING:
     from transformers import PretrainedConfig
     from transformers.models.auto.auto_factory import _BaseAutoModelClass
 
+    from peft import PeftConfig, get_peft_model
+
 log = logging.getLogger(__name__)
 
 __all__ = ['HuggingFaceModel']
@@ -73,7 +75,8 @@ class HuggingFaceModel(ComposerModel):
                  metrics: Optional[List[Metric]] = None,
                  eval_metrics: Optional[List[Metric]] = None,
                  shift_labels: Optional[bool] = None,
-                 allow_embedding_resizing: bool = False) -> None:
+                 allow_embedding_resizing: bool = False,
+                 peft_config: Optional['PeftConfig'] = None) -> None:
         try:
             import transformers
             del transformers  # unused
@@ -87,6 +90,10 @@ class HuggingFaceModel(ComposerModel):
         self.config = model.config
         self.model_forward_args = inspect.getfullargspec(self.model.forward).args
         self.tokenizer = tokenizer
+        self.peft_config = peft_config
+
+        if self.peft_config.peft_type != 'lora':
+            raise ValueError(f'PEFT type {self.peft_config.peft_type} is not supported by HuggingFaceModel. Only lora is supported.')
 
         if self.tokenizer is None:
             log.warning(
@@ -141,6 +148,10 @@ class HuggingFaceModel(ComposerModel):
             # Note: No warning if shift_labels and not is_causal_lm, since the model may simply be a custom class.
 
         self.dummy_forward_called = False
+
+        if self.peft_config is not None:
+            self.model = get_peft_model(self.model, self.peft_config)
+            log.info(f'PEFT model created. {self.model}')
 
     @staticmethod
     def load_huggingface_tokenizer_from_saved_state(
