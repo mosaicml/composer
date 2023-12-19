@@ -15,6 +15,6 @@ class JsonLogFormatter(logging.Formatter):
             'threadName': record.threadName,
             'levelname': record.levelname,
             'name': record.name,
-            'message': record.getMessage()
+            'message': record.getMessage(),
         }
         return json.dumps(log_record)

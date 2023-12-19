@@ -96,9 +96,6 @@ class MosaicMLLogger(LoggerDestination):
         # Log model data downloaded and initialized for run events
         log.debug(f'Logging model initialized time to metadata')
         self._log_metadata({'model_initialized_time': time.time()})
-        for num in range(30):
-            self._log_metadata({f'num/{num}': num})
-            self._flush_metadata(force_flush=True)
         # Log WandB run URL if it exists. Must run on after_load as WandB is setup on event init
         for callback in state.callbacks:
             if isinstance(callback, WandBLogger):
@@ -153,12 +150,17 @@ class MosaicMLLogger(LoggerDestination):
         """Flush buffered metadata to MosaicML if enough time has passed since last flush."""
         if self._enabled and (time.time() - self.time_last_logged > self.log_interval or force_flush):
             try:
-                current_metadata = self.buffered_metadata.copy()
-                f = mcli.update_run_metadata(self.run_name, current_metadata, future=True, protect=True)
-                self.buffered_metadata = {k:v for (k,v) in self.buffered_metadata.items() if (k,v) not in current_metadata.items()}
-                log.info(f'There are {len(self.buffered_metadata)} new keys that have been added while processing')
+                f = mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=True, protect=True)
+                self.buffered_metadata = {}
                 self.time_last_logged = time.time()
                 self._futures.append(f)
+                done, incomplete = wait(self._futures, timeout=0.01)
+                log.info(f'Logged {len(done)} metadata to MosaicML, waiting on {len(incomplete)}')
+                # Raise any exceptions
+                for f in done:
+                    if f.exception() is not None:
+                        raise f.exception()  # type: ignore
+                self._futures = list(incomplete)
             except Exception:
                 log.exception('Failed to log metadata to Mosaic')  # Prints out full traceback
                 if self.ignore_exceptions:
@@ -167,21 +169,6 @@ class MosaicMLLogger(LoggerDestination):
                 else:
                     log.info('Raising exception. To ignore exceptions, set ignore_exceptions=True.')
                     raise
-        try:
-            done, _ = wait(self._futures, timeout=0.01)
-            # Remove completed futures from the list
-            self._futures = [f for f in self._futures if f not in done]
-            log.info(f'Logged {len(done)} metadata to MosaicML, waiting on {len(self._futures)}')
-
-            # Raise any exceptions from completed futures
-            for f in done:
-                if f.exception() is not None:
-                    raise f.exception()  # type: ignore
-
-            log.info(f'We have {len(self._futures)} total futures waiting to be completed')
-            log.info(f'Current buffered metadata: {self.buffered_metadata}')
-        except Exception as e:
-            log.exception('Error while processing futures' + str(e))
 
     def _get_training_progress_metrics(self, state: State) -> Dict[str, Any]:
         """Calculates training progress metrics.
