@@ -470,17 +470,10 @@ def main():
 
     logging.basicConfig()
     # log.setLevel(logging.INFO if args.verbose else logging.WARN)
-    log.setLevel(logging.DEBUG)
-    log.info(f"Logger Propagate: {log.propagate}")
     for handler in logging.root.handlers:
-        log.info("\nHandler:", handler)
-        log.info(f"  Handler Level: {logging.getLevelName(handler.level)}")
-        log.info(f"  Handler Formatter: {handler.formatter}")
-        if hasattr(handler, 'stream'):
-            log.info(f"  Handler Stream: {handler.stream}")
-        if hasattr(handler, 'baseFilename'):
-            log.info(f"  Handler File: {handler.baseFilename}")
+        if hasattr(handler, 'stream') and handler.stream in [sys.stderr, sys.stdout]:
             handler.setFormatter(JsonLogFormatter())
+    log.setLevel(logging.DEBUG)
 
     processes = {}
 
