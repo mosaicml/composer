@@ -23,6 +23,7 @@ class FileUploaderTracker(LoggerDestination):
         self.uploaded_files.append((remote_file_name, file_path))
 
 
+@pytest.mark.gpu
 @pytest.mark.parametrize('interval', ['1ba', '3ba'])
 def test_memory_snapshot(interval: str, tmp_path: pathlib.Path):
     # Construct the callbacks
