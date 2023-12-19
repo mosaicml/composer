@@ -265,69 +265,73 @@ def _launch_processes(
     training_script_args: List[Any],
     processes: Dict[int, subprocess.Popen],
 ):
-    log.info('Starting distributed environment on local node for global_rank(%s-%s)', base_rank, base_rank + nproc - 1)
-    log.info('Distributed KV store: tcp://%s:%s', master_addr, master_port)
+    try:
+        log.info('Starting distributed environment on local node for global_rank(%s-%s)', base_rank, base_rank + nproc - 1)
+        log.info('Distributed KV store: tcp://%s:%s', master_addr, master_port)
 
-    for local_rank in range(nproc):
-        global_rank = base_rank + local_rank
-        if command_mode and module_mode:
-            raise ValueError('Either `command_mode` or `module_mode` should be set, but not both.')
-        cmd = []
-        if not command_mode:
-            cmd.append(sys.executable)
-        if module_mode:
-            cmd.append('-m')
+        for local_rank in range(nproc):
+            global_rank = base_rank + local_rank
+            if command_mode and module_mode:
+                raise ValueError('Either `command_mode` or `module_mode` should be set, but not both.')
+            cmd = []
+            if not command_mode:
+                cmd.append(sys.executable)
+            if module_mode:
+                cmd.append('-m')
 
-        cmd.append(training_script)
+            cmd.append(training_script)
 
-        # Update the env with the distributed variables
-        with _patch_env(
-                RANK=str(global_rank),
-                WORLD_SIZE=str(world_size),
-                LOCAL_RANK=str(local_rank),
-                LOCAL_WORLD_SIZE=str(nproc),
-                NODE_RANK=str(node_rank),
-                MASTER_ADDR=master_addr,
-                MASTER_PORT=str(master_port),
-                PYTHONUNBUFFERED='1',
-                NCCL_ASYNC_ERROR_HANDLING='1',
-        ):
-            # Populate the distributed variables in all launcher args
-            for arg in training_script_args:
-                cmd.append(os.path.expandvars(os.path.expanduser(arg)))
+            # Update the env with the distributed variables
+            with _patch_env(
+                    RANK=str(global_rank),
+                    WORLD_SIZE=str(world_size),
+                    LOCAL_RANK=str(local_rank),
+                    LOCAL_WORLD_SIZE=str(nproc),
+                    NODE_RANK=str(node_rank),
+                    MASTER_ADDR=master_addr,
+                    MASTER_PORT=str(master_port),
+                    PYTHONUNBUFFERED='1',
+                    NCCL_ASYNC_ERROR_HANDLING='1',
+            ):
+                # Populate the distributed variables in all launcher args
+                for arg in training_script_args:
+                    cmd.append(os.path.expandvars(os.path.expanduser(arg)))
 
-            log.info('Launching process for local_rank(%s), global_rank(%s) with command(%s)', local_rank, global_rank,
-                     cmd)
+                log.info('Launching process for local_rank(%s), global_rank(%s) with command(%s)', local_rank, global_rank,
+                        cmd)
 
-            if local_rank == 0:
-                process = subprocess.Popen(
-                    cmd,
-                    text=True,
-                )
-            else:
-
-                def _get_file(format: str):
-                    filename = format.format(
-                        rank=global_rank,
-                        world_size=world_size,
-                        local_rank=local_rank,
-                        local_world_size=nproc,
-                        node_rank=node_rank,
+                if local_rank == 0:
+                    process = subprocess.Popen(
+                        cmd,
+                        text=True,
                     )
-                    return open(filename, 'x+')
+                else:
 
-                stderr_file = _get_file(stderr_file_format)
-                stdout_file = _get_file(stdout_file_format)
+                    def _get_file(format: str):
+                        filename = format.format(
+                            rank=global_rank,
+                            world_size=world_size,
+                            local_rank=local_rank,
+                            local_world_size=nproc,
+                            node_rank=node_rank,
+                        )
+                        return open(filename, 'x+')
 
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=stdout_file,
-                    stderr=stderr_file,
-                    text=True,
-                )
-                process.stderr = stderr_file
-                process.stdout = stdout_file
-            processes[global_rank] = process
+                    stderr_file = _get_file(stderr_file_format)
+                    stdout_file = _get_file(stdout_file_format)
+
+                    process = subprocess.Popen(
+                        cmd,
+                        stdout=stdout_file,
+                        stderr=stderr_file,
+                        text=True,
+                    )
+                    process.stderr = stderr_file
+                    process.stdout = stdout_file
+                processes[global_rank] = process
+    except Exception as e:
+        log.error(f'Exception occurred: {e}')
+        log.error("Traceback (most recent call last):\n" + "".join(traceback.format_exc()))
 
 
 def _monitor_processes(processes: Dict[int, subprocess.Popen]):
@@ -467,12 +471,8 @@ def main():
     logging.basicConfig()
     # log.setLevel(logging.INFO if args.verbose else logging.WARN)
     log.setLevel(logging.DEBUG)
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.DEBUG)
-    console_handler.setFormatter(JsonLogFormatter())
-    log.addHandler(console_handler)
     log.info(f"Logger Propagate: {log.propagate}")
-    for handler in log.handlers:
+    for handler in logging.root.handlers:
         log.info("\nHandler:", handler)
         log.info(f"  Handler Level: {logging.getLevelName(handler.level)}")
         log.info(f"  Handler Formatter: {handler.formatter}")
@@ -480,6 +480,7 @@ def main():
             log.info(f"  Handler Stream: {handler.stream}")
         if hasattr(handler, 'baseFilename'):
             log.info(f"  Handler File: {handler.baseFilename}")
+            handler.setFormatter(JsonLogFormatter())
 
     processes = {}
 
@@ -513,7 +514,7 @@ def main():
         # will return an appropriate error code, which will cause the script to exit.
         log.error(f'Exception occurred: {e}')
         log.error("Traceback (most recent call last):\n" + "".join(traceback.format_exc()))
-        traceback.print_exc()
+        #traceback.print_exc()
         
     finally:
         _cleanup_processes(processes)
