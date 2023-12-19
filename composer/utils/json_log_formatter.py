@@ -3,9 +3,9 @@ import logging
 
 
 class JsonLogFormatter(logging.Formatter):
-    def __init__(self, dist, *args, **kwargs):
+    def __init__(self, dist=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.dist = dist | None
+        self.dist = dist
 
     def format(self, record):
         log_record = {
