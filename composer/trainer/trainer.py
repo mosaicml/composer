@@ -906,13 +906,12 @@ class Trainer:
                 # 2022-06-29 11:22:26,152: rank0[822018][MainThread]: INFO: composer.trainer.trainer: Using precision Precision.FP32
                 # Including the PID and thread name to help with debugging dataloader workers and callbacks that spawn background
                 # threads / processes
-                # format=
-                # f'%(asctime)s: rank{dist.get_global_rank()}[%(process)d][%(threadName)s]: %(levelname)s: %(name)s: %(message)s',
+                format=f'%(asctime)s: rank{dist.get_global_rank()}[%(process)d][%(threadName)s]: %(levelname)s: %(name)s: %(message)s',
             )
-            json_formatter = JsonLogFormatter(dist=dist)
-            for handler in logging.root.handlers:
-                if hasattr(handler, 'stream') and handler.stream in [sys.stderr, sys.stdout]:
-                    handler.setFormatter(json_formatter)
+            # json_formatter = JsonLogFormatter(dist=dist)
+            # for handler in logging.root.handlers:
+            #     if hasattr(handler, 'stream') and handler.stream in [sys.stderr, sys.stdout]:
+            #         handler.setFormatter(json_formatter)
             logging.getLogger('composer').setLevel(self.python_log_level.upper())
 
         algorithms = list(ensure_tuple(algorithms))

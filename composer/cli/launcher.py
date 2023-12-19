@@ -22,6 +22,7 @@ import torch
 
 import composer
 from composer.utils import get_free_tcp_port
+from composer.utils.json_log_formatter import JsonLogFormatter
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
 
@@ -466,7 +467,11 @@ def main():
     args = _parse_args()
 
     logging.basicConfig()
+    json_formatter = JsonLogFormatter()
     log.setLevel(logging.INFO if args.verbose else logging.WARN)
+    for handler in logging.getLogger(__name__).handlers:
+        if hasattr(handler, 'stream') and handler.stream in [sys.stderr, sys.stdout]:
+            handler.setFormatter(json_formatter)
 
     processes = {}
 

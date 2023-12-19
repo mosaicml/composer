@@ -5,12 +5,12 @@ import logging
 class JsonLogFormatter(logging.Formatter):
     def __init__(self, dist, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.dist = dist
+        self.dist = dist | None
 
     def format(self, record):
         log_record = {
             'asctime': self.formatTime(record, self.datefmt),
-            'rank': f'rank{self.dist.get_global_rank()}',
+            'rank': f'rank{self.dist.get_global_rank()}' if self.dist else 'unknown',
             'process': record.process,
             'threadName': record.threadName,
             'levelname': record.levelname,
