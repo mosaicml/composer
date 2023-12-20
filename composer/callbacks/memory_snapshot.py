@@ -103,11 +103,12 @@ class MemorySnapshot(Callback):
 
         if model_device.type not in ('cuda', 'meta'):
             warnings.warn(f'The memory snapshot only works on CUDA devices, but the model is on {model_device.type}.')
-
-        self.folder_name = format_name_with_dist(self.folder, state.run_name)
-        os.makedirs(self.folder_name, exist_ok=True)
-        if not self.overwrite:
-            ensure_folder_is_empty(self.folder_name)
+            self._enabled = False
+        else:
+            self.folder_name = format_name_with_dist(self.folder, state.run_name)
+            os.makedirs(self.folder_name, exist_ok=True)
+            if not self.overwrite:
+                ensure_folder_is_empty(self.folder_name)
 
     def batch_start(self, state: State, logger: Logger) -> None:
         if self._enabled and self._start_time is None and self.batches_left_to_skip == 0:
