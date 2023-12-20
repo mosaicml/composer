@@ -112,6 +112,20 @@ def _make_padded_input(context_enc: List,
     return inp
 
 
+def convert_tokens_to_tensors(batch: Dict, tokenize_labels: bool) -> Dict[str, Any]:
+    """
+    HF Datasets converts tensors into lists when we store them, and we don't want to use `type='torch'`
+    because some content in the dataset, like generation args or single ints, should not be converted.
+
+    Here, we convert those lists of tokens back into tensors in order to feed them into the model.
+    """
+    batch['input_ids'] = torch.stack(list(map(torch.tensor, batch['input_ids'])))
+    if tokenize_labels:
+        batch['labels'] = torch.stack(list(map(torch.tensor, batch['labels'])))
+        batch['continuation_indices'] = list(map(torch.tensor, batch['continuation_indices']))
+    return batch
+
+
 def _get_fewshot_sample_idxs(dataset_size: int, num_fewshot: int, example_idx: int, rng: random.Random) -> List[int]:
     """
     Samples indices without replacement. If num_fewshot exceeds the number of unique examples in the dataset,
@@ -479,15 +493,6 @@ class InContextLearningDataset(Dataset):
         tokenized_example = self._tokenize_example(prompt_and_fewshot, ctxt, example)
         return tokenized_example
 
-    # TODO: Maybe make this not a class function. Also, could make our padding operations work on lists
-    def _convert_tokens_to_tensors(self, batch: Dict) -> Dict[str, Any]:
-        # zzzz HF converts ur torch tensors into lists so need to convert them back
-        batch['input_ids'] = torch.stack(list(map(torch.tensor, batch['input_ids'])))
-        if self.tokenize_labels:
-            batch['labels'] = torch.stack(list(map(torch.tensor, batch['labels'])))
-            batch['continuation_indices'] = list(map(torch.tensor, batch['continuation_indices']))
-        return batch
-
     def collate_fn(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
         The function that the dataloader uses to accumulate data into batches.
@@ -504,7 +509,7 @@ class InContextLearningDataset(Dataset):
             if 'continuation_indices' in data_pair:
                 batch['continuation_indices'].append(data_pair['continuation_indices'])
 
-        batch = self._convert_tokens_to_tensors(batch)
+        batch = convert_tokens_to_tensors(batch, self.tokenize_labels)
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 
@@ -808,7 +813,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
             choice_end_idx = len(batch['continuation_indices'])
             batch['choice_groupings'].append((choice_start_idx, choice_end_idx))
 
-        batch = self._convert_tokens_to_tensors(batch)
+        batch = convert_tokens_to_tensors(batch, self.tokenize_labels)
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
         return batch
 

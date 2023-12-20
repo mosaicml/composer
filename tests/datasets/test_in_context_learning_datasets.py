@@ -16,11 +16,13 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from composer import Evaluator
 from composer.core import DataSpec
 from composer.datasets.in_context_learning_evaluation import (InContextLearningCodeEvalDataset,
-                                                              InContextLearningDataset, InContextLearningMultipleChoiceTaskDataset, InContextLearningSchemaTaskDataset,
-                                                              InContextLearningQATaskDataset, _get_continuation_span,
-                                                              _get_fewshot_sample_idxs, _make_padded_input,
-                                                              _tokenizer_needs_prefix_space, _trim_context,
-                                                              get_icl_task_dataloader, strip_data)
+                                                              InContextLearningDataset,
+                                                              InContextLearningMultipleChoiceTaskDataset,
+                                                              InContextLearningQATaskDataset,
+                                                              InContextLearningSchemaTaskDataset,
+                                                              _get_continuation_span, _get_fewshot_sample_idxs,
+                                                              _make_padded_input, _tokenizer_needs_prefix_space,
+                                                              _trim_context, get_icl_task_dataloader, strip_data)
 from composer.loggers import InMemoryLogger
 from composer.metrics import (InContextLearningCodeEvalAccuracy, InContextLearningLMAccuracy,
                               InContextLearningMultipleChoiceAccuracy, InContextLearningQAAccuracy)
@@ -609,6 +611,7 @@ def test_code_update_gen_kwargs(tiny_gpt2_tokenizer, tmp_path):
     assert dl.base_batch['generation_kwargs']['temperature'] == .9
     assert dl.base_batch['generation_kwargs']['do_sample'] == True
 
+
 def test_mc_tokenize_example(tiny_gpt2_tokenizer, tmp_path):
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/mmlu_small.jsonl'
@@ -629,8 +632,14 @@ def test_mc_tokenize_example(tiny_gpt2_tokenizer, tmp_path):
         continuation_delimiter=' ### ',
         destination_path=str(tmp_path / 'test_human_eval_small.jsonl'),
     )
-    example = {"context":"Who's the best eval researcher?\n A. Jeremy\n B. Tessa\n C. Max\n D. Other\nAnswer: ","choices":['A', 'B', 'C', 'D'],"gold":2}
-    tokenized_example = dl._tokenize_example(prompt_and_fewshot='Answer the following: ', ctxt=example['context'], example=example)
+    example = {
+        'context': "Who's the best eval researcher?\n A. Jeremy\n B. Tessa\n C. Max\n D. Other\nAnswer: ",
+        'choices': ['A', 'B', 'C', 'D'],
+        'gold': 2
+    }
+    tokenized_example = dl._tokenize_example(prompt_and_fewshot='Answer the following: ',
+                                             ctxt=example['context'],
+                                             example=example)
     unpadded_queries = [context[context != tokenizer.eos_token_id] for context in tokenized_example['query']]
     untokenized_inputs = [tokenizer.decode(unpadded_input) for unpadded_input in unpadded_queries]
     correct_output = [
@@ -638,8 +647,9 @@ def test_mc_tokenize_example(tiny_gpt2_tokenizer, tmp_path):
         "Answer the following: Who's the best eval researcher?\n A. Jeremy\n B. Tessa\n C. Max\n D. Other\nAnswer: B",
         "Answer the following: Who's the best eval researcher?\n A. Jeremy\n B. Tessa\n C. Max\n D. Other\nAnswer: C",
         "Answer the following: Who's the best eval researcher?\n A. Jeremy\n B. Tessa\n C. Max\n D. Other\nAnswer: D"
-        ]
+    ]
     assert untokenized_inputs == correct_output
+
 
 def test_schema_construct_context(tiny_gpt2_tokenizer, tmp_path):
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -660,11 +670,12 @@ def test_schema_construct_context(tiny_gpt2_tokenizer, tmp_path):
         continuation_delimiter=' ### ',
         destination_path=str(tmp_path / 'test_human_eval_small.jsonl'),
     )
-    example = {"context_options":["cont one", "cont two"],"gold":0, "continuation": "this is a continuation"}
+    example = {'context_options': ['cont one', 'cont two'], 'gold': 0, 'continuation': 'this is a continuation'}
     constructed_context = dl._construct_context(example)
     assert constructed_context == 'cont one ### this is a continuation'
     constructed_context = dl._construct_context(example, preceding_text='text')
     assert constructed_context == '\ncont one ### this is a continuation'
+
 
 def test_schema_construct_multiple_contexts(tiny_gpt2_tokenizer, tmp_path):
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -686,11 +697,12 @@ def test_schema_construct_multiple_contexts(tiny_gpt2_tokenizer, tmp_path):
         continuation_delimiter=' ### ',
         destination_path=str(tmp_path / 'test_human_eval_small.jsonl'),
     )
-    example = {"context_options":["cont one", "cont two"],"gold":0, "continuation": "this is a continuation"}
+    example = {'context_options': ['cont one', 'cont two'], 'gold': 0, 'continuation': 'this is a continuation'}
     constructed_contexts = dl._construct_multiple_contexts(example)
-    assert constructed_contexts == ["cont one", "cont two"]
+    assert constructed_contexts == ['cont one', 'cont two']
     constructed_contexts = dl._construct_multiple_contexts(example, preceding_text='some text')
-    assert constructed_contexts == ["\ncont one ###", "\ncont two ###"]
+    assert constructed_contexts == ['\ncont one ###', '\ncont two ###']
+
 
 def test_schema_tokenize_example(tiny_gpt2_tokenizer, tmp_path):
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -712,13 +724,16 @@ def test_schema_tokenize_example(tiny_gpt2_tokenizer, tmp_path):
         continuation_delimiter=' ### ',
         destination_path=str(tmp_path / 'test_human_eval_small.jsonl'),
     )
-    example = {"context_options":["context one", "context two"],"gold":0, "continuation": "this is a continuation"}
-    tokenized_example = dl._tokenize_example(prompt_and_fewshot='prompt ', context_options=example['context_options'], example=example)
-    assert all([tiny_gpt2_tokenizer.decode(cont) == ' this is a continuation' for cont in tokenized_example['answer']])
+    example = {'context_options': ['context one', 'context two'], 'gold': 0, 'continuation': 'this is a continuation'}
+    tokenized_example = dl._tokenize_example(prompt_and_fewshot='prompt ',
+                                             context_options=example['context_options'],
+                                             example=example)
+    assert all(tiny_gpt2_tokenizer.decode(cont) == ' this is a continuation' for cont in tokenized_example['answer'])
     unpadded_inputs = [context[context != tokenizer.eos_token_id] for context in tokenized_example['context_options']]
     untokenized_inputs = [tokenizer.decode(unpadded_input) for unpadded_input in unpadded_inputs]
-    assert untokenized_inputs == ['prompt context one this is a continuation', 'prompt context two this is a continuation']
-
+    assert untokenized_inputs == [
+        'prompt context one this is a continuation', 'prompt context two this is a continuation'
+    ]
 
 
 @pytest.mark.parametrize('dataset_uri', ['mmlu_small.jsonl'])
@@ -732,9 +747,9 @@ def test_mc_task_dataloader_subcategories(dataset_uri, tiny_gpt2_tokenizer, tmp_
     batch_size = 8
     seqlen = 2048
     dls = get_icl_task_dataloader('multiple_choice',
-                                  dataset_uri,
-                                  tokenizer,
-                                  batch_size,
+                                  dataset_uri=dataset_uri,
+                                  tokenizer=tokenizer,
+                                  batch_size=batch_size,
                                   max_seq_len=seqlen,
                                   pad_tok_id=tokenizer.eos_token_id,
                                   num_fewshot=2,
@@ -776,9 +791,9 @@ def test_lm_task_dataloader_extra_space(dataset_uri, tiny_gpt2_tokenizer, tmp_pa
     batch_size = 2
     seqlen = 2048
     dl = get_icl_task_dataloader('language_modeling',
-                                 dataset_uri,
-                                 tokenizer,
-                                 batch_size,
+                                 dataset_uri=dataset_uri,
+                                 tokenizer=tokenizer,
+                                 batch_size=batch_size,
                                  max_seq_len=seqlen,
                                  pad_tok_id=tokenizer.eos_token_id,
                                  num_fewshot=10,
@@ -817,9 +832,9 @@ def test_lm_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     batch_size = 2
     seqlen = 2048
     dl = get_icl_task_dataloader('language_modeling',
-                                 dataset_uri,
-                                 tokenizer,
-                                 batch_size,
+                                 dataset_uri=dataset_uri,
+                                 tokenizer=tokenizer,
+                                 batch_size=batch_size,
                                  max_seq_len=seqlen,
                                  pad_tok_id=tokenizer.eos_token_id,
                                  num_fewshot=0,
@@ -855,9 +870,9 @@ def test_schema_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     batch_size = 2
     seqlen = 2048
     dl = get_icl_task_dataloader('schema',
-                                 dataset_uri,
-                                 tokenizer,
-                                 batch_size,
+                                 dataset_uri=dataset_uri,
+                                 tokenizer=tokenizer,
+                                 batch_size=batch_size,
                                  max_seq_len=seqlen,
                                  pad_tok_id=tokenizer.eos_token_id,
                                  num_fewshot=1,
@@ -900,9 +915,9 @@ def test_schema_task_dataloader_sentpiece_tokenizer(dataset_uri, tmp_path):
     batch_size = 2
     seqlen = 2048
     dl = get_icl_task_dataloader('schema',
-                                 dataset_uri,
-                                 tokenizer,
-                                 batch_size,
+                                 dataset_uri=dataset_uri,
+                                 tokenizer=tokenizer,
+                                 batch_size=batch_size,
                                  max_seq_len=seqlen,
                                  pad_tok_id=tokenizer.eos_token_id,
                                  num_fewshot=1,
@@ -947,9 +962,9 @@ def test_lm_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
     batch_size = 2
     seqlen = 2048
     dl = get_icl_task_dataloader('language_modeling',
-                                 dataset_uri,
-                                 tokenizer,
-                                 batch_size,
+                                 dataset_uri=dataset_uri,
+                                 tokenizer=tokenizer,
+                                 batch_size=batch_size,
                                  max_seq_len=seqlen,
                                  pad_tok_id=tokenizer.eos_token_id,
                                  num_fewshot=num_fewshot,
@@ -989,9 +1004,9 @@ def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
     batch_size = 4
     seqlen = 2048
     dl = get_icl_task_dataloader('multiple_choice',
-                                 dataset_uri,
-                                 tokenizer,
-                                 batch_size,
+                                 dataset_uri=dataset_uri,
+                                 tokenizer=tokenizer,
+                                 batch_size=batch_size,
                                  max_seq_len=seqlen,
                                  pad_tok_id=tokenizer.eos_token_id,
                                  num_fewshot=num_fewshot,
@@ -1039,9 +1054,9 @@ def test_mc_split_batch(dataset_uri, num_fewshot, tmp_path):
     batch_size = 4
     seqlen = 2048
     dl = get_icl_task_dataloader('multiple_choice',
-                                 dataset_uri,
-                                 tokenizer,
-                                 batch_size,
+                                 dataset_uri=dataset_uri,
+                                 tokenizer=tokenizer,
+                                 batch_size=batch_size,
                                  max_seq_len=seqlen,
                                  pad_tok_id=tokenizer.eos_token_id,
                                  num_fewshot=num_fewshot,
@@ -1204,9 +1219,9 @@ def test_qa_task_with_cot_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path,
     # empirical number from the small test dataset
     maximum_answer_length = 157
     dl = get_icl_task_dataloader('question_answering',
-                                 dataset_uri,
-                                 tokenizer,
-                                 batch_size,
+                                 dataset_uri=dataset_uri,
+                                 tokenizer=tokenizer,
+                                 batch_size=batch_size,
                                  max_seq_len=seqlen,
                                  pad_tok_id=tokenizer.eos_token_id,
                                  num_fewshot=num_fewshot,
@@ -1265,9 +1280,9 @@ def test_mc_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     batch_size = 2
     seqlen = 2048
     dl = get_icl_task_dataloader('multiple_choice',
-                                 dataset_uri,
-                                 tokenizer,
-                                 batch_size,
+                                 dataset_uri=dataset_uri,
+                                 tokenizer=tokenizer,
+                                 batch_size=batch_size,
                                  max_seq_len=seqlen,
                                  pad_tok_id=tokenizer.eos_token_id,
                                  num_fewshot=1,
@@ -1310,9 +1325,9 @@ def test_code_eval_split_batch(dataset_uri, tmp_path):
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
     dl = get_icl_task_dataloader(
         'code_evaluation',
-        dataset_uri,
-        tokenizer,
-        8,
+        dataset_uri=dataset_uri,
+        tokenizer=tokenizer,
+        batch_size=8,
         max_seq_len=1024,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=2,
@@ -1380,9 +1395,9 @@ def test_code_eval_sentpiece_dataloader(dataset_uri, tmp_path, num_fewshot, prom
     seqlen = 2048
 
     dl = get_icl_task_dataloader('code_evaluation',
-                                 dataset_uri,
-                                 tokenizer,
-                                 batch_size,
+                                 dataset_uri=dataset_uri,
+                                 tokenizer=tokenizer,
+                                 batch_size=batch_size,
                                  max_seq_len=seqlen,
                                  pad_tok_id=tokenizer.eos_token_id,
                                  num_fewshot=num_fewshot,
@@ -1466,9 +1481,9 @@ def test_code_eval_test_cases(dataset_uri, tmp_path):
     seqlen = 2048
 
     dl = get_icl_task_dataloader('code_evaluation',
-                                 dataset_uri,
-                                 tokenizer,
-                                 batch_size,
+                                 dataset_uri=dataset_uri,
+                                 tokenizer=tokenizer,
+                                 batch_size=batch_size,
                                  max_seq_len=seqlen,
                                  pad_tok_id=tokenizer.eos_token_id,
                                  num_fewshot=0,
@@ -1515,9 +1530,9 @@ def test_code_eval_pass_at_k_validity(dataset_uri, tmp_path):
 
     with pytest.raises(ValueError, match=r'.* pass_at_k .*'):
         get_icl_task_dataloader('code_evaluation',
-                                dataset_uri,
-                                tokenizer,
-                                batch_size,
+                                dataset_uri=dataset_uri,
+                                tokenizer=tokenizer,
+                                batch_size=batch_size,
                                 max_seq_len=seqlen,
                                 pad_tok_id=tokenizer.eos_token_id,
                                 num_fewshot=0,
@@ -1545,9 +1560,9 @@ def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_st
     seqlen = 2048
 
     dl = get_icl_task_dataloader('code_evaluation',
-                                 dataset_uri,
-                                 tokenizer,
-                                 batch_size,
+                                 dataset_uri=dataset_uri,
+                                 tokenizer=tokenizer,
+                                 batch_size=batch_size,
                                  max_seq_len=seqlen,
                                  pad_tok_id=tokenizer.eos_token_id,
                                  num_fewshot=num_fewshot,
@@ -1628,11 +1643,12 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_gpt2_tokenizer
+    batch_size = 2
     dl = get_icl_task_dataloader(
         'language_modeling',
-        dataset_uri,
-        tokenizer,
-        2,
+        dataset_uri=dataset_uri,
+        tokenizer=tokenizer,
+        batch_size=batch_size,
         max_seq_len=2048,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
@@ -1668,11 +1684,12 @@ def test_schema_task_evaluation(num_fewshot, dataset_uri, tiny_gpt2_tokenizer, t
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_gpt2_tokenizer
+    batch_size = 8
     dl = get_icl_task_dataloader(
         'schema',
-        dataset_uri,
-        tokenizer,
-        8,
+        dataset_uri=dataset_uri,
+        tokenizer=tokenizer,
+        batch_size=batch_size,
         max_seq_len=1024,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
@@ -1714,12 +1731,13 @@ def test_mc_task_evaluation_subcategories(device, world_size, dataset_uri, num_f
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_gpt2_tokenizer
+    batch_size = 8
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
     dls = get_icl_task_dataloader('multiple_choice',
-                                  dataset_uri,
-                                  tokenizer,
-                                  8,
+                                  dataset_uri=dataset_uri,
+                                  tokenizer=tokenizer,
+                                  batch_size=batch_size,
                                   max_seq_len=1024,
                                   pad_tok_id=tokenizer.eos_token_id,
                                   num_fewshot=num_fewshot,
@@ -1767,14 +1785,15 @@ def test_mc_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_g
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_gpt2_tokenizer
+    batch_size = 8
 
     # seed because the fewshot selection is currently unseeded
     reproducibility.seed_all(1234)
     dl = get_icl_task_dataloader(
         'multiple_choice',
-        dataset_uri,
-        tokenizer,
-        8,
+        dataset_uri=dataset_uri,
+        tokenizer=tokenizer,
+        batch_size=batch_size,
         max_seq_len=1024,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
@@ -1814,14 +1833,15 @@ def test_qa_task_evaluation_opt_tokenizer(device, world_size, num_fewshot, datas
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m')
+    batch_size = 2
 
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
     dl = get_icl_task_dataloader(
         'question_answering',
-        dataset_uri,
-        tokenizer,
-        2,
+        dataset_uri=dataset_uri,
+        tokenizer=tokenizer,
+        batch_size=batch_size,
         max_seq_len=1024,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
@@ -1856,14 +1876,15 @@ def test_qa_task_evaluation_with_cot_opt_tokenizer(device, world_size, num_fewsh
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m')
+    batch_size = 2
 
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
     dl = get_icl_task_dataloader(
         'question_answering',
-        dataset_uri,
-        tokenizer,
-        2,
+        dataset_uri=dataset_uri,
+        tokenizer=tokenizer,
+        batch_size=batch_size,
         max_seq_len=1024,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
@@ -1900,13 +1921,14 @@ def test_qa_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_g
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_gpt2_tokenizer
+    batch_size = 2
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
     dl = get_icl_task_dataloader(
         'question_answering',
-        dataset_uri,
-        tokenizer,
-        2,
+        dataset_uri=dataset_uri,
+        tokenizer=tokenizer,
+        batch_size=batch_size,
         max_seq_len=1024,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
@@ -1943,13 +1965,14 @@ def test_qa_task_with_cot_evaluation(device, world_size, num_fewshot, dataset_ur
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_gpt2_tokenizer
+    batch_size = 2
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
     dl = get_icl_task_dataloader(
         'question_answering',
-        dataset_uri,
-        tokenizer,
-        2,
+        dataset_uri=dataset_uri,
+        tokenizer=tokenizer,
+        batch_size=batch_size,
         max_seq_len=1024,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
@@ -2001,14 +2024,15 @@ def test_code_eval_microbatching(monkeypatch, device, world_size, num_fewshot, d
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m')
+    batch_size = 2
 
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
     dl = get_icl_task_dataloader(
         'code_evaluation',
-        dataset_uri,
-        tokenizer,
-        2,
+        dataset_uri=dataset_uri,
+        tokenizer=tokenizer,
+        batch_size=batch_size,
         max_seq_len=150,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
@@ -2052,13 +2076,14 @@ def test_code_eval_sentpiece_evaluation(monkeypatch, device, world_size, num_few
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_t5_tokenizer
+    batch_size = 2
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
     dl = get_icl_task_dataloader(
         'code_evaluation',
-        dataset_uri,
-        tokenizer,
-        2,
+        dataset_uri=dataset_uri,
+        tokenizer=tokenizer,
+        batch_size=batch_size,
         max_seq_len=175,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
@@ -2100,13 +2125,14 @@ def test_code_eval_task_evaluation(monkeypatch, device, world_size, num_fewshot,
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_gpt2_tokenizer
+    batch_size = 2
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
     dl = get_icl_task_dataloader(
         'code_evaluation',
-        dataset_uri,
-        tokenizer,
-        2,
+        dataset_uri=dataset_uri,
+        tokenizer=tokenizer,
+        batch_size=batch_size,
         max_seq_len=150 if num_fewshot == 0 else 450,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
@@ -2144,9 +2170,9 @@ def test_lm_spacing_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     batch_size = 1
     seqlen = 2048
     dl = get_icl_task_dataloader('language_modeling',
-                                 dataset_uri,
-                                 tokenizer,
-                                 batch_size,
+                                 dataset_uri=dataset_uri,
+                                 tokenizer=tokenizer,
+                                 batch_size=batch_size,
                                  max_seq_len=seqlen,
                                  pad_tok_id=tokenizer.eos_token_id,
                                  num_fewshot=1,
@@ -2188,9 +2214,9 @@ def test_hf_dataloading_lm_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path
     batch_size = 2
     seqlen = 2048
     dl = get_icl_task_dataloader('language_modeling',
-                                 dataset_uri,
-                                 tokenizer,
-                                 batch_size,
+                                 dataset_uri=dataset_uri,
+                                 tokenizer=tokenizer,
+                                 batch_size=batch_size,
                                  max_seq_len=seqlen,
                                  pad_tok_id=tokenizer.eos_token_id,
                                  num_fewshot=0,
@@ -2241,9 +2267,9 @@ def test_hf_dataloading_custom_parsing(dataset_uri, tiny_gpt2_tokenizer, tmp_pat
     maximum_answer_length = 4
 
     dl = get_icl_task_dataloader('question_answering',
-                                 dataset_uri,
-                                 tokenizer,
-                                 batch_size,
+                                 dataset_uri=dataset_uri,
+                                 tokenizer=tokenizer,
+                                 batch_size=batch_size,
                                  max_seq_len=seqlen,
                                  pad_tok_id=tokenizer.eos_token_id,
                                  num_fewshot=num_fewshot,
