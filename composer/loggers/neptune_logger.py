@@ -1,9 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-# Copyright 2023 MosaicML Composer authors
-# SPDX-License-Identifier: Apache-2.0
-
 """Log training metadata to [neptune.ai](https://neptune.ai/)."""
 
 __all__ = ['NeptuneLogger']
@@ -249,24 +246,14 @@ class NeptuneLogger(LoggerDestination):
         if not self._enabled:
             return
 
-        if not isinstance(images, Sequence) and images.ndim <= 3:
-            images = [images]
-        else:
-            # don't log a single step for a sequence of images
-            step = None
-
-        if len(images) == 0:
-            return
-
-        # transform to numpy
-        images = [img.data.cpu().numpy() if isinstance(img, torch.Tensor) else img for img in images]
-
         from neptune.types import File
 
-        images = list(map(partial(_validate_image, channels_last=channels_last), images))
-        if step:
-            self.base_handler[name].append(File.as_image(images[0]), step=step)
+        if not isinstance(images, Sequence) and images.ndim <= 3:
+            images = _validate_image(images, channels_last=channels_last)
+            self.base_handler[name].append(File.as_image(images), step=step)
+
         else:
+            images = list(map(partial(_validate_image, channels_last=channels_last), images))
             self.base_handler[name].extend([File.as_image(img) for img in images])
 
     def post_close(self) -> None:
@@ -278,13 +265,16 @@ class NeptuneLogger(LoggerDestination):
             self._neptune_run = None
 
 
-def _validate_image(img: np.ndarray, channels_last: bool) -> np.ndarray:
+def _validate_image(img: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:
+    img_numpy = img.data.cpu().numpy() if isinstance(img, torch.Tensor) else img
+
+    assert isinstance(img_numpy, np.ndarray)
 
     # Error out for empty arrays or weird arrays of dimension 0.
-    if np.any(np.equal(img.shape, 0)):
-        raise ValueError(f'Got an image (shape {img.shape}) with at least one dimension being 0! ')
+    if np.any(np.equal(img_numpy.shape, 0)):
+        raise ValueError(f'Got an image (shape {img_numpy.shape}) with at least one dimension being 0! ')
 
     if not channels_last:
-        img = np.moveaxis(img, 0, -1)
+        img_numpy = np.moveaxis(img_numpy, 0, -1)
 
-    return img
+    return img_numpy
