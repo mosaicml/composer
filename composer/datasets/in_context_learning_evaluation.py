@@ -154,13 +154,8 @@ class InContextLearningQATaskDataset(Dataset):
                  fewshot_random_seed: int,
                  cot_delimiter: str = '',
                  early_stopping_criteria: Optional[List[str]] = None):
-<<<<<<< HEAD
         if tokenizer.eos_token_id is None:
             raise ValueError('`InContextLearningQATaskDataset` tokenizer must have non-null `eos_token_id`')
-=======
-        if not hasattr(tokenizer, 'eos_token_id'):
-            raise ValueError('`InContextLearningQATaskDataset` tokenizer must have `eos_token_id`')
->>>>>>> 7ee0a72de0b0e54d845532260bbe2a47d6f16145
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
         except ImportError as e:
