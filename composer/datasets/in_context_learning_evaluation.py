@@ -154,8 +154,8 @@ class InContextLearningQATaskDataset(Dataset):
                  fewshot_random_seed: int,
                  cot_delimiter: str = '',
                  early_stopping_criteria: Optional[List[str]] = None):
-        if not hasattr(tokenizer, 'eos_token_id'):
-            raise ValueError('`InContextLearningQATaskDataset` tokenizer must have `eos_token_id`')
+        if tokenizer.eos_token_id is None:
+            raise ValueError('`InContextLearningQATaskDataset` tokenizer must have non-null `eos_token_id`')
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
         except ImportError as e:
@@ -954,8 +954,8 @@ class InContextLearningCodeEvalDataset(Dataset):
                  top_p: Optional[float] = 0.95,
                  top_k: Optional[int] = 40,
                  early_stopping_criteria: Optional[List[str]] = None):
-        if not hasattr(tokenizer, 'eos_token_id'):
-            raise ValueError('`InContextLearningCodeEvalDataset` tokenizer must have `eos_token_id`')
+        if tokenizer.eos_token_id is None:
+            raise ValueError('`InContextLearningCodeEvalDataset` tokenizer must have non-null `eos_token_id`')
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
         except ImportError as e:
