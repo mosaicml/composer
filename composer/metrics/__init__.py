@@ -8,6 +8,7 @@ from composer.metrics.metrics import CrossEntropy, Dice, LossMetric, MIoU
 from composer.metrics.nlp import (BinaryF1Score, InContextLearningCodeEvalAccuracy, InContextLearningLMAccuracy,
                                   InContextLearningLMExpectedCalibrationError,
                                   InContextLearningMCExpectedCalibrationError, InContextLearningMetric,
+                                  IFEvalJudge,
                                   InContextLearningMultipleChoiceAccuracy, InContextLearningQAAccuracy,
                                   LanguageCrossEntropy, LanguagePerplexity, MaskedAccuracy)
 
@@ -28,6 +29,7 @@ __all__ = [
     'InContextLearningLMExpectedCalibrationError',
     'InContextLearningMetric',
     'InContextLearningCodeEvalAccuracy',
+    'IFEvalJudge',
 ]
 
 METRIC_DEFAULT_CTORS = {
@@ -35,4 +37,5 @@ METRIC_DEFAULT_CTORS = {
     'InContextLearningMultipleChoiceAccuracy': InContextLearningMultipleChoiceAccuracy,
     'InContextLearningQAAccuracy': InContextLearningQAAccuracy,
     'InContextLearningCodeEvalAccuracy': InContextLearningCodeEvalAccuracy,
+    'IFEvalJudge': IFEvalJudge
 }

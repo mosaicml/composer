@@ -17,7 +17,8 @@ from composer import Evaluator
 from composer.core import DataSpec
 from composer.datasets.in_context_learning_evaluation import (InContextLearningCodeEvalDataset,
                                                               InContextLearningDataset, InContextLearningMultipleChoiceTaskDataset, InContextLearningSchemaTaskDataset,
-                                                              InContextLearningQATaskDataset, _get_continuation_span,
+                                                              InContextLearningQATaskDataset, IFEval,
+                                                              _get_continuation_span,
                                                               _get_fewshot_sample_idxs, _make_padded_input,
                                                               _tokenizer_needs_prefix_space, _trim_context,
                                                               get_icl_task_dataloader, strip_data)
@@ -719,6 +720,25 @@ def test_schema_tokenize_example(tiny_gpt2_tokenizer, tmp_path):
     untokenized_inputs = [tokenizer.decode(unpadded_input) for unpadded_input in unpadded_inputs]
     assert untokenized_inputs == ['prompt context one this is a continuation', 'prompt context two this is a continuation']
 
+def test_ifeval(tiny_gpt2_tokenizer, tmp_path):
+    tokenizer = tiny_gpt2_tokenizer
+    seqlen = 2048
+    num_fewshot = 0
+    prompt_string = ''
+    uri = '/mnt/workdisk/max/composer/input_data.jsonl'
+
+    dl = IFEval(dataset_uri=uri,
+                tokenizer=tokenizer,
+                max_seq_len=seqlen,
+                pad_tok_id=tokenizer.eos_token_id,
+                num_fewshot=num_fewshot,
+                fewshot_random_seed=1,
+                prompt_string=prompt_string,
+                example_delimiter='',
+                prelimiter='',
+                continuation_delimiter='',
+                destination_path=str(tmp_path / 'test_dataset_lm_juggernaut.jsonl'),
+    )
 
 
 @pytest.mark.parametrize('dataset_uri', ['mmlu_small.jsonl'])

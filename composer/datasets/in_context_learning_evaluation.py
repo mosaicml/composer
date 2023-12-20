@@ -384,7 +384,7 @@ class InContextLearningDataset(Dataset):
         Returns:
             str: the answer in the example
         """
-        cont = example[self.answer_key]
+        cont = str(example[self.answer_key])
         if self.prefix_space and not cont.startswith(' ') and not in_context:
             cont = f' {cont}'
         return cont
@@ -1146,6 +1146,51 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         tokenized_example['language'] = example['language']
         return tokenized_example
 
+class IFEval(InContextLearningDataset):
+    """
+    {
+        "key": 1005, 
+        "instruction_id_list": ["detectable_content:number_placeholders"],
+        "prompt": "Write a resume for a fresh high school graduate who is seeking their first job. Make sure to include at least one placeholder represented by square brackets, such as [address].",
+        "kwargs": [{"num_placeholders": 1}]
+    }
+
+    Additional Args:
+        generations_per_sample (int) (defaults to 1): The number of independently computed returned sequences for each element in the batch
+        pass_at_k (int) (defaults to 1): k for how many chances the model gets to write passing code
+    """
+
+    def __init__(self, *args, **kwargs,):
+        batch_mapping = {
+            'input_ids': 'prompt',
+            'labels': 'key',
+            'key': 'key',
+            'kwargs': 'kwargs',
+            "instruction_id_list": "instruction_id_list"
+        }
+        # answer_key is needed to process dataset but not used in metrics
+        # same for 'labels' in batch_mapping
+        super().__init__(
+            context_key='prompt',
+            answer_key='key',
+            tokenize_labels=False,
+            padding_side='left',
+            batch_mapping=batch_mapping,
+            # base_batch=base_batch,
+            *args,
+            **kwargs,
+        )
+        self.base_batch = {
+            'mode': 'generate',
+            'input_ids': [],
+            'labels': [],
+            'key': [],
+            'kwargs': [],
+            'instruction_id_list': [],
+            # TODO: maybe subtract prompt len
+            'generation_length': self.max_seq_len,
+        }
+        self._update_generation_kwargs(kwargs.get('generation_kwargs'))
 
 def build_icl_dataloader(
     icl_task_type: str,
@@ -1257,6 +1302,23 @@ def build_icl_dataloader(
             hf_parsing_map=hf_parsing_map,
             pass_at_k=pass_at_k,
             generations_per_sample=generations_per_sample,
+            generation_kwargs=generation_kwargs,
+        )
+        effective_batchsize = batch_size
+    elif icl_task_type == 'ifeval':
+        dataset = IFEval(
+            dataset_uri=dataset_uri,
+            tokenizer=tokenizer,
+            max_seq_len=max_seq_len,
+            pad_tok_id=pad_tok_id,
+            num_fewshot=num_fewshot,
+            prompt_string=prompt_string,
+            example_delimiter=example_delimiter,
+            continuation_delimiter=continuation_delimiter,
+            destination_path=destination_path,
+            fewshot_random_seed=fewshot_random_seed,
+            hf_loading_vars=hf_loading_vars,
+            hf_parsing_map=hf_parsing_map,
             generation_kwargs=generation_kwargs,
         )
         effective_batchsize = batch_size
