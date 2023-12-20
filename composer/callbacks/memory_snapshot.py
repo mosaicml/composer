@@ -8,6 +8,7 @@ import warnings
 from typing import Optional, Union
 
 import torch.cuda
+from packaging import version
 
 from composer import State
 from composer.core import Callback, State, Time, TimeUnit
@@ -86,10 +87,17 @@ class MemorySnapshot(Callback):
         self.filename = filename
         self.remote_file_name = remote_file_name
         self.overwrite = overwrite
-        self._enabled = True
         self._start_time = None
+        if version.parse(torch.__version__) > version.parse('2.1.0.dev'):  # type: ignore
+            # memory snapshot  is only supported in torch v2.1.0-rc1 or higher
+            self._enabled = True
+        else:
+            self._enabled = False
+            log.warning('Memory snapshot is supported after PyTorch 2.1.0. Skipping memory snapshot callback.')
 
     def init(self, state: State, logger: Logger) -> None:
+        if not self._enabled:
+            return
         # Not relying on `torch.cuda.is_available()` since the model could be on CPU.
         model_device = next(state.model.parameters()).device
 
@@ -132,10 +140,6 @@ class MemorySnapshot(Callback):
         torch.cuda.memory._record_memory_history()
 
     def export_memory_snapshot(self, state: State, logger: Logger) -> None:
-        if not torch.cuda.is_available():
-            log.info('CUDA unavailable. Not exporting memory snapshot')
-            return
-
         assert self.filename
         assert self.folder_name, 'folder_name must be set in init'
         filename = os.path.join(
@@ -153,4 +157,9 @@ class MemorySnapshot(Callback):
                                                               timestamp=state.timestamp)
             remote_file_name = remote_file_name.lstrip('/')
             log.info(f'Uploading memory snapshot to remote: {remote_file_name} from {filename}')
-            logger.upload_file(remote_file_name=remote_file_name, file_path=filename, overwrite=self.overwrite)
+            try:
+                logger.upload_file(remote_file_name=remote_file_name, file_path=filename, overwrite=self.overwrite)
+            except FileExistsError as e:
+                raise FileExistsError(
+                    f'Uploading memory snapshot failed with error: {e}. overwrite was set to {self.overwrite}. To overwrite memory snapshot with Trainer, set save_overwrite to True.'
+                ) from e
