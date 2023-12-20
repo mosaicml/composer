@@ -55,9 +55,13 @@ class UCObjectStore(ObjectStore):
         except ImportError as e:
             raise MissingConditionalImportError('databricks', conda_package='databricks-sdk>=0.8.0,<1.0') from e
 
-        if not 'DATABRICKS_HOST' in os.environ or not 'DATABRICKS_TOKEN' in os.environ:
-            raise ValueError('Environment variables `DATABRICKS_HOST` and `DATABRICKS_TOKEN` '
-                             'must be set to use Databricks Unity Catalog Volumes')
+        try:
+            self.client = WorkspaceClient()
+        except Exception as e:
+            raise ValueError(
+                f'Databricks SDK credentials not correctly setup. '
+                'Visit https://databricks-sdk-py.readthedocs.io/en/latest/authentication.html#databricks-native-authentication '
+                'to identify different ways to setup credentials.') from e
         self.prefix = self.validate_path(path)
         self.client = WorkspaceClient()
 
