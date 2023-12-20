@@ -16,8 +16,9 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from composer import Evaluator
 from composer.core import DataSpec
 from composer.datasets.in_context_learning_evaluation import (InContextLearningCodeEvalDataset,
-                                                              InContextLearningDataset, InContextLearningLMTaskDataset,
-                                                              InContextLearningQATaskDataset, _get_continuation_span,
+                                                              InContextLearningDataset, InContextLearningMultipleChoiceTaskDataset, InContextLearningSchemaTaskDataset,
+                                                              InContextLearningQATaskDataset, IFEval,
+                                                              _get_continuation_span,
                                                               _get_fewshot_sample_idxs, _make_padded_input,
                                                               _tokenizer_needs_prefix_space, _trim_context,
                                                               get_icl_task_dataloader, strip_data)
@@ -196,7 +197,7 @@ def test_update_generation_kwargs(tiny_gpt2_tokenizer, tmp_path):
                                   hf_loading_vars=hf_loading_vars,
                                   hf_parsing_map=hf_parsing_map,
                                   generation_kwargs=gen_kwargs)
-    assert dl.default_batch['generation_kwargs'] == {'test_arg1': 1, 'test_arg2': 2}
+    assert dl.base_batch['generation_kwargs'] == {'test_arg1': 1, 'test_arg2': 2}
 
 
 def test_update_generation_kwargs_no_kwargs(tiny_gpt2_tokenizer, tmp_path):
@@ -223,7 +224,7 @@ def test_update_generation_kwargs_no_kwargs(tiny_gpt2_tokenizer, tmp_path):
                                   destination_path=str(tmp_path / 'test_dataset_lm_juggernaut.jsonl'),
                                   hf_loading_vars=hf_loading_vars,
                                   hf_parsing_map=hf_parsing_map)
-    assert not dl.default_batch['generation_kwargs']
+    assert not dl.base_batch['generation_kwargs']
 
 
 def test_construct_context(tiny_gpt2_tokenizer, tmp_path):
@@ -288,7 +289,7 @@ def test_get_answer_from_example(tiny_gpt2_tokenizer, tmp_path):
                                   hf_loading_vars=hf_loading_vars,
                                   hf_parsing_map=hf_parsing_map)
     answer = dl._get_answer_from_example({'context': 'wex exort exort', 'answer': 'alacrity'})
-    assert answer == 'alacrity'
+    assert answer == ' alacrity'
 
 
 def test_fix_eos_on_preamble(tmp_path):
@@ -604,10 +605,140 @@ def test_code_update_gen_kwargs(tiny_gpt2_tokenizer, tmp_path):
         generation_kwargs=gen_kwargs,
         generations_per_sample=10,
     )
-    assert dl.default_batch['generation_kwargs']['num_beams'] == 9000
-    assert dl.default_batch['generation_kwargs']['top_p'] == .95
-    assert dl.default_batch['generation_kwargs']['temperature'] == .9
-    assert dl.default_batch['generation_kwargs']['do_sample'] == True
+    assert dl.base_batch['generation_kwargs']['num_beams'] == 9000
+    assert dl.base_batch['generation_kwargs']['top_p'] == .95
+    assert dl.base_batch['generation_kwargs']['temperature'] == .9
+    assert dl.base_batch['generation_kwargs']['do_sample'] == True
+
+def test_mc_tokenize_example(tiny_gpt2_tokenizer, tmp_path):
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+    dataset_uri = f'{local_data}/mmlu_small.jsonl'
+    tokenizer = tiny_gpt2_tokenizer
+    seqlen = 2048
+    num_fewshot = 0
+    prompt_string = ''
+    seqlen = 2048
+    dl = InContextLearningMultipleChoiceTaskDataset(
+        dataset_uri=dataset_uri,
+        tokenizer=tokenizer,
+        max_seq_len=seqlen,
+        pad_tok_id=tokenizer.eos_token_id,
+        num_fewshot=num_fewshot,
+        fewshot_random_seed=1,
+        prompt_string=prompt_string,
+        example_delimiter='\n',
+        continuation_delimiter=' ### ',
+        destination_path=str(tmp_path / 'test_human_eval_small.jsonl'),
+    )
+    example = {"context":"Who's the best eval researcher?\n A. Jeremy\n B. Tessa\n C. Max\n D. Other\nAnswer: ","choices":['A', 'B', 'C', 'D'],"gold":2}
+    tokenized_example = dl._tokenize_example(prompt_and_fewshot='Answer the following: ', ctxt=example['context'], example=example)
+    unpadded_queries = [context[context != tokenizer.eos_token_id] for context in tokenized_example['query']]
+    untokenized_inputs = [tokenizer.decode(unpadded_input) for unpadded_input in unpadded_queries]
+    correct_output = [
+        "Answer the following: Who's the best eval researcher?\n A. Jeremy\n B. Tessa\n C. Max\n D. Other\nAnswer: A",
+        "Answer the following: Who's the best eval researcher?\n A. Jeremy\n B. Tessa\n C. Max\n D. Other\nAnswer: B",
+        "Answer the following: Who's the best eval researcher?\n A. Jeremy\n B. Tessa\n C. Max\n D. Other\nAnswer: C",
+        "Answer the following: Who's the best eval researcher?\n A. Jeremy\n B. Tessa\n C. Max\n D. Other\nAnswer: D"
+        ]
+    assert untokenized_inputs == correct_output
+
+def test_schema_construct_context(tiny_gpt2_tokenizer, tmp_path):
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+    dataset_uri = f'{local_data}/winograd_small.jsonl'
+    tokenizer = tiny_gpt2_tokenizer
+    seqlen = 2048
+    num_fewshot = 0
+    seqlen = 2048
+    dl = InContextLearningSchemaTaskDataset(
+        dataset_uri=dataset_uri,
+        tokenizer=tokenizer,
+        max_seq_len=seqlen,
+        pad_tok_id=tokenizer.eos_token_id,
+        num_fewshot=num_fewshot,
+        fewshot_random_seed=1,
+        prompt_string='',
+        example_delimiter='\n',
+        continuation_delimiter=' ### ',
+        destination_path=str(tmp_path / 'test_human_eval_small.jsonl'),
+    )
+    example = {"context_options":["cont one", "cont two"],"gold":0, "continuation": "this is a continuation"}
+    constructed_context = dl._construct_context(example)
+    assert constructed_context == 'cont one ### this is a continuation'
+    constructed_context = dl._construct_context(example, preceding_text='text')
+    assert constructed_context == '\ncont one ### this is a continuation'
+
+def test_schema_construct_multiple_contexts(tiny_gpt2_tokenizer, tmp_path):
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+    dataset_uri = f'{local_data}/winograd_small.jsonl'
+    tokenizer = tiny_gpt2_tokenizer
+    seqlen = 2048
+    num_fewshot = 0
+    prompt_string = ''
+    seqlen = 2048
+    dl = InContextLearningSchemaTaskDataset(
+        dataset_uri=dataset_uri,
+        tokenizer=tokenizer,
+        max_seq_len=seqlen,
+        pad_tok_id=tokenizer.eos_token_id,
+        num_fewshot=num_fewshot,
+        fewshot_random_seed=1,
+        prompt_string=prompt_string,
+        example_delimiter='\n',
+        continuation_delimiter=' ### ',
+        destination_path=str(tmp_path / 'test_human_eval_small.jsonl'),
+    )
+    example = {"context_options":["cont one", "cont two"],"gold":0, "continuation": "this is a continuation"}
+    constructed_contexts = dl._construct_multiple_contexts(example)
+    assert constructed_contexts == ["cont one", "cont two"]
+    constructed_contexts = dl._construct_multiple_contexts(example, preceding_text='some text')
+    assert constructed_contexts == ["\ncont one ###", "\ncont two ###"]
+
+def test_schema_tokenize_example(tiny_gpt2_tokenizer, tmp_path):
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+    dataset_uri = f'{local_data}/winograd_small.jsonl'
+    tokenizer = tiny_gpt2_tokenizer
+    seqlen = 2048
+    num_fewshot = 0
+    prompt_string = ''
+    seqlen = 2048
+    dl = InContextLearningSchemaTaskDataset(
+        dataset_uri=dataset_uri,
+        tokenizer=tokenizer,
+        max_seq_len=seqlen,
+        pad_tok_id=tokenizer.eos_token_id,
+        num_fewshot=num_fewshot,
+        fewshot_random_seed=1,
+        prompt_string=prompt_string,
+        example_delimiter='\n',
+        continuation_delimiter=' ### ',
+        destination_path=str(tmp_path / 'test_human_eval_small.jsonl'),
+    )
+    example = {"context_options":["context one", "context two"],"gold":0, "continuation": "this is a continuation"}
+    tokenized_example = dl._tokenize_example(prompt_and_fewshot='prompt ', context_options=example['context_options'], example=example)
+    assert all([tiny_gpt2_tokenizer.decode(cont) == ' this is a continuation' for cont in tokenized_example['answer']])
+    unpadded_inputs = [context[context != tokenizer.eos_token_id] for context in tokenized_example['context_options']]
+    untokenized_inputs = [tokenizer.decode(unpadded_input) for unpadded_input in unpadded_inputs]
+    assert untokenized_inputs == ['prompt context one this is a continuation', 'prompt context two this is a continuation']
+
+def test_ifeval(tiny_gpt2_tokenizer, tmp_path):
+    tokenizer = tiny_gpt2_tokenizer
+    seqlen = 2048
+    num_fewshot = 0
+    prompt_string = ''
+    uri = '/mnt/workdisk/max/composer/input_data.jsonl'
+
+    dl = IFEval(dataset_uri=uri,
+                tokenizer=tokenizer,
+                max_seq_len=seqlen,
+                pad_tok_id=tokenizer.eos_token_id,
+                num_fewshot=num_fewshot,
+                fewshot_random_seed=1,
+                prompt_string=prompt_string,
+                example_delimiter='',
+                prelimiter='',
+                continuation_delimiter='',
+                destination_path=str(tmp_path / 'test_dataset_lm_juggernaut.jsonl'),
+    )
 
 
 @pytest.mark.parametrize('dataset_uri', ['mmlu_small.jsonl'])

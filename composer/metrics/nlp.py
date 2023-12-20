@@ -5,12 +5,12 @@
 
 import logging
 import os
+import random
 import re
 import string
-import random
 import warnings
-from typing import Any, Dict, List, Mapping, Optional, Union
 from copy import deepcopy
+from typing import Any, Dict, List, Mapping, Optional, Union
 
 import numpy as np
 import torch
@@ -18,8 +18,8 @@ from torch import Tensor
 from torch.nn import functional as F
 from torchmetrics import Metric
 
-from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient, MosaicMLLambdaEvalClient
+from composer.utils.import_helpers import MissingConditionalImportError
 
 log = logging.getLogger(__name__)
 
@@ -28,7 +28,8 @@ __all__ = [
     'InContextLearningMultipleChoiceAccuracy',
     'InContextLearningQAAccuracy',
     'InContextLearningCodeEvalAccuracy',
-    'InContextLearningLLMAsAJudge',
+    # 'InContextLearningLLMAsAJudge',
+    'IFEvalJudge',
     'BinaryF1Score',
     'LanguageCrossEntropy',
     'MaskedAccuracy',
@@ -291,6 +292,7 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
         assert isinstance(self.total, Tensor)
         return self.correct / self.total
 
+
 class InContextLearningLLMAsAJudge(InContextLearningMetric):
     r"""Computes accuracy for In-context learning (ICL) question answering (QA) tasks.
 
@@ -315,10 +317,10 @@ class InContextLearningLLMAsAJudge(InContextLearningMetric):
 
     # Make torchmetrics call update only once
     full_state_update = False
-# Respond with either "Yes" or "No" if you are able to make a distinction, or "Invalid" if the statements are malformatted. 
-# Any response other than one "Yes", "No", or "Invalid" is unusable and will not be scored, so please adhere to the instructions carefully.
+    # Respond with either "Yes" or "No" if you are able to make a distinction, or "Invalid" if the statements are malformatted.
+    # Any response other than one "Yes", "No", or "Invalid" is unusable and will not be scored, so please adhere to the instructions carefully.
 
-    BASE_EQUIVALENCE_PROMPT = """Please determine whether the supplied statements or answers are equivalent. 
+    BASE_EQUIVALENCE_PROMPT = """Please determine whether the supplied statements or answers are equivalent.
 If one statment has a long continuation, only consider the first segment of the statement.
 Respond with either "Yes" or "No". Any response other than one "Yes" or "No" is unusable and will not be scored, so please adhere to the instructions carefully.
 Here are some examples to help you understand the task. They are not a part of the statements we are comparing.
@@ -341,7 +343,7 @@ Result: No
 
 Statement 1: The American team was the first to win the World Championship.
 Statement 2: America
-Result: Yes 
+Result: Yes
 
 Statement 1:  Yes\nQuestion: What is the name of the British Army_s first major infantry regiment?\nAnswer: The
 Statement 2: Yes
@@ -371,10 +373,9 @@ Result: """
         try:
             from openai import OpenAI
         except ImportError as e:
-            raise MissingConditionalImportError(
-                extra_deps_group='openai',
-                conda_package='openai',
-                conda_channel='conda-forge') from e
+            raise MissingConditionalImportError(extra_deps_group='openai',
+                                                conda_package='openai',
+                                                conda_channel='conda-forge') from e
         self.client = OpenAI()
 
     def call_judge(self, sample_answer, sample_label) -> List[str]:
@@ -391,26 +392,30 @@ Result: """
             formatted_input = openai_user_input.format(statement1=sample_label, statement2=sample_answer)
         response = self.client.chat.completions.create(
             # TODO: allow configurations
-            model="gpt-3.5-turbo",
-            messages=[{'role': 'system', 'content': self.BASE_EQUIVALENCE_PROMPT},
-                      { 'role': 'user', 'content': formatted_input}],
-            max_tokens=10
-        )
-        if "Yes" not in response.choices[0].message.content and "No" not in response.choices[0].message.content:
-            print("Found an illformatted response:")
+            model='gpt-3.5-turbo',
+            messages=[{
+                'role': 'system',
+                'content': self.BASE_EQUIVALENCE_PROMPT
+            }, {
+                'role': 'user',
+                'content': formatted_input
+            }],
+            max_tokens=10)
+        if 'Yes' not in response.choices[0].message.content and 'No' not in response.choices[0].message.content:
+            print('Found an illformatted response:')
             print(formatted_input + response.choices[0].message.content)
 
-        return response.choices[0].message.content 
+        return response.choices[0].message.content
 
     def update(self, batch: Dict[str, Any], outputs: List[str], labels: List[List[str]]):
         if not self.client:
-            self.init_openai()  
+            self.init_openai()
         for sample_output, sample_answer in zip(outputs, batch['answer']):
-            sample_output = sample_output.split("\n")[0]
+            sample_output = sample_output.split('\n')[0]
             result = self.call_judge(sample_output, sample_answer)
-            if result.endswith("Yes"):
+            if result.endswith('Yes'):
                 self.correct += torch.tensor(1.0)
-            elif result.endswith("No"):
+            elif result.endswith('No'):
                 pass
             else:
                 self.invalid_judge_response += torch.tensor(1.0)
@@ -784,3 +789,77 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         assert isinstance(self.correct, Tensor)
         assert isinstance(self.total, Tensor)
         return self.correct / self.total
+
+
+class IFEvalJudge(InContextLearningMetric):
+    """
+
+    {
+        "key": 3757,
+        "prompt": "Would you consider yourself to be smart? Choose from:\nMy answer is yes.\nMy answer is no.\nMy answer is maybe.\nJust choose one phrase from above as your answer.",
+        "instruction_id_list": ["detectable_format:constrained_response"],
+        "kwargs": [{}]
+    }
+    {
+    'key': 1001,
+    'instruction_id_list': ['punctuation:no_comma'],
+    'prompt': 'I am planning a trip to Japan, and I would like thee to write an '
+            'itinerary for my journey in a Shakespearean style. You are not '
+            'allowed to use any commas in your response.',
+    'kwargs': [{}],
+    'response': '<MODEL RESPONSE>'
+    }
+
+    """
+
+    # Make torchmetrics call update only once
+    full_state_update = False
+
+    def __init__(self, dist_sync_on_step: bool = False, ignore_index: int = -100):
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+
+        self.ignore_index = ignore_index
+        self.cached_results = []
+        # self.add_state('total', default=torch.tensor(0), dist_reduce_fx='sum')
+
+    def update(self, batch, outputs: Union[Mapping, Tensor], target: Tensor) -> None:
+        """Updates the internal state with results from a new batch.
+
+        """
+        for i, output in enumerate(outputs):
+            kwargs = batch['kwargs'][i]
+            # Removes k, v pairs when value is none for each dict in the the list
+            kwargs = [{k: v for k, v in kwarg_dict.items() if v is not None} for kwarg_dict in kwargs]
+            self.cached_results.append({
+                'key': batch['key'][i],
+                'instruction_id_list': batch['instruction_id_list'][i],
+                'prompt': batch['prompt'][i],
+                'kwargs': kwargs,
+                'response': output
+            })
+            # self.total += 1 #type: ignore (third-party)
+
+    def compute(self) -> Tensor:
+        """Aggregate the state over all processes to compute the metric.
+
+        Returns:
+            loss: The loss averaged across all batches as a :class:`~torch.Tensor`.
+        """
+        # Return average loss over entire dataset
+        try:
+            from instruction_following_eval import \
+                instruction_following_eval  # pyright: ignore [reportGeneralTypeIssues]
+            from instruction_following_eval.evaluation import InstructionResult
+        except ImportError as e:
+            raise MissingConditionalImportError(
+                extra_deps_group='nlp',
+                conda_package='datasets',
+                conda_channel='conda-forge',
+            ) from e
+        instruction_results = [InstructionResult(**res_dict) for res_dict in self.cached_results]
+        result = instruction_following_eval(instruction_results)
+        print('*** Printing results of IFEval ***')
+        for k, v in result.items():
+            print(f'Task type: {k}, performance: {v}')
+        # TODO: Handle result differently in trainer._compute_and_log_metrics()
+        return result
