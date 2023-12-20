@@ -864,17 +864,61 @@ class State(Serializable):
         Returns:
             Dict[str, Any]: The state dict for the model.
         """
-        if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
-            with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
-                model_state_dict = self.model.state_dict()
+        if version.parse(torch.__version__) > version.parse("2.1.2"):
+            model_state_dict, _ = self.get_model_and_optimizer_state_dict(model_only=True)
         else:
-            model_state_dict = self.model.state_dict()
+            if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
+                with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
+                    model_state_dict = self.model.state_dict()
+            else:
+                model_state_dict = self.model.state_dict()
 
-        # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
-        # If it is DDP wrapped, do not save the `module.` prefix, as that is an implementation detail
-        if self.is_model_ddp:
-            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, 'module.')
+            # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
+            # If it is DDP wrapped, do not save the `module.` prefix, as that is an implementation detail
+            if self.is_model_ddp:
+                torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, 'module.')
         return model_state_dict
+
+    def _legacy_get_optim_state_dict(self) -> Dict[str, Any]:
+        optimizer = ensure_tuple(self.optimizers)[0]  # Let's stop pretending. We don't support more than one optimizer.
+        if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
+            optim_state_dict = {
+                type(optimizer).__qualname__:
+                    fsdp_get_optim_state_dict(self.model, optimizer, state_dict_type=self.fsdp_state_dict_type)
+            }
+        else:
+            optim_state_dict = {type(optimizer).__qualname__: optimizer.state_dict()}
+        return optim_state_dict
+
+    def get_model_and_optimizer_state_dict(self, model_only=False) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        if version.parse(torch.__version__) > version.parse("2.1.2"):
+            from torch.distributed.checkpoint.state_dict import get_state_dict, StateDictOptions
+            full_state_dict = True if self.fsdp_state_dict_type == 'full' else False
+            if self.fsdp_state_dict_type not in ['full', 'sharded']:
+                raise NotImplementedError(
+                    textwrap.dedent(
+                        f"fsdp_state_dict_type={self.fsdp_state_dict_type} is not supported for a torch version > 2.1.2." 
+                        f"You are using {version.parse(torch.__version__)}"
+                    )  
+                )
+
+            optimizer = ensure_tuple(self.optimizers)[0]         
+            model_state_dict, optim_state_dict = get_state_dict(model=self.model,
+                                                                optimizers=([] if model_only else optimizer),
+                                                                submodules=None,
+                                                                options=StateDictOptions(
+                                                                        full_state_dict=full_state_dict,
+                                                                        cpu_offload=True,
+                                                                        ignore_frozen_params=True,
+                                                                        keep_submodule_prefixes=True,
+                                                                        strict=True,
+                                                                    )
+                                                                )
+        else:
+            model_state_dict = self.get_model_state_dict()
+            optim_state_dict = self._legacy_get_optim_state_dict()
+
+        return model_state_dict, optim_state_dict
 
     def state_dict(self) -> Dict[str, Any]:
         """Collect the state dicts of our serializable attributes.
@@ -883,24 +927,13 @@ class State(Serializable):
             Dict[str, Any]: The state dict.
         """
         state_dict = {}
-
+        state_dict['model'], state_dict['optimizers'] = self.get_model_and_optimizer_state_dict()
         for attribute_name in self.serialized_attributes:
             attribute_value = getattr(self, attribute_name)
+            if attribute_name in ['model', 'optimizers']:
+                continue
             if attribute_name == 'dataset_state':
                 serialized_value = self._dataset_state_dict()
-            elif attribute_name == 'model':
-                serialized_value = self.get_model_state_dict()
-            elif attribute_name == 'optimizers':
-                optimizer = ensure_tuple(attribute_value)[
-                    0]  # Let's stop pretending. We don't support more than one optimizer.
-                if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
-                    optim_state_dict = {
-                        type(optimizer).__qualname__:
-                            fsdp_get_optim_state_dict(self.model, optimizer, state_dict_type=self.fsdp_state_dict_type)
-                    }
-                else:
-                    optim_state_dict = {type(optimizer).__qualname__: optimizer.state_dict()}
-                serialized_value = optim_state_dict
             elif attribute_name == 'algorithms':
                 # Store as list to preserve order in which algorithms were applied
                 serialized_value = [(type(obj).__qualname__, obj.state_dict()) for obj in ensure_tuple(attribute_value)]
