@@ -249,14 +249,24 @@ class NeptuneLogger(LoggerDestination):
         if not self._enabled:
             return
 
+        if not isinstance(images, Sequence) and images.ndim <= 3:
+            images = [images]
+        else:
+            # don't log a single step for a sequence of images
+            step = None
+
+        if len(images) == 0:
+            return
+
+        # transform to numpy
+        images = [img.data.cpu().numpy() if isinstance(img, torch.Tensor) else img for img in images]
+
         from neptune.types import File
 
-        if not isinstance(images, Sequence) and images.ndim <= 3:
-            images = _validate_image(images, channels_last=channels_last)
-            self.base_handler[name].append(File.as_image(images), step=step)
-
+        images = list(map(partial(_validate_image, channels_last=channels_last), images))
+        if step:
+            self.base_handler[name].append(File.as_image(images[0]), step=step)
         else:
-            images = list(map(partial(_validate_image, channels_last=channels_last), images))
             self.base_handler[name].extend([File.as_image(img) for img in images])
 
     def post_close(self) -> None:
@@ -268,11 +278,7 @@ class NeptuneLogger(LoggerDestination):
             self._neptune_run = None
 
 
-def _validate_image(img: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:
-    if isinstance(img, torch.Tensor):
-        img = img.data.cpu().numpy()
-
-    assert isinstance(img, np.ndarray)
+def _validate_image(img: np.ndarray, channels_last: bool) -> np.ndarray:
 
     # Error out for empty arrays or weird arrays of dimension 0.
     if np.any(np.equal(img.shape, 0)):
