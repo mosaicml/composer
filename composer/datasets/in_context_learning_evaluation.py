@@ -220,6 +220,9 @@ class InContextLearningDataset(Dataset):
         example_delimiter: str,
         continuation_delimiter: str,
         destination_path: str,
+        static_keys: List = None,
+        list_keys: List = None,
+        tensor_keys: List = None,
         prelimiter: str = '',
         context_key: str = 'context',
         answer_key: str = 'answer',
@@ -233,7 +236,6 @@ class InContextLearningDataset(Dataset):
         tokenize_labels: bool = True,
         generation_kwargs: Dict = None,
     ):
-
         self.tokenizer = tokenizer
         self.prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
 
@@ -251,6 +253,10 @@ class InContextLearningDataset(Dataset):
         self.batch_mapping = batch_mapping or {}
         self.base_batch = base_batch or {}
         self._update_generation_kwargs(generation_kwargs or {})
+
+        self.static_keys = static_keys
+        self.list_keys = list_keys
+        self.tensor_keys = tensor_keys
 
         hf_loading_vars = hf_loading_vars or {}
         self.dataset = self._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_map)
@@ -529,21 +535,22 @@ class InContextLearningDataset(Dataset):
         # List split lists of strings
         chunked = {}
         for k, v in batch.items():
-            if type(v) in [str, float, int, dict, bool]:
+            if k in self.static_keys:
                 # Defer broadcasting until we know num_chunks
                 pass
-            elif type(v) == list:
+            elif k in self.list_keys:
                 chunked[k] = _split_list(v, microbatch_size)
-            elif type(v) == torch.Tensor:
+            elif k in self.tensor_keys:
                 chunked[k] = _default_split_batch(v, microbatch_size)
             else:
-                raise ValueError(f'Unexpected value type {type(v)} with key {k}')
+                raise ValueError(f'Unexpected key {k} in batch splitting')
         num_chunks = len(chunked['input_ids'])
         for k, v in batch.items():
-            if isinstance(v, (int, float, str, bool, dict)):
+            if k in self.static_keys:
                 chunked[k] = [v] * num_chunks
 
-        return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
+        batched_list = [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
+        return batched_list
 
 
 class InContextLearningQATaskDataset(InContextLearningDataset):
@@ -566,7 +573,16 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         self.cot_delimiter = cot_delimiter
         self.has_cot = False
         self.max_answer_length = 0
-        super().__init__(padding_side='left', tokenize_labels=False, *args, **kwargs)
+        static_keys = ['mode', 'cot_delimiter', 'generation_length', 'generation_kwargs']
+        tensor_keys = ['input_ids', 'attention_mask']
+        list_keys = ['labels']
+        super().__init__(padding_side='left',
+                         tokenize_labels=False,
+                         static_keys=static_keys,
+                         list_keys=list_keys,
+                         tensor_keys=tensor_keys,
+                         *args,
+                         **kwargs)
         # NOTE: set these after init call bcus they take class vars
         self.base_batch = {
             'input_ids': [],
@@ -669,6 +685,8 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
 
     def __init__(self, *args, **kwargs):
         super().__init__(answer_key='continuation',
+                         static_keys=['mode'],
+                         tensor_keys=['input_ids', 'continuation_indices', 'labels', 'attention_mask'],
                          base_batch={
                              'input_ids': [],
                              'continuation_indices': [],
@@ -684,7 +702,6 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
                          **kwargs)
 
 
-# TODO: ensure tests
 class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
     """
     A dataset that construct batches for in-context learning multiple choice evaluation.
@@ -710,7 +727,14 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         choices_key (str): the key under which the choices are stored in the saved dataset. Defaults to 'choices'.
     """
 
-    def __init__(self, choices_key: str = 'choices', *args, **kwargs):
+    def __init__(self,
+                 choices_key: str = 'choices',
+                 static_keys: List = None,
+                 list_of_tensors_keys: List = None,
+                 list_of_tuples_keys: List = None,
+                 list_of_primitives: List = None,
+                 *args,
+                 **kwargs):
         self.choices_key = choices_key
         base_batch = {
             'input_ids': [],
@@ -721,7 +745,18 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
             'choice_groupings': [],
         }
         context_key = kwargs.pop('context_key', 'query')
-        super().__init__(context_key=context_key, base_batch=base_batch, padding_side='right', *args, **kwargs)
+        static_keys = kwargs.pop('static_keys', ['mode', 'generation_kwargs'])
+        tensor_keys = kwargs.pop('tensor_keys', ['input_ids', 'labels', 'attention_mask'])
+        self.list_of_tensors_keys = list_of_tensors_keys or ['continuation_indices']
+        self.list_of_tuples_keys = list_of_tuples_keys or ['choice_groupings']
+        self.list_of_primitives = list_of_primitives or ['gold_indices']
+        super().__init__(context_key=context_key,
+                         base_batch=base_batch,
+                         static_keys=static_keys,
+                         tensor_keys=tensor_keys,
+                         padding_side='right',
+                         *args,
+                         **kwargs)
         self.num_choices = len(self.dataset[0][self.choices_key])
         self.batch_mapping_per_choice = {'input_ids': 'context', 'labels': 'context'}
         self.batch_map_per_example = {'gold_indices': 'gold'}
@@ -838,28 +873,29 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         """
         chunked = {}
         for k, v in batch.items():
-            if type(v) in [str, int, dict, bool]:
+            if k in self.static_keys:
                 # Defer broadcasting primitives until we know num_chunks
                 pass
             elif type(v) == list:
-                element_type = type(v[0])
                 # list of tensors - 'continuation_indices'
-                if element_type == torch.Tensor:
+                if k in self.list_of_tensors_keys:
                     chunked[k] = _split_list(v, microbatch_size * self.num_choices)
                 # list of tuples - 'choice_groupings'
-                elif element_type == tuple:
+                elif k in self.list_of_tuples_keys:
                     chunked[k] = _split_list(v, microbatch_size)
                 # list - 'gold_indices'
-                else:
+                elif k in self.list_of_primitives:
                     chunked[k] = _default_split_batch(v, microbatch_size)
-            elif type(v) == torch.Tensor:
+                else:
+                    raise ValueError(f'Unexpected key {k} in list splitting')
+            elif k in self.tensor_keys:
                 chunked[k] = _default_split_batch(v, microbatch_size * self.num_choices)
             else:
-                raise ValueError(f'Unexpected value type {type(v)} with key {k}')
+                raise ValueError(f'Unexpected key {k} in batch splitting')
         num_chunks = len(chunked['input_ids'])
         # Broadcast primitives to all chunks
         for k, v in batch.items():
-            if isinstance(v, (int, float, str, bool)):
+            if k in self.static_keys:
                 chunked[k] = [v] * num_chunks
 
         return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
@@ -887,7 +923,16 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
     """
 
     def __init__(self, choices_key='context_options', *args, **kwargs):
-        super().__init__(choices_key=choices_key, context_key=choices_key, *args, **kwargs)
+        static_keys = ['mode']
+        tensor_keys = ['input_ids', 'labels', 'attention_mask']
+        list_of_tensors_keys = ['continuation_indices']
+        super().__init__(choices_key=choices_key,
+                         context_key=choices_key,
+                         static_keys=static_keys,
+                         tensor_keys=tensor_keys,
+                         list_of_tensors_keys=list_of_tensors_keys,
+                         *args,
+                         **kwargs)
         self.base_batch = {
             'input_ids': [],
             'continuation_indices': [],
@@ -1070,10 +1115,16 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         }
         # Linting complains if this is not set in init
         self.max_prompt_length = 0
+        static_keys = ['mode', 'pass_at_k', 'generation_length', 'generation_kwargs']
+        list_keys = ['prompts', 'tests', 'entry_points', 'test_inputs', 'test_outputs', 'languages', 'labels']
+        tensor_keys = ['input_ids', 'attention_mask']
         super().__init__(
             context_key='prompt',
             answer_key='canonical_solution',
             strip_dataset=False,
+            static_keys=static_keys,
+            list_keys=list_keys,
+            tensor_keys=tensor_keys,
             tokenize_labels=False,
             padding_side='left',
             batch_mapping=batch_mapping,
