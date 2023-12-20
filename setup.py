@@ -230,6 +230,8 @@ extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
 extra_deps['databricks'] = ['databricks-sdk>=0.8.0,<1.0']
 
+extra_deps['ifeval'] = ['instruction-following-eval @ git+https://github.com/josejg/instruction_following_eval.git']
+
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
 composer_data_files = ['py.typed']

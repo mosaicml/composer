@@ -7,8 +7,10 @@ import logging
 import os
 import re
 import string
+import random
 import warnings
 from typing import Any, Dict, List, Mapping, Optional, Union
+from copy import deepcopy
 
 import numpy as np
 import torch
@@ -16,6 +18,7 @@ from torch import Tensor
 from torch.nn import functional as F
 from torchmetrics import Metric
 
+from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient, MosaicMLLambdaEvalClient
 
 log = logging.getLogger(__name__)
@@ -25,6 +28,8 @@ __all__ = [
     'InContextLearningMultipleChoiceAccuracy',
     'InContextLearningQAAccuracy',
     'InContextLearningCodeEvalAccuracy',
+    # 'InContextLearningLLMAsAJudge',
+    'IFEvalJudge',
     'BinaryF1Score',
     'LanguageCrossEntropy',
     'MaskedAccuracy',
@@ -642,3 +647,79 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         assert isinstance(self.correct, Tensor)
         assert isinstance(self.total, Tensor)
         return self.correct / self.total
+
+class IFEvalJudge(InContextLearningMetric):
+    """
+
+    {
+        "key": 3757, 
+        "prompt": "Would you consider yourself to be smart? Choose from:\nMy answer is yes.\nMy answer is no.\nMy answer is maybe.\nJust choose one phrase from above as your answer.", 
+        "instruction_id_list": ["detectable_format:constrained_response"], 
+        "kwargs": [{}]
+    }
+    {
+    'key': 1001,
+    'instruction_id_list': ['punctuation:no_comma'],
+    'prompt': 'I am planning a trip to Japan, and I would like thee to write an '
+            'itinerary for my journey in a Shakespearean style. You are not '
+            'allowed to use any commas in your response.',
+    'kwargs': [{}],
+    'response': '<MODEL RESPONSE>'
+    }
+
+    """
+
+    # Make torchmetrics call update only once
+    full_state_update = False
+
+    def __init__(self, dist_sync_on_step: bool = False, ignore_index: int = -100):
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+
+        self.ignore_index = ignore_index
+        self.cached_results = []
+        # self.add_state('total', default=torch.tensor(0), dist_reduce_fx='sum')
+
+    def update(self, batch, outputs: Union[Mapping, Tensor], target: Tensor) -> None:
+        """Updates the internal state with results from a new batch.
+
+        """
+        for i, output in enumerate(outputs):
+            kwargs = batch['kwargs'][i]
+            # Removes k, v pairs when value is none for each dict in the the list
+            kwargs = [{k: v for k, v in kwarg_dict.items() if v is not None} for kwarg_dict in kwargs]
+            self.cached_results.append(
+                {
+                    'key': batch['key'][i], 
+                    'instruction_id_list': batch['instruction_id_list'][i],
+                    'prompt':batch['prompt'][i], 
+                    'kwargs':kwargs,
+                    'response':output
+                }
+            )
+            # self.total += 1 #type: ignore (third-party)
+
+
+    def compute(self) -> Tensor:
+        """Aggregate the state over all processes to compute the metric.
+
+        Returns:
+            loss: The loss averaged across all batches as a :class:`~torch.Tensor`.
+        """
+        # Return average loss over entire dataset
+        try:
+            from instruction_following_eval import instruction_following_eval # pyright: ignore [reportGeneralTypeIssues]
+            from instruction_following_eval.evaluation import InstructionResult
+        except ImportError as e:
+            raise MissingConditionalImportError(
+                extra_deps_group='nlp',
+                conda_package='datasets',
+                conda_channel='conda-forge',
+            ) from e
+        instruction_results = [InstructionResult(**res_dict) for res_dict in self.cached_results]
+        result = instruction_following_eval(instruction_results)
+        print("*** Printing results of IFEval ***")
+        for k, v in result.items():
+            print(f"Task type: {k}, performance: {v}")
+        # TODO: Handle result differently in trainer._compute_and_log_metrics()
+        return result
+
