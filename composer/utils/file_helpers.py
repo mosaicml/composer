@@ -312,12 +312,12 @@ def parse_uri(uri: str) -> Tuple[str, str, str]:
 
     Returns:
         Tuple[str, str, str]: A tuple containing the backend (e.g. s3), bucket name, and path.
-                              Backend and bucket name will be empty string if the input is a local path
+                              Backend name will be empty string if the input is a local path
     """
     parse_result = urlparse(uri)
     backend, net_loc, path = parse_result.scheme, parse_result.netloc, parse_result.path
     bucket_name = net_loc if '@' not in net_loc else net_loc.split('@')[0]
-    if backend == '' and bucket_name == '':
+    if backend == '':
         return backend, bucket_name, path
     else:
         return backend, bucket_name, path.lstrip('/')
