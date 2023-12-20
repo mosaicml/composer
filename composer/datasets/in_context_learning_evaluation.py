@@ -1235,73 +1235,10 @@ class MTBench(InContextLearningDataset):
         self.dataset = self.adjust_padding()
         self.default_batch = {
             'input_ids': [],
-            'mode': 'generate',
+            'mode': 'mtbench_generate',
             'labels': [],
-            'prompts': [],
-            'tests': [],
-            'entry_points': [],
-            'test_inputs': [],
-            'test_outputs': [],
-            'languages': [],
-            'pass_at_k': pass_at_k,
-            'generation_length': self.max_seq_len - self.max_prompt_length,
-            'generation_kwargs': {
-                'pad_token_id': self.pad_tok_id,
-                'num_beams': 1,  # single beam
-                'num_return_sequences': generations_per_sample,
-                'do_sample': True,
-                'use_cache': True
-            },
         }
         self._update_generation_kwargs(kwargs.get('generation_kwargs'))
-
-    def adjust_padding(self):
-        """
-        Adjusts padding to the maximum prompt size rather than max_seq_len.
-        Needs to be done after the dataset has been processed because we can't get the prompt length
-        until after we've tokenized it.
-
-        Returns:
-            dataset:
-        """
-        max_prompt_length = 0
-        for example in self.dataset:
-            # TODO: Will this elimanate tokens we want to keep?
-            unpadded_example = [token for token in example[self.context_key] if token != self.pad_tok_id]
-            max_prompt_length = max(
-                max_prompt_length,
-                len(unpadded_example),
-            )
-        self.max_prompt_length = max_prompt_length
-
-        def _trim_padding(example):
-            # Remove padding tokens applied during tokenization
-            unpadded_prompt = [token for token in example[self.context_key] if token != self.pad_tok_id]
-            # Pad only to max_promp_length
-            full_prompt = _trim_context(unpadded_prompt, [], self.max_prompt_length)
-            padded_context = _make_padded_input(full_prompt, [], self.max_prompt_length, self.pad_tok_id,
-                                                self.padding_side)
-
-            example[self.context_key] = padded_context
-            return example
-
-        return self.dataset.map(_trim_padding)
-
-    def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
-        """
-        Adds extra code task details to the example dictionary.
-        See InContextLearningDataset for more details
-        """
-        tokenized_example = super()._tokenize_example(prompt_and_fewshot, ctxt, example)
-        tokenized_example['prompt_text'] = example['prompt']
-        tokenized_example['task_id'] = example['task_id']
-        tokenized_example['canonical_solution'] = example['canonical_solution']
-        tokenized_example['test'] = example['test']
-        tokenized_example['entry_point'] = example['entry_point']
-        tokenized_example['test_inputs'] = example['test_inputs']
-        tokenized_example['test_outputs'] = example['test_outputs']
-        tokenized_example['language'] = example['language']
-        return tokenized_example
 
 
 def build_icl_dataloader(
