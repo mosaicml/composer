@@ -14,6 +14,7 @@ import tarfile
 import tempfile
 import textwrap
 import warnings
+from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
@@ -37,6 +38,66 @@ __all__ = ['load_checkpoint', 'save_checkpoint', 'download_checkpoint']
 _COMPOSER_STATES_FILENAME = 'composer_states.pt'
 _DEEPSPEED_TAG = 'deepspeed'  # always tag with the same, deterministic name. We'll rename the tarball to the appropriate name.
 _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME = f'__{dist.get_global_rank()}_0.distcp'
+
+
+def _get_checkpoint_validation_function() -> Optional[Callable[[Union[Path, str]], bool]]:
+    """Get the validation function by name.
+
+    Args:
+        name (str): Qualified name of the checkpoint validation function.
+                    It should be in the form '{module_name}.{fn_name}'.
+
+    Returns:
+        Callable[[Union[Path, str]], bool] The checkpoint validation function that returns
+            True given a valid checkpoint and False otherwise.
+    """
+    name = os.environ.get('CHECKPOINT_VALIDATION_FUNCTION', None)
+    if name is None:
+        return None
+    splits = name.split('.')
+    module_name, fn_name = '.'.join(splits[:-1]), splits[-1]
+    module = import_module(module_name)
+    fn = getattr(module, fn_name)
+    log.debug(f'Checkpoint validation function {name} has been found.')
+    return fn
+
+
+def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str]) -> Union[Path, str]:
+    """Ensures that the checkpoint at checkpoint_filepath is valid.
+
+    using the function specified by the CHECKPOINT_VALIDATION_FUNCTION environment variable.
+    If CHECKPOINT_VALIDATION_FUNCTION is not set, we skip validation.
+
+    Args:
+        checkpoint_filepath (Union[Path,str]): The path to the checkpoint file.
+
+    Raises:
+        ValueError if checkpoint file is invalid.
+    """
+    # Get the validation function by name.
+    validate = _get_checkpoint_validation_function()
+
+    # No function name has been specified.
+    if validate is None:
+        log.debug('No validation function specified. Skipping checkpoint validation.')
+        return checkpoint_filepath
+
+    # Validate the checkpoint.
+    if not validate(checkpoint_filepath):
+        raise ValueError(f'Checkpoint at {checkpoint_filepath} is invalid.')
+
+    log.debug(f'Checkpoint at {checkpoint_filepath} is valid.')
+    return checkpoint_filepath
+
+
+def _torch_load_with_validation(checkpoint_filepath: Union[Path, str], map_location: str) -> Any:
+    """Validates and loads a torch checkpoint.
+
+    Args:
+        checkpoint_filepath (Union[Path,str]): The path to the checkpoint file.
+        map_location (str): The location to load the checkpoint to.
+    """
+    return torch.load(_ensure_valid_checkpoint(checkpoint_filepath), map_location=map_location)
 
 
 def _format_path_with_rank_zero(path: str) -> str:
@@ -338,8 +399,37 @@ def load_sharded_checkpoint(
         rng_inds = set(rng_inds)
         return len(rng_inds)
 
-    # A subclass of FileSystemReader that downloads files from the object store before reading them from the local filesystem.
-    class DistCPObjectStoreReader(dist_cp.FileSystemReader):
+    class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
+        """FileSystemReader that validates checkpoint files prior to reading."""
+
+        def __init__(self, path: str):
+            if _get_checkpoint_validation_function() is None:
+                log.info('No checkpoint validation function found when loading sharded checkpoints.')
+            super().__init__(path)
+
+        def read_data(self, plan: LoadPlan, planner: LoadPlanner):
+            """Reads data file.
+
+            Raises:
+                ValueError if the data file is invalid.
+            """
+            for read_item in plan.items:
+                data_path = self.path / self.storage_data[read_item.storage_index].relative_path
+                _ensure_valid_checkpoint(data_path)
+            return super().read_data(plan, planner)
+
+        def read_metadata(self) -> Metadata:
+            """Reads metadata file.
+
+            Raises:
+                ValueError if the metadata file is invalid.
+            """
+            metadata_file_path = self.path / '.metadata'
+            _ensure_valid_checkpoint(metadata_file_path)
+            return super().read_metadata()
+
+    # A subclass of FileSystemReaderWithValidation that downloads files from the object store before reading them from the local filesystem.
+    class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
         def __init__(self, source_path: str, destination_path: str, object_store):
             self.source_path = source_path
@@ -401,7 +491,7 @@ def load_sharded_checkpoint(
                                                          Path(rank0_download_tempdir) / Path('checkpoints')),
                                                      object_store=object_store)
         else:
-            storage_reader = dist_cp.FileSystemReader(source_path)
+            storage_reader = FileSystemReaderWithValidation(source_path)
 
         # We need no_grad because we overwrite tensor values with set_() when we do elastic loading and we don't want the set_ op recorded in the computation graph.
         with torch.no_grad():
@@ -695,7 +785,7 @@ def safe_torch_load(
             model = None
             optimizer = None
             if dist.get_global_rank() == 0:
-                state_dict_list[0] = torch.load(composer_states_filepath, map_location=map_location)
+                state_dict_list[0] = _torch_load_with_validation(composer_states_filepath, map_location=map_location)
                 # Don't broadcast model/optimizer state if they exist
                 if 'model' in state_dict_list[0]['state']:
                     model = state_dict_list[0]['state']['model']
@@ -716,7 +806,7 @@ def safe_torch_load(
 
             return state_dict
         else:
-            return torch.load(composer_states_filepath, map_location=map_location)
+            return _torch_load_with_validation(composer_states_filepath, map_location=map_location)
     except TypeError as e:
         if 'Accuracy.__new__() missing 1 required positional argument' in str(e):
             raise Exception('As of v0.10.0, torchmetrics introduces a new required argument to Accuracy which '

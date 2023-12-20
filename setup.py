@@ -78,7 +78,7 @@ install_requires = [
     'torchmetrics>=0.10.0,<1.1',
     'torch_optimizer>=0.3.0,<0.4',
     'torchvision>=0.13.1,<0.17',
-    'torch>=1.13.1,<2.1.2',
+    'torch>=1.13.1,<2.1.3',
     'requests>=2.26.0,<3',
     'numpy>=1.21.5,<1.27.0',
     'psutil>=5.8.0,<6',
@@ -99,7 +99,7 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
     'junitparser==3.1.0',
-    'coverage[toml]==7.3.0',
+    'coverage[toml]==7.3.3',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.3',
     'toml==0.10.2',
@@ -116,7 +116,7 @@ extra_deps['dev'] = [
     'sphinx_markdown_tables==0.0.17',
     'sphinx-argparse==0.4.0',
     'sphinxcontrib.katex==0.9.6',
-    'sphinxext.opengraph==0.9.0',
+    'sphinxext.opengraph==0.9.1',
     'sphinxemoji==0.2.0',
     'furo==2022.9.29',
     'sphinx-copybutton==0.5.2',
@@ -188,7 +188,7 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<4.36,!=4.34.0',
+    'transformers>=4.11,<4.37,!=4.34.0',
     'datasets>=2.4,<3',
 ]
 
@@ -227,12 +227,12 @@ extra_deps['onnx'] = [
 ]
 
 extra_deps['mlflow'] = [
-    'mlflow>=2.8.1,<3.0',
+    'mlflow>=2.9.0,<3.0',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk>=0.8.0,<1.0']
+extra_deps['databricks'] = ['databricks-sdk>=0.15.0,<1.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 
