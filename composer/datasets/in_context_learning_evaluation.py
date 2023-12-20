@@ -1163,6 +1163,7 @@ class IFEval(InContextLearningDataset):
     def __init__(self, *args, **kwargs,):
         batch_mapping = {
             'input_ids': 'prompt',
+            'prompt': 'untokenized_prompt',
             'labels': 'key',
             'key': 'key',
             'kwargs': 'kwargs',
@@ -1187,10 +1188,16 @@ class IFEval(InContextLearningDataset):
             'key': [],
             'kwargs': [],
             'instruction_id_list': [],
+            'prompt': [],
             # TODO: maybe subtract prompt len
             'generation_length': self.max_seq_len,
         }
         self._update_generation_kwargs(kwargs.get('generation_kwargs'))
+
+    def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
+        tokenized_example = super()._tokenize_example(prompt_and_fewshot, ctxt, example)
+        tokenized_example['untokenized_prompt'] = ctxt
+        return tokenized_example
 
 def build_icl_dataloader(
     icl_task_type: str,

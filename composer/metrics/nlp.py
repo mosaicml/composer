@@ -28,7 +28,7 @@ __all__ = [
     'InContextLearningMultipleChoiceAccuracy',
     'InContextLearningQAAccuracy',
     'InContextLearningCodeEvalAccuracy',
-    'InContextLearningLLMAsAJudge',
+    # 'InContextLearningLLMAsAJudge',
     'IFEvalJudge',
     'BinaryF1Score',
     'LanguageCrossEntropy',
@@ -648,7 +648,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         assert isinstance(self.total, Tensor)
         return self.correct / self.total
 
-class IFEvalJudge(Metric):
+class IFEvalJudge(InContextLearningMetric):
     """
 
     {
@@ -677,24 +677,26 @@ class IFEvalJudge(Metric):
 
         self.ignore_index = ignore_index
         self.cached_results = []
-        self.add_state('total', default=torch.tensor(0), dist_reduce_fx='sum')
+        # self.add_state('total', default=torch.tensor(0), dist_reduce_fx='sum')
 
-    def update(self, output: Union[Mapping, Tensor], target: Tensor) -> None:
+    def update(self, batch, outputs: Union[Mapping, Tensor], target: Tensor) -> None:
         """Updates the internal state with results from a new batch.
 
         """
-        
-        for i, response in enumerate(output['outputs']):
+        for i, output in enumerate(outputs):
+            kwargs = batch['kwargs'][i]
+            # Removes k, v pairs when value is none for each dict in the the list
+            kwargs = [{k: v for k, v in kwarg_dict.items() if v is not None} for kwarg_dict in kwargs]
             self.cached_results.append(
                 {
-                    'key': output['key'][i], 
-                    'instruction_id_list': output['instruction_id_list'][i],
-                    'prompt':output['prompt'][i], 
-                    'kwargs':output['kwargs'][i], 
-                    'response':response
+                    'key': batch['key'][i], 
+                    'instruction_id_list': batch['instruction_id_list'][i],
+                    'prompt':batch['prompt'][i], 
+                    'kwargs':kwargs,
+                    'response':output
                 }
             )
-            self.total+= total_items  #type: ignore (third-party)
+            # self.total += 1 #type: ignore (third-party)
 
 
     def compute(self) -> Tensor:
@@ -706,12 +708,18 @@ class IFEvalJudge(Metric):
         # Return average loss over entire dataset
         try:
             from instruction_following_eval import instruction_following_eval # pyright: ignore [reportGeneralTypeIssues]
+            from instruction_following_eval.evaluation import InstructionResult
         except ImportError as e:
             raise MissingConditionalImportError(
                 extra_deps_group='nlp',
                 conda_package='datasets',
                 conda_channel='conda-forge',
             ) from e
-        
-        return instruction_following_eval(self.cached_results)
+        instruction_results = [InstructionResult(**res_dict) for res_dict in self.cached_results]
+        result = instruction_following_eval(instruction_results)
+        print("*** Printing results of IFEval ***")
+        for k, v in result.items():
+            print(f"Task type: {k}, performance: {v}")
+        # TODO: Handle result differently in trainer._compute_and_log_metrics()
+        return result
 
