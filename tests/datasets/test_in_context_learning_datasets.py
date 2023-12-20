@@ -545,6 +545,7 @@ def test_qa_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fews
     assert tuple(batch['attention_mask'].shape) == (batch_size, seqlen - maximum_answer_length)
     assert batch['mode'] == 'generate'
     # the maximum generation length from the small test data
+
     assert batch['generation_length'] == maximum_answer_length
     assert all(item[0] == tokenizer.eos_token_id for item in batch['input_ids'])
 
@@ -559,6 +560,7 @@ def test_qa_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fews
         for found, expected in zip(batch['labels'], [['David Seville'], ['Skorpio', 'Scorpio']]))
     assert decoded_batch[0].endswith('Q: Who was the man behind The Chipmunks?\nA:')
     assert decoded_batch[1].endswith('Q: What star sign is Jamie Lee Curtis?\nA:')
+    assert 'eos_token_id' in batch['generation_kwargs']
 
 
 @pytest.mark.parametrize('dataset_uri', ['gsm8k_small.jsonl'])
