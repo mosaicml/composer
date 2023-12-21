@@ -297,6 +297,11 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         pip${PYTHON_VERSION} install --no-cache-dir flash-attn==1.0.9; \
     fi
 
+RUN git clone https://github.com/Dao-AILab/flash-attention.git
+RUN cd flash-attention
+RUN MAX_JOBS=4 python setup.py install
+RUN cd ..
+
 ###############
 # Install cmake
 ###############
