@@ -190,7 +190,7 @@
   TAGS:
   - mosaicml/pytorch:2.2.0_cu121-nightly20231213-python3.10-ubuntu20.04
   TARGET: pytorch_stage
-  TORCHVISION_VERSION: 0.17.0
+  TORCHVISION_VERSION: 0.18.0
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04
   COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.17.2
