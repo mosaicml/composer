@@ -1238,6 +1238,31 @@ class State(Serializable):
                 # starts. This avoids "CUDA error: initialization error" -- its not clear why.
                 # self.dataset_resumption['eval'][evaluator.label] = True
 
+    def load_model_and_optimizer_state(self,
+                                        state_dict: Dict[str, Any],
+                                        logger: Logger,
+                                        strict: bool,
+                                        exclude_algorithms: Optional[List[str]] = None,
+                                        algorithm_passes: Optional[List[AlgorithmPass]] = None,
+                                        load_model_only: bool = False):
+        # Note: In this case required algorithms not applied. 
+        if version.parse(torch.__version__) > version.parse("2.1.2"):
+            from torch.distributed.checkpoint.state_dict import set_state_dict, StateDictOptions
+            optimizer = ensure_tuple(self.optimizers)[0]  
+            set_state_dict(self.model,
+                optimizers=([] if load_model_only else optimizer),
+                model_state_dict=state_dict['model'],
+                optim_state_dict=({} if load_model_only else state_dict['optimizers']),
+                options=StateDictOptions(strict=False))
+        else:
+            self.load_model_state(state_dict,
+                logger,
+                strict=strict,
+                exclude_algorithms=exclude_algorithms,
+                algorithm_passes=algorithm_passes,)
+            if not load_model_only:
+                self.load_optim_state(state_dict)
+
     def load_state_dict(
         self,
         state: Dict[str, Any],
@@ -1261,28 +1286,26 @@ class State(Serializable):
 
         # Call load_model_state first since it applies required algorithms
         if 'model' in state:
-            self.load_model_state(
+            self.load_model_and_optimizer_state(
                 state,
                 logger,
                 strict=strict,
                 exclude_algorithms=exclude_algorithms,
                 algorithm_passes=algorithm_passes,
+                load_model_only=('optimizers' in state)
             )
 
         for attribute_name in sorted(state.keys()):  # Sort so all ranks load in the same order
             serialized_value = state[attribute_name]
             # Skip removed attributes as well as algorithms and model, which was already loaded
-            if attribute_name not in self.serialized_attributes or attribute_name == 'model':
+            if attribute_name not in self.serialized_attributes or attribute_name in ['model', 'optimizers']:
                 continue
-
             # Integrations are extra information about other libraries (e.g. huggingface) and not attributes to be loaded here
             if attribute_name == 'integrations':
                 continue
-
             # Skip metadata, which is not an attribute on State
             if attribute_name == 'metadata':
                 continue
-
             log.debug(f'Loading {attribute_name} into state.')
 
             # Restructure algorithms serialized_value from list to dict
@@ -1291,8 +1314,6 @@ class State(Serializable):
 
             if attribute_name == 'dataset_state':
                 self._load_dataset_state(serialized_value)
-            elif attribute_name == 'optimizers':
-                self.load_optim_state(state)
             elif attribute_name == 'train_metrics':
                 # Get current metrics object and populate each metric present
                 # in serialization with serialized data via load_state_dict()
