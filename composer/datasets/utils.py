@@ -199,6 +199,11 @@ class MultiTokenEOSCriteria(transformers.StoppingCriteria):
 
         lookback_tokens_batch = self.tokenizer.batch_decode(lookback_ids_batch)
         for i, done in enumerate(self.done_tracker):
+            if i >= len(lookback_tokens_batch):
+                # the last batch of a dataset may b smaller than `batch_size`
+                # automatically set those indices in the done_tracker to True
+                # since those indices show up in the current batch
+                self.done_tracker[i] = True
             if not done:
                 self.done_tracker[i] = self.sequence in lookback_tokens_batch[i]
         return False not in self.done_tracker
