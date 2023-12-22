@@ -349,8 +349,10 @@ def prepare_fsdp_module(
                 f'Consider using `amp` or `bf16` for precision or setting param_dtype in mixed_precision to `None` '
                 f'with sharding strategy `{sharding_map_key}.`')
 
-    process_group_dict = {'process_group': fsdp_config['process_group']}
-    process_group = _set_custom_fsdp_module_kwargs(process_group_dict, process_group_cache)['process_group']
+    process_group = None
+    if fsdp_config['process_group'] is not None:
+        process_group_dict = {'process_group': fsdp_config['process_group']}
+        process_group = _set_custom_fsdp_module_kwargs(process_group_dict, process_group_cache)['process_group']
     backward_prefetch = BACKWARD_PREFETCH_MAP[fsdp_config['backward_prefetch'].upper()]
     activation_checkpointing = fsdp_config['activation_checkpointing']
     activation_cpu_offload = fsdp_config['activation_cpu_offload']
