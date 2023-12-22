@@ -201,6 +201,7 @@ The full spec and defaults for Composer's `fsdp_config` is here:
       #   'reduce_dtype': 'fp32' | 'fp16' | 'bf16',
       #   'buffer_dtype': 'fp32' | 'fp16' | 'bf16',
       # },
+      'process_group': str = 'self' | 'node' | 'setK' | 'modK', # Default: None
       'save_planner': torch.distributed.checkpoint.planner.SavePlanner, # Default: None
       'sharded_ckpt_prefix_dir': str = 'ep{epoch}-ba{batch}', # Default: 'ep{epoch}-ba{batch}'
       'sharding_strategy': str = 'FULL_SHARD' | 'SHARD_GRAD_OP' | 'NO_SHARD', # Default: 'FULL_SHARD'
