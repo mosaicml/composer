@@ -94,8 +94,8 @@ class HuggingFaceModel(ComposerModel):
         self.tokenizer = tokenizer
         self.peft_config = peft_config
 
-        if self.peft_config.peft_type != 'lora':
-            raise ValueError(f'PEFT type {self.peft_config.peft_type} is not supported by HuggingFaceModel. Only lora is supported.')
+        if self.peft_config.peft_type != 'LORA':
+            raise ValueError(f'PEFT type {self.peft_config.peft_type} is not supported by HuggingFaceModel. Only LORA is supported.')
 
         if self.tokenizer is None:
             log.warning(
