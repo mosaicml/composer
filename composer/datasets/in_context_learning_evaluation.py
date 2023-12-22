@@ -1195,9 +1195,42 @@ class IFEval(InContextLearningDataset):
         self._update_generation_kwargs(kwargs.get('generation_kwargs'))
 
     def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
-        tokenized_example = super()._tokenize_example(prompt_and_fewshot, ctxt, example)
+        """
+        Runs text through the tokenizer and handles special cases.
+        Args:
+            prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
+            ctxt (str): the specific example's derrived context
+            example (Dict): the example as a dictionary. Used for additional processing in inherited classes.
+
+        Returns:
+            Dict: dictionary with the tokenized data
+        """
+        tokenized_example = {}
         tokenized_example['untokenized_prompt'] = ctxt
+        if self.strip_data:
+            # rstrip context because a prompt ending in a space results in degenerate output
+            ctxt = ctxt.rstrip()
+        # Never add special tokens to context
+        #self.tokenizer(ctxt, add_special_tokens=False)['input_ids']
+        tokenized_context = self.tokenizer.apply_chat_template(
+                [{"role": "user", "content": ctxt}],
+                tokenize=False,
+                add_generation_prompt=True,
+                add_special_tokens=False
+            )['input_ids']
+
+        trimmed_context = _trim_context(tokenized_context, [], self.padding_size)
+        padded_context = _make_padded_input(trimmed_context, [], self.padding_size, self.pad_tok_id,
+                                            self.padding_side)
+
+        tokenized_example[self.context_key] = padded_context
+
         return tokenized_example
+
+    # def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
+    #     tokenized_example = super()._tokenize_example(prompt_and_fewshot, ctxt, example)
+    #     tokenized_example['untokenized_prompt'] = ctxt
+    #     return tokenized_example
 
 def build_icl_dataloader(
     icl_task_type: str,
