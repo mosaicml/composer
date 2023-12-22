@@ -296,7 +296,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir --force-reinstall packaging==22.0 && \
         git clone https://github.com/Dao-AILab/flash-attention.git && \
         cd flash-attention && \
-        MAX_JOBS=4 python setup.py install && \
+        MAX_JOBS=4 python${PYTHON_VERSION} setup.py install && \
         cd ..; \
     fi
 
