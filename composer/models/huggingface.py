@@ -23,12 +23,14 @@ from composer.metrics import InContextLearningMetric, InContextLearningQAAccurac
 from composer.models.base import ComposerModel
 from composer.utils import MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp, safe_torch_load
 
+from peft import get_peft_model
+
 if TYPE_CHECKING:
     import transformers
     from transformers import PretrainedConfig
     from transformers.models.auto.auto_factory import _BaseAutoModelClass
 
-    from peft import PeftConfig, get_peft_model
+    from peft import PeftConfig
 
 log = logging.getLogger(__name__)
 
