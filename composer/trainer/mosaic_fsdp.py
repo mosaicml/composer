@@ -16,6 +16,8 @@ from composer.trainer.mosaic_fsdp_utils import (_sharded_pre_load_state_dict_hoo
 
 
 def patch_pytorch():
+    print('DISABLING 2D PARALLELISM\n\n\n\n\n\n\n !!! \n\n\n\n\n\n\n')
+    print(version.parse(torch.__version__))
     """Monkey patches pytorch functions based on pytorch version."""
     if version.parse(torch.__version__) < version.parse('1.13.1'):
         raise NotImplementedError(f'Not supported for torch < 1.13.1')
@@ -54,6 +56,5 @@ def patch_pytorch():
         # Monkey path for torch < 2.2.0 ie torch == 2.1.1, 2.1.2
 
         # Allow 2D HSDP
-        print('DISABLING 2D PARALLELISM\n\n\n\n\n\n\n !!! \n\n\n\n\n\n\n')
         from torch.distributed.fsdp import _runtime_utils
         _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
