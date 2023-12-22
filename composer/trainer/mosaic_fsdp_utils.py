@@ -163,12 +163,10 @@ def _get_process_group(pg, process_group_cache=None):
         raise ValueError(f'Unsure how to setup process_group={pg}')
 
     if process_group_cache is not None and ranks in process_group_cache:
-        log.info(f'On rank={dist.get_global_rank()} using cached progress group with {ranks=}. ' +
-                 'If the intention was to use a new process group, a new process group can be instantiated and passed' +
-                 " in as an arguement (`'process_group': newly_instantiated_process_group_obect,`)")
+        log.info(f'Using cached progress group with {ranks=} on rank={dist.get_global_rank()}.')
         return process_group_cache[ranks]
 
-    log.info(f'Composer is instantiating custom process groups with {ranks=} (on rank={dist.get_global_rank()}).')
+    log.info(f'Instantiating custom process groups with {ranks=} on rank={dist.get_global_rank()}.')
 
     ranks_per_subgroup_list = list(set(dist.all_gather_object(ranks)))
     (
