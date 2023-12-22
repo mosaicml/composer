@@ -18,7 +18,8 @@ from composer.core import Precision, State
 from composer.devices import Device
 from composer.trainer.meta_safe_apply import meta_safe_apply
 from composer.trainer.mosaic_fsdp import patch_pytorch
-from composer.trainer.mosaic_fsdp_utils import BACKWARD_PREFETCH_MAP, SHARDING_MAP, get_cpu_offload, get_mixed_precision
+from composer.trainer.mosaic_fsdp_utils import (BACKWARD_PREFETCH_MAP, SHARDING_MAP, _set_custom_fsdp_module_kwargs,
+                                                get_cpu_offload, get_mixed_precision)
 from composer.utils import StringEnum, dist, ensure_tuple, using_torch_2
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module']
@@ -143,6 +144,7 @@ def set_fsdp_default(fsdp_config: Dict[str, Any]):
     fsdp_config.setdefault('load_monolith_rank0_only', False)
     fsdp_config.setdefault('load_planner', None)
     fsdp_config.setdefault('mixed_precision', 'DEFAULT')
+    fsdp_config.setdefault('process_group', None)
     fsdp_config.setdefault('save_planner', None)
     fsdp_config.setdefault('sharded_ckpt_prefix_dir', 'ep{epoch}-ba{batch}')
     fsdp_config.setdefault('sharding_strategy', 'FULL_SHARD')
@@ -347,6 +349,8 @@ def prepare_fsdp_module(
                 f'Consider using `amp` or `bf16` for precision or setting param_dtype in mixed_precision to `None` '
                 f'with sharding strategy `{sharding_map_key}.`')
 
+    process_group_dict = {'process_group': fsdp_config['process_group']}
+    process_group = _set_custom_fsdp_module_kwargs(process_group_dict, process_group_cache)['process_group']
     backward_prefetch = BACKWARD_PREFETCH_MAP[fsdp_config['backward_prefetch'].upper()]
     activation_checkpointing = fsdp_config['activation_checkpointing']
     activation_cpu_offload = fsdp_config['activation_cpu_offload']
@@ -510,7 +514,6 @@ def prepare_fsdp_module(
                         ret = bool(module._fsdp_wrap)
                     elif hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
                         ret = obj.fsdp_wrap_fn(module)
-                        from composer.trainer.mosaic_fsdp_utils import _set_custom_fsdp_module_kwargs
                         if isinstance(ret, dict):
                             ret = _set_custom_fsdp_module_kwargs(ret, process_group_cache)
                     if ret and auto_microbatching:
@@ -553,6 +556,7 @@ def prepare_fsdp_module(
 
             fsdp_obj = FullyShardedDataParallel(
                 obj,
+                process_group=process_group,
                 sharding_strategy=sharding_strategy,
                 auto_wrap_policy=_auto_wrap_policy,  # type: ignore FSDP type bug
                 cpu_offload=cpu_offload,
