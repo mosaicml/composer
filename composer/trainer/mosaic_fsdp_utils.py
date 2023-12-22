@@ -126,9 +126,7 @@ def get_cpu_offload(cpu_offload=False):
 
 def _get_process_group(pg, process_group_cache=None):
     """Helper function for configuring and/or retrieving process groups."""
-
-    # Return regular process_groups as is, no cacheing
-    if pg is None or isinstance(pg, ProcessGroup):
+    if pg is None or isinstance(pg, ProcessGroup):  # Return as is, no caching
         return pg
 
     world_size = dist.get_world_size()
@@ -165,14 +163,12 @@ def _get_process_group(pg, process_group_cache=None):
         raise ValueError(f'Unsure how to setup process_group={pg}')
 
     if process_group_cache is not None and ranks in process_group_cache:
-        log.info(
-            f'On rank={dist.get_global_rank()} using cached progress group with {ranks=}. ' +
-            'If the intention was to use a new process group, a new process group can be instantiated and passed' +
-            " in as an arguement (`'process_group': newly_instantiated_process_group_obect,`)")
+        log.info(f'On rank={dist.get_global_rank()} using cached progress group with {ranks=}. ' +
+                 'If the intention was to use a new process group, a new process group can be instantiated and passed' +
+                 " in as an arguement (`'process_group': newly_instantiated_process_group_obect,`)")
         return process_group_cache[ranks]
 
-    log.info(
-        f'Composer is instantiating custom process groups with {ranks=} (on rank={dist.get_global_rank()}).')
+    log.info(f'Composer is instantiating custom process groups with {ranks=} (on rank={dist.get_global_rank()}).')
 
     ranks_per_subgroup_list = list(set(dist.all_gather_object(ranks)))
     (
@@ -201,7 +197,9 @@ def _set_custom_fsdp_module_kwargs(module_kwargs: Dict, process_group_cache: Dic
         )
     if 'process_group' in module_kwargs:
         # Call on every process group if it is a tuple/list of non-ints
-        if type(module_kwargs['process_group']) in [list, tuple] and not all(isinstance(x, int) for x in module_kwargs['process_group']):
+        if type(module_kwargs['process_group']) in [
+                list, tuple
+        ] and not all(isinstance(x, int) for x in module_kwargs['process_group']):
             module_kwargs['process_group'] = tuple(
                 _get_process_group(pg, process_group_cache) for pg in module_kwargs['process_group'])
         else:
