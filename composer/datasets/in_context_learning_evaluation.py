@@ -312,7 +312,7 @@ class InContextLearningQATaskDataset(Dataset):
             'cot_delimiter': cot_delimiter,
             'generation_length': self.max_answer_length,
             'stopping_criteria': self.early_stopping_criteria,
-            'do_normalization': do_normalization,
+            'do_normalization': self.do_normalization,
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
                 'use_cache': True,
