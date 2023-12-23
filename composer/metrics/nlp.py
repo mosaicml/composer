@@ -250,6 +250,7 @@ class InContextLearningMetric(Metric):
     ):
         # this is based off the gather_all_tensors utility function in torchmetrics, except it works with non-tensor objects
         # (in particular, lists of strings). Link here: https://github.com/Lightning-AI/torchmetrics/blob/99d6d9d6ac4eb1b3398241df558604e70521e6b0/src/torchmetrics/utilities/distributed.py#L97-L148
+        print('in sync')
         if distributed_available:
             group = process_group or self.process_group
             world_size = torch.distributed.get_world_size(group)  # pyright: ignore [reportGeneralTypeIssues]
@@ -259,7 +260,8 @@ class InContextLearningMetric(Metric):
                 gathered_response_cache, self.response_cache)
             flattened_gathered_response_cache = [item for row in gathered_response_cache for item in row]
             setattr(self, 'response_cache', flattened_gathered_response_cache)
-
+            print('we synced baby')
+            print(f'world size: {world_size}')
             super().sync(
                 dist_sync_fn,
                 process_group,
