@@ -327,10 +327,10 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
         if batch is None:
             batch = {}
         cot_delimiter = batch.get('cot_delimiter', '')
+        do_normalization = batch.get('do_normalization', True)
+        stopping_criteria = batch.get('stopping_critiera', None)
         for sample_output, sample_labels, prompt_tensor in zip(outputs, labels, batch['input_ids']):
-            do_normalization = batch.get('do_normalization', True)
-            stopping_criteria = batch.get('stopping_criteria', None)
-
+        
 
             final_answer = sample_output
             if stopping_criteria is not None and len(stopping_criteria) > 0:
@@ -346,7 +346,7 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
                 cleaned_final_answer = final_answer
                 cleaned_sample_labels = {label for label in sample_labels}
                 
-            correct = False
+        
             if any(cleaned_final_answer.startswith(label) for label in cleaned_sample_labels):
                 self.correct += torch.tensor(1.0)
                 correct = True

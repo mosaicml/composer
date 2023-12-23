@@ -154,7 +154,7 @@ class InContextLearningQATaskDataset(Dataset):
                  fewshot_random_seed: int,
                  cot_delimiter: str = '',
                  early_stopping_criteria: Optional[List[str]] = None,
-                 do_normalization: bool = None):
+                 do_normalization: bool = True):
         if tokenizer.eos_token_id is None:
             raise ValueError('`InContextLearningQATaskDataset` tokenizer must have non-null `eos_token_id`')
         try:
@@ -1436,4 +1436,5 @@ def get_icl_task_dataloader(
                                     fewshot_random_seed,
                                     pass_at_k,
                                     generations_per_sample,
-                                    early_stopping_criteria=early_stopping_criteria)
+                                    early_stopping_criteria=early_stopping_criteria,
+                                    do_normalization=do_normalization)
