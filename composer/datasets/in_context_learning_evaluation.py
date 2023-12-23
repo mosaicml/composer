@@ -153,14 +153,10 @@ class InContextLearningQATaskDataset(Dataset):
                  question_prelimiter: str,
                  fewshot_random_seed: int,
                  cot_delimiter: str = '',
-                 early_stopping_criteria: Optional[List[str]] = None):
-<<<<<<< HEAD
+                 early_stopping_criteria: Optional[List[str]] = None,
+                 do_normalization: bool = True):
         if tokenizer.eos_token_id is None:
             raise ValueError('`InContextLearningQATaskDataset` tokenizer must have non-null `eos_token_id`')
-=======
-        if not hasattr(tokenizer, 'eos_token_id'):
-            raise ValueError('`InContextLearningQATaskDataset` tokenizer must have `eos_token_id`')
->>>>>>> 7ee0a72de0b0e54d845532260bbe2a47d6f16145
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
         except ImportError as e:
@@ -172,6 +168,7 @@ class InContextLearningQATaskDataset(Dataset):
                 get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
         self.early_stopping_criteria = early_stopping_criteria
+        self.do_normalization = do_normalization
         self.samples = self._read_dataset(dataset)
         self.samples = strip_data(self.samples)
         self.tokenizer = tokenizer
@@ -314,6 +311,8 @@ class InContextLearningQATaskDataset(Dataset):
             'labels': answers,
             'cot_delimiter': cot_delimiter,
             'generation_length': self.max_answer_length,
+            'stopping_criteria': self.early_stopping_criteria,
+            'do_normalization': do_normalization,
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
                 'use_cache': True,
@@ -1190,7 +1189,8 @@ def build_icl_dataloader(
         fewshot_random_seed: int = 1234,
         pass_at_k: int = 1,
         generations_per_sample: int = 1,
-        early_stopping_criteria: Optional[List[str]] = None) -> DataSpec:
+        early_stopping_criteria: Optional[List[str]] = None,
+        do_normalization: bool = True) -> DataSpec:
     if icl_task_type == 'multiple_choice':
         dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri,
                                                              tokenizer,
@@ -1242,7 +1242,8 @@ def build_icl_dataloader(
                                                  question_prelimiter=question_prelimiter,
                                                  fewshot_random_seed=fewshot_random_seed,
                                                  cot_delimiter=cot_delimiter,
-                                                 early_stopping_criteria=early_stopping_criteria)
+                                                 early_stopping_criteria=early_stopping_criteria,
+                                                 do_normalization=do_normalization)
         effective_batchsize = batch_size
     elif icl_task_type == 'code_evaluation':
         dataset = InContextLearningCodeEvalDataset(dataset_uri,
@@ -1344,7 +1345,8 @@ def get_icl_task_dataloader(
         generations_per_sample: int = 1,
         cot_delimiter: str = '',
         has_categories: bool = False,
-        early_stopping_criteria: Optional[List[str]] = None) -> Union[DataSpec, Dict[str, DataSpec]]:
+        early_stopping_criteria: Optional[List[str]] = None,
+        do_normalization: bool = True) -> Union[DataSpec, Dict[str, DataSpec]]:
     """This constructs a dataloader (or dataloaders if has_categories is True) capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
 
     >>> dl = get_icl_task_dataloader(
@@ -1413,7 +1415,8 @@ def get_icl_task_dataloader(
                                                         fewshot_random_seed,
                                                         pass_at_k,
                                                         generations_per_sample,
-                                                        early_stopping_criteria=early_stopping_criteria)
+                                                        early_stopping_criteria=early_stopping_criteria,
+                                                        do_normalization=do_normalization)
         return result_dls
     else:
         return build_icl_dataloader(icl_task_type,
@@ -1432,4 +1435,5 @@ def get_icl_task_dataloader(
                                     fewshot_random_seed,
                                     pass_at_k,
                                     generations_per_sample,
-                                    early_stopping_criteria=early_stopping_criteria)
+                                    early_stopping_criteria=early_stopping_criteria,
+                                    do_normalization=do_normalization)
