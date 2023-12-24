@@ -1,5 +1,6 @@
 import json
 import logging
+import traceback
 
 
 class JsonLogFormatter(logging.Formatter):
@@ -17,4 +18,7 @@ class JsonLogFormatter(logging.Formatter):
             'name': record.name,
             'message': record.getMessage(),
         }
+        if record.exc_info:
+            log_record['exception'] = str(record.exc_info[1])
+            log_record['traceback'] = traceback.format_exception(*record.exc_info)
         return json.dumps(log_record)

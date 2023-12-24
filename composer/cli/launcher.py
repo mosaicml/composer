@@ -306,7 +306,6 @@ def _launch_processes(
                         text=True,
                     )
                 else:
-
                     def _get_file(format: str):
                         filename = format.format(
                             rank=global_rank,
@@ -330,7 +329,7 @@ def _launch_processes(
                     process.stdout = stdout_file
                 processes[global_rank] = process
     except Exception as e:
-        log.error(f'Exception occurred: {e}')
+        log.info(f'Exception occurred: {e}')
         log.error("Traceback (most recent call last):\n" + "".join(traceback.format_exc()))
 
 
@@ -362,7 +361,6 @@ def _monitor_processes(processes: Dict[int, subprocess.Popen]):
 
 
 def _print_process_exit_status(global_rank: int, process: subprocess.Popen):
-    log.info('in print_process_exit_status')
     if process.stdout is None:
         output = None
     else:
@@ -505,8 +503,7 @@ def main():
         # may take up to CLEANUP_TIMEOUT seconds, and the user should know immediately
         # what failed. No need to re-raise the exception, as `aggregate_process_returncode`
         # will return an appropriate error code, which will cause the script to exit.
-        log.error(f'Exception occurred: {e}')
-        log.error("Traceback (most recent call last):\n" + "".join(traceback.format_exc()))
+        log.exception(f'Exception occurred: {e}')
         #traceback.print_exc()
         
     finally:
