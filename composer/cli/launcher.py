@@ -391,6 +391,7 @@ def _print_process_exit_status(global_rank: int, process: subprocess.Popen):
             exc.stderr,
             f'----------End global rank {global_rank} STDERR----------',
         ])
+        log.error(stderr)
     print('\n'.join(error_msg))
 
 
