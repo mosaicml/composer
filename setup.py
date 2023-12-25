@@ -172,7 +172,7 @@ extra_deps['unet'] = [
 ]
 
 extra_deps['vit'] = [
-    'vit_pytorch==1.6.1',
+    'vit_pytorch==1.6.5',
 ]
 
 extra_deps['timm'] = [
