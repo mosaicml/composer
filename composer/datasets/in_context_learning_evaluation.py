@@ -351,7 +351,6 @@ class InContextLearningQATaskDataset(Dataset):
         num_chunks = len(chunked['input_ids'])
         for k, v in batch.items():
             if k in no_split:
-            # if isinstance(v, (int, float, str, bool, dict)):
                 chunked[k] = [v] * num_chunks
         return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
 
