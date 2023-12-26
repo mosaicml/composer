@@ -348,6 +348,7 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
                 cleaned_final_answer = final_answer
                 cleaned_sample_labels = set(sample_labels)
 
+            correct = False
             if any(cleaned_final_answer.startswith(label) for label in cleaned_sample_labels):
                 self.correct += torch.tensor(1.0)
                 correct = True
