@@ -17,6 +17,7 @@ from composer.callbacks.image_visualizer import ImageVisualizer
 from composer.callbacks.lr_monitor import LRMonitor
 from composer.callbacks.memory_monitor import MemoryMonitor
 from composer.callbacks.mlperf import MLPerfCallback
+from composer.callbacks.nan_monitor import NaNMonitor
 from composer.callbacks.optimizer_monitor import OptimizerMonitor
 from composer.callbacks.runtime_estimator import RuntimeEstimator
 from composer.callbacks.speed_monitor import SpeedMonitor
@@ -28,6 +29,7 @@ __all__ = [
     'OptimizerMonitor',
     'LRMonitor',
     'MemoryMonitor',
+    'NaNMonitor',
     'SpeedMonitor',
     'CheckpointSaver',
     'MLPerfCallback',

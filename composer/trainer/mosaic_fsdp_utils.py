@@ -34,6 +34,8 @@ if TYPE_CHECKING:
             torch.__version__) < version.parse('2.0.2'):
         from torch.distributed.fsdp._common_utils import _FSDPState
 
+log = logging.getLogger(__name__)
+
 SHARDING_MAP = {
     'NO_SHARD': ShardingStrategy.NO_SHARD,
     'SHARD_GRAD_OP': ShardingStrategy.SHARD_GRAD_OP,
@@ -124,10 +126,7 @@ def get_cpu_offload(cpu_offload=False):
 
 def _get_process_group(pg, process_group_cache=None):
     """Helper function for configuring and/or retrieving process groups."""
-    warnings.warn(f'Instantiating FSDP with custom process groups is an experimental feature.')
-
-    # Return regular process_groups as is, no cacheing
-    if pg is None or isinstance(pg, ProcessGroup):
+    if pg is None or isinstance(pg, ProcessGroup):  # Return as is, no caching
         return pg
 
     world_size = dist.get_world_size()
@@ -136,13 +135,13 @@ def _get_process_group(pg, process_group_cache=None):
     # Handle special str process_group cases
     if pg == 'self':
         pg = 'set1'
-        warnings.warn(f"Converting process_group='self' to process_group='{pg}'")
+        log.info(f"Converting process_group='self' to process_group='{pg}'")
     elif pg == 'node':
         pg = f'set{local_world_size}'
-        warnings.warn(f"Converting process_group='node' to process_group='{pg}'")
+        log.info(f"Converting process_group='node' to process_group='{pg}'")
     elif pg == 'local_rank_across_nodes':
         pg = f'mod{local_world_size}'
-        warnings.warn(f"Converting process_group='local_rank_across_nodes' to process_group='{pg}'")
+        log.info(f"Converting process_group='local_rank_across_nodes' to process_group='{pg}'")
 
     # Handle str and Union[List[int], Tuple[int]] process_group cases
     if isinstance(pg, str) and pg.startswith('set'):
@@ -164,15 +163,10 @@ def _get_process_group(pg, process_group_cache=None):
         raise ValueError(f'Unsure how to setup process_group={pg}')
 
     if process_group_cache is not None and ranks in process_group_cache:
-        warnings.warn(
-            f'On rank={dist.get_global_rank()} using cached progress group with {ranks=}. ' +
-            'If the intention was to use a new process group, a new process group can be instantiated and passed' +
-            " in as an arguement (`'process_group': newly_instantiated_process_group_obect,`)")
+        log.info(f'Using cached progress group with {ranks=} on rank={dist.get_global_rank()}.')
         return process_group_cache[ranks]
 
-    warnings.warn(
-        f'Composer is instantiating custom process groups with {ranks=} (on rank={dist.get_global_rank()}). ' +
-        'This is an experimental feature.')
+    log.info(f'Instantiating custom process groups with {ranks=} on rank={dist.get_global_rank()}.')
 
     ranks_per_subgroup_list = list(set(dist.all_gather_object(ranks)))
     (
@@ -200,8 +194,10 @@ def _set_custom_fsdp_module_kwargs(module_kwargs: Dict, process_group_cache: Dic
             f"Automated setting of custom per module mixed_precision is not implemented, but it can be set if `isinstance(module_kwargs['mixed_precision'], MixedPrecision)`"
         )
     if 'process_group' in module_kwargs:
-        # Call on every process group if it is a tuple
-        if isinstance(module_kwargs['process_group'], tuple):
+        # Call on every process group if it is a tuple/list of non-ints
+        if type(module_kwargs['process_group']) in [
+                list, tuple
+        ] and not all(isinstance(x, int) for x in module_kwargs['process_group']):
             module_kwargs['process_group'] = tuple(
                 _get_process_group(pg, process_group_cache) for pg in module_kwargs['process_group'])
         else:

@@ -38,7 +38,7 @@ ARG MOFED_VERSION=5.5-1.0.3.2
 
 # Version of EFA Drivers to install (for AWS Elastic Fabric Adapter support)
 # Leave blank for no EFA Drivers
-ARG AWS_OFI_NCCL_VERSION=v1.7.3-aws
+ARG AWS_OFI_NCCL_VERSION=v1.7.4-aws
 
 # Upgrade certifi to resolve CVE-2022-23491
 ARG CERTIFI_VERSION='>=2022.12.7'
@@ -250,7 +250,8 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
         ./configure --prefix=/opt/aws-ofi-nccl/install \
             --with-libfabric=/opt/amazon/efa/ \
             --with-cuda=/usr/local/cuda \
-            --disable-tests && \
+            --disable-tests \
+            --enable-platform-aws && \
         make && make install ; \
     fi
 
@@ -354,6 +355,11 @@ RUN pip install --no-cache-dir --upgrade \
         ipython${IPYTHON_VERSION} \
         urllib3${URLLIB3_VERSION}
 
+##################################################
+# Override NVIDIA mistaken env var for 11.8 images
+##################################################
+ARG NVIDIA_REQUIRE_CUDA_OVERRIDE
+ENV NVIDIA_REQUIRE_CUDA=${NVIDIA_REQUIRE_CUDA_OVERRIDE:-$NVIDIA_REQUIRE_CUDA}
 
 ################
 # Composer Image

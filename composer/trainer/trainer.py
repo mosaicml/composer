@@ -20,7 +20,8 @@ import warnings
 from collections import defaultdict
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Callable, ContextManager, Dict, Iterable, List, Optional, Sequence, TextIO, Tuple, Union, cast
+from typing import (Any, Callable, ContextManager, Dict, Iterable, List, Mapping, Optional, Sequence, TextIO, Tuple,
+                    Union, cast)
 
 import coolname
 import torch
@@ -34,10 +35,9 @@ from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
 from composer.callbacks import CheckpointSaver, OptimizerMonitor
-from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException, Callback, DataSpec, Engine, Evaluator,
-                           Event, Precision, PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode,
-                           ensure_data_spec, ensure_evaluator, ensure_time, get_precision_context,
-                           validate_eval_automicrobatching)
+from composer.core import (Algorithm, AlgorithmPass, Batch, Callback, DataSpec, Engine, Evaluator, Event, Precision,
+                           PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode, ensure_data_spec,
+                           ensure_evaluator, ensure_time, get_precision_context, validate_eval_automicrobatching)
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, MosaicMLLogger, ProgressBarLogger,
                               RemoteUploaderDownloader, WandBLogger)
@@ -1077,17 +1077,18 @@ class Trainer:
                 loggers.append(
                     ConsoleLogger(stream=console_stream, log_interval=console_log_interval, log_traces=log_traces))
 
-        if save_folder is not None:
-            remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
-            if remote_ud is not None:
-                loggers.append(remote_ud)
-
         # MosaicML Logger
+        # Keep MosaicML logger above the RemoteUploaderDownloader so that fit end is reported before the final checkpoint begins uploading
         if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and os.environ.get(
                 MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and not any(isinstance(x, MosaicMLLogger) for x in loggers):
             log.info('Detected run on MosaicML platform. Adding MosaicMLLogger to loggers.')
             mosaicml_logger = MosaicMLLogger()
             loggers.append(mosaicml_logger)
+
+        if save_folder is not None:
+            remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
+            if remote_ud is not None:
+                loggers.append(remote_ud)
 
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
@@ -1408,8 +1409,11 @@ class Trainer:
                 # Disable object_store since _get_autoresume_checkpoint will download the checkpoint
                 # To the save folder, if needed.
                 load_object_store = None
-                # Disable `load_weights_only` since this applies only to the initial training run
+                # Set load arguments to defaults as this applies only to the initial non-autoresume
+                # load. We do not reset `load_strict_model_weights` for models with frozen layers.
                 load_weights_only = False
+                load_ignore_keys = None
+                load_exclude_algorithms = None
                 log.info('Autoresuming training from checkpoint')
             else:
                 log.info('No previous autoresume checkpoint found')
@@ -2013,144 +2017,146 @@ class Trainer:
         finished_epoch_early = False
         last_wct = datetime.datetime.now()
 
+        if self.state.max_duration is None:
+            # This is essentially just a type check, as max_duration should always be
+            # asserted to be not None when Trainer.fit() is called
+            raise RuntimeError('max_duration must be specified when initializing the Trainer')
+
         while self.state.timestamp < self.state.max_duration:
-            try:
-                if int(self.state.timestamp.batch_in_epoch) == 0:
-                    self.engine.run_event(Event.EPOCH_START)
-                    self.logger.log_metrics({'time/epoch': self.state.timestamp.epoch.value})
+            if int(self.state.timestamp.batch_in_epoch) == 0:
+                self.engine.run_event(Event.EPOCH_START)
+                self.logger.log_metrics({'time/epoch': self.state.timestamp.epoch.value})
 
-                dataloader = self.state.dataloader
-                if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
-                    dataloader.sampler.set_epoch(int(self.state.timestamp.epoch))
+            dataloader = self.state.dataloader
+            if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
+                dataloader.sampler.set_epoch(int(self.state.timestamp.epoch))
 
-                for batch_idx, self.state.batch in enumerate(self._iter_dataloader(TrainerMode.TRAIN)):
-                    # Spin dataloader forward unless dataloader handles internally with dataset_resumption
-                    if self.spin_dataloaders and 'train' not in self.state.dataset_resumption and batch_idx < int(
-                            self.state.timestamp.batch_in_epoch):
-                        # Restore the RNG state immediately before the next batch is yielded from the dataloader
-                        if batch_idx + 1 == int(self.state.timestamp.batch_in_epoch) and self._rng_state is not None:
-                            reproducibility.load_rng_state(self._rng_state)
-                            self._rng_state = None
-                        continue
+            for batch_idx, self.state.batch in enumerate(self._iter_dataloader(TrainerMode.TRAIN)):
+                # Spin dataloader forward unless dataloader handles internally with dataset_resumption
+                if self.spin_dataloaders and 'train' not in self.state.dataset_resumption and batch_idx < int(
+                        self.state.timestamp.batch_in_epoch):
+                    # Restore the RNG state immediately before the next batch is yielded from the dataloader
+                    if batch_idx + 1 == int(self.state.timestamp.batch_in_epoch) and self._rng_state is not None:
+                        reproducibility.load_rng_state(self._rng_state)
+                        self._rng_state = None
+                    continue
 
-                    self.state.batch = self.state.device.batch_to_device(self.state.batch)
-                    self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
-                    rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
-                    rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
+                self.state.batch = self.state.device.batch_to_device(self.state.batch)
+                self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
+                rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
+                rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
 
-                    if self.state.deepspeed_enabled:
-                        self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
+                if self.state.deepspeed_enabled:
+                    self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
-                    self.engine.run_event(Event.AFTER_DATALOADER)
+                self.engine.run_event(Event.AFTER_DATALOADER)
 
-                    self.engine.run_event(Event.BATCH_START)
+                self.engine.run_event(Event.BATCH_START)
 
-                    # Log time values
-                    self.logger.log_metrics({
-                        'time/batch': self.state.timestamp.batch.value,
-                        'time/sample': self.state.timestamp.sample.value,
-                        'time/batch_in_epoch': self.state.timestamp.batch_in_epoch.value,
-                        'time/sample_in_epoch': self.state.timestamp.sample_in_epoch.value,
-                    })
-                    if rank_num_tokens > 0:
-                        self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
-                        self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
+                # Log time values
+                self.logger.log_metrics({
+                    'time/batch': self.state.timestamp.batch.value,
+                    'time/sample': self.state.timestamp.sample.value,
+                    'time/batch_in_epoch': self.state.timestamp.batch_in_epoch.value,
+                    'time/sample_in_epoch': self.state.timestamp.sample_in_epoch.value,
+                })
+                if rank_num_tokens > 0:
+                    self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
+                    self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
 
-                    total_loss_dict = self._train_batch(use_grad_scaling)
+                total_loss_dict = self._train_batch(use_grad_scaling)
 
-                    if use_grad_scaling:
-                        self.state.scaler.update()
+                if use_grad_scaling:
+                    self.state.scaler.update()
 
-                    # total_loss_dict can be None if gradient scaling failed
-                    if total_loss_dict is not None:
-                        map_collection(total_loss_dict, dist.all_reduce)
-                        total_loss_dict = {
-                            k: loss.cpu().item() / dist.get_world_size() for k, loss in total_loss_dict.items()
-                        }
-                        self.state.total_loss_dict = total_loss_dict
-                        self.logger.log_metrics(total_loss_dict)
+                # total_loss_dict can be None if gradient scaling failed
+                if total_loss_dict is not None:
+                    map_collection(total_loss_dict, dist.all_reduce)
+                    total_loss_dict = {
+                        k: loss.cpu().item() / dist.get_world_size() for k, loss in total_loss_dict.items()
+                    }
+                    self.state.total_loss_dict = total_loss_dict
+                    self.logger.log_metrics(total_loss_dict)
 
-                    # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
-                    # next batch's wall clock time. The time accumulation must be done here so schedulers
-                    # have the latest timing information
+                # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
+                # next batch's wall clock time. The time accumulation must be done here so schedulers
+                # have the latest timing information
 
-                    now = datetime.datetime.now()
+                now = datetime.datetime.now()
 
-                    batch_time = now - last_wct
+                batch_time = now - last_wct
 
-                    total_num_samples, total_num_tokens, batch_time = self._accumulate_time_across_ranks(
-                        rank_num_samples,
-                        rank_num_tokens,
-                        batch_time,
+                total_num_samples, total_num_tokens, batch_time = self._accumulate_time_across_ranks(
+                    rank_num_samples,
+                    rank_num_tokens,
+                    batch_time,
+                )
+
+                # `now` is actually in the past, but want to include the time it takes to perform this reduction
+                last_wct = now
+
+                if self._scheduler_step_frequency == TimeUnit.BATCH:
+                    for scheduler in self.state.schedulers:
+                        scheduler.step()
+
+                if self.state.train_metrics is not None:
+                    self._compute_and_log_metrics(
+                        dataloader_label='train',
+                        metrics=self.state.train_metrics,
                     )
 
-                    # `now` is actually in the past, but want to include the time it takes to perform this reduction
-                    last_wct = now
+                self.state.previous_timestamp = self.state.timestamp
+                self.state.timestamp = self.state.timestamp.to_next_batch(
+                    samples=total_num_samples,
+                    tokens=total_num_tokens,
+                    duration=batch_time,
+                )
 
-                    if self._scheduler_step_frequency == TimeUnit.BATCH:
-                        for scheduler in self.state.schedulers:
-                            scheduler.step()
+                self.engine.run_event(Event.BATCH_END)
 
-                    if self.state.train_metrics is not None:
-                        self._compute_and_log_metrics(
-                            dataloader_label='train',
-                            metrics=self.state.train_metrics,
-                        )
+                # Pause the timing during evaluation
+                # Evaluation time is tracked separately in state.eval_timestamp
+                duration = datetime.datetime.now() - last_wct
+                self._run_evaluators(Event.BATCH_END)
+                last_wct = datetime.datetime.now() - duration
 
-                    self.state.previous_timestamp = self.state.timestamp
-                    self.state.timestamp = self.state.timestamp.to_next_batch(
-                        samples=total_num_samples,
-                        tokens=total_num_tokens,
-                        duration=batch_time,
+                self.engine.run_event(Event.BATCH_CHECKPOINT)
+
+                if self.state.timestamp >= self.state.max_duration:
+                    # If max_duration is specified in batches, samples, or tokens, and
+                    # and the max_duration is reached mid-epoch, then break out of the dataloader
+                    # to finish the epoch early and finish training.
+                    finished_epoch_early = True
+                    break
+
+            if not finished_epoch_early or self.state.dataloader_len == self.state.timestamp.batch_in_epoch:
+                # Trigger the epoch end events if the dataloader was exhausted.
+                # This happens if the "break" did not trigger above, or if it
+                # did (e.g. duration specified in samples/batches/tokens), but it is still
+                # the end of the dataloader (i.e. next(dataloader) would raise StopIteration)
+                if self.state.train_metrics is not None:
+                    self.state.train_metrics = self._ensure_metrics_device_and_dtype(self.state.train_metrics)
+                    self._compute_and_log_metrics(
+                        dataloader_label='train',
+                        metrics=self.state.train_metrics,
                     )
 
-                    self.engine.run_event(Event.BATCH_END)
+                if self._scheduler_step_frequency == TimeUnit.EPOCH:
+                    for scheduler in self.state.schedulers:
+                        scheduler.step()
 
-                    # Pause the timing during evaluation
-                    # Evaluation time is tracked separately in state.eval_timestamp
-                    duration = datetime.datetime.now() - last_wct
-                    self._run_evaluators(Event.BATCH_END)
-                    last_wct = datetime.datetime.now() - duration
+                self.state.previous_timestamp = self.state.timestamp
+                self.state.timestamp = self.state.timestamp.to_next_epoch()
 
-                    self.engine.run_event(Event.BATCH_CHECKPOINT)
+                self.engine.run_event(Event.EPOCH_END)
 
-                    if self.state.timestamp >= self.state.max_duration:
-                        # If max_duration is specified in batches, samples, or tokens, and
-                        # and the max_duration is reached mid-epoch, then break out of the dataloader
-                        # to finish the epoch early and finish training.
-                        finished_epoch_early = True
-                        break
+                # Pause the timing during evaluation
+                # Evaluation time is tracked separately in state.eval_timestamp
+                duration = datetime.datetime.now() - last_wct
+                self._run_evaluators(Event.EPOCH_END)
+                last_wct = datetime.datetime.now() - duration
 
-                if not finished_epoch_early or self.state.dataloader_len == self.state.timestamp.batch_in_epoch:
-                    # Trigger the epoch end events if the dataloader was exhausted.
-                    # This happens if the "break" did not trigger above, or if it
-                    # did (e.g. duration specified in samples/batches/tokens), but it is still
-                    # the end of the dataloader (i.e. next(dataloader) would raise StopIteration)
-                    if self.state.train_metrics is not None:
-                        self.state.train_metrics = self._ensure_metrics_device_and_dtype(self.state.train_metrics)
-                        self._compute_and_log_metrics(
-                            dataloader_label='train',
-                            metrics=self.state.train_metrics,
-                        )
-
-                    if self._scheduler_step_frequency == TimeUnit.EPOCH:
-                        for scheduler in self.state.schedulers:
-                            scheduler.step()
-
-                    self.state.previous_timestamp = self.state.timestamp
-                    self.state.timestamp = self.state.timestamp.to_next_epoch()
-
-                    self.engine.run_event(Event.EPOCH_END)
-
-                    # Pause the timing during evaluation
-                    # Evaluation time is tracked separately in state.eval_timestamp
-                    duration = datetime.datetime.now() - last_wct
-                    self._run_evaluators(Event.EPOCH_END)
-                    last_wct = datetime.datetime.now() - duration
-
-                    self.engine.run_event(Event.EPOCH_CHECKPOINT)
-            except BreakEpochException:
-                log.info(f'Skipping the rest of Epoch {int(self.state.timestamp.epoch)}')
+                self.engine.run_event(Event.EPOCH_CHECKPOINT)
 
         # Log final time values
         self.logger.log_metrics({
@@ -2469,7 +2475,6 @@ class Trainer:
 
             if self.state.deepspeed_enabled:
                 self.state.deepspeed_model.backward(microbatch_loss)
-
             else:
                 # Scale loss based on the number of samples in the microbatch to maintain gradient numerics
                 microbatch_loss.mul_(microbatch_num_samples / current_batch_size)
@@ -2915,7 +2920,15 @@ class Trainer:
                                 if isinstance(self.state.device, DeviceMPS):
                                     # torchmetrics math has numerical errors on M1 devices
                                     # running the compute on CPU instead
-                                    outputs = self.state.outputs.cpu()
+                                    if isinstance(self.state.outputs, Mapping):
+                                        outputs = {}
+                                        for k, v in self.state.outputs.items():
+                                            if isinstance(v, torch.Tensor):
+                                                outputs[k] = v.cpu()
+                                            else:
+                                                outputs[k] = v
+                                    else:
+                                        outputs = self.state.outputs.cpu()
                                 else:
                                     outputs = self.state.outputs
 

@@ -4,6 +4,8 @@
 import os
 import pathlib
 import threading
+from unittest import mock
+from unittest.mock import ANY, MagicMock
 
 import pytest
 
@@ -31,3 +33,63 @@ def test_s3_object_store_multi_threads(tmp_path: pathlib.Path, s3_bucket: str):
         threads.append(t)
     for t in threads:
         t.join()
+
+
+def test_s3_upload_object_arguments(tmp_path: pathlib.Path, s3_bucket: str):
+    filename = tmp_path / 'localfile.txt'
+    filename.touch()
+    remote_obj_name = 'remote.txt'
+
+    object_store = S3ObjectStore(bucket=s3_bucket)
+    object_store.client.upload_file = MagicMock()
+
+    with mock.patch.dict('os.environ'):
+        os.environ.pop('S3_CANNED_ACL', None)
+
+        object_store.upload_object(object_name=remote_obj_name, filename=filename)
+        object_store.client.upload_file.assert_called_with(Bucket='my-bucket',
+                                                           Key=remote_obj_name,
+                                                           Filename=filename,
+                                                           Callback=None,
+                                                           Config=ANY)
+
+        object_store.upload_object(object_name=remote_obj_name,
+                                   filename=filename,
+                                   ExtraArgs={'ACL': 'authenticated-read'})
+        object_store.client.upload_file.assert_called_with(Bucket='my-bucket',
+                                                           Key=remote_obj_name,
+                                                           Filename=filename,
+                                                           Callback=None,
+                                                           Config=ANY,
+                                                           ExtraArgs={'ACL': 'authenticated-read'})
+
+        os.environ['S3_CANNED_ACL'] = 'bucket-owner-full-control'
+
+        object_store.upload_object(object_name=remote_obj_name, filename=filename)
+        object_store.client.upload_file.assert_called_with(Bucket='my-bucket',
+                                                           Key=remote_obj_name,
+                                                           Filename=filename,
+                                                           Callback=None,
+                                                           Config=ANY,
+                                                           ExtraArgs={'ACL': 'bucket-owner-full-control'})
+
+        object_store.upload_object(object_name=remote_obj_name, filename=filename, ExtraArgs={'Metadata': {}})
+        object_store.client.upload_file.assert_called_with(Bucket='my-bucket',
+                                                           Key=remote_obj_name,
+                                                           Filename=filename,
+                                                           Callback=None,
+                                                           Config=ANY,
+                                                           ExtraArgs={
+                                                               'ACL': 'bucket-owner-full-control',
+                                                               'Metadata': {}
+                                                           })
+
+        object_store.upload_object(object_name=remote_obj_name,
+                                   filename=filename,
+                                   ExtraArgs={'ACL': 'authenticated-read'})
+        object_store.client.upload_file.assert_called_with(Bucket='my-bucket',
+                                                           Key=remote_obj_name,
+                                                           Filename=filename,
+                                                           Callback=None,
+                                                           Config=ANY,
+                                                           ExtraArgs={'ACL': 'authenticated-read'})

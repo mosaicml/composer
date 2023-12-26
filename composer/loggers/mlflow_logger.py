@@ -36,6 +36,7 @@ class MLFlowLogger(LoggerDestination):
             use the MLflow environment variable or a default value
         run_name: (str, optional): MLflow run name. If not set it will be the same as the
             Trainer run name
+        tags: (dict, optional): MLflow tags to log with the run
         tracking_uri (str | pathlib.Path, optional): MLflow tracking uri, the URI to the
             remote or local endpoint where logs are stored (If none it is set to MLflow default)
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process
@@ -46,35 +47,44 @@ class MLFlowLogger(LoggerDestination):
             (default: ``10``).
         model_registry_prefix (str, optional): The prefix to use when registering models.
             If registering to Unity Catalog, must be in the format ``{catalog_name}.{schema_name}``.
-            (default: empty string)
+            (default: `''`)
         model_registry_uri (str, optional): The URI of the model registry to use. To register models
             to Unity Catalog, set to ``databricks-uc``. (default: None)
+        synchronous (bool, optional): Whether to log synchronously. If ``True``, Mlflow will log
+            synchronously to the MLflow backend. If ``False``, Mlflow will log asynchronously. (default: ``False``)
+        log_system_metrics (bool, optional): Whether to log system metrics. If ``True``, Mlflow will
+            log system metrics (CPU/GPU/memory/network usage) during training. (default: ``True``)
     """
 
     def __init__(
         self,
         experiment_name: Optional[str] = None,
         run_name: Optional[str] = None,
+        tags: Optional[Dict[str, Any]] = None,
         tracking_uri: Optional[Union[str, pathlib.Path]] = None,
         rank_zero_only: bool = True,
         flush_interval: int = 10,
         model_registry_prefix: str = '',
         model_registry_uri: Optional[str] = None,
+        synchronous: bool = False,
+        log_system_metrics: bool = True,
     ) -> None:
         try:
             import mlflow
             from mlflow import MlflowClient
-            from mlflow.utils.autologging_utils import MlflowAutologgingQueueingClient
         except ImportError as e:
             raise MissingConditionalImportError(extra_deps_group='mlflow',
                                                 conda_package='mlflow',
                                                 conda_channel='conda-forge') from e
         self._enabled = (not rank_zero_only) or dist.get_global_rank() == 0
 
-        self.run_name = run_name
         self.experiment_name = experiment_name
+        self.run_name = run_name
+        self.tags = tags
         self.model_registry_prefix = model_registry_prefix
         self.model_registry_uri = model_registry_uri
+        self.synchronous = synchronous
+        self.log_system_metrics = log_system_metrics
         if self.model_registry_uri == 'databricks-uc':
             if len(self.model_registry_prefix.split('.')) != 2:
                 raise ValueError(f'When registering to Unity Catalog, model_registry_prefix must be in the format ' +
@@ -95,12 +105,7 @@ class MLFlowLogger(LoggerDestination):
                 self.experiment_name = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,
                                                  DEFAULT_MLFLOW_EXPERIMENT_NAME)
             self._mlflow_client = MlflowClient(self.tracking_uri)
-            # Create an instance of MlflowAutologgingQueueingClient - an optimized version
-            # of MlflowClient - that automatically batches metrics together and supports
-            # asynchronous logging for improved performance
-            self._optimized_mlflow_client = MlflowAutologgingQueueingClient(self.tracking_uri)
-            # Set experiment. We use MlflowClient for experiment retrieval and creation
-            # because MlflowAutologgingQueueingClient doesn't support it
+            # Set experiment.
             env_exp_id = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None)
             if env_exp_id is not None:
                 self._experiment_id = env_exp_id
@@ -133,7 +138,11 @@ class MLFlowLogger(LoggerDestination):
                     run_name=self.run_name,
                 )
                 self._run_id = new_run.info.run_id
-            mlflow.start_run(run_id=self._run_id)
+            mlflow.start_run(
+                run_id=self._run_id,
+                tags=self.tags,
+                log_system_metrics=self.log_system_metrics,
+            )
 
     def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
         if self._enabled:
@@ -151,26 +160,24 @@ class MLFlowLogger(LoggerDestination):
             )
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
+        from mlflow import log_metrics
         if self._enabled:
             # Convert all metrics to floats to placate mlflow.
             metrics = {k: float(v) for k, v in metrics.items()}
-            self._optimized_mlflow_client.log_metrics(
-                run_id=self._run_id,
+            log_metrics(
                 metrics=metrics,
                 step=step,
+                synchronous=self.synchronous,
             )
-            time_since_flush = time.time() - self._last_flush_time
-            if time_since_flush >= self._flush_interval:
-                self._optimized_mlflow_client.flush(synchronous=False)
-                self._last_flush_time = time.time()
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
+        from mlflow import log_params
+
         if self._enabled:
-            self._optimized_mlflow_client.log_params(
-                run_id=self._run_id,
+            log_params(
                 params=hyperparameters,
+                synchronous=self.synchronous,
             )
-            self._optimized_mlflow_client.flush(synchronous=False)
 
     def register_model(
         self,
@@ -266,15 +273,8 @@ class MLFlowLogger(LoggerDestination):
         if self._enabled:
             import mlflow
 
-            # We use MlflowClient for run termination because MlflowAutologgingQueueingClient's
-            # run termination relies on scheduling Python futures, which is not supported within
-            # the Python atexit handler in which post_close() is called
             self._mlflow_client.set_terminated(self._run_id)
             mlflow.end_run()
-
-    def _flush(self):
-        """Test-only method to synchronously flush all queued metrics."""
-        return self._optimized_mlflow_client.flush(synchronous=True)
 
 
 def _convert_to_mlflow_image(image: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:

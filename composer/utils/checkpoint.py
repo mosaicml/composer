@@ -14,8 +14,9 @@ import tarfile
 import tempfile
 import textwrap
 import warnings
+from importlib import import_module
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 import torch
 from packaging import version
@@ -37,6 +38,66 @@ __all__ = ['load_checkpoint', 'save_checkpoint', 'download_checkpoint']
 _COMPOSER_STATES_FILENAME = 'composer_states.pt'
 _DEEPSPEED_TAG = 'deepspeed'  # always tag with the same, deterministic name. We'll rename the tarball to the appropriate name.
 _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME = f'__{dist.get_global_rank()}_0.distcp'
+
+
+def _get_checkpoint_validation_function() -> Optional[Callable[[Union[Path, str]], bool]]:
+    """Get the validation function by name.
+
+    Args:
+        name (str): Qualified name of the checkpoint validation function.
+                    It should be in the form '{module_name}.{fn_name}'.
+
+    Returns:
+        Callable[[Union[Path, str]], bool] The checkpoint validation function that returns
+            True given a valid checkpoint and False otherwise.
+    """
+    name = os.environ.get('CHECKPOINT_VALIDATION_FUNCTION', None)
+    if name is None:
+        return None
+    splits = name.split('.')
+    module_name, fn_name = '.'.join(splits[:-1]), splits[-1]
+    module = import_module(module_name)
+    fn = getattr(module, fn_name)
+    log.debug(f'Checkpoint validation function {name} has been found.')
+    return fn
+
+
+def _ensure_valid_checkpoint(checkpoint_filepath: Union[Path, str]) -> Union[Path, str]:
+    """Ensures that the checkpoint at checkpoint_filepath is valid.
+
+    using the function specified by the CHECKPOINT_VALIDATION_FUNCTION environment variable.
+    If CHECKPOINT_VALIDATION_FUNCTION is not set, we skip validation.
+
+    Args:
+        checkpoint_filepath (Union[Path,str]): The path to the checkpoint file.
+
+    Raises:
+        ValueError if checkpoint file is invalid.
+    """
+    # Get the validation function by name.
+    validate = _get_checkpoint_validation_function()
+
+    # No function name has been specified.
+    if validate is None:
+        log.debug('No validation function specified. Skipping checkpoint validation.')
+        return checkpoint_filepath
+
+    # Validate the checkpoint.
+    if not validate(checkpoint_filepath):
+        raise ValueError(f'Checkpoint at {checkpoint_filepath} is invalid.')
+
+    log.debug(f'Checkpoint at {checkpoint_filepath} is valid.')
+    return checkpoint_filepath
+
+
+def _torch_load_with_validation(checkpoint_filepath: Union[Path, str], map_location: str) -> Any:
+    """Validates and loads a torch checkpoint.
+
+    Args:
+        checkpoint_filepath (Union[Path,str]): The path to the checkpoint file.
+        map_location (str): The location to load the checkpoint to.
+    """
+    return torch.load(_ensure_valid_checkpoint(checkpoint_filepath), map_location=map_location)
 
 
 def _format_path_with_rank_zero(path: str) -> str:
@@ -127,9 +188,9 @@ def load_checkpoint(
     load_weights_only: bool = False,
     strict_model_weights: bool = False,
     progress_bar: bool = True,
-    ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
-    exclude_algorithms: Optional[List[str]] = None,
-    algorithm_passes: Optional[List[AlgorithmPass]] = None,
+    ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
+    exclude_algorithms: Optional[list[str]] = None,
+    algorithm_passes: Optional[list[AlgorithmPass]] = None,
 ):
     """Load a checkpoint from a local file, URI, or cloud object store into ``state``.
 
@@ -180,7 +241,7 @@ def load_checkpoint(
             match the model weights. (default: ``False``)
         progress_bar (bool, optional): Whether or not to show a progress bar when downloading checkpoints.
             Ignored if the checkpoint is a local file path. (default: ``True``)
-        ignore_keys (List[str] | (Dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
+        ignore_keys (list[str] | (dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
             which, when provided, will be ignored from the state_dict before a checkpoint is loaded. Each path is a list
             of strings specifying the keys to index into ``state_dict`` joined together with `/` as a separator (as PyTorch
             uses `.` in parameter names). If a prefix is provided, all children are also ignored (see Example 2).
@@ -201,7 +262,7 @@ def load_checkpoint(
             the state_dict before it is loaded.
 
             (default: ``None``)
-        exclude_algorithms (List[str], optional): A list of algorithm names to exclude from loading.
+        exclude_algorithms (list[str], optional): A list of algorithm names to exclude from loading.
             By default, algorithms with `required_on_load=True` which were enabled when training the loaded
             checkpoint are automatically applied unless they conflict with a user specified algorithm. These
             algorithms often change the model, and not applying them could result in certain layers not having
@@ -212,11 +273,11 @@ def load_checkpoint(
             Example 2: ``exclude_algorithms = ["FusedLayerNorm", "Alibi"]`` would exclude FusedLayerNorm and Alibi from loading.
 
             (default: ``None``)
-        algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
+        algorithm_passes (list[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
             to sort them into the correct order. (default: ``None``)
 
     Returns:
-        Optional[List[Dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
+        Optional[list[dict[str, Any]]]: The RNG state dicts, indexed by global rank, if
             :attr:`load_weights_only` is not None. Otherwise, None.
     """
     using_legacy_sharded = False
@@ -307,10 +368,10 @@ def load_sharded_checkpoint(
     load_weights_only: bool = False,
     strict_model_weights: bool = False,
     progress_bar: bool = True,
-    ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
-    exclude_algorithms: Optional[List[str]] = None,
-    algorithm_passes: Optional[List[AlgorithmPass]] = None,
-) -> List[Dict]:
+    ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
+    exclude_algorithms: Optional[list[str]] = None,
+    algorithm_passes: Optional[list[AlgorithmPass]] = None,
+) -> list[dict]:
 
     if not using_torch_2():
         raise ValueError(
@@ -321,6 +382,11 @@ def load_sharded_checkpoint(
         raise ValueError(
             f'Sharded checkpoint loading on >1 node requires torch version >= 2.0.1. You have torch version {torch.__version__}'
         )
+
+    if state.fsdp_config is None:
+        raise ValueError('Loading a sharded checkpoint requires passing an FSDP config to Trainer.')
+    load_planner = state.fsdp_config['load_planner']
+    _validate_load_planner(load_planner)
 
     from torch.distributed import checkpoint as dist_cp
     from torch.distributed.checkpoint.metadata import Metadata
@@ -337,8 +403,37 @@ def load_sharded_checkpoint(
         rng_inds = set(rng_inds)
         return len(rng_inds)
 
-    # A subclass of FileSystemReader that downloads files from the object store before reading them from the local filesystem.
-    class DistCPObjectStoreReader(dist_cp.FileSystemReader):
+    class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
+        """FileSystemReader that validates checkpoint files prior to reading."""
+
+        def __init__(self, path: str):
+            if _get_checkpoint_validation_function() is None:
+                log.info('No checkpoint validation function found when loading sharded checkpoints.')
+            super().__init__(path)
+
+        def read_data(self, plan: LoadPlan, planner: LoadPlanner):
+            """Reads data file.
+
+            Raises:
+                ValueError if the data file is invalid.
+            """
+            for read_item in plan.items:
+                data_path = self.path / self.storage_data[read_item.storage_index].relative_path
+                _ensure_valid_checkpoint(data_path)
+            return super().read_data(plan, planner)
+
+        def read_metadata(self) -> Metadata:
+            """Reads metadata file.
+
+            Raises:
+                ValueError if the metadata file is invalid.
+            """
+            metadata_file_path = self.path / '.metadata'
+            _ensure_valid_checkpoint(metadata_file_path)
+            return super().read_metadata()
+
+    # A subclass of FileSystemReaderWithValidation that downloads files from the object store before reading them from the local filesystem.
+    class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
         def __init__(self, source_path: str, destination_path: str, object_store):
             self.source_path = source_path
@@ -400,7 +495,7 @@ def load_sharded_checkpoint(
                                                          Path(rank0_download_tempdir) / Path('checkpoints')),
                                                      object_store=object_store)
         else:
-            storage_reader = dist_cp.FileSystemReader(source_path)
+            storage_reader = FileSystemReaderWithValidation(source_path)
 
 
         # We need no_grad because we overwrite tensor values with set_() when we do elastic loading and we don't want the set_ op recorded in the computation graph.
@@ -448,7 +543,11 @@ def load_sharded_checkpoint(
             rng_state_dicts_load = {}
             rng_state_dicts_load['rng'] = rng_state_dicts[:num_ranks_that_saved_rng] if len(
                 rng_state_dicts) > num_ranks_that_saved_rng else rng_state_dicts
-            dist_cp.load_state_dict(rng_state_dicts_load, storage_reader)
+            dist_cp.load_state_dict(
+                state_dict=rng_state_dicts_load,
+                storage_reader=storage_reader,
+                planner=load_planner,
+            )
             # We also want to append newly generated rng states for the ranks that don't have an rng state to load in
             # if we are resuming on more ranks than were used at save time.
             if len(rng_state_dicts) > num_ranks_that_saved_rng:
@@ -472,7 +571,7 @@ def download_checkpoint(path: str,
                         object_store: Optional[Union[ObjectStore, LoggerDestination]],
                         progress_bar: bool,
                         fsdp_sharded_state_dict_enabled: bool = False,
-                        deepspeed_sharded_checkpoint: bool = False) -> Tuple[str, Optional[str], bool]:
+                        deepspeed_sharded_checkpoint: bool = False) -> tuple[str, Optional[str], bool]:
     """Download the checkpoint stored at ``path``, potentially in ``object_store``, to ``node_checkpoint_folder``.
 
     Returns a tuple of  (``composer_states_filepath``, ``extracted_checkpoint_folder``, ``extracted_rank_n``).
@@ -567,9 +666,9 @@ def download_checkpoint(path: str,
     return composer_states_filepath, extracted_checkpoint_folder, extracted_rank_n
 
 
-def _flatten_keys(obj: Any, paths: List[str], existing_path: str):
+def _flatten_keys(obj: Any, paths: list[str], existing_path: str):
     """Recursively flatten the keys of a dictionary or list into a set of paths."""
-    # Store path when we reach end, which is either non-Dict or empty Dict
+    # Store path when we reach end, which is either non-dict or empty dict
     if isinstance(obj, list) and len(obj) > 0:
         for i, elm in enumerate(obj):
             _flatten_keys(elm, paths, f'{existing_path}/{i}')
@@ -580,7 +679,7 @@ def _flatten_keys(obj: Any, paths: List[str], existing_path: str):
     paths.append(existing_path.lstrip('/'))
 
 
-def _remove_paths(obj: Union[list, Dict[str, Any]], exclude_paths: List[List[str]]):
+def _remove_paths(obj: Union[list, dict[str, Any]], exclude_paths: list[list[str]]):
     # First determine the keys which will be recursed on and which will be removed entirely
     # Group the `exclude_paths` by the key
     keys_to_recurse = {}
@@ -608,10 +707,10 @@ def _remove_paths(obj: Union[list, Dict[str, Any]], exclude_paths: List[List[str
         del obj[key]
 
 
-def glob_filter(exclude_globs: List[str]) -> Callable[[Dict], None]:
+def glob_filter(exclude_globs: list[str]) -> Callable[[dict], None]:
     """Provides a function which deletes all subparts of a dictionary based on a list of paths."""
 
-    def filter_func(state_dict: Dict) -> None:
+    def filter_func(state_dict: dict) -> None:
         # Flatten dictionary into paths
         paths = []
         _flatten_keys(state_dict, paths, '/')
@@ -635,11 +734,45 @@ def glob_filter(exclude_globs: List[str]) -> Callable[[Dict], None]:
     return filter_func
 
 
+def _validate_save_planner(save_planner: Optional[Any]) -> None:
+    """Checks that ``save_planner`` is an instance of a :class:`~torch.distributed.checkpoint.planner.SavePlanner`.
+
+    TODO(GRT-2456): Remove validation once we deprecate torch 1.13 and can use
+    type hints.
+
+    Raises:
+        ValueError: If ``save_planner`` is not a
+            :class:`~torch.distributed.checkpoint.planner.SavePlanner`.
+    """
+    from torch.distributed.checkpoint.planner import SavePlanner
+
+    if save_planner is not None and not isinstance(save_planner, SavePlanner):
+        raise ValueError((f'save_planner {type(save_planner)} is not a '
+                          'torch.distributed.checkpoint.planner.SavePlanner'))
+
+
+def _validate_load_planner(load_planner: Optional[Any]) -> None:
+    """Checks that ``load_planner`` is an instance of a :class:`~torch.distributed.checkpoint.planner.LoadPlanner`.
+
+    TODO(GRT-2456): Remove validation once we deprecate torch 1.13 and can use
+    type hints.
+
+    Raises:
+        ValueError: If ``load_planner`` is not a
+            :class:`~torch.distributed.checkpoint.planner.LoadPlanner`.
+    """
+    from torch.distributed.checkpoint.planner import LoadPlanner
+
+    if load_planner is not None and not isinstance(load_planner, LoadPlanner):
+        raise ValueError((f'load_planner {type(load_planner)} is not a '
+                          'torch.distributed.checkpoint.planner.LoadPlanner'))
+
+
 def safe_torch_load(
     composer_states_filepath: Union[Path, str],
     map_location: str = 'cpu',
     load_fsdp_monolith_rank0_only: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Load a torch checkpoint, catching errors due to backwards compatibility issues.
 
     Args:
@@ -655,7 +788,7 @@ def safe_torch_load(
             model = None
             optimizer = None
             if dist.get_global_rank() == 0:
-                state_dict_list[0] = torch.load(composer_states_filepath, map_location=map_location)
+                state_dict_list[0] = _torch_load_with_validation(composer_states_filepath, map_location=map_location)
                 # Don't broadcast model/optimizer state if they exist
                 if 'model' in state_dict_list[0]['state']:
                     model = state_dict_list[0]['state']['model']
@@ -666,7 +799,7 @@ def safe_torch_load(
 
             log.debug('Broadcasting state_dict to all ranks.')
             dist.broadcast_object_list(state_dict_list, src=0)
-            state_dict: Dict[str, Any] = state_dict_list[0]  # type: ignore
+            state_dict: dict[str, Any] = state_dict_list[0]  # type: ignore
 
             if dist.get_global_rank() == 0:
                 if model is not None:
@@ -676,7 +809,7 @@ def safe_torch_load(
 
             return state_dict
         else:
-            return torch.load(composer_states_filepath, map_location=map_location)
+            return _torch_load_with_validation(composer_states_filepath, map_location=map_location)
     except TypeError as e:
         if 'Accuracy.__new__() missing 1 required positional argument' in str(e):
             raise Exception('As of v0.10.0, torchmetrics introduces a new required argument to Accuracy which '
@@ -694,10 +827,10 @@ def _restore_checkpoint(
     extracted_checkpoint_folder: Optional[str],
     load_weights_only: bool,
     strict_model_weights: bool,
-    ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]],
-    exclude_algorithms: Optional[List[str]],
-    algorithm_passes: Optional[List[AlgorithmPass]],
-) -> Optional[List[Dict[str, Any]]]:
+    ignore_keys: Optional[Union[list[str], Callable[[dict], None]]],
+    exclude_algorithms: Optional[list[str]],
+    algorithm_passes: Optional[list[AlgorithmPass]],
+) -> Optional[list[dict[str, Any]]]:
     """Restore a checkpoint into ``state`` and returns the rng state dicts (if ``load_weights_only`` is False)."""
     # Now, all ranks load the checkpoint that local rank zero downloaded
     state_dict = safe_torch_load(
@@ -814,9 +947,19 @@ def save_checkpoint(
 
     # Sharded checkpointing for torch >=2.0 uses the torch.distributed.checkpoint module.
     elif state.fsdp_elastic_sharded_enabled:
+        if state.fsdp_config is None:
+            raise ValueError('Saving a sharded checkpoint requires passing an FSDP config to Trainer.')
+        save_planner = state.fsdp_config['save_planner']
+        _validate_save_planner(save_planner)
+
         import torch.distributed.checkpoint as dist_cp
+
         log.debug('Saving sharded checkpoints to %s...', save_filename)
-        dist_cp.save_state_dict(state_dict=state_dict, storage_writer=dist_cp.FileSystemWriter(dirname))
+        dist_cp.save_state_dict(
+            state_dict=state_dict,
+            storage_writer=dist_cp.FileSystemWriter(dirname),
+            planner=save_planner,
+        )
 
     # Only rank 0 saves the state_dict unless you are using sharded checkpointing with torch <2.0
     elif dist.get_global_rank() == 0 or state.fsdp_sharded_state_dict_enabled:
@@ -929,7 +1072,7 @@ Args:
             compatible with DeepSpeed,
 
     Returns:
-        List[pathlib.Path]: The list of checkpoint files saved, indexed by the rank of the process.
+        list[pathlib.Path]: The list of checkpoint files saved, indexed by the rank of the process.
 
         .. note::
 

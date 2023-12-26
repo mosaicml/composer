@@ -6,7 +6,7 @@
 import argparse
 import time
 
-from mcli import RunConfig, RunStatus, create_run, follow_run_logs, stop_run, wait_for_run_status
+from mcli import RunConfig, RunStatus, create_run, follow_run_logs, wait_for_run_status
 
 if __name__ == '__main__':
 
@@ -67,8 +67,6 @@ if __name__ == '__main__':
 
     export COMMON_ARGS="-v --durations=20 -m '{args.pytest_markers}' {s3_bucket_flag} {clear_tmp_path_flag}"
 
-    export PYTHONUNBUFFERED=1
-
     make test PYTEST='{args.pytest_command}' EXTRA_ARGS="$COMMON_ARGS --codeblocks"
 
     make test-dist PYTEST='{args.pytest_command}' EXTRA_ARGS="$COMMON_ARGS" WORLD_SIZE=2
@@ -79,13 +77,25 @@ if __name__ == '__main__':
     '''
     config = RunConfig(
         name=name,
-        cluster=args.cluster,
-        gpu_type=args.gpu_type,
-        gpu_num=args.gpu_num,
+        compute={
+            'cluster': args.cluster,
+            'gpu_type': args.gpu_type,
+            'gpus': args.gpu_num
+        },
         image=args.image,
         integrations=[git_integration],
         command=command,
         scheduling={'max_duration': args.timeout / 60 / 60},
+        env_variables=[
+            {
+                'key': 'MOSAICML_PLATFORM',
+                'value': 'False',
+            },
+            {
+                'key': 'PYTHONUNBUFFERED',
+                'value': '1',
+            },
+        ],
     )
 
     # Create run
@@ -102,7 +112,7 @@ if __name__ == '__main__':
         print(line, end='')
 
     print('[GHA] Run completed. Waiting for run to finish...')
-    run = wait_for_run_status(run, status='completed')
+    run = wait_for_run_status(run, status=RunStatus.COMPLETED)
 
-    # Fail if command exited with non-zero exit code or timed out
-    assert run.status == RunStatus.COMPLETED
+    # Fail if command exited with non-zero exit code or timed out (didn't reach COMPLETED)
+    assert run.status == RunStatus.COMPLETED, f'Run {run.name} did not complete: {run.status} ({run.reason})'

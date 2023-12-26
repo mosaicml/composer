@@ -44,11 +44,7 @@ class ConsoleLogger(LoggerDestination):
                  stream: Union[str, TextIO] = sys.stderr,
                  log_traces: bool = False) -> None:
 
-        if isinstance(log_interval, int):
-            log_interval = Time(log_interval, TimeUnit.EPOCH)
-        if isinstance(log_interval, str):
-            log_interval = Time.from_timestring(log_interval)
-
+        log_interval = Time.from_input(log_interval, TimeUnit.EPOCH)
         self.last_logged_batch = 0
 
         if log_interval.unit not in (TimeUnit.EPOCH, TimeUnit.BATCH):
@@ -162,7 +158,8 @@ class ConsoleLogger(LoggerDestination):
         # Remove index of last batch, so that we don't print progress at end of last batch and then
         # at eval end.
         last_batch_idx = total_eval_batches
-        self.eval_batch_idxs_to_log.remove(last_batch_idx)
+        if last_batch_idx in self.eval_batch_idxs_to_log:  # eval_batch_idxs_to_log may be empty
+            self.eval_batch_idxs_to_log.remove(last_batch_idx)
         if not self.hparams_already_logged_to_console:
             self.hparams_already_logged_to_console = True
             self._log_hparams_to_console()
