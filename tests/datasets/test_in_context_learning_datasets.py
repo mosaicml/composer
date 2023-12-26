@@ -9,9 +9,7 @@ from pathlib import Path
 
 import pytest
 import torch
-import transformers
 from torch.utils.data import DataLoader
-from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from composer import Evaluator
 from composer.core import DataSpec
@@ -47,6 +45,10 @@ def test_tokenizer_needs_prefix_space_when_space_not_needed(tiny_gpt2_tokenizer)
 
 
 def test_tokenizer_needs_prefix_space_when_space_needed():
+    try:
+        from transformers import AutoTokenizer
+    except ImportError:
+        pytest.importorskip('transformers')
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
     assert _tokenizer_needs_prefix_space(tokenizer)
 
@@ -294,6 +296,10 @@ def test_get_answer_from_example(tiny_gpt2_tokenizer, tmp_path):
 
 
 def test_fix_eos_on_preamble(tmp_path):
+    try:
+        from transformers import AutoTokenizer
+    except ImportError:
+        pytest.importorskip('transformers')
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
     seqlen = 2048
     num_fewshot = 0
@@ -399,6 +405,10 @@ def test_qa_set_cot_no_cot(tmp_path):
     pytest.importorskip('datasets')
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/triviaqa_small.jsonl'
+    try:
+        from transformers import AutoTokenizer
+    except ImportError:
+        pytest.importorskip('transformers')
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m')
 
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
@@ -422,6 +432,10 @@ def test_qa_set_cot_has_cot(tmp_path):
     pytest.importorskip('datasets')
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/gsm8k_small.jsonl'
+    try:
+        from transformers import AutoTokenizer
+    except ImportError:
+        pytest.importorskip('transformers')
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m')
 
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
@@ -910,6 +924,10 @@ def test_schema_task_dataloader_sentpiece_tokenizer(dataset_uri, tmp_path):
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
+    try:
+        from transformers import AutoTokenizer
+    except ImportError:
+        pytest.importorskip('transformers')
     tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b', use_fast=False)
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 2
@@ -957,6 +975,10 @@ def test_lm_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
+    try:
+        from transformers import AutoTokenizer
+    except ImportError:
+        pytest.importorskip('transformers')
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 2
@@ -998,6 +1020,10 @@ def test_mc_task_dataloader_opt_tokenizer(dataset_uri, num_fewshot, tmp_path):
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
+    try:
+        from transformers import AutoTokenizer
+    except ImportError:
+        pytest.importorskip('transformers')
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
 
     dataset_uri = f'{local_data}/{dataset_uri}'
@@ -1048,6 +1074,10 @@ def test_mc_split_batch(dataset_uri, num_fewshot, tmp_path):
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
+    try:
+        from transformers import AutoTokenizer
+    except ImportError:
+        pytest.importorskip('transformers')
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)
 
     dataset_uri = f'{local_data}/{dataset_uri}'
@@ -1107,6 +1137,10 @@ def test_qa_split_batch(dataset_uri, tmp_path):
     pytest.importorskip('datasets')
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
+    try:
+        from transformers import AutoTokenizer
+    except ImportError:
+        pytest.importorskip('transformers')
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m')
 
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
@@ -1319,6 +1353,10 @@ def test_code_eval_split_batch(dataset_uri, tmp_path):
     pytest.importorskip('datasets')
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
+    try:
+        from transformers import AutoTokenizer
+    except ImportError:
+        pytest.importorskip('transformers')
     tokenizer = AutoTokenizer.from_pretrained('EleutherAI/gpt-neox-20b')
 
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
@@ -1389,6 +1427,10 @@ def test_code_eval_sentpiece_dataloader(dataset_uri, tmp_path, num_fewshot, prom
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
+    try:
+        from transformers import AutoTokenizer
+    except ImportError:
+        pytest.importorskip('transformers')
     tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b')
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 9
@@ -1475,6 +1517,10 @@ def test_code_eval_test_cases(dataset_uri, tmp_path):
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
+    try:
+        from transformers import AutoTokenizer
+    except ImportError:
+        pytest.importorskip('transformers')
     tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b')
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 9
@@ -1523,6 +1569,10 @@ def test_code_eval_pass_at_k_validity(dataset_uri, tmp_path):
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
+    try:
+        from transformers import AutoTokenizer
+    except ImportError:
+        pytest.importorskip('transformers')
     tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b')
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 9
@@ -1554,6 +1604,10 @@ def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_st
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
+    try:
+        from transformers import AutoTokenizer
+    except ImportError:
+        pytest.importorskip('transformers')
     tokenizer = AutoTokenizer.from_pretrained('mosaicml/mpt-7b')
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 9
@@ -1660,6 +1714,10 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
 
     evaluator = Evaluator(label='lambada', dataloader=dl, metric_names=['InContextLearningLMAccuracy'])
 
+    try:
+        import transformers
+    except ImportError:
+        pytest.importorskip('transformers')
     config = transformers.AutoConfig.from_pretrained('EleutherAI/gpt-neo-125M')
     model = transformers.AutoModelForCausalLM.from_config(config)
     model = HuggingFaceModel(
@@ -1832,6 +1890,10 @@ def test_qa_task_evaluation_opt_tokenizer(device, world_size, num_fewshot, datas
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
+    try:
+        from transformers import AutoTokenizer
+    except ImportError:
+        pytest.importorskip('transformers')
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m')
     batch_size = 2
 
@@ -1852,6 +1914,10 @@ def test_qa_task_evaluation_opt_tokenizer(device, world_size, num_fewshot, datas
     )
 
     evaluator = Evaluator(label='triviaqa', dataloader=dl, metric_names=['InContextLearningQAAccuracy'])
+    try:
+        from transformers import AutoModelForCausalLM
+    except ImportError:
+        pytest.importorskip('transformers')
     model = HuggingFaceModel(
         model=AutoModelForCausalLM.from_pretrained('facebook/opt-125m'),
         tokenizer=tokenizer,
@@ -1875,6 +1941,10 @@ def test_qa_task_evaluation_with_cot_opt_tokenizer(device, world_size, num_fewsh
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
+    try:
+        from transformers import AutoTokenizer
+    except ImportError:
+        pytest.importorskip('transformers')
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m')
     batch_size = 2
 
@@ -1896,6 +1966,10 @@ def test_qa_task_evaluation_with_cot_opt_tokenizer(device, world_size, num_fewsh
     )
 
     evaluator = Evaluator(label='gsm8k', dataloader=dl, metric_names=['InContextLearningQAAccuracy'])
+    try:
+        from transformers import AutoModelForCausalLM
+    except ImportError:
+        pytest.importorskip('transformers')
     model = HuggingFaceModel(
         model=AutoModelForCausalLM.from_pretrained('facebook/opt-125m'),
         tokenizer=tokenizer,
@@ -2023,6 +2097,10 @@ def test_code_eval_microbatching(monkeypatch, device, world_size, num_fewshot, d
     in_memory_logger = InMemoryLogger()  # track the logged metrics in the in_memory_logger
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
+    try:
+        from transformers import AutoTokenizer
+    except ImportError:
+        pytest.importorskip('transformers')
     tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m')
     batch_size = 2
 
@@ -2047,6 +2125,10 @@ def test_code_eval_microbatching(monkeypatch, device, world_size, num_fewshot, d
                           dataloader=dl,
                           metric_names=['InContextLearningCodeEvalAccuracy'],
                           device_eval_microbatch_size=1)
+    try:
+        from transformers import AutoModelForCausalLM
+    except ImportError:
+        pytest.importorskip('transformers')
     model = HuggingFaceModel(
         model=AutoModelForCausalLM.from_pretrained('facebook/opt-125m'),
         tokenizer=tokenizer,

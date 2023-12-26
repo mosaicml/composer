@@ -395,7 +395,7 @@ class InContextLearningDataset(Dataset):
             ctxt = f'{ctxt}{self._get_answer_from_example(example, in_context=add_answer)}'
         return ctxt
 
-    def _get_answer_from_example(self, example: Dict[str, Any], in_context=False) -> str:
+    def _get_answer_from_example(self, example: Dict[str, Any], in_context: bool = False) -> str:
         """
         Returns the answer from the example.
         Args:
