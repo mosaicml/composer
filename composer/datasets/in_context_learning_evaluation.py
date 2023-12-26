@@ -959,7 +959,7 @@ class InContextLearningCodeEvalDataset(Dataset):
                  pass_at_k: int = 1,
                  top_p: Optional[float] = 0.95,
                  top_k: Optional[int] = 40,
-                 early_stopping_criteria: Optional[List[str]] = None):
+                 early_stopping_criteria: Optional[List[str]] = None,):
         if tokenizer.eos_token_id is None:
             raise ValueError('`InContextLearningCodeEvalDataset` tokenizer must have non-null `eos_token_id`')
         try:
