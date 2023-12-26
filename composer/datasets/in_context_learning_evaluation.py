@@ -331,7 +331,9 @@ class InContextLearningQATaskDataset(Dataset):
         # Don't split kwargs that don't change
         # Normally split torch tensors
         # List split lists of strings
-        no_split = ['mode', 'generation_length', 'generation_kwargs', 'cot_delimiter']
+        no_split = [
+            'mode', 'generation_length', 'generation_kwargs', 'cot_delimiter', 'do_normalization', 'stopping_criteria'
+        ]
         normal_split = ['input_ids', 'attention_mask']
         list_split = ['labels']
         chunked = {}
