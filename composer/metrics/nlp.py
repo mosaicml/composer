@@ -336,7 +336,7 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
 
             final_answer = sample_output
             if stopping_criteria is not None and len(stopping_criteria) > 0:
-                final_answer = re.split('|'.join(stopping_criteria))[0]
+                final_answer = re.split('|'.join(stopping_criteria), final_answer)[0]
 
             if cot_delimiter is not None and len(cot_delimiter) > 0:
                 final_answer = final_answer.split(cot_delimiter)[-1]
@@ -346,9 +346,8 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
                 cleaned_sample_labels = {self.normalize_answer(label) for label in sample_labels}
             else:
                 cleaned_final_answer = final_answer
-                cleaned_sample_labels = {label for label in sample_labels}
-                
-        
+                cleaned_sample_labels = set(sample_labels)
+
             if any(cleaned_final_answer.startswith(label) for label in cleaned_sample_labels):
                 self.correct += torch.tensor(1.0)
                 correct = True
