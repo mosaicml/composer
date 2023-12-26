@@ -271,7 +271,7 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
             batch = {}
         cot_delimiter = batch.get('cot_delimiter', '')
         do_normalization = batch.get('do_normalization', True)
-        stopping_criteria = batch.get('stopping_critiera', None)
+        stopping_criteria = batch.get('stopping_criteria', None)
         for sample_output, sample_labels in zip(outputs, labels):
             final_answer = sample_output
 
