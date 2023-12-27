@@ -174,7 +174,6 @@ def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is
 
 try:
     import transformers
-    del transformers  # unused
 except ImportError as e:
     raise MissingConditionalImportError(extra_deps_group='nlp',
                                         conda_package='transformers',
