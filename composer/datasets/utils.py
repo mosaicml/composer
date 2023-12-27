@@ -15,8 +15,7 @@ from torchvision import transforms
 from torchvision.datasets import VisionDataset
 
 from composer.core import Batch
-from composer.utils import MissingConditionalImportError
-
+import transformers
 if TYPE_CHECKING:
     import transformers
 
@@ -172,14 +171,6 @@ def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is
             log.warning(transform_added_logstring)
 
 
-# try:
-#     import transformers
-# except ImportError as e:
-#     raise MissingConditionalImportError(extra_deps_group='nlp',
-#                                         conda_package='transformers',
-#                                         conda_channel='conda-forge') from e
-
-
 class MultiTokenEOSCriteria(transformers.StoppingCriteria):
     """Criteria to stop on the specified multi-token sequence.
     Slightly modified from: https://github.com/EleutherAI/lm-evaluation-harness/blob/78545d42f2ca95c6fe0ed220d456eeb94f4485e9/lm_eval/utils.py#L614-L649
@@ -226,12 +217,6 @@ def stop_sequences_criteria(
     stop_sequences: List[str],
     batch_size: int,
 ) -> transformers.StoppingCriteriaList:
-    try:
-        import transformers
-    except ImportError as e:
-        raise MissingConditionalImportError(extra_deps_group='nlp',
-                                            conda_package='transformers',
-                                            conda_channel='conda-forge') from e
     return transformers.StoppingCriteriaList([
         *[MultiTokenEOSCriteria(sequence, tokenizer, batch_size) for sequence in stop_sequences],
     ])
