@@ -944,22 +944,24 @@ class InContextLearningCodeEvalDataset(Dataset):
         top_k: top_k sampling parameter for number of samples to consider
     """
 
-    def __init__(self,
-                 dataset_uri: str,
-                 tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
-                 max_seq_len: int,
-                 pad_tok_id: int,
-                 num_fewshot: int,
-                 prompt_string: str,
-                 example_delimiter: str,
-                 destination_path: str,
-                 code_prelimiter: str,
-                 fewshot_random_seed: int,
-                 generations_per_sample: int,
-                 pass_at_k: int = 1,
-                 top_p: Optional[float] = 0.95,
-                 top_k: Optional[int] = 40,
-                 early_stopping_criteria: Optional[List[str]] = None,):
+    def __init__(
+        self,
+        dataset_uri: str,
+        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
+        max_seq_len: int,
+        pad_tok_id: int,
+        num_fewshot: int,
+        prompt_string: str,
+        example_delimiter: str,
+        destination_path: str,
+        code_prelimiter: str,
+        fewshot_random_seed: int,
+        generations_per_sample: int,
+        pass_at_k: int = 1,
+        top_p: Optional[float] = 0.95,
+        top_k: Optional[int] = 40,
+        early_stopping_criteria: Optional[List[str]] = None,
+    ):
         if tokenizer.eos_token_id is None:
             raise ValueError('`InContextLearningCodeEvalDataset` tokenizer must have non-null `eos_token_id`')
         try:
