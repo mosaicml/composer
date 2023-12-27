@@ -6,7 +6,7 @@
 import logging
 import textwrap
 import warnings
-from typing import Callable, List, Tuple, Union
+from typing import TYPE_CHECKING, Callable, List, Tuple, Union
 
 import numpy as np
 import torch
@@ -16,6 +16,9 @@ from torchvision import transforms
 from torchvision.datasets import VisionDataset
 
 from composer.core import Batch
+
+if TYPE_CHECKING:
+    import transformers
 
 __all__ = [
     'add_vision_dataset_transform',
