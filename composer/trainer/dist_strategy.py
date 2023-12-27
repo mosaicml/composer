@@ -271,11 +271,12 @@ def prepare_fsdp_module(
         kwargs['use_orig_params'] = fsdp_config['use_orig_params']
         print(version.parse(torch.__version__))
         if version.parse(torch.__version__.split('.dev')[0]) >= version.parse('2.2.0'):
-            from torch.distributed._tensor import init_device_mesh
-            kwargs['device_mesh'] = init_device_mesh(
-            'cuda',
-            (dist.get_world_size(),),
-        )
+            if 'device_mesh' in fsdp_config:
+                from torch.distributed._tensor import init_device_mesh
+                kwargs['device_mesh'] = init_device_mesh(
+                    'cuda',
+                    tuple(fsdp_config['device_mesh']),
+                )
 
     # necessary variables for optimizers with multiple param groups in FSDP
     num_param_groups = None
