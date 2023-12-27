@@ -172,12 +172,12 @@ def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is
             log.warning(transform_added_logstring)
 
 
-try:
-    import transformers
-except ImportError as e:
-    raise MissingConditionalImportError(extra_deps_group='nlp',
-                                        conda_package='transformers',
-                                        conda_channel='conda-forge') from e
+# try:
+#     import transformers
+# except ImportError as e:
+#     raise MissingConditionalImportError(extra_deps_group='nlp',
+#                                         conda_package='transformers',
+#                                         conda_channel='conda-forge') from e
 
 
 class MultiTokenEOSCriteria(transformers.StoppingCriteria):
@@ -226,6 +226,12 @@ def stop_sequences_criteria(
     stop_sequences: List[str],
     batch_size: int,
 ) -> transformers.StoppingCriteriaList:
+    try:
+        import transformers
+    except ImportError as e:
+        raise MissingConditionalImportError(extra_deps_group='nlp',
+                                            conda_package='transformers',
+                                            conda_channel='conda-forge') from e
     return transformers.StoppingCriteriaList([
         *[MultiTokenEOSCriteria(sequence, tokenizer, batch_size) for sequence in stop_sequences],
     ])
