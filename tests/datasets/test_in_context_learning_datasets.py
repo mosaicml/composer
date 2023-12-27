@@ -522,7 +522,6 @@ def test_qa_task_dataloader_w_null_eos(dataset_uri, tiny_gpt2_tokenizer, tmp_pat
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 4
     seqlen = 512
-    # empirical number from the small test dataset
     tiny_gpt2_tokenizer.eos_token_id = None
     with pytest.raises(ValueError):
         _ = get_icl_task_dataloader('question_answering',
