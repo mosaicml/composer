@@ -10,12 +10,12 @@ from typing import TYPE_CHECKING, Callable, List, Tuple, Union
 
 import numpy as np
 import torch
-import transformers
 from PIL import Image
 from torchvision import transforms
 from torchvision.datasets import VisionDataset
 
 from composer.core import Batch
+from composer.utils import MissingConditionalImportError
 
 if TYPE_CHECKING:
     import transformers
@@ -170,6 +170,15 @@ def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is
         else:
             dataset.transform = transforms.Compose([dataset.transform, transform])
             log.warning(transform_added_logstring)
+
+
+try:
+    import transformers
+    del transformers  # unused
+except ImportError as e:
+    raise MissingConditionalImportError(extra_deps_group='nlp',
+                                        conda_package='transformers',
+                                        conda_channel='conda-forge') from e
 
 
 class MultiTokenEOSCriteria(transformers.StoppingCriteria):
