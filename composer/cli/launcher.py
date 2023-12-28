@@ -19,6 +19,7 @@ from typing import Any, Dict, List
 
 import psutil
 import torch
+from regex import E
 
 import composer
 from composer.utils import get_free_tcp_port
@@ -27,10 +28,6 @@ from composer.utils.json_log_formatter import JsonLogFormatter
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
-handler = logging.StreamHandler()
-handler.setFormatter(JsonLogFormatter())
-log.addHandler(handler)
 
 
 def _get_parser():
@@ -269,72 +266,69 @@ def _launch_processes(
     training_script_args: List[Any],
     processes: Dict[int, subprocess.Popen],
 ):
-    try:
-        log.info('Starting distributed environment on local node for global_rank(%s-%s)', base_rank, base_rank + nproc - 1)
-        log.info('Distributed KV store: tcp://%s:%s', master_addr, master_port)
+    log.info('Starting distributed environment on local node for global_rank(%s-%s)', base_rank, base_rank + nproc - 1)
+    log.info('Distributed KV store: tcp://%s:%s', master_addr, master_port)
 
-        for local_rank in range(nproc):
-            global_rank = base_rank + local_rank
-            if command_mode and module_mode:
-                raise ValueError('Either `command_mode` or `module_mode` should be set, but not both.')
-            cmd = []
-            if not command_mode:
-                cmd.append(sys.executable)
-            if module_mode:
-                cmd.append('-m')
+    for local_rank in range(nproc):
+        global_rank = base_rank + local_rank
+        if command_mode and module_mode:
+            raise ValueError('Either `command_mode` or `module_mode` should be set, but not both.')
+        cmd = []
+        if not command_mode:
+            cmd.append(sys.executable)
+        if module_mode:
+            cmd.append('-m')
 
-            cmd.append(training_script)
+        cmd.append(training_script)
 
-            # Update the env with the distributed variables
-            with _patch_env(
-                    RANK=str(global_rank),
-                    WORLD_SIZE=str(world_size),
-                    LOCAL_RANK=str(local_rank),
-                    LOCAL_WORLD_SIZE=str(nproc),
-                    NODE_RANK=str(node_rank),
-                    MASTER_ADDR=master_addr,
-                    MASTER_PORT=str(master_port),
-                    PYTHONUNBUFFERED='1',
-                    NCCL_ASYNC_ERROR_HANDLING='1',
-            ):
-                # Populate the distributed variables in all launcher args
-                for arg in training_script_args:
-                    cmd.append(os.path.expandvars(os.path.expanduser(arg)))
+        # Update the env with the distributed variables
+        with _patch_env(
+                RANK=str(global_rank),
+                WORLD_SIZE=str(world_size),
+                LOCAL_RANK=str(local_rank),
+                LOCAL_WORLD_SIZE=str(nproc),
+                NODE_RANK=str(node_rank),
+                MASTER_ADDR=master_addr,
+                MASTER_PORT=str(master_port),
+                PYTHONUNBUFFERED='1',
+                NCCL_ASYNC_ERROR_HANDLING='1',
+        ):
+            # Populate the distributed variables in all launcher args
+            for arg in training_script_args:
+                cmd.append(os.path.expandvars(os.path.expanduser(arg)))
 
-                log.info('Launching process for local_rank(%s), global_rank(%s) with command(%s)', local_rank, global_rank,
-                        cmd)
+            log.info('Launching process for local_rank(%s), global_rank(%s) with command(%s)', local_rank, global_rank,
+                     cmd)
 
-                if local_rank == 0:
-                    process = subprocess.Popen(
-                        cmd,
-                        text=True,
+            if local_rank == 0:
+                process = subprocess.Popen(
+                    cmd,
+                    text=True,
+                )
+            else:
+
+                def _get_file(format: str):
+                    filename = format.format(
+                        rank=global_rank,
+                        world_size=world_size,
+                        local_rank=local_rank,
+                        local_world_size=nproc,
+                        node_rank=node_rank,
                     )
-                else:
-                    def _get_file(format: str):
-                        filename = format.format(
-                            rank=global_rank,
-                            world_size=world_size,
-                            local_rank=local_rank,
-                            local_world_size=nproc,
-                            node_rank=node_rank,
-                        )
-                        return open(filename, 'x+')
+                    return open(filename, 'x+')
 
-                    stderr_file = _get_file(stderr_file_format)
-                    stdout_file = _get_file(stdout_file_format)
+                stderr_file = _get_file(stderr_file_format)
+                stdout_file = _get_file(stdout_file_format)
 
-                    process = subprocess.Popen(
-                        cmd,
-                        stdout=stdout_file,
-                        stderr=stderr_file,
-                        text=True,
-                    )
-                    process.stderr = stderr_file
-                    process.stdout = stdout_file
-                processes[global_rank] = process
-    except Exception as e:
-        log.info(f'Exception occurred: {e}')
-        log.error("Traceback (most recent call last):\n" + "".join(traceback.format_exc()))
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=stdout_file,
+                    stderr=stderr_file,
+                    text=True,
+                )
+                process.stderr = stderr_file
+                process.stdout = stdout_file
+            processes[global_rank] = process
 
 
 def _monitor_processes(processes: Dict[int, subprocess.Popen]):
@@ -395,7 +389,6 @@ def _print_process_exit_status(global_rank: int, process: subprocess.Popen):
             exc.stderr,
             f'----------End global rank {global_rank} STDERR----------',
         ])
-        log.error(stderr)
     print('\n'.join(error_msg))
 
 
@@ -471,12 +464,11 @@ def main():
     """Entrypoint into the Composer CLI."""
     args = _parse_args()
 
-    # logging.basicConfig()
-    # log.setLevel(logging.INFO if args.verbose else logging.WARN)
-    # for handler in logging.root.handlers:
-    #     if hasattr(handler, 'stream') and handler.stream in [sys.stderr, sys.stdout]:
-    #         handler.setFormatter(JsonLogFormatter())
-    # log.setLevel(logging.DEBUG)
+    logging.basicConfig()
+    log.setLevel(logging.INFO if args.verbose else logging.WARN)
+    formatter = JsonLogFormatter()
+    for handler in log.handlers:
+        handler.setFormatter(formatter)
 
     processes = {}
 
@@ -487,7 +479,6 @@ def main():
         args.stderr = f'{log_tmpdir.name}/rank{{rank}}.stderr.txt'
 
     try:
-        log.info('Launching process')
         _launch_processes(nproc=args.nproc,
                           world_size=args.world_size,
                           base_rank=args.base_rank,
@@ -501,18 +492,16 @@ def main():
                           training_script=args.training_script,
                           training_script_args=args.training_script_args,
                           processes=processes)
-        log.info('Monitoring process')
         _monitor_processes(processes)
-    except Exception:
+    except Exception as e:
         # Print the exception first, then kill the training processes, since killing
         # may take up to CLEANUP_TIMEOUT seconds, and the user should know immediately
         # what failed. No need to re-raise the exception, as `aggregate_process_returncode`
         # will return an appropriate error code, which will cause the script to exit.
-        # log.error("Unhandled exception occurred", exc_info=True)
-        # traceback_str = traceback.format_exc()
-        # log.error(f"Traceback: {traceback_str}")
-        traceback.print_exc()
-        
+        # traceback.print_exc()
+        log.exception('Exception: %s', e)
+        log.error(traceback.format_exc())
+        print('Killing training processes')
     finally:
         _cleanup_processes(processes)
         log_tmpdir.cleanup()
