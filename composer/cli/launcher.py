@@ -6,6 +6,7 @@
 
 import contextlib
 import datetime
+import json
 import logging
 import os
 import signal
@@ -19,6 +20,7 @@ from typing import Any, Dict, List
 
 import psutil
 import torch
+from regex import E
 
 import composer
 from composer.utils import get_free_tcp_port
@@ -464,11 +466,14 @@ def main():
     args = _parse_args()
 
     logging.basicConfig()
-    # log.setLevel(logging.INFO if args.verbose else logging.WARN)
-    log.setLevel(logging.DEBUG)
-    formatter = JsonLogFormatter()
-    for handler in log.handlers:
-        handler.setFormatter(formatter)
+    log.setLevel(logging.INFO if args.verbose else logging.WARN)
+    json_log_formatter = JsonLogFormatter()
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.setFormatter(json_log_formatter)
+    log.addHandler(stderr_handler)
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setFormatter(json_log_formatter)
+    log.addHandler(stdout_handler)
 
     processes = {}
 
