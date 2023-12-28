@@ -19,7 +19,6 @@ from typing import Any, Dict, List
 
 import psutil
 import torch
-from regex import E
 
 import composer
 from composer.utils import get_free_tcp_port
@@ -465,7 +464,8 @@ def main():
     args = _parse_args()
 
     logging.basicConfig()
-    log.setLevel(logging.INFO if args.verbose else logging.WARN)
+    # log.setLevel(logging.INFO if args.verbose else logging.WARN)
+    log.setLevel(logging.DEBUG)
     formatter = JsonLogFormatter()
     for handler in log.handlers:
         handler.setFormatter(formatter)
