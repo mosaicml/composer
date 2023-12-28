@@ -25,6 +25,27 @@ from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDa
                                     ShardingStrategy)
 from torch.distributed.fsdp._fsdp_extensions import _ext_pre_load_state_dict_transform
 from torch.distributed.utils import _replace_by_prefix
+from torch.distributed.fsdp.flat_param import FlatParamHandle, HandleTrainingState
+from torch.distributed.distributed_c10d import get_process_group_ranks
+from torch.distributed.fsdp._runtime_utils import (_validate_and_get_hybrid_shard_state,
+                                                HOMOGENEOUS_ATTR_NAMES,
+                                                _init_device_mesh,
+                                                _unshard,
+                                                _PrefetchMode,
+                                                _prefetch_handle,
+                                                _lazy_init,
+                                                _root_cast_forward_input,
+                                                _cast_buffers_to_dtype_and_device,
+                                                _get_buffers_and_dtypes_for_computation,
+                                                _reset_flat_param_grad_info_if_needed,
+                                                _register_post_backward_final_callback,
+                                                _get_handle_to_prefetch
+                                                )
+from torch.distributed.utils import _p_assert, _to_kwargs
+from torch.distributed.fsdp._init_utils import HYBRID_SHARDING_STRATEGIES
+from torch.distributed.fsdp._common_utils import (_is_composable, TrainingState,
+                                                _assert_in_training_states,
+                                                )
 
 from composer.core import Precision
 from composer.utils import dist
@@ -33,29 +54,6 @@ if TYPE_CHECKING:
     if version.parse(torch.__version__) >= version.parse('2.0.1') and version.parse(
             torch.__version__) < version.parse('2.0.2'):
         from torch.distributed.fsdp._common_utils import _FSDPState
-    if version.parse(torch.__version__) >= version.parse('2.1.0') and version.parse(
-            torch.__version__) < version.parse('2.2.0'):
-        from torch.distributed.fsdp.flat_param import FlatParamHandle, HandleTrainingState
-        from torch.distributed.distributed_c10d import get_process_group_ranks
-        from torch.distributed.fsdp._runtime_utils import (_validate_and_get_hybrid_shard_state,
-                                                        HOMOGENEOUS_ATTR_NAMES,
-                                                        _init_device_mesh,
-                                                        _unshard,
-                                                        _PrefetchMode,
-                                                        _prefetch_handle,
-                                                        _lazy_init,
-                                                        _root_cast_forward_input,
-                                                        _cast_buffers_to_dtype_and_device,
-                                                        _get_buffers_and_dtypes_for_computation,
-                                                        _reset_flat_param_grad_info_if_needed,
-                                                        _register_post_backward_final_callback,
-                                                        _get_handle_to_prefetch
-                                                        )
-        from torch.distributed.utils import _p_assert, _to_kwargs
-        from torch.distributed.fsdp._init_utils import HYBRID_SHARDING_STRATEGIES
-        from torch.distributed.fsdp._common_utils import (_is_composable, TrainingState,
-                                                        _assert_in_training_states,
-                                                        )
 
 log = logging.getLogger(__name__)
 
