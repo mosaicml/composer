@@ -57,6 +57,11 @@ def patch_pytorch():
     elif version.parse(torch.__version__) < version.parse('2.2.0'):
         # Monkey path for torch < 2.2.0 ie torch == 2.1.1, 2.1.2
 
+        # Monkey patch __init__ where __init__ calls the custom _auto_wrap fn
+        from composer.trainer.mosaic_fsdp_utils import init_fn_t2p2p0
+
+        FullyShardedDataParallel.__init__ = init_fn_t2p2p0  # type: ignore
+
         # Allow 2D HSDP
         from torch.distributed.fsdp import _runtime_utils
         _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
