@@ -27,6 +27,10 @@ from composer.utils.json_log_formatter import JsonLogFormatter
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
 
 log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+handler = logging.StreamHandler()
+handler.setFormatter(JsonLogFormatter())
+log.addHandler(handler)
 
 
 def _get_parser():
@@ -467,12 +471,12 @@ def main():
     """Entrypoint into the Composer CLI."""
     args = _parse_args()
 
-    logging.basicConfig()
+    # logging.basicConfig()
     # log.setLevel(logging.INFO if args.verbose else logging.WARN)
-    for handler in logging.root.handlers:
-        if hasattr(handler, 'stream') and handler.stream in [sys.stderr, sys.stdout]:
-            handler.setFormatter(JsonLogFormatter())
-    log.setLevel(logging.DEBUG)
+    # for handler in logging.root.handlers:
+    #     if hasattr(handler, 'stream') and handler.stream in [sys.stderr, sys.stdout]:
+    #         handler.setFormatter(JsonLogFormatter())
+    # log.setLevel(logging.DEBUG)
 
     processes = {}
 
@@ -499,13 +503,15 @@ def main():
                           processes=processes)
         log.info('Monitoring process')
         _monitor_processes(processes)
-    except Exception as e:
+    except Exception:
         # Print the exception first, then kill the training processes, since killing
         # may take up to CLEANUP_TIMEOUT seconds, and the user should know immediately
         # what failed. No need to re-raise the exception, as `aggregate_process_returncode`
         # will return an appropriate error code, which will cause the script to exit.
-        log.exception(f'Exception occurred: {e}')
-        #traceback.print_exc()
+        # log.error("Unhandled exception occurred", exc_info=True)
+        # traceback_str = traceback.format_exc()
+        # log.error(f"Traceback: {traceback_str}")
+        traceback.print_exc()
         
     finally:
         _cleanup_processes(processes)
