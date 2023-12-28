@@ -6,7 +6,6 @@
 
 import contextlib
 import datetime
-import json
 import logging
 import os
 import signal
@@ -20,7 +19,6 @@ from typing import Any, Dict, List
 
 import psutil
 import torch
-from regex import E
 
 import composer
 from composer.utils import get_free_tcp_port
@@ -504,9 +502,9 @@ def main():
         # what failed. No need to re-raise the exception, as `aggregate_process_returncode`
         # will return an appropriate error code, which will cause the script to exit.
         # traceback.print_exc()
-        log.exception('Exception: %s', e)
-        log.error(traceback.format_exc())
-        print('Killing training processes')
+        # log.exception('Exception: %s', e)
+        # log.error(traceback.format_exc())
+        # print('Killing training processes')
     finally:
         _cleanup_processes(processes)
         log_tmpdir.cleanup()
