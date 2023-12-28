@@ -43,8 +43,8 @@ from torch.distributed.fsdp._runtime_utils import (_validate_and_get_hybrid_shar
                                                 )
 from torch.distributed.utils import _p_assert, _to_kwargs
 from torch.distributed.fsdp._init_utils import HYBRID_SHARDING_STRATEGIES
-from torch.distributed.fsdp._common_utils import (_is_composable, TrainingState,
-                                                _assert_in_training_states,
+from torch.distributed.fsdp._common_utils import (_is_composable, TrainingState, _FSDPState,
+                                                _assert_in_training_states, 
                                                 )
 
 from composer.core import Precision
