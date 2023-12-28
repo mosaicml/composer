@@ -955,11 +955,14 @@ def save_checkpoint(
         import torch.distributed.checkpoint as dist_cp
 
         log.debug('Saving sharded checkpoints to %s...', save_filename)
-        dist_cp.save_state_dict(
+        from composer.utils import checkpoint_debug
+        log.warning('starting pytorch save state dict')
+        checkpoint_debug.save_state_dict(
             state_dict=state_dict,
             storage_writer=dist_cp.FileSystemWriter(dirname),
             planner=save_planner,
         )
+        log.warning('finished pytorch save state dict')
 
     # Only rank 0 saves the state_dict unless you are using sharded checkpointing with torch <2.0
     elif dist.get_global_rank() == 0 or state.fsdp_sharded_state_dict_enabled:
@@ -976,7 +979,9 @@ def save_checkpoint(
     else:
         log.debug(f'Only rank 0 is saving a checkpoint, so rank {dist.get_global_rank()} skips checkpointing.')
 
+    log.warning('starting dist barrier')
     dist.barrier()  # ensure all ranks saved their files
+    log.warning('finished dist barrier')
 
     if dist.get_global_rank() == 0 or is_deepspeed or state.fsdp_sharded_state_dict_enabled:
         assert os.path.exists(save_filename), 'Expected file to have been saved.'
