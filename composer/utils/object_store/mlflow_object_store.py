@@ -72,13 +72,12 @@ class MLFlowObjectStore(ObjectStore):
         Using this object store requires setting `DATABRICKS_HOST` and `DATABRICKS_TOKEN`
         environment variables with the right credentials.
 
-        Because Databricks-managed MLFlow artifact URIs are stored in DBFS, artifact/object names are relative to an
-        artifacts root directory for the experiment/run in DBFS, `databricks/mlflow-tracking/<experiment_id>/<run_id>`.
-        The URI format is inconsistent with that of other object stores, so the full DBFS path is sometimes used as the
-        object name in upstream code that uses this class.
-
-        For simplicity in such upstream code, :class:`MLFlowObjectStore` accepts both relative MLFlow artifact paths and
-        absolute DBFS paths as object names. If an object name takes the form of
+        Unlike other object stores, the DBFS URI scheme for MLFlow artifacts has no bucket, and the path is prefixed
+        with the artifacts root directory for a given experiment/run,
+        `databricks/mlflow-tracking/<experiment_id>/<run_id>/`. However, object names are also sometimes passed by
+        upstream code as artifact paths relative to this root, rather than the full path. To keep upstream code simple,
+        :class:`MLFlowObjectStore` accepts both relative MLFlow artifact paths and absolute DBFS paths as object names.
+        If an object name takes the form of
         `databricks/mlflow-tracking/<experiment_id>/<run_id>/artifacts/<artifact_path>`,
         it is assumed to be an absolute DBFS path, and the `<artifact_path>` is used when uploading objects to MLFlow.
         Otherwise, the object name is assumed to be a relative MLFlow artifact path, and the full provided name will be
