@@ -70,7 +70,8 @@ while True:
         break
     else:
         assert end != -1, 'there should be a balanced number of start and ends'
-        long_description = long_description[:start] + long_description[end + len(end_tag):]
+        long_description = long_description[:start] + \
+            long_description[end + len(end_tag):]
 
 install_requires = [
     'pyyaml>=6.0,<7',
@@ -223,7 +224,7 @@ extra_deps['onnx'] = [
 ]
 
 extra_deps['mlflow'] = [
-    'mlflow>=2.9.0,<3.0',
+    'mlflow>=2.9.2,<3.0',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
