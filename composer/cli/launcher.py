@@ -494,7 +494,7 @@ def main():
                           training_script_args=args.training_script_args,
                           processes=processes)
         _monitor_processes(processes)
-    except Exception as e:
+    except:
         # Print the exception first, then kill the training processes, since killing
         # may take up to CLEANUP_TIMEOUT seconds, and the user should know immediately
         # what failed. No need to re-raise the exception, as `aggregate_process_returncode`
@@ -503,6 +503,7 @@ def main():
         # log.exception('Exception: %s', e)
         # log.error(traceback.format_exc())
         # print('Killing training processes')
+        print("hello")
     finally:
         _cleanup_processes(processes)
         log_tmpdir.cleanup()
