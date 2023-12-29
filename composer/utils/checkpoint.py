@@ -957,10 +957,16 @@ def save_checkpoint(
         log.debug('Saving sharded checkpoints to %s...', save_filename)
         from composer.utils import checkpoint_debug
         log.warning('starting pytorch save state dict')
+        device_mesh = state.fsdp_device_mesh
+        if device_mesh is not None:
+            process_group = device_mesh.get_group(1)
+        else:
+            process_group = None
         checkpoint_debug.save_state_dict(
             state_dict=state_dict,
             storage_writer=dist_cp.FileSystemWriter(dirname),
             planner=save_planner,
+            process_group=process_group,
         )
         log.warning('finished pytorch save state dict')
 

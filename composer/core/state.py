@@ -793,6 +793,13 @@ class State(Serializable):
         return self.fsdp_config is not None and self.fsdp_enabled and self.fsdp_state_dict_type in ['sharded', 'local']
 
     @property
+    def fsdp_device_mesh(self):
+        if self.fsdp_enabled:
+            return self.model._device_map
+        else:
+            return None
+
+    @property
     def load_fsdp_monolith_rank0_only(self):
         return self.fsdp_config is not None and self.fsdp_auto_wrap and self.fsdp_config[
             'state_dict_type'] == 'full' and self.fsdp_config['load_monolith_rank0_only'] == True
@@ -897,12 +904,12 @@ class State(Serializable):
             if self.fsdp_state_dict_type not in ['full', 'sharded']:
                 raise NotImplementedError(
                     textwrap.dedent(
-                        f"fsdp_state_dict_type={self.fsdp_state_dict_type} is not supported for a torch version > 2.1.2." 
+                        f"fsdp_state_dict_type={self.fsdp_state_dict_type} is not supported for a torch version > 2.1.2."
                         f"You are using {version.parse(torch.__version__)}"
-                    )  
+                    )
                 )
 
-            optimizer = ensure_tuple(self.optimizers)[0]         
+            optimizer = ensure_tuple(self.optimizers)[0]
             model_state_dict, optim_state_dict = get_state_dict(model=self.model,
                                                                 optimizers=([] if model_only else optimizer),
                                                                 submodules=None,
@@ -1245,10 +1252,10 @@ class State(Serializable):
                                         exclude_algorithms: Optional[List[str]] = None,
                                         algorithm_passes: Optional[List[AlgorithmPass]] = None,
                                         load_model_only: bool = False):
-        # Note: In this case required algorithms not applied. 
+        # Note: In this case required algorithms not applied.
         if version.parse(torch.__version__) > version.parse("2.1.2"):
             from torch.distributed.checkpoint.state_dict import set_state_dict, StateDictOptions
-            optimizer = ensure_tuple(self.optimizers)[0]  
+            optimizer = ensure_tuple(self.optimizers)[0]
             set_state_dict(self.model,
                 optimizers=([] if load_model_only else optimizer),
                 model_state_dict=state_dict['model'],
