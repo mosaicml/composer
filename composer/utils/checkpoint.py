@@ -934,8 +934,12 @@ def save_checkpoint(
     if dirname:
         os.makedirs(dirname, exist_ok=True)
 
+    # Only some ranks are meant to save checkpoint and produce a file
+    expect_file = False
+
     # All ranks save for deepspeed
     if is_deepspeed:
+        expect_file = True
         log.debug('Saving deepspeed checkpoints to %s...', save_filename)
         if dist.get_global_rank() == 0:
             with open(save_filename, 'wb') as f:
@@ -953,25 +957,32 @@ def save_checkpoint(
         _validate_save_planner(save_planner)
 
         import torch.distributed.checkpoint as dist_cp
+        from torch.distributed import get_process_group_ranks
 
         log.debug('Saving sharded checkpoints to %s...', save_filename)
-        from composer.utils import checkpoint_debug
         log.warning('starting pytorch save state dict')
         device_mesh = state.fsdp_device_mesh
         if device_mesh is not None:
-            process_group = device_mesh.get_group(1)
+            mesh_pg_1 = device_mesh.get_group(1)
+            mesh_pg_1_ranks = get_process_group_ranks(mesh_pg_1)
+            expect_file = (0 in mesh_pg_1_ranks)
+            log.debug(f'global_rank={dist.get_global_rank()}, {mesh_pg_1_ranks=}, {expect_file=}')
         else:
             process_group = None
-        checkpoint_debug.save_state_dict(
-            state_dict=state_dict,
-            storage_writer=dist_cp.FileSystemWriter(dirname),
-            planner=save_planner,
-            process_group=process_group,
-        )
+            expect_file = True
+
+        if expect_file:
+            dist_cp.save(
+                    state_dict=state_dict,
+                    storage_writer=dist_cp.FileSystemWriter(dirname),
+                    planner=save_planner,
+                    process_group=mesh_pg_1,
+            )
         log.warning('finished pytorch save state dict')
 
     # Only rank 0 saves the state_dict unless you are using sharded checkpointing with torch <2.0
     elif dist.get_global_rank() == 0 or state.fsdp_sharded_state_dict_enabled:
+        expect_file = True
         log_msg = f'Saving sharded checkpoints to {save_filename}...' if state.fsdp_sharded_state_dict_enabled else f'Saving monolithic checkpoint to {save_filename}'
         with open(save_filename, 'wb') as f:
             log.debug(log_msg)
@@ -989,7 +1000,7 @@ def save_checkpoint(
     dist.barrier()  # ensure all ranks saved their files
     log.warning('finished dist barrier')
 
-    if dist.get_global_rank() == 0 or is_deepspeed or state.fsdp_sharded_state_dict_enabled:
+    if expect_file:
         assert os.path.exists(save_filename), 'Expected file to have been saved.'
         return save_filename
     else:

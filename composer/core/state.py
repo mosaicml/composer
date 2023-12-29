@@ -795,7 +795,7 @@ class State(Serializable):
     @property
     def fsdp_device_mesh(self):
         if self.fsdp_enabled:
-            return self.model._device_map
+            return self.model.model._device_mesh
         else:
             return None
 
