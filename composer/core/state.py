@@ -1299,7 +1299,7 @@ class State(Serializable):
                 strict=strict,
                 exclude_algorithms=exclude_algorithms,
                 algorithm_passes=algorithm_passes,
-                load_model_only=('optimizers' in state)
+                load_model_only=(not 'optimizers' in state)
             )
 
         for attribute_name in sorted(state.keys()):  # Sort so all ranks load in the same order
