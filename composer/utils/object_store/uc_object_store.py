@@ -53,7 +53,7 @@ class UCObjectStore(ObjectStore):
         try:
             from databricks.sdk import WorkspaceClient
         except ImportError as e:
-            raise MissingConditionalImportError('databricks', conda_package='databricks-sdk>=0.8.0,<1.0') from e
+            raise MissingConditionalImportError('databricks', conda_package='databricks-sdk>=0.15.0,<1.0') from e
 
         try:
             self.client = WorkspaceClient()

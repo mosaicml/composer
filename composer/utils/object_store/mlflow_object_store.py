@@ -11,15 +11,8 @@ import pathlib
 import uuid
 from typing import Callable, List, Optional, Tuple, Union
 
-import mlflow
-from databricks.sdk import WorkspaceClient
-from mlflow import MlflowClient
-from mlflow.entities import FileInfo
-from mlflow.exceptions import (ABORTED, DATA_LOSS, DEADLINE_EXCEEDED, ENDPOINT_NOT_FOUND, INTERNAL_ERROR, INVALID_STATE,
-                               NOT_FOUND, REQUEST_LIMIT_EXCEEDED, RESOURCE_DOES_NOT_EXIST, RESOURCE_EXHAUSTED,
-                               TEMPORARILY_UNAVAILABLE, ErrorCode, MlflowException)
-
 from composer.utils import dist
+from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
 
 __all__ = ['MLFlowObjectStore']
@@ -32,31 +25,34 @@ DEFAULT_MLFLOW_EXPERIMENT_NAME = 'mlflow-object-store'
 PLACEHOLDER_EXPERIMENT_ID = 'EXPERIMENT_ID'
 PLACEHOLDER_RUN_ID = 'RUN_ID'
 
-# https://github.com/mlflow/mlflow/blob/master/mlflow/exceptions.py for used error codes.
-# https://github.com/mlflow/mlflow/blob/master/mlflow/protos/databricks.proto for code descriptions.
-_RETRYABLE_SERVER_CODES = [
-    ErrorCode.Name(code) for code in [
-        DATA_LOSS,
-        INTERNAL_ERROR,
-        INVALID_STATE,
-        TEMPORARILY_UNAVAILABLE,
-        DEADLINE_EXCEEDED,
-    ]
-]
-
-_RETRYABLE_CLIENT_CODES = [ErrorCode.Name(code) for code in [ABORTED, REQUEST_LIMIT_EXCEEDED, RESOURCE_EXHAUSTED]]
-
-_NOT_FOUND_CODES = [ErrorCode.Name(code) for code in [RESOURCE_DOES_NOT_EXIST, NOT_FOUND, ENDPOINT_NOT_FOUND]]
-
 log = logging.getLogger(__name__)
 
 
-def _wrap_mlflow_exceptions(uri: str, e: MlflowException):
+def _wrap_mlflow_exceptions(uri: str, e: Exception):
     """Wraps retryable MLFlow errors in ObjectStoreTransientError for automatic retry handling."""
-    if e.error_code in _RETRYABLE_SERVER_CODES or e.error_code in _RETRYABLE_CLIENT_CODES:
-        raise ObjectStoreTransientError(e.error_code) from e
-    elif e.error_code in _NOT_FOUND_CODES:
-        raise FileNotFoundError(f'Object {uri} not found') from e
+    from mlflow.exceptions import (ABORTED, DATA_LOSS, DEADLINE_EXCEEDED, ENDPOINT_NOT_FOUND, INTERNAL_ERROR,
+                                   INVALID_STATE, NOT_FOUND, REQUEST_LIMIT_EXCEEDED, RESOURCE_DOES_NOT_EXIST,
+                                   RESOURCE_EXHAUSTED, TEMPORARILY_UNAVAILABLE, ErrorCode, MlflowException)
+
+    # https://github.com/mlflow/mlflow/blob/master/mlflow/exceptions.py for used error codes.
+    # https://github.com/mlflow/mlflow/blob/master/mlflow/protos/databricks.proto for code descriptions.
+    retryable_server_codes = [
+        ErrorCode.Name(code) for code in [
+            DATA_LOSS,
+            INTERNAL_ERROR,
+            INVALID_STATE,
+            TEMPORARILY_UNAVAILABLE,
+            DEADLINE_EXCEEDED,
+        ]
+    ]
+    retryable_client_codes = [ErrorCode.Name(code) for code in [ABORTED, REQUEST_LIMIT_EXCEEDED, RESOURCE_EXHAUSTED]]
+    not_found_codes = [ErrorCode.Name(code) for code in [RESOURCE_DOES_NOT_EXIST, NOT_FOUND, ENDPOINT_NOT_FOUND]]
+
+    if isinstance(e, MlflowException):
+        if e.error_code in retryable_server_codes or e.error_code in retryable_client_codes:
+            raise ObjectStoreTransientError(e.error_code) from e
+        elif e.error_code in not_found_codes:
+            raise FileNotFoundError(f'Object {uri} not found') from e
 
     raise e
 
@@ -103,6 +99,17 @@ class MLFlowObjectStore(ObjectStore):
     """
 
     def __init__(self, path: str, multipart_upload_chunk_size: int = 100 * 1024 * 1024) -> None:
+        try:
+            import mlflow
+            from mlflow import MlflowClient
+        except ImportError as e:
+            raise MissingConditionalImportError('mlflow', conda_package='mlflow>=2.9.2,<3.0') from e
+
+        try:
+            from databricks.sdk import WorkspaceClient
+        except ImportError as e:
+            raise MissingConditionalImportError('databricks', conda_package='databricks-sdk>=0.15.0,<1.0') from e
+
         tracking_uri = os.getenv('MLFLOW_TRACKING_URI', MLFLOW_DATABRICKS_TRACKING_URI)
         if tracking_uri != MLFLOW_DATABRICKS_TRACKING_URI:
             raise ValueError(
@@ -145,6 +152,8 @@ class MLFlowObjectStore(ObjectStore):
 
         In a distributed setting, this should only be called on the rank 0 process.
         """
+        import mlflow
+
         if experiment_id is None:
             if run_id is not None:
                 raise ValueError('A `run_id` cannot be provided without a valid `experiment_id`.')
@@ -249,6 +258,7 @@ class MLFlowObjectStore(ObjectStore):
                       filename: Union[str, pathlib.Path],
                       callback: Optional[Callable[[int, int], None]] = None):
         del callback  # unused
+        from mlflow.exceptions import MlflowException
 
         # Extract relative path from DBFS path.
         artifact_path = self.get_artifact_path(object_name)
@@ -269,6 +279,8 @@ class MLFlowObjectStore(ObjectStore):
             _wrap_mlflow_exceptions(self.get_uri(object_name), e)
 
     def get_object_size(self, object_name: str) -> int:
+        from mlflow.exceptions import MlflowException
+
         artifact = None
         try:
             artifact = self._get_artifact_info(object_name)
@@ -288,6 +300,7 @@ class MLFlowObjectStore(ObjectStore):
         callback: Optional[Callable[[int, int], None]] = None,
     ) -> None:
         del callback  # unused
+        from mlflow.exceptions import MlflowException
 
         # Since MlflowClient.download_artifacts only raises MlflowException with 500 Internal Error,
         # check for existence to surface a FileNotFoundError if necessary.
@@ -338,6 +351,8 @@ class MLFlowObjectStore(ObjectStore):
             prefix (str | None): An artifact path prefix for artifacts to find.
             objects (list[str]): The list of DBFS object paths to populate.
         """
+        from mlflow.exceptions import MlflowException
+
         artifact = None
         try:
             for artifact in self._mlflow_client.list_artifacts(self.run_id, prefix):
@@ -349,7 +364,7 @@ class MLFlowObjectStore(ObjectStore):
             uri = '' if artifact is None else self.get_uri(artifact.path)
             _wrap_mlflow_exceptions(uri, e)
 
-    def _get_artifact_info(self, object_name) -> Optional[FileInfo]:
+    def _get_artifact_info(self, object_name):
         """Get the :class:`~mlflow.entities.FileInfo` for the given object name.
 
         Args:
