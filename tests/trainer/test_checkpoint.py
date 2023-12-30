@@ -741,7 +741,7 @@ class TestCheckpointLoading:
                 assert metrics_equal
 
     @pytest.mark.parametrize('load_ignore_keys,weights_equal,callbacks_equal,rng_equal', [
-        ['state/model/*', False, True, True], 
+        ['state/model/*', False, True, True],
         ['state/callbacks/*', True, False, True],
         ['rng', True, True, False],
     ])
@@ -779,7 +779,6 @@ class TestCheckpointLoading:
         if rng_equal:
             assert trainer_1_rng_state is not None
             deep_compare(trainer_1_rng_state, trainer_2._rng_state)
-
 
     @pytest.mark.remote
     @device('cpu')
