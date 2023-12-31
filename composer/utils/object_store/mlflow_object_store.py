@@ -49,9 +49,10 @@ def _wrap_mlflow_exceptions(uri: str, e: Exception):
     not_found_codes = [ErrorCode.Name(code) for code in [RESOURCE_DOES_NOT_EXIST, NOT_FOUND, ENDPOINT_NOT_FOUND]]
 
     if isinstance(e, MlflowException):
-        if e.error_code in retryable_server_codes or e.error_code in retryable_client_codes:
-            raise ObjectStoreTransientError(e.error_code) from e
-        elif e.error_code in not_found_codes:
+        error_code = e.error_code  # pyright: ignore
+        if error_code in retryable_server_codes or error_code in retryable_client_codes:
+            raise ObjectStoreTransientError(error_code) from e
+        elif error_code in not_found_codes:
             raise FileNotFoundError(f'Object {uri} not found') from e
 
     raise e

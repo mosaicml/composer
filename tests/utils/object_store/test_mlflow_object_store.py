@@ -3,7 +3,6 @@
 
 import os
 from pathlib import Path
-from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
@@ -41,9 +40,14 @@ def test_init_fail_without_databricks_tracking_uri(monkeypatch):
         MLFlowObjectStore(DEFAULT_PATH)
 
 
-@mock.patch('composer.utils.object_store.mlflow_object_store.WorkspaceClient')
-@mock.patch('composer.utils.object_store.mlflow_object_store.MlflowClient')
-def test_init_with_experiment_and_run(mock_mlflow_client, mock_ws_client):
+def test_init_with_experiment_and_run(monkeypatch):
+    dbx_sdk = pytest.importorskip('databricks.sdk')
+    monkeypatch.setattr(dbx_sdk, 'WorkspaceClient', MagicMock())
+
+    mlflow = pytest.importorskip('mlflow')
+    mock_mlflow_client = MagicMock()
+    monkeypatch.setattr(mlflow, 'MlflowClient', mock_mlflow_client)
+
     mock_mlflow_client.return_value.get_run.return_value = MagicMock(info=MagicMock(experiment_id=EXPERIMENT_ID))
 
     store = MLFlowObjectStore(DEFAULT_PATH)
@@ -51,9 +55,14 @@ def test_init_with_experiment_and_run(mock_mlflow_client, mock_ws_client):
     assert store.run_id == RUN_ID
 
 
-@mock.patch('composer.utils.object_store.mlflow_object_store.WorkspaceClient')
-@mock.patch('composer.utils.object_store.mlflow_object_store.MlflowClient')
-def test_init_with_experiment_and_no_run(mock_mlflow_client, mock_ws_client):
+def test_init_with_experiment_and_no_run(monkeypatch):
+    dbx_sdk = pytest.importorskip('databricks.sdk')
+    monkeypatch.setattr(dbx_sdk, 'WorkspaceClient', MagicMock())
+
+    mlflow = pytest.importorskip('mlflow')
+    mock_mlflow_client = MagicMock()
+    monkeypatch.setattr(mlflow, 'MlflowClient', mock_mlflow_client)
+
     mock_mlflow_client.return_value.create_run.return_value = MagicMock(
         info=MagicMock(run_id=RUN_ID, run_name='test-run'))
 
@@ -62,17 +71,24 @@ def test_init_with_experiment_and_no_run(mock_mlflow_client, mock_ws_client):
     assert store.run_id == RUN_ID
 
 
-@mock.patch('composer.utils.object_store.mlflow_object_store.WorkspaceClient')
-def test_init_with_run_and_no_experiment(mock_ws_client):
+def test_init_with_run_and_no_experiment(monkeypatch):
+    dbx_sdk = pytest.importorskip('databricks.sdk')
+    monkeypatch.setattr(dbx_sdk, 'WorkspaceClient', MagicMock())
+
     with pytest.raises(ValueError):
         MLFlowObjectStore(TEST_PATH_FORMAT.format(experiment_id=PLACEHOLDER_EXPERIMENT_ID, run_id=RUN_ID))
 
 
-@mock.patch('composer.utils.object_store.mlflow_object_store.WorkspaceClient')
-@mock.patch('composer.utils.object_store.mlflow_object_store.MlflowClient')
-@mock.patch('composer.utils.object_store.mlflow_object_store.mlflow')
-def test_init_with_active_run(mock_mlflow, mock_mlflow_client, mock_ws_client):
-    mock_mlflow.active_run.return_value = MagicMock(info=MagicMock(experiment_id=EXPERIMENT_ID, run_id=RUN_ID))
+def test_init_with_active_run(monkeypatch):
+    dbx_sdk = pytest.importorskip('databricks.sdk')
+    monkeypatch.setattr(dbx_sdk, 'WorkspaceClient', MagicMock())
+
+    mlflow = pytest.importorskip('mlflow')
+    mock_active_run = MagicMock()
+    monkeypatch.setattr(mlflow, 'active_run', mock_active_run)
+    monkeypatch.setattr(mlflow, 'MlflowClient', MagicMock())
+
+    mock_active_run.return_value = MagicMock(info=MagicMock(experiment_id=EXPERIMENT_ID, run_id=RUN_ID))
 
     store = MLFlowObjectStore(
         TEST_PATH_FORMAT.format(experiment_id=PLACEHOLDER_EXPERIMENT_ID, run_id=PLACEHOLDER_RUN_ID))
@@ -80,9 +96,14 @@ def test_init_with_active_run(mock_mlflow, mock_mlflow_client, mock_ws_client):
     assert store.run_id == RUN_ID
 
 
-@mock.patch('composer.utils.object_store.mlflow_object_store.WorkspaceClient')
-@mock.patch('composer.utils.object_store.mlflow_object_store.MlflowClient')
-def test_init_with_existing_experiment_and_no_run(mock_mlflow_client, mock_ws_client):
+def test_init_with_existing_experiment_and_no_run(monkeypatch):
+    dbx_sdk = pytest.importorskip('databricks.sdk')
+    monkeypatch.setattr(dbx_sdk, 'WorkspaceClient', MagicMock())
+
+    mlflow = pytest.importorskip('mlflow')
+    mock_mlflow_client = MagicMock()
+    monkeypatch.setattr(mlflow, 'MlflowClient', mock_mlflow_client)
+
     mock_mlflow_client.return_value.get_experiment_by_name.return_value = MagicMock(experiment_id=EXPERIMENT_ID)
     mock_mlflow_client.return_value.create_run.return_value = MagicMock(
         info=MagicMock(run_id=RUN_ID, run_name='test-run'))
@@ -93,9 +114,14 @@ def test_init_with_existing_experiment_and_no_run(mock_mlflow_client, mock_ws_cl
     assert store.run_id == RUN_ID
 
 
-@mock.patch('composer.utils.object_store.mlflow_object_store.WorkspaceClient')
-@mock.patch('composer.utils.object_store.mlflow_object_store.MlflowClient')
-def test_init_with_no_experiment_and_no_run(mock_mlflow_client, mock_ws_client):
+def test_init_with_no_experiment_and_no_run(monkeypatch):
+    dbx_sdk = pytest.importorskip('databricks.sdk')
+    monkeypatch.setattr(dbx_sdk, 'WorkspaceClient', MagicMock())
+
+    mlflow = pytest.importorskip('mlflow')
+    mock_mlflow_client = MagicMock()
+    monkeypatch.setattr(mlflow, 'MlflowClient', mock_mlflow_client)
+
     mock_mlflow_client.return_value.get_experiment_by_name.return_value = None
     mock_mlflow_client.return_value.create_experiment.return_value = EXPERIMENT_ID
     mock_mlflow_client.return_value.create_run.return_value = MagicMock(
@@ -108,7 +134,7 @@ def test_init_with_no_experiment_and_no_run(mock_mlflow_client, mock_ws_client):
 
 
 @pytest.fixture()
-def mlflow_object_store():
+def mlflow_object_store(monkeypatch):
 
     def mock_mlflow_client_list_artifacts(*args, **kwargs):
         """Mock behavior for MlflowClient.list_artifacts().
@@ -143,12 +169,17 @@ def mlflow_object_store():
         else:
             return []
 
-    with mock.patch('composer.utils.object_store.mlflow_object_store.WorkspaceClient'):
-        with mock.patch('composer.utils.object_store.mlflow_object_store.MlflowClient') as mock_mlflow_client:
-            mock_mlflow_client.return_value.get_run.return_value = MagicMock(info=MagicMock(
-                experiment_id=EXPERIMENT_ID))
-            mock_mlflow_client.return_value.list_artifacts.side_effect = mock_mlflow_client_list_artifacts
-            yield MLFlowObjectStore(DEFAULT_PATH)
+    dbx_sdk = pytest.importorskip('databricks.sdk')
+    monkeypatch.setattr(dbx_sdk, 'WorkspaceClient', MagicMock())
+
+    mlflow = pytest.importorskip('mlflow')
+    mock_mlflow_client = MagicMock()
+    monkeypatch.setattr(mlflow, 'MlflowClient', mock_mlflow_client)
+
+    mock_mlflow_client.return_value.get_run.return_value = MagicMock(info=MagicMock(experiment_id=EXPERIMENT_ID))
+    mock_mlflow_client.return_value.list_artifacts.side_effect = mock_mlflow_client_list_artifacts
+
+    yield MLFlowObjectStore(DEFAULT_PATH)
 
 
 def test_get_artifact_path(mlflow_object_store):
