@@ -20,7 +20,9 @@ import tqdm
 
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_callback
-from composer.utils.object_store import GCSObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore, UCObjectStore
+from composer.utils.object_store import (GCSObjectStore, MLFlowObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore,
+                                         UCObjectStore)
+from composer.utils.object_store.mlflow_object_store import MLFLOW_DBFS_PATH_PREFIX
 
 if TYPE_CHECKING:
     from composer.core import Timestamp
@@ -350,9 +352,12 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
     elif backend == 'oci':
         return OCIObjectStore(bucket=bucket_name)
     elif backend == 'dbfs':
-        # validate if the path conforms to the requirements for UC volume paths
-        UCObjectStore.validate_path(path)
-        return UCObjectStore(path=path)
+        if path.startswith(MLFLOW_DBFS_PATH_PREFIX):
+            return MLFlowObjectStore(path)
+        else:
+            # validate if the path conforms to the requirements for UC volume paths
+            UCObjectStore.validate_path(path)
+            return UCObjectStore(path=path)
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
                                   'one of the supported object stores')
@@ -388,13 +393,13 @@ def maybe_create_remote_uploader_downloader_from_uri(
     if backend in ['s3', 'oci', 'gs']:
         return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}')
 
+    elif backend == 'dbfs':
+        return RemoteUploaderDownloader(bucket_uri=uri, backend_kwargs={'path': path})
+
     elif backend == 'wandb':
         raise NotImplementedError(f'There is no implementation for WandB via URI. Please use '
                                   'WandBLogger with log_artifacts set to True')
-    elif backend == 'dbfs':
-        # validate if the path conforms to the requirements for UC volume paths
-        UCObjectStore.validate_path(path)
-        return RemoteUploaderDownloader(bucket_uri=uri, backend_kwargs={'path': path})
+
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
                                   'one of the supported RemoteUploaderDownloader object stores')

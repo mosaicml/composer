@@ -1085,6 +1085,11 @@ class Trainer:
             mosaicml_logger = MosaicMLLogger()
             loggers.append(mosaicml_logger)
 
+        # Remote Uploader Downloader
+        # Keep the ``RemoteUploaderDownloader`` below client-provided loggers so the loggers init callbacks run before
+        # the ``RemoteUploaderDownloader`` init. This is necessary to use an ``MLFlowObjectStore`` to log objects to a
+        # run managed by an ``MLFlowLogger``, as the ``MLFlowObjectStore`` relies on the ``MLFlowLogger`` to initialize
+        # the active MLFlow run.
         if save_folder is not None:
             remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
             if remote_ud is not None:
