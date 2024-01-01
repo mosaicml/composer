@@ -189,6 +189,20 @@ def test_get_artifact_path(mlflow_object_store):
     # Absolute DBFS path
     assert mlflow_object_store.get_artifact_path(DEFAULT_PATH + ARTIFACT_PATH) == ARTIFACT_PATH
 
+    # Absolute DBFS path with placeholders
+    path = TEST_PATH_FORMAT.format(experiment_id=PLACEHOLDER_EXPERIMENT_ID, run_id=PLACEHOLDER_RUN_ID) + ARTIFACT_PATH
+    assert mlflow_object_store.get_artifact_path(path) == ARTIFACT_PATH
+
+    # Raises ValueError for different experiment ID
+    path = TEST_PATH_FORMAT.format(experiment_id='different-experiment', run_id=PLACEHOLDER_RUN_ID) + ARTIFACT_PATH
+    with pytest.raises(ValueError):
+        mlflow_object_store.get_artifact_path(path)
+
+    # Raises ValueError for different run ID
+    path = TEST_PATH_FORMAT.format(experiment_id=PLACEHOLDER_EXPERIMENT_ID, run_id='different-run') + ARTIFACT_PATH
+    with pytest.raises(ValueError):
+        mlflow_object_store.get_artifact_path(path)
+
 
 def test_get_dbfs_path(mlflow_object_store):
     experiment_id = mlflow_object_store.experiment_id
@@ -245,12 +259,12 @@ def test_get_object_size(mlflow_object_store):
 def test_download_object(mlflow_object_store, tmp_path):
 
     def mock_mlflow_client_download_artifacts(*args, **kwargs):
-        artifact_path = kwargs['artifact_path']
+        path = kwargs['path']
         dst_path = kwargs['dst_path']
-        local_path = os.path.join(dst_path, artifact_path)
+        local_path = os.path.join(dst_path, path)
         os.makedirs(os.path.dirname(local_path), exist_ok=True)
 
-        size = mlflow_object_store.get_object_size(artifact_path)
+        size = mlflow_object_store.get_object_size(path)
         file_content = bytes('0' * (size), 'utf-8')
 
         print(local_path)

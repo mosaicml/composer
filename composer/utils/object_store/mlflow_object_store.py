@@ -243,7 +243,13 @@ class MLFlowObjectStore(ObjectStore):
                 Otherwise, the object name is assumed to be a relative artifact path and will be returned as-is.
         """
         if object_name.startswith(MLFLOW_DBFS_PATH_PREFIX):
-            _, _, object_name = self.parse_dbfs_path(object_name)
+            experiment_id, run_id, object_name = self.parse_dbfs_path(object_name)
+            if (experiment_id != self.experiment_id and experiment_id != PLACEHOLDER_EXPERIMENT_ID):
+                raise ValueError(f'Object {object_name} belongs to experiment with id={experiment_id}, '
+                                 f'but MLFlowObjectStore is associated with experiment {self.experiment_id}.')
+            if (run_id != self.run_id and run_id != PLACEHOLDER_RUN_ID):
+                raise ValueError(f'Object {object_name} belongs to run with id={run_id}, '
+                                 f'but MLFlowObjectStore is associated with run {self.run_id}.')
         return object_name
 
     def get_dbfs_path(self, object_name: str) -> str:
