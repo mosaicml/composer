@@ -321,7 +321,7 @@ class MLFlowObjectStore(ObjectStore):
         try:
             self._mlflow_client.download_artifacts(
                 run_id=self.run_id,
-                artifact_path=artifact_path,
+                path=artifact_path,
                 dst_path=tmp_dir,
             )
             tmp_path = os.path.join(tmp_dir, artifact_path)
