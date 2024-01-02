@@ -28,7 +28,7 @@ from composer.metrics import MAP
 from composer.optim import ExponentialScheduler
 from composer.trainer import trainer
 from composer.trainer.trainer import Trainer
-from composer.utils import dist, is_tar
+from composer.utils import dist, is_tar, reproducibility
 from composer.utils.checkpoint import _ensure_valid_checkpoint, glob_filter
 from composer.utils.object_store.object_store import ObjectStore
 from composer.utils.object_store.s3_object_store import S3ObjectStore
@@ -739,6 +739,46 @@ class TestCheckpointLoading:
             assert stateful_callbacks_equal
             if save_metrics:
                 assert metrics_equal
+
+    @pytest.mark.parametrize('load_ignore_keys,weights_equal,callbacks_equal,rng_equal', [
+        ['state/model/*', False, True, True],
+        ['state/callbacks/*', True, False, True],
+        ['rng', True, True, False],
+    ])
+    @pytest.mark.filterwarnings('ignore:.* is not in the state_dict.*:UserWarning')
+    def test_load_ignore_keys(self, load_ignore_keys, weights_equal, callbacks_equal, rng_equal):
+
+        trainer_1 = self.get_trainer(save_folder='first')
+        trainer_1.fit()
+        trainer_1_rng_state = reproducibility.get_rng_state()
+        trainer_1.close()
+
+        last_checkpoint = os.path.join('first', 'ep2.pt')
+        trainer_2 = self.get_trainer(
+            load_path=last_checkpoint,
+            load_ignore_keys=[load_ignore_keys],
+        )
+
+        # Check weights loaded properly
+        with contextlib.nullcontext() if weights_equal else pytest.raises(AssertionError):
+            self._assert_weights_equivalent(
+                trainer_1.state.model,
+                trainer_2.state.model,
+            )
+
+        # Check callbacks state
+        stateful_callbacks_equal = self._stateful_callbacks_equal(
+            trainer_1.state.callbacks,
+            trainer_2.state.callbacks,
+        )
+        if callbacks_equal:
+            assert stateful_callbacks_equal
+        else:
+            assert not stateful_callbacks_equal
+
+        if rng_equal:
+            assert trainer_1_rng_state is not None
+            deep_compare(trainer_1_rng_state, trainer_2._rng_state)
 
     @pytest.mark.remote
     @device('cpu')
