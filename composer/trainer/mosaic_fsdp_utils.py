@@ -32,7 +32,7 @@ from composer.utils import dist
 
 if TYPE_CHECKING:
     if version.parse(torch.__version__) >= version.parse('2.0.1') and version.parse(
-            torch.__version__) < version.parse('2.0.2'):
+            torch.__version__) < version.parse('2.2.0'):
         from torch.distributed.fsdp._common_utils import _FSDPState
 
 log = logging.getLogger(__name__)
@@ -756,7 +756,7 @@ def _sharded_pre_load_state_dict_hook(
     _enter_unshard_params_ctx(module, fsdp_state, writeback=True)
 
 
-def fsdp_state_has_default_pg(state: _FSDPState) -> bool:
+def fsdp_state_has_default_pg(state: '_FSDPState') -> bool:
     """Indicates whether FlatParamHandle has the default process group.
 
     Args:
@@ -772,7 +772,7 @@ def fsdp_state_has_default_pg(state: _FSDPState) -> bool:
     return len(get_process_group_ranks(state.process_group)) == dist.get_world_size()
 
 
-def fsdp_state_pg_ranks(state: _FSDPState) -> Tuple[int, ...]:
+def fsdp_state_pg_ranks(state: '_FSDPState') -> Tuple[int, ...]:
     """Gets the ranks included in the ProcessGroup of an _FSDPState.
 
     Args:
@@ -790,7 +790,7 @@ def fsdp_state_pg_ranks(state: _FSDPState) -> Tuple[int, ...]:
 
 @no_type_check
 def new_share_state_and_init_handle_attrs(
-    root_state: _FSDPState,
+    root_state: '_FSDPState',
     root_module: nn.Module,
 ) -> None:
     """Shares state from ``root_state`` to other FSDP states.
