@@ -118,7 +118,8 @@ def get_gpu_flops_available(state: State):
             f'gpu_flop count not found for {device_name} with precision={state.precision.value} ' +\
             f'so MFU cannot be calculated and reported. gpu_flops_available can be manually ' +\
             f'overridden by setting gpu_flops_available in SpeedMonitor or {device_name} can ' +\
-            f'be added to GPU_AVAILABLE_FLOPS in composer/callbacks/speed_monitor.py'
+            f'be added to GPU_AVAILABLE_FLOPS in composer/callbacks/speed_monitor.py',
+            stacklevel=2,
         )
         # Setting to 0 will disable MFU computation and prevent
         # the speed monitor from running this helper every batch
