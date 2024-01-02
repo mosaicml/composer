@@ -264,6 +264,8 @@ def _launch_processes(
     training_script_args: List[Any],
     processes: Dict[int, subprocess.Popen],
 ):
+    log.info('Launch processes called with nproc(%s), world_size(%s), base_rank(%s), node_rank(%s)', nproc, world_size,
+             base_rank, node_rank)
     log.info('Starting distributed environment on local node for global_rank(%s-%s)', base_rank, base_rank + nproc - 1)
     log.info('Distributed KV store: tcp://%s:%s', master_addr, master_port)
 
@@ -317,7 +319,7 @@ def _launch_processes(
 
                 stderr_file = _get_file(stderr_file_format)
                 stdout_file = _get_file(stdout_file_format)
-
+                print('the stderr file and stdout file for global_rank %s are', global_rank, stderr_file, stdout_file)
                 process = subprocess.Popen(
                     cmd,
                     stdout=stdout_file,
@@ -463,7 +465,7 @@ def main():
     args = _parse_args()
 
     logging.basicConfig()
-    log.setLevel(logging.INFO if args.verbose else logging.WARN)  
+    log.setLevel(logging.INFO if args.verbose else logging.WARN)
     json_log_formatter = JsonLogFormatter()
     stderr_handler = logging.StreamHandler(sys.stderr)
     stderr_handler.setFormatter(json_log_formatter)
@@ -471,7 +473,7 @@ def main():
     stdout_handler = logging.StreamHandler(sys.stdout)
     stdout_handler.setFormatter(json_log_formatter)
     log.addHandler(stdout_handler)
-    
+
     processes = {}
 
     log_tmpdir = tempfile.TemporaryDirectory()
@@ -500,11 +502,8 @@ def main():
         # may take up to CLEANUP_TIMEOUT seconds, and the user should know immediately
         # what failed. No need to re-raise the exception, as `aggregate_process_returncode`
         # will return an appropriate error code, which will cause the script to exit.
-        # traceback.print_exc()
-        # log.exception('Exception: %s', e)
-        # log.error(traceback.format_exc())
-        # print('Killing training processes')
-        print("hello")
+        traceback.print_exc()
+        print('Killing training processes')
     finally:
         _cleanup_processes(processes)
         log_tmpdir.cleanup()
