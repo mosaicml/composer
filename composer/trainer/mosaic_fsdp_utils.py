@@ -820,6 +820,8 @@ def new_share_state_and_init_handle_attrs(
             raise RuntimeError('FSDP optimizer in backward only supported with use_orig_params=True!')
         handle._has_optim_in_backward = flat_param._params is not None and any(
             hasattr(param, '_in_backward_optimizers') for param in flat_param._params)
+
+    # Patching so that _FSDPStates with different process groups have separate unshard streams.
     # Keep track of any new unshard streams we may have to add for specific process groups.
     fsdp_pg_unshard_streams = {}
     unshard_priority = root_state._unshard_stream.priority
