@@ -873,7 +873,7 @@ def _restore_checkpoint(
             exclude_algorithms=exclude_algorithms,
             algorithm_passes=algorithm_passes,
         )
-        return state_dict['rng']
+        return state_dict.get('rng', None)
 
 
 def save_checkpoint(
