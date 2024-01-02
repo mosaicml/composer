@@ -27,12 +27,6 @@ from composer.utils.json_log_formatter import JsonLogFormatter
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
 
 log = logging.getLogger(__name__)
-json_log_formatter = JsonLogFormatter()
-stderr_handler = logging.StreamHandler(sys.stderr)
-stderr_handler.setFormatter(json_log_formatter)
-log.addHandler(stderr_handler)
-stdout_handler = logging.StreamHandler(sys.stdout)
-stdout_handler.setFormatter(json_log_formatter)
 
 def _get_parser():
     parser = ArgumentParser(description='Utility for launching distributed machine learning jobs.')
@@ -470,7 +464,14 @@ def main():
 
     logging.basicConfig()
     log.setLevel(logging.INFO if args.verbose else logging.WARN)  
-
+    json_log_formatter = JsonLogFormatter()
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.setFormatter(json_log_formatter)
+    log.addHandler(stderr_handler)
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setFormatter(json_log_formatter)
+    log.addHandler(stdout_handler)
+    
     processes = {}
 
     log_tmpdir = tempfile.TemporaryDirectory()
