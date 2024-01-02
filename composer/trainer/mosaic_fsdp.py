@@ -70,5 +70,6 @@ def patch_pytorch():
 
         # Better overlap communication and computation
         from torch.distributed.fsdp import _runtime_utils
+
         from composer.trainer.mosaic_fsdp_utils import _share_state_and_init_handle_attrs_t2p2
         _runtime_utils._share_state_and_init_handle_attrs = _share_state_and_init_handle_attrs_t2p2

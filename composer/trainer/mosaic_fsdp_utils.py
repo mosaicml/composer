@@ -887,8 +887,7 @@ def _share_state_and_init_handle_attrs_t2p2(
     done together to require a single loop over the states. This function has
     been modified to assign a different unshard stream to each process group.
     """
-    from torch.distributed.fsdp._runtime_utils import (HOMOGENEOUS_ATTR_NAMES,
-                                                       _validate_and_get_hybrid_shard_state)
+    from torch.distributed.fsdp._runtime_utils import HOMOGENEOUS_ATTR_NAMES, _validate_and_get_hybrid_shard_state
     from torch.distributed.utils import _p_assert
 
     handle = root_state._handle
@@ -907,7 +906,7 @@ def _share_state_and_init_handle_attrs_t2p2(
         handle._has_optim_in_backward = flat_param._params is not None and any(
             hasattr(param, '_in_backward_optimizers') for param in flat_param._params)
         if handle._has_optim_in_backward:
-            torch._C._log_api_usage_once("fsdp.optimizer_in_backward")
+            torch._C._log_api_usage_once('fsdp.optimizer_in_backward')
 
     # Patching so that _FSDPStates with different process groups have separate unshard streams.
     # Keep track of any new unshard streams we may have to add for specific process groups.
