@@ -123,6 +123,7 @@ def test_logged_data_exception_handling(monkeypatch, world_size: int, ignore_exc
     monkeypatch.setenv('RUN_NAME', run_name)
 
     logger = MosaicMLLogger(ignore_exceptions=ignore_exceptions)
+    logger.buffered_metadata = {'key': 'value'}  # Add dummy data so logging runs
     if dist.get_global_rank() != 0:
         assert logger._enabled is False
         logger._flush_metadata(force_flush=True)
@@ -194,7 +195,7 @@ def test_metric_full_filtering(monkeypatch):
     )
     trainer.fit()
 
-    assert len(mock_mapi.run_metadata[run_name].keys()) == 0
+    assert run_name not in mock_mapi.run_metadata
 
 
 class SetWandBRunURL(Callback):
