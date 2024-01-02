@@ -41,7 +41,7 @@ def patch_pytorch():
         ChunkShardingSpec.build_metadata = build_metadata
 
     elif version.parse(torch.__version__) < version.parse('2.1.1'):
-        # Monkey path for torch < 2.1.1 ie torch == 2.1.0
+        # Monkey patch for torch < 2.1.1 ie torch == 2.1.0
 
         # Monkey patch sharding method
         ChunkShardingSpec.build_metadata = build_metadata
@@ -55,40 +55,16 @@ def patch_pytorch():
         _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
 
         # Better overlap communication and computation
-        from composer.trainer.mosaic_fsdp_utils import (_share_state_and_init_handle_attrs,
-                                                        _init_streams,
-                                                        _pre_forward_unshard,
-                                                        _pre_backward_hook,
-                                                        _wait_for_computation_stream,
-                                                        _prefetch_handle,
-                                                        _root_pre_forward)
-        _runtime_utils._share_state_and_init_handle_attrs = _share_state_and_init_handle_attrs
-        _runtime_utils._init_streams = _init_streams
-        _runtime_utils._pre_forward_unshard = _pre_forward_unshard
-        _runtime_utils._pre_backward_hook = _pre_backward_hook
-        _runtime_utils._wait_for_computation_stream = _wait_for_computation_stream
-        _runtime_utils._prefetch_handle = _prefetch_handle
-        _runtime_utils._root_pre_forward = _root_pre_forward
+        from composer.trainer.mosaic_fsdp_utils import new_share_state_and_init_handle_attrs
+        _runtime_utils._share_state_and_init_handle_attrs = new_share_state_and_init_handle_attrs
 
     elif version.parse(torch.__version__) < version.parse('2.2.0'):
-        # Monkey path for torch < 2.2.0 ie torch == 2.1.1, 2.1.2
+        # Monkey patch for torch < 2.2.0 ie torch == 2.1.1, 2.1.2
 
         # Allow 2D HSDP
         from torch.distributed.fsdp import _runtime_utils
         _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
 
         # Better overlap communication and computation
-        from composer.trainer.mosaic_fsdp_utils import (_share_state_and_init_handle_attrs,
-                                                        _init_streams,
-                                                        _pre_forward_unshard,
-                                                        _pre_backward_hook,
-                                                        _wait_for_computation_stream,
-                                                        _prefetch_handle,
-                                                        _root_pre_forward)
-        _runtime_utils._share_state_and_init_handle_attrs = _share_state_and_init_handle_attrs
-        _runtime_utils._init_streams = _init_streams
-        _runtime_utils._pre_forward_unshard = _pre_forward_unshard
-        _runtime_utils._pre_backward_hook = _pre_backward_hook
-        _runtime_utils._wait_for_computation_stream = _wait_for_computation_stream
-        _runtime_utils._prefetch_handle = _prefetch_handle
-        _runtime_utils._root_pre_forward = _root_pre_forward
+        from composer.trainer.mosaic_fsdp_utils import new_share_state_and_init_handle_attrs
+        _runtime_utils._share_state_and_init_handle_attrs = new_share_state_and_init_handle_attrs
