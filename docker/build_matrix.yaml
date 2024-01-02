@@ -167,7 +167,7 @@
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04
   CUDA_VERSION: 12.1.0
-  IMAGE_NAME: torch-nightly-2-2-0-20231024-cu121
+  IMAGE_NAME: torch-nightly-2-2-0-20231213-cu121
   MOFED_VERSION: 5.5-1.0.3.2
   NVIDIA_REQUIRE_CUDA_OVERRIDE: cuda>=12.1 brand=tesla,driver>=450,driver<451 brand=tesla,driver>=470,driver<471
     brand=unknown,driver>=470,driver<471 brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471
@@ -185,12 +185,12 @@
     brand=quadrortx,driver>=525,driver<526 brand=titan,driver>=525,driver<526 brand=titanrtx,driver>=525,driver<526
   PYTHON_VERSION: '3.10'
   PYTORCH_NIGHTLY_URL: https://download.pytorch.org/whl/nightly/cu121
-  PYTORCH_NIGHTLY_VERSION: dev20231024+cu121
+  PYTORCH_NIGHTLY_VERSION: dev20231213+cu121
   PYTORCH_VERSION: 2.2.0
   TAGS:
-  - mosaicml/pytorch:2.2.0_cu121-nightly20231024-python3.10-ubuntu20.04
+  - mosaicml/pytorch:2.2.0_cu121-nightly20231213-python3.10-ubuntu20.04
   TARGET: pytorch_stage
-  TORCHVISION_VERSION: 0.17.0
+  TORCHVISION_VERSION: 0.18.0
 - AWS_OFI_NCCL_VERSION: ''
   BASE_IMAGE: nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04
   COMPOSER_INSTALL_COMMAND: mosaicml[all]==0.17.2

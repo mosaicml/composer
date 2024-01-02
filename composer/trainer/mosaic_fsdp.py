@@ -42,10 +42,21 @@ def patch_pytorch():
 
     elif version.parse(torch.__version__) < version.parse('2.1.1'):
         # Monkey path for torch < 2.1.1 ie torch == 2.1.0
-        from torch.distributed.fsdp import _state_dict_utils
 
         # Monkey patch sharding method
         ChunkShardingSpec.build_metadata = build_metadata
 
         # Monkey patch partial state dict handling
+        from torch.distributed.fsdp import _state_dict_utils
         _state_dict_utils._sharded_pre_load_state_dict_hook = (_sharded_pre_load_state_dict_hook)
+
+        # Allow 2D HSDP
+        from torch.distributed.fsdp import _runtime_utils
+        _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
+
+    elif version.parse(torch.__version__) < version.parse('2.2.0'):
+        # Monkey path for torch < 2.2.0 ie torch == 2.1.1, 2.1.2
+
+        # Allow 2D HSDP
+        from torch.distributed.fsdp import _runtime_utils
+        _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None

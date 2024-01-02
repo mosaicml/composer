@@ -135,7 +135,8 @@ class MosaicMLLogger(LoggerDestination):
         self._flush_metadata(force_flush=True)
 
     def close(self, state: State, logger: Logger) -> None:
-        self._flush_metadata(force_flush=True)
+        self._flush_metadata(force_flush=True, future=False)
+        wait(self._futures)  # Ignore raised errors on close
 
     def _log_metadata(self, metadata: Dict[str, Any]) -> None:
         """Buffer metadata and prefix keys with mosaicml."""
@@ -146,14 +147,18 @@ class MosaicMLLogger(LoggerDestination):
                 self.buffered_metadata[f'mosaicml/{key}'] = format_data_to_json_serializable(val)
             self._flush_metadata()
 
-    def _flush_metadata(self, force_flush: bool = False) -> None:
+    def _flush_metadata(self, force_flush: bool = False, future: bool = True) -> None:
         """Flush buffered metadata to MosaicML if enough time has passed since last flush."""
-        if self._enabled and (time.time() - self.time_last_logged > self.log_interval or force_flush):
+        if self._enabled and len(self.buffered_metadata) > 0 and (
+                time.time() - self.time_last_logged > self.log_interval or force_flush):
             try:
-                f = mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=True, protect=True)
+                if future:
+                    f = mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=True, protect=True)
+                    self._futures.append(f)
+                else:
+                    mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=False, protect=True)
                 self.buffered_metadata = {}
                 self.time_last_logged = time.time()
-                self._futures.append(f)
                 done, incomplete = wait(self._futures, timeout=0.01)
                 log.info(f'Logged {len(done)} metadata to MosaicML, waiting on {len(incomplete)}')
                 # Raise any exceptions
