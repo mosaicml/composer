@@ -295,6 +295,55 @@ def load_checkpoint(
     return rng_state_dicts
 
 
+def _get_module_name_mapping(model: torch.nn.Module) -> tuple[dict[str, str], int]:
+    module_name_mapping = {}
+    world_size = dist.get_world_size()
+    pg_world_size = 1
+    for module_name, module in model.named_modules():
+        if hasattr(module, 'process_group'):
+            process_group = module.process_group
+            process_group_size = torch.distributed.get_world_size(process_group)
+            if process_group_size != world_size:
+                custom_process_group_size = world_size // process_group_size
+                process_group_index = dist.get_global_rank() % custom_process_group_size
+                pg_world_size = max(pg_world_size, custom_process_group_size)
+                new_module_name = module_name.replace('_fsdp_wrapped_module.', '')
+                new_module_name = new_module_name.replace('_checkpoint_wrapped_module.', '')
+                for k in module.state_dict().keys():
+                    full_module_name = '.'.join((new_module_name, k))
+                    module_name_mapping[full_module_name] = full_module_name + f'_pgidx{process_group_index}'
+    return module_name_mapping, pg_world_size
+
+
+def _rename_model_state_dict(model_state_dict, module_name_mapping: dict[str, str]):
+    modified_state_dict = {}
+    for k, v in model_state_dict.items():
+        if '_flat_param' in k:
+            continue
+        if k in module_name_mapping.keys():
+            modified_state_dict[module_name_mapping[k]] = v
+        else:
+            modified_state_dict[k] = v
+
+    return modified_state_dict
+
+
+def _rename_optimizers_state_dict(optimizers_state_dict: dict[str, dict[str, dict[str, Any]]],
+                                  module_name_mapping: dict[str, str]) -> dict[str, dict[str, dict[str, Any]]]:
+    optimizers = {}
+    for optimizer in optimizers_state_dict.keys():
+        optimizers[optimizer] = optimizers_state_dict[optimizer]
+        renamed_optimizers = {}
+        for k, v in optimizers_state_dict[optimizer]['state'].items():
+            replace_key = k
+            if k in module_name_mapping.keys():
+                replace_key = module_name_mapping[k]
+            renamed_optimizers[replace_key] = v
+        optimizers[optimizer]['state'] = renamed_optimizers
+
+    return optimizers
+
+
 def load_sharded_checkpoint(
     source_path: str,
     state: State,
@@ -362,6 +411,7 @@ def load_sharded_checkpoint(
         def read_data(self, plan: LoadPlan, planner: LoadPlanner):
             # 1. Download to the destination all files that this rank is responsible for.
             for plan_item in plan.items:
+                # log.debug(f'Downloading {plan_item.storage_index}')
                 # Each plan item has a storage index which points to the relative path of the shard file at save time.
                 relative_file_path = self.storage_data[plan_item.storage_index].relative_path
                 # Download the shard file to the relative path it's associated to and save that relative path
@@ -374,7 +424,9 @@ def load_sharded_checkpoint(
                                                       filename=file_destination)
 
             # 2. Wait for all ranks to finish.
+            log.debug('Enter barrier')
             dist.barrier()
+            log.debug('Exit barrier')
 
             # 3. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
             return super().read_data(plan, planner)
@@ -406,6 +458,7 @@ def load_sharded_checkpoint(
         # We need no_grad because we overwrite tensor values with set_() when we do elastic loading and we don't want the set_ op recorded in the computation graph.
         with torch.no_grad():
             # 1. Load model and metadata first
+            log.info('Load model and metadata')
             model_state_dict = None
             if load_weights_only:
                 model_state_dict = {'state': {'model': state.get_model_state_dict()}}
@@ -421,11 +474,7 @@ def load_sharded_checkpoint(
                 # Call function to modify state_dict
                 ignore_keys(model_state_dict)
 
-            dist_cp.load_state_dict(
-                state_dict=model_state_dict,
-                storage_reader=storage_reader,
-                planner=load_planner,
-            )
+            dist_cp.load_state_dict(model_state_dict, storage_reader, planner=RenameLoadPlanner(state.model))
 
             state.load_state_dict(
                 model_state_dict['state'],
@@ -437,24 +486,37 @@ def load_sharded_checkpoint(
 
             # 2. Optionally load optimizer
             if not load_weights_only:
-                optim_state = load_sharded_optimizer_state_dict(model_state_dict=state.state_dict()['model'],
-                                                                optimizer_key='optimizers',
-                                                                storage_reader=storage_reader)
+                log.info('Load optimizer')
+                state_dict = state.state_dict()['model']
+                log.debug('Fetched state dict')
+                # print(state_dict.keys())
+                # print(state_dict)
+                optim_state = load_sharded_optimizer_state_dict_with_logs(model_state_dict=state_dict,
+                                                                          optimizer_key='optimizers',
+                                                                          storage_reader=storage_reader)
+                log.debug('Strip _pgidx from optimizer state dict keys')
+                local_idx = f'_pgidx{dist.get_local_rank()}'
+                log.debug('Get ptr to optimizer state dict')
+                optim_state_dict = optim_state['optimizers']['DecoupledLionW']['state']
+                log.debug('Loop over optimizer state dict keys')
+                for key in list(optim_state_dict.keys()):
+                    log.debug(f'Stripping {local_idx} from {key=}')
+                    optim_state_dict[key.replace(local_idx, '')] = optim_state_dict[key]
+                    if '_pgidx' in key:
+                        del optim_state_dict[key]
+                log.debug('Load optimizer state dict')
                 state.load_optim_state(optim_state)
 
         # 3. Optionally load RNG
         rng_state_dicts = reproducibility.get_rng_state()
         if not load_weights_only:
+            log.info('Load RNG')
             # If we are resuming on more ranks than were used at save time we only want to load in rngs for those ranks
             num_ranks_that_saved_rng = _get_num_ranks_that_saved_rng(storage_reader.read_metadata())
             rng_state_dicts_load = {}
             rng_state_dicts_load['rng'] = rng_state_dicts[:num_ranks_that_saved_rng] if len(
                 rng_state_dicts) > num_ranks_that_saved_rng else rng_state_dicts
-            dist_cp.load_state_dict(
-                state_dict=rng_state_dicts_load,
-                storage_reader=storage_reader,
-                planner=load_planner,
-            )
+            dist_cp.load_state_dict(rng_state_dicts_load, storage_reader, planner=RenameLoadPlanner(state.model))
             # We also want to append newly generated rng states for the ranks that don't have an rng state to load in
             # if we are resuming on more ranks than were used at save time.
             if len(rng_state_dicts) > num_ranks_that_saved_rng:
@@ -861,11 +923,10 @@ def save_checkpoint(
         import torch.distributed.checkpoint as dist_cp
 
         log.debug('Saving sharded checkpoints to %s...', save_filename)
-        dist_cp.save_state_dict(
-            state_dict=state_dict,
-            storage_writer=dist_cp.FileSystemWriter(dirname),
-            planner=save_planner,
-        )
+
+        dist_cp.save_state_dict(state_dict=state_dict,
+                                storage_writer=dist_cp.FileSystemWriter(dirname),
+                                planner=RenameSavePlanner(state.model))
 
     # Only rank 0 saves the state_dict unless you are using sharded checkpointing with torch <2.0
     elif dist.get_global_rank() == 0 or state.fsdp_sharded_state_dict_enabled:
@@ -989,3 +1050,409 @@ Args:
             Otherwise, when not using DeepSpeed, each list will contain only one filepath,
             since only the rank zero process saves checkpoints.
 """
+
+from copy import deepcopy
+
+from torch.distributed.checkpoint.default_planner import (
+    DefaultLoadPlanner,
+    DefaultSavePlanner,
+)
+from torch.distributed.checkpoint._nested_dict import flatten_state_dict
+from torch.distributed.checkpoint._sharded_tensor_utils import (
+    _flatten_sharded_tensors,)
+
+from torch.distributed.checkpoint.metadata import STORAGE_TYPES, ChunkStorageMetadata, TensorStorageMetadata, MetadataIndex
+from torch.distributed.checkpoint.planner import LoadPlan, ReadItem
+from torch.distributed.checkpoint.planner_helpers import _chunk_for_shard, _create_read_item_for_tensor
+from torch.distributed.checkpoint.resharding import (_shards_get_overlap_region_wrt_saved_tensor,
+                                                     _check_shard_metadata_pair_overlap)
+
+
+def _create_read_items(fqn: str, md: STORAGE_TYPES, obj: Any) -> List[ReadItem]:
+    local_chunks = [_chunk_for_shard(shard.metadata) for shard in obj.local_shards()]
+    return create_read_items_for_chunk_list(fqn, md, local_chunks)
+
+
+def create_read_items_for_chunk_list(
+    fqn: str,
+    checkpoint_md: TensorStorageMetadata,
+    local_chunks: List[ChunkStorageMetadata],
+) -> List[ReadItem]:
+    """
+    Creates a list of ``ReadItem`` based on the checkpoint and local chunks.
+
+    This applies the resharding algorithm and computes the reads needed
+    to satisfy ``local_chunks`` with a checkpoint described by ``checkpoint_md``.
+
+    Args:
+        fqn (str) : The state_dict FQN to pass to ``ReadItem``.
+        checkpoint_md (TensorStorageMetadata): metadata for a given tensor
+            from a checkpoint.
+        local_chunks (List[ChunkStorageMetadata]): Local chunks that needs to be
+            loaded.
+
+    Returns:
+        A list of ``ReadItem`` that will satisfy all input chunks.
+    """
+    read_items = []
+    # this is a naive quadratic algo that can be optimized later
+    for idx, shard in enumerate(local_chunks):
+        # TODO(brian.chu): We assume that we chunk tensors on the first dim
+        total_size = sum(chunk.sizes[0] for chunk in checkpoint_md.chunks)
+        for storage_idx, storage_md in enumerate(checkpoint_md.chunks):
+            offset_storage_md = deepcopy(storage_md)
+            # TODO(brian.chu): We assume that custom process group fqns are
+            # appended with _pgidx{n} where n < 8
+            if '_pgidx' in fqn:
+                pgidx = fqn[-1]
+                offset_storage_md.offsets = torch.Size(
+                    [total_size * int(pgidx) + offset_storage_md.offsets[0], *offset_storage_md.offsets[1:]])
+            if not _check_shard_metadata_pair_overlap(shard, offset_storage_md):
+                continue
+
+            storage_offsets = []
+            dest_offsets = []
+            lengths = []
+            for (
+                    dim,
+                    offset_for_saved_tensor,
+                    offset_for_current_tensor,
+                    length,
+            ) in _shards_get_overlap_region_wrt_saved_tensor(saved_shard=offset_storage_md, current_shard=shard):
+                storage_offsets.append(offset_for_saved_tensor)
+                dest_offsets.append(offset_for_current_tensor)
+                lengths.append(length)
+
+            dest_fqn = fqn
+            if '_pgidx' in fqn:
+                # TODO(brian.chu): We assume that custom process group fqns are
+                # appended with _pgidx{n} where n < 8
+                dest_fqn = fqn[:-7]
+            read_items.append(
+                _create_read_item_for_tensor(
+                    dest_index=MetadataIndex(dest_fqn, shard.offsets, idx),
+                    dest_offsets=dest_offsets,
+                    storage_index=MetadataIndex(fqn, storage_md.offsets, storage_idx),
+                    storage_offsets=storage_offsets,
+                    lengths=lengths,
+                ))
+    return read_items
+
+
+class RenameLoadPlanner(DefaultLoadPlanner):
+    """
+    RankLoadPlanner extends __init__ and overrides set_up_planner to
+    rename modules that are part of a custom process group.
+    """
+
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        flatten_state_dict: bool = True,
+        flatten_sharded_tensors: bool = True,
+    ) -> None:
+        """Initializes RankLoadPlanner and sets the module mapping.
+
+        The module mapping appends the process group index to each module
+        name.
+
+        Args:
+            model: A torch.nn.Module.
+            flatten_state_dict: See parent class.
+            flatten_sharded_tensors: See parent class.
+        """
+        self.name_conversion_dict, self.pg_world_size = _get_module_name_mapping(model)
+        super().__init__(flatten_state_dict, flatten_sharded_tensors)
+
+    def set_up_planner(
+        self,
+        state_dict,
+        metadata,
+        is_coordinator: bool,
+    ) -> None:
+        """Renames the state dict.
+
+        The rest of the function follows the parent class.
+
+        Args:
+            state_dict: See parent class.
+            metadata: See parent class.
+            is_coordinator: See parent class.
+        """
+        log.debug('Set up planner')
+        if 'state' not in state_dict:
+            super().set_up_planner(state_dict, metadata, is_coordinator)
+            return
+
+        self.original_state_dict = state_dict
+
+        log.debug(f'Copy state dict')
+        state_dict = {k: v for k, v in self.original_state_dict.items()}
+        state_dict['state'] = {k: v for k, v in self.original_state_dict['state'].items() if k != 'model'}
+        state_dict['state']['model'] = {k: v for k, v in self.original_state_dict['state']['model'].items()}
+
+        log.debug('rename state dict')
+        if self.name_conversion_dict:
+            log.debug('rename state dict')
+            model_state_dict = _rename_model_state_dict(state_dict['state']['model'], self.name_conversion_dict)
+            log.debug('reassign model state dict')
+            state_dict['state']['model'] = model_state_dict
+
+        log.debug('Load sharded optimizer state dict')
+        if self.flatten_sharded_tensors:
+            state_dict = _flatten_sharded_tensors(state_dict)
+
+        log.debug('Flatten state dict')
+        if self.flatten_state_dict:
+            state_dict, self.mappings = flatten_state_dict(state_dict)
+
+        log.debug('Set ptrs')
+        self.state_dict = state_dict
+        self.metadata = metadata
+        self.is_coordinator = is_coordinator
+
+    def create_local_plan(self) -> LoadPlan:
+        """
+        Create the ``LoadPlan`` used by DefaultLoadPlanner.
+
+        It produces one read item per value in ``state_dict`` using the metadata in ``metadata``.
+
+        The default behavior is to match key exactly between state_dict and metadata.
+        It handles resharding by issuing multiple read requests against storage in order to match
+        load requirements.
+        """
+        if self.pg_world_size != 1:
+            return super().create_local_plan()
+
+        requests = []
+        for fqn, obj in self.state_dict.items():
+            renamed_fqns = []
+            for key in self.metadata.state_dict_metadata.keys():
+                original_key = key
+                if '_pgidx' in key:
+                    key = key[:-7]
+                if key == fqn:
+                    renamed_fqns.append(original_key)
+            for fqn in renamed_fqns:
+                md = self.metadata.state_dict_metadata[fqn]
+                requests += _create_read_items(fqn, md, obj)
+
+        return LoadPlan(requests)
+
+
+class RenameSavePlanner(DefaultSavePlanner):
+    """
+    RankSavePlanner extends __init__ and set_up_planner to rename modules
+    that are part of a custom process group.
+    """
+
+    def __init__(
+        self,
+        model: torch.nn.Module,
+        flatten_state_dict: bool = True,
+        flatten_sharded_tensors: bool = True,
+        dedup_replicated_tensors: bool = True,
+    ) -> None:
+        """Initializes RankSavePlanner and sets the module mapping.
+
+        The module mapping appends the process group index to each module
+        name.
+
+        Args:
+            model: A torch.nn.Module.
+            flatten_state_dict: See parent class.
+            flatten_sharded_tensors: See parent class.
+            dedup_replicated_tensors: See parent class.
+        """
+        self.name_conversion_dict, _ = _get_module_name_mapping(model)
+        super().__init__(
+            flatten_state_dict,
+            flatten_sharded_tensors,
+            dedup_replicated_tensors,
+        )
+
+    def set_up_planner(self, state_dict, is_coordinator: bool) -> None:
+        """Renames the state dict and optimizer state dict.
+
+        Args:
+            state_dict: See parent class.
+            is_coordinator: See parent class.
+        """
+        if self.name_conversion_dict:
+            model_state_dict = _rename_model_state_dict(state_dict['state']['model'], self.name_conversion_dict)
+            state_dict['state']['model'] = model_state_dict
+
+            if 'optimizers' in state_dict.keys():
+                optimizers = _rename_optimizers_state_dict(state_dict['optimizers'], self.name_conversion_dict)
+                state_dict['optimizers'] = optimizers
+
+        super().set_up_planner(state_dict, is_coordinator)
+
+
+def load_sharded_optimizer_state_dict_with_logs(
+    model_state_dict,
+    optimizer_key,
+    storage_reader,
+):
+    """
+    Loads a state_dict in conjunction with FSDP sharded optimizer state.
+    This is the current recommended way to checkpoint FSDP.
+    >>> # xdoctest: +SKIP
+    >>> import torch.distributed.checkpoint as dist_cp
+    >>> # Save
+    >>> model: torch.nn.Model
+    >>> optim_params = model.parameters()
+    >>> optim = torch.optim.SGD(optim_params, lr=0.01)
+    >>> # Save
+    >>> with FSDP.state_dict_type(model, StateDictType.SHARDED_STATE_DICT):
+    >>>     state_dict = {
+    >>>         "optimizer": FSDP.optim_state_dict(model, optim),
+    >>>         "model": model.state_dict()
+    >>>     }
+    >>>     dist_cp.save_state_dict(
+    >>>         state_dict=optim_state,
+    >>>         storage_writer=dist_cp.FileSystemWriter("checkpoint"),
+    >>>         planner=dist_cp.DefaultSavePlanner(),
+    >>>     )
+    >>>
+    >>> # Load
+    >>> with FSDP.state_dict_type(model_tp, StateDictType.SHARDED_STATE_DICT):
+    >>>     model_state_dict = model_tp.state_dict()
+    >>>     checkpoint = {
+    >>>         "model": model_state_dict
+    >>>     }
+    >>>     dist_cp.load_state_dict(
+    >>>         state_dict=checkpoint,
+    >>>         storage_reader=dist_cp.FileSystemReader(checkpoint_file),
+    >>>         planner=dist_cp.DefaultLoadPlanner(),
+    >>>     )
+    >>>     model.load_state_dict(checkpoint["model_state"])
+    >>>
+    >>>     optim_state = dist_cp.load_sharded_optimizer_state_dict(
+    >>>         model_state_dict,
+    >>>         optimizer_key="optimizer",
+    >>>         storage_reader=dist_cp.FileSystemReader("checkpoint"),
+    >>>     )
+    >>>
+    >>>     flattened_osd = FSDP.optim_state_dict_to_load(
+    >>>        model, optim, optim_state["optimizer"]
+    >>>     )
+    >>>
+    >>>     optim.load_state_dict(flattened_osd)
+    """
+    log.debug('Start sharded ckpt')
+    from torch.distributed.checkpoint.optimizer import _get_state_dict_2d_layout, _create_colwise_spec, _alloc_tensor, _ReaderWithOffset
+    from torch._utils import _get_device_module
+    from torch.distributed.checkpoint.utils import (_element_wise_add, _element_wise_sub, _normalize_device_info)
+    from torch.distributed.checkpoint._nested_dict import unflatten_state_dict
+    from torch.distributed.checkpoint.metadata import (
+        BytesStorageMetadata,
+        Metadata,
+        MetadataIndex,
+        STATE_DICT_TYPE,
+        TensorStorageMetadata,
+        ChunkStorageMetadata,
+    )
+    from torch.distributed._shard.api import _shard_tensor
+    from torch.distributed.remote_device import _remote_device
+    from typing import Dict, List, Optional, Sequence, Tuple, Union, cast
+    from torch.distributed._shard.sharded_tensor.shard import Shard
+    from torch.distributed._shard.sharded_tensor.api import ShardedTensor
+    import torch.distributed.checkpoint as dist_cp
+    from torch.distributed._shard.sharding_spec.chunk_sharding_spec import (
+        ChunkShardingSpec,)
+    from torch.distributed.distributed_c10d import _get_default_group
+    from torch.distributed.fsdp._shard_utils import _create_chunk_sharded_tensor
+    log.debug(f'Finish imports')
+
+    log.debug(f'Read metadata')
+    metadata = storage_reader.read_metadata()
+
+    log.debug('Get 2d Layout')
+    layout_specs, dp_pg = _get_state_dict_2d_layout(model_state_dict)
+    dp_pg_device_type = torch.distributed.distributed_c10d._get_pg_default_device(dp_pg).type
+    device_module = _get_device_module(dp_pg_device_type)
+
+    log.debug('check pg')
+    if dp_pg is None:
+        placements = []
+        for i in range(torch.distributed.get_world_size()):
+            device_info = _normalize_device_info(dp_pg_device_type, i % device_module.device_count())
+            placements.append(f"rank:{i}/{device_info}")
+        sharding_spec = ChunkShardingSpec(dim=0, placements=placements)  # type: ignore[arg-type]
+    else:
+        sharding_spec = _create_colwise_spec(dp_pg)
+
+    # Create a state_dict for optimizer state
+    state_dict = {}
+
+    log.debug(f'loop over fqn')
+    fqn_to_offset = {}
+    for key, value in metadata.state_dict_metadata.items():
+        log.debug(f'key: {key}')
+        key_path = metadata.planner_data[key]
+        if key_path[0] != optimizer_key:
+            continue
+
+        if isinstance(value, BytesStorageMetadata):
+            state_dict[key] = "<bytes_io>"
+            continue
+
+        local_idx = f'_pgidx{dist.get_local_rank()}'
+        if '_pgidx' in key and local_idx not in key:
+            continue
+
+        # value: TensorStorageMetadata
+        if value.size.numel() == 1:
+            log.debug('key case 1')
+            state_dict[key] = _alloc_tensor(value.properties, value.size, dp_pg_device_type)
+        elif dp_pg is None:
+            log.debug('key case 2')
+            # state_dict[key] = _shard_tensor(
+            #     _alloc_tensor(value.properties, value.size, dp_pg_device_type), sharding_spec
+            # )
+            state_dict[key] = _create_chunk_sharded_tensor(
+                _alloc_tensor(value.properties, value.size, dp_pg_device_type),
+                rank=torch.distributed.get_rank(),
+                world_size=torch.distributed.get_world_size(),
+                num_devices_per_node=device_module.device_count(),
+                pg=_get_default_group(),
+            )
+        else:
+            log.debug('key case 3')
+            spec_key = key_path[2]
+            alloc_size = layout_specs.get(spec_key, (None, value.size))[1]
+
+            st_md = sharding_spec.build_metadata(torch.Size(alloc_size), value.properties)
+            local_shards = []
+            current_rank = torch.distributed.get_rank(dp_pg)
+            for shard_md in st_md.shards_metadata:
+                if (cast(_remote_device, shard_md.placement).rank() != current_rank):
+                    continue
+                local_shards.append(
+                    Shard(
+                        tensor=_alloc_tensor(value.properties, shard_md.shard_sizes, dp_pg_device_type),
+                        metadata=shard_md,
+                    ))
+
+            st = ShardedTensor._init_from_local_shards_and_global_metadata(local_shards, st_md, process_group=dp_pg)
+
+            if (spec_key in layout_specs and layout_specs[spec_key][0] is not None):
+                fqn_to_offset[key] = cast(Sequence[int], layout_specs[spec_key][0])
+
+            state_dict[key] = st
+
+    log.debug('distcp Load state dict')
+    # Whether we unflatten before or after doesn't matter
+    dist_cp.load_state_dict(
+        state_dict=state_dict,
+        storage_reader=storage_reader,
+        # FIXME the type of planner is wrong in load_state_dict
+        planner=_ReaderWithOffset(fqn_to_offset) if dp_pg is not None else None,
+    )
+
+    log.debug('unflatten state dict')
+    state_dict = unflatten_state_dict(state_dict, metadata.planner_data)
+
+    log.debug('return state dict')
+    return state_dict

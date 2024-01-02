@@ -144,8 +144,10 @@ def fsdp_get_optim_state_dict(model: torch.nn.Module,
     if not using_torch_2():
         optim_state_dict = _legacy_fsdp_get_optim_state_dict(model, optim, state_dict_type)
     else:
+        log.debug(f'\t\tGetting optimizer state dict with keys in context')
         with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
             optim_state_dict = FSDP.optim_state_dict(model, optim)  # type: ignore
+        log.debug(f'\t\tGot optimizer state dict with keys')
     return optim_state_dict
 
 
@@ -349,7 +351,7 @@ class State(Serializable):
             before the dataloader is evaluated. The :attr:`~Timestamp.epoch` attribute for this timestamp is always
             ``0``.
         device_train_microbatch_size (int): The size of each train microbatch per device.
-        loss (torch.Tensor | Sequence[torch.Tensor]): The most recently computed loss.
+        loss (torch.Tensor | Sequence[torch.Tensor] | Dict[Any, torch.Tensor]): The most recently computed loss.
         model (torch.nn.Module): The training model.
 
             .. note::
@@ -547,7 +549,7 @@ class State(Serializable):
 
         # Set defaults for transient variables (to make pyright happy)
         self.batch: Any = None
-        self.loss: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
+        self.loss: Union[torch.Tensor, Sequence[torch.Tensor], Dict[Any, torch.Tensor]] = torch.Tensor()
         self.outputs: Union[torch.Tensor, Sequence[torch.Tensor]] = torch.Tensor()
 
         # These attributes will be serialized using .state_dict(), and loaded with .load_state_dict()
@@ -865,8 +867,10 @@ class State(Serializable):
             Dict[str, Any]: The state dict for the model.
         """
         if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
+            log.debug(f'\t\tGetting state dict for model')
             with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
                 model_state_dict = self.model.state_dict()
+            log.debug(f'\t\tGot state dict for model')
         else:
             model_state_dict = self.model.state_dict()
 
@@ -885,19 +889,24 @@ class State(Serializable):
         state_dict = {}
 
         for attribute_name in self.serialized_attributes:
+            log.debug(f'Getting state dict for {attribute_name}')
             attribute_value = getattr(self, attribute_name)
             if attribute_name == 'dataset_state':
                 serialized_value = self._dataset_state_dict()
             elif attribute_name == 'model':
+                log.debug(f'\tGetting state dict for model')
                 serialized_value = self.get_model_state_dict()
+                log.debug(f'\tGot state dict for model')
             elif attribute_name == 'optimizers':
                 optimizer = ensure_tuple(attribute_value)[
                     0]  # Let's stop pretending. We don't support more than one optimizer.
                 if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
+                    log.debug(f'\tGetting state dict for optimizer')
                     optim_state_dict = {
                         type(optimizer).__qualname__:
                             fsdp_get_optim_state_dict(self.model, optimizer, state_dict_type=self.fsdp_state_dict_type)
                     }
+                    log.debug(f'\tGot state dict for optimizer')
                 else:
                     optim_state_dict = {type(optimizer).__qualname__: optimizer.state_dict()}
                 serialized_value = optim_state_dict
@@ -1140,6 +1149,7 @@ class State(Serializable):
         serialized_value = state_dict['optimizers']
         for optimizer in ensure_tuple(self.optimizers):
             # Broadcast compatibility check as monolith rank 0 only loads won't have optimizer on all ranks
+            log.debug(f'Broadcast compatibility check')
             skip_optimizer_load = 1 if serialized_value is not None and type(
                 optimizer).__qualname__ not in serialized_value else 0
             skip_optimizer_load_tensor = self.device.tensor_to_device(

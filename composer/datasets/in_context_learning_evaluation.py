@@ -1107,7 +1107,6 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         """
         max_prompt_length = 0
         for example in self.dataset:
-            # TODO: Will this elimanate tokens we want to keep?
             unpadded_example = [token for token in example[self.context_key] if token != self.pad_tok_id]
             max_prompt_length = max(
                 max_prompt_length,
@@ -1118,7 +1117,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         def _trim_padding(example):
             # Remove padding tokens applied during tokenization
             unpadded_prompt = [token for token in example[self.context_key] if token != self.pad_tok_id]
-            # Pad only to max_promp_length
+            # Pad only to max_prompt_length
             full_prompt = _trim_context(unpadded_prompt, [], self.max_prompt_length)
             padded_context = _make_padded_input(full_prompt, [], self.max_prompt_length, self.pad_tok_id,
                                                 self.padding_side)
@@ -1174,6 +1173,7 @@ class IFEval(InContextLearningDataset):
         }
         # answer_key is needed to process dataset but not used in metrics
         # same for 'labels' in batch_mapping
+        self.max_prompt_length = 0
         super().__init__(
             context_key='prompt',
             answer_key='key',
@@ -1184,6 +1184,7 @@ class IFEval(InContextLearningDataset):
             *args,
             **kwargs,
         )
+        self.dataset = self.adjust_padding()
         self.base_batch = {
             'mode': 'generate',
             'input_ids': [],
@@ -1192,16 +1193,71 @@ class IFEval(InContextLearningDataset):
             'kwargs': [],
             'instruction_id_list': [],
             'prompt': [],
-            # TODO: maybe subtract prompt len
-            'generation_length': self.max_seq_len,
+            'generation_length': self.max_seq_len - self.max_prompt_length,
         }
         self._update_generation_kwargs(kwargs.get('generation_kwargs'))
 
     def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
-        tokenized_example = super()._tokenize_example(prompt_and_fewshot, ctxt, example)
+        """
+        Runs text through the tokenizer and handles special cases.
+        Args:
+            prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
+            ctxt (str): the specific example's derrived context
+            example (Dict): the example as a dictionary. Used for additional processing in inherited classes.
+
+        Returns:
+            Dict: dictionary with the tokenized data
+        """
+        tokenized_example = {}
         tokenized_example['untokenized_prompt'] = ctxt
+        if self.strip_data:
+            # rstrip context because a prompt ending in a space results in degenerate output
+            ctxt = ctxt.rstrip()
+        tokenized_context = self.tokenizer.apply_chat_template([{
+                                                    'role': 'user',
+                                                    'content': ctxt
+                                                }],
+                                                tokenize=False,
+                                                add_generation_prompt=True,
+                                                add_special_tokens=False)['input_ids']
+
+        trimmed_context = _trim_context(tokenized_context, [], self.padding_size)
+        padded_context = _make_padded_input(trimmed_context, [], self.padding_size, self.pad_tok_id, self.padding_side)
+
+        tokenized_example[self.context_key] = padded_context
+
         return tokenized_example
 
+    def adjust_padding(self):
+        """
+        Adjusts padding to the maximum prompt size rather than max_seq_len.
+        Needs to be done after the dataset has been processed because we can't get the prompt length
+        until after we've tokenized it.
+
+        Returns:
+            dataset:
+        """
+        max_prompt_length = 0
+        for example in self.dataset:
+            unpadded_example = [token for token in example[self.context_key] if token != self.pad_tok_id]
+            max_prompt_length = max(
+                max_prompt_length,
+                len(unpadded_example),
+            )
+        self.max_prompt_length = max_prompt_length
+
+        def _trim_padding(example):
+            # Remove padding tokens applied during tokenization
+            unpadded_prompt = [token for token in example[self.context_key] if token != self.pad_tok_id]
+            # Pad only to max_prompt_length
+            full_prompt = _trim_context(unpadded_prompt, [], self.max_prompt_length)
+            padded_context = _make_padded_input(full_prompt, [], self.max_prompt_length, self.pad_tok_id,
+                                                self.padding_side)
+
+            example[self.context_key] = padded_context
+            return example
+
+        return self.dataset.map(_trim_padding)
 
 class MTBench(InContextLearningDataset):
     """

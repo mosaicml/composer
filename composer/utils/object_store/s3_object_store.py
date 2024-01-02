@@ -135,13 +135,18 @@ class S3ObjectStore(ObjectStore):
         file_size = os.path.getsize(filename)
         cb_wrapper = None if callback is None else lambda bytes_transferred: callback(bytes_transferred, file_size)
 
-        # Validate kwargs
-        if len(kwargs) != 0:
+        # Validate kwargs. Use env var for Canned ACL if present and one has not been passed in.
+        if len(kwargs) == 0:
+            if 'S3_CANNED_ACL' in os.environ:
+                kwargs['ExtraArgs'] = {'ACL': os.environ['S3_CANNED_ACL']}
+        else:
             if len(kwargs) > 1 or 'ExtraArgs' not in kwargs or not isinstance(kwargs['ExtraArgs'], dict):
                 raise ValueError('S3ObjectStore.upload_object only supports an additional ExtraArgs dictionary.')
             for key in kwargs['ExtraArgs']:
                 if key not in S3Transfer.ALLOWED_UPLOAD_ARGS:
                     raise ValueError(f'{key} is not an allowed upload argument.')
+            if 'S3_CANNED_ACL' in os.environ and 'ACL' not in kwargs['ExtraArgs']:
+                kwargs['ExtraArgs']['ACL'] = os.environ['S3_CANNED_ACL']
 
         self.client.upload_file(Bucket=self.bucket,
                                 Key=self.get_key(object_name),

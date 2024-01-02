@@ -27,7 +27,7 @@ from torch.distributed.fsdp._fsdp_extensions import _ext_pre_load_state_dict_tra
 from torch.distributed.utils import _replace_by_prefix
 
 from composer.core import Precision
-from composer.utils import dist
+from composer.utils import dist, using_torch_2
 
 if TYPE_CHECKING:
     if version.parse(torch.__version__) >= version.parse('2.0.1') and version.parse(
