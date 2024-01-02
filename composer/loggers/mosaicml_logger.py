@@ -156,7 +156,7 @@ class MosaicMLLogger(LoggerDestination):
                     f = mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=True, protect=True)
                     self._futures.append(f)
                 else:
-                    mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=True, protect=True)
+                    mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=False, protect=True)
                 self.buffered_metadata = {}
                 self.time_last_logged = time.time()
                 done, incomplete = wait(self._futures, timeout=0.01)
