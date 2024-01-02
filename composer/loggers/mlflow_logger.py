@@ -93,6 +93,10 @@ class MLFlowLogger(LoggerDestination):
         self._rank_zero_only = rank_zero_only
         self._last_flush_time = time.time()
         self._flush_interval = flush_interval
+
+        self._experiment_id = None
+        self._run_id = None
+
         if self._enabled:
             self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
             mlflow.set_tracking_uri(self.tracking_uri)
@@ -154,6 +158,13 @@ class MLFlowLogger(LoggerDestination):
                 tags=self.tags,
                 log_system_metrics=self.log_system_metrics,
             )
+
+        # If rank zero only, broadcast the MLFlow experiment and run IDs to other ranks, so the MLFlow run info is
+        # available to other ranks during runtime.
+        if self._rank_zero_only:
+            mlflow_ids_list = [self._experiment_id, self._run_id]
+            dist.broadcast_object_list(mlflow_ids_list, src=0)
+            self._experiment_id, self._run_id = mlflow_ids_list
 
     def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
         if self._enabled:

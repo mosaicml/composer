@@ -21,8 +21,11 @@ MLFLOW_DBFS_PATH_PREFIX = 'databricks/mlflow-tracking/'
 
 DEFAULT_MLFLOW_EXPERIMENT_NAME = 'mlflow-object-store'
 
-PLACEHOLDER_EXPERIMENT_ID = '{mlflow_experiment_id}'
-PLACEHOLDER_RUN_ID = '{mlflow_run_id}'
+MLFLOW_EXPERIMENT_ID_FORMAT_KEY = 'mlflow_experiment_id'
+MLFLOW_RUN_ID_FORMAT_KEY = 'mlflow_run_id'
+
+MLFLOW_EXPERIMENT_ID_PLACEHOLDER = '{' + MLFLOW_EXPERIMENT_ID_FORMAT_KEY + '}'
+MLFLOW_RUN_ID_PLACEHOLDER = '{' + MLFLOW_RUN_ID_FORMAT_KEY + '}'
 
 log = logging.getLogger(__name__)
 
@@ -132,9 +135,9 @@ class MLFlowObjectStore(ObjectStore):
         mlflow.environment_variables.MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.set(multipart_upload_chunk_size)
 
         experiment_id, run_id, _ = MLFlowObjectStore.parse_dbfs_path(path)
-        if experiment_id == PLACEHOLDER_EXPERIMENT_ID:
+        if experiment_id == MLFLOW_EXPERIMENT_ID_PLACEHOLDER:
             experiment_id = None
-        if run_id == PLACEHOLDER_RUN_ID:
+        if run_id == MLFLOW_RUN_ID_PLACEHOLDER:
             run_id = None
 
         # Construct the `experiment_id` and `run_id` depending on whether format placeholders were provided.
@@ -236,10 +239,10 @@ class MLFlowObjectStore(ObjectStore):
         """
         if object_name.startswith(MLFLOW_DBFS_PATH_PREFIX):
             experiment_id, run_id, object_name = self.parse_dbfs_path(object_name)
-            if (experiment_id != self.experiment_id and experiment_id != PLACEHOLDER_EXPERIMENT_ID):
+            if (experiment_id != self.experiment_id and experiment_id != MLFLOW_EXPERIMENT_ID_PLACEHOLDER):
                 raise ValueError(f'Object {object_name} belongs to experiment ID {experiment_id}, '
                                  f'but MLFlowObjectStore is associated with experiment ID {self.experiment_id}.')
-            if (run_id != self.run_id and run_id != PLACEHOLDER_RUN_ID):
+            if (run_id != self.run_id and run_id != MLFLOW_EXPERIMENT_ID_PLACEHOLDER):
                 raise ValueError(f'Object {object_name} belongs to run ID {run_id}, '
                                  f'but MLFlowObjectStore is associated with run ID {self.run_id}.')
         return object_name

@@ -39,7 +39,7 @@ from composer.core import (Algorithm, AlgorithmPass, Batch, Callback, DataSpec, 
                            PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode, ensure_data_spec,
                            ensure_evaluator, ensure_time, get_precision_context, validate_eval_automicrobatching)
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
-from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, MosaicMLLogger, ProgressBarLogger,
+from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, MLFlowLogger, MosaicMLLogger, ProgressBarLogger,
                               RemoteUploaderDownloader, WandBLogger)
 from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR
 from composer.models import ComposerModel
@@ -54,8 +54,9 @@ from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectS
                             ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist,
                             get_composer_env_dict, get_device, get_file, is_tpu_installed, map_collection,
                             maybe_create_object_store_from_uri, maybe_create_remote_uploader_downloader_from_uri,
-                            model_eval_mode, parse_uri, reproducibility, using_torch_2)
+                            model_eval_mode, parse_uri, partial_format, reproducibility, using_torch_2)
 from composer.utils.misc import is_model_deepspeed
+from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
 
 if is_tpu_installed():
     import torch_xla.core.xla_model as xm
@@ -1162,6 +1163,21 @@ class Trainer:
 
         # Run Event.INIT
         self.engine.run_event(Event.INIT)
+
+        # If the experiment is being tracked with an `MLFlowLogger`, then the `save_folder` and
+        # related paths/filenames may have placeholders or the MLFlow experiment and run IDs that must be populated
+        # after running Event.INIT.
+        if save_folder is not None:
+            for destination in self.logger.destinations:
+                if isinstance(destination, MLFlowLogger):
+                    mlflow_format_kwargs = {
+                        MLFLOW_EXPERIMENT_ID_FORMAT_KEY: destination._experiment_id,
+                        MLFLOW_RUN_ID_FORMAT_KEY: destination._run_id
+                    }
+
+                    save_folder = partial_format(save_folder, **mlflow_format_kwargs)
+                    if latest_remote_file_name is not None:
+                        latest_remote_file_name = partial_format(latest_remote_file_name, **mlflow_format_kwargs)
 
         # Log hparams.
         if self.auto_log_hparams:
