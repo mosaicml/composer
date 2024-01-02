@@ -24,7 +24,9 @@ def partial_format(s, *args, **kwargs):
         try:
             result = s.format(*args, **kwargs)
             done = True
-        except KeyError as e:
+        except IndexError as e:  # Missing positional arg
+            args += ('{}',)
+        except KeyError as e:  # Missing keyword arg
             key = e.args[0]
             kwargs[key] = '{' + key + '}'
 
