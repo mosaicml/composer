@@ -195,7 +195,7 @@ def test_metric_full_filtering(monkeypatch):
     )
     trainer.fit()
 
-    assert len(mock_mapi.run_metadata[run_name].keys()) == 0
+    assert run_name not in mock_mapi.run_metadata
 
 
 class SetWandBRunURL(Callback):
