@@ -306,7 +306,6 @@ def _launch_processes(
                     text=True,
                 )
             else:
-
                 def _get_file(format: str):
                     filename = format.format(
                         rank=global_rank,
@@ -320,6 +319,7 @@ def _launch_processes(
                 stderr_file = _get_file(stderr_file_format)
                 stdout_file = _get_file(stdout_file_format)
                 print('the stderr file and stdout file for global_rank %s are', global_rank, stderr_file, stdout_file)
+                print('the cmd for global_rank %s is', global_rank, cmd)
                 process = subprocess.Popen(
                     cmd,
                     stdout=stdout_file,
