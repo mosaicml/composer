@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Set, 
 
 import torch
 import torch.distributed._shard.sharded_tensor.metadata as sharded_tensor_meta
-from torch.distributed.distributed_c10d import get_process_group_ranks
 import torch.nn as nn
 import torch.nn.functional as F
 from packaging import version
@@ -22,6 +21,7 @@ from torch import distributed
 from torch.distributed import ProcessGroup
 from torch.distributed._shard.sharding_spec import ShardMetadata
 from torch.distributed._shard.sharding_spec._internals import get_chunked_dim_size, get_split_size
+from torch.distributed.distributed_c10d import get_process_group_ranks
 from torch.distributed.fsdp import (BackwardPrefetch, CPUOffload, FullyShardedDataParallel, MixedPrecision,
                                     ShardingStrategy)
 from torch.distributed.fsdp._fsdp_extensions import _ext_pre_load_state_dict_transform
@@ -755,6 +755,7 @@ def _sharded_pre_load_state_dict_hook(
 
     _enter_unshard_params_ctx(module, fsdp_state, writeback=True)
 
+
 def fsdp_state_has_default_pg(state: _FSDPState) -> bool:
     """Indicates whether FlatParamHandle has the default process group.
 
@@ -768,11 +769,10 @@ def fsdp_state_has_default_pg(state: _FSDPState) -> bool:
     if state.process_group is None:
         # If no process group is attached to the _FSDPState, assume it uses default process group.
         return True
-    return len(get_process_group_ranks(
-        state.process_group)) == dist.get_world_size()
+    return len(get_process_group_ranks(state.process_group)) == dist.get_world_size()
 
 
-def fsdp_state_pg_ranks(state: _FSDPState) -> Tuple[int,...]:
+def fsdp_state_pg_ranks(state: _FSDPState) -> Tuple[int, ...]:
     """Gets the ranks included in the ProcessGroup of an _FSDPState.
 
     Args:
@@ -787,6 +787,7 @@ def fsdp_state_pg_ranks(state: _FSDPState) -> Tuple[int,...]:
     else:
         return tuple(get_process_group_ranks(state.process_group))
 
+
 @no_type_check
 def new_share_state_and_init_handle_attrs(
     root_state: _FSDPState,
@@ -799,9 +800,8 @@ def new_share_state_and_init_handle_attrs(
     done together to require a single loop over the states. This function has
     been modified to assign a different unshard stream to each process group.
     """
-    from torch.distributed.fsdp._runtime_utils import (
-        HOMOGENEOUS_ATTR_NAMES, _init_device_mesh,
-        _validate_and_get_hybrid_shard_state)
+    from torch.distributed.fsdp._runtime_utils import (HOMOGENEOUS_ATTR_NAMES, _init_device_mesh,
+                                                       _validate_and_get_hybrid_shard_state)
     from torch.distributed.utils import _p_assert
 
     handle = root_state._handle
@@ -817,12 +817,9 @@ def new_share_state_and_init_handle_attrs(
     for handle in root_state._all_handles:
         flat_param = handle.flat_param
         if hasattr(flat_param, '_in_backward_optimizers'):
-            raise RuntimeError(
-                'FSDP optimizer in backward only supported with use_orig_params=True!'
-            )
+            raise RuntimeError('FSDP optimizer in backward only supported with use_orig_params=True!')
         handle._has_optim_in_backward = flat_param._params is not None and any(
-            hasattr(param, '_in_backward_optimizers')
-            for param in flat_param._params)
+            hasattr(param, '_in_backward_optimizers') for param in flat_param._params)
     # Keep track of any new unshard streams we may have to add for specific process groups.
     fsdp_pg_unshard_streams = {}
     unshard_priority = root_state._unshard_stream.priority
@@ -854,14 +851,11 @@ def new_share_state_and_init_handle_attrs(
             state_pg_ranks = fsdp_state_pg_ranks(fsdp_state)
             if state_pg_ranks in fsdp_pg_unshard_streams:
                 # We have created the unshard stream for this process group already. Use it.
-                fsdp_state._unshard_stream = fsdp_pg_unshard_streams[
-                    state_pg_ranks]
+                fsdp_state._unshard_stream = fsdp_pg_unshard_streams[state_pg_ranks]
             else:
                 # We don't have an unshard stream for this process group yet. Make it.
-                fsdp_state._unshard_stream = fsdp_state._device_handle.Stream(
-                    priority=unshard_priority)
-                fsdp_pg_unshard_streams[
-                    state_pg_ranks] = fsdp_state._unshard_stream
+                fsdp_state._unshard_stream = fsdp_state._device_handle.Stream(priority=unshard_priority)
+                fsdp_pg_unshard_streams[state_pg_ranks] = fsdp_state._unshard_stream
 
         # All other stream assignments stay common across all of FSDP.
         fsdp_state._post_backward_stream = root_state._post_backward_stream
@@ -876,7 +870,4 @@ def new_share_state_and_init_handle_attrs(
             handle.init_flat_param_attributes()
     for attr_name, attr_values in attr_name_to_values.items():
         if len(attr_values) != 1:
-            raise ValueError(
-                f'Expects one homogeneous value for {attr_name} but got {attr_values}'
-            )
-        
+            raise ValueError(f'Expects one homogeneous value for {attr_name} but got {attr_values}')
