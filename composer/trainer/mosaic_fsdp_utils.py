@@ -825,7 +825,11 @@ def _share_state_and_init_handle_attrs_t2p1(
     # Patching so that _FSDPStates with different process groups have separate unshard streams.
     # Keep track of any new unshard streams we may have to add for specific process groups.
     fsdp_pg_unshard_streams = {}
-    unshard_priority = root_state._unshard_stream.priority
+    try:
+        unshard_priority = root_state._unshard_stream.priority
+    except AttributeError:
+        # Use the default priority of 0 if the stream has no assigned priority.
+        unshard_priority = 0
     for fsdp_state in root_state._all_fsdp_states:
         for attr_name in HOMOGENEOUS_ATTR_NAMES:
             _p_assert(
@@ -869,15 +873,15 @@ def _share_state_and_init_handle_attrs_t2p1(
         fsdp_state._free_event_queue = root_state._free_event_queue
         fsdp_state._device_mesh = root_state._device_mesh
         handle = fsdp_state._handle
-        # Ensure that all unshard streams wait on the default computation stream
-        for _, pg_unshard_stream in fsdp_pg_unshard_streams.items():
-            _wait_for_computation_stream(
-                root_state._device_handle.current_stream(),
-                pg_unshard_stream,
-                root_state._pre_unshard_stream,
-            )
         if handle:
             handle.init_flat_param_attributes()
+    # Ensure that all unshard streams wait on the default computation stream
+    for _, pg_unshard_stream in fsdp_pg_unshard_streams.items():
+        _wait_for_computation_stream(
+            root_state._device_handle.current_stream(),
+            pg_unshard_stream,
+            root_state._pre_unshard_stream,
+        )
     for attr_name, attr_values in attr_name_to_values.items():
         if len(attr_values) != 1:
             raise ValueError(f'Expects one homogeneous value for {attr_name} but got {attr_values}')
@@ -921,7 +925,11 @@ def _share_state_and_init_handle_attrs_t2p2(
     # Patching so that _FSDPStates with different process groups have separate unshard streams.
     # Keep track of any new unshard streams we may have to add for specific process groups.
     fsdp_pg_unshard_streams = {}
-    unshard_priority = root_state._unshard_stream.priority
+    try:
+        unshard_priority = root_state._unshard_stream.priority
+    except AttributeError:
+        # Use the default priority of 0 if the stream has no assigned priority.
+        unshard_priority = 0
     for fsdp_state in root_state._all_fsdp_states:
         for attr_name in HOMOGENEOUS_ATTR_NAMES:
             _p_assert(
@@ -966,13 +974,13 @@ def _share_state_and_init_handle_attrs_t2p2(
         handle = fsdp_state._handle
         if handle:
             handle.init_flat_param_attributes()
-        # Ensure that all unshard streams wait on the default computation stream
-        for _, pg_unshard_stream in fsdp_pg_unshard_streams.items():
-            _wait_for_computation_stream(
-                root_state._device_handle.current_stream(),
-                pg_unshard_stream,
-                root_state._pre_unshard_stream,
-            )
+    # Ensure that all unshard streams wait on the default computation stream
+    for _, pg_unshard_stream in fsdp_pg_unshard_streams.items():
+        _wait_for_computation_stream(
+            root_state._device_handle.current_stream(),
+            pg_unshard_stream,
+            root_state._pre_unshard_stream,
+        )
     for attr_name, attr_values in attr_name_to_values.items():
         if len(attr_values) != 1:
             raise ValueError(f'Expects one homogeneous value for {attr_name} but got {attr_values}')
