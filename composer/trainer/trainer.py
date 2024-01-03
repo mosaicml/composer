@@ -1164,20 +1164,35 @@ class Trainer:
         # Run Event.INIT
         self.engine.run_event(Event.INIT)
 
-        # If the experiment is being tracked with an `MLFlowLogger`, then the `save_folder` and
-        # related paths/filenames may have placeholders or the MLFlow experiment and run IDs that must be populated
-        # after running Event.INIT.
+        # If the experiment is being tracked with an `MLFlowLogger`, then MLFlow experiment and run are available
+        # after Event.INIT.
         if save_folder is not None:
+            mlflow_logger = None
             for destination in self.logger.destinations:
                 if isinstance(destination, MLFlowLogger):
-                    mlflow_format_kwargs = {
-                        MLFLOW_EXPERIMENT_ID_FORMAT_KEY: destination._experiment_id,
-                        MLFLOW_RUN_ID_FORMAT_KEY: destination._run_id
-                    }
+                    mlflow_logger = destination
+                    break
 
-                    save_folder = partial_format(save_folder, **mlflow_format_kwargs)
-                    if latest_remote_file_name is not None:
-                        latest_remote_file_name = partial_format(latest_remote_file_name, **mlflow_format_kwargs)
+            if mlflow_logger is not None:
+                mlflow_experiment_id = mlflow_logger._experiment_id
+                mlflow_run_id = mlflow_logger._run_id
+
+                # Log the experiment and run IDs as hyperparameters.
+                self.logger.log_hyperparameters({
+                    'mlflow_experiment_id': mlflow_experiment_id,
+                    'mlflow_run_id': mlflow_run_id
+                })
+
+                # The save folder and related paths/filenames may contain format placeholders for the MLFlow IDs, so
+                # populate them now.
+                mlflow_format_kwargs = {
+                    MLFLOW_EXPERIMENT_ID_FORMAT_KEY: mlflow_experiment_id,
+                    MLFLOW_RUN_ID_FORMAT_KEY: mlflow_run_id
+                }
+
+                save_folder = partial_format(save_folder, **mlflow_format_kwargs)
+                if latest_remote_file_name is not None:
+                    latest_remote_file_name = partial_format(latest_remote_file_name, **mlflow_format_kwargs)
 
         # Log hparams.
         if self.auto_log_hparams:
