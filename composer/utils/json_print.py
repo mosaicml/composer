@@ -3,7 +3,7 @@ import logging
 import os
 import sys
 
-from json_log_formatter import JsonLogFormatter
+from composer.utils.json_log_formatter import JsonLogFormatter
 
 
 def json_print(*args, **kwargs):
