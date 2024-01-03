@@ -801,7 +801,8 @@ def _share_state_and_init_handle_attrs_t2p1(
     been modified to assign a different unshard stream to each process group.
     """
     from torch.distributed.fsdp._runtime_utils import (HOMOGENEOUS_ATTR_NAMES, _init_device_mesh,
-                                                       _validate_and_get_hybrid_shard_state)
+                                                       _validate_and_get_hybrid_shard_state,
+                                                       _wait_for_computation_stream)
     from torch.distributed.utils import _p_assert
 
     handle = root_state._handle
@@ -868,6 +869,13 @@ def _share_state_and_init_handle_attrs_t2p1(
         fsdp_state._free_event_queue = root_state._free_event_queue
         fsdp_state._device_mesh = root_state._device_mesh
         handle = fsdp_state._handle
+        # Ensure that all unshard streams wait on the default computation stream
+        for _, pg_unshard_stream in fsdp_pg_unshard_streams.items():
+            _wait_for_computation_stream(
+                root_state._device_handle.current_stream(),
+                pg_unshard_stream,
+                root_state._pre_unshard_stream,
+            )
         if handle:
             handle.init_flat_param_attributes()
     for attr_name, attr_values in attr_name_to_values.items():
@@ -887,7 +895,9 @@ def _share_state_and_init_handle_attrs_t2p2(
     done together to require a single loop over the states. This function has
     been modified to assign a different unshard stream to each process group.
     """
-    from torch.distributed.fsdp._runtime_utils import HOMOGENEOUS_ATTR_NAMES, _validate_and_get_hybrid_shard_state
+    from torch.distributed.fsdp._runtime_utils import (HOMOGENEOUS_ATTR_NAMES,
+                                                       _validate_and_get_hybrid_shard_state,
+                                                       _wait_for_computation_stream)
     from torch.distributed.utils import _p_assert
 
     handle = root_state._handle
@@ -956,6 +966,13 @@ def _share_state_and_init_handle_attrs_t2p2(
         handle = fsdp_state._handle
         if handle:
             handle.init_flat_param_attributes()
+        # Ensure that all unshard streams wait on the default computation stream
+        for _, pg_unshard_stream in fsdp_pg_unshard_streams.items():
+            _wait_for_computation_stream(
+                root_state._device_handle.current_stream(),
+                pg_unshard_stream,
+                root_state._pre_unshard_stream,
+            )
     for attr_name, attr_values in attr_name_to_values.items():
         if len(attr_values) != 1:
             raise ValueError(f'Expects one homogeneous value for {attr_name} but got {attr_values}')
