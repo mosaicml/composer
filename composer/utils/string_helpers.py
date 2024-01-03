@@ -8,15 +8,8 @@ def partial_format(s, *args, **kwargs):
     """Format a string with a partial set of arguments.
 
     Since `str.format()` raises a `KeyError` if a format key is missing from the arguments, this
-    function allows for a partial set of arguments to be provided.
-
-    For example:
-
-    >>> partial_format('{foo} {bar}', foo='Hello')
-    'Hello {bar}'
-
-    >>> partial_format('{foo} {bar}', foo='Hello', bar='World')
-    'Hello World'
+    function allows for a partial set of arguments to be provided. Any missing arguments will be
+    left as-is in the string.
     """
     result = s
     done = False
