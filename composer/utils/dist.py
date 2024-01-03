@@ -519,7 +519,11 @@ def initialize_dist(device: Union[str, Device], timeout: float = 300.0):
 
     dist_env_vars_match_defaults = all(os.environ.get(k, v) == v for (k, v) in dist_env_var_defaults.items())
 
-    if dist_env_vars_match_defaults:
+    if device_obj.name == 'tpu':
+        # TPU initialization requires the init_method to be set, so that it uses the special TPU
+        # initialization registered by pytorch xla.
+        dist.init_process_group(device_obj.dist_backend, init_method='xla://')
+    elif dist_env_vars_match_defaults:
         # Fill in the remaining single-rank variables
         os.environ.update(dist_env_var_defaults)
         dist.init_process_group(device_obj.dist_backend, store=dist.HashStore(), world_size=1, rank=0)
