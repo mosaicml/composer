@@ -264,8 +264,8 @@ def _launch_processes(
     training_script_args: List[Any],
     processes: Dict[int, subprocess.Popen],
 ):
-    log.info('Launch processes called with nproc(%s), world_size(%s), base_rank(%s), node_rank(%s)', nproc, world_size,
-             base_rank, node_rank)
+    print('Launch processes called with nproc(%s), world_size(%s), base_rank(%s), node_rank(%s)', nproc, world_size,
+          base_rank, node_rank)
     log.info('Starting distributed environment on local node for global_rank(%s-%s)', base_rank, base_rank + nproc - 1)
     log.info('Distributed KV store: tcp://%s:%s', master_addr, master_port)
 
@@ -273,13 +273,15 @@ def _launch_processes(
         global_rank = base_rank + local_rank
         if command_mode and module_mode:
             raise ValueError('Either `command_mode` or `module_mode` should be set, but not both.')
-        cmd = []
+        excepthook_setup = f'from composer.utils.json_excepthook import override_excepthook; override_excepthook("{global_rank}")'
+        cmd = [sys.executable]
+
         if not command_mode:
-            cmd.append(sys.executable)
+            cmd.append('-c')
+            cmd.append(f'{excepthook_setup}; exec(open("{training_script}").read())')
         if module_mode:
             cmd.append('-m')
-
-        cmd.append(training_script)
+            cmd.append(training_script)
 
         # Update the env with the distributed variables
         with _patch_env(
@@ -306,6 +308,7 @@ def _launch_processes(
                     text=True,
                 )
             else:
+
                 def _get_file(format: str):
                     filename = format.format(
                         rank=global_rank,
@@ -503,6 +506,7 @@ def main():
         # what failed. No need to re-raise the exception, as `aggregate_process_returncode`
         # will return an appropriate error code, which will cause the script to exit.
         traceback.print_exc()
+        log.exception()
         print('Killing training processes')
     finally:
         _cleanup_processes(processes)

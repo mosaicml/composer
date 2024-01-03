@@ -4,14 +4,14 @@ import traceback
 
 
 class JsonLogFormatter(logging.Formatter):
-    def __init__(self, dist=None, *args, **kwargs):
+    def __init__(self, rank=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.dist = dist
+        self.rank = rank
 
     def format(self, record):
         log_record = {
             'asctime': self.formatTime(record, self.datefmt),
-            'rank': f'rank{self.dist.get_global_rank()}' if self.dist else 'unknown',
+            'rank': f'rank{self.rank}' if self.rank else 'unknown',
             'process': record.process,
             'threadName': record.threadName,
             'levelname': record.levelname,

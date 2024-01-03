@@ -908,7 +908,7 @@ class Trainer:
                 # threads / processes
                 format=f'%(asctime)s: rank{dist.get_global_rank()}[%(process)d][%(threadName)s]: %(levelname)s: %(name)s: %(message)s',
             )
-            json_formatter = JsonLogFormatter(dist=dist)
+            json_formatter = JsonLogFormatter(dist.get_global_rank())
             for handler in logging.root.handlers:
                 if hasattr(handler, 'stream') and handler.stream in [sys.stderr, sys.stdout]:
                     handler.setFormatter(json_formatter)
