@@ -5,11 +5,12 @@ import sys
 from composer.utils.json_log_formatter import JsonLogFormatter
 
 
-def override_excepthook(rank=None):
+def override_excepthook():
     log = logging.getLogger(__name__)
     if not log.handlers:
         stderr_handler = logging.StreamHandler(sys.stderr)
-        stderr_handler.setFormatter(JsonLogFormatter(rank=os.getenv('RANK')))
+        rank = os.getenv('RANK') if os.getenv('RANK') else 'unknown'
+        stderr_handler.setFormatter(JsonLogFormatter(rank=rank))
         log.addHandler(stderr_handler)
 
     def log_exception(type, value, tb):

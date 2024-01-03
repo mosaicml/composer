@@ -21,7 +21,9 @@ import psutil
 import torch
 
 import composer
+import composer.utils.json_print
 from composer.utils import get_free_tcp_port
+from composer.utils.json_excepthook import override_excepthook
 from composer.utils.json_log_formatter import JsonLogFormatter
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
@@ -273,12 +275,13 @@ def _launch_processes(
         global_rank = base_rank + local_rank
         if command_mode and module_mode:
             raise ValueError('Either `command_mode` or `module_mode` should be set, but not both.')
-        excepthook_setup = f'from composer.utils.json_excepthook import override_excepthook; override_excepthook("{global_rank}")'
+        excepthook_setup = f'from composer.utils.json_excepthook import override_excepthook; override_excepthook()'
+        json_print_setup = f'from composer.utils.json_print import json_print;'
         cmd = [sys.executable]
 
         if not command_mode:
             cmd.append('-c')
-            cmd.append(f'{excepthook_setup}; exec(open("{training_script}").read())')
+            cmd.append(f'{excepthook_setup}; {json_print_setup}; exec(open("{training_script}").read())')
         if module_mode:
             cmd.append('-m')
             cmd.append(training_script)
@@ -321,8 +324,6 @@ def _launch_processes(
 
                 stderr_file = _get_file(stderr_file_format)
                 stdout_file = _get_file(stdout_file_format)
-                print('the stderr file and stdout file for global_rank %s are', global_rank, stderr_file, stdout_file)
-                print('the cmd for global_rank %s is', global_rank, cmd)
                 process = subprocess.Popen(
                     cmd,
                     stdout=stdout_file,
@@ -476,6 +477,7 @@ def main():
     stdout_handler = logging.StreamHandler(sys.stdout)
     stdout_handler.setFormatter(json_log_formatter)
     log.addHandler(stdout_handler)
+    override_excepthook()
 
     processes = {}
 
@@ -506,7 +508,6 @@ def main():
         # what failed. No need to re-raise the exception, as `aggregate_process_returncode`
         # will return an appropriate error code, which will cause the script to exit.
         traceback.print_exc()
-        log.exception()
         print('Killing training processes')
     finally:
         _cleanup_processes(processes)

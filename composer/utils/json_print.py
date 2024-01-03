@@ -10,7 +10,8 @@ def json_print(*args, **kwargs):
     log = logging.getLogger(__name__)
     if not log.handlers:
         stderr_handler = logging.StreamHandler(sys.stderr)
-        stderr_handler.setFormatter(JsonLogFormatter(rank=os.getenv('RANK')))
+        rank = os.getenv('RANK') if os.getenv('RANK') else 'unknown'
+        stderr_handler.setFormatter(JsonLogFormatter(rank=rank))
         log.addHandler(stderr_handler)
     message = ' '.join(str(arg) for arg in args)
     log.info(message, **kwargs)
