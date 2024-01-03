@@ -1219,9 +1219,9 @@ class IFEval(InContextLearningDataset):
                                                     'role': 'user',
                                                     'content': ctxt
                                                 }],
-                                                tokenize=False,
-                                                add_generation_prompt=True,
-                                                add_special_tokens=False)['input_ids']
+                                                tokenize=True,
+                                                add_generation_prompt=True
+                                                )
 
         trimmed_context = _trim_context(tokenized_context, [], self.padding_size)
         padded_context = _make_padded_input(trimmed_context, [], self.padding_size, self.pad_tok_id, self.padding_side)
