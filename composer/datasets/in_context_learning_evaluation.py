@@ -1283,21 +1283,20 @@ class MTBench(InContextLearningDataset):
             **kwargs,
         )
         self.max_prompt_one_length = self.get_max_prompt_length(index='tokenized_prompt_one')
+        # Do we need this?
         self.max_prompt_two_length = self.get_max_prompt_length(index='tokenized_prompt_two')
+        self.padding_size = self.max_prompt_one_length
         self.default_batch = {
             'prompt_one': [],
             'prompt_two': [],
             'mode': 'mtbench_generate',
         }
         self._update_generation_kwargs(kwargs.get('generation_kwargs'))
-        self.dataset = 
+        self.dataset = self.dataset.map(self.pad_contexts)
 
     def pad_contexts(self, example):
-
-        trimmed_context = _trim_context(tokenized_prompt_one, [], self.padding_size)
+        trimmed_context = _trim_context(example['tokenized_prompt_one'], [], self.padding_size)
         padded_context = _make_padded_input(trimmed_context, [], self.padding_size, self.pad_tok_id, self.padding_side)
-        # max_len_prompt_one is the trimmed context len for pass one
-        # prompt_one + response + max_len_prompt_two_batch is the trimmed context len for pass two
         example['tokenized_prompt_one'] = padded_context
         return example
 

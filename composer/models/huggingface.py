@@ -435,9 +435,9 @@ class HuggingFaceModel(ComposerModel):
                                        synced_gpus=dist.get_world_size() > 1,
                                        **batch.get('generation_kwargs', {}))
             # remove padding
-            import IPython; IPython.embed() 
             # add generation
             # add second prompt
+            # prompt_one + response + max_len_prompt_two_batch is the trimmed context len for pass two
             # recompute
 
             # don't remove prefix space to sentencepiece models
