@@ -5,12 +5,12 @@
 
 import logging
 import os
+import random
 import re
 import string
-import random
 import warnings
-from typing import Any, Dict, List, Mapping, Optional, Union
 from copy import deepcopy
+from typing import Any, Dict, List, Mapping, Optional, Union
 
 import numpy as np
 import torch
@@ -18,8 +18,8 @@ from torch import Tensor
 from torch.nn import functional as F
 from torchmetrics import Metric
 
-from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.eval_client import EvalClient, LambdaEvalClient, LocalEvalClient, MosaicMLLambdaEvalClient
+from composer.utils.import_helpers import MissingConditionalImportError
 
 log = logging.getLogger(__name__)
 
@@ -648,13 +648,14 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
         assert isinstance(self.total, Tensor)
         return self.correct / self.total
 
+
 class IFEvalJudge(InContextLearningMetric):
     """
 
     {
-        "key": 3757, 
-        "prompt": "Would you consider yourself to be smart? Choose from:\nMy answer is yes.\nMy answer is no.\nMy answer is maybe.\nJust choose one phrase from above as your answer.", 
-        "instruction_id_list": ["detectable_format:constrained_response"], 
+        "key": 3757,
+        "prompt": "Would you consider yourself to be smart? Choose from:\nMy answer is yes.\nMy answer is no.\nMy answer is maybe.\nJust choose one phrase from above as your answer.",
+        "instruction_id_list": ["detectable_format:constrained_response"],
         "kwargs": [{}]
     }
     {
@@ -687,17 +688,14 @@ class IFEvalJudge(InContextLearningMetric):
             kwargs = batch['kwargs'][i]
             # Removes k, v pairs when value is none for each dict in the the list
             kwargs = [{k: v for k, v in kwarg_dict.items() if v is not None} for kwarg_dict in kwargs]
-            self.cached_results.append(
-                {
-                    'key': batch['key'][i], 
-                    'instruction_id_list': batch['instruction_id_list'][i],
-                    'prompt':batch['prompt'][i], 
-                    'kwargs':kwargs,
-                    'response':output
-                }
-            )
+            self.cached_results.append({
+                'key': batch['key'][i],
+                'instruction_id_list': batch['instruction_id_list'][i],
+                'prompt': batch['prompt'][i],
+                'kwargs': kwargs,
+                'response': output
+            })
             # self.total += 1 #type: ignore (third-party)
-
 
     def compute(self) -> Tensor:
         """Aggregate the state over all processes to compute the metric.
@@ -707,7 +705,8 @@ class IFEvalJudge(InContextLearningMetric):
         """
         # Return average loss over entire dataset
         try:
-            from instruction_following_eval import instruction_following_eval # pyright: ignore [reportGeneralTypeIssues]
+            from instruction_following_eval import \
+                instruction_following_eval  # pyright: ignore [reportGeneralTypeIssues]
             from instruction_following_eval.evaluation import InstructionResult
         except ImportError as e:
             raise MissingConditionalImportError(
@@ -718,9 +717,8 @@ class IFEvalJudge(InContextLearningMetric):
         instruction_results = [InstructionResult(**res_dict) for res_dict in self.cached_results]
         print(instruction_results)
         result = instruction_following_eval(instruction_results, aggregate=False)
-        print("*** Printing results of IFEval ***")
+        print('*** Printing results of IFEval ***')
         for k, v in result.items():
-            print(f"Task type: {k}, performance: {v}")
+            print(f'Task type: {k}, performance: {v}')
         # TODO: Handle result differently in trainer._compute_and_log_metrics()
         return result
-
