@@ -1271,15 +1271,9 @@ class MTBench(InContextLearningDataset):
         batch_mapping = {
             'input_ids': 'prompt',
             'prompts': 'prompt_text',
-            'tests': 'test',
-            'labels': 'canonical_solution',
-            'entry_points': 'entry_point',
-            'test_inputs': 'test_inputs',
-            'test_outputs': 'test_outputs',
-            'languages': 'language'
         }
         super().__init__(
-            context_key='prompt',
+            context_key='category',
             answer_key='canonical_solution',
             strip_dataset=False,
             tokenize_labels=False,
@@ -1288,13 +1282,87 @@ class MTBench(InContextLearningDataset):
             *args,
             **kwargs,
         )
-        self.dataset = self.adjust_padding()
+        self.max_prompt_one_length = self.get_max_prompt_length(index='tokenized_prompt_one')
+        self.max_prompt_two_length = self.get_max_prompt_length(index='tokenized_prompt_two')
         self.default_batch = {
-            'input_ids': [],
+            'prompt_one': [],
+            'prompt_two': [],
             'mode': 'mtbench_generate',
-            'labels': [],
         }
         self._update_generation_kwargs(kwargs.get('generation_kwargs'))
+        self.dataset = 
+
+    def pad_contexts(self, example):
+
+        trimmed_context = _trim_context(tokenized_prompt_one, [], self.padding_size)
+        padded_context = _make_padded_input(trimmed_context, [], self.padding_size, self.pad_tok_id, self.padding_side)
+        # max_len_prompt_one is the trimmed context len for pass one
+        # prompt_one + response + max_len_prompt_two_batch is the trimmed context len for pass two
+        example['tokenized_prompt_one'] = padded_context
+        return example
+
+    def get_max_prompt_length(self, index: str):
+        max_prompt_length = 0 
+        for example in self.dataset:
+            max_prompt_length = max(max_prompt_length, len(example[index]))
+        return max_prompt_length
+
+    def _prep_example(
+        self,
+        example: Dict,
+        example_idx: int,
+        num_fewshot: int,
+        prompt_string: str,
+        fewshot_rng: random.Random,
+    ) -> List[Dict[str, Any]]:
+        """
+        Prepares a single example from a HF Dataset into tokenized format with prompt and fewshot examples.
+
+        We don't need to create fewshot examples nor construct a single context, so those functions have been
+        rolled up into this one.
+
+        Args:
+            example (Dict): A Dictionary from the hf dataset
+            example_idx (int): the index of example
+            num_fewshot (int): Number of examples context/continuation pairs to prepend to the test pair
+            prompt_string (str): The prompt to prepend to all inputs
+            fewshot_rng (random.Random): Random number generator to use for fewshot sampling
+
+        Returns:
+            Dict: contains a dictionary with the tokenized data
+        """
+        tokenized_example = {}
+        prompt_one = example['turns'][0]
+        prompt_two = example['turns'][1]
+        tokenized_example['untokenized_prompt_1'] = prompt_one
+        tokenized_example['untokenized_prompt_2'] = prompt_two
+        tokenized_example['question_id'] = example['question_id']
+        tokenized_example['category'] = example['category']
+
+        if self.strip_data:
+            # rstrip context because a prompt ending in a space results in degenerate output
+            prompt_one = prompt_one.rstrip()
+            prompt_two = prompt_two.rstrip()
+
+        tokenized_prompt_one = self.tokenizer.apply_chat_template([{
+                                                    'role': 'user',
+                                                    'content': prompt_one
+                                                }],
+                                                tokenize=True,
+                                                add_generation_prompt=True
+        )
+        tokenized_prompt_two = self.tokenizer.apply_chat_template([{
+                                                    'role': 'user',
+                                                    'content': prompt_two
+                                                }],
+                                                tokenize=True,
+                                                add_generation_prompt=True
+        )
+        tokenized_example['tokenized_prompt_one'] = tokenized_prompt_one
+        tokenized_example['tokenized_prompt_two'] = tokenized_prompt_two 
+
+        return tokenized_example
+
 
 
 def build_icl_dataloader(
@@ -1427,6 +1495,23 @@ def build_icl_dataloader(
             generation_kwargs=generation_kwargs,
         )
         effective_batchsize = batch_size
+    elif icl_task_type == 'mtbench':
+        dataset = MTBench(
+            dataset_uri=dataset_uri,
+            tokenizer=tokenizer,
+            max_seq_len=max_seq_len,
+            pad_tok_id=pad_tok_id,
+            num_fewshot=num_fewshot,
+            prompt_string=prompt_string,
+            example_delimiter=example_delimiter,
+            continuation_delimiter=continuation_delimiter,
+            destination_path=destination_path,
+            fewshot_random_seed=fewshot_random_seed,
+            hf_loading_vars=hf_loading_vars,
+            hf_parsing_map=hf_parsing_map,
+            generation_kwargs=generation_kwargs,
+
+        )
     else:
         raise Exception(f'Unrecognized ICL task type: {icl_task_type}')
 

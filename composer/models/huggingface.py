@@ -423,6 +423,34 @@ class HuggingFaceModel(ComposerModel):
                                                                   skip_special_tokens=True)
                 ]
 
+        if batch.get('mode', None) == 'mtbench':
+            if self.tokenizer is None:
+                raise ValueError(
+                    'Generation eval cannot be used without providing a tokenizer to the model constructor.')
+
+            self.labels = batch.pop('labels')
+            generation = self.generate(batch['input_ids'],
+                                       attention_mask=batch['attention_mask'],
+                                       max_new_tokens=batch['generation_length'],
+                                       synced_gpus=dist.get_world_size() > 1,
+                                       **batch.get('generation_kwargs', {}))
+            # remove padding
+            import IPython; IPython.embed() 
+            # add generation
+            # add second prompt
+            # recompute
+
+            # don't remove prefix space to sentencepiece models
+            if len(self.tokenizer(' a', add_special_tokens=False)['input_ids']) == 1:
+                return self.tokenizer.batch_decode(generation[:, batch['input_ids'].shape[1]:],
+                                                   skip_special_tokens=True)
+            else:
+                return [
+                    ' ' + generation
+                    for generation in self.tokenizer.batch_decode(generation[:, batch['input_ids'].shape[1]:],
+                                                                  skip_special_tokens=True)
+                ]
+
         if self.use_logits or batch.get('mode', None) == 'icl_task':
             # pop labels first to avoid computing loss
             self.labels = batch.pop('labels')
