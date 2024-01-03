@@ -1121,7 +1121,8 @@ class InContextLearningCodeEvalDataset(Dataset):
                 'top_p': self.top_p,
                 'top_k': self.top_k,
                 'use_cache': True,
-                'eos_token_id': self.tokenizer.eos_token_id
+                'eos_token_id': self.tokenizer.eos_token_id,
+                'temperature': 0.2,
             }
         }
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
