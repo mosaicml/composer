@@ -876,12 +876,12 @@ def _share_state_and_init_handle_attrs_t2p1(
         if handle:
             handle.init_flat_param_attributes()
     # Ensure that all unshard streams wait on the default computation stream
-    for _, pg_unshard_stream in fsdp_pg_unshard_streams.items():
-        _wait_for_computation_stream(
-            root_state._device_handle.current_stream(),
-            pg_unshard_stream,
-            root_state._pre_unshard_stream,
-        )
+    # for _, pg_unshard_stream in fsdp_pg_unshard_streams.items():
+    #     _wait_for_computation_stream(
+    #         root_state._device_handle.current_stream(),
+    #         pg_unshard_stream,
+    #         root_state._pre_unshard_stream,
+    #     )
     for attr_name, attr_values in attr_name_to_values.items():
         if len(attr_values) != 1:
             raise ValueError(f'Expects one homogeneous value for {attr_name} but got {attr_values}')
