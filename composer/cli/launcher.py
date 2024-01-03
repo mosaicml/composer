@@ -276,7 +276,7 @@ def _launch_processes(
         if command_mode and module_mode:
             raise ValueError('Either `command_mode` or `module_mode` should be set, but not both.')
         excepthook_setup = f'from composer.utils.json_excepthook import override_excepthook; override_excepthook()'
-        json_print_setup = f'from composer.utils.json_print import json_print;'
+        json_print_setup = f'from composer.utils.json_print import json_print'
         cmd = [sys.executable]
 
         if not command_mode:
