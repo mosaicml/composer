@@ -962,21 +962,21 @@ def save_checkpoint(
         log.debug('Saving sharded checkpoints to %s...', save_filename)
         log.warning('starting pytorch save state dict')
         device_mesh = state.fsdp_device_mesh
-        if device_mesh is not None:
-            mesh_pg_1 = device_mesh.get_group(1)
-            mesh_pg_1_ranks = get_process_group_ranks(mesh_pg_1)
-            expect_file = (0 in mesh_pg_1_ranks)
-            log.debug(f'global_rank={dist.get_global_rank()}, {mesh_pg_1_ranks=}, {expect_file=}')
+        process_group = None
+        if device_mesh is not None and device_mesh.ndim == 2:
+            expect_file = (device_mesh.get_local_rank(mesh_dim=0) == 0)
+            process_group = device_mesh.get_group(1)
+            log.debug(f'global_rank={dist.get_global_rank()}, {expect_file=}, process_group={get_process_group_ranks(process_group)}')
         else:
-            process_group = None
             expect_file = True
+            process_group = None
 
         if expect_file:
             dist_cp.save(
                     state_dict=state_dict,
                     storage_writer=dist_cp.FileSystemWriter(dirname),
                     planner=save_planner,
-                    process_group=mesh_pg_1,
+                    process_group=process_group,
             )
         log.warning('finished pytorch save state dict')
 

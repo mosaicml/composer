@@ -760,7 +760,6 @@ if version.parse(torch.__version__) >= version.parse('2.1.2') and version.parse(
         _init_ignored_module_states,
         _init_device_handle,
         _annotate_modules_for_dynamo,
-        _init_process_group_state,
         _auto_wrap,
         _init_core_state,
         _init_runtime_state,
@@ -776,9 +775,120 @@ if version.parse(torch.__version__) >= version.parse('2.1.2') and version.parse(
     from torch.distributed.fsdp._init_utils import (
         HYBRID_SHARDING_STRATEGIES,
         ProcessGroupType,
+        _init_intra_and_inter_node_groups,
+        _is_valid_hybrid_shard_pg_type,
+        _get_default_comm_hook_state,
     )
-    from torch.distributed.fsdp.wrap import CustomPolicy, ModuleWrapPolicy
+    from torch.distributed.fsdp.wrap import _Policy, CustomPolicy, ModuleWrapPolicy
     from torch.distributed._tensor import DeviceMesh
+    from torch.distributed.fsdp._common_utils import _FSDPState
+    from torch.distributed.algorithms._comm_hooks import default_hooks
+
+
+    def _is_valid_hybrid_shard_device_mesh_t2p2p0(device_mesh: DeviceMesh) -> bool:
+        #parent_mesh = _mesh_resources.get_parent_mesh(device_mesh)
+        #if parent_mesh is not None:
+        #    raise RuntimeError(
+        #        f"Found device_mesh {device_mesh} passed in has a parent device_mesh {parent_mesh}.",
+        #        "Hybrid sharding + TP is not supported yet.",
+        #    )
+        return isinstance(device_mesh, DeviceMesh) and device_mesh.ndim in [2,3]
+
+
+    def _init_process_group_state_for_hybrid_shard_t2p2p0(
+        state: _FSDPState,
+        process_group: ProcessGroupType,
+        device_mesh: DeviceMesh,
+    ) -> _FSDPState:
+        if device_mesh:
+            if _is_valid_hybrid_shard_device_mesh_t2p2p0(device_mesh):
+                state._device_mesh = device_mesh
+                # We currently only allow _inter_node_pg to be the outermost dimension, and the
+                # process_group(intra_node) to be the innermost dimension.
+                state._inter_node_pg = device_mesh.get_group(mesh_dim=0)
+                state.process_group = device_mesh.get_group(mesh_dim=1)
+            else:
+                raise ValueError(
+                    "Expected device_mesh to have ndim=2 "
+                    f"but got {len(device_mesh.get_group())}"
+                )
+        elif process_group is None:
+            default_group = _get_default_group()
+            intra_node_group, inter_node_group = _init_intra_and_inter_node_groups(
+                default_group, state._device_handle.device_count()
+            )
+            # we shard across intra-node
+            state.process_group = intra_node_group
+            # save _inter_node_pg to allreduce across.
+            state._inter_node_pg = inter_node_group
+        else:
+            # Check type and assign state.process_group and state._inter_node_pg.
+            if _is_valid_hybrid_shard_pg_type(process_group):
+                # Assuming that user passed in as intra node group and inter node group
+                # as documented.
+                state.process_group, state._inter_node_pg = process_group
+            else:
+                raise ValueError(
+                    "Expected process_group to be passed in as either None or "
+                    f"Tuple[dist.ProcessGroup, dist.ProcessGroup] but got {type(process_group)}"
+                )
+        # Create state for allreduce
+        state._inter_node_state = _get_default_comm_hook_state(
+            process_group=state._inter_node_pg,
+        )
+        return state
+
+
+    def _init_process_group_state_t2p2p0(
+        state: _FSDPState,
+        process_group: ProcessGroupType,
+        sharding_strategy: ShardingStrategy,
+        policy: Optional[_Policy],
+        device_mesh: Optional[DeviceMesh] = None,
+    ) -> _FSDPState:
+        if process_group is not None and device_mesh is not None:
+            raise ValueError(
+                "Cannot pass both process_group and device_mesh at the "
+                "same time. Please just pass only one of them."
+            )
+        is_hybrid_strategy = sharding_strategy in HYBRID_SHARDING_STRATEGIES
+        if is_hybrid_strategy:
+            if process_group is None and policy is None and device_mesh is None:
+                # Raise an error here, since this is manual wrapping with no process group
+                # passed in, there is no way to ensure all wrapped FSDP instances use the same
+                # process groups.
+                raise ValueError(
+                    f"Manual wrapping with {sharding_strategy}",
+                    "requires explicit specification of process group or device_mesh.",
+                )
+            else:
+                state = _init_process_group_state_for_hybrid_shard_t2p2p0(
+                    state, process_group, device_mesh
+                )
+        else:
+            if device_mesh:
+                state._device_mesh = device_mesh
+                state.process_group = device_mesh.get_group(mesh_dim=0)
+            else:
+                state.process_group = (
+                    process_group if process_group is not None else _get_default_group()
+                )
+
+        state.rank = state.process_group.rank()
+        state.world_size = state.process_group.size()
+        data_parallel_world_size = state.world_size
+        if is_hybrid_strategy:
+            data_parallel_world_size *= state._inter_node_pg.size()
+        state._gradient_predivide_factor = (
+            default_hooks.DefaultState._get_gradient_predivide_factor(
+                data_parallel_world_size
+            )
+        )
+        state._gradient_postdivide_factor = (
+            data_parallel_world_size / state._gradient_predivide_factor
+        )
+        return state
+
     def init_fn_t2p2p0(
         self,
         module: nn.Module,
@@ -816,7 +926,7 @@ if version.parse(torch.__version__) >= version.parse('2.1.2') and version.parse(
         # Note that this is done before auto_wrapping, so that child FSDP modules simply pick up
         # the same process group state as the root FSDP module.
         self._device_mesh = device_mesh
-        _init_process_group_state(
+        _init_process_group_state_t2p2p0(
             self,
             process_group,
             sharding_strategy,
