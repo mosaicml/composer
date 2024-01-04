@@ -677,7 +677,7 @@ class IFEvalJudge(InContextLearningMetric):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
         self.ignore_index = ignore_index
-        self.add_state('cached_results', default=[])
+        self.add_state('cached_results', default=[], dist_reduce_fx='cat')
 
     def update(self, batch, outputs: Union[Mapping, Tensor], target: Tensor) -> None:
         """Updates the internal state with results from a new batch.
