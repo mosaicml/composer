@@ -716,9 +716,10 @@ class IFEvalJudge(InContextLearningMetric):
         instruction_results = [InstructionResult(**res_dict) for res_dict in self.cached_results]
         log.debug(self.cached_results)
         log.debug(instruction_results)
-        result = instruction_following_eval(instruction_results)
-        log.debug('*** Printing results of IFEval ***')
-        for k, v in result.items():
-            log.debug(f'Task type: {k}, performance: {v}')
+        if len(instruction_results) > 0:
+            result = instruction_following_eval(instruction_results)
+            log.debug('*** Printing results of IFEval ***')
+            for k, v in result.items():
+                log.debug(f'Task type: {k}, performance: {v}')
         # TODO: Handle result differently in trainer._compute_and_log_metrics()
         return result
