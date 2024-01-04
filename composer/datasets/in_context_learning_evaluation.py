@@ -497,6 +497,7 @@ class InContextLearningDataset(Dataset):
         Returns:
             Dict: dictionary for a single batch
         """
+        import IPython; IPython.embed()
         batch = copy.deepcopy(self.base_batch)
         for data_pair in data:
             for batch_key, data_key in self.batch_mapping.items():
