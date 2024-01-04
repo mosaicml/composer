@@ -428,7 +428,7 @@ class HuggingFaceModel(ComposerModel):
                 raise ValueError(
                     'Generation eval cannot be used without providing a tokenizer to the model constructor.')
 
-            self.labels = batch.pop('labels')
+            # self.labels = batch.pop('labels')
             generation = self.generate(batch['input_ids'],
                                        attention_mask=batch['attention_mask'],
                                        max_new_tokens=batch['generation_length'],

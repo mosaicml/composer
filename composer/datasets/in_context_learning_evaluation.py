@@ -1273,7 +1273,7 @@ class MTBench(InContextLearningDataset):
             'category': 'category',
             'untokenized_prompt_one': 'untokenized_prompt_one',
             'untokenized_prompt_two': 'untokenized_prompt_two',
-            'tokenized_prompt_one': 'tokenized_prompt_one',
+            'input_ids': 'tokenized_prompt_one',
             'tokenized_prompt_two': 'tokenized_prompt_two',
         }
         super().__init__(
@@ -1291,13 +1291,14 @@ class MTBench(InContextLearningDataset):
         self.max_prompt_two_length = self.get_max_prompt_length(index='tokenized_prompt_two')
         self.padding_size = self.max_prompt_one_length
         self.base_batch = {
-            'mode': 'mtbench_generate',
+            'mode': 'mtbench',
             'question_id': [],
             'category': [],
             'untokenized_prompt_one': [],
             'untokenized_prompt_two': [],
-            'tokenized_prompt_one': [],
+            'input_ids': [],
             'tokenized_prompt_two': [],
+            'generation_length' : self.max_seq_len,
         }
         self._update_generation_kwargs(kwargs.get('generation_kwargs'))
         self.dataset = self.dataset.map(self.pad_contexts)
