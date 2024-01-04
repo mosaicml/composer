@@ -136,7 +136,8 @@ class MosaicMLLogger(LoggerDestination):
 
     def close(self, state: State, logger: Logger) -> None:
         self._flush_metadata(force_flush=True, future=False)
-        wait(self._futures)  # Ignore raised errors on close
+        if self._enabled:
+            wait(self._futures)  # Ignore raised errors on close
 
     def _log_metadata(self, metadata: Dict[str, Any]) -> None:
         """Buffer metadata and prefix keys with mosaicml."""
