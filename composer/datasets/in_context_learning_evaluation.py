@@ -497,7 +497,6 @@ class InContextLearningDataset(Dataset):
         Returns:
             Dict: dictionary for a single batch
         """
-        import IPython; IPython.embed()
         batch = copy.deepcopy(self.base_batch)
         for data_pair in data:
             for batch_key, data_key in self.batch_mapping.items():
@@ -1270,8 +1269,12 @@ class MTBench(InContextLearningDataset):
         **kwargs,
     ):
         batch_mapping = {
-            'input_ids': 'prompt',
-            'prompts': 'prompt_text',
+            'question_id': 'question_id',
+            'category': 'category',
+            'untokenized_prompt_one': 'untokenized_prompt_one',
+            'untokenized_prompt_two': 'untokenized_prompt_two',
+            'tokenized_prompt_one': 'tokenized_prompt_one',
+            'tokenized_prompt_two': 'tokenized_prompt_two',
         }
         super().__init__(
             context_key='category',
@@ -1287,10 +1290,14 @@ class MTBench(InContextLearningDataset):
         # Do we need this?
         self.max_prompt_two_length = self.get_max_prompt_length(index='tokenized_prompt_two')
         self.padding_size = self.max_prompt_one_length
-        self.default_batch = {
-            'prompt_one': [],
-            'prompt_two': [],
+        self.base_batch = {
             'mode': 'mtbench_generate',
+            'question_id': [],
+            'category': [],
+            'untokenized_prompt_one': [],
+            'untokenized_prompt_two': [],
+            'tokenized_prompt_one': [],
+            'tokenized_prompt_two': [],
         }
         self._update_generation_kwargs(kwargs.get('generation_kwargs'))
         self.dataset = self.dataset.map(self.pad_contexts)
@@ -1334,8 +1341,8 @@ class MTBench(InContextLearningDataset):
         tokenized_example = {}
         prompt_one = example['turns'][0]
         prompt_two = example['turns'][1]
-        tokenized_example['untokenized_prompt_1'] = prompt_one
-        tokenized_example['untokenized_prompt_2'] = prompt_two
+        tokenized_example['untokenized_prompt_one'] = prompt_one
+        tokenized_example['untokenized_prompt_two'] = prompt_two
         tokenized_example['question_id'] = example['question_id']
         tokenized_example['category'] = example['category']
 
