@@ -714,8 +714,8 @@ class IFEvalJudge(InContextLearningMetric):
                 conda_channel='conda-forge',
             ) from e
         instruction_results = [InstructionResult(**res_dict) for res_dict in self.cached_results]
-        log.debug(self.cached_results)
-        log.debug(instruction_results)
+        log.debug([res['key'] for res in self.cached_results])
+        log.debug(len(instruction_results))
         if len(instruction_results) > 0:
             result = instruction_following_eval(instruction_results)
             log.debug('*** Printing results of IFEval ***')
