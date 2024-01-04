@@ -435,6 +435,9 @@ class HuggingFaceModel(ComposerModel):
                                        synced_gpus=dist.get_world_size() > 1,
                                        **batch.get('generation_kwargs', {}))
             # remove padding
+            for input in batch['input_ids']:
+                unpadded_input = [token for token in input if token != self.tokenizer.pad_tok]
+                generation
             # add generation
             # add second prompt
             # prompt_one + response + max_len_prompt_two_batch is the trimmed context len for pass two
