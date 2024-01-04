@@ -56,6 +56,7 @@ jobs:
         TORCHVISION_VERSION=${{ matrix.TORCHVISION_VERSION }}
         PYTORCH_NIGHTLY_URL=${{ matrix.PYTORCH_NIGHTLY_URL }}
         PYTORCH_NIGHTLY_VERSION=${{ matrix.PYTORCH_NIGHTLY_VERSION }}
+        NVIDIA_REQUIRE_CUDA_OVERRIDE=${{ matrix.NVIDIA_REQUIRE_CUDA_OVERRIDE }}
       context: ./docker
       image-name: ${{ matrix.IMAGE_NAME }}
       image-uuid: ${{ matrix.UUID }}

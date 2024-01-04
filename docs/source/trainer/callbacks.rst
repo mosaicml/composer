@@ -50,6 +50,7 @@ components of training.
     ~lr_monitor.LRMonitor
     ~optimizer_monitor.OptimizerMonitor
     ~memory_monitor.MemoryMonitor
+    ~nan_monitor.NaNMonitor
     ~image_visualizer.ImageVisualizer
     ~mlperf.MLPerfCallback
     ~threshold_stopper.ThresholdStopper

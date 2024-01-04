@@ -150,6 +150,7 @@ def test_composer_metadata_in_state_dict(tmp_path, request: pytest.FixtureReques
     assert expected_env_info_keys == actual_env_info_keys
     assert loaded_state_dict['metadata']['composer_env_info']['composer_version'] == composer.__version__
 
+    assert loaded_state_dict['metadata']['torch_version'] == torch.__version__
     assert loaded_state_dict['metadata']['device'] == 'cpu'
     assert loaded_state_dict['metadata']['precision'] == 'amp_fp16'
     assert loaded_state_dict['metadata']['world_size'] == 1

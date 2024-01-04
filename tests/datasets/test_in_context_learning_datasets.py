@@ -1343,6 +1343,18 @@ def test_qa_task_with_cot_evaluation(device, world_size, num_fewshot, dataset_ur
     assert in_memory_logger.data['metrics/gsm8k/InContextLearningQAAccuracy'][0][1].item() == 0
 
 
+def test_code_eval_requires_envvar(monkeypatch):
+    monkeypatch.delenv('CODE_EVAL_DEVICE', raising=False)
+    with pytest.raises(ValueError, match='Attempting to use InContextLearningCodeEvalAccuracy but.*'):
+        InContextLearningCodeEvalAccuracy().get_client()
+
+
+def test_code_eval_requires_valid_envvar(monkeypatch):
+    monkeypatch.setenv('CODE_EVAL_DEVICE', 'bigchungus')
+    with pytest.raises(ValueError, match='Environment variable `CODE_EVAL_DEVICE` must be on.*'):
+        InContextLearningCodeEvalAccuracy().get_client()
+
+
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
 @device('gpu')
 @world_size(1, 2)

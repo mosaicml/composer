@@ -40,6 +40,8 @@ class LoggerDestination(Callback, ABC):
             ...     ...,
             ...     loggers=[logger]
             ... )
+            Batch 0: {'composer_version': ...}
+            Batch 0: {'composer_commit_hash': ...}
             Batch 0: {'num_nodes': ...}
             Batch 0: {'rank_zero_seed': ...}
     """

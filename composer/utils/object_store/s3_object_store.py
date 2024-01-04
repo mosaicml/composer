@@ -122,19 +122,38 @@ class S3ObjectStore(ObjectStore):
             _ensure_not_found_errors_are_wrapped(self.get_uri(object_name), e)
         return obj['ContentLength']
 
-    def upload_object(
-        self,
-        object_name: str,
-        filename: Union[str, pathlib.Path],
-        callback: Optional[Callable[[int, int], None]] = None,
-    ):
+    def upload_object(self,
+                      object_name: str,
+                      filename: Union[str, pathlib.Path],
+                      callback: Optional[Callable[[int, int], None]] = None,
+                      **kwargs):
+        try:
+            from boto3.s3.transfer import S3Transfer
+        except ImportError as e:
+            raise MissingConditionalImportError('streaming', 'boto3') from e
+
         file_size = os.path.getsize(filename)
         cb_wrapper = None if callback is None else lambda bytes_transferred: callback(bytes_transferred, file_size)
+
+        # Validate kwargs. Use env var for Canned ACL if present and one has not been passed in.
+        if len(kwargs) == 0:
+            if 'S3_CANNED_ACL' in os.environ:
+                kwargs['ExtraArgs'] = {'ACL': os.environ['S3_CANNED_ACL']}
+        else:
+            if len(kwargs) > 1 or 'ExtraArgs' not in kwargs or not isinstance(kwargs['ExtraArgs'], dict):
+                raise ValueError('S3ObjectStore.upload_object only supports an additional ExtraArgs dictionary.')
+            for key in kwargs['ExtraArgs']:
+                if key not in S3Transfer.ALLOWED_UPLOAD_ARGS:
+                    raise ValueError(f'{key} is not an allowed upload argument.')
+            if 'S3_CANNED_ACL' in os.environ and 'ACL' not in kwargs['ExtraArgs']:
+                kwargs['ExtraArgs']['ACL'] = os.environ['S3_CANNED_ACL']
+
         self.client.upload_file(Bucket=self.bucket,
                                 Key=self.get_key(object_name),
                                 Filename=filename,
                                 Callback=cb_wrapper,
-                                Config=self.transfer_config)
+                                Config=self.transfer_config,
+                                **kwargs)
 
     def download_object(
         self,
