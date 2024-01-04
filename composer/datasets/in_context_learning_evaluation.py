@@ -1509,8 +1509,8 @@ def build_icl_dataloader(
             hf_loading_vars=hf_loading_vars,
             hf_parsing_map=hf_parsing_map,
             generation_kwargs=generation_kwargs,
-
         )
+        effective_batchsize = batch_size
     else:
         raise Exception(f'Unrecognized ICL task type: {icl_task_type}')
 
