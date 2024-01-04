@@ -677,8 +677,7 @@ class IFEvalJudge(InContextLearningMetric):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
         self.ignore_index = ignore_index
-        self.cached_results = []
-        # self.add_state('total', default=torch.tensor(0), dist_reduce_fx='sum')
+        self.add_state('cached_results', default=[], dist_reduce_fx='cat')
 
     def update(self, batch, outputs: Union[Mapping, Tensor], target: Tensor) -> None:
         """Updates the internal state with results from a new batch.
@@ -715,6 +714,8 @@ class IFEvalJudge(InContextLearningMetric):
                 conda_channel='conda-forge',
             ) from e
         instruction_results = [InstructionResult(**res_dict) for res_dict in self.cached_results]
+        log.debug(self.cached_results)
+        log.debug(instruction_results)
         result = instruction_following_eval(instruction_results)
         log.debug('*** Printing results of IFEval ***')
         for k, v in result.items():
