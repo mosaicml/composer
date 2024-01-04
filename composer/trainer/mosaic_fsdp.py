@@ -54,8 +54,8 @@ def patch_pytorch():
         from torch.distributed.fsdp import _runtime_utils
         _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
 
-    elif version.parse(torch.__version__) < version.parse('2.2.0'):
-        # Monkey patch for torch < 2.2.0 ie torch == 2.1.1, 2.1.2
+    elif version.parse(torch.__version__) < version.parse('2.1.3'):
+        # Monkey patch for torch < 2.1.3 ie torch == 2.1.1, 2.1.2
 
         # Allow 2D HSDP
         from torch.distributed.fsdp import _runtime_utils
