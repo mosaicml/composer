@@ -722,4 +722,6 @@ class IFEvalJudge(InContextLearningMetric):
             for k, v in result.items():
                 log.debug(f'Task type: {k}, performance: {v}')
         # TODO: Handle result differently in trainer._compute_and_log_metrics()
+        else:
+            result = None
         return result
