@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import os
 import pathlib
-import uuid
+import tempfile
 from typing import Callable, List, Optional, Tuple, Union
 
 from composer.utils import dist
@@ -277,15 +277,15 @@ class MLFlowObjectStore(ObjectStore):
         # Since MLflow doesn't support uploading artifacts with a different base name than the local file,
         # create a temporary symlink to the local file with the same base name as the desired artifact name.
         filename = os.path.abspath(filename)
-        tmp_dir = f'/tmp/{uuid.uuid4()}'
-        os.makedirs(tmp_dir, exist_ok=True)
-        tmp_symlink_path = os.path.join(tmp_dir, artifact_base_name)
-        os.symlink(filename, tmp_symlink_path)
 
-        try:
-            self._mlflow_client.log_artifact(self.run_id, tmp_symlink_path, artifact_dir)
-        except MlflowException as e:
-            _wrap_mlflow_exceptions(self.get_uri(object_name), e)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_symlink_path = os.path.join(tmp_dir, artifact_base_name)
+            os.symlink(filename, tmp_symlink_path)
+
+            try:
+                self._mlflow_client.log_artifact(self.run_id, tmp_symlink_path, artifact_dir)
+            except MlflowException as e:
+                _wrap_mlflow_exceptions(self.get_uri(object_name), e)
 
     def get_object_size(self, object_name: str) -> int:
         from mlflow.exceptions import MlflowException
@@ -324,23 +324,22 @@ class MLFlowObjectStore(ObjectStore):
 
         # MLFLow doesn't support downloading artifacts directly to a specified filename, so instead
         # download to a temporary directory and then move the file to the desired location.
-        tmp_dir = f'/tmp/{uuid.uuid4()}'
-        os.makedirs(tmp_dir, exist_ok=True)
-        try:
-            self._mlflow_client.download_artifacts(
-                run_id=self.run_id,
-                path=artifact_path,
-                dst_path=tmp_dir,
-            )
-            tmp_path = os.path.join(tmp_dir, artifact_path)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            try:
+                self._mlflow_client.download_artifacts(
+                    run_id=self.run_id,
+                    path=artifact_path,
+                    dst_path=tmp_dir,
+                )
+                tmp_path = os.path.join(tmp_dir, artifact_path)
 
-            os.makedirs(os.path.dirname(filename), exist_ok=True)
-            if overwrite:
-                os.replace(tmp_path, filename)
-            else:
-                os.rename(tmp_path, filename)
-        except MlflowException as e:
-            _wrap_mlflow_exceptions(self.get_uri(artifact_path), e)
+                os.makedirs(os.path.dirname(filename), exist_ok=True)
+                if overwrite:
+                    os.replace(tmp_path, filename)
+                else:
+                    os.rename(tmp_path, filename)
+            except MlflowException as e:
+                _wrap_mlflow_exceptions(self.get_uri(artifact_path), e)
 
     def list_objects(self, prefix: Optional[str] = None) -> List[str]:
         """See :meth:`~composer.utils.ObjectStore.list_objects`.
