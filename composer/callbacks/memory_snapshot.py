@@ -13,7 +13,7 @@ from packaging import version
 from composer import State
 from composer.core import Callback, State, Time, TimeUnit
 from composer.loggers import Logger
-from composer.utils import ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time
+from composer.utils import ensure_folder_is_empty, format_name_with_dist, format_name_with_dist_and_time, parse_uri
 
 log = logging.getLogger(__name__)
 
@@ -88,6 +88,12 @@ class MemorySnapshot(Callback):
         self.remote_file_name = remote_file_name
         self.overwrite = overwrite
         self._start_time = None
+        if remote_file_name:
+            self.remote_file_name = remote_file_name
+            _, _, self.remote_path_in_bucket = parse_uri(remote_file_name)
+        else:
+            self.remote_path_in_bucket = None
+
         if version.parse(torch.__version__) > version.parse('2.1.0.dev'):  # type: ignore
             # memory snapshot  is only supported in torch v2.1.0-rc1 or higher
             self._enabled = True
@@ -152,8 +158,8 @@ class MemorySnapshot(Callback):
         except Exception as e:
             log.error(f'Failed to capture memory snapshot {e}')
             return
-        if self.remote_file_name is not None:
-            remote_file_name = format_name_with_dist_and_time(self.remote_file_name,
+        if self.remote_path_in_bucket is not None:
+            remote_file_name = format_name_with_dist_and_time(self.remote_path_in_bucket,
                                                               run_name=state.run_name,
                                                               timestamp=state.timestamp)
             remote_file_name = remote_file_name.lstrip('/')
