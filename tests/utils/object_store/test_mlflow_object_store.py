@@ -41,6 +41,8 @@ def test_init_fail_without_databricks_tracking_uri(monkeypatch):
 
 
 def test_init_with_experiment_and_run(monkeypatch):
+    monkeypatch.setenv('MLFLOW_TRACKING_URI', 'databricks')
+
     dbx_sdk = pytest.importorskip('databricks.sdk')
     monkeypatch.setattr(dbx_sdk, 'WorkspaceClient', MagicMock())
 
@@ -56,6 +58,8 @@ def test_init_with_experiment_and_run(monkeypatch):
 
 
 def test_init_with_experiment_and_no_run(monkeypatch):
+    monkeypatch.setenv('MLFLOW_TRACKING_URI', 'databricks')
+
     dbx_sdk = pytest.importorskip('databricks.sdk')
     monkeypatch.setattr(dbx_sdk, 'WorkspaceClient', MagicMock())
 
@@ -72,6 +76,8 @@ def test_init_with_experiment_and_no_run(monkeypatch):
 
 
 def test_init_with_run_and_no_experiment(monkeypatch):
+    monkeypatch.setenv('MLFLOW_TRACKING_URI', 'databricks')
+
     dbx_sdk = pytest.importorskip('databricks.sdk')
     monkeypatch.setattr(dbx_sdk, 'WorkspaceClient', MagicMock())
 
@@ -80,6 +86,8 @@ def test_init_with_run_and_no_experiment(monkeypatch):
 
 
 def test_init_with_active_run(monkeypatch):
+    monkeypatch.setenv('MLFLOW_TRACKING_URI', 'databricks')
+
     dbx_sdk = pytest.importorskip('databricks.sdk')
     monkeypatch.setattr(dbx_sdk, 'WorkspaceClient', MagicMock())
 
@@ -97,6 +105,8 @@ def test_init_with_active_run(monkeypatch):
 
 
 def test_init_with_existing_experiment_and_no_run(monkeypatch):
+    monkeypatch.setenv('MLFLOW_TRACKING_URI', 'databricks')
+
     dbx_sdk = pytest.importorskip('databricks.sdk')
     monkeypatch.setattr(dbx_sdk, 'WorkspaceClient', MagicMock())
 
@@ -115,6 +125,8 @@ def test_init_with_existing_experiment_and_no_run(monkeypatch):
 
 
 def test_init_with_no_experiment_and_no_run(monkeypatch):
+    monkeypatch.setenv('MLFLOW_TRACKING_URI', 'databricks')
+
     dbx_sdk = pytest.importorskip('databricks.sdk')
     monkeypatch.setattr(dbx_sdk, 'WorkspaceClient', MagicMock())
 
@@ -135,6 +147,7 @@ def test_init_with_no_experiment_and_no_run(monkeypatch):
 
 @pytest.fixture()
 def mlflow_object_store(monkeypatch):
+    monkeypatch.setenv('MLFLOW_TRACKING_URI', 'databricks')
 
     def mock_mlflow_client_list_artifacts(*args, **kwargs):
         """Mock behavior for MlflowClient.list_artifacts().
