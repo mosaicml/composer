@@ -60,6 +60,7 @@ def get_precision_context(precision: Union[str, Precision],
         with torch.cuda.amp.autocast(True):
             yield
     elif precision == Precision.AMP_BF16:
+        print("Hit here")
         if torch.cuda.is_available():
             print("Turned off torch autocast")
             yield
