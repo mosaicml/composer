@@ -2043,76 +2043,13 @@ class Trainer:
 
                 self.state.batch = self.state.device.batch_to_device(self.state.batch)
                 self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
-                rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
-                rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
 
                 if self.state.deepspeed_enabled:
                     self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
                 self.engine.run_event(Event.AFTER_DATALOADER)
 
-                self.engine.run_event(Event.BATCH_START)
-
-                # Log time values
-                self.logger.log_metrics({
-                    'time/batch': self.state.timestamp.batch.value,
-                    'time/sample': self.state.timestamp.sample.value,
-                    'time/batch_in_epoch': self.state.timestamp.batch_in_epoch.value,
-                    'time/sample_in_epoch': self.state.timestamp.sample_in_epoch.value,
-                })
-                if rank_num_tokens > 0:
-                    self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
-                    self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
-
-                total_loss_dict = self._train_batch(use_grad_scaling)
-
-                if use_grad_scaling:
-                    self.state.scaler.update()
-
-                # total_loss_dict can be None if gradient scaling failed
-                if total_loss_dict is not None:
-                    map_collection(total_loss_dict, dist.all_reduce)
-                    total_loss_dict = {
-                        k: loss.cpu().item() / dist.get_world_size() for k, loss in total_loss_dict.items()
-                    }
-                    self.state.total_loss_dict = total_loss_dict
-                    self.logger.log_metrics(total_loss_dict)
-
-                # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
-                # next batch's wall clock time. The time accumulation must be done here so schedulers
-                # have the latest timing information
-
-                now = datetime.datetime.now()
-
-                batch_time = now - last_wct
-
-                total_num_samples, total_num_tokens, batch_time = self._accumulate_time_across_ranks(
-                    rank_num_samples,
-                    rank_num_tokens,
-                    batch_time,
-                )
-
-                # `now` is actually in the past, but want to include the time it takes to perform this reduction
-                last_wct = now
-
-                if self._scheduler_step_frequency == TimeUnit.BATCH:
-                    for scheduler in self.state.schedulers:
-                        scheduler.step()
-
-                if self.state.train_metrics is not None:
-                    self._compute_and_log_metrics(
-                        dataloader_label='train',
-                        metrics=self.state.train_metrics,
-                    )
-
-                self.state.previous_timestamp = self.state.timestamp
-                self.state.timestamp = self.state.timestamp.to_next_batch(
-                    samples=total_num_samples,
-                    tokens=total_num_tokens,
-                    duration=batch_time,
-                )
-
-                self.engine.run_event(Event.BATCH_END)
+                self.train_batch(self.state.batch, use_grad_scaling)
 
                 # Pause the timing during evaluation
                 # Evaluation time is tracked separately in state.eval_timestamp
@@ -2209,7 +2146,7 @@ class Trainer:
 
         self.engine.run_event(Event.EVAL_AFTER_ALL)
 
-    def _train_batch(self, use_grad_scaling: bool) -> Dict[str, torch.Tensor]:
+    def train_batch(self, batch: Any, use_grad_scaling: bool) -> Dict[str, torch.Tensor]:
         """Compute loss by training on a full batch of data.
 
         Adaptively change microbatch size if enabled to maximize GPU usage.
@@ -2220,11 +2157,27 @@ class Trainer:
         Returns:
             Dict[str, torch.Tensor]: a dictionary containing the total loss and individual losses if available.
         """
+        rank_num_samples = self._train_data_spec.get_num_samples_in_batch(batch)
+        rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(batch)
+        
+        self.engine.run_event(Event.BATCH_START)
+
+        # Log time values
+        self.logger.log_metrics({
+            'time/batch': self.state.timestamp.batch.value,
+            'time/sample': self.state.timestamp.sample.value,
+            'time/batch_in_epoch': self.state.timestamp.batch_in_epoch.value,
+            'time/sample_in_epoch': self.state.timestamp.sample_in_epoch.value,
+        })
+        if rank_num_tokens > 0:
+            self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
+            self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
+                    
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
 
         # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop.
         # Any in-place changes to a microbatch will be reflected in the device batch.
-        device_batch = self.state.batch
+        device_batch = batch
 
         # Retry until we successfully complete training and return loss
         while True:
@@ -2293,7 +2246,55 @@ class Trainer:
             assert self.state.device_train_microbatch_size is not None
             self.logger.log_metrics({'trainer/device_train_microbatch_size': self.state.device_train_microbatch_size})
             self.first_batch_complete = True
-            return total_loss_dict
+            break
+            
+        if use_grad_scaling:
+            self.state.scaler.update()
+
+        # total_loss_dict can be None if gradient scaling failed
+        if total_loss_dict is not None:
+            map_collection(total_loss_dict, dist.all_reduce)
+            total_loss_dict = {
+                k: loss.cpu().item() / dist.get_world_size() for k, loss in total_loss_dict.items()
+            }
+            self.state.total_loss_dict = total_loss_dict
+            self.logger.log_metrics(total_loss_dict)
+
+        # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
+        # next batch's wall clock time. The time accumulation must be done here so schedulers
+        # have the latest timing information
+
+        now = datetime.datetime.now()
+
+        batch_time = now - last_wct
+
+        total_num_samples, total_num_tokens, batch_time = self._accumulate_time_across_ranks(
+            rank_num_samples,
+            rank_num_tokens,
+            batch_time,
+        )
+
+        # `now` is actually in the past, but want to include the time it takes to perform this reduction
+        last_wct = now
+
+        if self._scheduler_step_frequency == TimeUnit.BATCH:
+            for scheduler in self.state.schedulers:
+                scheduler.step()
+
+        if self.state.train_metrics is not None:
+            self._compute_and_log_metrics(
+                dataloader_label='train',
+                metrics=self.state.train_metrics,
+            )
+
+        self.state.previous_timestamp = self.state.timestamp
+        self.state.timestamp = self.state.timestamp.to_next_batch(
+            samples=total_num_samples,
+            tokens=total_num_tokens,
+            duration=batch_time,
+        )
+
+        self.engine.run_event(Event.BATCH_END)
 
     def _train_microbatches(self,
                             microbatches: Sequence[Batch],
