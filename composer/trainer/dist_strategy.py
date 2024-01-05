@@ -232,8 +232,6 @@ def prepare_fsdp_module(
     set_fsdp_default(fsdp_config)
 
     # Check sync_module_states is True for mixed initialization or HSDP
-    print (fsdp_config)
-    exit(0)
     if fsdp_config['sync_module_states'] == False and not fsdp_config.get('force_sync_module_states', False):
         rank_on_meta = 1 if next(model.parameters()).device.type == 'meta' else 0
         all_ranks_meta = device.tensor_to_device(torch.tensor([rank_on_meta], dtype=torch.uint8))
