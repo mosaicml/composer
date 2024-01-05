@@ -722,7 +722,7 @@ class IFEvalJudge(InContextLearningMetric):
             }))
         results = instruction_following_eval(batch_results, aggregate=False)
         log.debug(results)
-        log.debug([b['key'] for b in batch_results])
+        log.debug([b.key for b in batch_results])
         for result in results:
             # self.prompt_total += 1
             # if all([instruction['follow'] for instruction in result]):
