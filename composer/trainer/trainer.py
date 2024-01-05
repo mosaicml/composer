@@ -2015,7 +2015,6 @@ class Trainer:
 
         self.state.model.train()
         finished_epoch_early = False
-        last_wct = datetime.datetime.now()
 
         if self.state.max_duration is None:
             # This is essentially just a type check, as max_duration should always be
@@ -2146,7 +2145,7 @@ class Trainer:
 
         self.engine.run_event(Event.EVAL_AFTER_ALL)
 
-    def train_batch(self, batch: Any, use_grad_scaling: bool) -> Dict[str, torch.Tensor]:
+    def train_batch(self, batch: Any, use_grad_scaling: bool) -> None:
         """Compute loss by training on a full batch of data.
 
         Adaptively change microbatch size if enabled to maximize GPU usage.
@@ -2157,9 +2156,7 @@ class Trainer:
         Returns:
             Dict[str, torch.Tensor]: a dictionary containing the total loss and individual losses if available.
         """
-        rank_num_samples = self._train_data_spec.get_num_samples_in_batch(batch)
-        rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(batch)
-        
+        last_wct = datetime.datetime.now()
         self.engine.run_event(Event.BATCH_START)
 
         # Log time values
@@ -2175,9 +2172,12 @@ class Trainer:
                     
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
 
+        rank_num_samples = self._train_data_spec.get_num_samples_in_batch(batch)
+        rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(batch)
+
         # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop.
         # Any in-place changes to a microbatch will be reflected in the device batch.
-        device_batch = batch
+        device_batch = self.state.batch
 
         # Retry until we successfully complete training and return loss
         while True:
@@ -2249,6 +2249,7 @@ class Trainer:
             break
             
         if use_grad_scaling:
+            assert self.state.scaler is not None, 'scaler should have been set in __init__()'
             self.state.scaler.update()
 
         # total_loss_dict can be None if gradient scaling failed
