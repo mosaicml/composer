@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""MLFlow Artifacts object store."""
+"""MLflow Artifacts object store."""
 
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ log = logging.getLogger(__name__)
 
 
 def _wrap_mlflow_exceptions(uri: str, e: Exception):
-    """Wraps retryable MLFlow errors in ObjectStoreTransientError for automatic retry handling."""
+    """Wraps retryable MLflow errors in ObjectStoreTransientError for automatic retry handling."""
     from mlflow.exceptions import (ABORTED, DATA_LOSS, DEADLINE_EXCEEDED, ENDPOINT_NOT_FOUND, INTERNAL_ERROR,
                                    INVALID_STATE, NOT_FOUND, REQUEST_LIMIT_EXCEEDED, RESOURCE_DOES_NOT_EXIST,
                                    RESOURCE_EXHAUSTED, TEMPORARILY_UNAVAILABLE, ErrorCode, MlflowException)
@@ -59,26 +59,26 @@ def _wrap_mlflow_exceptions(uri: str, e: Exception):
 
 
 class MLFlowObjectStore(ObjectStore):
-    """Utility class for uploading and downloading artifacts from MLFlow.
+    """Utility class for uploading and downloading artifacts from MLflow.
 
     It can be initializd for an existing run, a new run in an existing experiment, the active run used by the `mlflow`
     module, or a new run in a new experiment. See the documentation for ``path`` for more details.
 
     .. note::
-        At this time, only Databricks-managed MLFlow with a 'databricks' tracking URI is supported.
+        At this time, only Databricks-managed MLflow with a 'databricks' tracking URI is supported.
         Using this object store requires setting `DATABRICKS_HOST` and `DATABRICKS_TOKEN`
         environment variables with the right credentials.
 
-        Unlike other object stores, the DBFS URI scheme for MLFlow artifacts has no bucket, and the path is prefixed
+        Unlike other object stores, the DBFS URI scheme for MLflow artifacts has no bucket, and the path is prefixed
         with the artifacts root directory for a given experiment/run,
         `databricks/mlflow-tracking/<experiment_id>/<run_id>/`. However, object names are also sometimes passed by
         upstream code as artifact paths relative to this root, rather than the full path. To keep upstream code simple,
-        :class:`MLFlowObjectStore` accepts both relative MLFlow artifact paths and absolute DBFS paths as object names.
+        :class:`MLFlowObjectStore` accepts both relative MLflow artifact paths and absolute DBFS paths as object names.
         If an object name takes the form of
         `databricks/mlflow-tracking/<experiment_id>/<run_id>/artifacts/<artifact_path>`,
-        it is assumed to be an absolute DBFS path, and the `<artifact_path>` is used when uploading objects to MLFlow.
-        Otherwise, the object name is assumed to be a relative MLFlow artifact path, and the full provided name will be
-        used as the artifact path when uploading to MLFlow.
+        it is assumed to be an absolute DBFS path, and the `<artifact_path>` is used when uploading objects to MLflow.
+        Otherwise, the object name is assumed to be a relative MLflow artifact path, and the full provided name will be
+        used as the artifact path when uploading to MLflow.
 
     Args:
         path (str): A DBFS path of the form
@@ -86,7 +86,7 @@ class MLFlowObjectStore(ObjectStore):
             `experiment_id` and `run_id` can be set as the format string placeholders `'EXPERIMENT_ID'` and `'RUN_ID'`.
 
             If both `experiment_id` and `run_id` are set as placeholders, the MLFlowObjectStore will be associated with
-            the currently active MLFlow run if one exists. If no active run exists, a new run will be created under a
+            the currently active MLflow run if one exists. If no active run exists, a new run will be created under a
             default experiment name, or the experiment name specified by the `MLFLOW_EXPERIMENT_NAME` environment
             variable if one is set.
 
@@ -94,8 +94,8 @@ class MLFlowObjectStore(ObjectStore):
             provided experiment.
 
             Providing a `run_id` without an `experiment_id` will raise an error.
-        multipart_upload_chunk_size(int, optional): The maximum size of a single chunk in an MLFlow multipart upload.
-            The maximum number of chunks supported by MLFlow is 10,000, so the max file size that can
+        multipart_upload_chunk_size(int, optional): The maximum size of a single chunk in an MLflow multipart upload.
+            The maximum number of chunks supported by MLflow is 10,000, so the max file size that can
             be uploaded is `10 000 * multipart_upload_chunk_size`. Defaults to 100MB for a max upload size of 1TB.
     """
 
@@ -114,7 +114,7 @@ class MLFlowObjectStore(ObjectStore):
         tracking_uri = os.getenv('MLFLOW_TRACKING_URI', MLFLOW_DATABRICKS_TRACKING_URI)
         if tracking_uri != MLFLOW_DATABRICKS_TRACKING_URI:
             raise ValueError(
-                'MLFlowObjectStore currently only supports Databricks-hosted MLFlow tracking. '
+                'MLFlowObjectStore currently only supports Databricks-hosted MLflow tracking. '
                 f'Environment variable `MLFLOW_TRACKING_URI` is set to a non-Databricks URI {tracking_uri}. '
                 f'Please unset it or set the value to `{MLFLOW_DATABRICKS_TRACKING_URI}`.')
 
@@ -149,7 +149,7 @@ class MLFlowObjectStore(ObjectStore):
         self.run_id = run_id
 
     def _init_run_info(self, experiment_id: Optional[str], run_id: Optional[str]) -> Tuple[str, str]:
-        """Returns the experiment ID and run ID for the MLFlow run backing this object store.
+        """Returns the experiment ID and run ID for the MLflow run backing this object store.
 
         In a distributed setting, this should only be called on the rank 0 process.
         """
@@ -163,7 +163,7 @@ class MLFlowObjectStore(ObjectStore):
             if active_run is not None:
                 experiment_id = active_run.info.experiment_id
                 run_id = active_run.info.run_id
-                log.debug(f'MLFlowObjectStore using active MLFlow run {run_id=}')
+                log.debug(f'MLFlowObjectStore using active MLflow run {run_id=}')
             else:
                 # If no active run exists, create a new run for the default experiment.
                 experiment_name = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,
@@ -177,7 +177,7 @@ class MLFlowObjectStore(ObjectStore):
 
                 run_id = self._mlflow_client.create_run(experiment_id).info.run_id
 
-                log.debug(f'MLFlowObjectStore using a new MLFlow run {run_id=}'
+                log.debug(f'MLFlowObjectStore using a new MLflow run {run_id=}'
                           f'for new experiment "{experiment_name}" {experiment_id=}')
         else:
             if run_id is not None:
@@ -188,14 +188,14 @@ class MLFlowObjectStore(ObjectStore):
                         f'Provided `run_id` {run_id} does not belong to provided experiment {experiment_id}. '
                         f'Found experiment {run.info.experiment_id}.')
 
-                log.debug(f'MLFlowObjectStore using provided MLFlow run {run_id=} '
+                log.debug(f'MLFlowObjectStore using provided MLflow run {run_id=} '
                           f'for provided experiment {experiment_id=}')
             else:
                 # If no `run_id` is provided, create a new run in the provided experiment.
                 run = self._mlflow_client.create_run(experiment_id)
                 run_id = run.info.run_id
 
-                log.debug(f'MLFlowObjectStore using new MLFlow run {run_id=} '
+                log.debug(f'MLFlowObjectStore using new MLflow run {run_id=} '
                           f'for provided experiment {experiment_id=}')
 
         if experiment_id is None or run_id is None:
@@ -205,7 +205,7 @@ class MLFlowObjectStore(ObjectStore):
 
     @staticmethod
     def parse_dbfs_path(path: str) -> Tuple[str, str, str]:
-        """Parses a DBFS path to extract the MLFlow experiment ID, run ID, and relative artifact path.
+        """Parses a DBFS path to extract the MLflow experiment ID, run ID, and relative artifact path.
 
         The path is expected to be of the format
         `databricks/mlflow-tracking/<experiment_id>/<run_id>/artifacts/<artifact_path>`.
@@ -220,7 +220,7 @@ class MLFlowObjectStore(ObjectStore):
             ValueError: If the path is not of the expected format.
         """
         if not path.startswith(MLFLOW_DBFS_PATH_PREFIX):
-            raise ValueError(f'DBFS MLFlow path should start with {MLFLOW_DBFS_PATH_PREFIX}. Got: {path}')
+            raise ValueError(f'DBFS MLflow path should start with {MLFLOW_DBFS_PATH_PREFIX}. Got: {path}')
 
         # Strip `databricks/mlflow-tracking/` and split into
         # `<experiment_id>`, `<run_id>`, `'artifacts'`, `<relative_path>``
@@ -228,18 +228,18 @@ class MLFlowObjectStore(ObjectStore):
         mlflow_parts = subpath.split('/', maxsplit=3)
 
         if len(mlflow_parts) != 4 or mlflow_parts[2] != 'artifacts':
-            raise ValueError(f'Databricks MLFlow artifact path expected to be of the format '
+            raise ValueError(f'Databricks MLflow artifact path expected to be of the format '
                              f'{MLFLOW_DBFS_PATH_PREFIX}/<experiment_id>/<run_id>/artifacts/<relative_path>. '
                              f'Found {path=}')
 
         return mlflow_parts[0], mlflow_parts[1], mlflow_parts[3]
 
     def get_artifact_path(self, object_name: str) -> str:
-        """Converts an object name into an MLFlow relative artifact path.
+        """Converts an object name into an MLflow relative artifact path.
 
         Args:
             object_name (str): The object name to convert. If the object name is a DBFS path beginning with
-                ``MLFLOW_DBFS_PATH_PREFIX``, the path will be parsed to extract the MLFlow relative artifact path.
+                ``MLFLOW_DBFS_PATH_PREFIX``, the path will be parsed to extract the MLflow relative artifact path.
                 Otherwise, the object name is assumed to be a relative artifact path and will be returned as-is.
         """
         if object_name.startswith(MLFLOW_DBFS_PATH_PREFIX):
@@ -272,7 +272,7 @@ class MLFlowObjectStore(ObjectStore):
         artifact_base_name = os.path.basename(artifact_path)
         artifact_dir = os.path.dirname(artifact_path)
 
-        # Since MLFlow doesn't support uploading artifacts with a different base name than the local file,
+        # Since MLflow doesn't support uploading artifacts with a different base name than the local file,
         # create a temporary symlink to the local file with the same base name as the desired artifact name.
         filename = os.path.abspath(filename)
         tmp_dir = f'/tmp/{uuid.uuid4()}'
@@ -375,12 +375,12 @@ class MLFlowObjectStore(ObjectStore):
         """Get the :class:`~mlflow.entities.FileInfo` for the given object name.
 
         Args:
-            object_name (str): The name of the object, either as an absolute DBFS path or a relative MLFlow artifact path.
+            object_name (str): The name of the object, either as an absolute DBFS path or a relative MLflow artifact path.
 
         Returns:
             Optional[FileInfo]: The :class:`~mlflow.entities.FileInfo` for the object, or None if it does not exist.
         """
-        # MLFlow doesn't support info for a singleton artifact, so we need to list all artifacts in the
+        # MLflow doesn't support info for a singleton artifact, so we need to list all artifacts in the
         # parent path and find the one with the matching name.
         artifact_path = self.get_artifact_path(object_name)
         artifact_dir = os.path.dirname(artifact_path)
