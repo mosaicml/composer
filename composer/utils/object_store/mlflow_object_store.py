@@ -111,7 +111,7 @@ class MLFlowObjectStore(ObjectStore):
         except ImportError as e:
             raise MissingConditionalImportError('databricks', conda_package='databricks-sdk>=0.15.0,<1.0') from e
 
-        tracking_uri = os.getenv('MLFLOW_TRACKING_URI', MLFLOW_DATABRICKS_TRACKING_URI)
+        tracking_uri = mlflow.get_tracking_uri()
         if tracking_uri != MLFLOW_DATABRICKS_TRACKING_URI:
             raise ValueError(
                 'MLFlowObjectStore currently only supports Databricks-hosted MLflow tracking. '
@@ -127,7 +127,7 @@ class MLFlowObjectStore(ObjectStore):
                 'Visit https://databricks-sdk-py.readthedocs.io/en/latest/authentication.html#databricks-native-authentication '
                 'to identify different ways to setup credentials.') from e
 
-        self._mlflow_client = MlflowClient(MLFLOW_DATABRICKS_TRACKING_URI)
+        self._mlflow_client = MlflowClient(tracking_uri)
         mlflow.environment_variables.MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.set(multipart_upload_chunk_size)
 
         experiment_id, run_id, _ = MLFlowObjectStore.parse_dbfs_path(path)
