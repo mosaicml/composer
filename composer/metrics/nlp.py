@@ -713,24 +713,22 @@ class IFEvalJudge(InContextLearningMetric):
             # Removes k, v pairs when value is none for each dict in the the list
             kwargs = [{k: v for k, v in kwarg_dict.items() if v is not None} for kwarg_dict in kwargs]
             # TODO: make kwargs
-            batch_results.append(InstructionResult(**{
-                'key': batch['key'][i],
-                'instruction_id_list': batch['instruction_id_list'][i],
-                'prompt': batch['prompt'][i],
-                'kwargs': kwargs,
-                'response': output
-            }))
-        results = instruction_following_eval(batch_results, aggregate=False)
-        log.debug(results)
-        log.debug([b.key for b in batch_results])
-        for result in results:
-            # self.prompt_total += 1
-            # if all([instruction['follow'] for instruction in result]):
-            #     self.prompt_correct += 1
-            # for instruction in result:
-            self.instruction_total += 1
-            if result['follow']:
-                self.instruction_correct += 1
+            res = InstructionResult(
+                key=batch['key'][i],
+                instruction_id_list= batch['instruction_id_list'][i],
+                prompt=batch['prompt'][i],
+                kwargs=kwargs,
+                response=output
+            )
+            batch_results.append(instruction_following_eval([res], aggregate=False))
+        for result in batch_results:
+            self.prompt_total += 1
+            if all([instruction['follow'] for instruction in result]):
+                self.prompt_correct += 1
+            for instruction in result:
+                self.instruction_total += 1
+                if instruction['follow']:
+                    self.instruction_correct += 1
 
 
     def compute(self) -> Tensor:
