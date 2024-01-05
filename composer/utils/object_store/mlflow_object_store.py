@@ -66,8 +66,9 @@ class MLFlowObjectStore(ObjectStore):
 
     .. note::
         At this time, only Databricks-managed MLflow with a 'databricks' tracking URI is supported.
-        Using this object store requires setting `DATABRICKS_HOST` and `DATABRICKS_TOKEN`
-        environment variables with the right credentials.
+        Using this object store requires configuring Databricks authentication through a configuration file or
+        environment variables. See
+        https://databricks-sdk-py.readthedocs.io/en/latest/authentication.html#databricks-native-authentication
 
         Unlike other object stores, the DBFS URI scheme for MLflow artifacts has no bucket, and the path is prefixed
         with the artifacts root directory for a given experiment/run,
@@ -83,7 +84,8 @@ class MLFlowObjectStore(ObjectStore):
     Args:
         path (str): A DBFS path of the form
             `databricks/mlflow-tracking/<experiment_id>/<run_id>/artifacts/<path>`.
-            `experiment_id` and `run_id` can be set as the format string placeholders `'EXPERIMENT_ID'` and `'RUN_ID'`.
+            `experiment_id` and `run_id` can be set as the format string placeholders
+            `{mlflow_experiment_id}` and `{mlflow_run_id}'`.
 
             If both `experiment_id` and `run_id` are set as placeholders, the MLFlowObjectStore will be associated with
             the currently active MLflow run if one exists. If no active run exists, a new run will be created under a
