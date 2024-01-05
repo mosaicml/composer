@@ -232,7 +232,9 @@ def prepare_fsdp_module(
     set_fsdp_default(fsdp_config)
 
     # Check sync_module_states is True for mixed initialization or HSDP
-    if fsdp_config['sync_module_states'] == False:
+    print (fsdp_config)
+    exit(0)
+    if fsdp_config['sync_module_states'] == False and not fsdp_config.get('force_sync_module_states', False):
         rank_on_meta = 1 if next(model.parameters()).device.type == 'meta' else 0
         all_ranks_meta = device.tensor_to_device(torch.tensor([rank_on_meta], dtype=torch.uint8))
         dist.all_reduce(all_ranks_meta, reduce_operation='MIN')
@@ -533,7 +535,6 @@ def prepare_fsdp_module(
                     if ret and auto_microbatching:
                         module.register_forward_hook(sync_hook)
                         module.register_full_backward_hook(sync_hook)
-                    print(module, '\n', ret)
                     return ret
 
                 _auto_wrap_policy = CustomPolicy(lambda_fn)
