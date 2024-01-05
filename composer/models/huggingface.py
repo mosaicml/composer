@@ -429,13 +429,13 @@ class HuggingFaceModel(ComposerModel):
                     'Generation eval cannot be used without providing a tokenizer to the model constructor.')
 
             # self.labels = batch.pop('labels')
+            import IPython; IPython.embed()
             generation = self.generate(batch['input_ids'],
                                        attention_mask=batch['attention_mask'],
                                        max_new_tokens=batch['generation_length'],
                                        synced_gpus=dist.get_world_size() > 1,
                                        **batch.get('generation_kwargs', {}))
             # remove padding
-            import IPython; IPython.embed()
             for i, input in enumerate(batch['input_ids']):
                 unpadded_input = [token for token in input if token != self.tokenizer.pad_tok]
                 # generation 
