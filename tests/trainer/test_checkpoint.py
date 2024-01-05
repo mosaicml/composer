@@ -85,6 +85,10 @@ def _assert_checkpoints_equivalent(file1, file2, atol=0.0, rtol=0.0):
         if 'DummyStatefulCallback' in ckpt['state']['callbacks']:
             del ckpt['state']['callbacks']['DummyStatefulCallback']
 
+    # Remove all saved checkpoints to timestamp (accumulates between runs)
+    del checkpoint_1['state']['callbacks']['CheckpointSaver']['all_saved_checkpoints_to_timestamp']
+    del checkpoint_2['state']['callbacks']['CheckpointSaver']['all_saved_checkpoints_to_timestamp']
+
     deep_compare(checkpoint_1, checkpoint_2, atol=atol, rtol=rtol)
 
     # deepspeed checkpoints do not have model or optimizer
@@ -752,6 +756,8 @@ class TestCheckpointLoading:
         trainer_1.fit()
         trainer_1_rng_state = reproducibility.get_rng_state()
         trainer_1.close()
+
+        # TODO: KeyError 'first' when load_ignore_keys=['state/callbacks/*']
 
         last_checkpoint = os.path.join('first', 'ep2.pt')
         trainer_2 = self.get_trainer(

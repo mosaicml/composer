@@ -313,7 +313,8 @@ class CheckpointSaver(Callback):  # noqa: D101
 
     def load_state_dict(self, state: Dict[str, Any]):
         super().load_state_dict(state)
-        self.all_saved_checkpoints_to_timestamp = state['all_saved_checkpoints_to_timestamp']
+        if 'all_saved_checkpoints_to_timestamp' in state:
+            self.all_saved_checkpoints_to_timestamp = state['all_saved_checkpoints_to_timestamp']
 
     def _save_checkpoint(self, state: State, logger: Logger):
         self.last_checkpoint_batch = state.timestamp.batch
