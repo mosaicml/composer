@@ -766,7 +766,7 @@ if version.parse(torch.__version__) >= version.parse('2.1.2') and version.parse(
         _init_runtime_state,
         _init_prefetching_state,
         _init_buffer_state,
-        _init_extension,
+        #_init_extension,
         _init_param_handle_from_module,
         _check_orig_params_flattened,
         _register_flat_param,
@@ -781,11 +781,119 @@ if version.parse(torch.__version__) >= version.parse('2.1.2') and version.parse(
         _get_default_comm_hook_state,
     )
     from torch.distributed.fsdp.wrap import _Policy, CustomPolicy, ModuleWrapPolicy
-    from torch.distributed._tensor import DeviceMesh
+    from torch.distributed._tensor import DeviceMesh, DTensor, Replicate, Shard as DShard
     from torch.distributed.fsdp._common_utils import _FSDPState
     from torch.distributed.algorithms._comm_hooks import default_hooks
     from torch.distributed.distributed_c10d import _get_default_group
+    from torch.distributed.tensor.parallel.fsdp import DTensorExtensions
+    from torch.distributed.device_mesh import _mesh_resources
+    import copy
+         
 
+    def all_gather_dtensor_t2p2p0(
+        self,
+        tensor: DTensor,
+        parent_mesh: Optional[DeviceMesh],
+    ) -> torch.Tensor:
+        print('\n\n\n\n\here!')
+        """All gather a DTensor in its FSDP dimension and return the local tensor."""
+        assert parent_mesh == tensor.device_mesh
+
+        placements = list(copy.deepcopy(tensor.placements))
+        # FSDP + TP: [Shard(0), tp_placement] -> [Replicate(), tp_placement]
+        # HSDP + TP: [Replicate(), Shard(0), tp_placement] -> [Replicate(), Replicate(), tp_placement]
+        for i in range(0, len(placements)-1):
+                placements[i] = Replicate()
+        print (len(placements), placements)
+        tensor = tensor.redistribute(
+                device_mesh=tensor.device_mesh,
+                placements=placements,
+        )
+        return tensor.to_local()
+
+
+    def chunk_dtensor_t2p2p0(
+        self,
+        tensor: torch.Tensor,
+        rank: int,
+        device_mesh: DeviceMesh,
+    ) -> DTensor:
+        """
+        Shard a tensor to chunks along the first dimension.
+
+        The local rank will gets its corresponding chunk as the local tensor to create a DTensor.
+        """
+        parent_mesh = _mesh_resources.get_parent_mesh(device_mesh)
+        if parent_mesh is None:
+                raise RuntimeError("No parent device_mesh is found for FSDP device_mesh.")
+        # if parent_mesh.ndim != 2:
+        #     raise RuntimeError(
+        #         f"Found parent device_mesh of ndim={parent_mesh.ndim},",
+        #         "but only 2D meshes are currently supported.",
+        #     )
+
+        # We need to explicitly call .detach() to return a new tensor detached from the current graph.
+        tensor = tensor.clone().detach()
+
+        # When a layer is not involved in TP, then the tensor will not be a DTensor.
+        # e.g. When a layer is not sppecified in the parallelize_plan, TP will have no effect on the layer.
+        # e.g. When you do PairwiseParallel on a 3 layer model, TP will have no effect on the third layer.
+        if isinstance(tensor, torch.Tensor) and not isinstance(tensor, DTensor):
+
+            # For tensors, it is replicated across tp dimension and sharded across FSDP dimension.
+            # TP is the inner dimension and FSDP is the outer dimension.
+            # Therefore, shard placements for tensor is (Shard(0), Replicate()).
+            replicate_placements = [Replicate() for _ in range(parent_mesh.ndim)]
+            shard_placements = [Replicate() for _ in range(parent_mesh.ndim)]
+            shard_placements[0] = DShard(0)  # type: ignore[call-overload]
+
+            return DTensor.from_local(
+                tensor, parent_mesh, replicate_placements
+            ).redistribute(
+                device_mesh=parent_mesh,
+                placements=shard_placements,
+            )
+
+        else:
+            tp_placements = tensor.placements
+            tp_placement = tp_placements[0]
+
+            tensor = tensor.to_local()
+
+            if parent_mesh.ndim <= 2:
+                # For DTensors, it is sharded across tp dimension first and then sharded across FSDP dimension.
+                # TP is the inner dimension and FSDP is the outer dimension.
+                # Therefore, shard placements for tensor is (Shard(0), tp_placement).
+                replicate_placements = [Replicate() for _ in range(parent_mesh.ndim)]
+                replicate_placements[-1] = tp_placement  # type: ignore[call-overload]
+                shard_placements = [DShard(0) for _ in range(parent_mesh.ndim)]  # type: ignore[misc]
+                shard_placements[-1] = tp_placement  # type: ignore[call-overload]
+
+
+            elif parent_mesh.ndim == 3:
+                replicate_placements = [Replicate(), Replicate(), tp_placement]
+                shard_placements = [Replicate(), DShard(0), tp_placement]  # type: ignore[misc]
+
+            return DTensor.from_local(
+                tensor, parent_mesh, replicate_placements
+            ).redistribute(
+                device_mesh=parent_mesh,
+                placements=shard_placements,
+            )
+                
+    DTensorExtensions.all_gather_dtensor = all_gather_dtensor_t2p2p0
+    DTensorExtensions.chunk_dtensor = chunk_dtensor_t2p2p0
+
+    def _init_extension_t2p2p0(state: _FSDPState, device_mesh: DeviceMesh = None) -> _FSDPState:
+        # TODO: we need to add additional check once we support FSDP + PiPPy.
+        # This check is currently sufficient, since we only support FSDP + TP.
+        if device_mesh and _mesh_resources.get_parent_mesh(state._device_mesh) is not None:
+            state._fsdp_extension = DTensorExtensions()
+        else:
+            # We need to explicilty set _fsdp_extension to None.
+            # Otherwise, we will run into an infinite recursion when getting the attribute.
+            state._fsdp_extension = None
+        return state
 
     def _is_valid_hybrid_shard_device_mesh_t2p2p0(device_mesh: DeviceMesh) -> bool:
         #parent_mesh = _mesh_resources.get_parent_mesh(device_mesh)
@@ -982,7 +1090,7 @@ if version.parse(torch.__version__) >= version.parse('2.1.2') and version.parse(
         _init_prefetching_state(self, backward_prefetch, forward_prefetch)
         _init_buffer_state(self, module)
         # extension needs to be set before `_init_param_handle_from_module()`
-        _init_extension(self, device_mesh)
+        _init_extension_t2p2p0(self, device_mesh)
         _init_param_handle_from_module(
             self,
             module,
