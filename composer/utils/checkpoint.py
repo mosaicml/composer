@@ -517,7 +517,7 @@ def load_sharded_checkpoint(
                 # Call function to modify state_dict
                 ignore_keys(state_dict)
 
-            dist_cp.load_state_dict(state_dict, storage_reader)
+            dist_cp.load(state_dict, storage_reader)
 
             state.load_state_dict(
                 state_dict['state'],
