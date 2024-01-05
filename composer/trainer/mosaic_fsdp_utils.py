@@ -795,7 +795,6 @@ if version.parse(torch.__version__) >= version.parse('2.1.2') and version.parse(
         tensor: DTensor,
         parent_mesh: Optional[DeviceMesh],
     ) -> torch.Tensor:
-        print('\n\n\n\n\here!')
         """All gather a DTensor in its FSDP dimension and return the local tensor."""
         assert parent_mesh == tensor.device_mesh
 
@@ -804,7 +803,6 @@ if version.parse(torch.__version__) >= version.parse('2.1.2') and version.parse(
         # HSDP + TP: [Replicate(), Shard(0), tp_placement] -> [Replicate(), Replicate(), tp_placement]
         for i in range(0, len(placements)-1):
                 placements[i] = Replicate()
-        print (len(placements), placements)
         tensor = tensor.redistribute(
                 device_mesh=tensor.device_mesh,
                 placements=placements,
