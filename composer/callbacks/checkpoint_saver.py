@@ -307,14 +307,21 @@ class CheckpointSaver(Callback):  # noqa: D101
     def state_dict(self) -> Dict[str, Any]:
         state_dict = super().state_dict()
 
+        all_checkpoints = {}
+        for save_filename, timestamp in self.all_saved_checkpoints_to_timestamp.items():
+            all_checkpoints[save_filename] = timestamp.state_dict()
+
         # TODO: consider saving additional state for checkpoint rotation
-        state_dict['all_saved_checkpoints_to_timestamp'] = self.all_saved_checkpoints_to_timestamp
+        state_dict['all_saved_checkpoints_to_timestamp'] = all_checkpoints
         return state_dict
 
     def load_state_dict(self, state: Dict[str, Any]):
         super().load_state_dict(state)
         if 'all_saved_checkpoints_to_timestamp' in state:
-            self.all_saved_checkpoints_to_timestamp = state['all_saved_checkpoints_to_timestamp']
+            for save_filename, timestamp_state in state['all_saved_checkpoints_to_timestamp'].items():
+                new_timetamp = Timestamp()
+                new_timetamp.load_state_dict(timestamp_state)
+                self.all_saved_checkpoints_to_timestamp[save_filename] = new_timetamp
 
     def _save_checkpoint(self, state: State, logger: Logger):
         self.last_checkpoint_batch = state.timestamp.batch
@@ -326,16 +333,19 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         # save the checkpoint to the filename
         filename_with_placeholders = self.filename.format(state, is_deepspeed, keep_placeholders=True)
+        save_filename = checkpoint.get_save_filename(state, filename_with_placeholders)
+        self.all_saved_checkpoints_to_timestamp[save_filename] = state.timestamp
 
-        saved_path = checkpoint.save_checkpoint(
+        saved_path = checkpoint._save_checkpoint(
             state=state,
-            filename=filename_with_placeholders,
+            save_filename=save_filename,
             weights_only=self.weights_only,
         )
         log.debug(f'Checkpoint locally saved to {saved_path}')
 
         if not saved_path:  # not all ranks save
             return
+
         metadata_local_file_path = None
         if dist.get_global_rank() == 0 and state.fsdp_elastic_sharded_enabled:
             metadata_local_file_path = format_name_with_dist_and_time(
@@ -422,7 +432,6 @@ class CheckpointSaver(Callback):  # noqa: D101
                         )
 
         self.saved_checkpoints.append(saved_path)
-        self.all_saved_checkpoints_to_timestamp[saved_path] = state.timestamp
 
         if self.num_checkpoints_to_keep >= 0:
             self._rotate_checkpoints(sharding_enabled=state.fsdp_sharded_state_dict_enabled)

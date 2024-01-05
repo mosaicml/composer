@@ -9,29 +9,35 @@ def test_stateful_checkpoint_saver():
     checkpoint_saver = CheckpointSaver()
     assert not checkpoint_saver.all_saved_checkpoints_to_timestamp
 
+    # empty state dict
     empty_state_dict = checkpoint_saver.state_dict()
     assert 'all_saved_checkpoints_to_timestamp' in empty_state_dict
     assert len(empty_state_dict['all_saved_checkpoints_to_timestamp']) == 0
 
-    new_state_dict = {
-        'all_saved_checkpoints_to_timestamp': {
-            'example-checkpoint.pt': Timestamp(epoch=1, batch=2),
-        },
+    # backwards compatibility; empty state dict should not raise
+    checkpoint_saver.load_state_dict({})
+    assert not checkpoint_saver.all_saved_checkpoints_to_timestamp
+
+    # add a checkpoint and confirm it can save and load
+    checkpoint_saver.all_saved_checkpoints_to_timestamp = {
+        'example-checkpoint.pt': Timestamp(epoch=1, batch=2),
     }
+    new_state_dict = checkpoint_saver.state_dict()
+    assert 'all_saved_checkpoints_to_timestamp' in new_state_dict
+    assert len(new_state_dict['all_saved_checkpoints_to_timestamp']) == 1
+    assert 'example-checkpoint.pt' in new_state_dict['all_saved_checkpoints_to_timestamp']
+    ts = new_state_dict['all_saved_checkpoints_to_timestamp']['example-checkpoint.pt']
+    assert isinstance(ts, dict)
+    assert ts['epoch'] == 1
+    assert ts['batch'] == 2
+    assert ts['sample'] == 0
 
     checkpoint_saver.load_state_dict(new_state_dict)
+
     assert checkpoint_saver.all_saved_checkpoints_to_timestamp
     assert 'example-checkpoint.pt' in checkpoint_saver.all_saved_checkpoints_to_timestamp
     ts = checkpoint_saver.all_saved_checkpoints_to_timestamp['example-checkpoint.pt']
-    assert ts.epoch == 1
-    assert ts.batch == 2
-    assert ts.sample == 0
-
-    state_dict = checkpoint_saver.state_dict()
-    assert 'all_saved_checkpoints_to_timestamp' in state_dict
-    assert len(state_dict['all_saved_checkpoints_to_timestamp']) == 1
-    assert 'example-checkpoint.pt' in state_dict['all_saved_checkpoints_to_timestamp']
-    ts = state_dict['all_saved_checkpoints_to_timestamp']['example-checkpoint.pt']
+    assert isinstance(ts, Timestamp)
     assert ts.epoch == 1
     assert ts.batch == 2
     assert ts.sample == 0
