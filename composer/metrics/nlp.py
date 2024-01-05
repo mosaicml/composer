@@ -677,33 +677,26 @@ class IFEvalJudge(InContextLearningMetric):
         super().__init__(dist_sync_on_step=dist_sync_on_step)
 
         self.ignore_index = ignore_index
-        # self.add_state('cached_results', default=[], dist_reduce_fx=lambda x: [x])
-        self.add_state('cached_results', default=[], dist_reduce_fx=None)
-    
+
+        self.add_state('prompt_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('prompt_correct', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('instruction_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('instruction_correct', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('change_case_correct', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('change_case_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('combination_correct', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('combination_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('detectable_content_correct', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('detectable_content_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('detectable_format_correct', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('detectable_format_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('keywa correct', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('detectable_format_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+
     def update(self, batch, outputs: Union[Mapping, Tensor], target: Tensor) -> None:
         """Updates the internal state with results from a new batch.
 
         """
-        for i, output in enumerate(outputs):
-            kwargs = batch['kwargs'][i]
-            # Removes k, v pairs when value is none for each dict in the the list
-            kwargs = [{k: v for k, v in kwarg_dict.items() if v is not None} for kwarg_dict in kwargs]
-            self.cached_results.append({
-                'key': batch['key'][i],
-                'instruction_id_list': batch['instruction_id_list'][i],
-                'prompt': batch['prompt'][i],
-                'kwargs': kwargs,
-                'response': output
-            })
-            # self.total += 1 #type: ignore (third-party)
-
-    def compute(self) -> Tensor:
-        """Aggregate the state over all processes to compute the metric.
-
-        Returns:
-            loss: The loss averaged across all batches as a :class:`~torch.Tensor`.
-        """
-        # Return average loss over entire dataset
         try:
             from instruction_following_eval import \
                 instruction_following_eval  # pyright: ignore [reportGeneralTypeIssues]
@@ -714,15 +707,41 @@ class IFEvalJudge(InContextLearningMetric):
                 conda_package='datasets',
                 conda_channel='conda-forge',
             ) from e
-        instruction_results = [InstructionResult(**res_dict) for res_dict in self.cached_results]
-        log.debug([res['key'] for res in self.cached_results])
-        log.debug(len(instruction_results))
-        if len(instruction_results) > 0:
-            result = instruction_following_eval(instruction_results)
-            log.debug('*** Printing results of IFEval ***')
-            for k, v in result.items():
-                log.debug(f'Task type: {k}, performance: {v}')
-        # TODO: Handle result differently in trainer._compute_and_log_metrics()
-        else:
-            result = None
-        return result
+        batch_results = []
+        for i, output in enumerate(outputs):
+            kwargs = batch['kwargs'][i]
+            # Removes k, v pairs when value is none for each dict in the the list
+            kwargs = [{k: v for k, v in kwarg_dict.items() if v is not None} for kwarg_dict in kwargs]
+            # TODO: make kwargs
+            batch_results.append(InstructionResult(**{
+                'key': batch['key'][i],
+                'instruction_id_list': batch['instruction_id_list'][i],
+                'prompt': batch['prompt'][i],
+                'kwargs': kwargs,
+                'response': output
+            }))
+        results = instruction_following_eval(batch_results, aggregate=False)
+        log.debug(results)
+        for result in results:
+            self.prompt_total += 1
+            if all([instruction['follow'] for instruction in result]):
+                self.prompt_correct += 1
+            for instruction in result:
+                self.instruction_total += 1
+                if instruction['follow']:
+                    self.instruction_correct += 1
+
+
+    def compute(self) -> Tensor:
+        """Aggregate the state over all processes to compute the metric.
+
+        Returns:
+            loss: The loss averaged across all batches as a :class:`~torch.Tensor`.
+        """
+        prompt_acc = self.prompt_correct.float() / self.prompt_total
+        instruction_acc = self.instruction_correct.float() / self.instruction_total
+        log.debug(f'prompt_acc: {prompt_acc}')
+        log.debug(f'promp_total: {self.prompt_total}')
+        log.debug(f'instruct_acc: {instruction_acc}')
+        log.debug(f'instruct_total: {self.instruction_total}')
+        return instruction_acc
