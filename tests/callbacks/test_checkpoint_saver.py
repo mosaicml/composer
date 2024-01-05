@@ -1,9 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-# Copyright 2024 MosaicML Composer authors
-# SPDX-License-Identifier: Apache-2.0
-
 from composer.callbacks import CheckpointSaver
 from composer.core import Timestamp
 
