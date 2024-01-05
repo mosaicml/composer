@@ -107,20 +107,19 @@ def get_gpu_flops_available(state: State):
         device_name = 'v100-pcie'
     elif 't4' in device_name:
         device_name = 't4'
-    else:
-        device_name = None
 
-    if device_name is not None:
-        try:
-            gpu_flops_available = int(GPU_AVAILABLE_FLOPS[device_name][state.precision.value])
-        except:
-            gpu_flops_available = None
+    if device_name in GPU_AVAILABLE_FLOPS and state.precision.value in GPU_AVAILABLE_FLOPS[device_name]:
+        gpu_flops_available = int(GPU_AVAILABLE_FLOPS[device_name][state.precision.value])
+    else:
+        gpu_flops_available = None
 
     if gpu_flops_available is None:
         warnings.warn(
-            f'gpu_flop count not found for {device_name} with precision: {state.precision.value}; ' +\
-            f'MFU cannot be calculated and reported. gpu_flops_available can be manually' +\
-            f'overridden by setting gpu_flops_available in SpeedMonitor.'
+            f'gpu_flop count not found for {device_name} with precision={state.precision.value} ' +\
+            f'so MFU cannot be calculated and reported. gpu_flops_available can be manually ' +\
+            f'overridden by setting gpu_flops_available in SpeedMonitor or {device_name} can ' +\
+            f'be added to GPU_AVAILABLE_FLOPS in composer/callbacks/speed_monitor.py',
+            stacklevel=2,
         )
         # Setting to 0 will disable MFU computation and prevent
         # the speed monitor from running this helper every batch
