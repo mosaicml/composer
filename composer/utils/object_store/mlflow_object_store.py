@@ -113,7 +113,7 @@ class MLFlowObjectStore(ObjectStore):
         except ImportError as e:
             raise MissingConditionalImportError('databricks', conda_package='databricks-sdk>=0.15.0,<1.0') from e
 
-        tracking_uri = mlflow.get_tracking_uri()
+        tracking_uri = os.getenv(mlflow.environment_variables.MLFLOW_TRACKING_URI.name, MLFLOW_DATABRICKS_TRACKING_URI)
         if tracking_uri != MLFLOW_DATABRICKS_TRACKING_URI:
             raise ValueError(
                 'MLFlowObjectStore currently only supports Databricks-hosted MLflow tracking. '
