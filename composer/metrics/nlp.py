@@ -856,17 +856,15 @@ class IFEvalJudge(InContextLearningMetric):
             # Removes k, v pairs when value is none for each dict in the the list
             kwargs = [{k: v for k, v in kwarg_dict.items() if v is not None} for kwarg_dict in kwargs]
             # TODO: make kwargs
-            res = InstructionResult(
-                key=batch['key'][i],
-                instruction_id_list= batch['instruction_id_list'][i],
-                prompt=batch['prompt'][i],
-                kwargs=kwargs,
-                response=output
-            )
+            res = InstructionResult(key=batch['key'][i],
+                                    instruction_id_list=batch['instruction_id_list'][i],
+                                    prompt=batch['prompt'][i],
+                                    kwargs=kwargs,
+                                    response=output)
             batch_results.append(instruction_following_eval([res], aggregate=False))
         for result in batch_results:
             self.prompt_total += 1
-            if all([instruction['follow'] for instruction in result]):
+            if all(instruction['follow'] for instruction in result):
                 self.prompt_correct += 1
             for instruction in result:
                 self.instruction_total += 1
@@ -971,4 +969,3 @@ class MTBenchJudge(InContextLearningMetric):
         assert isinstance(self.correct, Tensor)
         assert isinstance(self.total, Tensor)
         return self.correct / self.total
-

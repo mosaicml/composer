@@ -1214,12 +1214,11 @@ class IFEval(InContextLearningDataset):
             # rstrip context because a prompt ending in a space results in degenerate output
             ctxt = ctxt.rstrip()
         tokenized_context = self.tokenizer.apply_chat_template([{
-                                                    'role': 'user',
-                                                    'content': ctxt
-                                                }],
-                                                tokenize=True,
-                                                add_generation_prompt=True
-                                                )
+            'role': 'user',
+            'content': ctxt
+        }],
+                                                               tokenize=True,
+                                                               add_generation_prompt=True)
 
         trimmed_context = _trim_context(tokenized_context, [], self.padding_size)
         padded_context = _make_padded_input(trimmed_context, [], self.padding_size, self.pad_tok_id, self.padding_side)
@@ -1258,6 +1257,7 @@ class IFEval(InContextLearningDataset):
             return example
 
         return self.dataset.map(_trim_padding)
+
 
 class MTBench(InContextLearningDataset):
     """
@@ -1302,7 +1302,7 @@ class MTBench(InContextLearningDataset):
             'untokenized_prompt_two': [],
             'input_ids': [],
             'tokenized_prompt_two': [],
-            'generation_length' : self.max_seq_len,
+            'generation_length': self.max_seq_len,
         }
         self._update_generation_kwargs(kwargs.get('generation_kwargs'))
         self.dataset = self.dataset.map(self.pad_contexts)
@@ -1315,7 +1315,7 @@ class MTBench(InContextLearningDataset):
         return example
 
     def get_max_prompt_length(self, index: str):
-        max_prompt_length = 0 
+        max_prompt_length = 0
         for example in self.dataset:
             max_prompt_length = max(max_prompt_length, len(example[index]))
         return max_prompt_length
@@ -1358,24 +1358,21 @@ class MTBench(InContextLearningDataset):
             prompt_two = prompt_two.rstrip()
 
         tokenized_prompt_one = self.tokenizer.apply_chat_template([{
-                                                    'role': 'user',
-                                                    'content': prompt_one
-                                                }],
-                                                tokenize=True,
-                                                add_generation_prompt=True
-        )
+            'role': 'user',
+            'content': prompt_one
+        }],
+                                                                  tokenize=True,
+                                                                  add_generation_prompt=True)
         tokenized_prompt_two = self.tokenizer.apply_chat_template([{
-                                                    'role': 'user',
-                                                    'content': prompt_two
-                                                }],
-                                                tokenize=True,
-                                                add_generation_prompt=True
-        )
+            'role': 'user',
+            'content': prompt_two
+        }],
+                                                                  tokenize=True,
+                                                                  add_generation_prompt=True)
         tokenized_example['tokenized_prompt_one'] = tokenized_prompt_one
-        tokenized_example['tokenized_prompt_two'] = tokenized_prompt_two 
+        tokenized_example['tokenized_prompt_two'] = tokenized_prompt_two
 
         return tokenized_example
-
 
 
 def build_icl_dataloader(
