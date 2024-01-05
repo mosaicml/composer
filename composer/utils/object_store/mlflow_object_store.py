@@ -242,7 +242,7 @@ class MLFlowObjectStore(ObjectStore):
             if (experiment_id != self.experiment_id and experiment_id != MLFLOW_EXPERIMENT_ID_PLACEHOLDER):
                 raise ValueError(f'Object {object_name} belongs to experiment ID {experiment_id}, '
                                  f'but MLFlowObjectStore is associated with experiment ID {self.experiment_id}.')
-            if (run_id != self.run_id and run_id != MLFLOW_EXPERIMENT_ID_PLACEHOLDER):
+            if (run_id != self.run_id and run_id != MLFLOW_RUN_ID_PLACEHOLDER):
                 raise ValueError(f'Object {object_name} belongs to run ID {run_id}, '
                                  f'but MLFlowObjectStore is associated with run ID {self.run_id}.')
         return object_name

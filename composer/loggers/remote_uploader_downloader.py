@@ -339,8 +339,9 @@ class RemoteUploaderDownloader(LoggerDestination):
         # updated with information generated at runtime, i.e., the MLFlow experiment and run IDs. This information
         # must be propagated across all ranks before the workers are started so that all workers use the same
         # MLFlow run.
-        if isinstance(self.remote_backend, MLFlowObjectStore):
+        if self.backend_kwargs['path'].startswith(MLFLOW_DBFS_PATH_PREFIX):
             if dist.get_global_rank() == 0:
+                assert isinstance(self.remote_backend, MLFlowObjectStore)
                 self.backend_kwargs['path'] = self.remote_backend.get_dbfs_path(self.backend_kwargs['path'])
 
             path_list = [self.backend_kwargs['path']]

@@ -353,7 +353,23 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
         return OCIObjectStore(bucket=bucket_name)
     elif backend == 'dbfs':
         if path.startswith(MLFLOW_DBFS_PATH_PREFIX):
-            return MLFlowObjectStore(path)
+            store = None
+            if dist.get_global_rank() == 0:
+                store = MLFlowObjectStore(path)
+
+                # The path may have had placeholders, so update it with the experiment/run IDs initialized by the store
+                path = store.get_dbfs_path(path)
+
+            # Broadcast the rank 0 updated path to all ranks for their own object stores
+            path_list = [path]
+            dist.broadcast_object_list(path_list, src=0)
+            path = path_list[0]
+
+            # Create the object store for all other ranks
+            if dist.get_global_rank() != 0:
+                store = MLFlowObjectStore(path)
+
+            return store
         else:
             # validate if the path conforms to the requirements for UC volume paths
             UCObjectStore.validate_path(path)
