@@ -22,8 +22,8 @@ MLFLOW_DBFS_PATH_PREFIX = 'databricks/mlflow-tracking/'
 
 DEFAULT_MLFLOW_EXPERIMENT_NAME = 'mlflow-object-store'
 
-PLACEHOLDER_EXPERIMENT_ID = 'MLFLOW_EXPERIMENT_ID'
-PLACEHOLDER_RUN_ID = 'MLFLOW_RUN_ID'
+PLACEHOLDER_EXPERIMENT_ID = '{mlflow_experiment_id}'
+PLACEHOLDER_RUN_ID = '{mlflow_run_id}'
 
 log = logging.getLogger(__name__)
 
