@@ -12,14 +12,14 @@ import shutil
 import tempfile
 import textwrap
 from pathlib import Path
-from typing import Callable, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
-from composer.core import Callback, Event, State, Time
+from composer.core import Callback, Event, State, Time, Timestamp
 from composer.loggers import Logger
 from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, PartialFilePath,
                             checkpoint, create_interval_scheduler, create_symlink_file, dist,
                             ensure_folder_has_no_conflicting_files, format_name_with_dist,
-                            format_name_with_dist_and_time, is_model_deepspeed, reproducibility, using_torch_2)
+                            format_name_with_dist_and_time, is_model_deepspeed, using_torch_2)
 from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
 
 log = logging.getLogger(__name__)
@@ -264,6 +264,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         self.overwrite = overwrite
         self.saved_checkpoints: List[str] = []
+        self.all_saved_checkpoints_to_timestamp: Dict[str, Timestamp] = {}
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
         self.weights_only = weights_only
 
@@ -303,11 +304,16 @@ class CheckpointSaver(Callback):  # noqa: D101
                 logger,
             )
 
-    def get_state_dict(self, state):
-        return {
-            'state': state.state_dict(),
-            'rng': reproducibility.get_rng_state(),
-        }
+    def state_dict(self) -> Dict[str, Any]:
+        state_dict = super().state_dict()
+
+        # TODO: consider saving additional state for checkpoint rotation
+        state_dict['all_saved_checkpoints_to_timestamp'] = self.all_saved_checkpoints_to_timestamp
+        return state_dict
+
+    def load_state_dict(self, state: Dict[str, Any]):
+        super().load_state_dict(state)
+        self.all_saved_checkpoints_to_timestamp = state['all_saved_checkpoints_to_timestamp']
 
     def _save_checkpoint(self, state: State, logger: Logger):
         self.last_checkpoint_batch = state.timestamp.batch
@@ -415,6 +421,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                         )
 
         self.saved_checkpoints.append(saved_path)
+        self.all_saved_checkpoints_to_timestamp[saved_path] = state.timestamp
 
         if self.num_checkpoints_to_keep >= 0:
             self._rotate_checkpoints(sharding_enabled=state.fsdp_sharded_state_dict_enabled)
@@ -423,10 +430,10 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         while len(self.saved_checkpoints) > self.num_checkpoints_to_keep:
             prefix_dir = None
-            checkpoint = self.saved_checkpoints.pop(0)
-            prefix_dir = str(Path(checkpoint).parent)
+            checkpoint_to_delete = self.saved_checkpoints.pop(0)
+            prefix_dir = str(Path(checkpoint_to_delete).parent)
             if not sharding_enabled:
-                os.remove(checkpoint)
+                os.remove(checkpoint_to_delete)
             else:
                 if dist.get_global_rank() == 0:
                     shutil.rmtree(prefix_dir)
