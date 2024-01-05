@@ -62,6 +62,7 @@ def get_precision_context(precision: Union[str, Precision],
     elif precision == Precision.AMP_BF16:
         if torch.cuda.is_available():
             logging.info("Turned off torch autocast")
+            yield
         else:
             os.environ['XLA_USE_BF16'] = '1'
             yield
