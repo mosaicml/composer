@@ -167,7 +167,10 @@ class UCObjectStore(ObjectStore):
         try:
             from databricks.sdk.core import DatabricksError
             try:
-                with self.client.files.download(self._get_object_path(object_name)).contents as resp:  # pyright: ignore
+                contents = self.client.files.download(self._get_object_path(object_name)).contents
+                assert contents is not None
+
+                with contents as resp:  # pyright: ignore
                     with open(tmp_path, 'wb') as f:
                         # Chunk the data into multiple blocks of 64MB to avoid
                         # OOMs when downloading really large files
@@ -235,6 +238,7 @@ class UCObjectStore(ObjectStore):
                                              path=self._UC_VOLUME_LIST_API_ENDPOINT,
                                              data=data,
                                              headers={'Source': 'mosaicml/composer'})
-            return [f['path'] for f in resp.get('files', []) if not f['is_dir']]  # pyright: ignore
+            assert isinstance(resp, dict)
+            return [f['path'] for f in resp.get('files', []) if not f['is_dir']]
         except DatabricksError as e:
             _wrap_errors(self.get_uri(prefix), e)
