@@ -7,7 +7,7 @@ import contextlib
 import os
 import textwrap
 from typing import Any, Dict, Generator, Optional, Union
-
+import logging
 import torch
 
 from composer.utils import StringEnum
@@ -61,7 +61,7 @@ def get_precision_context(precision: Union[str, Precision],
             yield
     elif precision == Precision.AMP_BF16:
         if torch.cuda.is_available():
-            pass
+            logging.info("Turned off torch autocast")
         else:
             os.environ['XLA_USE_BF16'] = '1'
             yield
