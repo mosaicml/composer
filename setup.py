@@ -77,8 +77,8 @@ install_requires = [
     'tqdm>=4.62.3,<5',
     'torchmetrics>=0.10.0,<1.1',
     'torch_optimizer>=0.3.0,<0.4',
-    'torchvision>0.16',
-    'torch>=2.0.0',
+    'torchvision>=0.13.1,<0.19',
+    'torch>=1.13.1,<2.2.1',
     'requests>=2.26.0,<3',
     'numpy>=1.21.5,<1.27.0',
     'psutil>=5.8.0,<6',
@@ -98,13 +98,13 @@ extra_deps['dev'] = [
     # Pinning versions strictly to avoid random test failures.
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
-    'junitparser==3.1.0',
-    'coverage[toml]==7.3.3',
+    'junitparser==3.1.1',
+    'coverage[toml]==7.3.4',
     'fasteners==0.18',  # object store tests require fasteners
-    'pytest==7.4.3',
+    'pytest==7.4.4',
     'toml==0.10.2',
     'ipython==8.11.0',
-    'ipykernel==6.26.0',
+    'ipykernel==6.28.0',
     'jupyter==1.0.0',
     'yamllint==1.33.0',
     'recommonmark==0.7.1',
