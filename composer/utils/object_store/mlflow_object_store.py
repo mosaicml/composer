@@ -34,8 +34,8 @@ def _wrap_mlflow_exceptions(uri: str, e: Exception):
                                    INVALID_STATE, NOT_FOUND, REQUEST_LIMIT_EXCEEDED, RESOURCE_DOES_NOT_EXIST,
                                    RESOURCE_EXHAUSTED, TEMPORARILY_UNAVAILABLE, ErrorCode, MlflowException)
 
-    # https://github.com/mlflow/mlflow/blob/master/mlflow/exceptions.py for used error codes.
-    # https://github.com/mlflow/mlflow/blob/master/mlflow/protos/databricks.proto for code descriptions.
+    # https://github.com/mlflow/mlflow/blob/39b76b5b05407af5d223e892b03e450b7264576a/mlflow/exceptions.py for used error codes.
+    # https://github.com/mlflow/mlflow/blob/39b76b5b05407af5d223e892b03e450b7264576a/mlflow/protos/databricks.proto for code descriptions.
     retryable_server_codes = [
         ErrorCode.Name(code) for code in [
             DATA_LOSS,
@@ -94,7 +94,7 @@ class MLFlowObjectStore(ObjectStore):
             provided experiment.
 
             Providing a `run_id` without an `experiment_id` will raise an error.
-        multipart_upload_chunk_size(int, optional): The maximum size of single chunk in an MLFlow multipart upload.
+        multipart_upload_chunk_size(int, optional): The maximum size of a single chunk in an MLFlow multipart upload.
             The maximum number of chunks supported by MLFlow is 10,000, so the max file size that can
             be uploaded is `10 000 * multipart_upload_chunk_size`. Defaults to 100MB for a max upload size of 1TB.
     """
@@ -163,7 +163,7 @@ class MLFlowObjectStore(ObjectStore):
             if active_run is not None:
                 experiment_id = active_run.info.experiment_id
                 run_id = active_run.info.run_id
-                log.debug(f'MLFlowObjectStore using active MLFlow run (run_id={run_id})')
+                log.debug(f'MLFlowObjectStore using active MLFlow run {run_id=}')
             else:
                 # If no active run exists, create a new run for the default experiment.
                 experiment_name = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,
@@ -177,8 +177,8 @@ class MLFlowObjectStore(ObjectStore):
 
                 run_id = self._mlflow_client.create_run(experiment_id).info.run_id
 
-                log.debug(f'MLFlowObjectStore using a new MLFlow run (run_id={run_id}) '
-                          f'for new experiment "{experiment_name}" (experiment_id={experiment_id})')
+                log.debug(f'MLFlowObjectStore using a new MLFlow run {run_id=}'
+                          f'for new experiment "{experiment_name}" {experiment_id=}')
         else:
             if run_id is not None:
                 # If a `run_id` is provided, check that it belongs to the provided experiment.
@@ -188,15 +188,15 @@ class MLFlowObjectStore(ObjectStore):
                         f'Provided `run_id` {run_id} does not belong to provided experiment {experiment_id}. '
                         f'Found experiment {run.info.experiment_id}.')
 
-                log.debug(f'MLFlowObjectStore using provided MLFlow run (run_id={run_id}) '
-                          f'for provided experiment (experiment_id={experiment_id})')
+                log.debug(f'MLFlowObjectStore using provided MLFlow run {run_id=} '
+                          f'for provided experiment {experiment_id=}')
             else:
                 # If no `run_id` is provided, create a new run in the provided experiment.
                 run = self._mlflow_client.create_run(experiment_id)
                 run_id = run.info.run_id
 
-                log.debug(f'MLFlowObjectStore using new MLFlow run (run_id={run_id}) '
-                          f'for provided experiment (experiment_id={experiment_id})')
+                log.debug(f'MLFlowObjectStore using new MLFlow run {run_id=} '
+                          f'for provided experiment {experiment_id=}')
 
         if experiment_id is None or run_id is None:
             raise ValueError('MLFlowObjectStore failed to initialize experiment and run ID.')
@@ -230,7 +230,7 @@ class MLFlowObjectStore(ObjectStore):
         if len(mlflow_parts) != 4 or mlflow_parts[2] != 'artifacts':
             raise ValueError(f'Databricks MLFlow artifact path expected to be of the format '
                              f'{MLFLOW_DBFS_PATH_PREFIX}/<experiment_id>/<run_id>/artifacts/<relative_path>. '
-                             f'Found path={path}')
+                             f'Found {path=}')
 
         return mlflow_parts[0], mlflow_parts[1], mlflow_parts[3]
 
@@ -245,11 +245,11 @@ class MLFlowObjectStore(ObjectStore):
         if object_name.startswith(MLFLOW_DBFS_PATH_PREFIX):
             experiment_id, run_id, object_name = self.parse_dbfs_path(object_name)
             if (experiment_id != self.experiment_id and experiment_id != PLACEHOLDER_EXPERIMENT_ID):
-                raise ValueError(f'Object {object_name} belongs to experiment with id={experiment_id}, '
-                                 f'but MLFlowObjectStore is associated with experiment {self.experiment_id}.')
+                raise ValueError(f'Object {object_name} belongs to experiment ID {experiment_id}, '
+                                 f'but MLFlowObjectStore is associated with experiment ID {self.experiment_id}.')
             if (run_id != self.run_id and run_id != PLACEHOLDER_RUN_ID):
-                raise ValueError(f'Object {object_name} belongs to run with id={run_id}, '
-                                 f'but MLFlowObjectStore is associated with run {self.run_id}.')
+                raise ValueError(f'Object {object_name} belongs to run ID {run_id}, '
+                                 f'but MLFlowObjectStore is associated with run ID {self.run_id}.')
         return object_name
 
     def get_dbfs_path(self, object_name: str) -> str:
