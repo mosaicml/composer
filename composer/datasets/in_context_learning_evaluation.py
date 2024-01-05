@@ -1276,20 +1276,24 @@ class MTBench(InContextLearningDataset):
             'input_ids': 'tokenized_prompt_one',
             'tokenized_prompt_two': 'tokenized_prompt_two',
         }
+        # TODO: fix this padding size
         super().__init__(
             context_key='category',
             answer_key='canonical_solution',
             strip_dataset=False,
             tokenize_labels=False,
             padding_side='left',
+            padding_size=1000,
             batch_mapping=batch_mapping,
             *args,
             **kwargs,
         )
+        print(self.padding_size)
         self.max_prompt_one_length = self.get_max_prompt_length(index='tokenized_prompt_one')
         # Do we need this?
         self.max_prompt_two_length = self.get_max_prompt_length(index='tokenized_prompt_two')
         self.padding_size = self.max_prompt_one_length
+        print(self.padding_size)
         self.base_batch = {
             'mode': 'mtbench',
             'question_id': [],
@@ -1307,6 +1311,7 @@ class MTBench(InContextLearningDataset):
         trimmed_context = _trim_context(example['tokenized_prompt_one'], [], self.padding_size)
         padded_context = _make_padded_input(trimmed_context, [], self.padding_size, self.pad_tok_id, self.padding_side)
         example['tokenized_prompt_one'] = padded_context
+        print(padded_context.shape)
         return example
 
     def get_max_prompt_length(self, index: str):
