@@ -307,9 +307,9 @@ class CheckpointSaver(Callback):  # noqa: D101
     def state_dict(self) -> Dict[str, Any]:
         state_dict = super().state_dict()
 
-        all_checkpoints = {}
+        all_checkpoints = []
         for save_filename, timestamp in self.all_saved_checkpoints_to_timestamp.items():
-            all_checkpoints[save_filename] = timestamp.state_dict()
+            all_checkpoints.append((save_filename, timestamp.state_dict()))
 
         # TODO: consider saving additional state for checkpoint rotation
         state_dict['all_saved_checkpoints_to_timestamp'] = all_checkpoints
@@ -318,10 +318,10 @@ class CheckpointSaver(Callback):  # noqa: D101
     def load_state_dict(self, state: Dict[str, Any]):
         super().load_state_dict(state)
         if 'all_saved_checkpoints_to_timestamp' in state:
-            for save_filename, timestamp_state in state['all_saved_checkpoints_to_timestamp'].items():
-                new_timetamp = Timestamp()
-                new_timetamp.load_state_dict(timestamp_state)
-                self.all_saved_checkpoints_to_timestamp[save_filename] = new_timetamp
+            for (save_filename, timestamp_state) in state['all_saved_checkpoints_to_timestamp']:
+                new_timestamp = Timestamp()
+                new_timestamp.load_state_dict(timestamp_state)
+                self.all_saved_checkpoints_to_timestamp[save_filename] = new_timestamp
 
     def _save_checkpoint(self, state: State, logger: Logger):
         self.last_checkpoint_batch = state.timestamp.batch

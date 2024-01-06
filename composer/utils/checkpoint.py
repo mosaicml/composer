@@ -694,8 +694,7 @@ def _remove_paths(obj: Union[list, dict[str, Any]], exclude_paths: list[list[str
 
     # Recurse first, so in the case of a list, the indexing is consistent
     for key, paths_to_recurse in keys_to_recurse.items():
-        if key in obj:
-            _remove_paths(obj[key], paths_to_recurse)
+        _remove_paths(obj[key], paths_to_recurse)
 
     # Sort the keys in reverse order, so in the case of a list, the indexing is consistent
     keys_to_remove.sort(reverse=True)
