@@ -11,7 +11,6 @@ import pathlib
 import tempfile
 from typing import Callable, List, Optional, Tuple, Union
 
-from composer.utils import dist
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore, ObjectStoreTransientError
 
@@ -139,16 +138,7 @@ class MLFlowObjectStore(ObjectStore):
             run_id = None
 
         # Construct the `experiment_id` and `run_id` depending on whether format placeholders were provided.
-        if not dist.is_initialized() or dist.get_global_rank() == 0:
-            experiment_id, run_id = self._init_run_info(experiment_id, run_id)
-
-        if dist.is_initialized():
-            mlflow_info = [experiment_id, run_id]
-            dist.broadcast_object_list(mlflow_info, src=0)
-            experiment_id, run_id = mlflow_info
-
-        self.experiment_id = experiment_id
-        self.run_id = run_id
+        self.experiment_id, self.run_id = self._init_run_info(experiment_id, run_id)
 
     def _init_run_info(self, experiment_id: Optional[str], run_id: Optional[str]) -> Tuple[str, str]:
         """Returns the experiment ID and run ID for the MLflow run backing this object store.
