@@ -18,11 +18,12 @@ from urllib.parse import urlparse
 import requests
 import tqdm
 
-from composer.utils import dist, partial_format
+from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_callback
 from composer.utils.object_store import (GCSObjectStore, MLFlowObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore,
                                          UCObjectStore)
 from composer.utils.object_store.mlflow_object_store import MLFLOW_DBFS_PATH_PREFIX
+from composer.utils.string_helpers import partial_format
 
 if TYPE_CHECKING:
     from composer.core import Timestamp
