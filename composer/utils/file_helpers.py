@@ -18,7 +18,7 @@ from urllib.parse import urlparse
 import requests
 import tqdm
 
-from composer.utils import dist
+from composer.utils import dist, partial_format
 from composer.utils.iter_helpers import iterate_with_callback
 from composer.utils.object_store import (GCSObjectStore, MLFlowObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore,
                                          UCObjectStore)
@@ -168,7 +168,8 @@ FORMAT_NAME_WITH_DIST_TABLE = """
 
 
 def format_name_with_dist(format_str: str, run_name: str, **extra_format_kwargs: object):  # noqa: D103
-    formatted_str = format_str.format(
+    formatted_str = partial_format(
+        format_str,
         run_name=run_name,
         **_get_dist_config(strict=False),
         **extra_format_kwargs,
@@ -261,7 +262,8 @@ def format_name_with_dist_and_time(
     timestamp: Timestamp,
     **extra_format_kwargs: object,
 ):  # noqa: D103
-    formatted_str = format_str.format(
+    formatted_str = partial_format(
+        format_str,
         run_name=run_name,
         epoch=int(timestamp.epoch),
         batch=int(timestamp.batch),
