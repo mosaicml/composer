@@ -7,6 +7,9 @@ from composer.utils.string_helpers import partial_format
 
 
 def test_partial_format():
+    # No args provided
+    assert partial_format('{foo} {bar} {}') == '{foo} {bar} {}'
+
     # Keyword args
     assert partial_format('{foo} {bar}', foo='Hello') == 'Hello {bar}'
     assert partial_format('{foo} {bar}', foo='Hello', bar='World') == 'Hello World'
