@@ -757,8 +757,6 @@ class TestCheckpointLoading:
         trainer_1_rng_state = reproducibility.get_rng_state()
         trainer_1.close()
 
-        # TODO: KeyError 'first' when load_ignore_keys=['state/callbacks/*']
-
         last_checkpoint = os.path.join('first', 'ep2.pt')
         trainer_2 = self.get_trainer(
             load_path=last_checkpoint,
