@@ -497,7 +497,8 @@ def load_sharded_checkpoint(
                 log.debug('Strip _pgidx from optimizer state dict keys')
                 local_idx = f'_pgidx{dist.get_local_rank()}'
                 log.debug('Get ptr to optimizer state dict')
-                optim_state_dict = optim_state['optimizers']['DecoupledLionW']['state']
+                optim_name = list(optim_state['optimizers'].keys())[0]
+                optim_state_dict = optim_state['optimizers'][optim_name]['state']
                 log.debug('Loop over optimizer state dict keys')
                 for key in list(optim_state_dict.keys()):
                     log.debug(f'Stripping {local_idx} from {key=}')
