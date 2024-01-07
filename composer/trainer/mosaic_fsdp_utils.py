@@ -788,6 +788,31 @@ def fsdp_state_pg_ranks(state: '_FSDPState') -> Tuple[int, ...]:
         return tuple(get_process_group_ranks(state.process_group))
     
 
+def _wait_for_computation_stream(
+    computation_stream: torch.Stream,
+    root_state: '_FSDPState',
+    pre_unshard_stream: torch.Stream,
+):
+    """
+    Has the unshard and pre-unshard streams wait for the computation stream.
+    For example, this should be called in the FSDP root's pre-forward to
+    respect optimizer step computation.
+    """
+    # Tracing does not need to wait
+    if torch.distributed._functional_collectives.is_torchdynamo_compiling():
+        return
+    # Ensure all unshard streams wait for the computation stream.
+    unshard_streams = set()
+    for fsdp_state in root_state._all_fsdp_states:
+        unshard_streams.add(fsdp_state._unshard_stream)
+    for unshard_stream in unshard_streams:
+        unshard_stream.wait_stream(computation_stream)  # type: ignore[attr-defined]
+    # Having the pre-all-gather stream wait for the current stream even if we
+    # do not leverage the pre-all-gather stream is tolerable since this only
+    # runs once per iteration
+    pre_unshard_stream.wait_stream(computation_stream)  # type: ignore[attr-defined]
+    
+
 @no_type_check
 def _root_pre_forward(
     state: '_FSDPState',
@@ -805,6 +830,12 @@ def _root_pre_forward(
         module (nn.Module): Module for which this logic tries to run. It may or
             may not be the root. If not, then this method does not do anything.
     """
+    from torch.distributed.fsdp._runtime_utils import (_lazy_init, _root_cast_forward_input,
+                                                       _cast_buffers_to_dtype_and_device,
+                                                       _get_buffers_and_dtypes_for_computation,
+                                                       _reset_flat_param_grad_info_if_needed)
+    from torch.distributed.utils import _p_assert, _to_kwargs
+    from torch.distributed.fsdp._common_utils import _is_composable
     with torch.profiler.record_function("FullyShardedDataParallel._root_pre_forward"):
         _lazy_init(state, module)
         _p_assert(state._is_root is not None, "Expects a root FSDP to have been set")
@@ -886,6 +917,56 @@ def _root_pre_forward(
         kwargs = kwargs_tuple[0]
 
         return _root_cast_forward_input(state, module, args, kwargs)
+    
+@no_type_check
+def _register_root_pre_forward_hook(
+    state: _FSDPState,
+    module: nn.Module,
+):
+    """
+    Registers root pre-forward hook on ``module``, which should be the local
+    FSDP root.
+
+    NOTE: For the current composable FSDP design, we have each application of
+    ``fully_shard()`` to a module to indicate that that module is the local
+    FSDP root. We may remove this assumption in the future, in which case we
+    will need to register this root pre-forward hook on any candidate module
+    that may be the local FSDP root.
+    """
+    for forward_handle in state._root_pre_forward_handles:
+        forward_handle.remove()
+    state._root_pre_forward_handles.clear()
+    hook = functools.partial(_root_pre_forward, state)
+    state._root_pre_forward_handles.append(
+        module.register_forward_pre_hook(hook, prepend=True, with_kwargs=True)
+    )
+
+    
+# def forward(self, *args: Any, **kwargs: Any) -> Any:
+#     """Run the forward pass for the wrapped module, inserting FSDP-specific pre- and post-forward sharding logic."""
+#     handle = self._handle
+#     with torch.autograd.profiler.record_function(
+#         "FullyShardedDataParallel.forward"
+#     ):
+#         args, kwargs = _root_pre_forward(self, self, args, kwargs)
+#         unused = None
+#         args, kwargs = _pre_forward(
+#             self,
+#             handle,
+#             _pre_forward_unshard,
+#             self._fsdp_wrapped_module,
+#             args,
+#             kwargs,
+#         )
+#         if handle:
+#             _p_assert(
+#                 handle.flat_param.device == self.compute_device,
+#                 "Expected `FlatParameter` to be on the compute device "
+#                 f"{self.compute_device} but got {handle.flat_param.device}",
+#             )
+#         output = self._fsdp_wrapped_module(*args, **kwargs)
+#         return _post_forward(
+#             self, handle, _post_forward_reshard, self, unused, output
 
 @no_type_check
 def _share_state_and_init_handle_attrs_t2p1(
@@ -976,30 +1057,6 @@ def _share_state_and_init_handle_attrs_t2p1(
     for attr_name, attr_values in attr_name_to_values.items():
         if len(attr_values) != 1:
             raise ValueError(f'Expects one homogeneous value for {attr_name} but got {attr_values}')
-        
-def _wait_for_computation_stream(
-    computation_stream: torch.Stream,
-    root_state: '_FSDPState',
-    pre_unshard_stream: torch.Stream,
-):
-    """
-    Has the unshard and pre-unshard streams wait for the computation stream.
-    For example, this should be called in the FSDP root's pre-forward to
-    respect optimizer step computation.
-    """
-    # Tracing does not need to wait
-    if torch.distributed._functional_collectives.is_torchdynamo_compiling():
-        return
-    # Ensure all unshard streams wait for the computation stream.
-    unshard_streams = set()
-    for fsdp_state in root_state._all_fsdp_states:
-        unshard_streams.add(fsdp_state._unshard_stream)
-    for unshard_stream in unshard_streams:
-        unshard_stream.wait_stream(computation_stream)  # type: ignore[attr-defined]
-    # Having the pre-all-gather stream wait for the current stream even if we
-    # do not leverage the pre-all-gather stream is tolerable since this only
-    # runs once per iteration
-    pre_unshard_stream.wait_stream(computation_stream)  # type: ignore[attr-defined]
 
 @no_type_check
 def _share_state_and_init_handle_attrs_t2p2(
