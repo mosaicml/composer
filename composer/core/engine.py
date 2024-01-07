@@ -547,7 +547,22 @@ class Engine():
         # Try to shut down any persistent workers
         try:
             state.train_dataloader._iterator._shutdown_workers()  # type: ignore [reportGeneralTypeIssues]
-        except:
+        except AttributeError as e:
             pass
+        except Exception as e:
+            log.error(f'Error running state.train_dataloader._iterator._shutdown_workers().', exc_info=e, stack_info=True)
+        try:
+            state.dataloader._iterator._shutdown_workers()  # type: ignore [reportGeneralTypeIssues]
+        except AttributeError as e:
+            pass
+        except Exception as e:
+            log.error(f'Error running state.dataloader._iterator._shutdown_workers().', exc_info=e, stack_info=True)
+        for evaluator in state.evaluators:
+            try:
+                evaluator.dataloader.dataloader._iterator._shutdown_workers()  # type: ignore [reportGeneralTypeIssues]
+            except AttributeError as e:
+                pass
+            except Exception as e:
+                log.error(f'Error running evaluator(s).dataloader._iterator._shutdown_workers().', exc_info=e, stack_info=True)
 
         log.debug('Engine closed.')
