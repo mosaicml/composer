@@ -557,7 +557,7 @@ class Engine():
             pass
         except Exception as e:
             log.error(f'Error running state.dataloader._iterator._shutdown_workers().', exc_info=e, stack_info=True)
-        for evaluator in state.evaluators:
+        for evaluator in state._evaluators:
             try:
                 evaluator.dataloader.dataloader._iterator._shutdown_workers()  # type: ignore [reportGeneralTypeIssues]
             except AttributeError as e:
