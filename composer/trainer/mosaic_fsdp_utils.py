@@ -885,7 +885,30 @@ def _share_state_and_init_handle_attrs_t2p1(
     for attr_name, attr_values in attr_name_to_values.items():
         if len(attr_values) != 1:
             raise ValueError(f'Expects one homogeneous value for {attr_name} but got {attr_values}')
-
+        
+def _wait_for_computation_stream(
+    computation_stream: torch.Stream,
+    root_state: _FSDPState,
+    pre_unshard_stream: torch.Stream,
+):
+    """
+    Has the unshard and pre-unshard streams wait for the computation stream.
+    For example, this should be called in the FSDP root's pre-forward to
+    respect optimizer step computation.
+    """
+    # Tracing does not need to wait
+    if torch.distributed._functional_collectives.is_torchdynamo_compiling():
+        return
+    # Ensure all unshard streams wait for the computation stream.
+    unshard_streams = set()
+    for fsdp_state in root_state._all_fsdp_states:
+        unshard_streams.add(fsdp_state._unshard_stream)
+    for unshard_stream in unshard_streams:
+        unshard_stream.wait_stream(computation_stream)  # type: ignore[attr-defined]
+    # Having the pre-all-gather stream wait for the current stream even if we
+    # do not leverage the pre-all-gather stream is tolerable since this only
+    # runs once per iteration
+    pre_unshard_stream.wait_stream(computation_stream)  # type: ignore[attr-defined]
 
 @no_type_check
 def _share_state_and_init_handle_attrs_t2p2(
