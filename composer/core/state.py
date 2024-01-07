@@ -10,7 +10,7 @@ import textwrap
 import warnings
 from collections import OrderedDict
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union, cast
 
 import numpy as np
 import torch
@@ -872,7 +872,7 @@ class State(Serializable):
             Dict[str, Any]: The state dict for the model.
         """
         return self.get_model_and_optimizer_state_dict(model_only=True)[0]
-    
+
     def _legacy_get_model_state_dict(self) -> Dict[str, Any]:
         if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
             with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
@@ -898,16 +898,13 @@ class State(Serializable):
         return optim_state_dict
 
     def get_model_and_optimizer_state_dict(self, model_only=False) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        if version.parse(torch.__version__) > version.parse("2.1.2"):
-            from torch.distributed.checkpoint.state_dict import get_state_dict, StateDictOptions
+        if version.parse(torch.__version__) > version.parse('2.1.2'):
+            from torch.distributed.checkpoint.state_dict import StateDictOptions, get_state_dict
             if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
                 raise NotImplementedError(
-                    textwrap.dedent(
-                        f"fsdp_state_dict_type={self.fsdp_state_dict_type} is not supported for "
-                        f'torch version {{version.parse(torch.__version__)}} > 2.1.2. Please set '
-                        'fsdp_state_dict_type to None, "full", or "sharded".'
-                    )
-                )
+                    textwrap.dedent(f'fsdp_state_dict_type={self.fsdp_state_dict_type} is not supported for '
+                                    f'torch version {{version.parse(torch.__version__)}} > 2.1.2. Please set '
+                                    'fsdp_state_dict_type to None, "full", or "sharded".'))
 
             optimizer = ensure_tuple(self.optimizers)[0]
             model_state_dict, optim_state_dict = get_state_dict(
@@ -915,12 +912,12 @@ class State(Serializable):
                 optimizers=([] if model_only else optimizer),
                 submodules=None,
                 options=StateDictOptions(
-                        full_state_dict=self.fsdp_state_dict_type != 'sharded',
-                        cpu_offload=True,
-                        ignore_frozen_params=True,
-                        keep_submodule_prefixes=True,
-                        strict=True,
-                    ),
+                    full_state_dict=self.fsdp_state_dict_type != 'sharded',
+                    cpu_offload=True,
+                    ignore_frozen_params=True,
+                    keep_submodule_prefixes=True,
+                    strict=True,
+                ),
             )
             optim_state_dict = {type(optimizer).__qualname__: optim_state_dict}
         else:
@@ -1241,8 +1238,8 @@ class State(Serializable):
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
 
         # Load model and optimizer state
-        if version.parse(torch.__version__) > version.parse("2.1.2"):
-            from torch.distributed.checkpoint.state_dict import set_state_dict, StateDictOptions
+        if version.parse(torch.__version__) > version.parse('2.1.2'):
+            from torch.distributed.checkpoint.state_dict import StateDictOptions, set_state_dict
             optimizer = ensure_tuple(self.optimizers)[0]
             model_state_dict = state_dict.get('model', {})
             optim_state_dict = state_dict['optimizers'].get(type(optimizer).__qualname__, {})

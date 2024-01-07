@@ -755,40 +755,31 @@ def _sharded_pre_load_state_dict_hook(
 
     _enter_unshard_params_ctx(module, fsdp_state, writeback=True)
 
+
 if version.parse(torch.__version__) >= version.parse('2.1.2') and version.parse(
         torch.__version__) < version.parse('2.2.1'):
-    from torch.distributed.fsdp.fully_sharded_data_parallel import (
-        _init_ignored_module_states,
-        _init_device_handle,
-        _annotate_modules_for_dynamo,
-        _auto_wrap,
-        _init_core_state,
-        _init_runtime_state,
-        _init_prefetching_state,
-        _init_buffer_state,
-        #_init_extension,
-        _init_param_handle_from_module,
-        _check_orig_params_flattened,
-        _register_flat_param,
-        _init_state_dict_state,
-        _register_all_state_dict_hooks,
-    )
-    from torch.distributed.fsdp._init_utils import (
-        HYBRID_SHARDING_STRATEGIES,
-        ProcessGroupType,
-        _init_intra_and_inter_node_groups,
-        _is_valid_hybrid_shard_pg_type,
-        _get_default_comm_hook_state,
-    )
-    from torch.distributed.fsdp.wrap import _Policy, CustomPolicy, ModuleWrapPolicy
-    from torch.distributed._tensor import DeviceMesh, DTensor, Replicate, Shard as DShard
-    from torch.distributed.fsdp._common_utils import _FSDPState
-    from torch.distributed.algorithms._comm_hooks import default_hooks
-    from torch.distributed.distributed_c10d import _get_default_group
-    from torch.distributed.tensor.parallel.fsdp import DTensorExtensions
-    from torch.distributed.device_mesh import _mesh_resources
     import copy
-         
+
+    from torch.distributed._tensor import DeviceMesh, DTensor, Replicate
+    from torch.distributed._tensor import Shard as DShard
+    from torch.distributed.algorithms._comm_hooks import default_hooks
+    from torch.distributed.device_mesh import _mesh_resources
+    from torch.distributed.distributed_c10d import _get_default_group
+    from torch.distributed.fsdp._common_utils import _FSDPState
+    from torch.distributed.fsdp._init_utils import (HYBRID_SHARDING_STRATEGIES, ProcessGroupType,
+                                                    _get_default_comm_hook_state, _init_intra_and_inter_node_groups,
+                                                    _is_valid_hybrid_shard_pg_type)
+    from torch.distributed.fsdp.fully_sharded_data_parallel import (_annotate_modules_for_dynamo,  # _init_extension,
+                                                                    _auto_wrap, _check_orig_params_flattened,
+                                                                    _init_buffer_state, _init_core_state,
+                                                                    _init_device_handle, _init_ignored_module_states,
+                                                                    _init_param_handle_from_module,
+                                                                    _init_prefetching_state, _init_runtime_state,
+                                                                    _init_state_dict_state,
+                                                                    _register_all_state_dict_hooks,
+                                                                    _register_flat_param)
+    from torch.distributed.fsdp.wrap import CustomPolicy, ModuleWrapPolicy, _Policy
+    from torch.distributed.tensor.parallel.fsdp import DTensorExtensions
 
     def all_gather_dtensor_t2p2p0(
         self,
@@ -801,14 +792,13 @@ if version.parse(torch.__version__) >= version.parse('2.1.2') and version.parse(
         placements = list(copy.deepcopy(tensor.placements))
         # FSDP + TP: [Shard(0), tp_placement] -> [Replicate(), tp_placement]
         # HSDP + TP: [Replicate(), Shard(0), tp_placement] -> [Replicate(), Replicate(), tp_placement]
-        for i in range(0, len(placements)-1):
-                placements[i] = Replicate()
+        for i in range(0, len(placements) - 1):
+            placements[i] = Replicate()
         tensor = tensor.redistribute(
-                device_mesh=tensor.device_mesh,
-                placements=placements,
+            device_mesh=tensor.device_mesh,
+            placements=placements,
         )
         return tensor.to_local()
-
 
     def chunk_dtensor_t2p2p0(
         self,
@@ -823,7 +813,7 @@ if version.parse(torch.__version__) >= version.parse('2.1.2') and version.parse(
         """
         parent_mesh = _mesh_resources.get_parent_mesh(device_mesh)
         if parent_mesh is None:
-                raise RuntimeError("No parent device_mesh is found for FSDP device_mesh.")
+            raise RuntimeError('No parent device_mesh is found for FSDP device_mesh.')
         # if parent_mesh.ndim != 2:
         #     raise RuntimeError(
         #         f"Found parent device_mesh of ndim={parent_mesh.ndim},",
@@ -845,9 +835,7 @@ if version.parse(torch.__version__) >= version.parse('2.1.2') and version.parse(
             shard_placements = [Replicate() for _ in range(parent_mesh.ndim)]
             shard_placements[0] = DShard(0)  # type: ignore[call-overload]
 
-            return DTensor.from_local(
-                tensor, parent_mesh, replicate_placements
-            ).redistribute(
+            return DTensor.from_local(tensor, parent_mesh, replicate_placements).redistribute(
                 device_mesh=parent_mesh,
                 placements=shard_placements,
             )
@@ -867,18 +855,15 @@ if version.parse(torch.__version__) >= version.parse('2.1.2') and version.parse(
                 shard_placements = [DShard(0) for _ in range(parent_mesh.ndim)]  # type: ignore[misc]
                 shard_placements[-1] = tp_placement  # type: ignore[call-overload]
 
-
             elif parent_mesh.ndim == 3:
                 replicate_placements = [Replicate(), Replicate(), tp_placement]
                 shard_placements = [Replicate(), DShard(0), tp_placement]  # type: ignore[misc]
 
-            return DTensor.from_local(
-                tensor, parent_mesh, replicate_placements
-            ).redistribute(
+            return DTensor.from_local(tensor, parent_mesh, replicate_placements).redistribute(
                 device_mesh=parent_mesh,
                 placements=shard_placements,
             )
-                
+
     DTensorExtensions.all_gather_dtensor = all_gather_dtensor_t2p2p0
     DTensorExtensions.chunk_dtensor = chunk_dtensor_t2p2p0
 
@@ -902,7 +887,6 @@ if version.parse(torch.__version__) >= version.parse('2.1.2') and version.parse(
         #    )
         return isinstance(device_mesh, DeviceMesh) and device_mesh.ndim == 2
 
-
     def _init_process_group_state_for_hybrid_shard_t2p2p0(
         state: _FSDPState,
         process_group: ProcessGroupType,
@@ -916,15 +900,12 @@ if version.parse(torch.__version__) >= version.parse('2.1.2') and version.parse(
                 state._inter_node_pg = device_mesh.get_group(mesh_dim=0)
                 state.process_group = device_mesh.get_group(mesh_dim=1)
             else:
-                raise ValueError(
-                    "Expected device_mesh to have ndim=2 "
-                    f"but got {len(device_mesh.get_group())}"
-                )
+                raise ValueError('Expected device_mesh to have ndim=2 '
+                                 f'but got {len(device_mesh.get_group())}')
         elif process_group is None:
             default_group = _get_default_group()
-            intra_node_group, inter_node_group = _init_intra_and_inter_node_groups(
-                default_group, state._device_handle.device_count()
-            )
+            intra_node_group, inter_node_group = _init_intra_and_inter_node_groups(default_group,
+                                                                                   state._device_handle.device_count())
             # we shard across intra-node
             state.process_group = intra_node_group
             # save _inter_node_pg to allreduce across.
@@ -936,16 +917,11 @@ if version.parse(torch.__version__) >= version.parse('2.1.2') and version.parse(
                 # as documented.
                 state.process_group, state._inter_node_pg = process_group
             else:
-                raise ValueError(
-                    "Expected process_group to be passed in as either None or "
-                    f"Tuple[dist.ProcessGroup, dist.ProcessGroup] but got {type(process_group)}"
-                )
+                raise ValueError('Expected process_group to be passed in as either None or '
+                                 f'Tuple[dist.ProcessGroup, dist.ProcessGroup] but got {type(process_group)}')
         # Create state for allreduce
-        state._inter_node_state = _get_default_comm_hook_state(
-            process_group=state._inter_node_pg,
-        )
+        state._inter_node_state = _get_default_comm_hook_state(process_group=state._inter_node_pg,)
         return state
-
 
     def _init_process_group_state_t2p2p0(
         state: _FSDPState,
@@ -955,10 +931,8 @@ if version.parse(torch.__version__) >= version.parse('2.1.2') and version.parse(
         device_mesh: Optional[DeviceMesh] = None,
     ) -> _FSDPState:
         if process_group is not None and device_mesh is not None:
-            raise ValueError(
-                "Cannot pass both process_group and device_mesh at the "
-                "same time. Please just pass only one of them."
-            )
+            raise ValueError('Cannot pass both process_group and device_mesh at the '
+                             'same time. Please just pass only one of them.')
         is_hybrid_strategy = sharding_strategy in HYBRID_SHARDING_STRATEGIES
         if is_hybrid_strategy:
             if process_group is None and policy is None and device_mesh is None:
@@ -966,21 +940,17 @@ if version.parse(torch.__version__) >= version.parse('2.1.2') and version.parse(
                 # passed in, there is no way to ensure all wrapped FSDP instances use the same
                 # process groups.
                 raise ValueError(
-                    f"Manual wrapping with {sharding_strategy}",
-                    "requires explicit specification of process group or device_mesh.",
+                    f'Manual wrapping with {sharding_strategy}',
+                    'requires explicit specification of process group or device_mesh.',
                 )
             else:
-                state = _init_process_group_state_for_hybrid_shard_t2p2p0(
-                    state, process_group, device_mesh
-                )
+                state = _init_process_group_state_for_hybrid_shard_t2p2p0(state, process_group, device_mesh)
         else:
             if device_mesh:
                 state._device_mesh = device_mesh
                 state.process_group = device_mesh.get_group(mesh_dim=0)
             else:
-                state.process_group = (
-                    process_group if process_group is not None else _get_default_group()
-                )
+                state.process_group = (process_group if process_group is not None else _get_default_group())
 
         state.rank = state.process_group.rank()
         state.world_size = state.process_group.size()
@@ -988,13 +958,8 @@ if version.parse(torch.__version__) >= version.parse('2.1.2') and version.parse(
         if is_hybrid_strategy:
             data_parallel_world_size *= state._inter_node_pg.size()
         state._gradient_predivide_factor = (
-            default_hooks.DefaultState._get_gradient_predivide_factor(
-                data_parallel_world_size
-            )
-        )
-        state._gradient_postdivide_factor = (
-            data_parallel_world_size / state._gradient_predivide_factor
-        )
+            default_hooks.DefaultState._get_gradient_predivide_factor(data_parallel_world_size))
+        state._gradient_postdivide_factor = (data_parallel_world_size / state._gradient_predivide_factor)
         return state
 
     def init_fn_t2p2p0(
@@ -1003,9 +968,7 @@ if version.parse(torch.__version__) >= version.parse('2.1.2') and version.parse(
         process_group: ProcessGroupType = None,
         sharding_strategy: Optional[ShardingStrategy] = None,
         cpu_offload: Optional[CPUOffload] = None,
-        auto_wrap_policy: Optional[
-            Union[Callable, ModuleWrapPolicy, CustomPolicy]
-        ] = None,
+        auto_wrap_policy: Optional[Union[Callable, ModuleWrapPolicy, CustomPolicy]] = None,
         backward_prefetch: Optional[BackwardPrefetch] = BackwardPrefetch.BACKWARD_PRE,
         mixed_precision: Optional[MixedPrecision] = None,
         ignored_modules: Optional[Iterable[torch.nn.Module]] = None,
@@ -1015,12 +978,10 @@ if version.parse(torch.__version__) >= version.parse('2.1.2') and version.parse(
         forward_prefetch: bool = False,
         limit_all_gathers: bool = True,
         use_orig_params: bool = False,
-        ignored_states: Union[
-            Optional[Iterable[torch.nn.Parameter]], Optional[Iterable[torch.nn.Module]]
-        ] = None,
+        ignored_states: Union[Optional[Iterable[torch.nn.Parameter]], Optional[Iterable[torch.nn.Module]]] = None,
         device_mesh: Optional[DeviceMesh] = None,
     ):
-        torch._C._log_api_usage_once("torch.distributed.fsdp")
+        torch._C._log_api_usage_once('torch.distributed.fsdp')
         super(FullyShardedDataParallel, self).__init__()
         _init_ignored_module_states(self, module, ignored_modules, ignored_states)
         _init_device_handle(self, module, self._ignored_params, device_id)
@@ -1043,25 +1004,25 @@ if version.parse(torch.__version__) >= version.parse('2.1.2') and version.parse(
         )
         if auto_wrap_policy is not None:
             root_kwargs = {
-                "process_group": process_group,
-                "sharding_strategy": sharding_strategy,
-                "cpu_offload": cpu_offload,
-                "backward_prefetch": backward_prefetch,
-                "mixed_precision": mixed_precision,
-                "param_init_fn": param_init_fn,
-                "device_id": device_id,
-                "sync_module_states": sync_module_states,
-                "forward_prefetch": forward_prefetch,
-                "limit_all_gathers": limit_all_gathers,
-                "use_orig_params": use_orig_params,
-                "ignored_states": self._ignored_params,
-                "device_mesh": device_mesh,
+                'process_group': process_group,
+                'sharding_strategy': sharding_strategy,
+                'cpu_offload': cpu_offload,
+                'backward_prefetch': backward_prefetch,
+                'mixed_precision': mixed_precision,
+                'param_init_fn': param_init_fn,
+                'device_id': device_id,
+                'sync_module_states': sync_module_states,
+                'forward_prefetch': forward_prefetch,
+                'limit_all_gathers': limit_all_gathers,
+                'use_orig_params': use_orig_params,
+                'ignored_states': self._ignored_params,
+                'device_mesh': device_mesh,
             }
             if sharding_strategy in HYBRID_SHARDING_STRATEGIES and device_mesh is None:
                 # Share root process groups with children to maintain
                 # the invariant that all FSDP modules will have the same
                 # process groups.
-                root_kwargs["process_group"] = (self.process_group, self._inter_node_pg)
+                root_kwargs['process_group'] = (self.process_group, self._inter_node_pg)
 
             _auto_wrap(
                 module,
