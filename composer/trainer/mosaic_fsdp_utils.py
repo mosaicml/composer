@@ -917,56 +917,37 @@ def _root_pre_forward(
         kwargs = kwargs_tuple[0]
 
         return _root_cast_forward_input(state, module, args, kwargs)
-    
-@no_type_check
-def _register_root_pre_forward_hook(
-    state: '_FSDPState',
-    module: nn.Module,
-):
-    """
-    Registers root pre-forward hook on ``module``, which should be the local
-    FSDP root.
-
-    NOTE: For the current composable FSDP design, we have each application of
-    ``fully_shard()`` to a module to indicate that that module is the local
-    FSDP root. We may remove this assumption in the future, in which case we
-    will need to register this root pre-forward hook on any candidate module
-    that may be the local FSDP root.
-    """
-    for forward_handle in state._root_pre_forward_handles:
-        forward_handle.remove()
-    state._root_pre_forward_handles.clear()
-    hook = functools.partial(_root_pre_forward, state)
-    state._root_pre_forward_handles.append(
-        module.register_forward_pre_hook(hook, prepend=True, with_kwargs=True)
-    )
 
     
-# def forward(self, *args: Any, **kwargs: Any) -> Any:
-#     """Run the forward pass for the wrapped module, inserting FSDP-specific pre- and post-forward sharding logic."""
-#     handle = self._handle
-#     with torch.autograd.profiler.record_function(
-#         "FullyShardedDataParallel.forward"
-#     ):
-#         args, kwargs = _root_pre_forward(self, self, args, kwargs)
-#         unused = None
-#         args, kwargs = _pre_forward(
-#             self,
-#             handle,
-#             _pre_forward_unshard,
-#             self._fsdp_wrapped_module,
-#             args,
-#             kwargs,
-#         )
-#         if handle:
-#             _p_assert(
-#                 handle.flat_param.device == self.compute_device,
-#                 "Expected `FlatParameter` to be on the compute device "
-#                 f"{self.compute_device} but got {handle.flat_param.device}",
-#             )
-#         output = self._fsdp_wrapped_module(*args, **kwargs)
-#         return _post_forward(
-#             self, handle, _post_forward_reshard, self, unused, output
+def forward(self, *args: Any, **kwargs: Any) -> Any:
+    """Run the forward pass for the wrapped module, inserting FSDP-specific pre- and post-forward sharding logic."""
+    from torch.distributed.fsdp._runtime_utils import (_pre_forward, _post_forward,
+                                                       _pre_forward_unshard, _post_forward_reshard)
+    from torch.distributed.utils import _p_assert
+    handle = self._handle
+    with torch.autograd.profiler.record_function(
+        "FullyShardedDataParallel.forward"
+    ):
+        args, kwargs = _root_pre_forward(self, self, args, kwargs)
+        unused = None
+        args, kwargs = _pre_forward(
+            self,
+            handle,
+            _pre_forward_unshard,
+            self._fsdp_wrapped_module,
+            args,
+            kwargs,
+        )
+        if handle:
+            _p_assert(
+                handle.flat_param.device == self.compute_device,
+                "Expected `FlatParameter` to be on the compute device "
+                f"{self.compute_device} but got {handle.flat_param.device}",
+            )
+        output = self._fsdp_wrapped_module(*args, **kwargs)
+        return _post_forward(
+            self, handle, _post_forward_reshard, self, unused, output
+        )
 
 @no_type_check
 def _share_state_and_init_handle_attrs_t2p1(

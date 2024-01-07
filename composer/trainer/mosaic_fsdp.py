@@ -58,11 +58,12 @@ def patch_pytorch():
         from composer.trainer.mosaic_fsdp_utils import (_share_state_and_init_handle_attrs_t2p1,
                                                         _wait_for_computation_stream,
                                                         _root_pre_forward,
-                                                        _register_root_pre_forward_hook)
+                                                        forward)
+        from torch.distributed.fsdp.fully_sharded_data_parallel import FullyShardedDataParallel
         _runtime_utils._share_state_and_init_handle_attrs = _share_state_and_init_handle_attrs_t2p1
         _runtime_utils._wait_for_computation_stream = _wait_for_computation_stream
         _runtime_utils._root_pre_forward = _root_pre_forward
-        _runtime_utils._register_root_pre_forward_hook = _register_root_pre_forward_hook
+        FullyShardedDataParallel.forward = forward
 
     elif version.parse(torch.__version__) < version.parse('2.1.3'):
         # Monkey patch for torch < 2.1.3 ie torch == 2.1.1, 2.1.2
@@ -75,11 +76,12 @@ def patch_pytorch():
         from composer.trainer.mosaic_fsdp_utils import (_share_state_and_init_handle_attrs_t2p1,
                                                         _wait_for_computation_stream,
                                                         _root_pre_forward,
-                                                        _register_root_pre_forward_hook)
+                                                        forward)
+        from torch.distributed.fsdp.fully_sharded_data_parallel import FullyShardedDataParallel
         _runtime_utils._share_state_and_init_handle_attrs = _share_state_and_init_handle_attrs_t2p1
         _runtime_utils._wait_for_computation_stream = _wait_for_computation_stream
         _runtime_utils._root_pre_forward = _root_pre_forward
-        _runtime_utils._register_root_pre_forward_hook = _register_root_pre_forward_hook
+        FullyShardedDataParallel.forward = forward
 
     elif version.parse(torch.__version__) < version.parse('2.2.1'):
         # Monkey patch for torch < 2.2.1 ie torch == 2.2.0
@@ -90,8 +92,9 @@ def patch_pytorch():
         from composer.trainer.mosaic_fsdp_utils import (_share_state_and_init_handle_attrs_t2p2,
                                                         _wait_for_computation_stream,
                                                         _root_pre_forward,
-                                                        _register_root_pre_forward_hook)
+                                                        forward)
+        from torch.distributed.fsdp.fully_sharded_data_parallel import FullyShardedDataParallel
         _runtime_utils._share_state_and_init_handle_attrs = _share_state_and_init_handle_attrs_t2p2
         _runtime_utils._wait_for_computation_stream = _wait_for_computation_stream
         _runtime_utils._root_pre_forward = _root_pre_forward
-        _runtime_utils._register_root_pre_forward_hook = _register_root_pre_forward_hook
+        FullyShardedDataParallel.forward = forward
