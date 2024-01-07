@@ -563,6 +563,6 @@ class Engine():
             except AttributeError as e:
                 pass
             except Exception as e:
-                log.error(f'Error running evaluator(s).dataloader._iterator._shutdown_workers().', exc_info=e, stack_info=True)
+                log.error(f'Error running evaluator(s).dataloader.dataloader._iterator._shutdown_workers().', exc_info=e, stack_info=True)
 
         log.debug('Engine closed.')
