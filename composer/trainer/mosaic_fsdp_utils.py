@@ -888,7 +888,7 @@ def _share_state_and_init_handle_attrs_t2p1(
         
 def _wait_for_computation_stream(
     computation_stream: torch.Stream,
-    root_state: _FSDPState,
+    root_state: '_FSDPState',
     pre_unshard_stream: torch.Stream,
 ):
     """
