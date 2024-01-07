@@ -920,7 +920,7 @@ def _root_pre_forward(
     
 @no_type_check
 def _register_root_pre_forward_hook(
-    state: _FSDPState,
+    state: '_FSDPState',
     module: nn.Module,
 ):
     """
