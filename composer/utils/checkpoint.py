@@ -868,7 +868,7 @@ def _restore_checkpoint(
             strict=strict_model_weights,
             exclude_algorithms=exclude_algorithms,
             algorithm_passes=algorithm_passes,
-            load_model_only=True
+            load_model_only=True,
         )
     if not load_weights_only:
         state.load_state_dict(

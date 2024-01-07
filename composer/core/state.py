@@ -922,6 +922,7 @@ class State(Serializable):
                         strict=True,
                     ),
             )
+            optim_state_dict = {type(optimizer).__qualname__: optim_state_dict}
         else:
             model_state_dict = self._legacy_get_model_state_dict()
             optim_state_dict = self._legacy_get_optim_state_dict()
@@ -1099,49 +1100,34 @@ class State(Serializable):
                     'have undergone surgery, the following algorithms may be excluded using '
                     f'`load_exclude_algorithms`, e.g. `load_exclude_algorithms=[{missing_algo_names}]`.')) from e
 
-    def load_model_state(
+    def _legacy_load_model_state(
         self,
         state_dict: Dict[str, Any],
-        logger: Logger,
         strict: bool,
-        exclude_algorithms: Optional[List[str]] = None,
-        algorithm_passes: Optional[List[AlgorithmPass]] = None,
     ):
         """Loads the model's state from a ``state_dict``.
 
         Args:
             state_dict (Dict[str, Any]): The state dict, generated from a previous call to :meth:`state_dict`.
-            logger (Logger): The logger.
             strict (bool): Whether the keys (i.e., model parameter names) in the model state dict should
                 perfectly match the keys in the model instance.
-            exclude_algorithms (List[str], optional): List of algorithm names to exclude from autoloading. (default: ``None``)
-            algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
-                to sort them into the correct order. (default: ``None``)
         """
-        if 'algorithms' in state_dict:
-            self._apply_required_algorithms(state_dict, logger, exclude_algorithms, algorithm_passes)
-
-        if state_dict.get('is_model_ddp', False) and not self.is_model_ddp:
-            # This check is for backwards compatibility, as pre-v0.6.0 checkpoints serialized the state
-            # with the `module.` prefix
-            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
-
         # For FSDP monolith checkpoints, the model does not exist on ranks > 0
-        model_on_rank = state_dict['model'] is not None
+        if state_dict['model'] is None:
+            return
 
         missing_keys, unexpected_keys = [], []
         try:
-            # Load model if it exists. For FSDP monolith checkpoints, the model does not exist on ranks > 0
-            if model_on_rank:
-                if self.fsdp_enabled and self.fsdp_state_dict_type is not None and not self.load_fsdp_monolith_rank0_only:
-                    log.debug(
-                        f'Loading model state dict with strict={strict} and FSDP state_dict_type={self.fsdp_state_dict_type}'
-                    )
-                    with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
-                        missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
-                else:
-                    log.debug(f'Loading model state dict with strict={strict}')
+            # Load model if it exists
+            if self.fsdp_enabled and self.fsdp_state_dict_type is not None and not self.load_fsdp_monolith_rank0_only:
+                log.debug(
+                    f'Loading model state dict with strict={strict} and FSDP state_dict_type={self.fsdp_state_dict_type}'
+                )
+                with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
                     missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
+            else:
+                log.debug(f'Loading model state dict with strict={strict}')
+                missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
         except RuntimeError as e:
             if 'Missing key(s) in state_dict' in str(e) or 'Unexpected key(s) in state_dict' in str(e):
                 raise RuntimeError(
@@ -1151,9 +1137,9 @@ class State(Serializable):
             else:
                 raise e
 
-        if model_on_rank and len(missing_keys) > 0:
+        if len(missing_keys) > 0:
             log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
-        if model_on_rank and len(unexpected_keys) > 0:
+        if len(unexpected_keys) > 0:
             if self.fsdp_config is not None and self.fsdp_config[
                     'use_orig_params'] and self.fsdp_state_dict_type == 'local':
                 log.warning(
@@ -1163,16 +1149,7 @@ class State(Serializable):
                     'was still loaded correctly.')
             log.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
 
-        # If loading FSDP monolith checkpoint on rank 0 only, the model must be wrapped after loading
-        if self.load_fsdp_monolith_rank0_only:
-            assert self.fsdp_config is not None
-            log.info('Wrapping model with FSDP after loading model_state.')
-            from composer.trainer.dist_strategy import prepare_fsdp_module
-            prepare_fsdp_module(self.model, self.optimizers, self.fsdp_config, self.precision, self.device,
-                                self.auto_microbatching)
-            log.debug('Finished wrapping model with FSDP.')
-
-    def load_optim_state(self, state_dict: Dict[str, Any]):
+    def _legacy_load_optim_state(self, state_dict: Dict[str, Any]):
         """Load the optimizer state.
 
         Args:
@@ -1255,27 +1232,42 @@ class State(Serializable):
         algorithm_passes: Optional[List[AlgorithmPass]] = None,
         load_model_only: bool = False,
     ):
-        # Note: In this case required algorithms not applied.
+        if 'algorithms' in state_dict:
+            self._apply_required_algorithms(state_dict, logger, exclude_algorithms, algorithm_passes)
+
+        if state_dict.get('is_model_ddp', False) and not self.is_model_ddp:
+            # This check is for backwards compatibility, as pre-v0.6.0 checkpoints serialized the state
+            # with the `module.` prefix
+            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
+
+        # Load model and optimizer state
         if version.parse(torch.__version__) > version.parse("2.1.2"):
             from torch.distributed.checkpoint.state_dict import set_state_dict, StateDictOptions
             optimizer = ensure_tuple(self.optimizers)[0]
+            model_state_dict = state_dict.get('model', {})
+            optim_state_dict = state_dict['optimizers'].get(type(optimizer).__qualname__, {})
+            if load_model_only:
+                optimizer, optim_state_dict = [], {}
             set_state_dict(
                 self.model,
-                optimizers=([] if load_model_only else optimizer),
-                model_state_dict=state_dict['model'],
-                optim_state_dict=({} if load_model_only else state_dict['optimizers']),
-                options=StateDictOptions(strict=False),
+                optimizers=optimizer,
+                model_state_dict=model_state_dict,
+                optim_state_dict=optim_state_dict,
+                options=StateDictOptions(strict=strict),
             )
         else:
-            self.load_model_state(
-                state_dict,
-                logger,
-                strict=strict,
-                exclude_algorithms=exclude_algorithms,
-                algorithm_passes=algorithm_passes,
-            )
+            self._legacy_load_model_state(state_dict, strict)
             if not load_model_only:
-                self.load_optim_state(state_dict)
+                self._legacy_load_optim_state(state_dict)
+
+        # If loading FSDP monolith checkpoint on rank 0 only, the model must be wrapped after loading
+        if self.load_fsdp_monolith_rank0_only:
+            assert self.fsdp_config is not None
+            log.info('Wrapping model with FSDP after loading model_state.')
+            from composer.trainer.dist_strategy import prepare_fsdp_module
+            prepare_fsdp_module(self.model, self.optimizers, self.fsdp_config, self.precision, self.device,
+                                self.auto_microbatching)
+            log.debug('Finished wrapping model with FSDP.')
 
     def load_state_dict(
         self,
@@ -1306,7 +1298,7 @@ class State(Serializable):
                 strict=strict,
                 exclude_algorithms=exclude_algorithms,
                 algorithm_passes=algorithm_passes,
-                load_model_only=(not 'optimizers' in state)
+                load_model_only=(not 'optimizers' in state),
             )
 
         for attribute_name in sorted(state.keys()):  # Sort so all ranks load in the same order
