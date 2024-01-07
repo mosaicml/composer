@@ -871,19 +871,19 @@ class State(Serializable):
         Returns:
             Dict[str, Any]: The state dict for the model.
         """
-        if version.parse(torch.__version__) > version.parse("2.1.2"):
-            model_state_dict, _ = self.get_model_and_optimizer_state_dict(model_only=True)
-        else:
-            if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
-                with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
-                    model_state_dict = self.model.state_dict()
-            else:
+        return self.get_model_and_optimizer_state_dict(model_only=True)[0]
+    
+    def _legacy_get_model_state_dict(self) -> Dict[str, Any]:
+        if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
+            with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
                 model_state_dict = self.model.state_dict()
+        else:
+            model_state_dict = self.model.state_dict()
 
-            # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
-            # If it is DDP wrapped, do not save the `module.` prefix, as that is an implementation detail
-            if self.is_model_ddp:
-                torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, 'module.')
+        # Save model directly instead of by class name, since model may be wrapped by DistributedDataParallel
+        # If it is DDP wrapped, do not save the `module.` prefix, as that is an implementation detail
+        if self.is_model_ddp:
+            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, 'module.')
         return model_state_dict
 
     def _legacy_get_optim_state_dict(self) -> Dict[str, Any]:
@@ -900,29 +900,30 @@ class State(Serializable):
     def get_model_and_optimizer_state_dict(self, model_only=False) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         if version.parse(torch.__version__) > version.parse("2.1.2"):
             from torch.distributed.checkpoint.state_dict import get_state_dict, StateDictOptions
-            full_state_dict = True if self.fsdp_state_dict_type == 'full' else False
-            if self.fsdp_state_dict_type not in ['full', 'sharded']:
+            if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
                 raise NotImplementedError(
                     textwrap.dedent(
-                        f"fsdp_state_dict_type={self.fsdp_state_dict_type} is not supported for a torch version > 2.1.2."
-                        f"You are using {version.parse(torch.__version__)}"
+                        f"fsdp_state_dict_type={self.fsdp_state_dict_type} is not supported for "
+                        f'torch version {{version.parse(torch.__version__)}} > 2.1.2. Please set '
+                        'fsdp_state_dict_type to None, "full", or "sharded".'
                     )
                 )
 
             optimizer = ensure_tuple(self.optimizers)[0]
-            model_state_dict, optim_state_dict = get_state_dict(model=self.model,
-                                                                optimizers=([] if model_only else optimizer),
-                                                                submodules=None,
-                                                                options=StateDictOptions(
-                                                                        full_state_dict=full_state_dict,
-                                                                        cpu_offload=True,
-                                                                        ignore_frozen_params=True,
-                                                                        keep_submodule_prefixes=True,
-                                                                        strict=True,
-                                                                    )
-                                                                )
+            model_state_dict, optim_state_dict = get_state_dict(
+                model=self.model,
+                optimizers=([] if model_only else optimizer),
+                submodules=None,
+                options=StateDictOptions(
+                        full_state_dict=self.fsdp_state_dict_type != 'sharded',
+                        cpu_offload=True,
+                        ignore_frozen_params=True,
+                        keep_submodule_prefixes=True,
+                        strict=True,
+                    ),
+            )
         else:
-            model_state_dict = self.get_model_state_dict()
+            model_state_dict = self._legacy_get_model_state_dict()
             optim_state_dict = self._legacy_get_optim_state_dict()
 
         return model_state_dict, optim_state_dict
@@ -1245,28 +1246,34 @@ class State(Serializable):
                 # starts. This avoids "CUDA error: initialization error" -- its not clear why.
                 # self.dataset_resumption['eval'][evaluator.label] = True
 
-    def load_model_and_optimizer_state(self,
-                                        state_dict: Dict[str, Any],
-                                        logger: Logger,
-                                        strict: bool,
-                                        exclude_algorithms: Optional[List[str]] = None,
-                                        algorithm_passes: Optional[List[AlgorithmPass]] = None,
-                                        load_model_only: bool = False):
+    def load_model_and_optimizer_state(
+        self,
+        state_dict: Dict[str, Any],
+        logger: Logger,
+        strict: bool,
+        exclude_algorithms: Optional[List[str]] = None,
+        algorithm_passes: Optional[List[AlgorithmPass]] = None,
+        load_model_only: bool = False,
+    ):
         # Note: In this case required algorithms not applied.
         if version.parse(torch.__version__) > version.parse("2.1.2"):
             from torch.distributed.checkpoint.state_dict import set_state_dict, StateDictOptions
             optimizer = ensure_tuple(self.optimizers)[0]
-            set_state_dict(self.model,
+            set_state_dict(
+                self.model,
                 optimizers=([] if load_model_only else optimizer),
                 model_state_dict=state_dict['model'],
                 optim_state_dict=({} if load_model_only else state_dict['optimizers']),
-                options=StateDictOptions(strict=False))
+                options=StateDictOptions(strict=False),
+            )
         else:
-            self.load_model_state(state_dict,
+            self.load_model_state(
+                state_dict,
                 logger,
                 strict=strict,
                 exclude_algorithms=exclude_algorithms,
-                algorithm_passes=algorithm_passes,)
+                algorithm_passes=algorithm_passes,
+            )
             if not load_model_only:
                 self.load_optim_state(state_dict)
 

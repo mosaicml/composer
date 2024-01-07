@@ -1257,7 +1257,7 @@ def _share_state_and_init_handle_attrs_t2p2(
     handle = root_state._handle
     if handle:
         handle.init_flat_param_attributes()
-    #_validate_and_get_hybrid_shard_state(root_module)
+    # _validate_and_get_hybrid_shard_state(root_module)
     attr_name_to_values: Dict[str, Set[Any]] = {}
     for attr_name in HOMOGENEOUS_ATTR_NAMES:
         attr_name_to_values[attr_name] = set()
