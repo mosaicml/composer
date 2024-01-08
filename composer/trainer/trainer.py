@@ -2175,9 +2175,7 @@ class Trainer:
         })
         if rank_num_tokens > 0:
             self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
-            self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
-                    
-        
+            self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})        
 
         # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop.
         # Any in-place changes to a microbatch will be reflected in the device batch.
