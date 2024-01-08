@@ -19,9 +19,10 @@ from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple, Typ
 import torch
 from torchmetrics import Metric
 
-from composer.metrics import InContextLearningMetric, InContextLearningQAAccuracy
+from composer.metrics import InContextLearningMetric, InContextLearningQAAccuracy, MTBenchJudge
 from composer.models.base import ComposerModel
 from composer.utils import MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp, safe_torch_load
+from composer.datasets.in_context_learning_evaluation import _trim_context, _make_padded_input
 
 if TYPE_CHECKING:
     import transformers
@@ -428,32 +429,74 @@ class HuggingFaceModel(ComposerModel):
                 raise ValueError(
                     'Generation eval cannot be used without providing a tokenizer to the model constructor.')
 
-            # self.labels = batch.pop('labels')
-            import IPython; IPython.embed()
-            generation = self.generate(batch['input_ids'],
+            first_generation = self.generate(batch['input_ids'],
                                        attention_mask=batch['attention_mask'],
                                        max_new_tokens=batch['generation_length'],
                                        synced_gpus=dist.get_world_size() > 1,
                                        **batch.get('generation_kwargs', {}))
-            # remove padding
-            for i, input in enumerate(batch['input_ids']):
-                unpadded_input = [token for token in input if token != self.tokenizer.pad_tok]
-                # generation 
-            # add generation
-            # add second prompt
-            # prompt_one + response + max_len_prompt_two_batch is the trimmed context len for pass two
-            # recompute
 
+            first_generation_as_list = self.tokenizer.batch_decode(first_generation.tolist(), skip_special_tokens=True)
+            new_inputs = []
+            for i, gen_one in enumerate(first_generation_as_list):
+                # TODO: tokenization a la what's down below?
+                tokenized_new_input = self.tokenizer.apply_chat_template(
+                    [{
+                        'role': 'user',
+                        'content': batch['untokenized_prompt_one'][i]
+                    },
+                    {
+                        'role': 'model',
+                        'content': gen_one 
+                    },
+                    {
+                        'role': 'user',
+                        'content': batch['untokenized_prompt_two'][i]
+                    }],
+                    tokenize=True,
+                    add_generation_prompt=True,
+                )
+                # input_generation_and_prompt_two = unpadded_input + gen_as_list[i] + batch['tokenized_prompt_two'][i]
+                new_inputs.append(tokenized_new_input)
+            padding_size = max([len(new_input) for new_input in new_inputs])
+
+            batched_combined_prompts = []
+            for new_input in new_inputs:
+                trimmed_new_input = _trim_context(new_input, [], padding_size)
+                padded_new_input = _make_padded_input(trimmed_new_input, [], padding_size, batch['padding_token'], 'left')
+                batched_combined_prompts.append(padded_new_input)
+
+            batched_combined_prompts = torch.stack(list(map(torch.tensor, batched_combined_prompts)))
+            batched_combined_attention_mask = ~(batched_combined_prompts == batch['padding_token'])
+            batched_combined_prompts = batched_combined_prompts.to(batch['input_ids'].device)
+            batched_combined_attention_mask = batched_combined_attention_mask.to(batch['attention_mask'].device)
+
+            second_generation = self.generate(batched_combined_prompts,
+                                       attention_mask=batched_combined_attention_mask,
+                                       max_new_tokens=batch['generation_length'],
+                                       synced_gpus=dist.get_world_size() > 1,
+                                       **batch.get('generation_kwargs', {}))
             # don't remove prefix space to sentencepiece models
             if len(self.tokenizer(' a', add_special_tokens=False)['input_ids']) == 1:
-                return self.tokenizer.batch_decode(generation[:, batch['input_ids'].shape[1]:],
-                                                   skip_special_tokens=True)
+                # TODO: skip_special_tokens?
+                generation_one = self.tokenizer.batch_decode(first_generation[:, batch['input_ids'].shape[1]:], skip_special_tokens=True)
+                generation_two = self.tokenizer.batch_decode(second_generation[:, batch['input_ids'].shape[1]:], skip_special_tokens=True)
+                # outputs = {"generation_one": generation_one, "generation_two": generation_two}
+                # return outputs
             else:
-                return [
-                    ' ' + generation
-                    for generation in self.tokenizer.batch_decode(generation[:, batch['input_ids'].shape[1]:],
-                                                                  skip_special_tokens=True)
-                ]
+                generation_one = [
+                            ' ' + generation
+                            for generation in self.tokenizer.batch_decode(generation[:, batch['input_ids'].shape[1]:],
+                                                                        skip_special_tokens=True)
+                        ]
+                generation_two = [
+                            ' ' + generation
+                            for generation in self.tokenizer.batch_decode(second_generation[:, batch['input_ids'].shape[1]:],
+                                                                        skip_special_tokens=True)
+                        ]
+            outputs = {"generation_one": generation_one, "generation_two": generation_two}
+            return outputs
+                
+                    
 
         if self.use_logits or batch.get('mode', None) == 'icl_task':
             # pop labels first to avoid computing loss
@@ -504,6 +547,8 @@ class HuggingFaceModel(ComposerModel):
         if isinstance(metric, InContextLearningQAAccuracy):
             assert self.labels is not None
             metric.update(batch=batch, outputs=outputs, labels=self.labels)  # pyright: ignore [reportGeneralTypeIssues]
+        elif isinstance(metric, MTBenchJudge):
+            metric.update(batch=batch, outputs=outputs)  # pyright: ignore [reportGeneralTypeIssues]
         elif isinstance(metric, InContextLearningMetric):
             assert self.labels is not None
             metric.update(batch, outputs, self.labels)  # pyright: ignore [reportGeneralTypeIssues]

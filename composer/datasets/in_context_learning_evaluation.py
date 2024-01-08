@@ -1288,12 +1288,8 @@ class MTBench(InContextLearningDataset):
             *args,
             **kwargs,
         )
-        print(self.padding_size)
         self.max_prompt_one_length = self.get_max_prompt_length(index='tokenized_prompt_one')
-        # Do we need this?
         self.max_prompt_two_length = self.get_max_prompt_length(index='tokenized_prompt_two')
-        self.padding_size = self.max_prompt_one_length
-        print(self.padding_size)
         self.base_batch = {
             'mode': 'mtbench',
             'question_id': [],
@@ -1302,16 +1298,17 @@ class MTBench(InContextLearningDataset):
             'untokenized_prompt_two': [],
             'input_ids': [],
             'tokenized_prompt_two': [],
-            'generation_length': self.max_seq_len,
+            'generation_length': int((self.max_seq_len / 2) - (self.max_prompt_one_length + self.max_prompt_two_length)),
+            'padding_token': self.pad_tok_id
         }
         self._update_generation_kwargs(kwargs.get('generation_kwargs'))
+        self.padding_size = self.max_prompt_one_length
         self.dataset = self.dataset.map(self.pad_contexts)
 
     def pad_contexts(self, example):
         trimmed_context = _trim_context(example['tokenized_prompt_one'], [], self.padding_size)
         padded_context = _make_padded_input(trimmed_context, [], self.padding_size, self.pad_tok_id, self.padding_side)
         example['tokenized_prompt_one'] = padded_context
-        print(padded_context.shape)
         return example
 
     def get_max_prompt_length(self, index: str):
@@ -1357,18 +1354,22 @@ class MTBench(InContextLearningDataset):
             prompt_one = prompt_one.rstrip()
             prompt_two = prompt_two.rstrip()
 
-        tokenized_prompt_one = self.tokenizer.apply_chat_template([{
-            'role': 'user',
-            'content': prompt_one
-        }],
-                                                                  tokenize=True,
-                                                                  add_generation_prompt=True)
-        tokenized_prompt_two = self.tokenizer.apply_chat_template([{
-            'role': 'user',
-            'content': prompt_two
-        }],
-                                                                  tokenize=True,
-                                                                  add_generation_prompt=True)
+        tokenized_prompt_one = self.tokenizer.apply_chat_template(
+            [{
+                'role': 'user',
+                'content': prompt_one
+            }],
+            tokenize=True,
+            add_generation_prompt=True,
+        )
+        tokenized_prompt_two = self.tokenizer.apply_chat_template(
+            [{
+                'role': 'user',
+                'content': prompt_two
+            }],
+            tokenize=True,
+            add_generation_prompt=True,
+        )
         tokenized_example['tokenized_prompt_one'] = tokenized_prompt_one
         tokenized_example['tokenized_prompt_two'] = tokenized_prompt_two
 

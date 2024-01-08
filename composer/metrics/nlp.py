@@ -3,6 +3,7 @@
 
 """A collection of common torchmetrics for NLP tasks."""
 
+import ast
 import logging
 import os
 import random
@@ -889,11 +890,20 @@ class IFEvalJudge(InContextLearningMetric):
 class MTBenchJudge(InContextLearningMetric):
     # Make torchmetrics call update only once
     full_state_update = False
-    # Respond with either "Yes" or "No" if you are able to make a distinction, or "Invalid" if the statements are malformatted.
-    # Any response other than one "Yes", "No", or "Invalid" is unusable and will not be scored, so please adhere to the instructions carefully.
 
     BASE_EQUIVALENCE_PROMPT = """"""
     BASE_USER_INPOUT = """"""
+    SINGLE_V1_SYSTEM_PROMPT = "You are a helpful assistant."
+    SINGLE_V1 = "[Instruction]\nPlease act as an impartial judge and evaluate the quality of the response provided by an AI assistant to the user question displayed below. Your evaluation should consider factors such as the helpfulness, relevance, accuracy, depth, creativity, and level of detail of the response. Begin your evaluation by providing a short explanation. Be as objective as possible. After providing your explanation, you must rate the response on a scale of 1 to 10 by strictly following this format: \"[[rating]]\", for example: \"Rating: [[5]]\".\n\n[Question]\n{question}\n\n[The Start of Assistant's Answer]\n{answer}\n[The End of Assistant's Answer]"
+    SINGLE_V1_MATH = "[Instruction]\nPlease act as an impartial judge and evaluate the quality of the response provided by an AI assistant to the user question displayed below. Your evaluation should consider correctness and helpfulness. You will be given a reference answer and the assistant's answer. Begin your evaluation by comparing the assistant's answer with the reference answer. Identify and correct any mistakes. Be as objective as possible. After providing your explanation, you must rate the response on a scale of 1 to 10 by strictly following this format: \"[[rating]]\", for example: \"Rating: [[5]]\".\n\n[Question]\n{question}\n\n[The Start of Reference Answer]\n{ref_answer_1}\n[The End of Reference Answer]\n\n[The Start of Assistant's Answer]\n{answer}\n[The End of Assistant's Answer]"
+
+    MULTI_TURN_SYSTEM_PROMPT = "Please act as an impartial judge and evaluate the quality of the response provided by an AI assistant to the user question displayed below. Your evaluation should consider factors such as the helpfulness, relevance, accuracy, depth, creativity, and level of detail of the response. You evaluation should focus on the assistant's answer to the second user question. Begin your evaluation by providing a short explanation. Be as objective as possible. After providing your explanation, you must rate the response on a scale of 1 to 10 by strictly following this format: \"[[rating]]\", for example: \"Rating: [[5]]\".\n\n"
+    SINGLE_V1_MULTI_TURN_TEMPLATE = "<|The Start of Assistant A's Conversation with User|>\n\n### User:\n{question_1}\n\n### Assistant A:\n{answer_1}\n\n### User:\n{question_2}\n\n### Assistant A:\n{answer_2}\n\n<|The End of Assistant A's Conversation with User|>"
+    SINGLE_V1_MATH_MULTI_TURN_TEMPLATE_SYSTEM_PROMPT = "Please act as an impartial judge and evaluate the quality of the response provided by an AI assistant to the user question. Your evaluation should consider correctness and helpfulness. You will be given a reference answer and the assistant's answer. You evaluation should focus on the assistant's answer to the second question. Begin your evaluation by comparing the assistant's answer with the reference answer. Identify and correct any mistakes. Be as objective as possible. After providing your explanation, you must rate the response on a scale of 1 to 10 by strictly following this format: \"[[rating]]\", for example: \"Rating: [[5]]\".\n\n"
+    SINGLE_V1_MATH_MULTI_TURN_TEMPLATE = "<|The Start of Reference Answer|>\n\n### User:\n{question_1}\n\n### Reference answer:\n{ref_answer_1}\n\n### User:\n{question_2}\n\n### Reference answer:\n{ref_answer_2}\n\n<|The End of Reference Answer|>\n\n\n<|The Start of Assistant A's Conversation with User|>\n\n### User:\n{question_1}\n\n### Assistant A:\n{answer_1}\n\n### User:\n{question_2}\n\n### Assistant A:\n{answer_2}\n\n<|The End of Assistant A's Conversation with User|>"
+
+    ONE_SCORE_PATTERN = re.compile("\[\[(\d+\.?\d*)\]\]")
+    ONE_SCORE_PATTERN_BACKUP = re.compile("\[(\d+\.?\d*)\]")
 
     def __init__(self, dist_sync_on_step: bool = False, tokenizer: Optional[Any] = None, prompt: Optional[str] = None):
         # state from multiple processes
@@ -901,8 +911,6 @@ class MTBenchJudge(InContextLearningMetric):
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('invalid_judge_response', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # TODO: allow different models
-        # self.init_openai()
         self.client = None
 
     def init_openai(self):
@@ -914,47 +922,50 @@ class MTBenchJudge(InContextLearningMetric):
                                                 conda_channel='conda-forge') from e
         self.client = OpenAI()
 
-    def call_judge(self, sample_answer, sample_label) -> List[str]:
-        # TODO: allow different models
-        openai_user_input = deepcopy(self.BASE_USER_INPOUT)
-        if sample_answer.startswith(' '):
-            sample_answer = sample_answer.lstrip()
+    def call_judge(self, prompt_one, prompt_two, first_generation, second_generation, category, reference_answer_one=None, reference_answer_two=None) -> List[str]:
+        # if sample_answer.startswith(' '):
+        #     sample_answer = sample_answer.lstrip()
 
-        # Randomly choose the true answer or the model output to be the first statment
-        # to avoid some model bias
-        if random.random() <= .5:
-            formatted_input = openai_user_input.format(statement1=sample_answer, statement2=sample_label)
+        if category == "math":
+            system_prompt = deepcopy(self.SINGLE_V1_MATH_MULTI_TURN_TEMPLATE_SYSTEM_PROMPT)
+            template = deepcopy(self.SINGLE_V1_MATH_MULTI_TURN_TEMPLATE)
+            formatted_template = template.format(question_1=prompt_one, question_2=prompt_two, answer_1=first_generation, answer_2=second_generation)
         else:
-            formatted_input = openai_user_input.format(statement1=sample_label, statement2=sample_answer)
+            system_prompt = deepcopy(self.MULTI_TURN_SYSTEM_PROMPT)
+            template = deepcopy(self.SINGLE_V1_MULTI_TURN_TEMPLATE)
+            formatted_template = template.format(question_1=prompt_one, question_2=prompt_two, answer_1=first_generation, answer_2=second_generation, ref_answer_1=reference_answer_one, ref_answer_2=reference_answer_two)
+
         response = self.client.chat.completions.create(
-            # TODO: allow configurations
             model='gpt-3.5-turbo',
             messages=[{
                 'role': 'system',
-                'content': self.BASE_EQUIVALENCE_PROMPT
+                'content': system_prompt
             }, {
                 'role': 'user',
-                'content': formatted_input
+                'content': formatted_template
             }],
-            max_tokens=10)
-        if 'Yes' not in response.choices[0].message.content and 'No' not in response.choices[0].message.content:
-            print('Found an illformatted response:')
-            print(formatted_input + response.choices[0].message.content)
+            max_tokens=100)
 
+        import IPython; IPython.embed()
         return response.choices[0].message.content
+    
+    def check_for_individual_respone(self, result):
+        return True
 
-    def update(self, batch: Dict[str, Any], outputs: List[str], labels: List[List[str]]):
+    def update(self, batch: Dict[str, Any], outputs: List[str]):
         if not self.client:
             self.init_openai()
-        for sample_output, sample_answer in zip(outputs, batch['answer']):
-            sample_output = sample_output.split('\n')[0]
-            result = self.call_judge(sample_output, sample_answer)
-            if result.endswith('Yes'):
-                self.correct += torch.tensor(1.0)
-            elif result.endswith('No'):
-                pass
-            else:
-                self.invalid_judge_response += torch.tensor(1.0)
+        for i, first_generation in enumerate(outputs["generation_one"]):
+            second_generation = outputs["generation_two"][i]
+            prompt_one = batch['untokenized_prompt_one']
+            prompt_two = batch['untokenized_prompt_two']
+            result = self.call_judge(prompt_one, prompt_two, first_generation, second_generation, batch['category'][i])
+
+            match = re.search(self.ONE_SCORE_PATTERN, result)
+            if not match:
+                match = re.search(self.ONE_SCORE_PATTERN_BACKUP, result)
+            if match:
+                match = ast.literal_eval(match.groups()[0])
             self.total += torch.tensor(1.0)
 
         # OpenAI Client can't be copied by deepcopy and will throw an error, so we delete it after we use it
