@@ -10,9 +10,7 @@ from composer.trainer import Trainer
 from tests.common import RandomClassificationDataset, SimpleModel, device
 
 
-@device('cpu', 'gpu')
 def test_memory_monitor_warnings_on_cpu_models(device: str):
-    # Error if the user sets device=cpu even when cuda is available
     del device  # unused. always using cpu
     with pytest.warns(UserWarning, match='The memory monitor only works on CUDA devices'):
         Trainer(
