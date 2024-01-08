@@ -19,8 +19,8 @@ from tests.common.markers import world_size
 
 @pytest.mark.gpu
 @pytest.mark.parametrize('alg_cls', get_algs_with_marks())
-@pytest.mark.filterwarnings('ignore:Detected call of `lr_scheduler.step()'
-                           )  # optimizer.step() sometimes skipped when NaN/inf on low batch size
+@pytest.mark.filterwarnings(
+    'ignore:Detected call of `lr_scheduler.step()')  # optimizer.step() sometimes skipped when NaN/inf on low batch size
 @world_size(1, 2)
 def test_algorithm_resumption(
     tmp_path: pathlib.Path,
@@ -117,6 +117,7 @@ def test_algorithm_resumption(
 
 
 def _assert_checkpoints_equal(file1, file2):
+    # TODO: consider merging with _assert_checkpoints_equivalent
     checkpoint1 = torch.load(file1)
     checkpoint2 = torch.load(file2)
 
@@ -135,6 +136,10 @@ def _assert_checkpoints_equal(file1, file2):
     # delete run_name since its time dependent
     del checkpoint1['state']['run_name']
     del checkpoint2['state']['run_name']
+
+    # Remove all saved checkpoints to timestamp (accumulates between runs)
+    del checkpoint1['state']['callbacks']['CheckpointSaver']['all_saved_checkpoints_to_timestamp']
+    del checkpoint2['state']['callbacks']['CheckpointSaver']['all_saved_checkpoints_to_timestamp']
 
     # Remove algorithm representations which are memory addresses
     for i, algo_info in enumerate(checkpoint1['state']['algorithms']):

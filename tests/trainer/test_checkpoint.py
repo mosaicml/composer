@@ -65,6 +65,7 @@ def _load_checkpoint(filename: Union[str, pathlib.Path]):
 
 
 def _assert_checkpoints_equivalent(file1, file2, atol=0.0, rtol=0.0):
+    # TODO: consider merging with _assert_checkpoints_equal
     checkpoint_1 = _load_checkpoint(file1)
     checkpoint_2 = _load_checkpoint(file2)
 
