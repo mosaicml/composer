@@ -4,6 +4,9 @@
 # Released under BSD 3-Clause License,
 # Copyright (c) Facebook, Inc. and its affiliates.
 
+# yapf: disable
+# isort: skip_file
+
 """Utilities for monkey patching FSDP."""
 
 import functools
