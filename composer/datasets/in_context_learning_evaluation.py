@@ -304,6 +304,10 @@ class InContextLearningQATaskDataset(Dataset):
             cot_delimiter = sample['cot_delimiter']
         stopping_criteria = None
         if self.early_stopping_criteria:
+            if stop_sequences_criteria is None:
+                raise MissingConditionalImportError(extra_deps_group='nlp',
+                                                    conda_package='transformers',
+                                                    conda_channel='conda-forge')
             stopping_criteria = stop_sequences_criteria(self.tokenizer, self.early_stopping_criteria, len(inputs))
         batch = {
             'input_ids': torch.stack(inputs),
