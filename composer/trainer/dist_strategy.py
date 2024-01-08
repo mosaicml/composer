@@ -273,7 +273,6 @@ def prepare_fsdp_module(
         # `nn.Module.named_parameters`.
         # Setting it to `True` is mandatory when using `torch.compile()`.
         kwargs['use_orig_params'] = fsdp_config['use_orig_params']
-        print(version.parse(torch.__version__))
         if version.parse(torch.__version__.split('.dev')[0]) >= version.parse('2.2.0'):
             if 'device_mesh' in fsdp_config:
                 from torch.distributed._tensor import init_device_mesh

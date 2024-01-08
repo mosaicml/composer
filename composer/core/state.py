@@ -1240,7 +1240,8 @@ class State(Serializable):
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
 
         # Load model and optimizer state
-        if version.parse(torch.__version__) > version.parse('2.1.3'):
+        use_state_dict_fns = version.parse(torch.__version__) > version.parse('2.1.3')
+        if use_state_dict_fns:
             from torch.distributed.checkpoint.state_dict import StateDictOptions, set_state_dict
             optimizer = ensure_tuple(self.optimizers)[0]
             model_state_dict = state_dict.get('model', {})
@@ -1256,8 +1257,6 @@ class State(Serializable):
             )
         else:
             self._legacy_load_model_state(state_dict, strict)
-            if not load_model_only:
-                self._legacy_load_optim_state(state_dict)
 
         # If loading FSDP monolith checkpoint on rank 0 only, the model must be wrapped after loading
         if self.load_fsdp_monolith_rank0_only:
@@ -1267,6 +1266,10 @@ class State(Serializable):
             prepare_fsdp_module(self.model, self.optimizers, self.fsdp_config, self.precision, self.device,
                                 self.auto_microbatching)
             log.debug('Finished wrapping model with FSDP.')
+
+        # Legacy optimizer state load must happen after FSDP monolith
+        if not use_state_dict_fns and not load_model_only:
+            self._legacy_load_optim_state(state_dict)
 
     def load_state_dict(
         self,
