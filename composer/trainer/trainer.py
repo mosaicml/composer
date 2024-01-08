@@ -960,10 +960,7 @@ class Trainer:
         assert not isinstance(device_train_microbatch_size, str)
 
         # Distributed
-        if deepspeed_config is not None or fsdp_config is not None or dist.get_world_size() > 1:
-            # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
-            # And torch.distributed is always required for multi-rank training
-            dist.initialize_dist(device, dist_timeout)
+        dist.initialize_dist(device, dist_timeout)
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, device)
