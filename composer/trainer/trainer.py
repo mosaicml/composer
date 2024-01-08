@@ -2016,6 +2016,7 @@ class Trainer:
         self.state.model.train()
         finished_epoch_early = False
 
+        last_wct = datetime.datetime.now()
         if self.state.max_duration is None:
             # This is essentially just a type check, as max_duration should always be
             # asserted to be not None when Trainer.fit() is called
@@ -2048,7 +2049,7 @@ class Trainer:
 
                 self.engine.run_event(Event.AFTER_DATALOADER)
 
-                self.train_batch(self.state.batch, use_grad_scaling)
+                self.train_batch(self.state.batch, use_grad_scaling, last_wct)
 
                 # Pause the timing during evaluation
                 # Evaluation time is tracked separately in state.eval_timestamp
@@ -2145,7 +2146,7 @@ class Trainer:
 
         self.engine.run_event(Event.EVAL_AFTER_ALL)
 
-    def train_batch(self, batch: Any, use_grad_scaling: bool) -> None:
+    def train_batch(self, batch: Any, use_grad_scaling: bool, last_wct: Optional[Any]) -> None:
         """Compute loss by training on a full batch of data.
 
         Adaptively change microbatch size if enabled to maximize GPU usage.
@@ -2161,7 +2162,8 @@ class Trainer:
         rank_num_samples = self._train_data_spec.get_num_samples_in_batch(batch)
         rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(batch)
         
-        last_wct = datetime.datetime.now()
+        if not last_wct:
+            last_wct = datetime.datetime.now()
         self.engine.run_event(Event.BATCH_START)
 
         # Log time values
