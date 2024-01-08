@@ -78,7 +78,6 @@ __all__ = [
     'CutOut',
     'EMA',
     'Factorize',
-    'FusedLayerNorm',
     'GatedLinearUnits',
     'GhostBatchNorm',
     'GradientClipping',
