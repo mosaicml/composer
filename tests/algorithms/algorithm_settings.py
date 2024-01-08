@@ -17,7 +17,7 @@ import composer
 import composer.algorithms
 from composer import Algorithm
 from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
-                                 Factorize, FusedLayerNorm, GatedLinearUnits, GhostBatchNorm, GradientClipping,
+                                 Factorize, GatedLinearUnits, GhostBatchNorm, GradientClipping,
                                  GyroDropout, LabelSmoothing, LayerFreezing, LowPrecisionGroupNorm,
                                  LowPrecisionLayerNorm, MixUp, NoOpModel, ProgressiveResizing, RandAugment,
                                  SelectiveBackprop, SeqLengthWarmup, SqueezeExcite, StochasticDepth,
@@ -113,7 +113,6 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
         },
     },
     Factorize: simple_resnet_settings,
-    FusedLayerNorm: simple_bert_settings,
     GatedLinearUnits: simple_bert_settings,
     GhostBatchNorm: {
         'model': (SimpleConvModel, {
