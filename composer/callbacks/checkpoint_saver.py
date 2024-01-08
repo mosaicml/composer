@@ -333,6 +333,8 @@ class CheckpointSaver(Callback):  # noqa: D101
         # save the checkpoint to the filename
         filename_with_placeholders = self.filename.format(state, is_deepspeed, keep_placeholders=True)
         save_filename = checkpoint.get_save_filename(state, filename_with_placeholders)
+        # It's important this is done before the checkpoint is saved, so that the state includes
+        # reference to the latest checkpoint (itself) when it is saved.
         self.all_saved_checkpoints_to_timestamp[save_filename] = state.timestamp
 
         saved_path = checkpoint._save_checkpoint(
