@@ -11,7 +11,6 @@ from tests.common import RandomClassificationDataset, SimpleModel
 
 
 def test_memory_monitor_warnings_on_cpu_models():
-    del device  # unused. always using cpu
     with pytest.warns(UserWarning, match='The memory monitor only works on CUDA devices'):
         Trainer(
             model=SimpleModel(),
