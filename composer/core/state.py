@@ -933,13 +933,17 @@ class State(Serializable):
             Dict[str, Any]: The state dict.
         """
         state_dict = {}
-        state_dict['model'], state_dict['optimizers'] = self.get_model_and_optimizer_state_dict()
+        model_state_dict, optim_state_dict = self.get_model_and_optimizer_state_dict()
         for attribute_name in self.serialized_attributes:
             attribute_value = getattr(self, attribute_name)
             if attribute_name in ['model', 'optimizers']:
                 continue
             if attribute_name == 'dataset_state':
                 serialized_value = self._dataset_state_dict()
+            elif attribute_name == 'model':
+                serialized_value = model_state_dict
+            elif attribute_name == 'optimizers':
+                serialized_value = optim_state_dict
             elif attribute_name == 'algorithms':
                 # Store as list to preserve order in which algorithms were applied
                 serialized_value = [(type(obj).__qualname__, obj.state_dict()) for obj in ensure_tuple(attribute_value)]
