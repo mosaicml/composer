@@ -154,7 +154,7 @@ filterwarnings = [
     # Ignore torch pytree deprecated warnings
     '''ignore:torch.utils._pytree._register_pytree_node is deprecated.*:UserWarning''',
     # Ignore autograd kernel warning inside DeepSpeed
-    '''ignore:c10d::broadcast_: an autograd kernel was not registered to the Autograd key(s).*:UserWarning'''
+    '''ignore:.*an autograd kernel was not registered to the Autograd key(s).*:UserWarning'''
 ]
 
 # Coverage
