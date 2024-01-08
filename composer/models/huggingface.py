@@ -13,6 +13,7 @@ import random
 import string
 import tempfile
 import textwrap
+import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple, Type, Union
 
@@ -94,8 +95,17 @@ class HuggingFaceModel(ComposerModel):
         self.tokenizer = tokenizer
         self.peft_config = peft_config
 
-        if self.peft_config.peft_type != 'LORA':
-            raise ValueError(f'PEFT type {self.peft_config.peft_type} is not supported by HuggingFaceModel. Only LORA is supported.')
+        if self.peft_config is not None:
+            try:
+                import peft
+                del peft
+            except ImportError as e:
+                raise MissingConditionalImportError(extra_deps_group='peft',
+                                                    conda_package='peft',
+                                                    conda_channel='conda-forge') from e
+
+        if self.peft_config is not None and self.peft_config.peft_type != 'LORA':
+            warnings.warn(f'PEFT type {self.peft_config.peft_type} is not supported by HuggingFaceModel. Only LORA is supported.', RuntimeWarning)
 
         if self.tokenizer is None:
             log.warning(
