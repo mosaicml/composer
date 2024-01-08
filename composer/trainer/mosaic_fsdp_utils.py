@@ -769,20 +769,15 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
     from torch.distributed.fsdp._init_utils import (HYBRID_SHARDING_STRATEGIES, ProcessGroupType,
                                                     _get_default_comm_hook_state, _init_intra_and_inter_node_groups,
                                                     _is_valid_hybrid_shard_pg_type)
-    from torch.distributed.fsdp.fully_sharded_data_parallel import (
-        _annotate_modules_for_dynamo,
-        _auto_wrap,
-        _check_orig_params_flattened,
-        _init_buffer_state,
-        _init_core_state,
-        _init_device_handle,
-        _init_ignored_module_states,
-        _init_param_handle_from_module,
-        _init_prefetching_state,
-        _init_runtime_state,
-        _init_state_dict_state,
-        _register_all_state_dict_hooks,
-        _register_flat_param)
+    from torch.distributed.fsdp.fully_sharded_data_parallel import (_annotate_modules_for_dynamo, _auto_wrap,
+                                                                    _check_orig_params_flattened, _init_buffer_state,
+                                                                    _init_core_state, _init_device_handle,
+                                                                    _init_ignored_module_states,
+                                                                    _init_param_handle_from_module,
+                                                                    _init_prefetching_state, _init_runtime_state,
+                                                                    _init_state_dict_state,
+                                                                    _register_all_state_dict_hooks,
+                                                                    _register_flat_param)
     from torch.distributed.fsdp.wrap import CustomPolicy, ModuleWrapPolicy, _Policy
     from torch.distributed.tensor.parallel.fsdp import DTensorExtensions
 
