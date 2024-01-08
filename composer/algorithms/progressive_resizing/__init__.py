@@ -1,4 +1,4 @@
-# Copyright 2022 MosaicML Composer authors
+# Copyright 2022-2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
 """Applies Fastai's `progressive resizing <https://github.com/fastai/fastbook/blob/780b76bef3127ce5b64f8230fce60e915a

@@ -1,4 +1,4 @@
-# Copyright 2022 MosaicML Composer authors
+# Copyright 2022-2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
 """`Cutout <https://arxiv.org/abs/1708.04552>`_ is a data augmentation technique that works by masking out one or more

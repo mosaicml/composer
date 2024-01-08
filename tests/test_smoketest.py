@@ -1,4 +1,4 @@
-# Copyright 2022 MosaicML Composer authors
+# Copyright 2022-2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
 from composer import (algorithms, callbacks, core, datasets, devices, functional, loggers, loss, metrics, models, optim,

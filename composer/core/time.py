@@ -1,4 +1,4 @@
-# Copyright 2022 MosaicML Composer authors
+# Copyright 2022-2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
 """Utilities to track training progress in terms of epochs, batches, samples, and tokens.

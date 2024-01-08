@@ -1,4 +1,4 @@
-# Copyright 2022 MosaicML Composer authors
+# Copyright 2022-2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
 """AugMix (`Hendrycks et al, 2020 <http://arxiv.org/abs/1912.02781>`_) creates multiple independent realizations of

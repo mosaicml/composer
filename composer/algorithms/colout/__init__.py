@@ -1,4 +1,4 @@
-# Copyright 2022 MosaicML Composer authors
+# Copyright 2022-2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
 """Drops a fraction of the rows and columns of an input image. If the fraction of rows/columns dropped isn't too large,

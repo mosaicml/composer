@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2022 MosaicML Composer authors
+# Copyright 2022-2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
 """The Composer CLI launcher for distributed training."""

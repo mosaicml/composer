@@ -1,4 +1,4 @@
-# Copyright 2022 MosaicML Composer authors
+# Copyright 2022-2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
 # Adapted from https://github.com/Lightning-AI/metrics/blob/1c42f6643f9241089e55a4d899f14da480021e16/torchmetrics/detection/map.py

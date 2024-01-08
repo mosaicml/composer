@@ -1,4 +1,4 @@
-# Copyright 2022 MosaicML Composer authors
+# Copyright 2022-2024 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
 """Stochastic Weight Averaging (SWA; `Izmailov et al, 2018 <https://arxiv.org/abs/1803.05407>`_) averages model weights
