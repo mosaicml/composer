@@ -517,9 +517,17 @@ def load_sharded_checkpoint(
                 ignore_keys(state_dict)
 
             if version.parse(torch.__version__) > version.parse('2.1.3'):
-                dist_cp.load(state_dict, storage_reader)  # type: ignore
+                dist_cp.load(  # type: ignore
+                    state_dict=state_dict,
+                    storage_reader=storage_reader,
+                    planner=load_planner,
+                )
             else:
-                dist_cp.load_state_dict(state_dict, storage_reader)
+                dist_cp.load_state_dict(
+                    state_dict=state_dict,
+                    storage_reader=storage_reader,
+                    planner=load_planner,
+                )
 
             state.load_state_dict(
                 state_dict['state'],
