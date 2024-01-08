@@ -97,13 +97,11 @@ def test_idempotent(algo_name: str, tiny_bert_config):
         applied_once_model = Trainer(
             model=copy.deepcopy(original_model),
             algorithms=algorithm,
-            precision='amp_fp16',
         ).state.model
         assert isinstance(applied_once_model, ComposerModel)  # Assert type for pyright deepcopy
         applied_twice_model = Trainer(
             model=copy.deepcopy(applied_once_model),
             algorithms=algorithm,
-            precision='amp_fp16',
         ).state.model
         compare_models(original_model, applied_twice_model, is_equal=False)  # Surgery actually changes model
         compare_models(applied_once_model, applied_twice_model, is_equal=True)  # Multiple applications are no-ops
@@ -140,7 +138,6 @@ def test_autoload(algo_name: str, load_weights_only: bool, already_added: bool, 
             algorithms=algorithm,
             save_folder=str(tmp_path),
             save_filename='ckpt.pt',
-            precision='amp_fp16',
         )
         checkpoint_saver = [cb for cb in trainer1.state.callbacks if isinstance(cb, CheckpointSaver)][0]
         checkpoint_saver._save_checkpoint(trainer1.state, trainer1.logger)
