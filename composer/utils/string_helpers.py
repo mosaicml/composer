@@ -11,7 +11,8 @@ def partial_format(s, *args, **kwargs) -> str:
     function allows for a partial set of arguments to be provided. Any missing arguments will be
     left as-is in the string.
     """
-    while True:
+    max_iters = 10_000  # Just in case we get stuck in a loop somehow.
+    while max_iters:
         try:
             return s.format(*args, **kwargs)
         except IndexError as e:  # Missing positional arg
