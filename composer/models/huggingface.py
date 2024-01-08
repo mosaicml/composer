@@ -503,13 +503,13 @@ class HuggingFaceModel(ComposerModel):
                     tokenizer_file_path = tokenizer_dir / tokenizer_file_name
                     tokenizer_file_extension = tokenizer_file_path.suffix
                     if tokenizer_file_extension == '.txt':
-                        with open(tokenizer_file_path) as _tokenizer_file:
+                        with open(tokenizer_file_path, encoding='utf-8') as _tokenizer_file:
                             tokenizer_file_content = _tokenizer_file.read().split('\n')
                     elif tokenizer_file_extension == '.json':
                         with open(tokenizer_file_path, 'rb') as _tokenizer_file:
                             tokenizer_file_content = json.load(_tokenizer_file)
                     elif tokenizer_file_extension == '.py':
-                        with open(tokenizer_file_path) as _tokenizer_file:
+                        with open(tokenizer_file_path, encoding='utf-8') as _tokenizer_file:
                             tokenizer_file_content = _tokenizer_file.read()
                     elif tokenizer_file_extension == '.model':
                         try:
