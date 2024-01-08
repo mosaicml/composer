@@ -935,7 +935,9 @@ class State(Serializable):
             Dict[str, Any]: The state dict.
         """
         state_dict = {}
-        model_state_dict, optim_state_dict = self.get_model_and_optimizer_state_dict()
+        model_state_dict, optim_state_dict = None, None
+        if 'model' in self.serialized_attributes or 'optimizers' in self.serialized_attributes:
+            model_state_dict, optim_state_dict = self.get_model_and_optimizer_state_dict()
         for attribute_name in self.serialized_attributes:
             attribute_value = getattr(self, attribute_name)
             if attribute_name == 'dataset_state':
