@@ -78,6 +78,7 @@ def compare_models(model_1: torch.nn.Module, model_2: torch.nn.Module, is_equal:
 
 @pytest.mark.filterwarnings('ignore:No instances of')
 @pytest.mark.filterwarnings('ignore:GyroDropout is not implemented in a way that.*:UserWarning')
+@pytest.mark.filterwarnings('ignore:Low Precision .* only applies to AMP_FP16 and AMP_BF16 precisions.*')
 @pytest.mark.parametrize('algo_name', algorithms.__all__)
 def test_idempotent(algo_name: str, tiny_bert_config):
     algo_cls = getattr(algorithms, algo_name)
@@ -109,6 +110,7 @@ def test_idempotent(algo_name: str, tiny_bert_config):
 
 @pytest.mark.filterwarnings('ignore:GyroDropout is not implemented in a way that.*:UserWarning')
 @pytest.mark.filterwarnings('ignore:No instances of torch.nn..*Norm found.*')
+@pytest.mark.filterwarnings('ignore:Low Precision .* only applies to AMP_FP16 and AMP_BF16 precisions.*')
 @pytest.mark.parametrize('algo_name', [algo for algo in algorithms.__all__ if algo != 'NoOpModel'])
 @pytest.mark.parametrize('load_weights_only,already_added,exclude', [
     [False, False, False],
