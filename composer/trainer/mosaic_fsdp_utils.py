@@ -756,7 +756,7 @@ def _sharded_pre_load_state_dict_hook(
     _enter_unshard_params_ctx(module, fsdp_state, writeback=True)
 
 
-if version.parse(torch.__version__) > version.parse('2.1.2') and version.parse(
+if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
         torch.__version__) < version.parse('2.2.1'):
     import copy
 
