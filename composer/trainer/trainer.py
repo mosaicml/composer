@@ -2161,7 +2161,7 @@ class Trainer:
 
         rank_num_samples = self._train_data_spec.get_num_samples_in_batch(batch)
         rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(batch)
-        
+
         if not last_wct:
             last_wct = datetime.datetime.now()
         self.engine.run_event(Event.BATCH_START)
@@ -2175,7 +2175,7 @@ class Trainer:
         })
         if rank_num_tokens > 0:
             self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
-            self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})        
+            self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
 
         # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop.
         # Any in-place changes to a microbatch will be reflected in the device batch.
@@ -2249,7 +2249,7 @@ class Trainer:
             self.logger.log_metrics({'trainer/device_train_microbatch_size': self.state.device_train_microbatch_size})
             self.first_batch_complete = True
             break
-            
+
         if use_grad_scaling:
             assert self.state.scaler is not None, 'scaler should have been set in __init__()'
             self.state.scaler.update()
@@ -2257,9 +2257,7 @@ class Trainer:
         # total_loss_dict can be None if gradient scaling failed
         if total_loss_dict is not None:
             map_collection(total_loss_dict, dist.all_reduce)
-            total_loss_dict = {
-                k: loss.cpu().item() / dist.get_world_size() for k, loss in total_loss_dict.items()
-            }
+            total_loss_dict = {k: loss.cpu().item() / dist.get_world_size() for k, loss in total_loss_dict.items()}
             self.state.total_loss_dict = total_loss_dict
             self.logger.log_metrics(total_loss_dict)
 
