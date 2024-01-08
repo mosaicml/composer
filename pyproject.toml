@@ -151,6 +151,9 @@ filterwarnings = [
     '''ignore:torch.distributed.reduce_op is deprecated, please use torch.distributed.ReduceOp instead:UserWarning''',
     # Ignore torch sharded tensor deprecated warnings
     '''ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning''',
+    # Ignore torch pytree deprecated warnings
+    '''ignore:torch.utils._pytree._register_pytree_node is deprecated.*.UserWarning'''
+
 ]
 
 # Coverage
