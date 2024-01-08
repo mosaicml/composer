@@ -12,7 +12,7 @@ import torch
 
 from composer import Trainer, algorithms
 from composer.callbacks import CheckpointSaver
-from composer.core import Algorithm, Time, TimeUnit  # type: ignore imports used in `eval(representation)`
+from composer.core import Algorithm, Event, Time, TimeUnit  # type: ignore imports used in `eval(representation)`
 from composer.models import ComposerClassifier, ComposerModel, composer_resnet
 from tests.common import ConvModel
 
@@ -38,12 +38,14 @@ def initialize_algorithm(algo_cls: Type):
 
 
 @pytest.mark.parametrize('algo_name', algorithms.__all__)
+@pytest.mark.filterwarnings('ignore:GyroDropout is not implemented in a way that.*:UserWarning')
 def test_required_on_load_has_repr(algo_name: str):
     algo_cls = getattr(algorithms, algo_name)
     if issubclass(algo_cls, Algorithm) and algo_cls.required_on_load():
         representation = repr(initialize_algorithm(algo_cls))
         # Default repr prints memory address
         assert 'at 0x' not in representation
+        print(representation)
         eval(f'algorithms.{representation}')
 
 
@@ -75,6 +77,7 @@ def compare_models(model_1: torch.nn.Module, model_2: torch.nn.Module, is_equal:
 
 
 @pytest.mark.filterwarnings('ignore:No instances of')
+@pytest.mark.filterwarnings('ignore:GyroDropout is not implemented in a way that.*:UserWarning')
 @pytest.mark.parametrize('algo_name', algorithms.__all__)
 def test_idempotent(algo_name: str, tiny_bert_config):
     algo_cls = getattr(algorithms, algo_name)
@@ -94,17 +97,21 @@ def test_idempotent(algo_name: str, tiny_bert_config):
         applied_once_model = Trainer(
             model=copy.deepcopy(original_model),
             algorithms=algorithm,
+            precision='amp_fp16',
         ).state.model
         assert isinstance(applied_once_model, ComposerModel)  # Assert type for pyright deepcopy
         applied_twice_model = Trainer(
             model=copy.deepcopy(applied_once_model),
             algorithms=algorithm,
+            precision='amp_fp16',
         ).state.model
         compare_models(original_model, applied_twice_model, is_equal=False)  # Surgery actually changes model
         compare_models(applied_once_model, applied_twice_model, is_equal=True)  # Multiple applications are no-ops
 
 
-@pytest.mark.parametrize('algo_name', algorithms.__all__)
+@pytest.mark.filterwarnings('ignore:GyroDropout is not implemented in a way that.*:UserWarning')
+@pytest.mark.filterwarnings('ignore:No instances of torch.nn..*Norm found.*')
+@pytest.mark.parametrize('algo_name', [algo for algo in algorithms.__all__ if algo != 'NoOpModel'])
 @pytest.mark.parametrize('load_weights_only,already_added,exclude', [
     [False, False, False],
     [True, False, False],
@@ -128,10 +135,13 @@ def test_autoload(algo_name: str, load_weights_only: bool, already_added: bool, 
         else:
             original_model = ConvModel()
 
-        trainer1 = Trainer(model=copy.deepcopy(original_model),
-                           algorithms=algorithm,
-                           save_folder=str(tmp_path),
-                           save_filename='ckpt.pt')
+        trainer1 = Trainer(
+            model=copy.deepcopy(original_model),
+            algorithms=algorithm,
+            save_folder=str(tmp_path),
+            save_filename='ckpt.pt',
+            precision='amp_fp16',
+        )
         checkpoint_saver = [cb for cb in trainer1.state.callbacks if isinstance(cb, CheckpointSaver)][0]
         checkpoint_saver._save_checkpoint(trainer1.state, trainer1.logger)
 

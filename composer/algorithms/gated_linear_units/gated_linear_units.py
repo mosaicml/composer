@@ -89,6 +89,10 @@ def apply_gated_linear_units(model: torch.nn.Module,
         raise TypeError(
             'Gated Linear Units only has a surgery policy defined for subclasses of transformers.BertPreTrainedModel')
 
+    # Early exit if nothing to replace
+    if module_surgery.count_module_instances(module=model, module_class=BertIntermediate) == 0:
+        return
+
     if act_fn is None:
         intermediate_modules = {module for module in model.modules() if isinstance(module, BertIntermediate)}
         if len(intermediate_modules) == 0:
