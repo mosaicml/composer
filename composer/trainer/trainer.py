@@ -2156,6 +2156,11 @@ class Trainer:
         Returns:
             Dict[str, torch.Tensor]: a dictionary containing the total loss and individual losses if available.
         """
+        assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
+
+        rank_num_samples = self._train_data_spec.get_num_samples_in_batch(batch)
+        rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(batch)
+        
         last_wct = datetime.datetime.now()
         self.engine.run_event(Event.BATCH_START)
 
@@ -2170,10 +2175,7 @@ class Trainer:
             self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
             self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
                     
-        assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
-
-        rank_num_samples = self._train_data_spec.get_num_samples_in_batch(batch)
-        rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(batch)
+        
 
         # Cache the device batch, because `self.state.batch` gets overridden in microbatching loop.
         # Any in-place changes to a microbatch will be reflected in the device batch.
