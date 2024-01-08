@@ -786,14 +786,15 @@ def fsdp_state_pg_ranks(state: '_FSDPState') -> Tuple[int, ...]:
         return tuple(range(dist.get_world_size()))
     else:
         return tuple(get_process_group_ranks(state.process_group))
-    
+
 
 def _wait_for_computation_stream(
     computation_stream: torch.Stream,
     root_state: '_FSDPState',
     pre_unshard_stream: torch.Stream,
 ):
-    """
+    """Unshard and pre-unshard streams wait for computation stream.
+
     Has the unshard and pre-unshard streams wait for the computation stream.
     For example, this should be called in the FSDP root's pre-forward to
     respect optimizer step computation.
@@ -811,7 +812,7 @@ def _wait_for_computation_stream(
     # do not leverage the pre-all-gather stream is tolerable since this only
     # runs once per iteration
     pre_unshard_stream.wait_stream(computation_stream)  # type: ignore[attr-defined]
-    
+
 
 @no_type_check
 def _root_pre_forward(
@@ -820,25 +821,21 @@ def _root_pre_forward(
     args,
     kwargs,
 ) -> None:
-    """
-    Runs pre-forward logic specific to the root FSDP instance, which should run
-    before any individual module's pre-forward. This starts with an attempt at
-    lazy initialization (which only runs non-vacuously once). Otherwise, if
-    this is called on a non-root FSDP instance, then it returns directly.
+    """Runs pre-forward logic specific to the root FSDP instance.
 
-    Args:
-        module (nn.Module): Module for which this logic tries to run. It may or
-            may not be the root. If not, then this method does not do anything.
+    This should run before any individual module's pre-forward. This starts
+    with an attempt at lazy initialization (which only runs non-vacuously once).
+    Otherwise, if this is called on a non-root FSDP instance, then it returns
+    directly.
     """
-    from torch.distributed.fsdp._runtime_utils import (_lazy_init, _root_cast_forward_input,
-                                                       _cast_buffers_to_dtype_and_device,
-                                                       _get_buffers_and_dtypes_for_computation,
-                                                       _reset_flat_param_grad_info_if_needed)
-    from torch.distributed.utils import _p_assert, _to_kwargs
     from torch.distributed.fsdp._common_utils import _is_composable
-    with torch.profiler.record_function("FullyShardedDataParallel._root_pre_forward"):
+    from torch.distributed.fsdp._runtime_utils import (_cast_buffers_to_dtype_and_device,
+                                                       _get_buffers_and_dtypes_for_computation, _lazy_init,
+                                                       _reset_flat_param_grad_info_if_needed, _root_cast_forward_input)
+    from torch.distributed.utils import _p_assert, _to_kwargs
+    with torch.profiler.record_function('FullyShardedDataParallel._root_pre_forward'):
         _lazy_init(state, module)
-        _p_assert(state._is_root is not None, "Expects a root FSDP to have been set")
+        _p_assert(state._is_root is not None, 'Expects a root FSDP to have been set')
         if not state._is_root:
             # Always cast forward inputs in the root of this local FSDP unit for mixed
             # precision, as this is where mixed precision could be configed.
@@ -869,7 +866,7 @@ def _root_pre_forward(
             # CPU overhead that can stem from retrieving all buffers and their types in the
             # following else branch.
             state._needs_buffer_dtype_restore_check = True
-        elif getattr(state, "_needs_buffer_dtype_restore_check", False):
+        elif getattr(state, '_needs_buffer_dtype_restore_check', False):
             # Check if buffers are in full precision and we need to cast them
             # back down.
             (
@@ -877,16 +874,10 @@ def _root_pre_forward(
                 buffer_dtypes_for_computation,
             ) = _get_buffers_and_dtypes_for_computation(state, module)
             if len(buffers) > 0 and len(buffer_dtypes_for_computation) > 0:
-                if any(
-                    buffer.dtype != buffer_dtype_for_computation
-                    for buffer, buffer_dtype_for_computation in zip(
-                        buffers, buffer_dtypes_for_computation
-                    )
-                ):
+                if any(buffer.dtype != buffer_dtype_for_computation
+                       for buffer, buffer_dtype_for_computation in zip(buffers, buffer_dtypes_for_computation)):
                     # Assume we have to cast everything if there is one mismatch
-                    _cast_buffers_to_dtype_and_device(
-                        buffers, buffer_dtypes_for_computation, state.compute_device
-                    )
+                    _cast_buffers_to_dtype_and_device(buffers, buffer_dtypes_for_computation, state.compute_device)
             # We don't have to check this again until we cast buffers to full precision again.
             state._needs_buffer_dtype_restore_check = False
 
@@ -898,7 +889,7 @@ def _root_pre_forward(
             for handle in handles:
                 handle._needs_pre_forward_unshard = True
                 handle._prefetched = False
-        
+
         _wait_for_computation_stream(
             state._device_handle.current_stream(),
             state,
@@ -909,25 +900,21 @@ def _root_pre_forward(
         # Prepares the forward inputs by moving them to ``compute_device``
         # TODO: Do not use the side stream for tensor copies for now; investigate
         # the perf with/without it.
-        with torch.profiler.record_function("FullyShardedDataParallel._to_kwargs"):
-            args_tuple, kwargs_tuple = _to_kwargs(
-                args, kwargs, state.compute_device, False
-            )
+        with torch.profiler.record_function('FullyShardedDataParallel._to_kwargs'):
+            args_tuple, kwargs_tuple = _to_kwargs(args, kwargs, state.compute_device, False)
         args = args_tuple[0]
         kwargs = kwargs_tuple[0]
 
         return _root_cast_forward_input(state, module, args, kwargs)
 
-    
+
 def forward(self, *args: Any, **kwargs: Any) -> Any:
     """Run the forward pass for the wrapped module, inserting FSDP-specific pre- and post-forward sharding logic."""
-    from torch.distributed.fsdp._runtime_utils import (_pre_forward, _post_forward,
-                                                       _pre_forward_unshard, _post_forward_reshard)
+    from torch.distributed.fsdp._runtime_utils import (_post_forward, _post_forward_reshard, _pre_forward,
+                                                       _pre_forward_unshard)
     from torch.distributed.utils import _p_assert
     handle = self._handle
-    with torch.autograd.profiler.record_function(
-        "FullyShardedDataParallel.forward"
-    ):
+    with torch.autograd.profiler.record_function('FullyShardedDataParallel.forward'):
         args, kwargs = _root_pre_forward(self, self, args, kwargs)
         unused = None
         args, kwargs = _pre_forward(
@@ -941,13 +928,12 @@ def forward(self, *args: Any, **kwargs: Any) -> Any:
         if handle:
             _p_assert(
                 handle.flat_param.device == self.compute_device,
-                "Expected `FlatParameter` to be on the compute device "
-                f"{self.compute_device} but got {handle.flat_param.device}",
+                'Expected `FlatParameter` to be on the compute device '
+                f'{self.compute_device} but got {handle.flat_param.device}',
             )
         output = self._fsdp_wrapped_module(*args, **kwargs)
-        return _post_forward(
-            self, handle, _post_forward_reshard, self, unused, output
-        )
+        return _post_forward(self, handle, _post_forward_reshard, self, unused, output)
+
 
 @no_type_check
 def _share_state_and_init_handle_attrs_t2p1(
@@ -1039,6 +1025,7 @@ def _share_state_and_init_handle_attrs_t2p1(
         if len(attr_values) != 1:
             raise ValueError(f'Expects one homogeneous value for {attr_name} but got {attr_values}')
 
+
 @no_type_check
 def _share_state_and_init_handle_attrs_t2p2(
     root_state: '_FSDPState',
@@ -1051,8 +1038,7 @@ def _share_state_and_init_handle_attrs_t2p2(
     done together to require a single loop over the states. This function has
     been modified to assign a different unshard stream to each process group.
     """
-    from torch.distributed.fsdp._runtime_utils import (HOMOGENEOUS_ATTR_NAMES,
-                                                       _validate_and_get_hybrid_shard_state)
+    from torch.distributed.fsdp._runtime_utils import HOMOGENEOUS_ATTR_NAMES, _validate_and_get_hybrid_shard_state
     from torch.distributed.utils import _p_assert
 
     handle = root_state._handle
