@@ -84,6 +84,8 @@ def test_idempotent(algo_name: str, tiny_bert_config):
     if issubclass(algo_cls, Algorithm) and algo_cls.required_on_load():
         if algo_name == 'GyroDropout':
             pytest.skip('GyroDropout does surgery on fit start as it requires dataloader len')
+        if algo_name == 'LowPrecisionGroupNorm':
+            pytest.skip('LowPrecisionGroupNorm does not run on CPU')
 
         algorithm = initialize_algorithm(algo_cls)
 
@@ -95,8 +97,6 @@ def test_idempotent(algo_name: str, tiny_bert_config):
             from composer.models import HuggingFaceModel
             hf_model = transformers.AutoModelForSequenceClassification.from_config(tiny_bert_config)
             original_model = HuggingFaceModel(hf_model, use_logits=True)
-        elif algo_name == 'LowPrecisionGroupNorm':
-            original_model = SimpleConvModel(norm='group')
         else:
             original_model = ConvModel()
         applied_once_model = Trainer(
