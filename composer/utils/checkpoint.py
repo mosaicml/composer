@@ -505,7 +505,7 @@ def load_sharded_checkpoint(
             else:
                 cur_state_dict = state.state_dict()
                 # For older versions of torch, we load optimizer separately.
-                if version.parse(torch.__version__) <= version.parse('2.1.2'):
+                if version.parse(torch.__version__) < version.parse('2.1.3'):
                     cur_state_dict.pop('optimizers')
                 state_dict = {'state': cur_state_dict}
 
@@ -516,7 +516,10 @@ def load_sharded_checkpoint(
                 # Call function to modify state_dict
                 ignore_keys(state_dict)
 
-            dist_cp.load(state_dict, storage_reader)
+            if version.parse(torch.__version__) > version.parse('2.1.3'):
+                dist_cp.load(state_dict, storage_reader)
+            else:
+                dist_cp.load_state_dict(state_dict, storage_reader)
 
             state.load_state_dict(
                 state_dict['state'],
@@ -528,7 +531,7 @@ def load_sharded_checkpoint(
 
             # 2. Optionally load optimizer
             # if we are using later than 2.1.0 then optimizer will already be loaded
-            if version.parse(torch.__version__) <= version.parse('2.1.2') and not load_weights_only:
+            if version.parse(torch.__version__) < version.parse('2.1.3') and not load_weights_only:
                 optim_state = load_sharded_optimizer_state_dict(model_state_dict=state.state_dict()['model'],
                                                                 optimizer_key='optimizers',
                                                                 storage_reader=storage_reader)
@@ -907,12 +910,12 @@ def save_checkpoint(
 
     # Sharded checkpoints get their own little folder.
     if state.fsdp_sharded_state_dict_enabled:
-        # To load optimizer states with 2.0 <= torch <= 2.1.2 , the optimizer state must be at the top
+        # To load optimizer states with 2.0 <= torch < 2.1.3 , the optimizer state must be at the top
         # level of the state dict because the load_sharded_optimizer_state_dict function
         # requires a top level state dict key for the optimizer.
         # See https://github.com/pytorch/pytorch/blob/v2.0.1/torch/distributed/checkpoint/optimizer.py#L271
         # for more info.
-        if using_torch_2() and version.parse(torch.__version__) <= version.parse('2.1.2'):
+        if using_torch_2() and version.parse(torch.__version__) < version.parse('2.1.3'):
             if not weights_only:
                 state_dict['optimizers'] = state_dict['state'].pop('optimizers')
 
@@ -972,12 +975,20 @@ def save_checkpoint(
             process_group = None
 
         if expect_file:
-            dist_cp.save(
-                state_dict=state_dict,
-                storage_writer=dist_cp.FileSystemWriter(dirname),
-                planner=save_planner,
-                process_group=process_group,
-            )
+            if version.parse(torch.__version__) > version.parse('2.1.3'):
+                dist_cp.save(
+                    state_dict=state_dict,
+                    storage_writer=dist_cp.FileSystemWriter(dirname),
+                    planner=save_planner,
+                    process_group=process_group,
+                )
+            else:
+                dist_cp.save_state_dict(
+                    state_dict=state_dict,
+                    storage_writer=dist_cp.FileSystemWriter(dirname),
+                    planner=save_planner,
+                    process_group=process_group,
+                )
         log.warning('finished pytorch save state dict')
 
     # Only rank 0 saves the state_dict unless you are using sharded checkpointing with torch <2.0
