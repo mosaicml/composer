@@ -47,9 +47,13 @@ class MLFlowLogger(LoggerDestination):
             (default: ``10``).
         model_registry_prefix (str, optional): The prefix to use when registering models.
             If registering to Unity Catalog, must be in the format ``{catalog_name}.{schema_name}``.
-            (default: empty string)
+            (default: `''`)
         model_registry_uri (str, optional): The URI of the model registry to use. To register models
             to Unity Catalog, set to ``databricks-uc``. (default: None)
+        synchronous (bool, optional): Whether to log synchronously. If ``True``, Mlflow will log
+            synchronously to the MLflow backend. If ``False``, Mlflow will log asynchronously. (default: ``False``)
+        log_system_metrics (bool, optional): Whether to log system metrics. If ``True``, Mlflow will
+            log system metrics (CPU/GPU/memory/network usage) during training. (default: ``True``)
     """
 
     def __init__(
@@ -63,6 +67,7 @@ class MLFlowLogger(LoggerDestination):
         model_registry_prefix: str = '',
         model_registry_uri: Optional[str] = None,
         synchronous: bool = False,
+        log_system_metrics: bool = True,
     ) -> None:
         try:
             import mlflow
@@ -79,6 +84,7 @@ class MLFlowLogger(LoggerDestination):
         self.model_registry_prefix = model_registry_prefix
         self.model_registry_uri = model_registry_uri
         self.synchronous = synchronous
+        self.log_system_metrics = log_system_metrics
         if self.model_registry_uri == 'databricks-uc':
             if len(self.model_registry_prefix.split('.')) != 2:
                 raise ValueError(f'When registering to Unity Catalog, model_registry_prefix must be in the format ' +
@@ -132,7 +138,11 @@ class MLFlowLogger(LoggerDestination):
                     run_name=self.run_name,
                 )
                 self._run_id = new_run.info.run_id
-            mlflow.start_run(run_id=self._run_id, tags=self.tags)
+            mlflow.start_run(
+                run_id=self._run_id,
+                tags=self.tags,
+                log_system_metrics=self.log_system_metrics,
+            )
 
     def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
         if self._enabled:
