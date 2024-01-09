@@ -311,7 +311,6 @@ class CheckpointSaver(Callback):  # noqa: D101
         for save_filename, timestamp in self.all_saved_checkpoints_to_timestamp.items():
             all_checkpoints.append((save_filename, timestamp.state_dict()))
 
-        # TODO: consider saving additional state for checkpoint rotation
         state_dict['all_saved_checkpoints_to_timestamp'] = all_checkpoints
         return state_dict
 
@@ -333,8 +332,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         # save the checkpoint to the filename
         filename_with_placeholders = self.filename.format(state, is_deepspeed, keep_placeholders=True)
         save_filename = checkpoint.get_save_filename(state, filename_with_placeholders)
-        # It's important this is done before the checkpoint is saved, so that the state includes
-        # reference to the latest checkpoint (itself) when it is saved.
+        # Store before saving so state_dict in checkpoint has reference to latest checkpoint (itself)
         self.all_saved_checkpoints_to_timestamp[save_filename] = state.timestamp
 
         saved_path = checkpoint._save_checkpoint(
