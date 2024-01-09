@@ -41,21 +41,21 @@ class NeptuneLogger(LoggerDestination):
 
     Example:
         Default Neptune logger:
-        >>> from composer import Trainer
-        >>> from composer.loggers import NeptuneLogger
-        >>> neptune_logger = NeptuneLogger()
-        >>> trainer = Trainer(loggers=neptune_logger)
-        >>> trainer.fit()
+            from composer import Trainer
+            from composer.loggers import NeptuneLogger
+            neptune_logger = NeptuneLogger()
+            trainer = Trainer(loggers=neptune_logger)
+            trainer.fit()
 
         More options:
-        >>> from composer import Trainer
-        >>> from composer.loggers import NeptuneLogger
-        >>> neptune_logger = NeptuneLogger(
-        ...     project="ml-team/classification",
-        ...     upload_artifacts=True,
-        ...     dependencies="infer")  # Neptune Run kwarg
-        >>> trainer = Trainer(loggers=neptune_logger)
-        >>> trainer.fit()
+            from composer import Trainer
+            from composer.loggers import NeptuneLogger
+            neptune_logger = NeptuneLogger(
+                project="ml-team/classification",
+                upload_artifacts=True,
+                dependencies="infer")  # Neptune Run kwarg
+            trainer = Trainer(loggers=neptune_logger)
+            trainer.fit()
 
     For more, see the [Neptune-Composer integration guide](https://docs.neptune.ai/integrations/composer/).
     """
@@ -116,11 +116,13 @@ class NeptuneLogger(LoggerDestination):
         with "=" or [Neptune logging methods](https://docs.neptune.ai/logging/methods/).
 
         Example:
-            >>> neptune_logger = NeptuneLogger()
-            >>> trainer = Trainer(loggers=neptune_logger, ...)
-            >>> trainer.fit()
-            >>> neptune_logger.neptune_run["some_metric"] = 1
-            >>> trainer.close()
+                from composer import Trainer
+                from composer.loggers import NeptuneLogger
+                neptune_logger = NeptuneLogger()
+                trainer = Trainer(loggers=neptune_logger, ...)
+                trainer.fit()
+                neptune_logger.neptune_run["some_metric"] = 1
+                trainer.close()
         """
         from neptune import Run
 
@@ -142,11 +144,13 @@ class NeptuneLogger(LoggerDestination):
         other [Neptune logging methods](https://docs.neptune.ai/logging/methods/).
 
         Example:
-            >>> neptune_logger = NeptuneLogger()
-            >>> trainer = Trainer(loggers=neptune_logger, ...)
-            >>> trainer.fit()
-            >>> neptune_logger.base_handler["some_metric"] = 1
-            >>> trainer.close()
+                from composer import Trainer
+                from composer.loggers import NeptuneLogger
+                neptune_logger = NeptuneLogger()
+                trainer = Trainer(loggers=neptune_logger, ...)
+                trainer.fit()
+                neptune_logger.base_handler["some_metric"] = 1
+                trainer.close()
             Result: The value `1` is organized under "training/some_metric" inside the run.
         """
         return self.neptune_run[self._base_namespace]
