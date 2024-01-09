@@ -1244,11 +1244,11 @@ class State(Serializable):
         use_state_dict_fns = version.parse(torch.__version__) > version.parse('2.1.3')
         if use_state_dict_fns:
             from torch.distributed.checkpoint.state_dict import StateDictOptions, set_state_dict
-            optimizer = ensure_tuple(self.optimizers)[0]
             model_state_dict = state_dict.get('model', {})
-            optim_state_dict = state_dict['optimizers'].get(type(optimizer).__qualname__, {})
-            if load_model_only:
-                optimizer, optim_state_dict = [], {}
+            optimizer, optim_state_dict = [], {}
+            if not load_model_only:
+                optimizer = ensure_tuple(self.optimizers)[0]
+                optim_state_dict = state_dict['optimizers'].get(type(optimizer).__qualname__, {})
             set_state_dict(
                 self.model,
                 optimizers=optimizer,
