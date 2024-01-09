@@ -521,8 +521,13 @@ def get_lm_trainer(hf_model,
                                      collate_fn=collator,
                                      sampler=dist.get_sampler(train_dataset))
 
+    from composer.optim import DecoupledAdamW
+
+    optimizer = DecoupledAdamW(model.parameters(), lr=1e-3)
+
     in_memory_logger = InMemoryLogger()
     trainer = Trainer(model=model,
+                      optimizer=optimizer,
                       train_dataloader=train_dataloader,
                       eval_dataloader=eval_dataloader,
                       max_duration='1ep',
@@ -1342,8 +1347,6 @@ def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
     rank0_path = Path(gathered_paths[0])
-
-    print(torch.load(str(rank0_path / 'hf-checkpoint.pt')))
 
     load_trainer = get_lm_trainer(
         stashed_model,
