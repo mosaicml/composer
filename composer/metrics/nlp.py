@@ -908,9 +908,27 @@ class MTBenchJudge(InContextLearningMetric):
     def __init__(self, dist_sync_on_step: bool = False, tokenizer: Optional[Any] = None, prompt: Optional[str] = None):
         # state from multiple processes
         super().__init__(dist_sync_on_step=dist_sync_on_step)
-        self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('invalid_judge_response', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('all_scores', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
+
+        self.add_state('math_score', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('math_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('reasoning_score', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('reasoning_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('stem_score', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('stem_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('humanities_score', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('humanities_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('extraction_score', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('extraction_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('coding_score', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('coding_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('roleplay_score', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('roleplay_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('writing_score', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('writing_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+
         self.client = None
 
     def init_openai(self):
@@ -946,11 +964,7 @@ class MTBenchJudge(InContextLearningMetric):
             }],
             max_tokens=100)
 
-        import IPython; IPython.embed()
         return response.choices[0].message.content
-    
-    def check_for_individual_respone(self, result):
-        return True
 
     def update(self, batch: Dict[str, Any], outputs: List[str]):
         if not self.client:
@@ -965,18 +979,52 @@ class MTBenchJudge(InContextLearningMetric):
             if not match:
                 match = re.search(self.ONE_SCORE_PATTERN_BACKUP, result)
             if match:
-                match = ast.literal_eval(match.groups()[0])
-            self.total += torch.tensor(1.0)
+                score = ast.literal_eval(match.groups()[0])
+                self.all_scores += torch.tensor(score)
+                self.update_category_score(batch['category'][i], score)
+            else:
+                self.invalid_judge_response += 1
+            self.total += 1
 
         # OpenAI Client can't be copied by deepcopy and will throw an error, so we delete it after we use it
         # Initializatin takes ~12 ms
         del self.client
         self.client = None
 
+    def update_category_score(self, category, score):
+        if category == "math":
+            self.math_total += 1
+            self.math_score += score 
+        elif category == "writing":
+            self.writing_total += 1
+            self.writing_score += score
+        elif category == "roleplay":
+            self.roleplay_total += 1
+            self.roleplay_score += score 
+        elif category == "reasoning":
+            self.reasoning_total += 1
+            self.reasoning_score += score
+        elif category == "coding":
+            self.coding_total += 1
+            self.coding_score += score
+        elif category == "extraction":
+            self.extraction_total += 1
+            self.extraction_score += score
+        elif category == "stem":
+            self.stem_total += 1
+            self.stem_score += score
+        elif category == "humanities":
+            self.humanities_total += 1
+            self.humanities_score += score
+
+
     def compute(self):
-        print('correct:', self.correct)
-        print('total:', self.total)
-        print('invalid:', self.invalid_judge_response)
-        assert isinstance(self.correct, Tensor)
-        assert isinstance(self.total, Tensor)
-        return self.correct / self.total
+        print(self.math_score / self.math_total)
+        print(self.writing_score / self.writing_total)
+        print(self.roleplay_score / self.roleplay_total)
+        print(self.reasoning_score / self.reasoning_total)
+        print(self.coding_score / self.coding_total)
+        print(self.extraction_score / self.extraction_total)
+        print(self.stem_score / self.stem_total)
+        print(self.humanties_score / self.humanities_total)
+        return self.all_scores / self.total
