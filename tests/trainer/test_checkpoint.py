@@ -1311,6 +1311,7 @@ def test_rotate_checkpoints(
             dataset=train_dataset,
             sampler=dist.get_sampler(train_dataset),
         ),
+        precision='fp32',
         save_folder=str(save_folder),
         save_filename='checkpoint_{rank}_{batch}.pt',
         save_interval='1ba',
