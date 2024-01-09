@@ -496,29 +496,37 @@ def load_sharded_checkpoint(
         # We need no_grad because we overwrite tensor values with set_() when we do elastic loading and we don't want the set_ op recorded in the computation graph.
         with torch.no_grad():
             # 1. Load model and metadata first
-            model_state_dict = None
             if load_weights_only:
-                model_state_dict = {'state': {'model': state.get_model_state_dict()}}
+                state_dict = {'state': {'model': state.get_model_state_dict()}}
             else:
                 cur_state_dict = state.state_dict()
-                cur_state_dict.pop('optimizers')
-                model_state_dict = {'state': cur_state_dict}
+                # For older versions of torch, we load optimizer separately.
+                if version.parse(torch.__version__) < version.parse('2.1.3'):
+                    cur_state_dict.pop('optimizers')
+                state_dict = {'state': cur_state_dict}
 
             if ignore_keys:
                 # Filter provided list of key paths
                 if not callable(ignore_keys):
                     ignore_keys = glob_filter(ignore_keys)
                 # Call function to modify state_dict
-                ignore_keys(model_state_dict)
+                ignore_keys(state_dict)
 
-            dist_cp.load_state_dict(
-                state_dict=model_state_dict,
-                storage_reader=storage_reader,
-                planner=load_planner,
-            )
+            if version.parse(torch.__version__) > version.parse('2.1.3'):
+                dist_cp.load(  # type: ignore
+                    state_dict=state_dict,
+                    storage_reader=storage_reader,
+                    planner=load_planner,
+                )
+            else:
+                dist_cp.load_state_dict(
+                    state_dict=state_dict,
+                    storage_reader=storage_reader,
+                    planner=load_planner,
+                )
 
             state.load_state_dict(
-                model_state_dict['state'],
+                state_dict['state'],
                 logger,
                 strict=strict_model_weights,
                 exclude_algorithms=exclude_algorithms,
@@ -526,11 +534,12 @@ def load_sharded_checkpoint(
             )
 
             # 2. Optionally load optimizer
-            if not load_weights_only:
+            # if we are using later than 2.1.0 then optimizer will already be loaded
+            if version.parse(torch.__version__) < version.parse('2.1.3') and not load_weights_only:
                 optim_state = load_sharded_optimizer_state_dict(model_state_dict=state.state_dict()['model'],
                                                                 optimizer_key='optimizers',
                                                                 storage_reader=storage_reader)
-                state.load_optim_state(optim_state)
+                state._legacy_load_optim_state(optim_state)
 
         # 3. Optionally load RNG
         rng_state_dicts = reproducibility.get_rng_state()
@@ -859,12 +868,13 @@ def _restore_checkpoint(
         if load_path is None:
             raise RuntimeError(f'Failed to load DeepSpeed checkpoint')
     elif load_weights_only:
-        state.load_model_state(
+        state.load_model_and_optimizer_state(
             state_dict['state'],
             logger,
             strict=strict_model_weights,
             exclude_algorithms=exclude_algorithms,
             algorithm_passes=algorithm_passes,
+            load_model_only=True,
         )
     if not load_weights_only:
         state.load_state_dict(
@@ -921,12 +931,12 @@ def _save_checkpoint(
         }
 
     if state.fsdp_sharded_state_dict_enabled:
-        # To load optimizer states with torch 2.0, the optimizer state must be at the top
+        # To load optimizer states with 2.0 <= torch < 2.1.3 , the optimizer state must be at the top
         # level of the state dict because the load_sharded_optimizer_state_dict function
         # requires a top level state dict key for the optimizer.
         # See https://github.com/pytorch/pytorch/blob/v2.0.1/torch/distributed/checkpoint/optimizer.py#L271
         # for more info.
-        if using_torch_2():
+        if using_torch_2() and version.parse(torch.__version__) < version.parse('2.1.3'):
             if not weights_only:
                 state_dict['optimizers'] = state_dict['state'].pop('optimizers')
     log.debug('State dict created.')
@@ -935,8 +945,12 @@ def _save_checkpoint(
     if dirname:
         os.makedirs(dirname, exist_ok=True)
 
+    # Only some ranks are meant to save checkpoint and produce a file
+    expect_file = False
+
     # All ranks save for deepspeed
     if is_deepspeed:
+        expect_file = True
         log.debug('Saving deepspeed checkpoints to %s...', save_filename)
         if dist.get_global_rank() == 0:
             with open(save_filename, 'wb') as f:
@@ -954,16 +968,41 @@ def _save_checkpoint(
         _validate_save_planner(save_planner)
 
         import torch.distributed.checkpoint as dist_cp
+        from torch.distributed import get_process_group_ranks
 
-        log.debug('Saving sharded checkpoints to %s...', save_filename)
-        dist_cp.save_state_dict(
-            state_dict=state_dict,
-            storage_writer=dist_cp.FileSystemWriter(dirname),
-            planner=save_planner,
-        )
+        log.debug(f'Saving sharded checkpoints to {save_filename}...')
+        process_group = None
+        device_mesh = state.fsdp_device_mesh
+        if device_mesh is not None and device_mesh.ndim == 2:
+            expect_file = (device_mesh.get_local_rank(mesh_dim=0) == 0)
+            if expect_file:
+                process_group = device_mesh.get_group(1)  # Only save on first replica
+                log.debug(
+                    f'global_rank={dist.get_global_rank()}, {expect_file=}, process_group={get_process_group_ranks(process_group)}'
+                )
+        else:
+            expect_file = True
+
+        if expect_file:
+            if version.parse(torch.__version__) > version.parse('2.1.3'):
+                dist_cp.save(  # type: ignore
+                    state_dict=state_dict,
+                    storage_writer=dist_cp.FileSystemWriter(dirname),
+                    planner=save_planner,
+                    process_group=process_group,
+                )
+            else:
+                dist_cp.save_state_dict(
+                    state_dict=state_dict,
+                    storage_writer=dist_cp.FileSystemWriter(dirname),
+                    planner=save_planner,
+                    process_group=process_group,
+                )
+        log.debug('Finished pytorch save state dict')
 
     # Only rank 0 saves the state_dict unless you are using sharded checkpointing with torch <2.0
     elif dist.get_global_rank() == 0 or state.fsdp_sharded_state_dict_enabled:
+        expect_file = True
         log_msg = f'Saving sharded checkpoints to {save_filename}...' if state.fsdp_sharded_state_dict_enabled else f'Saving monolithic checkpoint to {save_filename}'
         with open(save_filename, 'wb') as f:
             log.debug(log_msg)
@@ -979,7 +1018,7 @@ def _save_checkpoint(
 
     dist.barrier()  # ensure all ranks saved their files
 
-    if dist.get_global_rank() == 0 or is_deepspeed or state.fsdp_sharded_state_dict_enabled:
+    if expect_file:
         assert os.path.exists(save_filename), 'Expected file to have been saved.'
         return save_filename
     else:
