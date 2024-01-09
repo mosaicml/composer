@@ -2049,7 +2049,7 @@ class Trainer:
 
                 self.engine.run_event(Event.AFTER_DATALOADER)
 
-                self.train_batch(self.state.batch, use_grad_scaling, last_wct)
+                last_wct = self.train_batch(self.state.batch, use_grad_scaling, last_wct)
 
                 # Pause the timing during evaluation
                 # Evaluation time is tracked separately in state.eval_timestamp
@@ -2146,7 +2146,7 @@ class Trainer:
 
         self.engine.run_event(Event.EVAL_AFTER_ALL)
 
-    def train_batch(self, batch: Any, use_grad_scaling: bool, last_wct: Optional[Any]) -> None:
+    def train_batch(self, batch: Any, use_grad_scaling: bool, last_wct: Optional[Any]) -> Any:
         """Compute loss by training on a full batch of data.
 
         Adaptively change microbatch size if enabled to maximize GPU usage.
@@ -2296,6 +2296,7 @@ class Trainer:
         )
 
         self.engine.run_event(Event.BATCH_END)
+        return last_wct
 
     def _train_microbatches(self,
                             microbatches: Sequence[Batch],
