@@ -165,7 +165,9 @@ def test_autoload(algo_name: str, load_weights_only: bool, already_added: bool, 
         # Excluding some algorithms leads to errors when loading
         elif exclude:
             if version.parse(torch.__version__) > version.parse('2.1.3'):
-                if algo_name in ['Alibi', 'BlurPool', 'Factorize', 'GatedLinearUnits', 'GhostBatchNorm', 'SqueezeExcite']:
+                if algo_name in [
+                        'Alibi', 'BlurPool', 'Factorize', 'GatedLinearUnits', 'GhostBatchNorm', 'SqueezeExcite'
+                ]:
                     context = pytest.raises(KeyError)  # Optimizer loading is strict
             else:
                 if algo_name in ['Factorize', 'SqueezeExcite']:
