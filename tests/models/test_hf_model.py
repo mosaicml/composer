@@ -1349,7 +1349,7 @@ def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config
         # peft_config=gpt2_peft_config,
         device_train_microbatch_size=1,
         mlm=False,
-        load_path=str(rank0_path / 'hf-checkpoint.pt'),
+        load_path=Path(rank0_path) / 'hf-checkpoint.pt',
         fsdp_config=fsdp_config,
     )
 
