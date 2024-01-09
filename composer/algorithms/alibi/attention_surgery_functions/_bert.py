@@ -1,8 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-import math
 import copy
+import math
 from types import MethodType
 from typing import Optional, Tuple
 
