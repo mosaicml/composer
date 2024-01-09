@@ -41,18 +41,20 @@ class NeptuneLogger(LoggerDestination):
 
     Example:
         Default Neptune logger:
+        >>> from composer import Trainer
         >>> from composer.loggers import NeptuneLogger
         >>> neptune_logger = NeptuneLogger()
-        >>> trainer = Trainer(loggers=neptune_logger, ...)
+        >>> trainer = Trainer(loggers=neptune_logger)
         >>> trainer.fit()
 
         More options:
+        >>> from composer import Trainer
+        >>> from composer.loggers import NeptuneLogger
         >>> neptune_logger = NeptuneLogger(
         ...     project="ml-team/classification",
         ...     upload_artifacts=True,
-        ...     dependencies="infer",  # Neptune Run kwarg
-        )
-        >>> trainer = Trainer(loggers=neptune_logger, ...)
+        ...     dependencies="infer")  # Neptune Run kwarg
+        >>> trainer = Trainer(loggers=neptune_logger)
         >>> trainer.fit()
 
     For more, see the [Neptune-Composer integration guide](https://docs.neptune.ai/integrations/composer/).

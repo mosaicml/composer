@@ -36,6 +36,7 @@ and also saves them to the file
     os.environ["WANDB_MODE"] = "disabled"
     os.environ["COMET_API_KEY"] = "<comet_api_key>"
     os.environ["MLFLOW_TRACKING_URI"] = ""
+    os.environ["NEPTUNE_MODE"] = "offline"
 
 .. testcode::
     :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED
