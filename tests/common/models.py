@@ -541,3 +541,24 @@ def configure_tiny_t5_config():
 
 def configure_tiny_t5_hf_model(use_logits=True):
     return HuggingFaceModel(configure_tiny_t5_model(), configure_tiny_t5_tokenizer(), use_logits)
+
+def configure_tiny_mistral_model():
+    try:
+        return copy.deepcopy(pytest.tiny_mistral_model)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+def configure_tiny_mistral_tokenizer():
+    try:
+        return copy.deepcopy(pytest.tiny_mistral_tokenizer)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+def configure_tiny_mistral_config():
+    try:
+        return copy.deepcopy(pytest.tiny_mistral_config)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+def configure_tiny_mistral_hf_model(use_logits=True):
+    return HuggingFaceModel(configure_tiny_mistral_model(), configure_tiny_mistral_tokenizer(), use_logits)

@@ -113,7 +113,8 @@ def pytest_configure():
                                              tiny_bert_tokenizer_helper, tiny_gpt2_config_helper,
                                              tiny_gpt2_model_helper, tiny_gpt2_tokenizer_helper, tiny_opt_config_helper,
                                              tiny_opt_model_helper, tiny_opt_tokenizer_helper, tiny_t5_config_helper,
-                                             tiny_t5_model_helper, tiny_t5_tokenizer_helper)
+                                             tiny_t5_model_helper, tiny_t5_tokenizer_helper, tiny_mistral_config_helper,
+                                             tiny_mistral_model_helper, tiny_mistral_tokenizer_helper)
         pytest.tiny_bert_config = tiny_bert_config_helper()  # type: ignore
         pytest.tiny_bert_model = tiny_bert_model_helper(pytest.tiny_bert_config)  # type: ignore
         pytest.tiny_bert_tokenizer = tiny_bert_tokenizer_helper()  # type: ignore
@@ -126,6 +127,9 @@ def pytest_configure():
         pytest.tiny_t5_config = tiny_t5_config_helper()  # type: ignore
         pytest.tiny_t5_model = tiny_t5_model_helper(pytest.tiny_t5_config)  # type: ignore
         pytest.tiny_t5_tokenizer = tiny_t5_tokenizer_helper()  # type: ignore
+        pytest.tiny_mistral_config = tiny_mistral_config_helper()
+        pytest.tiny_mistral_model = tiny_mistral_model_helper(pytest.tiny_mistral_config)
+        pytest.tiny_mistral_tokenizer = tiny_mistral_tokenizer_helper()
 
 
 def pytest_sessionfinish(session: pytest.Session, exitstatus: int):

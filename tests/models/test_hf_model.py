@@ -26,15 +26,14 @@ from composer.utils import dist, is_model_fsdp
 from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset, RandomTextRegressionDataset
 from tests.common.markers import device, world_size
 from tests.common.models import (configure_tiny_bert_model, configure_tiny_bert_tokenizer, configure_tiny_gpt2_model,
-                                 configure_tiny_gpt2_tokenizer, configure_tiny_t5_model, configure_tiny_t5_tokenizer)
+                                 configure_tiny_gpt2_tokenizer, configure_tiny_t5_model, configure_tiny_t5_tokenizer,
+                                 configure_tiny_mistral_model, configure_tiny_mistral_tokenizer,)
 from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
 
 if TYPE_CHECKING:
     from peft import PeftConfig
 
-
-@pytest.fixture
-def tiny_gpt2_peft_config():
+def _gpt2_peft_config():
     pytest.importorskip('peft')
     from peft import get_peft_config
 
@@ -46,6 +45,24 @@ def tiny_gpt2_peft_config():
     })
     return peft_config
 
+@pytest.fixture
+def gpt2_peft_config():
+    return _gpt2_peft_config()
+
+def _mistral_peft_config():
+    pytest.importorskip('peft')
+    from peft import get_peft_config
+
+    peft_config = get_peft_config({
+        'peft_type': 'LORA',
+        'task_type': 'CAUSAL_LM',
+        'target_modules': ['up_proj'],
+    })
+    return peft_config
+
+@pytest.fixture
+def mistral_peft_config():
+    return _mistral_peft_config()
 
 def test_hf_tokenizer_save(tmp_path: Path, tiny_bert_model, tiny_bert_tokenizer):
     transformers = pytest.importorskip('transformers')
@@ -1174,35 +1191,35 @@ def test_eval_forward_generate(device, world_size, hf_model, hf_tokenizer, use_f
     assert all(isinstance(decoded_generation, str) for decoded_generation in generation2)
 
 
-def test_peft_init(tiny_gpt2_model, tiny_gpt2_peft_config):
+def test_peft_init(tiny_gpt2_model, gpt2_peft_config):
     pytest.importorskip('peft')
     from peft import PeftModelForCausalLM
 
     original_model = copy.deepcopy(tiny_gpt2_model)
-    hf_model = HuggingFaceModel(tiny_gpt2_model, peft_config=tiny_gpt2_peft_config)
+    hf_model = HuggingFaceModel(tiny_gpt2_model, peft_config=gpt2_peft_config)
     assert isinstance(hf_model.model, PeftModelForCausalLM)
     assert hf_model.model.peft_config['default'].peft_type == 'LORA'
     assert hf_model.model.peft_config['default'].task_type == 'CAUSAL_LM'
     assert hf_model.model.config == original_model.config
 
 
-def test_peft_init_not_installed(tiny_gpt2_model, tiny_gpt2_peft_config):
+def test_peft_init_not_installed(tiny_gpt2_model, gpt2_peft_config):
     pytest.importorskip('peft')
 
-    with patch.dict('sys.modules', {'peft': None}):
+    with patch('composer.models.huggingface._peft_installed', False):
         with pytest.raises(ImportError):
             from composer.models import HuggingFaceModel
-            _ = HuggingFaceModel(tiny_gpt2_model, peft_config=tiny_gpt2_peft_config)
+            _ = HuggingFaceModel(tiny_gpt2_model, peft_config=gpt2_peft_config)
 
 
-def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, tiny_gpt2_peft_config, tmp_path):
+def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path):
     pytest.importorskip('peft')
 
     trainer = get_lm_trainer(
         tiny_gpt2_model,
         tiny_gpt2_tokenizer,
         str(tmp_path),
-        peft_config=tiny_gpt2_peft_config,
+        peft_config=gpt2_peft_config,
         device_train_microbatch_size=1,
         mlm=False,
     )
@@ -1212,7 +1229,7 @@ def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, tiny_gpt2_p
         tiny_gpt2_model,
         tiny_gpt2_tokenizer,
         str(tmp_path),
-        peft_config=tiny_gpt2_peft_config,
+        peft_config=gpt2_peft_config,
         device_train_microbatch_size=1,
         mlm=False,
         load_path=str(tmp_path / 'hf-checkpoint.pt'),
@@ -1221,29 +1238,38 @@ def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, tiny_gpt2_p
     for p1, p2 in zip(trainer.state.model.parameters(), load_trainer.state.model.parameters()):
         torch.testing.assert_close(p1, p2)
 
-
-def test_peft_generate(tiny_gpt2_model, tiny_gpt2_tokenizer, tiny_gpt2_peft_config):
+@pytest.mark.parametrize('model,tokenizer,peft_config', [
+    (configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer, _gpt2_peft_config()),
+    (configure_tiny_mistral_model, configure_tiny_mistral_tokenizer, _mistral_peft_config()),
+])
+def test_peft_generate(model, tokenizer, peft_config):
     pytest.importorskip('peft')
 
-    hf_model = HuggingFaceModel(tiny_gpt2_model, tokenizer=tiny_gpt2_tokenizer, peft_config=tiny_gpt2_peft_config)
+    model = model()
+    tokenizer = tokenizer()
 
-    input_dict = tiny_gpt2_tokenizer(['hello', 'goodbyes'], return_tensors='pt', padding=True)
-    hf_model.generate(**input_dict, max_new_tokens=5, pad_token_id=tiny_gpt2_tokenizer.pad_token_id)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    hf_model = HuggingFaceModel(model, tokenizer=tokenizer, peft_config=peft_config)
+
+    input_dict = tokenizer(['hello', 'goodbyes'], return_tensors='pt', padding=True)
+    hf_model.generate(**input_dict, max_new_tokens=5, pad_token_id=tokenizer.pad_token_id)
 
 
-def test_peft_metadata(tiny_gpt2_model, tiny_gpt2_tokenizer, tiny_gpt2_peft_config):
+def test_peft_metadata(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config):
     pytest.importorskip('peft')
 
     from peft import get_peft_config
 
-    hf_model = HuggingFaceModel(tiny_gpt2_model, tokenizer=tiny_gpt2_tokenizer, peft_config=tiny_gpt2_peft_config)
+    hf_model = HuggingFaceModel(tiny_gpt2_model, tokenizer=tiny_gpt2_tokenizer, peft_config=gpt2_peft_config)
     metadata = hf_model.get_metadata()
     loaded_peft_config = get_peft_config(metadata['model']['peft_config']['content'])
 
-    assert loaded_peft_config == tiny_gpt2_peft_config
+    assert loaded_peft_config == gpt2_peft_config
 
 
-def test_peft_write_hf_from_composer(tiny_gpt2_model, tiny_gpt2_tokenizer, tiny_gpt2_peft_config, tmp_path):
+def test_peft_write_hf_from_composer(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path):
     peft = pytest.importorskip('peft')
     transformers = pytest.importorskip('transformers')
 
@@ -1255,7 +1281,7 @@ def test_peft_write_hf_from_composer(tiny_gpt2_model, tiny_gpt2_tokenizer, tiny_
         tiny_gpt2_model,
         tiny_gpt2_tokenizer,
         str(tmp_path),
-        peft_config=tiny_gpt2_peft_config,
+        peft_config=gpt2_peft_config,
         device_train_microbatch_size=1,
         mlm=False,
     )
@@ -1280,7 +1306,7 @@ def test_peft_write_hf_from_composer(tiny_gpt2_model, tiny_gpt2_tokenizer, tiny_
 @world_size(2)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
-def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, tiny_gpt2_peft_config, tmp_path, world_size):
+def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, world_size):
     pytest.importorskip('peft')
 
     fsdp_config = {
@@ -1297,7 +1323,7 @@ def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, tiny_gpt2_peft_c
         tiny_gpt2_model,
         tiny_gpt2_tokenizer,
         str(tmp_path),
-        peft_config=tiny_gpt2_peft_config,
+        peft_config=gpt2_peft_config,
         device_train_microbatch_size=1,
         mlm=False,
         fsdp_config=fsdp_config,
@@ -1308,7 +1334,7 @@ def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, tiny_gpt2_peft_c
         tiny_gpt2_model,
         tiny_gpt2_tokenizer,
         str(tmp_path),
-        peft_config=tiny_gpt2_peft_config,
+        peft_config=gpt2_peft_config,
         device_train_microbatch_size=1,
         mlm=False,
         load_path=str(tmp_path / 'hf-checkpoint.pt'),
