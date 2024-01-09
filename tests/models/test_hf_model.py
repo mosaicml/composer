@@ -1277,9 +1277,10 @@ def test_peft_write_hf_from_composer(tiny_gpt2_model, tiny_gpt2_tokenizer, tiny_
 
 
 @pytest.mark.gpu
+@world_size(2)
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
-def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, tiny_gpt2_peft_config, tmp_path):
+def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, tiny_gpt2_peft_config, tmp_path, world_size):
     pytest.importorskip('peft')
 
     fsdp_config = {
@@ -1314,5 +1315,8 @@ def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, tiny_gpt2_peft_c
         fsdp_config=fsdp_config,
     )
 
-    for p1, p2 in zip(trainer.state.model.parameters(), load_trainer.state.model.parameters()):
-        torch.testing.assert_close(p1, p2)
+    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+
+    with FSDP.summon_full_params(trainer.state.model), FSDP.summon_full_params(load_trainer.state.model):
+        for p1, p2 in zip(trainer.state.model.parameters(), load_trainer.state.model.parameters()):
+            torch.testing.assert_close(p1, p2)
