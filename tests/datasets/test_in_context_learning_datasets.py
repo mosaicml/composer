@@ -511,6 +511,34 @@ def test_qa_split_batch(tiny_opt_tokenizer, dataset_uri, tmp_path):
 
 
 @pytest.mark.parametrize('dataset_uri', ['triviaqa_small.jsonl'])
+@pytest.mark.parametrize('num_fewshot', [0])
+@pytest.mark.parametrize('prompt_string', ['I am a prompt', ''])
+def test_qa_task_dataloader_w_null_eos(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fewshot, prompt_string):
+    pytest.importorskip('datasets')
+
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+
+    tokenizer = tiny_gpt2_tokenizer
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    batch_size = 4
+    seqlen = 512
+    tiny_gpt2_tokenizer.eos_token_id = None
+    with pytest.raises(ValueError):
+        _ = get_icl_task_dataloader('question_answering',
+                                    dataset_uri,
+                                    tokenizer,
+                                    batch_size,
+                                    max_seq_len=seqlen,
+                                    pad_tok_id=tokenizer.eos_token_id,
+                                    num_fewshot=num_fewshot,
+                                    prompt_string=prompt_string,
+                                    example_delimiter='\n',
+                                    question_prelimiter='Q: ',
+                                    continuation_delimiter='\nA:',
+                                    destination_path=str(tmp_path / f'icl_{num_fewshot}.jsonl'))
+
+
+@pytest.mark.parametrize('dataset_uri', ['triviaqa_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 2])
 @pytest.mark.parametrize('prompt_string', ['I am a prompt', ''])
 def test_qa_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fewshot, prompt_string):
@@ -545,6 +573,7 @@ def test_qa_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fews
     assert tuple(batch['attention_mask'].shape) == (batch_size, seqlen - maximum_answer_length)
     assert batch['mode'] == 'generate'
     # the maximum generation length from the small test data
+
     assert batch['generation_length'] == maximum_answer_length
     assert all(item[0] == tokenizer.eos_token_id for item in batch['input_ids'])
 
@@ -559,6 +588,7 @@ def test_qa_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fews
         for found, expected in zip(batch['labels'], [['David Seville'], ['Skorpio', 'Scorpio']]))
     assert decoded_batch[0].endswith('Q: Who was the man behind The Chipmunks?\nA:')
     assert decoded_batch[1].endswith('Q: What star sign is Jamie Lee Curtis?\nA:')
+    assert 'eos_token_id' in batch['generation_kwargs']
 
 
 @pytest.mark.parametrize('dataset_uri', ['gsm8k_small.jsonl'])

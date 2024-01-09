@@ -17,11 +17,10 @@ import composer
 import composer.algorithms
 from composer import Algorithm
 from composer.algorithms import (EMA, SAM, SWA, Alibi, AugMix, BlurPool, ChannelsLast, ColOut, CutMix, CutOut,
-                                 Factorize, FusedLayerNorm, GatedLinearUnits, GhostBatchNorm, GradientClipping,
-                                 GyroDropout, LabelSmoothing, LayerFreezing, LowPrecisionGroupNorm,
-                                 LowPrecisionLayerNorm, MixUp, NoOpModel, ProgressiveResizing, RandAugment,
-                                 SelectiveBackprop, SeqLengthWarmup, SqueezeExcite, StochasticDepth,
-                                 WeightStandardization)
+                                 Factorize, GatedLinearUnits, GhostBatchNorm, GradientClipping, GyroDropout,
+                                 LabelSmoothing, LayerFreezing, LowPrecisionGroupNorm, LowPrecisionLayerNorm, MixUp,
+                                 NoOpModel, ProgressiveResizing, RandAugment, SelectiveBackprop, SeqLengthWarmup,
+                                 SqueezeExcite, StochasticDepth, WeightStandardization)
 from composer.models import composer_resnet
 from composer.models.base import ComposerModel
 from composer.utils import dist
@@ -113,7 +112,6 @@ _settings: Dict[Type[Algorithm], Optional[Dict[str, Any]]] = {
         },
     },
     Factorize: simple_resnet_settings,
-    FusedLayerNorm: simple_bert_settings,
     GatedLinearUnits: simple_bert_settings,
     GhostBatchNorm: {
         'model': (SimpleConvModel, {
@@ -285,10 +283,6 @@ def get_algs_with_marks():
             # TODO(Landen): Fix
             marks.append(
                 pytest.mark.filterwarnings(r'ignore:Some targets have less than 1 total probability:UserWarning'))
-
-        if alg_cls == FusedLayerNorm:
-            # FusedLayerNorm requires a GPU in order for the class to exist
-            marks.append(pytest.mark.gpu)
 
         if alg_cls == SelectiveBackprop:
             marks.append(
