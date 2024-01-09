@@ -125,8 +125,13 @@ def zero_and_freeze_expand_position_embeddings(
         if not isinstance(old_weight, torch.nn.Parameter):
             raise TypeError(f'Module {module._get_name()}, position embedding {position_embedding_attribute}, '
                             f"'weight' attribute must be of type torch.nn.Module")
-        old_weight.requires_grad = False
-        old_weight.zero_()
+        new_weight = torch.nn.Parameter(
+            torch.zeros((max_sequence_length, old_weight.shape[1]),
+                        dtype=old_weight.dtype,
+                        layout=old_weight.layout,
+                        device=old_weight.device))
+        new_weight.requires_grad = False
+        setattr(pos_embedding_module, 'weight', new_weight)
 
         log.info(f' Position embedding expanded to sequence length {max_sequence_length}, zeroed, and frozen')
 

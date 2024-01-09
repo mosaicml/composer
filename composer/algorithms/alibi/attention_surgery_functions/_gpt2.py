@@ -1,6 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
+import copy
 from types import MethodType
 from typing import Tuple
 
@@ -17,8 +18,9 @@ def gpt2_embedding_converter(module: torch.nn.Module, module_index: int, max_seq
     assert isinstance(module, GPT2Model)
     del module_index  # unused
 
-    zero_and_freeze_expand_position_embeddings(module, max_sequence_length, position_embedding_attribute='wpe')
-    return module
+    new_module = copy.deepcopy(module)
+    zero_and_freeze_expand_position_embeddings(new_module, max_sequence_length, position_embedding_attribute='wpe')
+    return new_module
 
 
 @policy_registry.register(GPT2Attention)

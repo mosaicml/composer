@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import math
+import copy
 from types import MethodType
 from typing import Optional, Tuple
 
@@ -20,13 +21,14 @@ def bert_embedding_converter(module: torch.nn.Module, module_index: int, max_seq
     """
     assert isinstance(module, (BertEmbeddings, RobertaEmbeddings))
     del module_index  # unused
-    zero_and_freeze_expand_position_embeddings(module,
+    new_module = copy.deepcopy(module)
+    zero_and_freeze_expand_position_embeddings(new_module,
                                                max_sequence_length,
                                                position_embedding_attribute='position_embeddings')
 
-    module_device = next(module.parameters()).device
-    module.register_buffer('position_ids', torch.arange(max_sequence_length).expand((1, -1)).to(module_device))
-    return module
+    module_device = next(new_module.parameters()).device
+    new_module.register_buffer('position_ids', torch.arange(max_sequence_length).expand((1, -1)).to(module_device))
+    return new_module
 
 
 @policy_registry.register(BertSelfAttention, RobertaSelfAttention)
