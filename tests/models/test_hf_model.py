@@ -1223,6 +1223,7 @@ def test_peft_init_not_installed(tiny_gpt2_model, gpt2_peft_config):
             from composer.models import HuggingFaceModel
             _ = HuggingFaceModel(tiny_gpt2_model, peft_config=gpt2_peft_config)
 
+
 @pytest.mark.parametrize('just_lora', [True, False])
 def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, just_lora):
     pytest.importorskip('peft')
@@ -1282,6 +1283,7 @@ def test_peft_metadata(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config):
     loaded_peft_config = get_peft_config(metadata['model']['peft_config']['content'])
 
     assert loaded_peft_config == gpt2_peft_config
+
 
 @pytest.mark.parametrize('just_lora', [True, False])
 def test_peft_write_hf_from_composer(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, just_lora):
@@ -1369,11 +1371,14 @@ def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config
         for p1, p2 in zip(trainer.state.model.parameters(), load_trainer.state.model.parameters()):
             torch.testing.assert_close(p1, p2)
 
+
 def test_filtered_state_dict(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path):
     pytest.importorskip('peft')
 
-    hf_model = HuggingFaceModel(tiny_gpt2_model, tokenizer=tiny_gpt2_tokenizer, peft_config=gpt2_peft_config, peft_filter_state_dict_trainable=True)
+    hf_model = HuggingFaceModel(tiny_gpt2_model,
+                                tokenizer=tiny_gpt2_tokenizer,
+                                peft_config=gpt2_peft_config,
+                                peft_filter_state_dict_trainable=True)
     state_dict = hf_model.state_dict()
 
     assert len(state_dict.keys()) == 4
-

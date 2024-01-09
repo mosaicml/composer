@@ -169,12 +169,12 @@ class HuggingFaceModel(ComposerModel):
     def state_dict(self, *args, **kwargs) -> Dict[str, Any]:
         """Returns the state dict of the model."""
         full_state_dict = super().state_dict(*args, **kwargs)
-        
+
         if self.peft_filter_state_dict_trainable:
-            full_state_dict = filter_state_dict_peft(full_state_dict, self.model.peft_config[self.model.active_adapter], False)
+            full_state_dict = filter_state_dict_peft(full_state_dict, self.model.peft_config[self.model.active_adapter],
+                                                     False)
 
         return full_state_dict
-
 
     @staticmethod
     def load_huggingface_tokenizer_from_saved_state(
@@ -803,7 +803,10 @@ def write_huggingface_pretrained_from_composer_checkpoint(
     else:
         torch.save(weights_state_dict, Path(output_folder) / 'pytorch_model.bin')
 
-def filter_state_dict_peft(state_dict: Dict[str, Any], peft_config: 'PeftConfig', remove_adapter_names: bool = True) -> Dict[str, Any]:
+
+def filter_state_dict_peft(state_dict: Dict[str, Any],
+                           peft_config: 'PeftConfig',
+                           remove_adapter_names: bool = True) -> Dict[str, Any]:
     # Filtering copied from https://github.com/huggingface/peft/blob/4186c9b104644fd247a4cc0dc2dfc1ede4665204/src/peft/utils/save_and_load.py#L68C1-L86C116
     bias = peft_config.bias
     if bias == 'none':
@@ -821,7 +824,7 @@ def filter_state_dict_peft(state_dict: Dict[str, Any], peft_config: 'PeftConfig'
     else:
         raise NotImplementedError
     to_return = {k: v for k, v in to_return.items() if (('lora_' in k and 'default' in k) or ('bias' in k))}
-    
+
     if remove_adapter_names:
         to_return = {k.replace(f'.default', ''): v for k, v in to_return.items()}
     return to_return
