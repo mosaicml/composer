@@ -65,6 +65,7 @@ def _load_checkpoint(filename: Union[str, pathlib.Path]):
 
 
 def _assert_checkpoints_equivalent(file1, file2, atol=0.0, rtol=0.0):
+    # TODO: consider merging with _assert_checkpoints_equal
     checkpoint_1 = _load_checkpoint(file1)
     checkpoint_2 = _load_checkpoint(file2)
 
@@ -84,6 +85,10 @@ def _assert_checkpoints_equivalent(file1, file2, atol=0.0, rtol=0.0):
     for ckpt in [checkpoint_1, checkpoint_2]:
         if 'DummyStatefulCallback' in ckpt['state']['callbacks']:
             del ckpt['state']['callbacks']['DummyStatefulCallback']
+
+    # Remove all saved checkpoints to timestamp (accumulates between runs)
+    del checkpoint_1['state']['callbacks']['CheckpointSaver']['all_saved_checkpoints_to_timestamp']
+    del checkpoint_2['state']['callbacks']['CheckpointSaver']['all_saved_checkpoints_to_timestamp']
 
     deep_compare(checkpoint_1, checkpoint_2, atol=atol, rtol=rtol)
 
