@@ -97,9 +97,8 @@ class HuggingFaceModel(ComposerModel):
         self.config = model.config
         self.model_forward_args = inspect.getfullargspec(self.model.forward).args
         self.tokenizer = tokenizer
-        self.peft_config = peft_config
 
-        if self.peft_config is not None:
+        if peft_config is not None:
             try:
                 import peft
                 del peft
@@ -165,8 +164,9 @@ class HuggingFaceModel(ComposerModel):
 
         self.dummy_forward_called = False
 
-        if self.peft_config is not None:
-            self.model = get_peft_model(self.model, self.peft_config)
+        if peft_config is not None:
+            from peft import get_peft_model
+            self.model = get_peft_model(self.model, peft_config)
             log.info(f'PEFT model created. {self.model}')
 
     @staticmethod
