@@ -1325,6 +1325,8 @@ def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config
         'verbose': False
     }
 
+    stashed_model = copy.deepcopy(tiny_gpt2_model)
+
     trainer = get_lm_trainer(
         tiny_gpt2_model,
         tiny_gpt2_tokenizer,
@@ -1337,7 +1339,7 @@ def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config
     trainer.fit()
 
     load_trainer = get_lm_trainer(
-        tiny_gpt2_model,
+        stashed_model,
         tiny_gpt2_tokenizer,
         str(tmp_path),
         peft_config=gpt2_peft_config,
