@@ -1343,6 +1343,8 @@ def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
     rank0_path = Path(gathered_paths[0])
 
+    print(torch.load(str(rank0_path / 'hf-checkpoint.pt')))
+
     load_trainer = get_lm_trainer(
         stashed_model,
         tiny_gpt2_tokenizer,
