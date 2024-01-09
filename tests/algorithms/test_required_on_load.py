@@ -23,9 +23,6 @@ def initialize_algorithm(algo_cls: Type):
         return algo_cls(max_sequence_length=1)
     elif algo_cls == algorithms.StochasticDepth:
         return algo_cls(target_layer_name='ResNetBottleneck')
-    elif algo_cls == algorithms.LowPrecisionLayerNorm:
-        pytest.importorskip('apex')
-        return algo_cls()
     elif algo_cls == algorithms.GatedLinearUnits:
         pytest.importorskip('transformers')
         return algo_cls()
@@ -76,16 +73,26 @@ def compare_models(model_1: torch.nn.Module, model_2: torch.nn.Module, is_equal:
             assert torch.equal(tensor0, tensor1)
 
 
+def get_required_on_load_algorithms_with_marks():
+    algo_names = []
+    for algo_name in algorithms.__all__:
+        algo_cls = getattr(algorithms, algo_name)
+        if issubclass(algo_cls, Algorithm) and algo_cls.required_on_load():
+            if algo_name in ['LowPrecisionLayerNorm', 'LowPrecisionGroupNorm']:
+                algo_names.append(pytest.param(algo_name, marks=pytest.mark.gpu))
+            elif algo_name != 'NoOpModel':
+                algo_names.append(algo_name)
+    return algo_names
+
+
 @pytest.mark.filterwarnings('ignore:No instances of')
 @pytest.mark.filterwarnings('ignore:Low Precision .* only applies to AMP_FP16 and AMP_BF16 precisions.*')
-@pytest.mark.parametrize('algo_name', algorithms.__all__)
+@pytest.mark.parametrize('algo_name', get_required_on_load_algorithms_with_marks())
 def test_idempotent(algo_name: str, tiny_bert_config):
     algo_cls = getattr(algorithms, algo_name)
     if issubclass(algo_cls, Algorithm) and algo_cls.required_on_load():
         if algo_name == 'GyroDropout':
             pytest.skip('GyroDropout does surgery on fit start as it requires dataloader len')
-        if algo_name == 'LowPrecisionGroupNorm':
-            pytest.skip('LowPrecisionGroupNorm does not run on CPU')
 
         algorithm = initialize_algorithm(algo_cls)
 
@@ -97,6 +104,8 @@ def test_idempotent(algo_name: str, tiny_bert_config):
             from composer.models import HuggingFaceModel
             hf_model = transformers.AutoModelForSequenceClassification.from_config(tiny_bert_config)
             original_model = HuggingFaceModel(hf_model, use_logits=True)
+        elif algo_name == 'LowPrecisionGroupNorm':
+            original_model = SimpleConvModel(norm='group')
         else:
             original_model = ConvModel()
         applied_once_model = Trainer(
@@ -115,7 +124,7 @@ def test_idempotent(algo_name: str, tiny_bert_config):
 @pytest.mark.filterwarnings('ignore:GyroDropout is not implemented in a way that.*:UserWarning')
 @pytest.mark.filterwarnings('ignore:No instances of torch.nn..*Norm found.*')
 @pytest.mark.filterwarnings('ignore:Low Precision .* only applies to AMP_FP16 and AMP_BF16 precisions.*')
-@pytest.mark.parametrize('algo_name', [algo for algo in algorithms.__all__ if algo != 'NoOpModel'])
+@pytest.mark.parametrize('algo_name', get_required_on_load_algorithms_with_marks())
 @pytest.mark.parametrize('load_weights_only,already_added,exclude', [
     [False, False, False],
     [True, False, False],
