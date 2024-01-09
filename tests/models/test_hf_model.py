@@ -1344,10 +1344,6 @@ def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config
     trainer.fit()
     trainer.close()
 
-    tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
-    gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
-    rank0_path = Path(gathered_paths[0])
-
     load_trainer = get_lm_trainer(
         stashed_model,
         tiny_gpt2_tokenizer,
@@ -1355,7 +1351,7 @@ def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config
         peft_config=gpt2_peft_config,
         device_train_microbatch_size=1,
         mlm=False,
-        load_path=str(rank0_path / 'hf-checkpoint.pt'),
+        load_path=str(tmp_path / 'hf-checkpoint.pt'),
         fsdp_config=fsdp_config,
     )
 
