@@ -1247,7 +1247,7 @@ class State(Serializable):
             model_state_dict = state_dict.get('model', {})
             optimizer, optim_state_dict = [], {}
             if not load_model_only:
-                optimizer = optimizer = ensure_tuple(self.optimizers)[0]
+                optimizer = ensure_tuple(self.optimizers)[0]
                 optim_state_dict = state_dict['optimizers'].get(type(optimizer).__qualname__, {})
             set_state_dict(
                 self.model,
