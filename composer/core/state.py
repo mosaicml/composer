@@ -916,9 +916,6 @@ class State(Serializable):
                 options=StateDictOptions(
                     full_state_dict=self.fsdp_state_dict_type != 'sharded',
                     cpu_offload=True,
-                    ignore_frozen_params=True,
-                    keep_submodule_prefixes=True,
-                    strict=True,
                 ),
             )
             optim_state_dict = {type(optimizer).__qualname__: optim_state_dict}
@@ -1257,7 +1254,7 @@ class State(Serializable):
                 optimizers=optimizer,
                 model_state_dict=model_state_dict,
                 optim_state_dict=optim_state_dict,
-                options=StateDictOptions(strict=strict),
+                options=StateDictOptions(strict=strict, cpu_offload=True),
             )
         else:
             self._legacy_load_model_state(state_dict, strict)

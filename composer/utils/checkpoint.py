@@ -969,8 +969,7 @@ def save_checkpoint(
         import torch.distributed.checkpoint as dist_cp
         from torch.distributed import get_process_group_ranks
 
-        log.debug('Saving sharded checkpoints to %s...', save_filename)
-        log.warning('starting pytorch save state dict')
+        log.debug(f'Saving sharded checkpoints to {save_filename}...')
         device_mesh = state.fsdp_device_mesh
         if device_mesh is not None and device_mesh.ndim == 2:
             expect_file = (device_mesh.get_local_rank(mesh_dim=0) == 0)
@@ -997,7 +996,7 @@ def save_checkpoint(
                     planner=save_planner,
                     process_group=process_group,
                 )
-        log.warning('finished pytorch save state dict')
+        log.debug('Finished pytorch save state dict')
 
     # Only rank 0 saves the state_dict unless you are using sharded checkpointing with torch <2.0
     elif dist.get_global_rank() == 0 or state.fsdp_sharded_state_dict_enabled:
@@ -1015,9 +1014,7 @@ def save_checkpoint(
     else:
         log.debug(f'Only rank 0 is saving a checkpoint, so rank {dist.get_global_rank()} skips checkpointing.')
 
-    log.warning('starting dist barrier')
     dist.barrier()  # ensure all ranks saved their files
-    log.warning('finished dist barrier')
 
     if expect_file:
         assert os.path.exists(save_filename), 'Expected file to have been saved.'
