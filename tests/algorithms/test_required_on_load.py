@@ -12,9 +12,9 @@ import torch
 
 from composer import Trainer, algorithms
 from composer.callbacks import CheckpointSaver
-from composer.core import Algorithm, Time, TimeUnit  # type: ignore imports used in `eval(representation)`
+from composer.core import Algorithm, Event, Time, TimeUnit  # type: ignore imports used in `eval(representation)`
 from composer.models import ComposerClassifier, ComposerModel, composer_resnet
-from tests.common import ConvModel
+from tests.common import ConvModel, SimpleConvModel
 
 
 def initialize_algorithm(algo_cls: Type):
@@ -23,9 +23,6 @@ def initialize_algorithm(algo_cls: Type):
         return algo_cls(max_sequence_length=1)
     elif algo_cls == algorithms.StochasticDepth:
         return algo_cls(target_layer_name='ResNetBottleneck')
-    elif algo_cls == algorithms.FusedLayerNorm or algorithms.LowPrecisionLayerNorm:
-        pytest.importorskip('apex')
-        return algo_cls()
     elif algo_cls == algorithms.GatedLinearUnits:
         pytest.importorskip('transformers')
         return algo_cls()
@@ -38,12 +35,14 @@ def initialize_algorithm(algo_cls: Type):
 
 
 @pytest.mark.parametrize('algo_name', algorithms.__all__)
+@pytest.mark.filterwarnings('ignore:GyroDropout is not implemented in a way that.*:UserWarning')
 def test_required_on_load_has_repr(algo_name: str):
     algo_cls = getattr(algorithms, algo_name)
     if issubclass(algo_cls, Algorithm) and algo_cls.required_on_load():
         representation = repr(initialize_algorithm(algo_cls))
         # Default repr prints memory address
         assert 'at 0x' not in representation
+        print(representation)
         eval(f'algorithms.{representation}')
 
 
@@ -74,11 +73,27 @@ def compare_models(model_1: torch.nn.Module, model_2: torch.nn.Module, is_equal:
             assert torch.equal(tensor0, tensor1)
 
 
+def get_required_on_load_algorithms_with_marks():
+    algo_names = []
+    for algo_name in algorithms.__all__:
+        algo_cls = getattr(algorithms, algo_name)
+        if issubclass(algo_cls, Algorithm) and algo_cls.required_on_load():
+            if algo_name in ['LowPrecisionLayerNorm', 'LowPrecisionGroupNorm']:
+                algo_names.append(pytest.param(algo_name, marks=pytest.mark.gpu))
+            elif algo_name != 'NoOpModel':
+                algo_names.append(algo_name)
+    return algo_names
+
+
 @pytest.mark.filterwarnings('ignore:No instances of')
-@pytest.mark.parametrize('algo_name', algorithms.__all__)
+@pytest.mark.filterwarnings('ignore:Low Precision .* only applies to AMP_FP16 and AMP_BF16 precisions.*')
+@pytest.mark.parametrize('algo_name', get_required_on_load_algorithms_with_marks())
 def test_idempotent(algo_name: str, tiny_bert_config):
     algo_cls = getattr(algorithms, algo_name)
     if issubclass(algo_cls, Algorithm) and algo_cls.required_on_load():
+        if algo_name == 'GyroDropout':
+            pytest.skip('GyroDropout does surgery on fit start as it requires dataloader len')
+
         algorithm = initialize_algorithm(algo_cls)
 
         original_model = None
@@ -89,6 +104,8 @@ def test_idempotent(algo_name: str, tiny_bert_config):
             from composer.models import HuggingFaceModel
             hf_model = transformers.AutoModelForSequenceClassification.from_config(tiny_bert_config)
             original_model = HuggingFaceModel(hf_model, use_logits=True)
+        elif algo_name == 'LowPrecisionGroupNorm':
+            original_model = SimpleConvModel(norm='group')
         else:
             original_model = ConvModel()
         applied_once_model = Trainer(
@@ -104,7 +121,10 @@ def test_idempotent(algo_name: str, tiny_bert_config):
         compare_models(applied_once_model, applied_twice_model, is_equal=True)  # Multiple applications are no-ops
 
 
-@pytest.mark.parametrize('algo_name', algorithms.__all__)
+@pytest.mark.filterwarnings('ignore:GyroDropout is not implemented in a way that.*:UserWarning')
+@pytest.mark.filterwarnings('ignore:No instances of torch.nn..*Norm found.*')
+@pytest.mark.filterwarnings('ignore:Low Precision .* only applies to AMP_FP16 and AMP_BF16 precisions.*')
+@pytest.mark.parametrize('algo_name', get_required_on_load_algorithms_with_marks())
 @pytest.mark.parametrize('load_weights_only,already_added,exclude', [
     [False, False, False],
     [True, False, False],
@@ -128,10 +148,12 @@ def test_autoload(algo_name: str, load_weights_only: bool, already_added: bool, 
         else:
             original_model = ConvModel()
 
-        trainer1 = Trainer(model=copy.deepcopy(original_model),
-                           algorithms=algorithm,
-                           save_folder=str(tmp_path),
-                           save_filename='ckpt.pt')
+        trainer1 = Trainer(
+            model=copy.deepcopy(original_model),
+            algorithms=algorithm,
+            save_folder=str(tmp_path),
+            save_filename='ckpt.pt',
+        )
         checkpoint_saver = [cb for cb in trainer1.state.callbacks if isinstance(cb, CheckpointSaver)][0]
         checkpoint_saver._save_checkpoint(trainer1.state, trainer1.logger)
 
