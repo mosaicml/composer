@@ -13,7 +13,6 @@ import random
 import string
 import tempfile
 import textwrap
-import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple, Type, Union
 
@@ -25,17 +24,16 @@ from composer.models.base import ComposerModel
 from composer.utils import MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp, safe_torch_load
 
 try:
-    from peft import get_peft_model, PeftModel
+    from peft import get_peft_model
     _peft_installed = True
 except:
     _peft_installed = False
 
 if TYPE_CHECKING:
     import transformers
+    from peft import PeftConfig, PeftModel
     from transformers import PretrainedConfig
     from transformers.models.auto.auto_factory import _BaseAutoModelClass
-
-    from peft import PeftConfig
 
 log = logging.getLogger(__name__)
 
@@ -75,7 +73,7 @@ class HuggingFaceModel(ComposerModel):
     """
 
     def __init__(self,
-                 model: transformers.PreTrainedModel,
+                 model: Union[transformers.PreTrainedModel, 'PeftModel'],
                  tokenizer: Optional[Union[transformers.PreTrainedTokenizer,
                                            transformers.PreTrainedTokenizerFast]] = None,
                  use_logits: Optional[bool] = False,
@@ -94,21 +92,19 @@ class HuggingFaceModel(ComposerModel):
 
         super().__init__()
         self.model = model
-        self.config = model.config
+        self.config: PretrainedConfig = model.config
         self.model_forward_args = inspect.getfullargspec(self.model.forward).args
         self.tokenizer = tokenizer
 
         if peft_config is not None:
-            try:
-                import peft
-                del peft
-            except ImportError as e:
+            if not _peft_installed:
                 raise MissingConditionalImportError(extra_deps_group='peft',
                                                     conda_package='peft',
-                                                    conda_channel='conda-forge') from e
+                                                    conda_channel='conda-forge')
 
         if peft_config is not None and peft_config.peft_type != 'LORA':
-            raise ValueError(f'PEFT type {peft_config.peft_type} is not supported by HuggingFaceModel. Only LORA is supported.')
+            raise ValueError(
+                f'PEFT type {peft_config.peft_type} is not supported by HuggingFaceModel. Only LORA is supported.')
 
         if self.tokenizer is None:
             log.warning(
@@ -165,7 +161,6 @@ class HuggingFaceModel(ComposerModel):
         self.dummy_forward_called = False
 
         if peft_config is not None:
-            from peft import get_peft_model
             self.model = get_peft_model(self.model, peft_config)
             log.info(f'PEFT model created. {self.model}')
 
@@ -456,7 +451,8 @@ class HuggingFaceModel(ComposerModel):
 
             # HF encoder decoder models like T5 expect either decoder_input_ids or labels,
             # so we add decoder_input_ids to the batch if it is missing
-            if self.model.config.is_encoder_decoder and 'decoder_input_ids' not in batch:
+            model_config: PretrainedConfig = self.model.config
+            if model_config.is_encoder_decoder and 'decoder_input_ids' not in batch:
                 if hasattr(self.model, 'prepare_decoder_input_ids_from_labels'):
                     batch['decoder_input_ids'] = self.model.prepare_decoder_input_ids_from_labels(labels=self.labels)
                 else:
@@ -512,7 +508,9 @@ class HuggingFaceModel(ComposerModel):
             tmp_dir = Path(tmp_dir)
             model_dir = tmp_dir / 'model'
             tokenizer_dir = tmp_dir / 'tokenizer'
-            self.model.config.save_pretrained(model_dir)
+
+            original_model_config: PretrainedConfig = self.model.config
+            original_model_config.save_pretrained(model_dir)
             if self.tokenizer is not None:
                 self.tokenizer.save_pretrained(tokenizer_dir)
 
@@ -525,18 +523,19 @@ class HuggingFaceModel(ComposerModel):
                 'class': f'{self.model.__class__.__module__}.{self.model.__class__.__name__}'
             }
 
-            # Also save PEFT config the model is a peft model
+            # Also save PEFT config if the model is a peft model
             if _peft_installed:
-                active_adapter = self.model.active_adapter
-                self.model.peft_config[active_adapter].save_pretrained(model_dir)
-                with open(model_dir / 'adapter_config.json') as _peft_config:
-                    peft_config = json.load(_peft_config)
-                
-                model_output['peft_config'] = {
-                    'file_extension': '.json',
-                    'content': peft_config,
-                }
+                from peft import PeftModel
+                if isinstance(self.model, PeftModel):
+                    active_adapter = self.model.active_adapter
+                    self.model.peft_config[active_adapter].save_pretrained(str(model_dir))
+                    with open(model_dir / 'adapter_config.json') as _peft_config:
+                        peft_config = json.load(_peft_config)
 
+                    model_output['peft_config'] = {
+                        'file_extension': '.json',
+                        'content': peft_config,
+                    }
 
             if self.tokenizer is not None:
                 for tokenizer_file_name in tokenizer_dir.iterdir():
@@ -592,7 +591,8 @@ class HuggingFaceModel(ComposerModel):
         if not using_torch_2() and not self.dummy_forward_called and is_model_fsdp(self.model):
             with torch.no_grad():
                 maybe_decoder_input_ids = {}
-                if self.model.config.is_encoder_decoder:
+                model_config: PretrainedConfig = self.model.config
+                if model_config.is_encoder_decoder:
                     maybe_decoder_input_ids['decoder_input_ids'] = torch.tensor([[0]],
                                                                                 dtype=torch.long,
                                                                                 device=input_ids.device)
@@ -676,6 +676,7 @@ def get_hf_config_from_composer_state_dict(state_dict: Dict[str, Any],
                 f'Please make sure that the model_type={hf_config_dict.get("model_type")} is valid, or that the'
                 f'config has a valid `_name_or_path`.')
 
+
 def get_peft_config_from_composer_state_dict(state_dict: Dict[str, Any]) -> Optional['PeftConfig']:
     """Get a PEFT config from a composer state dict
 
@@ -684,12 +685,11 @@ def get_peft_config_from_composer_state_dict(state_dict: Dict[str, Any]) -> Opti
 
     Returns:
         peft.PeftConfig: The PEFT config
-    """    
+    """
     try:
         import peft
     except ImportError as e:
-        raise MissingConditionalImportError(extra_deps_group='nlp',
-                                            conda_package='peft',
+        raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='peft',
                                             conda_channel='conda-forge') from e
 
     if 'peft_config' not in state_dict['state']['integrations']['huggingface']['model']:
@@ -698,6 +698,7 @@ def get_peft_config_from_composer_state_dict(state_dict: Dict[str, Any]) -> Opti
     peft_config_dict = state_dict['state']['integrations']['huggingface']['model']['peft_config']['content']
 
     return peft.get_peft_config(peft_config_dict)
+
 
 def write_huggingface_pretrained_from_composer_checkpoint(
         checkpoint_path: Union[Path, str],
@@ -777,32 +778,32 @@ def write_huggingface_pretrained_from_composer_checkpoint(
 
     peft_config = get_peft_config_from_composer_state_dict(composer_state_dict)
     if peft_config is not None:
-        peft_config.save_pretrained(output_folder)
+        peft_config.save_pretrained(str(output_folder))
 
     weights_state_dict = composer_state_dict['state']['model']
     torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(weights_state_dict, prefix='model.')
-    
+
     # NOTE: This only works for default adapter name
     if peft_config is not None:
         # Filtering copied from https://github.com/huggingface/peft/blob/4186c9b104644fd247a4cc0dc2dfc1ede4665204/src/peft/utils/save_and_load.py#L68C1-L86C116
         bias = peft_config.bias
-        if bias == "none":
-            to_return = {k: weights_state_dict[k] for k in weights_state_dict if "lora_" in k}
-        elif bias == "all":
-            to_return = {k: weights_state_dict[k] for k in weights_state_dict if "lora_" in k or "bias" in k}
-        elif bias == "lora_only":
+        if bias == 'none':
+            to_return = {k: weights_state_dict[k] for k in weights_state_dict if 'lora_' in k}
+        elif bias == 'all':
+            to_return = {k: weights_state_dict[k] for k in weights_state_dict if 'lora_' in k or 'bias' in k}
+        elif bias == 'lora_only':
             to_return = {}
             for k in weights_state_dict:
-                if "lora_" in k:
+                if 'lora_' in k:
                     to_return[k] = weights_state_dict[k]
-                    bias_name = k.split("lora_")[0] + "bias"
+                    bias_name = k.split('lora_')[0] + 'bias'
                     if bias_name in weights_state_dict:
                         to_return[bias_name] = weights_state_dict[bias_name]
         else:
             raise NotImplementedError
-        to_return = {k: v for k, v in to_return.items() if (("lora_" in k and 'default' in k) or ("bias" in k))}
-        to_return = {k.replace(f".default", ""): v for k, v in to_return.items()}
-        
+        to_return = {k: v for k, v in to_return.items() if (('lora_' in k and 'default' in k) or ('bias' in k))}
+        to_return = {k.replace(f'.default', ''): v for k, v in to_return.items()}
+
         torch.save(to_return, Path(output_folder) / 'adapter_model.bin')
     else:
         torch.save(weights_state_dict, Path(output_folder) / 'pytorch_model.bin')
