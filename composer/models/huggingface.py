@@ -81,7 +81,8 @@ class HuggingFaceModel(ComposerModel):
                  eval_metrics: Optional[List[Metric]] = None,
                  shift_labels: Optional[bool] = None,
                  allow_embedding_resizing: bool = False,
-                 peft_config: Optional['PeftConfig'] = None) -> None:
+                 peft_config: Optional['PeftConfig'] = None,
+                 peft_filter_state_dict_trainable: bool = False) -> None:
         try:
             import transformers
             del transformers  # unused
@@ -96,6 +97,7 @@ class HuggingFaceModel(ComposerModel):
         self.model_forward_args = inspect.getfullargspec(self.model.forward).args
         self.tokenizer = tokenizer
 
+        self.peft_filter_state_dict_trainable = peft_filter_state_dict_trainable
         if peft_config is not None:
             if not _peft_installed:
                 raise MissingConditionalImportError(extra_deps_group='peft',
@@ -163,6 +165,16 @@ class HuggingFaceModel(ComposerModel):
         if peft_config is not None:
             self.model = get_peft_model(self.model, peft_config)
             log.info(f'PEFT model created. {self.model}')
+
+    def state_dict(self, *args, **kwargs) -> Dict[str, Any]:
+        """Returns the state dict of the model."""
+        full_state_dict = super().state_dict(*args, **kwargs)
+        
+        if self.peft_filter_state_dict_trainable:
+            full_state_dict = filter_state_dict_peft(full_state_dict, self.model.peft_config[self.model.active_adapter], False)
+
+        return full_state_dict
+
 
     @staticmethod
     def load_huggingface_tokenizer_from_saved_state(
@@ -785,25 +797,31 @@ def write_huggingface_pretrained_from_composer_checkpoint(
 
     # NOTE: This only works for default adapter name
     if peft_config is not None:
-        # Filtering copied from https://github.com/huggingface/peft/blob/4186c9b104644fd247a4cc0dc2dfc1ede4665204/src/peft/utils/save_and_load.py#L68C1-L86C116
-        bias = peft_config.bias
-        if bias == 'none':
-            to_return = {k: weights_state_dict[k] for k in weights_state_dict if 'lora_' in k}
-        elif bias == 'all':
-            to_return = {k: weights_state_dict[k] for k in weights_state_dict if 'lora_' in k or 'bias' in k}
-        elif bias == 'lora_only':
-            to_return = {}
-            for k in weights_state_dict:
-                if 'lora_' in k:
-                    to_return[k] = weights_state_dict[k]
-                    bias_name = k.split('lora_')[0] + 'bias'
-                    if bias_name in weights_state_dict:
-                        to_return[bias_name] = weights_state_dict[bias_name]
-        else:
-            raise NotImplementedError
-        to_return = {k: v for k, v in to_return.items() if (('lora_' in k and 'default' in k) or ('bias' in k))}
-        to_return = {k.replace(f'.default', ''): v for k, v in to_return.items()}
+        weights_state_dict = filter_state_dict_peft(weights_state_dict, peft_config)
 
-        torch.save(to_return, Path(output_folder) / 'adapter_model.bin')
+        torch.save(weights_state_dict, Path(output_folder) / 'adapter_model.bin')
     else:
         torch.save(weights_state_dict, Path(output_folder) / 'pytorch_model.bin')
+
+def filter_state_dict_peft(state_dict: Dict[str, Any], peft_config: 'PeftConfig', remove_adapter_names: bool = True) -> Dict[str, Any]:
+    # Filtering copied from https://github.com/huggingface/peft/blob/4186c9b104644fd247a4cc0dc2dfc1ede4665204/src/peft/utils/save_and_load.py#L68C1-L86C116
+    bias = peft_config.bias
+    if bias == 'none':
+        to_return = {k: state_dict[k] for k in state_dict if 'lora_' in k}
+    elif bias == 'all':
+        to_return = {k: state_dict[k] for k in state_dict if 'lora_' in k or 'bias' in k}
+    elif bias == 'lora_only':
+        to_return = {}
+        for k in state_dict:
+            if 'lora_' in k:
+                to_return[k] = state_dict[k]
+                bias_name = k.split('lora_')[0] + 'bias'
+                if bias_name in state_dict:
+                    to_return[bias_name] = state_dict[bias_name]
+    else:
+        raise NotImplementedError
+    to_return = {k: v for k, v in to_return.items() if (('lora_' in k and 'default' in k) or ('bias' in k))}
+    
+    if remove_adapter_names:
+        to_return = {k.replace(f'.default', ''): v for k, v in to_return.items()}
+    return to_return
