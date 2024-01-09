@@ -278,7 +278,7 @@ def prepare_fsdp_module(
                 from torch.distributed._tensor import init_device_mesh
                 kwargs['device_mesh'] = init_device_mesh(
                     'cuda',
-                    tuple(fsdp_config['device_mesh']),
+                    tuple([int(x) for x in fsdp_config['device_mesh']]),
                 )
 
     # necessary variables for optimizers with multiple param groups in FSDP
