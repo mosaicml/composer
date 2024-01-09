@@ -53,7 +53,7 @@ class UCObjectStore(ObjectStore):
         try:
             from databricks.sdk import WorkspaceClient
         except ImportError as e:
-            raise MissingConditionalImportError('databricks', conda_package='databricks-sdk>=0.8.0,<1.0') from e
+            raise MissingConditionalImportError('databricks', conda_package='databricks-sdk>=0.15.0,<1.0') from e
 
         try:
             self.client = WorkspaceClient()
@@ -167,7 +167,10 @@ class UCObjectStore(ObjectStore):
         try:
             from databricks.sdk.core import DatabricksError
             try:
-                with self.client.files.download(self._get_object_path(object_name)).contents as resp:
+                contents = self.client.files.download(self._get_object_path(object_name)).contents
+                assert contents is not None
+
+                with contents as resp:  # pyright: ignore
                     with open(tmp_path, 'wb') as f:
                         # Chunk the data into multiple blocks of 64MB to avoid
                         # OOMs when downloading really large files
@@ -199,11 +202,15 @@ class UCObjectStore(ObjectStore):
 
         Raises:
             FileNotFoundError: If the file was not found in the object store.
+            IsADirectoryError: If the object is a directory, not a file.
         """
         from databricks.sdk.core import DatabricksError
         try:
             file_info = self.client.files.get_status(self._get_object_path(object_name))
-            return file_info.file_size
+            if file_info.is_dir:
+                raise IsADirectoryError(f'{object_name} is a UC directory, not a file.')
+
+            return file_info.file_size  # pyright: ignore
         except DatabricksError as e:
             _wrap_errors(self.get_uri(object_name), e)
 
@@ -231,6 +238,7 @@ class UCObjectStore(ObjectStore):
                                              path=self._UC_VOLUME_LIST_API_ENDPOINT,
                                              data=data,
                                              headers={'Source': 'mosaicml/composer'})
+            assert isinstance(resp, dict)
             return [f['path'] for f in resp.get('files', []) if not f['is_dir']]
         except DatabricksError as e:
             _wrap_errors(self.get_uri(prefix), e)
