@@ -232,7 +232,7 @@ def prepare_fsdp_module(
     set_fsdp_default(fsdp_config)
 
     # Check sync_module_states is True for mixed initialization or HSDP
-    if fsdp_config['sync_module_states'] == False and not fsdp_config.get('force_sync_module_states', False):
+    if fsdp_config['sync_module_states'] == False:
         rank_on_meta = 1 if next(model.parameters()).device.type == 'meta' else 0
         all_ranks_meta = device.tensor_to_device(torch.tensor([rank_on_meta], dtype=torch.uint8))
         dist.all_reduce(all_ranks_meta, reduce_operation='MIN')
@@ -278,7 +278,7 @@ def prepare_fsdp_module(
                 from torch.distributed._tensor import init_device_mesh
                 kwargs['device_mesh'] = init_device_mesh(
                     'cuda',
-                    tuple(fsdp_config['device_mesh']),
+                    tuple([int(x) for x in fsdp_config['device_mesh']]),
                 )
 
     # necessary variables for optimizers with multiple param groups in FSDP
