@@ -26,12 +26,13 @@ from composer.utils import dist, is_model_fsdp
 from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset, RandomTextRegressionDataset
 from tests.common.markers import device, world_size
 from tests.common.models import (configure_tiny_bert_model, configure_tiny_bert_tokenizer, configure_tiny_gpt2_model,
-                                 configure_tiny_gpt2_tokenizer, configure_tiny_t5_model, configure_tiny_t5_tokenizer,
-                                 configure_tiny_mistral_model, configure_tiny_mistral_tokenizer,)
+                                 configure_tiny_gpt2_tokenizer, configure_tiny_mistral_model,
+                                 configure_tiny_mistral_tokenizer, configure_tiny_t5_model, configure_tiny_t5_tokenizer)
 from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
 
 if TYPE_CHECKING:
     from peft import PeftConfig
+
 
 def _gpt2_peft_config():
     pytest.importorskip('peft')
@@ -45,9 +46,11 @@ def _gpt2_peft_config():
     })
     return peft_config
 
+
 @pytest.fixture
 def gpt2_peft_config():
     return _gpt2_peft_config()
+
 
 def _mistral_peft_config():
     pytest.importorskip('peft')
@@ -60,9 +63,11 @@ def _mistral_peft_config():
     })
     return peft_config
 
+
 @pytest.fixture
 def mistral_peft_config():
     return _mistral_peft_config()
+
 
 def test_hf_tokenizer_save(tmp_path: Path, tiny_bert_model, tiny_bert_tokenizer):
     transformers = pytest.importorskip('transformers')
@@ -1237,6 +1242,7 @@ def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_c
 
     for p1, p2 in zip(trainer.state.model.parameters(), load_trainer.state.model.parameters()):
         torch.testing.assert_close(p1, p2)
+
 
 @pytest.mark.parametrize('model,tokenizer,peft_config', [
     (configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer, _gpt2_peft_config()),

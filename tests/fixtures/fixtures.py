@@ -323,7 +323,13 @@ def _session_tiny_t5_model(_session_tiny_t5_config):  # type: ignore
 def tiny_mistral_config_helper():
     transformers = pytest.importorskip('transformers')
 
-    tiny_overrides = {'hidden_size': 128, 'intermediate_size': 256, 'num_attention_heads': 8, 'num_hidden_layers': 2, 'num_kv_heads': 4}
+    tiny_overrides = {
+        'hidden_size': 128,
+        'intermediate_size': 256,
+        'num_attention_heads': 8,
+        'num_hidden_layers': 2,
+        'num_kv_heads': 4
+    }
     return transformers.AutoConfig.from_pretrained('mistralai/Mistral-7B-v0.1', **tiny_overrides)
 
 
@@ -349,9 +355,11 @@ def tiny_mistral_model_helper(config):
 
     return transformers.AutoModelForCausalLM.from_config(config)
 
+
 @pytest.fixture(scope='session')
 def _session_tiny_t5_model(_session_tiny_t5_config):  # type: ignore
     return tiny_t5_model_helper(_session_tiny_t5_config)
+
 
 @pytest.fixture
 def tiny_bert_model(_session_tiny_bert_model):
@@ -427,13 +435,16 @@ def tiny_t5_tokenizer(_session_tiny_t5_tokenizer):
 def tiny_t5_model(_session_tiny_t5_model):
     return copy.deepcopy(_session_tiny_t5_model)
 
+
 @pytest.fixture
 def tiny_mistral_config(_session_tiny_mistral_config):
     return copy.deepcopy(_session_tiny_mistral_config)
 
+
 @pytest.fixture
 def tiny_mistral_tokenizer(_session_tiny_mistral_tokenizer):
     return copy.deepcopy(_session_tiny_mistral_tokenizer)
+
 
 @pytest.fixture
 def tiny_mistral_model(_session_tiny_mistral_model):
