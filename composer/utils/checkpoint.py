@@ -886,9 +886,29 @@ def _restore_checkpoint(
         return state_dict.get('rng', None)
 
 
-def save_checkpoint(
+def get_save_filename(
     state: State,
     filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
+) -> str:
+    if not state.fsdp_sharded_state_dict_enabled:
+        is_deepspeed = is_model_deepspeed(state.model)
+        return PartialFilePath(filename).format(state, is_deepspeed)
+
+    # Sharded checkpoints get their own little folder.
+    assert state.sharded_ckpt_prefix_dir is not None
+    save_dirpath = Path(Path(filename).parent) / Path(state.sharded_ckpt_prefix_dir)
+    save_dirpath = format_name_with_dist_and_time(str(save_dirpath), state.run_name, state.timestamp)
+    # New name is now Trainer.save_folder / sharded_ckpt_prefix_dir / __{dist.get_global_rank()}_0.distcp’ if torch > 2
+    # else Trainer.save_folder / sharded_ckpt_prefix_dir / ba{batch}_rank{dist.get_global_rank()}.pt’
+    # e.g. path/to/my/checkpoints/ep1-ba2/__1_0.distcp if torch >2 else its path/to/my/checkpoints/ep1-ba2/b2-rank1.pt
+    ckpt_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME if using_torch_2() else format_name_with_dist_and_time(
+        Path(filename).name, state.run_name, state.timestamp)
+    return str(Path(save_dirpath) / Path(ckpt_filename))
+
+
+def _save_checkpoint(
+    state: State,
+    save_filename: str,
     *,
     weights_only: bool = False,
 ) -> Union[str, None]:  # noqa: D103
@@ -910,9 +930,6 @@ def save_checkpoint(
             'rng': reproducibility.get_rng_state(),
         }
 
-    log.debug('State dict created.')
-
-    # Sharded checkpoints get their own little folder.
     if state.fsdp_sharded_state_dict_enabled:
         # To load optimizer states with 2.0 <= torch < 2.1.3 , the optimizer state must be at the top
         # level of the state dict because the load_sharded_optimizer_state_dict function
@@ -922,19 +939,7 @@ def save_checkpoint(
         if using_torch_2() and version.parse(torch.__version__) < version.parse('2.1.3'):
             if not weights_only:
                 state_dict['optimizers'] = state_dict['state'].pop('optimizers')
-
-        # Specify save directory path and save_f
-        assert state.sharded_ckpt_prefix_dir is not None
-        save_dirpath = Path(Path(filename).parent) / Path(state.sharded_ckpt_prefix_dir)
-        save_dirpath = format_name_with_dist_and_time(str(save_dirpath), state.run_name, state.timestamp)
-        # New name is now Trainer.save_folder / sharded_ckpt_prefix_dir / __{dist.get_global_rank()}_0.distcp’ if torch > 2
-        # else Trainer.save_folder / sharded_ckpt_prefix_dir / ba{batch}_rank{dist.get_global_rank()}.pt’
-        # e.g. path/to/my/checkpoints/ep1-ba2/__1_0.distcp if torch >2 else its path/to/my/checkpoints/ep1-ba2/b2-rank1.pt
-        ckpt_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME if using_torch_2() else format_name_with_dist_and_time(
-            Path(filename).name, state.run_name, state.timestamp)
-        save_filename = str(Path(save_dirpath) / Path(ckpt_filename))
-    else:
-        save_filename = PartialFilePath(filename).format(state, is_deepspeed)
+    log.debug('State dict created.')
 
     dirname = os.path.dirname(save_filename)
     if dirname:
@@ -1051,6 +1056,16 @@ def _save_deepspeed_model(model, filename: str):
 
         with tarfile.open(filename, write_mode) as tar:
             tar.add(tmpdir, arcname='')
+
+
+def save_checkpoint(
+    state: State,
+    filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
+    *,
+    weights_only: bool = False,
+) -> Union[str, None]:  # noqa: D103
+    save_filename = get_save_filename(state, filename)
+    return _save_checkpoint(state, save_filename, weights_only=weights_only)
 
 
 save_checkpoint.__doc__ = f"""Checkpoint the training ``state``.
