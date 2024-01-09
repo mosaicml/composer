@@ -435,12 +435,12 @@ def load_sharded_checkpoint(
                 algorithm_passes=algorithm_passes,
             )
 
-            # 2. Optionally load optimizer
-            if not load_weights_only:
-                optim_state = load_sharded_optimizer_state_dict(model_state_dict=state.state_dict()['model'],
-                                                                optimizer_key='optimizers',
-                                                                storage_reader=storage_reader)
-                state.load_optim_state(optim_state)
+            # # 2. Optionally load optimizer
+            # if not load_weights_only:
+            #     optim_state = load_sharded_optimizer_state_dict(model_state_dict=state.state_dict()['model'],
+            #                                                     optimizer_key='optimizers',
+            #                                                     storage_reader=storage_reader)
+            #     state.load_optim_state(optim_state)
 
         # 3. Optionally load RNG
         rng_state_dicts = reproducibility.get_rng_state()
