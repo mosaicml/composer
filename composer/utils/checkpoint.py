@@ -974,10 +974,11 @@ def save_checkpoint(
         device_mesh = state.fsdp_device_mesh
         if device_mesh is not None and device_mesh.ndim == 2:
             expect_file = (device_mesh.get_local_rank(mesh_dim=0) == 0)
-            process_group = device_mesh.get_group(1)  # Only save on first replica
-            log.debug(
-                f'global_rank={dist.get_global_rank()}, {expect_file=}, process_group={get_process_group_ranks(process_group)}'
-            )
+            if expect_file:
+                process_group = device_mesh.get_group(1)  # Only save on first replica
+                log.debug(
+                    f'global_rank={dist.get_global_rank()}, {expect_file=}, process_group={get_process_group_ranks(process_group)}'
+                )
         else:
             expect_file = True
 
