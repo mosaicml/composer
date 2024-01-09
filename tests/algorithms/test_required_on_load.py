@@ -5,6 +5,7 @@ import contextlib
 import copy
 import os
 import pathlib
+from packaging import version
 from typing import Type
 
 import pytest
@@ -163,14 +164,18 @@ def test_autoload(algo_name: str, load_weights_only: bool, already_added: bool, 
             context = pytest.warns(UserWarning, match='Automatically adding required_on_load algorithm*')
         # Excluding some algorithms leads to errors when loading
         elif exclude:
-            if algo_name in ['Factorize', 'SqueezeExcite']:
-                context = pytest.raises(
-                    ValueError,
-                    match=
-                    "loaded state dict contains a parameter group that doesn't match the size of optimizer's group",
-                )
-            elif algo_name == 'Alibi':
-                context = pytest.raises(RuntimeError)
+            if version.parse(torch.__version__) > version.parse('2.1.3'):
+                if algo_name in ['BlurPool', 'Factorize', 'GatedLinearUnits', 'GhostBatchNorm', 'SqueezeExcite']:
+                    context = pytest.raises(KeyError)  # Optimizer loading is strict
+            else:
+                if algo_name in ['Factorize', 'SqueezeExcite']:
+                    context = pytest.raises(
+                        ValueError,
+                        match=
+                        "loaded state dict contains a parameter group that doesn't match the size of optimizer's group",
+                    )
+                elif algo_name == 'Alibi':
+                    context = pytest.raises(RuntimeError)
 
         with context:
             trainer2 = Trainer(
