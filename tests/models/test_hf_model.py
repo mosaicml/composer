@@ -527,7 +527,7 @@ def get_lm_trainer(hf_model,
 
     in_memory_logger = InMemoryLogger()
     trainer = Trainer(model=model,
-                      optimizer=optimizer,
+                      optimizers=optimizer,
                       train_dataloader=train_dataloader,
                       eval_dataloader=eval_dataloader,
                       max_duration='1ep',
