@@ -5,11 +5,11 @@ import contextlib
 import copy
 import os
 import pathlib
-from packaging import version
 from typing import Type
 
 import pytest
 import torch
+from packaging import version
 
 from composer import Trainer, algorithms
 from composer.callbacks import CheckpointSaver
