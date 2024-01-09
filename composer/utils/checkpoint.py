@@ -413,13 +413,13 @@ def load_sharded_checkpoint(
             Raises:
                 ValueError if the data file is invalid.
             """
-            already_read = set()
+            validated_checkpoint_paths = set()
             for read_item in plan.items:
                 data_path = self.path / self.storage_data[read_item.storage_index].relative_path
-                if data_path in already_read:
+                if data_path in validated_checkpoint_paths:
                     continue
                 _ensure_valid_checkpoint(data_path)
-                already_read.add(data_path)
+                validated_checkpoint_paths.add(data_path)
             return super().read_data(plan, planner)
 
         def read_metadata(self) -> Metadata:
