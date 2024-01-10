@@ -468,7 +468,7 @@ def main():
 
     processes = {}
 
-    log_tmpdir = 'logs'
+    log_tmpdir = '/logs'
     if args.stdout is None:
         args.stdout = f'{log_tmpdir}/rank{{rank}}.stdout.txt'
     if args.stderr is None:
