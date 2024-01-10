@@ -1273,6 +1273,8 @@ class MTBench(InContextLearningDataset):
         batch_mapping = {
             'question_id': 'question_id',
             'category': 'category',
+            'reference_answer_one':'reference_answer_one',
+            'reference_answer_two': 'reference_answer_two',
             'untokenized_prompt_one': 'untokenized_prompt_one',
             'untokenized_prompt_two': 'untokenized_prompt_two',
             'input_ids': 'tokenized_prompt_one',
