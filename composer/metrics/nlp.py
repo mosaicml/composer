@@ -893,7 +893,7 @@ class MTBenchJudge(InContextLearningMetric):
 
     BASE_EQUIVALENCE_PROMPT = """"""
     BASE_USER_INPOUT = """"""
-    SINGLE_V1_SYSTEM_PROMPT = "You are a helpful assistant."
+    SINGLE_V1_SYSTEM_PROMPT = 'You are a helpful assistant.'
     SINGLE_V1 = "[Instruction]\nPlease act as an impartial judge and evaluate the quality of the response provided by an AI assistant to the user question displayed below. Your evaluation should consider factors such as the helpfulness, relevance, accuracy, depth, creativity, and level of detail of the response. Begin your evaluation by providing a short explanation. Be as objective as possible. After providing your explanation, you must rate the response on a scale of 1 to 10 by strictly following this format: \"[[rating]]\", for example: \"Rating: [[5]]\".\n\n[Question]\n{question}\n\n[The Start of Assistant's Answer]\n{answer}\n[The End of Assistant's Answer]"
     SINGLE_V1_MATH = "[Instruction]\nPlease act as an impartial judge and evaluate the quality of the response provided by an AI assistant to the user question displayed below. Your evaluation should consider correctness and helpfulness. You will be given a reference answer and the assistant's answer. Begin your evaluation by comparing the assistant's answer with the reference answer. Identify and correct any mistakes. Be as objective as possible. After providing your explanation, you must rate the response on a scale of 1 to 10 by strictly following this format: \"[[rating]]\", for example: \"Rating: [[5]]\".\n\n[Question]\n{question}\n\n[The Start of Reference Answer]\n{ref_answer_1}\n[The End of Reference Answer]\n\n[The Start of Assistant's Answer]\n{answer}\n[The End of Assistant's Answer]"
 
@@ -902,8 +902,8 @@ class MTBenchJudge(InContextLearningMetric):
     SINGLE_V1_MATH_MULTI_TURN_TEMPLATE_SYSTEM_PROMPT = "Please act as an impartial judge and evaluate the quality of the response provided by an AI assistant to the user question. Your evaluation should consider correctness and helpfulness. You will be given a reference answer and the assistant's answer. You evaluation should focus on the assistant's answer to the second question. Begin your evaluation by comparing the assistant's answer with the reference answer. Identify and correct any mistakes. Be as objective as possible. After providing your explanation, you must rate the response on a scale of 1 to 10 by strictly following this format: \"[[rating]]\", for example: \"Rating: [[5]]\".\n\n"
     SINGLE_V1_MATH_MULTI_TURN_TEMPLATE = "<|The Start of Reference Answer|>\n\n### User:\n{question_1}\n\n### Reference answer:\n{ref_answer_1}\n\n### User:\n{question_2}\n\n### Reference answer:\n{ref_answer_2}\n\n<|The End of Reference Answer|>\n\n\n<|The Start of Assistant A's Conversation with User|>\n\n### User:\n{question_1}\n\n### Assistant A:\n{answer_1}\n\n### User:\n{question_2}\n\n### Assistant A:\n{answer_2}\n\n<|The End of Assistant A's Conversation with User|>"
 
-    ONE_SCORE_PATTERN = re.compile("\[\[(\d+\.?\d*)\]\]")
-    ONE_SCORE_PATTERN_BACKUP = re.compile("\[(\d+\.?\d*)\]")
+    ONE_SCORE_PATTERN = re.compile('\[\[(\d+\.?\d*)\]\]')
+    ONE_SCORE_PATTERN_BACKUP = re.compile('\[(\d+\.?\d*)\]')
 
     def __init__(self, dist_sync_on_step: bool = False, tokenizer: Optional[Any] = None, prompt: Optional[str] = None):
         # state from multiple processes
@@ -940,37 +940,51 @@ class MTBenchJudge(InContextLearningMetric):
                                                 conda_channel='conda-forge') from e
         self.client = OpenAI()
 
-    def call_judge(self, prompt_one, prompt_two, first_generation, second_generation, category, reference_answer_one=None, reference_answer_two=None) -> List[str]:
+    def call_judge(self,
+                   prompt_one,
+                   prompt_two,
+                   first_generation,
+                   second_generation,
+                   category,
+                   reference_answer_one=None,
+                   reference_answer_two=None) -> List[str]:
         # if sample_answer.startswith(' '):
         #     sample_answer = sample_answer.lstrip()
 
-        if category == "math":
+        if category == 'math':
             system_prompt = deepcopy(self.SINGLE_V1_MATH_MULTI_TURN_TEMPLATE_SYSTEM_PROMPT)
             template = deepcopy(self.SINGLE_V1_MATH_MULTI_TURN_TEMPLATE)
-            formatted_template = template.format(question_1=prompt_one, question_2=prompt_two, answer_1=first_generation, answer_2=second_generation)
+            formatted_template = template.format(question_1=prompt_one,
+                                                 question_2=prompt_two,
+                                                 answer_1=first_generation,
+                                                 answer_2=second_generation)
         else:
             system_prompt = deepcopy(self.MULTI_TURN_SYSTEM_PROMPT)
             template = deepcopy(self.SINGLE_V1_MULTI_TURN_TEMPLATE)
-            formatted_template = template.format(question_1=prompt_one, question_2=prompt_two, answer_1=first_generation, answer_2=second_generation, ref_answer_1=reference_answer_one, ref_answer_2=reference_answer_two)
+            formatted_template = template.format(question_1=prompt_one,
+                                                 question_2=prompt_two,
+                                                 answer_1=first_generation,
+                                                 answer_2=second_generation,
+                                                 ref_answer_1=reference_answer_one,
+                                                 ref_answer_2=reference_answer_two)
 
-        response = self.client.chat.completions.create(
-            model='gpt-3.5-turbo',
-            messages=[{
-                'role': 'system',
-                'content': system_prompt
-            }, {
-                'role': 'user',
-                'content': formatted_template
-            }],
-            max_tokens=100)
+        response = self.client.chat.completions.create(model='gpt-3.5-turbo',
+                                                       messages=[{
+                                                           'role': 'system',
+                                                           'content': system_prompt
+                                                       }, {
+                                                           'role': 'user',
+                                                           'content': formatted_template
+                                                       }],
+                                                       max_tokens=100)
 
         return response.choices[0].message.content
 
     def update(self, batch: Dict[str, Any], outputs: List[str]):
         if not self.client:
             self.init_openai()
-        for i, first_generation in enumerate(outputs["generation_one"]):
-            second_generation = outputs["generation_two"][i]
+        for i, first_generation in enumerate(outputs['generation_one']):
+            second_generation = outputs['generation_two'][i]
             prompt_one = batch['untokenized_prompt_one']
             prompt_two = batch['untokenized_prompt_two']
             result = self.call_judge(prompt_one, prompt_two, first_generation, second_generation, batch['category'][i])
@@ -992,39 +1006,38 @@ class MTBenchJudge(InContextLearningMetric):
         self.client = None
 
     def update_category_score(self, category, score):
-        if category == "math":
+        if category == 'math':
             self.math_total += 1
-            self.math_score += score 
-        elif category == "writing":
+            self.math_score += score
+        elif category == 'writing':
             self.writing_total += 1
             self.writing_score += score
-        elif category == "roleplay":
+        elif category == 'roleplay':
             self.roleplay_total += 1
-            self.roleplay_score += score 
-        elif category == "reasoning":
+            self.roleplay_score += score
+        elif category == 'reasoning':
             self.reasoning_total += 1
             self.reasoning_score += score
-        elif category == "coding":
+        elif category == 'coding':
             self.coding_total += 1
             self.coding_score += score
-        elif category == "extraction":
+        elif category == 'extraction':
             self.extraction_total += 1
             self.extraction_score += score
-        elif category == "stem":
+        elif category == 'stem':
             self.stem_total += 1
             self.stem_score += score
-        elif category == "humanities":
+        elif category == 'humanities':
             self.humanities_total += 1
             self.humanities_score += score
 
-
     def compute(self):
-        print(self.math_score / self.math_total)
-        print(self.writing_score / self.writing_total)
-        print(self.roleplay_score / self.roleplay_total)
-        print(self.reasoning_score / self.reasoning_total)
-        print(self.coding_score / self.coding_total)
-        print(self.extraction_score / self.extraction_total)
-        print(self.stem_score / self.stem_total)
-        print(self.humanties_score / self.humanities_total)
+        log.info(self.math_score / self.math_total)
+        log.info(self.writing_score / self.writing_total)
+        log.info(self.roleplay_score / self.roleplay_total)
+        log.info(self.reasoning_score / self.reasoning_total)
+        log.info(self.coding_score / self.coding_total)
+        log.info(self.extraction_score / self.extraction_total)
+        log.info(self.stem_score / self.stem_total)
+        log.info(self.humanities_score / self.humanities_total)
         return self.all_scores / self.total

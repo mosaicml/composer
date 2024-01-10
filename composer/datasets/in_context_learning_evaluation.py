@@ -1213,12 +1213,14 @@ class IFEval(InContextLearningDataset):
         if self.strip_data:
             # rstrip context because a prompt ending in a space results in degenerate output
             ctxt = ctxt.rstrip()
-        tokenized_context = self.tokenizer.apply_chat_template([{
-            'role': 'user',
-            'content': ctxt
-        }],
-                                                               tokenize=True,
-                                                               add_generation_prompt=True)
+        tokenized_context = self.tokenizer.apply_chat_template(
+            [{
+                'role': 'user',
+                'content': ctxt
+            }],
+            tokenize=True,
+            add_generation_prompt=True,
+        )
 
         trimmed_context = _trim_context(tokenized_context, [], self.padding_size)
         padded_context = _make_padded_input(trimmed_context, [], self.padding_size, self.pad_tok_id, self.padding_side)
@@ -1291,15 +1293,18 @@ class MTBench(InContextLearningDataset):
         self.max_prompt_one_length = self.get_max_prompt_length(index='tokenized_prompt_one')
         self.max_prompt_two_length = self.get_max_prompt_length(index='tokenized_prompt_two')
         self.base_batch = {
-            'mode': 'mtbench',
+            'mode':
+                'mtbench',
             'question_id': [],
             'category': [],
             'untokenized_prompt_one': [],
             'untokenized_prompt_two': [],
             'input_ids': [],
             'tokenized_prompt_two': [],
-            'generation_length': int((self.max_seq_len / 2) - (self.max_prompt_one_length + self.max_prompt_two_length)),
-            'padding_token': self.pad_tok_id
+            'generation_length':
+                int((self.max_seq_len / 2) - (self.max_prompt_one_length + self.max_prompt_two_length)),
+            'padding_token':
+                self.pad_tok_id
         }
         self._update_generation_kwargs(kwargs.get('generation_kwargs'))
         self.padding_size = self.max_prompt_one_length
