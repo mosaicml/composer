@@ -41,6 +41,9 @@ def test_wandb_logger(tmp_path, dummy_state):
     pytest.importorskip('wandb', reason='wandb is optional')
     os.environ['WANDB_DIR'] = str(tmp_path)
     os.environ['WANDB_MODE'] = 'offline'
+    os.environ['WANDB_DISABLE_GIT'] = 'true'
+    os.environ['WANDB_PROGRAM'] = ''
+    os.environ['WANDB_DISABLE_CODE'] = 'true'
     dummy_state.run_name = 'wandb-test-log-image'
     logger = Logger(dummy_state, [])
     wandb_logger = WandBLogger()

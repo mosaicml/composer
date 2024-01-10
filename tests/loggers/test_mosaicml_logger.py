@@ -6,6 +6,7 @@ from concurrent.futures import Future
 from typing import Type
 from unittest.mock import MagicMock
 
+import os
 import mcli
 import pytest
 import torch
@@ -221,6 +222,7 @@ def test_wandb_run_url(monkeypatch):
 
     run_url = 'my_run_url'
     monkeypatch.setenv('WANDB_MODE', 'offline')
+    os.environ['WANDB_DISABLE_GIT'] = 'true'
 
     Trainer(model=SimpleModel(), loggers=[
         MosaicMLLogger(),
