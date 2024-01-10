@@ -964,7 +964,6 @@ class InContextLearningCodeEvalDataset(Dataset):
         pass_at_k: int = 1,
         top_p: Optional[float] = 0.95,
         top_k: Optional[int] = 40,
-        early_stopping_criteria: Optional[List[str]] = None,
     ):
         if tokenizer.eos_token_id is None:
             raise ValueError('`InContextLearningCodeEvalDataset` tokenizer must have non-null `eos_token_id`')
@@ -978,7 +977,6 @@ class InContextLearningCodeEvalDataset(Dataset):
             if dist.get_local_rank() == 0:
                 get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
-        self.early_stopping_criteria = early_stopping_criteria
         self.samples = list(
             dataset.map(
                 lambda examples: {
@@ -1116,9 +1114,6 @@ class InContextLearningCodeEvalDataset(Dataset):
             test_outputs.append(test_output)
             languages.append(language)
 
-        stopping_criteria = None
-        if self.early_stopping_criteria:
-            stopping_criteria = stop_sequences_criteria(self.tokenizer, self.early_stopping_criteria, len(inputs))
         batch = {
             'input_ids': torch.stack(inputs),
             'mode': 'generate',
@@ -1140,7 +1135,6 @@ class InContextLearningCodeEvalDataset(Dataset):
                 'top_p': self.top_p,
                 'top_k': self.top_k,
                 'use_cache': True,
-                'stopping_criteria': stopping_criteria,
                 'eos_token_id': self.tokenizer.eos_token_id
             }
         }
@@ -1265,8 +1259,7 @@ def build_icl_dataloader(
                                                    code_prelimiter=question_prelimiter,
                                                    fewshot_random_seed=fewshot_random_seed,
                                                    pass_at_k=pass_at_k,
-                                                   generations_per_sample=generations_per_sample,
-                                                   early_stopping_criteria=early_stopping_criteria)
+                                                   generations_per_sample=generations_per_sample)
         effective_batchsize = batch_size
     else:
         raise Exception(f'Unrecognized ICL task type: {icl_task_type}')
