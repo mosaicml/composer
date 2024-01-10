@@ -243,11 +243,6 @@ def prepare_fsdp_module(
                              'gpu and some ranks are on meta. Either keep all ranks on the same '
                              "device or set fsdp_config['sync_module_states'] = True. Otherwise, "
                              'some weights may be randomly initialized when loading a checkpoint.')
-        # Comment out while we debug deadlock
-        # if fsdp_config['sharding_strategy'] in ('HYBRID_SHARD', '_HYBRID_SHARD_ZERO2'):
-        #     raise ValueError('HSDP (HYBRID_SHARD or _HYBRID_SHARD_ZERO2) requires '
-        #                      'fsdp_config["sync_module_states"] = True or different replicas will '
-        #                      'have different weights.')
 
     # Check if other ranks OOMed after forward/backward pass when using auto microbatching. This
     # may happen when close to memory limit or with uneven memory usage across ranks. Since we
