@@ -106,6 +106,8 @@ class NeptuneLogger(LoggerDestination):
         self._neptune_run = None
         self._base_handler = None
 
+        self._first_step_new_epoch: bool = False
+
         super(NeptuneLogger, self).__init__()
 
     @property
@@ -164,13 +166,24 @@ class NeptuneLogger(LoggerDestination):
             self.neptune_run['sys/name'] = state.run_name
             self.neptune_run[self.INTEGRATION_VERSION_KEY] = __version__
 
+    def epoch_end(self, state: State, logger: Logger) -> None:
+        del state  # unused
+        del logger  # unused
+
+        self._first_step_new_epoch = True
+
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
         if not self._enabled:
             return
 
         from neptune.utils import stringify_unsupported
 
-        self.base_handler[NeptuneLogger.METRIC_NAMESPACE].append(stringify_unsupported(metrics))
+        # avoid duplicating step at the start of a new epoch
+        if self._first_step_new_epoch:
+            self._first_step_new_epoch = False
+            return
+
+        self.base_handler[NeptuneLogger.METRIC_NAMESPACE].append(stringify_unsupported(metrics), step=step)
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]) -> None:
         if not self._enabled:
