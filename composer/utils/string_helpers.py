@@ -12,7 +12,7 @@ def partial_format(s, *args, **kwargs) -> str:
     left as-is in the string.
     """
     max_iters = 10_000  # Just in case we get stuck in a loop somehow.
-    while max_iters:
+    for _ in range(max_iters):
         try:
             return s.format(*args, **kwargs)
         except IndexError as e:  # Missing positional arg
@@ -20,3 +20,5 @@ def partial_format(s, *args, **kwargs) -> str:
         except KeyError as e:  # Missing keyword arg
             key = e.args[0]
             kwargs[key] = '{' + key + '}'
+
+    raise RuntimeError(f'Failed to format string {s} after {max_iters} iterations.')
