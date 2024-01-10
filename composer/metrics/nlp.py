@@ -1032,12 +1032,13 @@ class MTBenchJudge(InContextLearningMetric):
             self.humanities_score += score
 
     def compute(self):
-        log.info(self.math_score / self.math_total)
-        log.info(self.writing_score / self.writing_total)
-        log.info(self.roleplay_score / self.roleplay_total)
-        log.info(self.reasoning_score / self.reasoning_total)
-        log.info(self.coding_score / self.coding_total)
-        log.info(self.extraction_score / self.extraction_total)
-        log.info(self.stem_score / self.stem_total)
-        log.info(self.humanities_score / self.humanities_total)
+        log.info("Math score:       ", self.math_score / self.math_total)
+        log.info("Writing score:    ", self.writing_score / self.writing_total)
+        log.info("Roleplay score:   ", self.roleplay_score / self.roleplay_total)
+        log.info("Reasoning score:  ", self.reasoning_score / self.reasoning_total)
+        log.info("Coding score:     ", self.coding_score / self.coding_total)
+        log.info("Extraction score: ", self.extraction_score / self.extraction_total)
+        log.info("STEM score:       ", self.stem_score / self.stem_total)
+        log.info("Humanities score: ", self.humanities_score / self.humanities_total)
+        log.info("Combined score:   ", self.all_scores / self.total)
         return self.all_scores / self.total
