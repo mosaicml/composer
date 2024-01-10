@@ -81,3 +81,7 @@ def patch_pytorch():
         _runtime_utils._wait_for_computation_stream = _wait_for_computation_stream
         _runtime_utils._root_pre_forward = _root_pre_forward
         FullyShardedDataParallel.forward = forward
+
+        # Monkeypatch dtensor support
+        from composer.trainer.mosaic_fsdp_utils import init_fn_t2p2p0
+        FullyShardedDataParallel.__init__ = init_fn_t2p2p0  # type: ignore
