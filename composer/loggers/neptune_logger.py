@@ -167,8 +167,7 @@ class NeptuneLogger(LoggerDestination):
             self.neptune_run[self.INTEGRATION_VERSION_KEY] = __version__
 
     def epoch_end(self, state: State, logger: Logger) -> None:
-        del state  # unused
-        del logger  # unused
+        super().epoch_end(state, logger)
 
         self._first_step_new_epoch = True
 
