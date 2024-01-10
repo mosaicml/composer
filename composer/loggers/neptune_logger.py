@@ -106,7 +106,7 @@ class NeptuneLogger(LoggerDestination):
         self._neptune_run = None
         self._base_handler = None
 
-        self._first_step_new_epoch: bool = False
+        self._current_epoch_num: int = 0
 
         super(NeptuneLogger, self).__init__()
 
@@ -166,21 +166,18 @@ class NeptuneLogger(LoggerDestination):
             self.neptune_run['sys/name'] = state.run_name
             self.neptune_run[self.INTEGRATION_VERSION_KEY] = __version__
 
-    def epoch_end(self, state: State, logger: Logger) -> None:
-        super().epoch_end(state, logger)
-
-        self._first_step_new_epoch = True
+    def epoch_start(self, state: 'State', logger: 'Logger') -> None:
+        super().epoch_start(state, logger)
+        self._current_epoch_num = state.timestamp.epoch.value
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
         if not self._enabled:
             return
 
-        # avoid duplicating step at the start of a new epoch
-        if self._first_step_new_epoch:
-            self._first_step_new_epoch = False
-            return
-
         from neptune.utils import stringify_unsupported
+
+        # adjust for duplicated step number at the end of one and beginning of the next epoch
+        step = step + self._current_epoch_num if isinstance(step, int) else step
 
         self.base_handler[NeptuneLogger.METRIC_NAMESPACE].append(stringify_unsupported(metrics), step=step)
 
