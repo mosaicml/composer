@@ -54,6 +54,7 @@ import textwrap
 import time
 import warnings
 from typing import Any, Dict, List
+from contextlib import contextmanager
 
 import numpy as np
 import torch
@@ -62,6 +63,7 @@ import torch.backends.cudnn
 from composer.utils import dist
 
 __all__ = [
+    'seed_context',
     'configure_deterministic_mode',
     'get_random_seed',
     'seed_all',
@@ -74,6 +76,15 @@ log = logging.getLogger(__name__)
 
 # seeds must be 32-bit unsigned integers
 MAX_SEED = 2**32 - 1
+
+
+@contextmanager
+def seed_context(seed: int):
+    # Context manager to store rng_state and reseed for duration of context
+    rng_state = get_rng_state()
+    seed_all(seed)
+    yield
+    load_rng_state(rng_state)
 
 
 def configure_deterministic_mode():

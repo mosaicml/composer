@@ -27,7 +27,7 @@ from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit
 from composer.devices import Device
-from composer.utils import batch_get, batch_set, dist, ensure_tuple, get_composer_env_dict, is_model_deepspeed
+from composer.utils import batch_get, batch_set, dist, ensure_tuple, get_composer_env_dict, is_model_deepspeed, reproducibility
 from composer.utils.misc import using_torch_2
 
 if TYPE_CHECKING:
@@ -1264,8 +1264,9 @@ class State(Serializable):
             assert self.fsdp_config is not None
             log.info('Wrapping model with FSDP after loading model_state.')
             from composer.trainer.dist_strategy import prepare_fsdp_module
-            prepare_fsdp_module(self.model, self.optimizers, self.fsdp_config, self.precision, self.device,
-                                self.auto_microbatching)
+            with reproducibility.seed_context(self.state.rank_zero_seed):
+                prepare_fsdp_module(self.model, self.optimizers, self.fsdp_config, self.precision, self.device,
+                                    self.auto_microbatching)
             log.debug('Finished wrapping model with FSDP.')
 
         # Legacy optimizer state load must happen after FSDP monolith
