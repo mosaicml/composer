@@ -80,7 +80,7 @@ MAX_SEED = 2**32 - 1
 
 @contextmanager
 def seed_context(seed: int):
-    # Context manager to store rng_state and reseed for duration of context
+    """Context manager to store rng_state and reseed for duration of context."""
     rng_state = get_rng_state()
     seed_all(seed)
     yield
