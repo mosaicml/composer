@@ -13,7 +13,6 @@ import logging
 import os
 import random
 import re
-import sys
 import tempfile
 import textwrap
 import time
@@ -56,7 +55,6 @@ from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectS
                             get_composer_env_dict, get_device, get_file, is_tpu_installed, map_collection,
                             maybe_create_object_store_from_uri, maybe_create_remote_uploader_downloader_from_uri,
                             model_eval_mode, parse_uri, reproducibility, using_torch_2,)
-from composer.utils.json_log_formatter import JsonLogFormatter
 from composer.utils.misc import is_model_deepspeed
 
 if is_tpu_installed():
@@ -906,12 +904,9 @@ class Trainer:
                 # 2022-06-29 11:22:26,152: rank0[822018][MainThread]: INFO: composer.trainer.trainer: Using precision Precision.FP32
                 # Including the PID and thread name to help with debugging dataloader workers and callbacks that spawn background
                 # threads / processes
-                format=f'%(asctime)s: rank{dist.get_global_rank()}[%(process)d][%(threadName)s]: %(levelname)s: %(name)s: %(message)s',
+                format=
+                f'%(asctime)s: rank{dist.get_global_rank()}[%(process)d][%(threadName)s]: %(levelname)s: %(name)s: %(message)s'
             )
-            json_formatter = JsonLogFormatter(dist.get_global_rank())
-            for handler in logging.root.handlers:
-                if hasattr(handler, 'stream') and handler.stream in [sys.stderr, sys.stdout]:
-                    handler.setFormatter(json_formatter)
             logging.getLogger('composer').setLevel(self.python_log_level.upper())
 
         algorithms = list(ensure_tuple(algorithms))
@@ -965,10 +960,7 @@ class Trainer:
         assert not isinstance(device_train_microbatch_size, str)
 
         # Distributed
-        if deepspeed_config is not None or fsdp_config is not None or dist.get_world_size() > 1:
-            # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
-            # And torch.distributed is always required for multi-rank training
-            dist.initialize_dist(device, dist_timeout)
+        dist.initialize_dist(device, dist_timeout)
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, device)

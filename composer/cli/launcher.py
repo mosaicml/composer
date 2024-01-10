@@ -21,14 +21,12 @@ import psutil
 import torch
 
 import composer
-import composer.utils.json_print
 from composer.utils import get_free_tcp_port
-from composer.utils.json_excepthook import override_excepthook
-from composer.utils.json_log_formatter import JsonLogFormatter
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
 
 log = logging.getLogger(__name__)
+
 
 def _get_parser():
     parser = ArgumentParser(description='Utility for launching distributed machine learning jobs.')
@@ -266,8 +264,6 @@ def _launch_processes(
     training_script_args: List[Any],
     processes: Dict[int, subprocess.Popen],
 ):
-    print('Launch processes called with nproc(%s), world_size(%s), base_rank(%s), node_rank(%s)', nproc, world_size,
-          base_rank, node_rank)
     log.info('Starting distributed environment on local node for global_rank(%s-%s)', base_rank, base_rank + nproc - 1)
     log.info('Distributed KV store: tcp://%s:%s', master_addr, master_port)
 
@@ -275,16 +271,13 @@ def _launch_processes(
         global_rank = base_rank + local_rank
         if command_mode and module_mode:
             raise ValueError('Either `command_mode` or `module_mode` should be set, but not both.')
-        excepthook_setup = f'from composer.utils.json_excepthook import override_excepthook; override_excepthook()'
-        json_print_setup = f'from composer.utils.json_print import json_print'
-        cmd = [sys.executable]
-
+        cmd = []
         if not command_mode:
-            cmd.append('-c')
-            cmd.append(f'{excepthook_setup}; {json_print_setup}; exec(open("{training_script}").read())')
+            cmd.append(sys.executable)
         if module_mode:
             cmd.append('-m')
-            cmd.append(training_script)
+
+        cmd.append(training_script)
 
         # Update the env with the distributed variables
         with _patch_env(
@@ -324,6 +317,7 @@ def _launch_processes(
 
                 stderr_file = _get_file(stderr_file_format)
                 stdout_file = _get_file(stdout_file_format)
+
                 process = subprocess.Popen(
                     cmd,
                     stdout=stdout_file,
@@ -470,18 +464,10 @@ def main():
 
     logging.basicConfig()
     log.setLevel(logging.INFO if args.verbose else logging.WARN)
-    json_log_formatter = JsonLogFormatter()
-    stderr_handler = logging.StreamHandler(sys.stderr)
-    stderr_handler.setFormatter(json_log_formatter)
-    log.addHandler(stderr_handler)
-    stdout_handler = logging.StreamHandler(sys.stdout)
-    stdout_handler.setFormatter(json_log_formatter)
-    log.addHandler(stdout_handler)
-    override_excepthook()
 
     processes = {}
 
-    log_tmpdir = tempfile.TemporaryDirectory()
+    log_tmpdir = "logs/"
     if args.stdout is None:
         args.stdout = f'{log_tmpdir.name}/rank{{rank}}.stdout.txt'
     if args.stderr is None:
