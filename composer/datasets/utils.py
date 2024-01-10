@@ -6,7 +6,7 @@
 import logging
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Callable, List, Tuple, Union
+from typing import TYPE_CHECKING, Callable, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -199,7 +199,7 @@ try:
             self.stop_sequence_id_len = len(self.stop_sequence_ids) + 2
             self.tokenizer = tokenizer
 
-        def __call__(self, input_ids, scores, **kwargs) -> bool:
+        def __call__(self, input_ids, scores: Optional[torch.FloatTensor] = None, **kwargs) -> bool:
             # For efficiency, we compare the last n tokens where n is the number of tokens in the stop_sequence
             lookback_ids_batch = input_ids[:, :][:, -self.stop_sequence_id_len:]
 
@@ -226,3 +226,4 @@ try:
 
 except ImportError as e:
     stop_sequences_criteria = None  # pyright: ignore [reportGeneralTypeIssues]
+    MultiTokenEOSCriteria = None  # pyright: ignore [reportGeneralTypeIssues]

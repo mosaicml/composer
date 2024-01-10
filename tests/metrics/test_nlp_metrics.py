@@ -237,12 +237,12 @@ def test_in_context_learning_qa_accuracy():
 
 def test_in_context_learning_qa_cot_accuracy():
     outputs = [
-        'chain of thought ### Correct but then some more text', 'Incorrect',
-        'chain of thought ### the CORREct with weird casing and spacing',
+        'chain of thought ### Correct but then some more text\n\nanother chain of thought ### Incorrect answer this time',
+        'Incorrect', 'chain of thought ### the CORREct with weird casing and spacing',
         'incorrect chain of thought delimiter ## Correct but wrong delimiter'
     ]
     labels = [['Correct'], ['blah', 'blah2'], ['blah', 'correct'], ['correct']]
-    batch = {'cot_delimiter': ' ### ', 'labels': labels}
+    batch = {'cot_delimiter': ' ### ', 'labels': labels, 'do_normalization': True, 'stopping_criteria': '\n\n'}
     metric = InContextLearningQAAccuracy()
     metric.update(outputs, labels, batch)
 
