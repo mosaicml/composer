@@ -497,7 +497,6 @@ def main():
         print('Killing training processes')
     finally:
         _cleanup_processes(processes)
-        log_tmpdir.cleanup()
         return _aggregate_process_returncode(processes)
 
 
