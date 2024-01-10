@@ -387,7 +387,6 @@ def test_tokenize_example_with_no_tokenize_labels(tiny_gpt2_tokenizer, tmp_path)
     tokenized_example = dl._tokenize_example('What spell does this invoke? ', 'exort exort wex\nSpell: ',
                                              {'answer': ' Meatball'})
     tokenized_input = [2061, 4822, 857, 428, 26342, 30, 220, 1069, 419, 409, 419, 356, 87, 198, 31221, 25]
-    # import IPython; IPython.embed()
     assert tokenized_example['context'][:len(tokenized_input)].tolist() == tokenized_input
     assert tokenized_example['context'][-1] == tokenizer.eos_token_id
     assert len(tokenized_example['context']) == seqlen

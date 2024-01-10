@@ -1359,8 +1359,8 @@ class MTBench(InContextLearningDataset):
             tokenized_example['reference_answer_one'] = example['reference'][0]
             tokenized_example['reference_answer_two'] = example['reference'][1]
         else:
-            tokenized_example['reference_answer_one'] = None
-            tokenized_example['reference_answer_two'] = None
+            tokenized_example['reference_answer_one'] = ''
+            tokenized_example['reference_answer_two'] = ''
 
         if self.strip_data:
             # rstrip context because a prompt ending in a space results in degenerate output
