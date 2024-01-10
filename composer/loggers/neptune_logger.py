@@ -170,7 +170,7 @@ class NeptuneLogger(LoggerDestination):
 
         from neptune.utils import stringify_unsupported
 
-        self.base_handler[NeptuneLogger.METRIC_NAMESPACE].append(stringify_unsupported(metrics), step=step)
+        self.base_handler[NeptuneLogger.METRIC_NAMESPACE].append(stringify_unsupported(metrics))
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]) -> None:
         if not self._enabled:
