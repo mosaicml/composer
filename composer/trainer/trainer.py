@@ -69,6 +69,16 @@ __all__ = ['Trainer']
 Scheduler = Union[ComposerScheduler, PyTorchScheduler]
 
 
+# Context manager that takes in a seed as an argument
+# It first saves the rng state, then sets the seed, then yields, then restores the rng state
+@contextlib.contextmanager
+def _seed_context(seed: int):
+    rng_state = reproducibility.get_rng_state()
+    reproducibility.seed_all(seed)
+    yield
+    reproducibility.load_rng_state(rng_state)
+
+
 def _raise_missing_argument_exception(arg_name: str):
     raise ValueError((f'{arg_name} is a required argument and must be specified when constructing the '
                       f'{Trainer.__name__} or when calling {Trainer.__name__}.{Trainer.fit.__name__}(). '
@@ -1293,7 +1303,8 @@ class Trainer:
 
         # FSDP wrap if not using monolith checkpoint on rank 0 only
         if self.state.fsdp_config is not None and fsdp_auto_wrap and not self.state.load_fsdp_monolith_rank0_only:
-            prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
+            with _seed_context(self.state.rank_zero_seed):
+                prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
@@ -1440,7 +1451,8 @@ class Trainer:
         # FSDP wrap if model is not yet wrapped and FSDP is enabled. This can happen if
         # load_fsdp_monolith_rank0_only=True but no checkpoint was loaded.
         if not self.state.fsdp_enabled and self.state.fsdp_config is not None and self.state.fsdp_auto_wrap and self.state.load_fsdp_monolith_rank0_only:
-            prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
+            with _seed_context(self.state.rank_zero_seed):
+                prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 
         self.engine.run_event(Event.AFTER_LOAD)
 
