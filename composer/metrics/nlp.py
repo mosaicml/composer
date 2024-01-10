@@ -987,7 +987,10 @@ class MTBenchJudge(InContextLearningMetric):
             second_generation = outputs['generation_two'][i]
             prompt_one = batch['untokenized_prompt_one']
             prompt_two = batch['untokenized_prompt_two']
-            result = self.call_judge(prompt_one, prompt_two, first_generation, second_generation, batch['category'][i])
+            try:
+                result = self.call_judge(prompt_one, prompt_two, first_generation, second_generation, batch['category'][i])
+            except:
+                return
 
             match = re.search(self.ONE_SCORE_PATTERN, result)
             if not match:

@@ -1293,10 +1293,10 @@ class MTBench(InContextLearningDataset):
         self.max_prompt_one_length = self.get_max_prompt_length(index='tokenized_prompt_one')
         self.max_prompt_two_length = self.get_max_prompt_length(index='tokenized_prompt_two')
         self.base_batch = {
-            'mode':
-                'mtbench',
+            'mode': 'mtbench',
             'question_id': [],
             'category': [],
+            # 'reference_answers': [],
             'untokenized_prompt_one': [],
             'untokenized_prompt_two': [],
             'input_ids': [],
@@ -1353,6 +1353,12 @@ class MTBench(InContextLearningDataset):
         tokenized_example['untokenized_prompt_two'] = prompt_two
         tokenized_example['question_id'] = example['question_id']
         tokenized_example['category'] = example['category']
+        ref_answers = example.get('reference', [None, None])
+        tokenized_example['reference_answer_one'] = ref_answers[0]
+        tokenized_example['reference_answer_two'] = ref_answers[1]
+        import IPython; IPython.embed()
+        # if example['category'] == ['math']:
+        #     import IPython; IPython.embed()
 
         if self.strip_data:
             # rstrip context because a prompt ending in a space results in degenerate output
