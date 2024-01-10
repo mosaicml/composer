@@ -27,7 +27,8 @@ from composer.core.precision import Precision
 from composer.core.serializable import Serializable
 from composer.core.time import Time, Timestamp, TimeUnit
 from composer.devices import Device
-from composer.utils import batch_get, batch_set, dist, ensure_tuple, get_composer_env_dict, is_model_deepspeed, reproducibility
+from composer.utils import (batch_get, batch_set, dist, ensure_tuple, get_composer_env_dict, is_model_deepspeed,
+                            reproducibility)
 from composer.utils.misc import using_torch_2
 
 if TYPE_CHECKING:
