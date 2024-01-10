@@ -987,10 +987,13 @@ class MTBenchJudge(InContextLearningMetric):
             second_generation = outputs['generation_two'][i]
             prompt_one = batch['untokenized_prompt_one']
             prompt_two = batch['untokenized_prompt_two']
-            try:
-                result = self.call_judge(prompt_one, prompt_two, first_generation, second_generation, batch['category'][i])
-            except:
-                return
+            result = self.call_judge(prompt_one=prompt_one,
+                                     prompt_two=prompt_two,
+                                     first_generation=first_generation,
+                                     second_generation=second_generation,
+                                     category=batch['category'][i],
+                                     reference_answer_one=batch['reference_answer_one'][i],
+                                     reference_answer_two=batch['reference_answer_two'][i])
 
             match = re.search(self.ONE_SCORE_PATTERN, result)
             if not match:
@@ -1035,13 +1038,13 @@ class MTBenchJudge(InContextLearningMetric):
             self.humanities_score += score
 
     def compute(self):
-        log.info("Math score:       ", self.math_score / self.math_total)
-        log.info("Writing score:    ", self.writing_score / self.writing_total)
-        log.info("Roleplay score:   ", self.roleplay_score / self.roleplay_total)
-        log.info("Reasoning score:  ", self.reasoning_score / self.reasoning_total)
-        log.info("Coding score:     ", self.coding_score / self.coding_total)
-        log.info("Extraction score: ", self.extraction_score / self.extraction_total)
-        log.info("STEM score:       ", self.stem_score / self.stem_total)
-        log.info("Humanities score: ", self.humanities_score / self.humanities_total)
-        log.info("Combined score:   ", self.all_scores / self.total)
+        log.info('Math score:       ', self.math_score / self.math_total)
+        log.info('Writing score:    ', self.writing_score / self.writing_total)
+        log.info('Roleplay score:   ', self.roleplay_score / self.roleplay_total)
+        log.info('Reasoning score:  ', self.reasoning_score / self.reasoning_total)
+        log.info('Coding score:     ', self.coding_score / self.coding_total)
+        log.info('Extraction score: ', self.extraction_score / self.extraction_total)
+        log.info('STEM score:       ', self.stem_score / self.stem_total)
+        log.info('Humanities score: ', self.humanities_score / self.humanities_total)
+        log.info('Combined score:   ', self.all_scores / self.total)
         return self.all_scores / self.total
