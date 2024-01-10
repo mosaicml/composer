@@ -175,12 +175,12 @@ class NeptuneLogger(LoggerDestination):
         if not self._enabled:
             return
 
-        from neptune.utils import stringify_unsupported
-
         # avoid duplicating step at the start of a new epoch
         if self._first_step_new_epoch:
             self._first_step_new_epoch = False
             return
+
+        from neptune.utils import stringify_unsupported
 
         self.base_handler[NeptuneLogger.METRIC_NAMESPACE].append(stringify_unsupported(metrics), step=step)
 
