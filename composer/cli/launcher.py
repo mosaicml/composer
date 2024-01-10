@@ -11,7 +11,6 @@ import os
 import signal
 import subprocess
 import sys
-import tempfile
 import time
 import traceback
 from argparse import ArgumentParser
@@ -304,7 +303,7 @@ def _launch_processes(
                     text=True,
                 )
             else:
-
+                
                 def _get_file(format: str):
                     filename = format.format(
                         rank=global_rank,
@@ -313,6 +312,8 @@ def _launch_processes(
                         local_world_size=nproc,
                         node_rank=node_rank,
                     )
+                    log.info("Attempting to open file at:", filename)
+                    log.info("Directory exists:", os.path.exists(os.path.dirname(filename)))
                     return open(filename, 'x+')
 
                 stderr_file = _get_file(stderr_file_format)
@@ -467,7 +468,7 @@ def main():
 
     processes = {}
 
-    log_tmpdir = "logs"
+    log_tmpdir = 'logs'
     if args.stdout is None:
         args.stdout = f'{log_tmpdir}/rank{{rank}}.stdout.txt'
     if args.stderr is None:
