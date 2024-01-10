@@ -2990,8 +2990,10 @@ class Trainer:
                                                 outputs.append(v.cpu())
                                             else:
                                                 outputs.append(v)
-                                    else:
+                                    elif isinstance(self.state.outputs, torch.Tensor):
                                         outputs = self.state.outputs.cpu()
+                                    else:
+                                        raise ValueError('Unsupported type for state.outputs in trainer eval loop.')
                                 else:
                                     outputs = self.state.outputs
 
