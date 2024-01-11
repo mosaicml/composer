@@ -455,7 +455,6 @@ class HuggingFaceModel(ComposerModel):
                     tokenize=True,
                     add_generation_prompt=True,
                 )
-                # input_generation_and_prompt_two = unpadded_input + gen_as_list[i] + batch['tokenized_prompt_two'][i]
                 new_inputs.append(tokenized_new_input)
             padding_size = max([len(new_input) for new_input in new_inputs])
 

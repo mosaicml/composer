@@ -975,7 +975,7 @@ class MTBenchJudge(InContextLearningMetric):
                                                            'role': 'user',
                                                            'content': formatted_template
                                                        }],
-                                                       max_tokens=100)
+                                                       max_tokens=250)
 
         return response.choices[0].message.content
 
