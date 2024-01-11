@@ -61,13 +61,13 @@ def patch_pytorch():
         from torch.distributed.fsdp import _runtime_utils
         _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
 
-        # Better overlap communication and computation
-        from composer.trainer.mosaic_fsdp_utils import (_root_pre_forward, _share_state_and_init_handle_attrs_t2p1,
-                                                        _wait_for_computation_stream, forward)
-        _runtime_utils._share_state_and_init_handle_attrs = _share_state_and_init_handle_attrs_t2p1
-        _runtime_utils._wait_for_computation_stream = _wait_for_computation_stream
-        _runtime_utils._root_pre_forward = _root_pre_forward
-        FullyShardedDataParallel.forward = forward
+        # # Better overlap communication and computation
+        # from composer.trainer.mosaic_fsdp_utils import (_root_pre_forward, _share_state_and_init_handle_attrs_t2p1,
+        #                                                 _wait_for_computation_stream, forward)
+        # _runtime_utils._share_state_and_init_handle_attrs = _share_state_and_init_handle_attrs_t2p1
+        # _runtime_utils._wait_for_computation_stream = _wait_for_computation_stream
+        # _runtime_utils._root_pre_forward = _root_pre_forward
+        # FullyShardedDataParallel.forward = forward
 
     elif version.parse(torch.__version__) < version.parse('2.2.1'):
         # Monkey patch for torch < 2.2.1 ie torch == 2.2.0
