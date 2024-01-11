@@ -164,7 +164,7 @@ extra_deps['comet_ml'] = [
 ]
 
 extra_deps['neptune'] = [
-    'neptune >= 1.6.2',
+    'neptune >= 1.6.2,<2.0.0',
 ]
 
 extra_deps['tensorboard'] = [
