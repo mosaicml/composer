@@ -967,7 +967,7 @@ class MTBenchJudge(InContextLearningMetric):
                                                  answer_1=first_generation,
                                                  answer_2=second_generation)
 
-        response = self.client.chat.completions.create(model='gpt-3.5-turbo',
+        response = self.client.chat.completions.create(model='gpt-4',
                                                        messages=[{
                                                            'role': 'system',
                                                            'content': system_prompt
