@@ -21,6 +21,7 @@ import psutil
 import torch
 
 import composer
+from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR
 from composer.utils import get_free_tcp_port
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
@@ -466,12 +467,22 @@ def main():
     log.setLevel(logging.INFO if args.verbose else logging.WARN)
 
     processes = {}
+    log_tmpdir = None
 
-    log_tmpdir = tempfile.TemporaryDirectory()
-    if args.stdout is None:
-        args.stdout = f'{log_tmpdir.name}/rank{{rank}}.stdout.txt'
-    if args.stderr is None:
-        args.stderr = f'{log_tmpdir.name}/rank{{rank}}.stderr.txt'
+    # If running on the Mosaic platform, log all gpu ranks stderr and stdout to Mosaic platform
+    if os.environ.get(MOSAICML_PLATFORM_ENV_VAR,
+                      'false').lower() == 'true' and os.environ.get(MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None:
+        log_dir = os.environ.get('MOSAICML_LOG_DIR')
+        if not log_dir:
+            log.error('MOSAICML_LOG_DIR is not set. Cannot log GPU ranks to Mosaic platform.')
+        args.stdout = f'{log_dir}/rank_{{rank}}.txt'
+        args.stderr = f'{log_dir}/rank_{{rank}}.txt'
+    else:
+        log_tmpdir = tempfile.TemporaryDirectory()
+        if not args.stdout:
+            args.stdout = f'{log_tmpdir.name}/rank{{rank}}.stdout.txt'
+        if not args.stderr:
+            args.stderr = f'{log_tmpdir.name}/rank{{rank}}.stderr.txt'
 
     try:
         _launch_processes(nproc=args.nproc,
@@ -497,7 +508,8 @@ def main():
         print('Killing training processes')
     finally:
         _cleanup_processes(processes)
-        log_tmpdir.cleanup()
+        if log_tmpdir is not None:
+            log_tmpdir.cleanup()
         return _aggregate_process_returncode(processes)
 
 
