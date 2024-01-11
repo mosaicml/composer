@@ -45,6 +45,7 @@ class Profiler:
                 def new_profiler_init(self, dummy_ellipsis=None, **kwargs):
                     if 'trace_handlers' not in kwargs:
                         kwargs['trace_handlers'] = []
+                    kwargs['torch_prof_memory_filename'] = None
                     original_profiler_init(self, **kwargs)
 
                 Profiler.__init__ = new_profiler_init
@@ -62,6 +63,7 @@ class Profiler:
                         active=4,
                         repeat=1,
                     ),
+                    torch_prof_memory_filename=None,
                 )
 
         trace_handlers (TraceHandler | Sequence[TraceHandler]): Trace handlers which record and
@@ -75,6 +77,9 @@ class Profiler:
         torch_prof_folder (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
         torch_prof_filename (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
         torch_prof_remote_file_name (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+            Additionally supports full object store paths e.g: s3://bucket/path/to/file.
+        torch_prof_memory_filename (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
+        torch_prof_memory_remote_file_name (str, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
             Additionally supports full object store paths e.g: s3://bucket/path/to/file.
         torch_prof_overwrite (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
         torch_prof_use_gzip (bool, optional): See :class:`~composer.profiler.torch_profiler.TorchProfiler`.
@@ -97,6 +102,9 @@ class Profiler:
         torch_prof_folder: str = '{run_name}/torch_traces',
         torch_prof_filename: str = 'rank{rank}.{batch}.pt.trace.json',
         torch_prof_remote_file_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
+        torch_prof_memory_filename: Optional[str] = 'rank{rank}.{batch}.pt.memory_trace.html',
+        torch_prof_memory_remote_file_name: Optional[
+            str] = '{run_name}/torch_memory_traces/rank{rank}.{batch}.pt.memory_trace.html',
         torch_prof_overwrite: bool = False,
         torch_prof_use_gzip: bool = False,
         torch_prof_record_shapes: bool = False,
@@ -116,6 +124,9 @@ class Profiler:
         if torch_prof_remote_file_name:
             self.remote_filenames.append(torch_prof_remote_file_name)
             _, _, torch_prof_remote_file_name = parse_uri(torch_prof_remote_file_name)
+        if torch_prof_memory_remote_file_name:
+            self.remote_filenames.append(torch_prof_memory_remote_file_name)
+            _, _, torch_prof_memory_remote_file_name = parse_uri(torch_prof_memory_remote_file_name)
         for handler in self._trace_handlers:
             if isinstance(handler, JSONTraceHandler):
                 if handler.remote_file_name:
@@ -134,11 +145,24 @@ class Profiler:
                                profile_net=sys_prof_net,
                                stats_thread_interval_seconds=sys_prof_stats_thread_interval_seconds))
 
+        if torch_prof_memory_filename is not None:
+            if not (torch_prof_with_stack and torch_prof_record_shapes and torch_prof_profile_memory):
+                raise ValueError(
+                    f'torch_prof_memory_filename is set. Generating the memory timeline graph requires all the three flags torch_prof_with_stack, torch_prof_record_shapes, and torch_prof_profile_memory to be true. Got torch_prof_with_stack={torch_prof_with_stack}, torch_prof_record_shapes={torch_prof_record_shapes}, torch_prof_profile_memory={torch_prof_profile_memory}'
+                )
+            log.info(
+                f'Memory profiling is enabled and uses {torch_prof_memory_filename} as the filename to generate the memory timeline graph. To disable the memory timeline graph generation, explicitly set torch_prof_memory_filename to None.'
+            )
+        else:
+            log.info(f'torch_prof_memory_filename is explicitly set to None. Memory timeline will not be be generated.')
+
         if torch_prof_record_shapes or torch_prof_profile_memory or torch_prof_with_stack or torch_prof_with_flops:
             self._callbacks.append(
                 TorchProfiler(filename=torch_prof_filename,
                               folder=torch_prof_folder,
                               remote_file_name=torch_prof_remote_file_name,
+                              memory_filename=torch_prof_memory_filename,
+                              memory_remote_file_name=torch_prof_memory_remote_file_name,
                               num_traces_to_keep=torch_prof_num_traces_to_keep,
                               overwrite=torch_prof_overwrite,
                               record_shapes=torch_prof_record_shapes,
@@ -219,7 +243,7 @@ class Profiler:
 
                 from composer.profiler import Profiler, cyclic_schedule
 
-                profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[])
+                profiler = Profiler(schedule=cyclic_schedule(), trace_handlers=[], torch_prof_memory_filename=None)
                 profiler.bind_to_state(state)
                 state.profiler = profiler
 

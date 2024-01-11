@@ -79,7 +79,9 @@ class InMemoryLogger(LoggerDestination):
             raise MissingConditionalImportError(extra_deps_group='pandas',
                                                 conda_package='pandas',
                                                 conda_channel='conda-forge') from e
-        table = pd.DataFrame.from_records(data=rows, columns=columns).to_json(orient='split', index=False)
+        table = pd.DataFrame.from_records(data=rows, columns=columns).to_json(orient='split',
+                                                                              index=False,
+                                                                              force_ascii=False)
         self.tables[name] = table
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:

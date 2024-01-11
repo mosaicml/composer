@@ -4,6 +4,7 @@
 import csv
 import json
 import os
+import time
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -284,7 +285,6 @@ def test_mlflow_log_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
         metadata={'task': 'llm/v1/completions'},
         task='text-generation',
     )
-    test_mlflow_logger._flush()
     test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(mlflow_exp_name, tracking_uri=mlflow_uri)
@@ -328,7 +328,6 @@ def test_mlflow_save_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
         metadata={'task': 'llm/v1/completions'},
         task='text-generation',
     )
-    test_mlflow_logger._flush()
     test_mlflow_logger.post_close()
 
     loaded_model = mlflow.transformers.load_model(local_mlflow_save_path, return_type='components')
@@ -372,7 +371,6 @@ def test_mlflow_register_model(tmp_path, monkeypatch):
                                              registry_uri='databricks-uc')
     assert mlflow.get_registry_uri() == 'databricks-uc'
 
-    test_mlflow_logger._flush()
     test_mlflow_logger.post_close()
 
 
@@ -411,7 +409,6 @@ def test_mlflow_register_model_non_databricks(tmp_path, monkeypatch):
                                              tags=None,
                                              registry_uri='my_registry_uri')
 
-    test_mlflow_logger._flush()
     test_mlflow_logger.post_close()
 
 
@@ -434,14 +431,17 @@ def test_mlflow_register_uc_error(tmp_path, monkeypatch):
 
 @device('cpu')
 def test_mlflow_logging_works(tmp_path, device):
-    pytest.importorskip('mlflow')
+    mlflow = pytest.importorskip('mlflow')
 
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
     experiment_name = 'mlflow_logging_test'
     test_mlflow_logger = MLFlowLogger(
         tracking_uri=mlflow_uri,
         experiment_name=experiment_name,
+        log_system_metrics=True,
     )
+    # Reduce the system metrics sampling interval to speed up the test.
+    mlflow.set_system_metrics_sampling_interval(1)
 
     dataset_size = 64
     batch_size = 4
@@ -456,7 +456,8 @@ def test_mlflow_logging_works(tmp_path, device):
                       eval_interval=eval_interval,
                       device=device)
     trainer.fit()
-    test_mlflow_logger._flush()
+    # Allow async logging to finish.
+    time.sleep(3)
     test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(
@@ -470,8 +471,10 @@ def test_mlflow_logging_works(tmp_path, device):
 
     # Test metrics logged.
     for metric_name in [
-            'metrics/train/MulticlassAccuracy', 'metrics/eval/MulticlassAccuracy', 'metrics/eval/CrossEntropy',
-            'loss/train/total'
+            'metrics/train/MulticlassAccuracy',
+            'metrics/eval/MulticlassAccuracy',
+            'metrics/eval/CrossEntropy',
+            'loss/train/total',
     ]:
         metric_file = run_file_path / Path('metrics') / Path(metric_name)
         with open(metric_file) as f:
@@ -488,6 +491,13 @@ def test_mlflow_logging_works(tmp_path, device):
         'num_cpus_per_node', 'node_name', 'num_nodes', 'rank_zero_seed', 'composer_version', 'composer_commit_hash'
     ]
     assert set(expected_params_list) == set(actual_params_list)
+
+    # Test system metrics logged.
+    metric_file = run_file_path / Path('metrics') / Path('system/cpu_utilization_percentage')
+    assert os.path.exists(metric_file)
+
+    # Undo the setup to avoid affecting other test cases.
+    mlflow.set_system_metrics_sampling_interval(None)
 
 
 @device('cpu')
@@ -527,7 +537,6 @@ def test_mlflow_log_image_works(tmp_path, device):
                       device=device)
 
     trainer.fit()
-    test_mlflow_logger._flush()
     test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(

@@ -15,6 +15,7 @@ from torch.utils.data import DataLoader, Dataset
 
 from composer.core import DataSpec
 from composer.core.data_spec import _default_split_batch, _split_list
+from composer.datasets.utils import stop_sequences_criteria
 from composer.utils import MissingConditionalImportError, dist, get_file
 
 if TYPE_CHECKING:
@@ -570,9 +571,13 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
             'answer': [],
             'cot_delimiter': self.cot_delimiter,
             'generation_length': self.max_answer_length,
+            'stopping_criteria': self.early_stopping_criteria,
+            'do_normalization': self.do_normalization,
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
-                'use_cache': True
+                'use_cache': True,
+                'stopping_criteria': stopping_criteria,
+                'eos_token_id': self.tokenizer.eos_token_id,
             }
         }
         self.batch_mapping = {'input_ids': self.context_key, 'labels': 'aliases', 'answer': 'answer'}
