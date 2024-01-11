@@ -179,19 +179,22 @@ class NeptuneLogger(LoggerDestination):
         keys_to_delete: Set[str] = set()
 
         for k in metrics:
-            if k not in self._metrics_dict:
-                self._metrics_dict[k] = step if step is not None else 0
-            else:
-                if step is not None:
-                    if step <= self._metrics_dict[k]:
-                        # we cannot insert metrics earlier than or in place of an existing metric point
-                        keys_to_delete.add(k)
-                    else:
-                        self._metrics_dict[k] = step
-                else:
-                    self._metrics_dict[k] += 1
+            self._process_single_metric(k, step, keys_to_delete)
 
         return dict(filter(lambda x: x[0] not in keys_to_delete, metrics.items()))
+
+    def _process_single_metric(self, metric_key: str, step: Optional[int], keys_to_delete: Set[str]) -> None:
+        if metric_key not in self._metrics_dict:
+            self._metrics_dict[metric_key] = step if step is not None else 0
+        else:
+            if step is not None:
+                if step <= self._metrics_dict[metric_key]:
+                    # we cannot insert metrics earlier than or in place of an existing metric point
+                    keys_to_delete.add(metric_key)
+                else:
+                    self._metrics_dict[metric_key] = step
+            else:
+                self._metrics_dict[metric_key] += 1
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
         if not self._enabled:
