@@ -473,10 +473,10 @@ def main():
     if os.environ.get(MOSAICML_PLATFORM_ENV_VAR,
                       'false').lower() == 'true' and os.environ.get(MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None:
         log_dir = os.environ.get('MOSAICML_LOG_DIR')
-        if not log_dir:
+        if log_dir is not None:
             log.error('MOSAICML_LOG_DIR is not set. Cannot log GPU ranks to Mosaic platform.')
-        args.stdout = f'{log_dir}/rank_{{rank}}.txt'
-        args.stderr = f'{log_dir}/rank_{{rank}}.txt'
+        args.stdout = f'{log_dir}/gpu_{{rank}}.txt'
+        args.stderr = f'{log_dir}/gpu_{{rank}}.txt'
     else:
         log_tmpdir = tempfile.TemporaryDirectory()
         if not args.stdout:
