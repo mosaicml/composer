@@ -24,9 +24,12 @@ if TYPE_CHECKING:
 
 try:
     import tensorrt_llm
-    TENSORRT_LLM = True
+    if tensorrt_llm.mpi_world_size() > 1:
+        TRTLLM_MULTIGPU = True
+    else:
+        TRTLLM_MULTIGPU = False
 except:
-    TENSORRT_LLM = False
+    TRTLLM_MULTIGPU = False
 
 # Allow models to have slightly more tokens than were used in the most verbose CoT in the dataset
 _MAX_ANSWER_BUFFER_LENGTH = 10
@@ -167,7 +170,7 @@ class InContextLearningQATaskDataset(Dataset):
             raise MissingConditionalImportError(extra_deps_group='nlp',
                                                 conda_package='datasets',
                                                 conda_channel='conda-forge') from e
-        if TENSORRT_LLM == False:
+        if TRTLLM_MULTIGPU == False:
             with dist.local_rank_zero_download_and_wait(destination_path):
                 if dist.get_local_rank() == 0:
                     get_file(dataset_uri, destination_path, overwrite=True)
@@ -302,8 +305,8 @@ class InContextLearningQATaskDataset(Dataset):
             context_enc = preamble['input_ids'] + context['input_ids']
             inp, _ = _make_padded_input(context_enc, [],
                                         self.max_seq_len - self.max_answer_length,
-                                        self.pad_tok_id,
-                                        padding_side=self.padding_side)
+                                        self.pad_tok_id)
+                                        # padding_side=self.padding_side)
 
             inputs.append(inp)
             answers.append(aliases)
@@ -393,7 +396,7 @@ class InContextLearningLMTaskDataset(Dataset):
             raise MissingConditionalImportError(extra_deps_group='nlp',
                                                 conda_package='datasets',
                                                 conda_channel='conda-forge') from e
-        if TENSORRT_LLM == False:
+        if TRTLLM_MULTIGPU == False:
             with dist.local_rank_zero_download_and_wait(destination_path):
                 if dist.get_local_rank() == 0:
                     get_file(dataset_uri, destination_path, overwrite=True)
@@ -564,7 +567,7 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
             raise MissingConditionalImportError(extra_deps_group='nlp',
                                                 conda_package='datasets',
                                                 conda_channel='conda-forge') from e
-        if TENSORRT_LLM == False:
+        if TRTLLM_MULTIGPU == False:
             with dist.local_rank_zero_download_and_wait(destination_path):
                 if dist.get_local_rank() == 0:
                     get_file(dataset_uri, destination_path, overwrite=True)
@@ -798,7 +801,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
             raise MissingConditionalImportError(extra_deps_group='nlp',
                                                 conda_package='datasets',
                                                 conda_channel='conda-forge') from e
-        if TENSORRT_LLM == False:
+        if TRTLLM_MULTIGPU == False:
             with dist.local_rank_zero_download_and_wait(destination_path):
                 if dist.get_local_rank() == 0:
                     get_file(dataset_uri, destination_path, overwrite=True)
@@ -987,7 +990,7 @@ class InContextLearningCodeEvalDataset(Dataset):
             raise MissingConditionalImportError(extra_deps_group='nlp',
                                                 conda_package='datasets',
                                                 conda_channel='conda-forge') from e
-        if TENSORRT_LLM == False:
+        if TRTLLM_MULTIGPU == False:
             with dist.local_rank_zero_download_and_wait(destination_path):
                 if dist.get_local_rank() == 0:
                     get_file(dataset_uri, destination_path, overwrite=True)
@@ -1322,7 +1325,7 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str) -> Di
         raise MissingConditionalImportError(extra_deps_group='nlp',
                                             conda_package='datasets',
                                             conda_channel='conda-forge') from e
-    if TENSORRT_LLM == False:
+    if TRTLLM_MULTIGPU == False:
         with dist.local_rank_zero_download_and_wait(destination_path):
             if dist.get_local_rank() == 0:
                 get_file(dataset_uri, destination_path, overwrite=True)
