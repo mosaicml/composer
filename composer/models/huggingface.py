@@ -485,7 +485,7 @@ class HuggingFaceModel(ComposerModel):
             else:
                 generation_one = [
                             ' ' + generation
-                            for generation in self.tokenizer.batch_decode(generation[:, batch['input_ids'].shape[1]:],
+                            for generation in self.tokenizer.batch_decode(first_generation[:, batch['input_ids'].shape[1]:],
                                                                         skip_special_tokens=True)
                         ]
                 generation_two = [
