@@ -24,7 +24,7 @@ arguments in :class:`.Trainer`, like the following code, which will log metrics 
 
 To attach other loggers, use the ``loggers`` argument. For example, the
 below logs the results to `Weights and
-Biases <https://www.wandb.com/>`__, `MLflow <https://www.mlflow.org/docs/latest/index.html>`__, and `CometML <https://www.comet.com/?utm_source=mosaicml&utm_medium=partner&utm_campaign=mosaicml_comet_integration>`__,
+Biases <https://www.wandb.com/>`__, `MLflow <https://www.mlflow.org/docs/latest/index.html>`__, `CometML <https://www.comet.com/?utm_source=mosaicml&utm_medium=partner&utm_campaign=mosaicml_comet_integration>`__, and `neptune.ai <https://neptune.ai/>`__,
 and also saves them to the file
 ``log.txt``.
 

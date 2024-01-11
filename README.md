@@ -105,7 +105,7 @@ Composer is built to automate away low-level pain points and headaches so you ca
 Integrate with the tools you know and love for experiment tracking and data streaming.
 
 - **Cloud integrations**: Our Checkpointing and logging features have first-class support for remote storage and loading from Cloud bucket (OCI, GCP, AWS S3).
-- **********Experiment tracking:********** Weights and Biases, MLFlow, and CometML — the choice is yours, easily log your data to your favorite platform.
+- **********Experiment tracking:********** Weights and Biases, MLFlow, CometML, and neptune.ai — the choice is yours, easily log your data to your favorite platform.
 
 # **🚀 Getting Started**
 
