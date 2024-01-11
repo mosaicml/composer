@@ -165,13 +165,22 @@ class PartialFilePath:
 def is_checkpoint_legacy_sharded(object_store: Optional[ObjectStore], source_path: str):
     metadata_path = str(Path(source_path) / Path('.metadata'))
     if object_store is None:
+        # If directory doesn't exist, then it's not any checkpoint.
+        if os.path.exists(source_path):
+            raise FileNotFoundError(f"Couldn't find the directory {source_path}")
+        # If directory does exist, but metadata file doesn't, then it's a legacy checkpoint.
         return not os.path.exists(metadata_path)
     else:
+        # If prefix doesn't exist, then it's not any checkpoint.
+        if len(object_store.list_objects(prefix=source_path)) == 0:
+            raise FileNotFoundError(f"Couldn't find the prefix {object_store.get_uri(object_name=source_path)}")
         try:
+            # If prefix does exist, but metadata file doesn't, then it's a legacy checkpoint.
             with tempfile.TemporaryDirectory() as temp_dir:
                 metadata_destination = os.path.join(str(temp_dir), '.metadata')
                 object_store.download_object(object_name=metadata_path, filename=metadata_destination)
             return False
+        # If prefix does exist, and metadata file does exist, then it's a new non-legacy checkpoint.
         except FileNotFoundError:
             return True
 
