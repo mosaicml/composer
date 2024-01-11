@@ -21,8 +21,9 @@ from composer.utils.inference import ExportFormat, Transform, export_for_inferen
 from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, map_collection
 from composer.utils.misc import (create_interval_scheduler, get_free_tcp_port, is_model_deepspeed, is_model_fsdp,
                                  is_notebook, model_eval_mode, using_torch_2)
-from composer.utils.object_store import (GCSObjectStore, LibcloudObjectStore, ObjectStore, ObjectStoreTransientError,
-                                         OCIObjectStore, S3ObjectStore, SFTPObjectStore, UCObjectStore)
+from composer.utils.object_store import (GCSObjectStore, LibcloudObjectStore, MLFlowObjectStore, ObjectStore,
+                                         ObjectStoreTransientError, OCIObjectStore, S3ObjectStore, SFTPObjectStore,
+                                         UCObjectStore)
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
 
@@ -44,6 +45,7 @@ __all__ = [
     'OCIObjectStore',
     'GCSObjectStore',
     'UCObjectStore',
+    'MLFlowObjectStore',
     'MissingConditionalImportError',
     'import_object',
     'is_model_deepspeed',

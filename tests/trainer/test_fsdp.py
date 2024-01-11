@@ -197,6 +197,33 @@ def test_fsdp_prefetch_limit(forward_prefetch_limit: int, backward_prefetch_limi
     trainer.fit()
 
 
+@pytest.mark.gpu
+@world_size(2)
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
+                    reason='FSDP requires PyTorch 1.13 or higher')
+@pytest.mark.filterwarnings('ignore:Instantiating FSDP with custom process groups.*:UserWarning')
+@pytest.mark.filterwarnings('ignore:Composer is instantiating custom process groups.*:UserWarning')
+def test_fsdp_process_group(world_size: int):
+    model = SimpleModel()
+    model.fc1._fsdp_wrap = True
+    model.fc2._fsdp_wrap = True
+    dataset = RandomClassificationDataset(size=10)
+    dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
+
+    trainer = Trainer(
+        model=model,
+        optimizers=optimizer,
+        train_dataloader=dataloader,
+        fsdp_config={
+            'process_group': 'mod1',  # all ranks
+        },
+        max_duration='3ba',
+    )
+
+    trainer.fit()
+
+
 class SimpleMLP(ComposerModel):
 
     def __init__(self, num_features: int = 128, device: str = 'cuda'):

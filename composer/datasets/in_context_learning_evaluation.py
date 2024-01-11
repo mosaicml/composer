@@ -164,6 +164,8 @@ class InContextLearningQATaskDataset(Dataset):
         fewshot_random_seed: int,
         cot_delimiter: str = '',
     ):
+        if tokenizer.eos_token_id is None:
+            raise ValueError('`InContextLearningQATaskDataset` tokenizer must have non-null `eos_token_id`')
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
         except ImportError as e:
@@ -323,7 +325,8 @@ class InContextLearningQATaskDataset(Dataset):
             'generation_length': self.max_answer_length,
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
-                'use_cache': True
+                'use_cache': True,
+                'eos_token_id': self.tokenizer.eos_token_id
             }
         }
 
@@ -984,6 +987,8 @@ class InContextLearningCodeEvalDataset(Dataset):
         top_p: Optional[float] = 0.95,
         top_k: Optional[int] = 40,
     ):
+        if tokenizer.eos_token_id is None:
+            raise ValueError('`InContextLearningCodeEvalDataset` tokenizer must have non-null `eos_token_id`')
         try:
             from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
         except ImportError as e:
@@ -1160,6 +1165,7 @@ class InContextLearningCodeEvalDataset(Dataset):
                 'top_p': self.top_p,
                 'top_k': self.top_k,
                 'use_cache': True,
+                'eos_token_id': self.tokenizer.eos_token_id
             }
         }
         batch['attention_mask'] = ~(batch['input_ids'] == self.pad_tok_id)
