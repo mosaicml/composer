@@ -957,16 +957,16 @@ class MTBenchJudge(InContextLearningMetric):
             formatted_template = template.format(question_1=prompt_one,
                                                  question_2=prompt_two,
                                                  answer_1=first_generation,
-                                                 answer_2=second_generation)
+                                                 answer_2=second_generation,
+                                                 ref_answer_1=reference_answer_one,
+                                                 ref_answer_2=reference_answer_two)
         else:
             system_prompt = deepcopy(self.MULTI_TURN_SYSTEM_PROMPT)
             template = deepcopy(self.SINGLE_V1_MULTI_TURN_TEMPLATE)
             formatted_template = template.format(question_1=prompt_one,
                                                  question_2=prompt_two,
                                                  answer_1=first_generation,
-                                                 answer_2=second_generation,
-                                                 ref_answer_1=reference_answer_one,
-                                                 ref_answer_2=reference_answer_two)
+                                                 answer_2=second_generation)
 
         response = self.client.chat.completions.create(model='gpt-3.5-turbo',
                                                        messages=[{
