@@ -24,7 +24,7 @@ PRODUCTION_PYTORCH_VERSION = '2.1.2'
 
 def _get_torchvision_version(pytorch_version: str):
     if pytorch_version == '2.1.2':
-        return '0.16.1'
+        return '0.16.2'
     if pytorch_version == '2.0.1':
         return '0.15.2'
     if pytorch_version == '1.13.1':
