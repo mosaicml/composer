@@ -472,6 +472,7 @@ def main():
     # If running on the Mosaic platform, log all gpu ranks' stderr and stdout to Mosaic platform
     if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and os.environ.get(
             MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and os.environ.get('MOSAICML_LOG_DIR') is not None:
+        log.info('Logging all gpu ranks to Mosaic Platform')
         log_dir = os.environ.get('MOSAICML_LOG_DIR')
         args.stdout = f'{log_dir}/gpu_{{rank}}.txt'
         args.stderr = f'{log_dir}/gpu_{{rank}}.txt'
