@@ -14,8 +14,8 @@ from composer import Callback
 from composer.callbacks import (EarlyStopper, ExportForInferenceCallback, FreeOutputs, Generate, HealthChecker,
                                 ImageVisualizer, MemoryMonitor, MLPerfCallback, SpeedMonitor, SystemMetricsMonitor,
                                 ThresholdStopper)
-from composer.loggers import (CometMLLogger, ConsoleLogger, LoggerDestination, MLFlowLogger, ProgressBarLogger,
-                              RemoteUploaderDownloader, TensorboardLogger, WandBLogger)
+from composer.loggers import (CometMLLogger, ConsoleLogger, LoggerDestination, MLFlowLogger, NeptuneLogger,
+                              ProgressBarLogger, RemoteUploaderDownloader, TensorboardLogger, WandBLogger)
 from composer.models.base import ComposerModel
 from composer.utils import dist
 from composer.utils.device import get_device
@@ -75,6 +75,13 @@ try:
     del pynmvl  # unused
 except ImportError:
     _PYNMVL_INSTALLED = False
+
+try:
+    import neptune
+    _NEPTUNE_INSTALLED = True
+    del neptune  # unused
+except ImportError:
+    _NEPTUNE_INSTALLED = False
 
 _callback_kwargs: Dict[Type[Callback], Dict[str, Any],] = {
     Generate: {
@@ -146,6 +153,7 @@ _callback_marks: Dict[Type[Callback], List[pytest.MarkDecorator],] = {
     MLFlowLogger: [pytest.mark.skipif(not _MLFLOW_INSTALLED, reason='mlflow is optional'),],
     SystemMetricsMonitor: [pytest.mark.skipif(not _PYNMVL_INSTALLED, reason='pynmvl is optional'),],
     HealthChecker: [pytest.mark.filterwarnings('ignore:.*HealthChecker is deprecated.*')],
+    NeptuneLogger: [pytest.mark.skipif(not _NEPTUNE_INSTALLED, reason='neptune is optional'),],
 }
 
 

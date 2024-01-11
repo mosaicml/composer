@@ -43,7 +43,7 @@ def test_neptune_init(test_neptune_logger):
     assert test_neptune_logger.neptune_run is not None
 
     test_neptune_logger.neptune_run.sync()
-    assert test_neptune_logger.neptune_run[NeptuneLogger.INTEGRATION_VERSION_KEY].fetch() == __version__
+    assert test_neptune_logger.neptune_run[NeptuneLogger.integration_version_key].fetch() == __version__
     assert test_neptune_logger.neptune_run['sys/name'].fetch() == 'dummy-run-name'
     assert test_neptune_logger.base_handler['rank'].fetch() == 0
 
@@ -72,11 +72,11 @@ def test_neptune_logging(device, test_neptune_logger):
             'metrics/train/MulticlassAccuracy', 'metrics/eval/MulticlassAccuracy', 'metrics/eval/CrossEntropy',
             'loss/train/total'
     ]:
-        path = f'{test_neptune_logger._base_namespace}/{test_neptune_logger.METRIC_NAMESPACE}/{metric_name}'
+        path = f'{test_neptune_logger._base_namespace}/{test_neptune_logger.metric_namespace}/{metric_name}'
         assert test_neptune_logger.neptune_run.exists(path)
 
     for hyperparam_name in ['node_name', 'num_cpus_per_node', 'num_nodes', 'rank_zero_seed']:
-        path = f'{test_neptune_logger._base_namespace}/{test_neptune_logger.HYPERPARAM_NAMESPACE}/{hyperparam_name}'
+        path = f'{test_neptune_logger._base_namespace}/{test_neptune_logger.hyperparam_namespace}/{hyperparam_name}'
         assert test_neptune_logger.neptune_run.exists(path)
 
     assert test_neptune_logger.base_handler['hyperparameters/num_nodes'].fetch() == 1

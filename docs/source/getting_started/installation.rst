@@ -24,6 +24,7 @@ the following installation targets are available:
 * ``pip install 'mosaicml[timm]'``: Installs Composer with support for :mod:`timm`.
 * ``pip install 'mosaicml[wandb]'``: Installs Composer with support for :mod:`wandb`.
 * ``pip install 'mosaicml[comet_ml]'``: Installs Composer with support for :mod:`comet_ml`.
+* ``pip install 'mosaicml[neptune]'``: Installs Composer with support for :mod:`neptune`.
 * ``pip install 'mosaicml[tensorboard]'``: Installs Composer with support for :mod:`tensorboard`.
 * ``pip install 'mosaicml[streaming]'``: Installs Composer with support for `streaming <https://github.com/mosaicml/streaming>`_.
 * ``pip install 'mosaicml[mlflow]'``: Installs Composer with support for :mod:`mlflow`.

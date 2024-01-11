@@ -9,7 +9,7 @@ import os
 import pathlib
 import warnings
 from functools import partial
-from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Sequence, Set, Union
 
 import numpy as np
 import torch
@@ -59,10 +59,10 @@ class NeptuneLogger(LoggerDestination):
 
     For more, see the [Neptune-Composer integration guide](https://docs.neptune.ai/integrations/composer/).
     """
-    METRIC_NAMESPACE = 'metrics'
-    HYPERPARAM_NAMESPACE = 'hyperparameters'
-    TRACE_NAMESPACE = 'traces'
-    INTEGRATION_VERSION_KEY = 'source_code/integrations/neptune-MosaicML'
+    metric_namespace = 'metrics'
+    hyperparam_namespace = 'hyperparameters'
+    trace_namespace = 'traces'
+    integration_version_key = 'source_code/integrations/neptune-MosaicML'
 
     def __init__(
         self,
@@ -106,7 +106,7 @@ class NeptuneLogger(LoggerDestination):
         self._neptune_run = None
         self._base_handler = None
 
-        self._current_epoch_num: int = 0
+        self._metrics_dict: Dict[str, int] = {}  # used to prevent duplicate step logging
 
         super(NeptuneLogger, self).__init__()
 
@@ -164,11 +164,34 @@ class NeptuneLogger(LoggerDestination):
 
         if self._enabled:
             self.neptune_run['sys/name'] = state.run_name
-            self.neptune_run[self.INTEGRATION_VERSION_KEY] = __version__
+            self.neptune_run[self.integration_version_key] = __version__
 
-    def epoch_start(self, state: 'State', logger: 'Logger') -> None:
-        super().epoch_start(state, logger)
-        self._current_epoch_num = state.timestamp.epoch.value
+    def _sanitize_metrics(self, metrics: Dict[str, float], step: Optional[int]) -> Dict[str, float]:
+        """Sanitize metrics to prevent duplicate step logging.
+
+        Args:
+            metrics (Dict[str, float]): Metrics to log.
+            step (Optional[int]): Step to log metrics at.
+
+        Returns:
+            Dict[str, float]: Sanitized metrics.
+        """
+        keys_to_delete: Set[str] = set()
+
+        for k in metrics:
+            if k not in self._metrics_dict:
+                self._metrics_dict[k] = step if step is not None else 0
+            else:
+                if step is not None:
+                    if step <= self._metrics_dict[k]:
+                        # we cannot insert metrics earlier than or in place of an existing metric point
+                        keys_to_delete.add(k)
+                    else:
+                        self._metrics_dict[k] = step
+                else:
+                    self._metrics_dict[k] += 1
+
+        return dict(filter(lambda x: x[0] not in keys_to_delete, metrics.items()))
 
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None) -> None:
         if not self._enabled:
@@ -176,10 +199,9 @@ class NeptuneLogger(LoggerDestination):
 
         from neptune.utils import stringify_unsupported
 
-        # adjust for duplicated step number at the end of one and beginning of the next epoch
-        step = step + self._current_epoch_num if isinstance(step, int) else step
-
-        self.base_handler[NeptuneLogger.METRIC_NAMESPACE].append(stringify_unsupported(metrics), step=step)
+        metrics_to_log = self._sanitize_metrics(metrics, step)
+        if metrics_to_log:
+            self.base_handler[NeptuneLogger.metric_namespace].append(stringify_unsupported(metrics_to_log), step=step)
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]) -> None:
         if not self._enabled:
@@ -187,7 +209,7 @@ class NeptuneLogger(LoggerDestination):
 
         from neptune.utils import stringify_unsupported
 
-        self.base_handler[NeptuneLogger.HYPERPARAM_NAMESPACE] = stringify_unsupported(hyperparameters)
+        self.base_handler[NeptuneLogger.hyperparam_namespace] = stringify_unsupported(hyperparameters)
 
     def log_traces(self, traces: Dict[str, Any]):
         if not self._enabled:
@@ -195,7 +217,7 @@ class NeptuneLogger(LoggerDestination):
 
         from neptune.utils import stringify_unsupported
 
-        self.base_handler[NeptuneLogger.TRACE_NAMESPACE] = stringify_unsupported(traces)
+        self.base_handler[NeptuneLogger.trace_namespace] = stringify_unsupported(traces)
 
     def can_upload_files(self) -> bool:
         """Whether the logger supports uploading files."""
