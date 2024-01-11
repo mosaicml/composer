@@ -960,7 +960,7 @@ class Trainer:
         assert not isinstance(device_train_microbatch_size, str)
 
         # Distributed
-        dist.initialize_dist(device, dist_timeout)
+        # dist.initialize_dist(device, dist_timeout)
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, device)
