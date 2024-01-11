@@ -112,7 +112,10 @@ class MLFlowObjectStore(ObjectStore):
         except ImportError as e:
             raise MissingConditionalImportError('databricks', conda_package='databricks-sdk>=0.15.0,<1.0') from e
 
-        tracking_uri = os.getenv(mlflow.environment_variables.MLFLOW_TRACKING_URI.name, MLFLOW_DATABRICKS_TRACKING_URI)
+        tracking_uri = os.getenv(
+            mlflow.environment_variables.MLFLOW_TRACKING_URI.name,  # pyright: ignore[reportGeneralTypeIssues]
+            MLFLOW_DATABRICKS_TRACKING_URI,
+        )
         if tracking_uri != MLFLOW_DATABRICKS_TRACKING_URI:
             raise ValueError(
                 'MLFlowObjectStore currently only supports Databricks-hosted MLflow tracking. '
@@ -129,7 +132,8 @@ class MLFlowObjectStore(ObjectStore):
                 'to identify different ways to setup credentials.') from e
 
         self._mlflow_client = MlflowClient(tracking_uri)
-        mlflow.environment_variables.MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.set(multipart_upload_chunk_size)
+        mlflow.environment_variables.MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.set(  # pyright: ignore[reportGeneralTypeIssues]
+            multipart_upload_chunk_size,)
 
         experiment_id, run_id, _ = MLFlowObjectStore.parse_dbfs_path(path)
         if experiment_id == PLACEHOLDER_EXPERIMENT_ID:
@@ -158,8 +162,8 @@ class MLFlowObjectStore(ObjectStore):
                 log.debug(f'MLFlowObjectStore using active MLflow run {run_id=}')
             else:
                 # If no active run exists, create a new run for the default experiment.
-                experiment_name = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,
-                                            DEFAULT_MLFLOW_EXPERIMENT_NAME)
+                mlflow_env_var_name = mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name  # pyright: ignore[reportGeneralTypeIssues]
+                experiment_name = os.getenv(mlflow_env_var_name, DEFAULT_MLFLOW_EXPERIMENT_NAME)
 
                 experiment = self._mlflow_client.get_experiment_by_name(experiment_name)
                 if experiment is not None:

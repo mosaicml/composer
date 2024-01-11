@@ -93,7 +93,7 @@ def test_registry(caplog):
     from composer.algorithms.alibi.attention_surgery_functions import policy_registry
 
     @policy_registry.register(torch.nn.Linear)
-    def zero_linear_weights(  # pyright: reportUnusedFunction = none
+    def zero_linear_weights(  # pyright: ignore[reportUnusedFunction]
             module: torch.nn.Module, idx: int, max_sequence_length: int) -> torch.nn.Module:
         assert isinstance(module, torch.nn.Linear)
         old_weight = getattr(module, 'weight')
