@@ -314,7 +314,7 @@ def _launch_processes(
                         local_world_size=nproc,
                         node_rank=node_rank,
                     )
-                    return open(filename, 'x+')
+                    return open(filename, 'a+')
 
                 stderr_file = _get_file(stderr_file_format)
                 stdout_file = _get_file(stdout_file_format)
