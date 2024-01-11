@@ -199,8 +199,7 @@ class NeptuneLogger(LoggerDestination):
 
         from neptune.utils import stringify_unsupported
 
-        metrics_to_log = self._sanitize_metrics(metrics, step)
-        if metrics_to_log:
+        if metrics_to_log := self._sanitize_metrics(metrics, step):
             self.base_handler[NeptuneLogger.metric_namespace].append(stringify_unsupported(metrics_to_log), step=step)
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]) -> None:
