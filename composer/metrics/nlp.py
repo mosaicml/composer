@@ -856,7 +856,6 @@ class IFEvalJudge(InContextLearningMetric):
             kwargs = batch['kwargs'][i]
             # Removes k, v pairs when value is none for each dict in the the list
             kwargs = [{k: v for k, v in kwarg_dict.items() if v is not None} for kwarg_dict in kwargs]
-            # TODO: make kwargs
             res = InstructionResult(key=batch['key'][i],
                                     instruction_id_list=batch['instruction_id_list'][i],
                                     prompt=batch['prompt'][i],
@@ -1038,13 +1037,15 @@ class MTBenchJudge(InContextLearningMetric):
             self.humanities_score += score
 
     def compute(self):
-        log.info('Math score:       ', (self.math_score / self.math_total).item())
-        log.info('Writing score:    ', (self.writing_score / self.writing_total).item())
-        log.info('Roleplay score:   ', (self.roleplay_score / self.roleplay_total).item())
-        log.info('Reasoning score:  ', (self.reasoning_score / self.reasoning_total).item())
-        log.info('Coding score:     ', (self.coding_score / self.coding_total).item())
-        log.info('Extraction score: ', (self.extraction_score / self.extraction_total).item())
-        log.info('STEM score:       ', (self.stem_score / self.stem_total).item())
-        log.info('Humanities score: ', (self.humanities_score / self.humanities_total).item())
-        log.info('Combined score:   ', (self.all_scores / self.total).item())
+        log.info(f'Math score:        {(self.math_score / self.math_total).item()}')
+        log.info(f'Writing score:     {(self.writing_score / self.writing_total).item()}')
+        log.info(f'Roleplay score:    {(self.roleplay_score / self.roleplay_total).item()}')
+        log.info(f'Reasoning score:   {(self.reasoning_score / self.reasoning_total).item()}')
+        log.info(f'Coding score:      {(self.coding_score / self.coding_total).item()}')
+        log.info(f'Extraction score:  {(self.extraction_score / self.extraction_total).item()}')
+        log.info(f'STEM score:        {(self.stem_score / self.stem_total).item()}')
+        log.info(f'Humanities score:  {(self.humanities_score / self.humanities_total).item()}')
+        log.info(f'Combined score:    {(self.all_scores / self.total).item()}')
+        log.info(f'Total Questions:   {self.total.item()}')
+        log.info(f'Invalid Responses: {self.invalid_judge_response.item()}')
         return self.all_scores / self.total

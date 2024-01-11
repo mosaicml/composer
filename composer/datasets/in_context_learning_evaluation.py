@@ -1280,7 +1280,7 @@ class MTBench(InContextLearningDataset):
             'input_ids': 'tokenized_prompt_one',
             'tokenized_prompt_two': 'tokenized_prompt_two',
         }
-        # TODO: fix this padding size
+        # TODO: fix this padding size?
         super().__init__(
             context_key='category',
             answer_key='canonical_solution',
