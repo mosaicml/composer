@@ -59,10 +59,11 @@ def test_format_data_to_json_serializable():
         'key3': 3.14,
         'key4': True,
         'key5': torch.tensor([1, 2, 3]),
-        'key6': {
+        'key6': torch.tensor([42]),
+        'key7': {
             'inner_key': 'inner_value'
         },
-        'key7': [1, 2, 3],
+        'key8': [1, 2, 3],
     }
     formatted_data = format_data_to_json_serializable(data)
 
@@ -72,10 +73,11 @@ def test_format_data_to_json_serializable():
         'key3': 3.14,
         'key4': True,
         'key5': 'Tensor of shape torch.Size([3])',
-        'key6': {
+        'key6': 42,
+        'key7': {
             'inner_key': 'inner_value'
         },
-        'key7': [1, 2, 3],
+        'key8': [1, 2, 3],
     }
 
     assert formatted_data == expected_formatted_data

@@ -960,10 +960,7 @@ class Trainer:
         assert not isinstance(device_train_microbatch_size, str)
 
         # Distributed
-        if deepspeed_config is not None or fsdp_config is not None or dist.get_world_size() > 1:
-            # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
-            # And torch.distributed is always required for multi-rank training
-            dist.initialize_dist(device, dist_timeout)
+        dist.initialize_dist(device, dist_timeout)
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, device)
@@ -1296,7 +1293,8 @@ class Trainer:
 
         # FSDP wrap if not using monolith checkpoint on rank 0 only
         if self.state.fsdp_config is not None and fsdp_auto_wrap and not self.state.load_fsdp_monolith_rank0_only:
-            prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
+            with reproducibility.seed_context(self.state.rank_zero_seed):
+                prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
@@ -1443,7 +1441,8 @@ class Trainer:
         # FSDP wrap if model is not yet wrapped and FSDP is enabled. This can happen if
         # load_fsdp_monolith_rank0_only=True but no checkpoint was loaded.
         if not self.state.fsdp_enabled and self.state.fsdp_config is not None and self.state.fsdp_auto_wrap and self.state.load_fsdp_monolith_rank0_only:
-            prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
+            with reproducibility.seed_context(self.state.rank_zero_seed):
+                prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 
         self.engine.run_event(Event.AFTER_LOAD)
 
