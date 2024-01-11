@@ -16,4 +16,5 @@ def json_print(*args, **kwargs):
     message = ' '.join(str(arg) for arg in args)
     log.info(message, **kwargs)
 
+
 builtins.print = json_print

@@ -4,6 +4,7 @@ import traceback
 
 
 class JsonLogFormatter(logging.Formatter):
+
     def __init__(self, rank=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.rank = rank
