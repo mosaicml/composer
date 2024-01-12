@@ -37,6 +37,9 @@ if TYPE_CHECKING:
     if version.parse(torch.__version__) >= version.parse('2.0.1') and version.parse(
             torch.__version__) < version.parse('2.2.0'):
         from torch.distributed.fsdp._common_utils import _FSDPState
+    if version.parse(torch.__version__) > version.parse('2.1.2'):
+        from torch.distributed.checkpoint.state_dict import StateDictOptions, _StateDictInfo
+
 
 log = logging.getLogger(__name__)
 
