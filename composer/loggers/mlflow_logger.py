@@ -21,7 +21,7 @@ from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import MissingConditionalImportError, dist
 
 if TYPE_CHECKING:
-    from mlflow import ModelVersion
+    from mlflow import ModelVersion  # pyright: ignore[reportGeneralTypeIssues]
 
 __all__ = ['MLFlowLogger']
 
@@ -102,11 +102,16 @@ class MLFlowLogger(LoggerDestination):
             # Set up MLflow state
             self._run_id = None
             if self.experiment_name is None:
-                self.experiment_name = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,
-                                                 DEFAULT_MLFLOW_EXPERIMENT_NAME)
+                self.experiment_name = os.getenv(
+                    mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,  # type: ignore
+                    DEFAULT_MLFLOW_EXPERIMENT_NAME,
+                )
             self._mlflow_client = MlflowClient(self.tracking_uri)
             # Set experiment.
-            env_exp_id = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None)
+            env_exp_id = os.getenv(
+                mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name,  # pyright: ignore[reportGeneralTypeIssues]
+                None,
+            )
             if env_exp_id is not None:
                 self._experiment_id = env_exp_id
             else:
@@ -129,7 +134,10 @@ class MLFlowLogger(LoggerDestination):
 
         # Start run
         if self._enabled:
-            env_run_id = os.getenv(mlflow.environment_variables.MLFLOW_RUN_ID.name, None)
+            env_run_id = os.getenv(
+                mlflow.environment_variables.MLFLOW_RUN_ID.name,  # pyright: ignore[reportGeneralTypeIssues]
+                None,
+            )
             if env_run_id is not None:
                 self._run_id = env_run_id
             else:
@@ -153,6 +161,7 @@ class MLFlowLogger(LoggerDestination):
                                                     conda_package='pandas',
                                                     conda_channel='conda-forge') from e
             table = pd.DataFrame.from_records(data=rows, columns=columns)
+            assert isinstance(self._run_id, str)
             self._mlflow_client.log_table(
                 run_id=self._run_id,
                 data=table,
@@ -183,7 +192,7 @@ class MLFlowLogger(LoggerDestination):
         self,
         model_uri: str,
         name: str,
-        await_registration_for: Optional[int] = 300,
+        await_registration_for: int = 300,
         tags: Optional[Dict[str, Any]] = None,
     ) -> 'ModelVersion':
         """Register a model to model registry.
@@ -191,10 +200,10 @@ class MLFlowLogger(LoggerDestination):
         Args:
             model_uri (str): The URI of the model to register.
             name (str): The name of the model to register. Will be appended to ``model_registry_prefix``.
-            await_registration_for (Optional[int], optional): The number of seconds to wait for the model to be registered.
+            await_registration_for (int, optional): The number of seconds to wait for the model to be registered.
                 Defaults to 300.
-            tags (Dict[str, Any], optional): A dictionary of tags to add to the model. Defaults to None.
-            registry_uri (str, optional): The URI of the model registry. Defaults to 'databricks-uc' which will register to
+            tags (Optional[Dict[str, Any]], optional): A dictionary of tags to add to the model. Defaults to None.
+            registry_uri (str, optional): The URI of the model registry. Defaults to `None` which will register to
                 the Databricks Unity Catalog.
 
         Returns:
@@ -265,6 +274,7 @@ class MLFlowLogger(LoggerDestination):
                 images = [images]
             for im_ind, image in enumerate(images):
                 image = _convert_to_mlflow_image(image, channels_last)
+                assert isinstance(self._run_id, str)
                 self._mlflow_client.log_image(image=image,
                                               artifact_file=f'{name}_{step}_{im_ind}.png',
                                               run_id=self._run_id)
@@ -273,6 +283,7 @@ class MLFlowLogger(LoggerDestination):
         if self._enabled:
             import mlflow
 
+            assert isinstance(self._run_id, str)
             self._mlflow_client.set_terminated(self._run_id)
             mlflow.end_run()
 

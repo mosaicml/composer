@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-__all__ = ['load_checkpoint', 'save_checkpoint', 'download_checkpoint']
+__all__ = ['get_save_filename', 'load_checkpoint', 'save_checkpoint', 'download_checkpoint']
 
 _COMPOSER_STATES_FILENAME = 'composer_states.pt'
 _DEEPSPEED_TAG = 'deepspeed'  # always tag with the same, deterministic name. We'll rename the tarball to the appropriate name.
@@ -894,6 +894,15 @@ def get_save_filename(
     state: State,
     filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
 ) -> str:
+    """Gets full filename of save filename.
+
+    Args:
+        state (State): The :class:`~composer.core.State` to load the checkpoint into.
+        filename (filename): The name of the save file.
+
+    Returns:
+        Full filename of save file.
+    """
     if not state.fsdp_sharded_state_dict_enabled:
         is_deepspeed = is_model_deepspeed(state.model)
         return PartialFilePath(filename).format(state, is_deepspeed)
@@ -972,7 +981,6 @@ def _save_checkpoint(
         _validate_save_planner(save_planner)
 
         import torch.distributed.checkpoint as dist_cp
-        from torch.distributed import get_process_group_ranks
 
         log.debug(f'Saving sharded checkpoints to {save_filename}...')
         process_group = None
@@ -981,9 +989,7 @@ def _save_checkpoint(
             expect_file = (device_mesh.get_local_rank(mesh_dim=0) == 0)
             if expect_file:
                 process_group = device_mesh.get_group(1)  # Only save on first replica
-                log.debug(
-                    f'global_rank={dist.get_global_rank()}, {expect_file=}, process_group={get_process_group_ranks(process_group)}'
-                )
+                log.debug(f'global_rank={dist.get_global_rank()}, {expect_file=}')
         else:
             expect_file = True
 
