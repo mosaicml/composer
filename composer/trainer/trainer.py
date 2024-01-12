@@ -2015,8 +2015,8 @@ class Trainer:
 
         self.state.model.train()
         finished_epoch_early = False
-
         last_wct = datetime.datetime.now()
+
         if self.state.max_duration is None:
             # This is essentially just a type check, as max_duration should always be
             # asserted to be not None when Trainer.fit() is called
@@ -2049,7 +2049,7 @@ class Trainer:
 
                 self.engine.run_event(Event.AFTER_DATALOADER)
 
-                last_wct = self.train_batch(self.state.batch, use_grad_scaling, last_wct)
+                _, last_wct = self.train_batch(self.state.batch, use_grad_scaling, last_wct)
 
                 # Pause the timing during evaluation
                 # Evaluation time is tracked separately in state.eval_timestamp
@@ -2146,16 +2146,19 @@ class Trainer:
 
         self.engine.run_event(Event.EVAL_AFTER_ALL)
 
-    def train_batch(self, batch: Any, use_grad_scaling: bool, last_wct: Optional[Any]) -> Any:
-        """Compute loss by training on a full batch of data.
+    def train_batch(self, batch: Any, use_grad_scaling: bool, last_wct: Optional[datetime.datetime]) -> Tuple[Dict[str, Any], datetime.datetime]:
+        """Train (forward + backward pass) and compute loss for a full batch of data.
 
         Adaptively change microbatch size if enabled to maximize GPU usage.
 
         Args:
+            batch: The batch of data to train on.
             use_grad_scaling (bool): Enables gradient scaling.
+            last_wct (datetime.datetime): The last wall clock time.
 
         Returns:
             Dict[str, torch.Tensor]: a dictionary containing the total loss and individual losses if available.
+            datetime.datetime: The last wall clock time.
         """
         assert self._train_data_spec is not None, 'The train data spec should be set on __init__ or fit()'
 
@@ -2296,7 +2299,7 @@ class Trainer:
         )
 
         self.engine.run_event(Event.BATCH_END)
-        return last_wct
+        return total_loss_dict, last_wct
 
     def _train_microbatches(self,
                             microbatches: Sequence[Batch],
