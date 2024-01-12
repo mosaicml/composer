@@ -1,7 +1,7 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-from composer.utils.string_helpers import partial_format
+from composer.utils.misc import partial_format
 
 
 def test_partial_format():
