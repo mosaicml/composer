@@ -297,7 +297,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         git clone --branch v2.4.2 https://github.com/Dao-AILab/flash-attention.git && \
         cd flash-attention && \
         MAX_JOBS=1 python${PYTHON_VERSION} setup.py install && \
-        cd ..; \
+        cd .. ; \
     fi
 
 ###############
