@@ -39,7 +39,7 @@ from composer.core import (Algorithm, AlgorithmPass, Batch, Callback, DataSpec, 
                            PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode, ensure_data_spec,
                            ensure_evaluator, ensure_time, get_precision_context, validate_eval_automicrobatching)
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
-from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, MosaicMLLogger, ProgressBarLogger,
+from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, MLFlowLogger, MosaicMLLogger, ProgressBarLogger,
                               RemoteUploaderDownloader, WandBLogger)
 from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR
 from composer.models import ComposerModel
@@ -54,8 +54,9 @@ from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectS
                             ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist,
                             get_composer_env_dict, get_device, get_file, is_tpu_installed, map_collection,
                             maybe_create_object_store_from_uri, maybe_create_remote_uploader_downloader_from_uri,
-                            model_eval_mode, parse_uri, reproducibility, using_torch_2)
+                            model_eval_mode, parse_uri, partial_format, reproducibility, using_torch_2)
 from composer.utils.misc import is_model_deepspeed
+from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
 
 if is_tpu_installed():
     import torch_xla.core.xla_model as xm
@@ -1085,6 +1086,11 @@ class Trainer:
             mosaicml_logger = MosaicMLLogger()
             loggers.append(mosaicml_logger)
 
+        # Remote Uploader Downloader
+        # Keep the ``RemoteUploaderDownloader`` below client-provided loggers so the loggers init callbacks run before
+        # the ``RemoteUploaderDownloader`` init. This is necessary to use an ``MLFlowObjectStore`` to log objects to a
+        # run managed by an ``MLFlowLogger``, as the ``MLFlowObjectStore`` relies on the ``MLFlowLogger`` to initialize
+        # the active MLFlow run.
         if save_folder is not None:
             remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
             if remote_ud is not None:
@@ -1157,6 +1163,30 @@ class Trainer:
 
         # Run Event.INIT
         self.engine.run_event(Event.INIT)
+
+        # If the experiment is being tracked with an `MLFlowLogger`, then MLFlow experiment and run are available
+        # after Event.INIT.
+        if save_folder is not None:
+            mlflow_logger = None
+            for destination in self.logger.destinations:
+                if isinstance(destination, MLFlowLogger):
+                    mlflow_logger = destination
+                    break
+
+            if mlflow_logger is not None:
+                mlflow_experiment_id = mlflow_logger._experiment_id
+                mlflow_run_id = mlflow_logger._run_id
+
+                # The save folder and related paths/filenames may contain format placeholders for the MLFlow IDs, so
+                # populate them now.
+                mlflow_format_kwargs = {
+                    MLFLOW_EXPERIMENT_ID_FORMAT_KEY: mlflow_experiment_id,
+                    MLFLOW_RUN_ID_FORMAT_KEY: mlflow_run_id
+                }
+
+                save_folder = partial_format(save_folder, **mlflow_format_kwargs)
+                if latest_remote_file_name is not None:
+                    latest_remote_file_name = partial_format(latest_remote_file_name, **mlflow_format_kwargs)
 
         # Log hparams.
         if self.auto_log_hparams:

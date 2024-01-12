@@ -93,6 +93,10 @@ class MLFlowLogger(LoggerDestination):
         self._rank_zero_only = rank_zero_only
         self._last_flush_time = time.time()
         self._flush_interval = flush_interval
+
+        self._experiment_id = None
+        self._run_id = None
+
         if self._enabled:
             self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
             mlflow.set_tracking_uri(self.tracking_uri)
@@ -128,6 +132,10 @@ class MLFlowLogger(LoggerDestination):
         if self.run_name is None:
             self.run_name = state.run_name
 
+        # Store the Composer run name in the MLFlow run tags so it can be retrieved for autoresume.
+        self.tags = self.tags or {}
+        self.tags['composer_run_name'] = state.run_name
+
         # Adjust name and group based on `rank_zero_only`.
         if not self._rank_zero_only:
             self.run_name += f'-rank{dist.get_global_rank()}'
@@ -141,16 +149,33 @@ class MLFlowLogger(LoggerDestination):
             if env_run_id is not None:
                 self._run_id = env_run_id
             else:
-                new_run = self._mlflow_client.create_run(
-                    experiment_id=self._experiment_id,
-                    run_name=self.run_name,
-                )
-                self._run_id = new_run.info.run_id
+                # Search for an existing run tagged with this Composer run.
+                existing_runs = mlflow.search_runs(experiment_ids=[self._experiment_id],
+                                                   filter_string=f'tags.composer_run_name = "{state.run_name}"',
+                                                   output_format='list')
+                if len(existing_runs) > 0:
+                    self._run_id = existing_runs[0].info.run_id
+                else:
+                    new_run = self._mlflow_client.create_run(
+                        experiment_id=self._experiment_id,
+                        run_name=self.run_name,
+                    )
+                    self._run_id = new_run.info.run_id
             mlflow.start_run(
                 run_id=self._run_id,
                 tags=self.tags,
                 log_system_metrics=self.log_system_metrics,
             )
+
+        # If rank zero only, broadcast the MLFlow experiment and run IDs to other ranks, so the MLFlow run info is
+        # available to other ranks during runtime.
+        if self._rank_zero_only:
+            mlflow_ids_list = [self._experiment_id, self._run_id]
+            dist.broadcast_object_list(mlflow_ids_list, src=0)
+            self._experiment_id, self._run_id = mlflow_ids_list
+
+    def after_load(self, state: State, logger: Logger) -> None:
+        logger.log_hyperparameters({'mlflow_experiment_id': self._experiment_id, 'mlflow_run_id': self._run_id})
 
     def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
         if self._enabled:

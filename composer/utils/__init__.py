@@ -21,7 +21,7 @@ from composer.utils.import_helpers import MissingConditionalImportError, import_
 from composer.utils.inference import ExportFormat, Transform, export_for_inference, export_with_logger, quantize_dynamic
 from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, map_collection
 from composer.utils.misc import (create_interval_scheduler, get_free_tcp_port, is_model_deepspeed, is_model_fsdp,
-                                 is_notebook, model_eval_mode, using_torch_2)
+                                 is_notebook, model_eval_mode, partial_format, using_torch_2)
 from composer.utils.object_store import (GCSObjectStore, LibcloudObjectStore, MLFlowObjectStore, ObjectStore,
                                          ObjectStoreTransientError, OCIObjectStore, S3ObjectStore, SFTPObjectStore,
                                          UCObjectStore)
@@ -92,4 +92,5 @@ __all__ = [
     'LambdaEvalClient',
     'LocalEvalClient',
     'MosaicMLLambdaEvalClient',
+    'partial_format',
 ]
