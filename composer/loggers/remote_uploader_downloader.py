@@ -24,8 +24,10 @@ import torch
 
 from composer.loggers.logger import Logger
 from composer.loggers.logger_destination import LoggerDestination
-from composer.utils import (GCSObjectStore, LibcloudObjectStore, ObjectStore, ObjectStoreTransientError, OCIObjectStore,
-                            S3ObjectStore, SFTPObjectStore, UCObjectStore, dist, format_name_with_dist, get_file, retry)
+from composer.utils import (GCSObjectStore, LibcloudObjectStore, MLFlowObjectStore, ObjectStore,
+                            ObjectStoreTransientError, OCIObjectStore, S3ObjectStore, SFTPObjectStore, UCObjectStore,
+                            dist, format_name_with_dist, get_file, retry)
+from composer.utils.object_store.mlflow_object_store import MLFLOW_DBFS_PATH_PREFIX
 
 if TYPE_CHECKING:
     from composer.core import State
@@ -37,19 +39,32 @@ __all__ = ['RemoteUploaderDownloader']
 
 
 def _build_remote_backend(remote_backend_name: str, backend_kwargs: Dict[str, Any]):
+    remote_backend_cls = None
     remote_backend_name_to_cls = {
         's3': S3ObjectStore,
         'oci': OCIObjectStore,
         'sftp': SFTPObjectStore,
         'libcloud': LibcloudObjectStore,
         'gs': GCSObjectStore,
-        'dbfs': UCObjectStore,
     }
-    remote_backend_cls = remote_backend_name_to_cls.get(remote_backend_name, None)
-    if remote_backend_cls is None:
-        raise ValueError(
-            f'The remote backend {remote_backend_name} is not supported. Please use one of ({list(remote_backend_name_to_cls.keys())})'
-        )
+
+    # Handle `dbfs` backend as a special case, since it can map to either :class:`.UCObjectStore`
+    # or :class:`.MLFlowObjectStore`.
+    if remote_backend_name == 'dbfs':
+        path = backend_kwargs['path']
+        if path.startswith(MLFLOW_DBFS_PATH_PREFIX):
+            remote_backend_cls = MLFlowObjectStore
+        else:
+            # Validate if the path conforms to the requirements for UC volume paths
+            UCObjectStore.validate_path(path)
+            remote_backend_cls = UCObjectStore
+    else:
+        remote_backend_cls = remote_backend_name_to_cls.get(remote_backend_name, None)
+        if remote_backend_cls is None:
+            supported_remote_backends = list(remote_backend_name_to_cls.keys()) + ['dbfs']
+            raise ValueError(
+                f'The remote backend {remote_backend_name} is not supported. Please use one of ({supported_remote_backends})'
+            )
 
     return remote_backend_cls(**backend_kwargs)
 
@@ -322,6 +337,20 @@ class RemoteUploaderDownloader(LoggerDestination):
         if dist.get_global_rank() == 0:
             retry(ObjectStoreTransientError,
                   self.num_attempts)(lambda: _validate_credentials(self.remote_backend, file_name_to_test))()
+
+        # If the remote backend is an `MLFlowObjectStore`, the original path kwarg may have placeholders that can be
+        # updated with information generated at runtime, i.e., the MLFlow experiment and run IDs. This information
+        # must be propagated across all ranks before the workers are started so that all workers use the same
+        # MLFlow run.
+        if self.backend_kwargs.get('path', '').startswith(MLFLOW_DBFS_PATH_PREFIX):
+            if dist.get_global_rank() == 0:
+                assert isinstance(self.remote_backend, MLFlowObjectStore)
+                self.backend_kwargs['path'] = self.remote_backend.get_dbfs_path(self.backend_kwargs['path'])
+
+            path_list = [self.backend_kwargs['path']]
+            dist.broadcast_object_list(path_list, src=0)
+            self.backend_kwargs['path'] = path_list[0]
+
         assert len(self._workers) == 0, 'workers should be empty if self._worker_flag was None'
         for _ in range(self._num_concurrent_uploads):
             worker = self._proc_class(

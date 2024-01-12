@@ -15,11 +15,12 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from composer.core import Callback, Event, State, Time, Timestamp
-from composer.loggers import Logger
+from composer.loggers import Logger, MLFlowLogger
 from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, PartialFilePath,
                             checkpoint, create_interval_scheduler, create_symlink_file, dist,
                             ensure_folder_has_no_conflicting_files, format_name_with_dist,
-                            format_name_with_dist_and_time, is_model_deepspeed, using_torch_2)
+                            format_name_with_dist_and_time, is_model_deepspeed, partial_format, using_torch_2)
+from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
 
 log = logging.getLogger(__name__)
 
@@ -270,6 +271,30 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.start_batch = None
 
     def init(self, state: State, logger: Logger) -> None:
+        # If MLFlowLogger is being used, format MLFlow-specific placeholders in the save folder and paths.
+        # Assumes that MLFlowLogger comes before CheckpointSaver in the list of loggers.
+        for destination in logger.destinations:
+            if isinstance(destination, MLFlowLogger):
+                mlflow_format_kwargs = {
+                    MLFLOW_EXPERIMENT_ID_FORMAT_KEY: destination._experiment_id,
+                    MLFLOW_RUN_ID_FORMAT_KEY: destination._run_id
+                }
+                self.folder = partial_format(self.folder, **mlflow_format_kwargs)
+
+                self.filename.folder = self.folder
+                if self.latest_filename is not None:
+                    self.latest_filename.folder = self.folder
+
+                # The remote paths have the placeholders in their filename rather than folder
+                if self.remote_file_name is not None:
+                    self.remote_file_name.filename = partial_format(self.remote_file_name.filename,
+                                                                    **mlflow_format_kwargs)
+                if self.latest_remote_file_name is not None:
+                    self.latest_remote_file_name.filename = partial_format(self.latest_remote_file_name.filename,
+                                                                           **mlflow_format_kwargs)
+
+                break
+
         folder = format_name_with_dist(self.folder, state.run_name)
         os.makedirs(folder, exist_ok=True)
 

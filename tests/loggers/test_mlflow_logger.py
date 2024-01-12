@@ -166,6 +166,26 @@ def test_mlflow_experiment_init_experiment_name(monkeypatch):
     id_logger.post_close()
 
 
+def test_mlflow_experiment_init_existing_composer_run(monkeypatch):
+    """ Test that an existing MLFlow run is used if one already exists in the experiment for the Composer run.
+    """
+    mlflow = pytest.importorskip('mlflow')
+
+    monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
+    monkeypatch.setattr(mlflow, 'start_run', MagicMock())
+
+    mock_state = MagicMock()
+    mock_state.run_name = 'dummy-run-name'
+
+    existing_id = 'dummy-id'
+    mock_search_runs = MagicMock(return_value=[MagicMock(info=MagicMock(run_id=existing_id))])
+    monkeypatch.setattr(mlflow, 'search_runs', mock_search_runs)
+
+    test_logger = MLFlowLogger()
+    test_logger.init(state=mock_state, logger=MagicMock())
+    assert test_logger._run_id == existing_id
+
+
 def test_mlflow_experiment_set_up(tmp_path):
     """ Test that MLFlow experiment is set up correctly within mlflow
     """
@@ -191,6 +211,7 @@ def test_mlflow_experiment_set_up(tmp_path):
     )
     run_id = run.info.run_id
     experiment_id = run.info.experiment_id
+    tags = run.data.tags
 
     # Check uri set correctly.
     assert mlflow_uri.exists()
@@ -208,6 +229,9 @@ def test_mlflow_experiment_set_up(tmp_path):
     expected_run_name = mlflow_run_name
     actual_run_name = run_cfg['run_name']
     assert actual_run_name == expected_run_name
+
+    # Check run tagged with Composer run name.
+    assert tags['composer_run_name'] == mock_state.run_name
 
     # Check run ended.
     test_mlflow_logger.post_close()
@@ -490,7 +514,8 @@ def test_mlflow_logging_works(tmp_path, device):
     actual_params_list = [param_filepath.stem for param_filepath in param_path.iterdir()]
 
     expected_params_list = [
-        'num_cpus_per_node', 'node_name', 'num_nodes', 'rank_zero_seed', 'composer_version', 'composer_commit_hash'
+        'num_cpus_per_node', 'node_name', 'num_nodes', 'rank_zero_seed', 'composer_version', 'composer_commit_hash',
+        'mlflow_experiment_id', 'mlflow_run_id'
     ]
     assert set(expected_params_list) == set(actual_params_list)
 

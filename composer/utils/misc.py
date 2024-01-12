@@ -224,3 +224,23 @@ def using_torch_2_0_1() -> bool:
         bool: Return True if current version is greater than or equal to 2.0.1 else False
     """
     return version.parse(torch.__version__) >= version.parse('2.0.1')
+
+
+def partial_format(s, *args, **kwargs) -> str:
+    """Format a string with a partial set of arguments.
+
+    Since `str.format()` raises a `KeyError` if a format key is missing from the arguments, this
+    function allows for a partial set of arguments to be provided. Any missing arguments will be
+    left as-is in the string.
+    """
+    max_iters = 10_000  # Just in case we get stuck in a loop somehow.
+    for _ in range(max_iters):
+        try:
+            return s.format(*args, **kwargs)
+        except IndexError as e:  # Missing positional arg
+            args += ('{}',)
+        except KeyError as e:  # Missing keyword arg
+            key = e.args[0]
+            kwargs[key] = '{' + key + '}'
+
+    raise RuntimeError(f'Failed to format string {s} after {max_iters} iterations.')
