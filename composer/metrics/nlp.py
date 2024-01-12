@@ -939,25 +939,13 @@ class IFEvalJudge(InContextLearningMetric):
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def __init__(self, dist_sync_on_step: bool = False, ignore_index: int = -100):
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
-
-        self.ignore_index = ignore_index
+    def __init__(self, dist_sync_on_step: bool = False, cache_responses: bool = False):
+        super().__init__(dist_sync_on_step=dist_sync_on_step, cache_responses=cache_responses)
 
         self.add_state('prompt_total', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('prompt_correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('instruction_total', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('instruction_correct', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('change_case_correct', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('change_case_total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('combination_correct', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('combination_total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('detectable_content_correct', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('detectable_content_total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('detectable_format_correct', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('detectable_format_total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('keywa correct', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('detectable_format_total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
     def update(self, batch, outputs: Union[Mapping, Tensor], target: Tensor) -> None:
         """Updates the internal state with results from a new batch.
@@ -983,7 +971,18 @@ class IFEvalJudge(InContextLearningMetric):
                                     prompt=batch['prompt'][i],
                                     kwargs=kwargs,
                                     response=output)
-            batch_results.append(instruction_following_eval([res], aggregate=False))
+            result = instruction_following_eval([res], aggregate=False)
+            # TODO: these dicts just get cast to strings
+            if self.cache_responses:
+                self.response_cache.append({
+                    'key': batch['key'][i],
+                    'instruction_id_list': batch['instruction_id_list'][i],
+                    'prompt': batch['prompt'][i],
+                    'kwargs': str(kwargs),
+                    'response': output,
+                    'result': str(result)
+                })
+            batch_results.append(result)
         for result in batch_results:
             self.prompt_total += 1
             if all(instruction['follow'] for instruction in result):
@@ -999,6 +998,7 @@ class IFEvalJudge(InContextLearningMetric):
         Returns:
             loss: The loss averaged across all batches as a :class:`~torch.Tensor`.
         """
+        super().compute()
         prompt_acc = self.prompt_correct.float() / self.prompt_total
         instruction_acc = self.instruction_correct.float() / self.instruction_total
         log.debug(f'prompt_acc: {prompt_acc}')
@@ -1159,6 +1159,7 @@ class MTBenchJudge(InContextLearningMetric):
             self.humanities_score += score
 
     def compute(self):
+        super().compute()
         log.info(f'Math score:        {(self.math_score / self.math_total).item()}')
         log.info(f'Writing score:     {(self.writing_score / self.writing_total).item()}')
         log.info(f'Roleplay score:    {(self.roleplay_score / self.roleplay_total).item()}')

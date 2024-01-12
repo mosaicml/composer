@@ -17,14 +17,16 @@ from composer.datasets.in_context_learning_evaluation import (InContextLearningC
                                                               InContextLearningLMTaskDataset,
                                                               InContextLearningMultipleChoiceTaskDataset,
                                                               InContextLearningQATaskDataset,
-                                                              InContextLearningSchemaTaskDataset)
+                                                              InContextLearningSchemaTaskDataset,
+                                                              IFEval,
+                                                              MTBench)
 from composer.loggers import Logger
 from composer.loggers.console_logger import ConsoleLogger
 from composer.utils import MissingConditionalImportError, dist, maybe_create_object_store_from_uri, parse_uri
 
 ICLDatasetTypes = (InContextLearningLMTaskDataset, InContextLearningQATaskDataset,
                    InContextLearningMultipleChoiceTaskDataset, InContextLearningSchemaTaskDataset,
-                   InContextLearningCodeEvalDataset)
+                   InContextLearningCodeEvalDataset, IFEval, MTBench)
 
 
 def _write(destination_path, src_file):
@@ -58,8 +60,6 @@ class EvalOutputLogging(Callback):
         self.hash = hashlib.sha256()
         self.destination_file = None
 
-    # with tempfile.NamedTemporaryFile
-    #  tmp_dir =
     def _write_tables_to_output_dir(self, state: State):
         try:
             import pandas as pd
@@ -67,7 +67,6 @@ class EvalOutputLogging(Callback):
             raise MissingConditionalImportError(extra_deps_group='pandas',
                                                 conda_package='pandas',
                                                 conda_channel='conda-forge') from e
-        # write tmp files
 
         full_df = pd.DataFrame()
         upload_file_name = f'eval-outputs-ba{state.timestamp.batch.value}.tsv'
@@ -112,6 +111,7 @@ class EvalOutputLogging(Callback):
         # during each eval, only a single dataloader/benchmark will be active
         assert state.dataloader is not None
         assert isinstance(state.dataloader, DataLoader)
+        # TODO: Why is this like this?
         if hasattr(state.dataloader, 'dataset') and isinstance(state.dataloader.dataset, ICLDatasetTypes):
             assert isinstance(state.dataloader.dataset, ICLDatasetTypes)
             if hasattr(state.dataloader.dataset, 'tokenizer'):
