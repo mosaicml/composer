@@ -58,9 +58,9 @@ class SimpleMLP(ComposerClassifier):
 
         for module in net:
             if isinstance(module, torch.nn.Linear):
-                module._fsdp_wrap = True
+                module._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
 
-        net.param_init_fn = self.param_init_fn
+        net.param_init_fn = self.param_init_fn  # pyright: ignore[reportGeneralTypeIssues]
         super().__init__(
             module=net,
             num_classes=num_classes,
@@ -73,7 +73,7 @@ class SimpleMLP(ComposerClassifier):
 
         if isinstance(module, torch.nn.Linear):
             init_fn(module.weight)
-            if module.bias is not None:
+            if module.bias is not None:  # pyright: ignore[reportUnnecessaryComparison]
                 torch.nn.init.zeros_(module.bias)
 
 
@@ -238,7 +238,8 @@ def _compare_rng_states_between_trainers(rng_state1, rng_state2):
         if 'cuda' in rank_state1_keys:
             cuda_state1 = rank_state1['cuda']
             cuda_state2 = rank_state2['cuda']
-            torch.equal(cuda_state1, cuda_state2), f'Cuda rng state not the same between state_dicts for rank {rank}'
+            states_equal = torch.equal(cuda_state1, cuda_state2)
+            assert states_equal, f'Cuda rng state not the same between state_dicts for rank {rank}'
 
 
 def _compare_metrics_between_state_dicts(state_dict1: dict[str, Any], state_dict2: dict[str, Any]):

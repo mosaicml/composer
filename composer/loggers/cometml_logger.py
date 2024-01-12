@@ -109,8 +109,13 @@ class CometMLLogger(LoggerDestination):
                                                     conda_channel='conda-forge') from e
 
             table = pd.DataFrame.from_records(data=rows, columns=columns)
-            self.experiment.log_table(filename=f'{name}.json', tabular_data=table, orient='split',
-                                      index=False)  # formatting to be consistent with mlflow and wandb json formats
+            # Formatting to be consistent with mlflow and wandb json formats
+            self.experiment.log_table(
+                filename=f'{name}.json',
+                tabular_data=table,
+                orient='split',  # pyright: ignore[reportGeneralTypeIssues] cometml has incorrect type hints for kwargs
+                index=False,  # pyright: ignore[reportGeneralTypeIssues] cometml has incorrect type hints for kwargs
+            )
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         if self._enabled:
@@ -162,6 +167,7 @@ class CometMLLogger(LoggerDestination):
                     for mask_name, mask in zip(mask_names, mask_set):
                         if channels_last:
                             # permute to channels_first to be compatible with draw_segmentation_masks.
+                            assert isinstance(image, torch.Tensor)
                             comet_image = image.permute(2, 0, 1)
                         # Log input image with mask superimposed.
                         im_with_mask_overlay = draw_segmentation_masks(comet_image.to(torch.uint8), mask, alpha=0.6)
