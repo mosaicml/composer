@@ -161,7 +161,7 @@ def _fix_batch_precision_for_deepspeed(batch: Batch, precision: Precision) -> Ba
         Batch: The batch with it's precision adjusted to the specified precision.
     """
     if precision == Precision.AMP_FP16:
-        return map_collection(batch, _convert_fp32_tensor_to_fp16)  # type: ignore
+        return map_collection(batch, _convert_fp32_tensor_to_fp16)
     elif precision == Precision.AMP_BF16:
-        return map_collection(batch, _convert_fp32_tensor_to_bf16)  # type: ignore
+        return map_collection(batch, _convert_fp32_tensor_to_bf16)
     return batch

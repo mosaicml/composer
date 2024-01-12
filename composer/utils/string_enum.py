@@ -64,7 +64,7 @@ class StringEnum(Enum):
 
             warnings.resetwarnings()
     """
-    __hash__ = Enum.__hash__
+    __hash__ = Enum.__hash__  # pyright: ignore[reportGeneralTypeIssues]
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, str):

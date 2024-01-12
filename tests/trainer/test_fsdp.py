@@ -99,11 +99,11 @@ def test_fsdp_inits_params_once(model: ComposerClassifier, device: str, world_si
     def dummy_param_init_fn(module: torch.nn.Module):
         if isinstance(module, torch.nn.Linear):
             torch.nn.init.ones_(module.weight)
-            if module.bias is not None:
+            if module.bias is not None:  # pyright: ignore[reportUnnecessaryComparison]
                 torch.nn.init.constant_(module.bias, 2)
 
     # Override the param_init_fn to be deterministic so we can test the init
-    model.module.param_init_fn = dummy_param_init_fn
+    model.module.param_init_fn = dummy_param_init_fn  # pyright: ignore[reportGeneralTypeIssues]
     # Apply the initial initialization, because it will only be called later for parameters on meta device
     model.apply(model.module.param_init_fn)
     # Now wrap the param_init_fn with a MagicMock so we can count calls
@@ -136,7 +136,7 @@ def test_fsdp_inits_params_once(model: ComposerClassifier, device: str, world_si
     for module in model.modules():
         if isinstance(module, torch.nn.Linear):
             assert torch.all(module.weight == 1)
-            if module.bias is not None:
+            if module.bias is not None:  # pyright: ignore[reportUnnecessaryComparison]
                 assert torch.all(module.bias == 2)
 
 
@@ -177,8 +177,8 @@ def test_fsdp_meta_initialization_none(model: ComposerClassifier, mixed_precisio
                     reason='FSDP requires PyTorch 1.13 or higher')
 def test_fsdp_prefetch_limit(forward_prefetch_limit: int, backward_prefetch_limit: int, world_size: int):
     model = SimpleModel()
-    model.fc1._fsdp_wrap = True
-    model.fc2._fsdp_wrap = True
+    model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
     dataset = RandomClassificationDataset(size=10)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
@@ -205,8 +205,8 @@ def test_fsdp_prefetch_limit(forward_prefetch_limit: int, backward_prefetch_limi
 @pytest.mark.filterwarnings('ignore:Composer is instantiating custom process groups.*:UserWarning')
 def test_fsdp_process_group(world_size: int):
     model = SimpleModel()
-    model.fc1._fsdp_wrap = True
-    model.fc2._fsdp_wrap = True
+    model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
+    model.fc2._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
     dataset = RandomClassificationDataset(size=10)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
@@ -258,7 +258,7 @@ def test_fsdp_act_ckpt_offload(
         'activation_cpu_offload': activation_cpu_offload,
     }
 
-    model.fc1._activation_checkpointing = True
+    model.fc1._activation_checkpointing = True  # pyright: ignore[reportGeneralTypeIssues]
 
     trainer = Trainer(
         model=model,

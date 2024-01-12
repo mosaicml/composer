@@ -388,10 +388,9 @@ class Engine():
                                      order=order,
                                      run=True)
 
-        if self.logger is not None:
-            if len(trace) > 0:
-                self.logger.log_traces(
-                    {f'algorithm_traces/{tr.name}/{tr.event}': 1 if tr.run else 0 for _, tr in trace.items()})
+        if len(trace) > 0:
+            self.logger.log_traces(
+                {f'algorithm_traces/{tr.name}/{tr.event}': 1 if tr.run else 0 for _, tr in trace.items()})
 
         return trace
 

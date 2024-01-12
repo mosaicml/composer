@@ -92,8 +92,8 @@ class Generate(Callback):
         n_prompts = len(self.prompts)
         for start in range(0, n_prompts, self.batch_size):
             end = min(start + self.batch_size, n_prompts)
-            input_ids = all_input_ids[start:end]
-            attn_mask = all_attn_masks[start:end]
+            input_ids = all_input_ids[start:end]  # pyright: ignore[reportGeneralTypeIssues]
+            attn_mask = all_attn_masks[start:end]  # pyright: ignore[reportGeneralTypeIssues]
 
             # Move batch to device.
             input_ids = device.tensor_to_device(input_ids)
@@ -110,7 +110,7 @@ class Generate(Callback):
         if dist.get_global_rank() == 0:
             # Process prompts and outputs into a table.
             rows = []
-            input_tokens_len = all_input_ids.shape[1]
+            input_tokens_len = all_input_ids.shape[1]  # pyright: ignore[reportGeneralTypeIssues]
             for i, prompt in enumerate(self.prompts):
                 output_tokens = output_token_ids[i][input_tokens_len:]
                 output_text = tokenizer.decode(output_tokens, skip_special_tokens=True)

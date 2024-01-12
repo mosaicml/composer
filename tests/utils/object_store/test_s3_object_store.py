@@ -41,7 +41,7 @@ def test_s3_upload_object_arguments(tmp_path: pathlib.Path, s3_bucket: str):
     remote_obj_name = 'remote.txt'
 
     object_store = S3ObjectStore(bucket=s3_bucket)
-    object_store.client.upload_file = MagicMock()
+    object_store.client.upload_file = MagicMock()  # pyright: ignore[reportGeneralTypeIssues]
 
     with mock.patch.dict('os.environ'):
         os.environ.pop('S3_CANNED_ACL', None)
