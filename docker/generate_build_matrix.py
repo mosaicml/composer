@@ -19,12 +19,12 @@ import tabulate
 import yaml
 
 LATEST_PYTHON_VERSION = '3.10'
-PRODUCTION_PYTORCH_VERSION = '2.1.1'
+PRODUCTION_PYTORCH_VERSION = '2.1.2'
 
 
 def _get_torchvision_version(pytorch_version: str):
-    if pytorch_version == '2.1.1':
-        return '0.16.1'
+    if pytorch_version == '2.1.2':
+        return '0.16.2'
     if pytorch_version == '2.0.1':
         return '0.15.2'
     if pytorch_version == '1.13.1':
@@ -41,7 +41,7 @@ def _get_base_image(cuda_version: str):
 def _get_cuda_version(pytorch_version: str, use_cuda: bool):
     if not use_cuda:
         return ''
-    if pytorch_version == '2.1.1':
+    if pytorch_version == '2.1.2':
         return '12.1.0'
     if pytorch_version == '2.0.1':
         return '11.8.0'
@@ -166,7 +166,7 @@ def _write_table(table_tag: str, table_contents: str):
 
 def _main():
     python_versions = ['3.10']
-    pytorch_versions = ['2.1.1', '2.0.1', '1.13.1']
+    pytorch_versions = ['2.1.2', '2.0.1', '1.13.1']
     cuda_options = [True, False]
     stages = ['pytorch_stage']
     interconnects = ['mellanox', 'EFA']  # mellanox is default, EFA needed for AWS
