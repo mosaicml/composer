@@ -1026,9 +1026,9 @@ class MTBenchJudge(InContextLearningMetric):
     ONE_SCORE_PATTERN = re.compile('\[\[(\d+\.?\d*)\]\]')
     ONE_SCORE_PATTERN_BACKUP = re.compile('\[(\d+\.?\d*)\]')
 
-    def __init__(self, dist_sync_on_step: bool = False, tokenizer: Optional[Any] = None, prompt: Optional[str] = None):
+    def __init__(self, dist_sync_on_step: bool = False, cache_responses: bool = False):
         # state from multiple processes
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
+        super().__init__(dist_sync_on_step=dist_sync_on_step, cache_responses=cache_responses)
         self.add_state('invalid_judge_response', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('all_scores', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
@@ -1099,7 +1099,7 @@ class MTBenchJudge(InContextLearningMetric):
                                                        }],
                                                        max_tokens=250)
 
-        return response.choices[0].message.content
+        return response.choices[0].message.content, formatted_template
 
     def update(self, batch: Dict[str, Any], outputs: List[str]):
         if not self.client:
@@ -1108,14 +1108,15 @@ class MTBenchJudge(InContextLearningMetric):
             second_generation = outputs['generation_two'][i]
             prompt_one = batch['untokenized_prompt_one']
             prompt_two = batch['untokenized_prompt_two']
-            result = self.call_judge(prompt_one=prompt_one,
-                                     prompt_two=prompt_two,
-                                     first_generation=first_generation,
-                                     second_generation=second_generation,
-                                     category=batch['category'][i],
-                                     reference_answer_one=batch['reference_answer_one'][i],
-                                     reference_answer_two=batch['reference_answer_two'][i])
+            result, formatted_template = self.call_judge(prompt_one=prompt_one,
+                                                        prompt_two=prompt_two,
+                                                        first_generation=first_generation,
+                                                        second_generation=second_generation,
+                                                        category=batch['category'][i],
+                                                        reference_answer_one=batch['reference_answer_one'][i],
+                                                        reference_answer_two=batch['reference_answer_two'][i])
 
+            score = None
             match = re.search(self.ONE_SCORE_PATTERN, result)
             if not match:
                 match = re.search(self.ONE_SCORE_PATTERN_BACKUP, result)
@@ -1126,6 +1127,12 @@ class MTBenchJudge(InContextLearningMetric):
             else:
                 self.invalid_judge_response += 1
             self.total += 1
+            if self.cache_responses:
+                self.response_cache.append({
+                    'score': score,
+                    'result': result,
+                    'formatted_template': formatted_template
+                })
 
         # OpenAI Client can't be copied by deepcopy and will throw an error, so we delete it after we use it
         # Initializatin takes ~12 ms
