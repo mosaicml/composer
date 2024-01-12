@@ -6,7 +6,7 @@
 import logging
 import textwrap
 import warnings
-from typing import TYPE_CHECKING, Callable, List, Optional, Tuple, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -15,9 +15,6 @@ from torchvision import transforms
 from torchvision.datasets import VisionDataset
 
 from composer.core import Batch
-
-if TYPE_CHECKING:
-    import transformers
 
 __all__ = [
     'add_vision_dataset_transform',
@@ -172,7 +169,7 @@ def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is
 
 
 try:
-    import transformers  # pyright: ignore [reportGeneralTypeIssues]
+    import transformers
 
     class MultiTokenEOSCriteria(transformers.StoppingCriteria):
         """Criteria to stop on the specified multi-token sequence.
@@ -206,8 +203,8 @@ try:
             lookback_tokens_batch = self.tokenizer.batch_decode(lookback_ids_batch)
             for i, done in enumerate(self.done_tracker):
                 if i >= len(lookback_tokens_batch):
-                    # the last batch of a dataset may b smaller than `batch_size`
-                    # automatically set those indices in the done_tracker to True
+                    # The last batch of a dataset may be smaller than `batch_size`
+                    # Automatically set those indices in the done_tracker to True
                     # since those indices don't show up in the current batch
                     self.done_tracker[i] = True
                     break

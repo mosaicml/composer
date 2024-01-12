@@ -67,15 +67,8 @@ def test_fewshot_sample_idxs_randomness():
     assert rng_1_sample_2 != rng_3_sample_2
 
 
-try:
-    import transformers
-    has_transformers = True
-except ImportError:
-    has_transformers = False
-
-
-@pytest.mark.skipif(not has_transformers, reason='Transformers not installed')
 def test_stop_sequences_criteria(tiny_gpt2_tokenizer):
+    pytest.importorskip('transformers')
     eos_criteria = MultiTokenEOSCriteria('\n\n', tiny_gpt2_tokenizer, 2)
     seq1 = tiny_gpt2_tokenizer('Dogs are furry')['input_ids']
     seq2 = tiny_gpt2_tokenizer('Dogs are furry\n\n')['input_ids']
