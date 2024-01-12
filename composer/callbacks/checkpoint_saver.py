@@ -20,7 +20,6 @@ from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WI
                             checkpoint, create_interval_scheduler, create_symlink_file, dist,
                             ensure_folder_has_no_conflicting_files, format_name_with_dist,
                             format_name_with_dist_and_time, is_model_deepspeed, partial_format, using_torch_2)
-from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
 from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
 
 log = logging.getLogger(__name__)
@@ -360,9 +359,9 @@ class CheckpointSaver(Callback):  # noqa: D101
         # Store before saving so state_dict in checkpoint has reference to latest checkpoint (itself)
         self.all_saved_checkpoints_to_timestamp[save_filename] = state.timestamp
 
-        saved_path = checkpoint._save_checkpoint(
+        saved_path = checkpoint.save_checkpoint(
             state=state,
-            save_filename=save_filename,
+            filename=filename_with_placeholders,
             weights_only=self.weights_only,
         )
         log.debug(f'Checkpoint locally saved to {saved_path}')
@@ -402,7 +401,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 ).lstrip('/')
                 assert state.sharded_ckpt_prefix_dir is not None
                 remote_prefix = state.sharded_ckpt_prefix_dir
-                ckpt_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME if using_torch_2() else pathlib.Path(
+                ckpt_filename = checkpoint._TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME if using_torch_2() else pathlib.Path(
                     remote_file_name).name
                 remote_file_name = os.path.join(pathlib.Path(remote_file_name).parent, remote_prefix, ckpt_filename)
                 remote_file_name = format_name_with_dist_and_time(remote_file_name, state.run_name, state.timestamp)

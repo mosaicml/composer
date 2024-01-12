@@ -29,7 +29,9 @@ def _get_latest_mlflow_run(experiment_name, tracking_uri=None):
     # NB: Convert tracking URI to string because MlflowClient doesn't support non-string
     # (e.g. PosixPath) tracking URI representations
     client = MlflowClient(str(tracking_uri))
-    experiment_id = (client.get_experiment_by_name(experiment_name).experiment_id)
+    experiment = client.get_experiment_by_name(experiment_name)
+    assert experiment is not None
+    experiment_id = experiment.experiment_id
     first_run_or_empty = client.search_runs(
         experiment_ids=[experiment_id],
         max_results=1,

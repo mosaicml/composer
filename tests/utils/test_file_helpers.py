@@ -330,7 +330,7 @@ def test_maybe_create_remote_uploader_downloader_from_uri(monkeypatch):
         mock_remote_ud = MagicMock()
         m.setattr(loggers, 'RemoteUploaderDownloader', mock_remote_ud)
         maybe_create_remote_uploader_downloader_from_uri('gs://my-nifty-gs-bucket/path/to/checkpoints.pt', loggers=[])
-        mock_remote_ud.assert_called_once_with(bucket_uri='gs://my-nifty-gs-bucket'),
+        mock_remote_ud.assert_called_once_with(bucket_uri='gs://my-nifty-gs-bucket')
 
     with pytest.raises(NotImplementedError):
         maybe_create_remote_uploader_downloader_from_uri('wandb://my-cool/checkpoint/for/my/model.pt', loggers=[])

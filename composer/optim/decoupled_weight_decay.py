@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import math
-from typing import Iterable, List, Tuple, Union
+from typing import Iterable, List, Optional, Tuple, Union
 
 import torch
 from torch.optim import SGD, AdamW
@@ -70,8 +70,9 @@ class DecoupledSGDW(SGD):
             group['initial_lr'] = group['lr']
 
     @staticmethod
-    def sgdw(params: List[torch.Tensor], d_p_list: List[torch.Tensor], momentum_buffer_list: List[torch.Tensor], *,
-             weight_decay: float, momentum: float, lr: float, initial_lr: float, dampening: float, nesterov: bool):
+    def sgdw(params: List[torch.Tensor], d_p_list: List[torch.Tensor],
+             momentum_buffer_list: List[Optional[torch.Tensor]], *, weight_decay: float, momentum: float, lr: float,
+             initial_lr: float, dampening: float, nesterov: bool):
         r"""Functional API that performs SGDW algorithm computation.
 
         Args:
@@ -109,7 +110,7 @@ class DecoupledSGDW(SGD):
 
             param.add_(d_p, alpha=-lr)
 
-    @torch.no_grad()
+    @torch.no_grad()  # pyright: ignore[reportUntypedFunctionDecorator]
     def step(self, closure=None):
         """Performs a single optimization step.
 
@@ -263,7 +264,7 @@ class DecoupledAdamW(AdamW):
 
             param.addcdiv_(exp_avg, denom, value=-step_size)
 
-    @torch.no_grad()
+    @torch.no_grad()  # pyright: ignore[reportUntypedFunctionDecorator]
     def step(self, closure=None):
         """Performs a single optimization step.
 

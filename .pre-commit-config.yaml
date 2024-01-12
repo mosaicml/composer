@@ -110,7 +110,7 @@ repos:
         types: [python]
         pass_filenames: false
         args: [--warnings]
-        additional_dependencies: ["pyright@1.1.256"]
+        additional_dependencies: ["pyright@1.1.310"]
   - repo: https://github.com/trufflesecurity/trufflehog.git
     rev: v3.40.0
     hooks:

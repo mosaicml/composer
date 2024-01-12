@@ -298,7 +298,9 @@ class RemoteUploaderDownloader(LoggerDestination):
             self._completed_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str],] = mp_ctx.JoinableQueue()
             self._exception_queue: Union[queue.Queue[Exception],
                                          multiprocessing.JoinableQueue[Exception],] = mp_ctx.JoinableQueue()
-            self._finished_cls: Union[Callable[[], multiprocessing._EventType], Type[threading.Event]] = mp_ctx.Event
+            self._finished_cls: Union[Callable[[],
+                                               multiprocessing._EventType],  # pyright: ignore[reportGeneralTypeIssues]
+                                      Type[threading.Event]] = mp_ctx.Event
             self._proc_class = mp_ctx.Process
         else:
             self._file_upload_queue = queue.Queue()
@@ -306,7 +308,8 @@ class RemoteUploaderDownloader(LoggerDestination):
             self._exception_queue = queue.Queue()
             self._finished_cls = threading.Event
             self._proc_class = threading.Thread
-        self._worker_flag: Optional[Union[multiprocessing._EventType, threading.Event]] = None
+        self._worker_flag: Optional[Union[multiprocessing._EventType,  # pyright: ignore[reportGeneralTypeIssues]
+                                          threading.Event]] = None
         self._workers: List[Union[SpawnProcess, threading.Thread]] = []
         # the object store instance for the main thread. Deferring the construction of the object_store to first use.
         self._remote_backend = None
@@ -612,7 +615,7 @@ def _upload_worker(
     file_queue: Union[queue.Queue[Tuple[str, str, bool]], multiprocessing.JoinableQueue[Tuple[str, str, bool]]],
     completed_queue: Union[queue.Queue[str], multiprocessing.JoinableQueue[str]],
     exception_queue: Union[queue.Queue[Exception], multiprocessing.JoinableQueue[Exception]],
-    is_finished: Union[multiprocessing._EventType, threading.Event],
+    is_finished: Union[multiprocessing._EventType, threading.Event],  # pyright: ignore[reportGeneralTypeIssues]
     remote_backend_name: str,
     backend_kwargs: Dict[str, Any],
     num_attempts: int,

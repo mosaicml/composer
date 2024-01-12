@@ -157,7 +157,9 @@ class LibcloudObjectStore(ObjectStore):
             self._ensure_transient_errors_are_wrapped(e)
 
     def get_object_size(self, object_name: str) -> int:
-        return self._get_object(object_name).size
+        obj = self._get_object(object_name)
+        assert obj is not None
+        return obj.size
 
     def download_object(
         self,
@@ -178,6 +180,7 @@ class LibcloudObjectStore(ObjectStore):
         tmp_filepath = str(filename) + f'.{uuid.uuid4()}.tmp'
         try:
             with open(tmp_filepath, 'wb+') as f:
+                assert obj is not None
                 stream = self._provider.download_object_as_stream(obj, chunk_size=self.chunk_size)
                 for chunk in iterate_with_callback(stream, obj.size, callback):
                     f.write(chunk)

@@ -144,9 +144,10 @@ class HuggingFaceModel(ComposerModel):
 
     @staticmethod
     def load_huggingface_tokenizer_from_saved_state(
-            hf_state: Dict[str, Any],
-            trust_remote_code: bool = False,
-            tokenizer_save_dir: Optional[str] = None) -> Optional[transformers.PreTrainedTokenizer]:
+        hf_state: Dict[str, Any],
+        trust_remote_code: bool = False,
+        tokenizer_save_dir: Optional[str] = None
+    ) -> Optional[transformers.PreTrainedTokenizer | transformers.PreTrainedTokenizerFast]:
         """A helper function that loads a HuggingFace tokenizer from a loaded in hf state.
 
         Args:
@@ -156,7 +157,7 @@ class HuggingFaceModel(ComposerModel):
                 a folder with a unique suffix will be saved in the current working directory. Defaults to None.
 
         Returns:
-            Optional[transformers.PreTrainedTokenizer]: The loaded HuggingFace tokenizer
+            Optional[transformers.PreTrainedTokenizer | transformers.PreTrainedTokenizerFast]: The loaded HuggingFace tokenizer
         """
         try:
             import transformers
@@ -201,7 +202,7 @@ class HuggingFaceModel(ComposerModel):
                         raise MissingConditionalImportError(extra_deps_group='sentencepiece',
                                                             conda_package='sentencepiece') from e
                     s = spm.SentencePieceProcessor()
-                    s.load_from_serialized_proto(saved_content['content'])
+                    s.load_from_serialized_proto(saved_content['content'])  # pyright: ignore[reportGeneralTypeIssues]
                     with open(tokenizer_file_path, 'wb') as _f:
                         _f.write(s.serialized_model_proto())
 
@@ -265,7 +266,8 @@ class HuggingFaceModel(ComposerModel):
             # pyright can't tell this isn't a string at this point
             if issubclass(
                     model_instantiation_class,  # type: ignore
-                    transformers.models.auto.auto_factory._BaseAutoModelClass):
+                    transformers.models.auto.auto_factory._BaseAutoModelClass  # type: ignore
+            ):  # pyright: ignore[reportGeneralTypeIssues]
                 hf_model = model_instantiation_class.from_config(loaded_config)  # type: ignore
             else:
                 hf_model = model_instantiation_class(loaded_config)  # type: ignore
@@ -291,7 +293,8 @@ class HuggingFaceModel(ComposerModel):
         model_config_kwargs: Optional[dict] = None,
         local_checkpoint_save_location: Optional[Union[Path, str]] = None,
         trust_remote_code: bool = False,
-    ) -> Tuple[transformers.PreTrainedModel, Optional[transformers.PreTrainedTokenizer]]:
+    ) -> Tuple[transformers.PreTrainedModel, Optional[Union[transformers.PreTrainedTokenizer,
+                                                            transformers.PreTrainedTokenizerFast]]]:
         """Loads a HuggingFace model (and tokenizer if present) from a composer checkpoint.
 
         .. note:: This function does not load the weights from the checkpoint. It just loads the correctly configured
@@ -353,7 +356,7 @@ class HuggingFaceModel(ComposerModel):
             ValueError: If the ``model_instantiation_class``, or the model class saved in the checkpoint, is not able to be imported
 
         Returns:
-            Tuple[transformers.PreTrainedModel, Optional[transformers.PreTrainedTokenizer]]: The loaded HuggingFace model and (if present) tokenizer
+            Tuple[transformers.PreTrainedModel, Optional[Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast]]]: The loaded HuggingFace model and (if present) tokenizer
         """
 
         # default local path to a tempfile if path is not provided
@@ -413,7 +416,8 @@ class HuggingFaceModel(ComposerModel):
                                        **batch.get('generation_kwargs', {}))
 
             # don't remove prefix space to sentencepiece models
-            if len(self.tokenizer(' a', add_special_tokens=False)['input_ids']) == 1:
+            if len(self.tokenizer(
+                    ' a', add_special_tokens=False)['input_ids']) == 1:  # pyright: ignore[reportGeneralTypeIssues]
                 return self.tokenizer.batch_decode(generation[:, batch['input_ids'].shape[1]:],
                                                    skip_special_tokens=True)
             else:
@@ -517,7 +521,8 @@ class HuggingFaceModel(ComposerModel):
                         except ImportError as e:
                             raise MissingConditionalImportError(extra_deps_group='sentencepiece',
                                                                 conda_package='sentencepiece') from e
-                        s = spm.SentencePieceProcessor(model_file=str(tokenizer_file_path))
+                        s = spm.SentencePieceProcessor(
+                            model_file=str(tokenizer_file_path))  # pyright: ignore[reportGeneralTypeIssues]
                         tokenizer_file_content = s.serialized_model_proto()
                     else:
                         raise ValueError(
@@ -594,7 +599,7 @@ def _is_registered_causal_lm(model: transformers.PreTrainedModel) -> bool:
             return False
         else:
             raise e
-    return any(isinstance(model, causal_lm_class) for causal_lm_class in causal_lm_classes)
+    return any(isinstance(model, causal_lm_class) for causal_lm_class in causal_lm_classes)  # type: ignore
 
 
 def get_hf_config_from_composer_state_dict(state_dict: Dict[str, Any],
