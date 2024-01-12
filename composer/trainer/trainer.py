@@ -2146,7 +2146,8 @@ class Trainer:
 
         self.engine.run_event(Event.EVAL_AFTER_ALL)
 
-    def train_batch(self, batch: Any, use_grad_scaling: bool, last_wct: Optional[datetime.datetime]) -> Tuple[Dict[str, Any], datetime.datetime]:
+    def train_batch(self, batch: Any, use_grad_scaling: bool,
+                    last_wct: Optional[datetime.datetime]) -> Tuple[Dict[str, Any], datetime.datetime]:
         """Train (forward + backward pass) and compute loss for a full batch of data.
 
         Adaptively change microbatch size if enabled to maximize GPU usage.
