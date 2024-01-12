@@ -464,11 +464,19 @@ class HuggingFaceModel(ComposerModel):
                 padded_new_input = _make_padded_input(trimmed_new_input, [], padding_size, batch['padding_token'], 'left')
                 batched_combined_prompts.append(padded_new_input)
 
+            prompt_device = batch['input_ids'].device
+            attention_mask_device = batch['input_ids'].device
+            input_shape = batch['input_ids'].shape
+            # Don't want to oom, so delete old tensors
+            del batch['input_ids']
+            del batch['attention_mask']
+            torch.cuda.empty_cache()
+
             # NOTE: got this warning: UserWarning: To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach() or sourceTensor.clone().detach().requires_grad_(True), rather than torch.tensor(sourceTensor).
             batched_combined_prompts = torch.stack(list(map(torch.tensor, batched_combined_prompts)))
             batched_combined_attention_mask = ~(batched_combined_prompts == batch['padding_token'])
-            batched_combined_prompts = batched_combined_prompts.to(batch['input_ids'].device)
-            batched_combined_attention_mask = batched_combined_attention_mask.to(batch['attention_mask'].device)
+            batched_combined_prompts = batched_combined_prompts.to(prompt_device)
+            batched_combined_attention_mask = batched_combined_attention_mask.to(attention_mask_device)
 
             second_generation = self.generate(batched_combined_prompts,
                                        attention_mask=batched_combined_attention_mask,
@@ -478,19 +486,19 @@ class HuggingFaceModel(ComposerModel):
             # don't remove prefix space to sentencepiece models
             if len(self.tokenizer(' a', add_special_tokens=False)['input_ids']) == 1:
                 # TODO: skip_special_tokens?
-                generation_one = self.tokenizer.batch_decode(first_generation[:, batch['input_ids'].shape[1]:], skip_special_tokens=True)
-                generation_two = self.tokenizer.batch_decode(second_generation[:, batch['input_ids'].shape[1]:], skip_special_tokens=True)
+                generation_one = self.tokenizer.batch_decode(first_generation[:, input_shape[1]:], skip_special_tokens=True)
+                generation_two = self.tokenizer.batch_decode(second_generation[:, input_shape[1]:], skip_special_tokens=True)
                 # outputs = {"generation_one": generation_one, "generation_two": generation_two}
                 # return outputs
             else:
                 generation_one = [
                             ' ' + generation
-                            for generation in self.tokenizer.batch_decode(first_generation[:, batch['input_ids'].shape[1]:],
+                            for generation in self.tokenizer.batch_decode(first_generation[:, input_shape[1]:],
                                                                         skip_special_tokens=True)
                         ]
                 generation_two = [
                             ' ' + generation
-                            for generation in self.tokenizer.batch_decode(second_generation[:, batch['input_ids'].shape[1]:],
+                            for generation in self.tokenizer.batch_decode(second_generation[:, input_shape[1]:],
                                                                         skip_special_tokens=True)
                         ]
             outputs = {"generation_one": generation_one, "generation_two": generation_two}
