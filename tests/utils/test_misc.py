@@ -1,8 +1,6 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for string helpers."""
-
 from composer.utils.string_helpers import partial_format
 
 

@@ -166,6 +166,9 @@ class MLFlowLogger(LoggerDestination):
             dist.broadcast_object_list(mlflow_ids_list, src=0)
             self._experiment_id, self._run_id = mlflow_ids_list
 
+    def after_load(self, state: State, logger: Logger) -> None:
+        logger.log_hyperparameters({'mlflow_experiment_id': self._experiment_id, 'mlflow_run_id': self._run_id})
+
     def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
         if self._enabled:
             try:

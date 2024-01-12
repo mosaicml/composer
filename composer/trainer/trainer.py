@@ -1174,12 +1174,6 @@ class Trainer:
                 mlflow_experiment_id = mlflow_logger._experiment_id
                 mlflow_run_id = mlflow_logger._run_id
 
-                # Log the experiment and run IDs as hyperparameters.
-                self.logger.log_hyperparameters({
-                    'mlflow_experiment_id': mlflow_experiment_id,
-                    'mlflow_run_id': mlflow_run_id
-                })
-
                 # The save folder and related paths/filenames may contain format placeholders for the MLFlow IDs, so
                 # populate them now.
                 mlflow_format_kwargs = {
