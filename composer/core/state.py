@@ -63,9 +63,7 @@ def _verify_options_t2p2p0(
     submodules: Optional[Set[nn.Module]] = None,
     options: Optional[StateDictOptions] = None,
 ) -> _StateDictInfo:
-    """
-    Verify the model and options passed by the user and generates _StateDictInfo.
-    """
+    """Verify the model and options passed by the user and generates _StateDictInfo."""
     from torch.distributed.checkpoint.state_dict import StateDictOptions, _get_fqns, _StateDictInfo
     from torch.distributed.fsdp import FullOptimStateDictConfig, FullStateDictConfig
     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
