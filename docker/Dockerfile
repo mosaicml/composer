@@ -305,6 +305,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         cd .. && \
         pip install --no-dependencies "git+ssh://git@github.com/mosaicml/megablocks-private.git@main#egg=megablocks[all]" && \
         pip install --no-dependencies git+https://github.com/tgale96/grouped_gemm@v0.1.4 && \
+        pip install git+https://github.com/NVIDIA/TransformerEngine.git@stable && \
         pip uninstall -y torch && \
         pip uninstall -y pytorch-triton && \
         pip uninstall -y torchvision && \
