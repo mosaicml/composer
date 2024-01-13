@@ -132,7 +132,7 @@ class S3ObjectStore(ObjectStore):
                       **kwargs):
         try:
             from boto3.s3.transfer import S3Transfer
-            from boto3.exceptiosn import S3UploadFailedError
+            from boto3.exceptions import S3UploadFailedError
         except ImportError as e:
             raise MissingConditionalImportError('streaming', 'boto3') from e
 
@@ -152,9 +152,8 @@ class S3ObjectStore(ObjectStore):
             if 'S3_CANNED_ACL' in os.environ and 'ACL' not in kwargs['ExtraArgs']:
                 kwargs['ExtraArgs']['ACL'] = os.environ['S3_CANNED_ACL']
 
-        success = False
-        jitter_sec = kwargs.get('jitter_sec', 0)
-        max_retries = kwargs.get('max_retries', 5)
+        jitter_sec = 30
+        max_retries = 5
         time.sleep(random.uniform(0, jitter_sec))
         for _ in range(max_retries):
             try:
@@ -164,10 +163,10 @@ class S3ObjectStore(ObjectStore):
                                         Callback=cb_wrapper,
                                         Config=self.transfer_config,
                                         **kwargs)
+                break
             except S3UploadFailedError as e:
                 time.sleep(60)
                 continue
-
 
     def download_object(
         self,
