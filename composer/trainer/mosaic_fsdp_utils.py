@@ -763,7 +763,7 @@ def _sharded_pre_load_state_dict_hook(
 
 
 if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
-        torch.__version__) < version.parse('2.2.1'):
+        torch.__version__) < version.parse('2.3.1'):
     import copy
 
     from torch.distributed._tensor import DeviceMesh, DTensor, Replicate

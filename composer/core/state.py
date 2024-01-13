@@ -11,7 +11,7 @@ import warnings
 from collections import OrderedDict
 import contextlib
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union, cast, Set
 import functools
 import numpy as np
 from dataclasses import asdict
@@ -22,6 +22,7 @@ from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
 from torchmetrics import Metric
+from torch import nn
 
 from composer.core.data_spec import DataSpec
 from composer.core.event import Event
@@ -80,7 +81,6 @@ def _verify_options_t2p2p0(
         )
         from torch.distributed.checkpoint.state_dict import StateDictOptions, _StateDictInfo, _get_fqns
 
-    from torch import nn
     if optim_only and not optims:
         raise RuntimeError(
             "Optimizers are not passed in but optim_only is set to True."
