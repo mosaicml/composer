@@ -107,7 +107,7 @@ class S3ObjectStore(ObjectStore):
         )
         if transfer_config is None:
             transfer_config = {
-                "num_download_attempts" : 10,  # default of 5, increase for resiliency
+                'num_download_attempts': 10,  # default of 5, increase for resiliency
             }
         self.transfer_config = TransferConfig(**transfer_config)
 
