@@ -5,8 +5,6 @@
 from __future__ import annotations
 
 import collections.abc
-import contextlib
-import functools
 import logging
 import textwrap
 import warnings

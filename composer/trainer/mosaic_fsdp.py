@@ -93,8 +93,9 @@ def patch_pytorch():
 
         # Monkeypath state_dict
         from torch.distributed.checkpoint import state_dict  # type: ignore
-        state_dict._verify_options = _verify_options_t2p2p0
 
+        from composer.trainer.mosaic_fsdp_utils import _verify_options_t2p2p0
+        state_dict._verify_options = _verify_options_t2p2p0
 
     elif version.parse(torch.__version__) < version.parse('2.3.1'):
         # Monkey patch for torch < 2.3.1 ie torch == 2.3.0
@@ -120,6 +121,7 @@ def patch_pytorch():
         FullyShardedDataParallel.__init__ = init_fn_t2p2p0
 
         # Monkeypath state_dict
-        from composer.trainer.mosaic_fsdp_utils import _verify_options_t2p2p0
         from torch.distributed.checkpoint import state_dict  # type: ignore
+
+        from composer.trainer.mosaic_fsdp_utils import _verify_options_t2p2p0
         state_dict._verify_options = _verify_options_t2p2p0
