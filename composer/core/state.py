@@ -51,11 +51,8 @@ __all__ = ['State']
 log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    if version.parse(torch.__version__) >= version.parse('2.0.1') and version.parse(
-            torch.__version__) < version.parse('2.2.0'):
-        from torch.distributed.fsdp._common_utils import _FSDPState
     if version.parse(torch.__version__) > version.parse('2.1.2'):
-        from torch.distributed.checkpoint.state_dict import StateDictOptions, _get_fqns, _StateDictInfo
+        from torch.distributed.checkpoint.state_dict import StateDictOptions, _StateDictInfo
 
 
 def _verify_options_t2p2p0(
@@ -69,12 +66,11 @@ def _verify_options_t2p2p0(
     """
     Verify the model and options passed by the user and generates _StateDictInfo.
     """
-    if version.parse(torch.__version__) > version.parse('2.1.2'):
-        from torch.distributed.checkpoint.state_dict import StateDictOptions, _get_fqns, _StateDictInfo
-        from torch.distributed.fsdp import FullOptimStateDictConfig, FullStateDictConfig
-        from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-        from torch.distributed.fsdp import (OptimStateDictConfig, ShardedOptimStateDictConfig, ShardedStateDictConfig,
-                                            StateDictConfig, StateDictType)
+    from torch.distributed.checkpoint.state_dict import StateDictOptions, _get_fqns, _StateDictInfo
+    from torch.distributed.fsdp import FullOptimStateDictConfig, FullStateDictConfig
+    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+    from torch.distributed.fsdp import (OptimStateDictConfig, ShardedOptimStateDictConfig, ShardedStateDictConfig,
+                                        StateDictConfig, StateDictType)
 
     if optim_only and not optims:
         raise RuntimeError('Optimizers are not passed in but optim_only is set to True.')

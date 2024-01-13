@@ -37,8 +37,6 @@ if TYPE_CHECKING:
     if version.parse(torch.__version__) >= version.parse('2.0.1') and version.parse(
             torch.__version__) < version.parse('2.2.0'):
         from torch.distributed.fsdp._common_utils import _FSDPState
-    if version.parse(torch.__version__) > version.parse('2.1.2'):
-        from torch.distributed.checkpoint.state_dict import StateDictOptions, _StateDictInfo
 
 
 log = logging.getLogger(__name__)
@@ -230,7 +228,7 @@ def _custom_recursive_wrap_t1p13p1(
     modified version of
     https://github.com/pytorch/pytorch/blob/d922c29a22e4bf0fba49526f7536395eb8cd66f4/torch/distributed/fsdp/wrap.py#L353
     which recursively wraps modules as FSDP modules for parameter sharding.
-    This modification enables the user to pass custom FSDP arguements for every wrapped module.
+    This modification enables the user to pass custom FSDP arguments for every wrapped module.
     The added process_group_cache enables different FSDP modules to, when appropriate, use the
     same process group instead of instantiating a new process group.
 
@@ -321,7 +319,7 @@ def custom_auto_wrap_t1p13p1(
     modified version of
     https://github.com/pytorch/pytorch/blob/d922c29a22e4bf0fba49526f7536395eb8cd66f4/torch/distributed/fsdp/fully_sharded_data_parallel.py#L1252
     FSDP's _auto_wrap recursively wraps modules as FSDP modules for parameter sharding.
-    This modification enables the user to pass custom FSDP arguements for every wrapped module.
+    This modification enables the user to pass custom FSDP arguments for every wrapped module.
     The added process_group_cache enables different FSDP modules to, when appropriate, use the
     same process group instead of instantiating a new process group.
 
@@ -376,7 +374,7 @@ def _custom_recursive_wrap_t2p0p1(
     modified version of
     https://github.com/pytorch/pytorch/blob/96ca226a7332be0d8f3d6159d0c797e032ab0721/torch/distributed/fsdp/wrap.py#L320
     which recursively wraps modules as FSDP modules for parameter sharding.
-    This modification enables the user to pass custom FSDP arguements for every wrapped module.
+    This modification enables the user to pass custom FSDP arguments for every wrapped module.
     The added process_group_cache enables different FSDP modules to, when appropriate, use the
     same process group instead of instantiating a new process group.
 
@@ -474,7 +472,7 @@ def _custom_auto_wrap_t2p0p1(
     modified version of
     https://github.com/pytorch/pytorch/blob/96ca226a7332be0d8f3d6159d0c797e032ab0721/torch/distributed/fsdp/_wrap_utils.py#L31
     FSDP's _auto_wrap recursively wraps modules as FSDP modules for parameter sharding.
-    This modification enables the user to pass custom FSDP arguements for every wrapped module.
+    This modification enables the user to pass custom FSDP arguments for every wrapped module.
     The added process_group_cache enables different FSDP modules to, when appropriate, use the
     same process group instead of instantiating a new process group.
 
@@ -829,7 +827,7 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
         tensor = tensor.clone().detach()
 
         # When a layer is not involved in TP, then the tensor will not be a DTensor.
-        # e.g. When a layer is not sppecified in the parallelize_plan, TP will have no effect on the layer.
+        # e.g. When a layer is not specified in the parallelize_plan, TP will have no effect on the layer.
         # e.g. When you do PairwiseParallel on a 3 layer model, TP will have no effect on the third layer.
         if isinstance(tensor, torch.Tensor) and not isinstance(tensor, DTensor):
 
@@ -871,17 +869,6 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
 
     DTensorExtensions.all_gather_dtensor = all_gather_dtensor_t2p2p0
     DTensorExtensions.chunk_dtensor = chunk_dtensor_t2p2p0
-
-    # def _init_extension_t2p2p0(state: _FSDPState, device_mesh: DeviceMesh = None) -> _FSDPState:
-    #     # TODO: we need to add additional check once we support FSDP + PiPPy.
-    #     # This check is currently sufficient, since we only support FSDP + TP.
-    #     if device_mesh and _mesh_resources.get_parent_mesh(state._device_mesh) is not None:
-    #         state._fsdp_extension = DTensorExtensions()
-    #     else:
-    #         # We need to explicilty set _fsdp_extension to None.
-    #         # Otherwise, we will run into an infinite recursion when getting the attribute.
-    #         state._fsdp_extension = None
-    #     return state
 
     def _is_valid_hybrid_shard_device_mesh_t2p2p0(device_mesh: DeviceMesh) -> bool:
         #parent_mesh = _mesh_resources.get_parent_mesh(device_mesh)
@@ -1156,7 +1143,7 @@ def _root_pre_forward(
         _p_assert(state._is_root is not None, 'Expects a root FSDP to have been set')
         if not state._is_root:
             # Always cast forward inputs in the root of this local FSDP unit for mixed
-            # precision, as this is where mixed precision could be configed.
+            # precision, as this is where mixed precision could be configured.
             # This is more useful for auto wrapping that is recommended in composable path.
             # For manual wrapping, cast forward inputs on each local FSDP unit root will
             # increase some overhead, so not turned on for model wrapper path right now where
