@@ -30,6 +30,7 @@ def test_bert_mlm_hf_factory(tiny_bert_config, tiny_bert_tokenizer, monkeypatch)
     trainer = Trainer(model=bert_composer_model, train_dataloader=train_dataloader, max_duration='1ep')
     trainer.fit()
 
+    assert trainer.state.train_metrics is not None
     assert trainer.state.train_metrics['LanguageCrossEntropy'].compute() > 0.0
 
 
@@ -58,4 +59,5 @@ def test_bert_classification_hf_factory(tiny_bert_config, tiny_bert_tokenizer, m
     trainer = Trainer(model=bert_composer_model, train_dataloader=train_dataloader, max_duration='1ep')
     trainer.fit()
 
+    assert trainer.state.train_metrics is not None
     assert trainer.state.train_metrics['MulticlassAccuracy'].compute() > 0.0

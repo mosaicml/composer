@@ -571,7 +571,7 @@ class State(Serializable):
             'dataset_state',
         ]
 
-        self.train_metrics: Dict[str, Metric] = {}
+        self.train_metrics: Optional[Dict[str, Metric]] = {}
         self.eval_metrics: Dict[str, Dict[str, Metric]] = {}
         self.train_metric_values: Dict[str, float] = {}
         self.eval_metric_values: Dict[str, float] = {}
@@ -890,7 +890,8 @@ class State(Serializable):
         return model_state_dict
 
     def _legacy_get_optim_state_dict(self) -> Dict[str, Any]:
-        optimizer = ensure_tuple(self.optimizers)[0]  # Let's stop pretending. We don't support more than one optimizer.
+        # Let's stop pretending. We don't support more than one optimizer.
+        optimizer = ensure_tuple(self.optimizers)[0]
         if self.fsdp_enabled and self.fsdp_state_dict_type is not None:
             optim_state_dict = {
                 type(optimizer).__qualname__:

@@ -6,6 +6,7 @@
 
 """Monkey patch FSDPs _auto_wrap to enable module_kwargs and custom process_group cache and ChunkShardingSpec to enable sharding over all gpus."""
 
+# pyright: reportGeneralTypeIssues=false
 import torch
 from packaging import version
 from torch.distributed._shard.sharding_spec import ChunkShardingSpec

@@ -21,8 +21,11 @@ MLFLOW_DBFS_PATH_PREFIX = 'databricks/mlflow-tracking/'
 
 DEFAULT_MLFLOW_EXPERIMENT_NAME = 'mlflow-object-store'
 
-PLACEHOLDER_EXPERIMENT_ID = '{mlflow_experiment_id}'
-PLACEHOLDER_RUN_ID = '{mlflow_run_id}'
+MLFLOW_EXPERIMENT_ID_FORMAT_KEY = 'mlflow_experiment_id'
+MLFLOW_RUN_ID_FORMAT_KEY = 'mlflow_run_id'
+
+MLFLOW_EXPERIMENT_ID_PLACEHOLDER = '{' + MLFLOW_EXPERIMENT_ID_FORMAT_KEY + '}'
+MLFLOW_RUN_ID_PLACEHOLDER = '{' + MLFLOW_RUN_ID_FORMAT_KEY + '}'
 
 log = logging.getLogger(__name__)
 
@@ -112,7 +115,10 @@ class MLFlowObjectStore(ObjectStore):
         except ImportError as e:
             raise MissingConditionalImportError('databricks', conda_package='databricks-sdk>=0.15.0,<1.0') from e
 
-        tracking_uri = os.getenv(mlflow.environment_variables.MLFLOW_TRACKING_URI.name, MLFLOW_DATABRICKS_TRACKING_URI)
+        tracking_uri = os.getenv(
+            mlflow.environment_variables.MLFLOW_TRACKING_URI.name,  # pyright: ignore[reportGeneralTypeIssues]
+            MLFLOW_DATABRICKS_TRACKING_URI,
+        )
         if tracking_uri != MLFLOW_DATABRICKS_TRACKING_URI:
             raise ValueError(
                 'MLFlowObjectStore currently only supports Databricks-hosted MLflow tracking. '
@@ -129,12 +135,13 @@ class MLFlowObjectStore(ObjectStore):
                 'to identify different ways to setup credentials.') from e
 
         self._mlflow_client = MlflowClient(tracking_uri)
-        mlflow.environment_variables.MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.set(multipart_upload_chunk_size)
+        mlflow.environment_variables.MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.set(  # pyright: ignore[reportGeneralTypeIssues]
+            multipart_upload_chunk_size,)
 
         experiment_id, run_id, _ = MLFlowObjectStore.parse_dbfs_path(path)
-        if experiment_id == PLACEHOLDER_EXPERIMENT_ID:
+        if experiment_id == MLFLOW_EXPERIMENT_ID_PLACEHOLDER:
             experiment_id = None
-        if run_id == PLACEHOLDER_RUN_ID:
+        if run_id == MLFLOW_RUN_ID_PLACEHOLDER:
             run_id = None
 
         # Construct the `experiment_id` and `run_id` depending on whether format placeholders were provided.
@@ -158,8 +165,8 @@ class MLFlowObjectStore(ObjectStore):
                 log.debug(f'MLFlowObjectStore using active MLflow run {run_id=}')
             else:
                 # If no active run exists, create a new run for the default experiment.
-                experiment_name = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,
-                                            DEFAULT_MLFLOW_EXPERIMENT_NAME)
+                mlflow_env_var_name = mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name  # pyright: ignore[reportGeneralTypeIssues]
+                experiment_name = os.getenv(mlflow_env_var_name, DEFAULT_MLFLOW_EXPERIMENT_NAME)
 
                 experiment = self._mlflow_client.get_experiment_by_name(experiment_name)
                 if experiment is not None:
@@ -236,10 +243,10 @@ class MLFlowObjectStore(ObjectStore):
         """
         if object_name.startswith(MLFLOW_DBFS_PATH_PREFIX):
             experiment_id, run_id, object_name = self.parse_dbfs_path(object_name)
-            if (experiment_id != self.experiment_id and experiment_id != PLACEHOLDER_EXPERIMENT_ID):
+            if (experiment_id != self.experiment_id and experiment_id != MLFLOW_EXPERIMENT_ID_PLACEHOLDER):
                 raise ValueError(f'Object {object_name} belongs to experiment ID {experiment_id}, '
                                  f'but MLFlowObjectStore is associated with experiment ID {self.experiment_id}.')
-            if (run_id != self.run_id and run_id != PLACEHOLDER_RUN_ID):
+            if (run_id != self.run_id and run_id != MLFLOW_RUN_ID_PLACEHOLDER):
                 raise ValueError(f'Object {object_name} belongs to run ID {run_id}, '
                                  f'but MLFlowObjectStore is associated with run ID {self.run_id}.')
         return object_name
