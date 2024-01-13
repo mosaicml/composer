@@ -774,7 +774,7 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
     from torch.distributed.fsdp._common_utils import _FSDPState
     from torch.distributed.fsdp._init_utils import (HYBRID_SHARDING_STRATEGIES, ProcessGroupType,
                                                     _get_default_comm_hook_state, _init_intra_and_inter_node_groups,
-                                                    _is_valid_hybrid_shard_pg_type)
+                                                    _is_valid_hybrid_shard_pg_type, _init_extension)
     from torch.distributed.fsdp.fully_sharded_data_parallel import (_annotate_modules_for_dynamo, _auto_wrap,
                                                                     _check_orig_params_flattened, _init_buffer_state,
                                                                     _init_core_state, _init_device_handle,
@@ -872,16 +872,16 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
     DTensorExtensions.all_gather_dtensor = all_gather_dtensor_t2p2p0
     DTensorExtensions.chunk_dtensor = chunk_dtensor_t2p2p0
 
-    def _init_extension_t2p2p0(state: _FSDPState, device_mesh: DeviceMesh = None) -> _FSDPState:
-        # TODO: we need to add additional check once we support FSDP + PiPPy.
-        # This check is currently sufficient, since we only support FSDP + TP.
-        if device_mesh and _mesh_resources.get_parent_mesh(state._device_mesh) is not None:
-            state._fsdp_extension = DTensorExtensions()
-        else:
-            # We need to explicilty set _fsdp_extension to None.
-            # Otherwise, we will run into an infinite recursion when getting the attribute.
-            state._fsdp_extension = None
-        return state
+    # def _init_extension_t2p2p0(state: _FSDPState, device_mesh: DeviceMesh = None) -> _FSDPState:
+    #     # TODO: we need to add additional check once we support FSDP + PiPPy.
+    #     # This check is currently sufficient, since we only support FSDP + TP.
+    #     if device_mesh and _mesh_resources.get_parent_mesh(state._device_mesh) is not None:
+    #         state._fsdp_extension = DTensorExtensions()
+    #     else:
+    #         # We need to explicilty set _fsdp_extension to None.
+    #         # Otherwise, we will run into an infinite recursion when getting the attribute.
+    #         state._fsdp_extension = None
+    #     return state
 
     def _is_valid_hybrid_shard_device_mesh_t2p2p0(device_mesh: DeviceMesh) -> bool:
         #parent_mesh = _mesh_resources.get_parent_mesh(device_mesh)
@@ -1055,7 +1055,7 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
         _init_prefetching_state(self, backward_prefetch, forward_prefetch)
         _init_buffer_state(self, module)
         # extension needs to be set before `_init_param_handle_from_module()`
-        _init_extension_t2p2p0(self, device_mesh)
+        _init_extension(self, device_mesh)
         _init_param_handle_from_module(
             self,
             module,
