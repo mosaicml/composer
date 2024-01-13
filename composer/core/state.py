@@ -131,7 +131,9 @@ def _verify_options_t2p2p0(
         handle_optim=(len(optims) > 0),
     )
 
-
+print('+'*30)
+print(version.parse(torch.__version__))
+print(version.parse(torch.__version__) > version.parse('2.1.2'))
 if version.parse(torch.__version__) > version.parse('2.1.2'):
     from torch.distributed.checkpoint import state_dict
     state_dict._verify_options = _verify_options_t2p2p0
