@@ -608,7 +608,6 @@ def _validate_credentials(
         remote_backend.upload_object(
             object_name=remote_file_name_to_test,
             filename=f.name,
-            jitter_sec=0,
         )
 
 
@@ -656,7 +655,6 @@ def _upload_worker(
                 remote_backend.upload_object(
                     object_name=remote_file_name,
                     filename=file_path_to_upload,
-                    jitter_sec=30,
                 )
             except Exception as e:
                 exception_queue.put_nowait(e)
