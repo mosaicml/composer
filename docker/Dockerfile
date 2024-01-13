@@ -206,9 +206,12 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
             torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
             torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} ; \
     else \
-        pip${PYTHON_VERSION} install --no-cache-dir --pre --index-url ${PYTORCH_NIGHTLY_URL} \
-            torch==${PYTORCH_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
-	        torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} ; \
+        pip${PYTHON_VERSION} uninstall -y torch && \
+        pip${PYTHON_VERSION} uninstall -y pytorch-triton && \
+        pip${PYTHON_VERSION} uninstall -y torchvision && \
+        pip${PYTHON_VERSION} install https://download.pytorch.org/whl/nightly/pytorch_triton-2.2.0+e28a256d71-cp310-cp310-linux_x86_64.whl && \
+        pip${PYTHON_VERSION} install https://download.pytorch.org/whl/nightly/cu121/torch-2.3.0.dev20240110+cu121-cp310-cp310-linux_x86_64.whl && \
+        pip${PYTHON_VERSION} install https://download.pytorch.org/whl/nightly/cu121/torchvision-0.18.0.dev20240110+cu121-cp310-cp310-linux_x86_64.whl ; \
     fi
 
 #####################################
@@ -294,7 +297,10 @@ RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \
 RUN if [ -n "$CUDA_VERSION" ] ; then \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir ninja==1.11.1 && \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir --force-reinstall packaging==22.0 && \
-        pip${PYTHON_VERSION} install --no-cache-dir flash-attn==1.0.9; \
+        git clone --branch v2.4.2 https://github.com/Dao-AILab/flash-attention.git && \
+        cd flash-attention && \
+        MAX_JOBS=1 python${PYTHON_VERSION} setup.py install && \
+        cd .. ; \
     fi
 
 ###############
