@@ -94,7 +94,7 @@ class MLFlowLogger(LoggerDestination):
         self._last_flush_time = time.time()
         self._flush_interval = flush_interval
 
-        self._experiment_id = None
+        self._experiment_id: Optional[str] = None
         self._run_id = None
 
         if self._enabled:
@@ -150,6 +150,7 @@ class MLFlowLogger(LoggerDestination):
                 self._run_id = env_run_id
             else:
                 # Search for an existing run tagged with this Composer run.
+                assert self._experiment_id is not None
                 existing_runs = mlflow.search_runs(experiment_ids=[self._experiment_id],
                                                    filter_string=f'tags.composer_run_name = "{state.run_name}"',
                                                    output_format='list')

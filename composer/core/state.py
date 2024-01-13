@@ -74,6 +74,7 @@ def _verify_options_t2p2p0(
         raise RuntimeError('Optimizers are not passed in but optim_only is set to True.')
 
     options = options or StateDictOptions()
+    assert options is not None  # pyright
 
     fqn_param_mapping: Dict[Union[str, torch.Tensor], Union[Set[str], torch.Tensor]] = {}
     all_fqns = set()
@@ -131,8 +132,9 @@ def _verify_options_t2p2p0(
         handle_optim=(len(optims) > 0),
     )
 
-if version.parse(torch.__version__) > version.parse('2.1.3'):
-    from torch.distributed.checkpoint import state_dict
+
+if version.parse(torch.__version__) >= version.parse('2.2'):
+    from torch.distributed.checkpoint import state_dict  # type: ignore
     state_dict._verify_options = _verify_options_t2p2p0
 
 
