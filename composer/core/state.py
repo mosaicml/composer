@@ -5,24 +5,25 @@
 from __future__ import annotations
 
 import collections.abc
+import contextlib
+import functools
 import logging
 import textwrap
 import warnings
 from collections import OrderedDict
-import contextlib
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union, cast, Set
-import functools
-import numpy as np
 from dataclasses import asdict
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union, cast
+
+import numpy as np
 import torch
 import torch.nn.modules.utils
 from packaging import version
+from torch import nn
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
 from torchmetrics import Metric
-from torch import nn
 
 from composer.core.data_spec import DataSpec
 from composer.core.event import Event
@@ -49,14 +50,14 @@ __all__ = ['State']
 
 log = logging.getLogger(__name__)
 
-
 if TYPE_CHECKING:
     if version.parse(torch.__version__) >= version.parse('2.0.1') and version.parse(
             torch.__version__) < version.parse('2.2.0'):
         from torch.distributed.fsdp._common_utils import _FSDPState
     if version.parse(torch.__version__) > version.parse('2.1.2'):
-        from torch.distributed.checkpoint.state_dict import StateDictOptions, _StateDictInfo, _get_fqns
-        
+        from torch.distributed.checkpoint.state_dict import StateDictOptions, _get_fqns, _StateDictInfo
+
+
 def _verify_options_t2p2p0(
     model: nn.Module,
     optims: Tuple[torch.optim.Optimizer, ...],
@@ -64,37 +65,27 @@ def _verify_options_t2p2p0(
     *,
     submodules: Optional[Set[nn.Module]] = None,
     options: Optional[StateDictOptions] = None,
-    ) -> _StateDictInfo:
+) -> _StateDictInfo:
     """
     Verify the model and options passed by the user and generates _StateDictInfo.
     """
     if version.parse(torch.__version__) > version.parse('2.1.2'):
-        from torch.distributed.fsdp import (
-            FullOptimStateDictConfig,
-            FullStateDictConfig,
-            FullyShardedDataParallel as FSDP,
-            OptimStateDictConfig,
-            ShardedOptimStateDictConfig,
-            ShardedStateDictConfig,
-            StateDictConfig,
-            StateDictType,
-        )
-        from torch.distributed.checkpoint.state_dict import StateDictOptions, _StateDictInfo, _get_fqns
+        from torch.distributed.checkpoint.state_dict import StateDictOptions, _get_fqns, _StateDictInfo
+        from torch.distributed.fsdp import FullOptimStateDictConfig, FullStateDictConfig
+        from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+        from torch.distributed.fsdp import (OptimStateDictConfig, ShardedOptimStateDictConfig, ShardedStateDictConfig,
+                                            StateDictConfig, StateDictType)
 
     if optim_only and not optims:
-        raise RuntimeError(
-            "Optimizers are not passed in but optim_only is set to True."
-        )
+        raise RuntimeError('Optimizers are not passed in but optim_only is set to True.')
 
     options = options or StateDictOptions()
 
-    fqn_param_mapping: Dict[
-        Union[str, torch.Tensor], Union[Set[str], torch.Tensor]
-    ] = {}
+    fqn_param_mapping: Dict[Union[str, torch.Tensor], Union[Set[str], torch.Tensor]] = {}
     all_fqns = set()
     for name, param in model.named_parameters():
         fqns = _get_fqns(model, name)
-        fqns = {fqn.replace("_checkpoint_wrapped_module.", "") for fqn in fqns}
+        fqns = {fqn.replace('_checkpoint_wrapped_module.', '') for fqn in fqns}
         fqn_param_mapping[param] = fqns
         for fqn in fqns:
             fqn_param_mapping[fqn] = param
@@ -107,9 +98,9 @@ def _verify_options_t2p2p0(
             if module not in submodules:
                 continue
             fqns = _get_fqns(model, name)
-            assert len(fqns) == 1, "Submodule FQN should only have 1 instance"
+            assert len(fqns) == 1, 'Submodule FQN should only have 1 instance'
             for fqn in fqns:
-                submodule_prefixes.add(f"{fqn}.")
+                submodule_prefixes.add(f'{fqn}.')
     fsdp_modules = FSDP.fsdp_modules(model)
     state_dict_config: StateDictConfig
     optim_state_dict_config: OptimStateDictConfig
@@ -117,18 +108,13 @@ def _verify_options_t2p2p0(
     if fsdp_modules:
         # FSDP API only work if at least one FSDP instance exists.
         if options.full_state_dict:
-            state_dict_config = FullStateDictConfig(
-                offload_to_cpu=options.cpu_offload, rank0_only=options.cpu_offload
-            )
-            optim_state_dict_config = FullOptimStateDictConfig(
-                offload_to_cpu=options.cpu_offload, rank0_only=options.cpu_offload
-            )
+            state_dict_config = FullStateDictConfig(offload_to_cpu=options.cpu_offload, rank0_only=options.cpu_offload)
+            optim_state_dict_config = FullOptimStateDictConfig(offload_to_cpu=options.cpu_offload,
+                                                               rank0_only=options.cpu_offload)
             state_dict_type = StateDictType.FULL_STATE_DICT
         else:
             state_dict_config = ShardedStateDictConfig()
-            optim_state_dict_config = ShardedOptimStateDictConfig(
-                offload_to_cpu=options.cpu_offload,
-            )
+            optim_state_dict_config = ShardedOptimStateDictConfig(offload_to_cpu=options.cpu_offload,)
             state_dict_type = StateDictType.SHARDED_STATE_DICT
 
         fsdp_context = functools.partial(
@@ -151,9 +137,11 @@ def _verify_options_t2p2p0(
         handle_optim=(len(optims) > 0),
     )
 
+
 if version.parse(torch.__version__) > version.parse('2.1.2'):
     from torch.distributed.checkpoint import state_dict
     state_dict._verify_options = _verify_options_t2p2p0
+
 
 @contextmanager
 def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str = 'full'):
