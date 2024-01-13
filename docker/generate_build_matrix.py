@@ -104,7 +104,7 @@ def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: s
     else:
         raise ValueError(f'Invalid stage: {stage}')
     cuda_version_tag = _get_cuda_version_tag(cuda_version)
-    tags = [f'{base_image_name}:{pytorch_version}_{cuda_version_tag}-python{python_version}-ubuntu20.04']
+    tags = [f'{base_image_name}:{pytorch_version}-{cuda_version_tag}-python{python_version}-ubuntu20.04']
 
     if python_version == LATEST_PYTHON_VERSION and pytorch_version == PRODUCTION_PYTORCH_VERSION:
         if not cuda_version:
@@ -123,8 +123,8 @@ def _get_composer_tags(composer_version: str, use_cuda: bool):
 
     tags = []
     if not use_cuda:
-        tags.append(f'{base_image_name}:{composer_version}_cpu')
-        tags.append(f'{base_image_name}:latest_cpu')
+        tags.append(f'{base_image_name}:{composer_version}-cpu')
+        tags.append(f'{base_image_name}:latest-cpu')
     else:
         tags.append(f'{base_image_name}:{composer_version}')
         tags.append(f'{base_image_name}:latest')
@@ -238,7 +238,7 @@ def _main():
         'PYTORCH_VERSION': '2.3.0',
         'PYTORCH_NIGHTLY_URL': 'https://download.pytorch.org/whl/nightly/cu121',
         'PYTORCH_NIGHTLY_VERSION': 'dev20240110+cu121',
-        'TAGS': ['mosaicml/pytorch:2.3.0_cu121-nightly20240110-python3.10-ubuntu20.04'],
+        'TAGS': ['mosaicml/pytorch:2.3.0-cu121-nightly20240110-python3.10-ubuntu20.04'],
         'TARGET': 'pytorch_stage',
         'TORCHVISION_VERSION': '0.18.0'
     }
@@ -321,7 +321,7 @@ def _main():
             continue
 
         table.append([
-            entry['TAGS'][0].split(':')[1].replace('_cpu', ''),  # Composer version, or 'latest'
+            entry['TAGS'][0].split(':')[1].replace('-cpu', ''),  # Composer version, or 'latest'
             'No' if entry['BASE_IMAGE'].startswith('ubuntu:') else 'Yes',  # Whether there is Cuda support
             ', '.join(reversed([f'`{x}`' for x in entry['TAGS']])),  # Docker tags
         ])
