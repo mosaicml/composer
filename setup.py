@@ -119,6 +119,7 @@ extra_deps['dev'] = [
     'sphinxcontrib.katex==0.9.6',
     'sphinxcontrib-applehelp==1.0.0',
     'sphinxcontrib-devhelp==1.0.0',
+    'sphinxcontrib-htmlhelp==2.0.0',
     'sphinxext.opengraph==0.9.1',
     'sphinxemoji==0.2.0',
     'furo==2022.9.29',
