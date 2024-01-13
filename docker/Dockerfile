@@ -200,13 +200,16 @@ ENV PYTORCH_VERSION=${PYTORCH_VERSION}
 ENV PYTORCH_NIGHTLY_URL=${PYTORCH_NIGHTLY_URL}
 ENV PYTORCH_NIGHTLY_VERSION=${PYTORCH_NIGHTLY_VERSION}
 
-RUN pip${PYTHON_VERSION} uninstall -y torch && \
-    pip${PYTHON_VERSION} uninstall -y pytorch-triton && \
-    pip${PYTHON_VERSION} uninstall -y torchvision && \
-    pip${PYTHON_VERSION} install https://download.pytorch.org/whl/nightly/pytorch_triton-2.2.0%2Be28a256d71-cp310-cp310-linux_x86_64.whl && \
-    pip${PYTHON_VERSION} install https://download.pytorch.org/whl/nightly/cu121/torch-2.3.0.dev20240110%2Bcu121-cp310-cp310-linux_x86_64.whl && \
-    pip${PYTHON_VERSION} install https://download.pytorch.org/whl/nightly/cu121/torchvision-0.18.0.dev20240110%2Bcu121-cp310-cp310-linux_x86_64.whl
-
+RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
+      CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
+        pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
+            torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
+            torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} ; \
+    else \
+        pip${PYTHON_VERSION} install --no-cache-dir --pre --index-url ${PYTORCH_NIGHTLY_URL} \
+            torch==${PYTORCH_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
+	        torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} ; \
+    fi
 #####################################
 # Install EFA and AWS-OFI-NCCL plugin
 #####################################
@@ -290,6 +293,25 @@ RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \
 RUN if [ -n "$CUDA_VERSION" ] ; then \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir ninja==1.11.1 && \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir --force-reinstall packaging==22.0 && \
+        git clone git@github.com:mosaicml/llm-foundry-private.git && \
+        cd llm-foundry-private && \
+        git checkout evan/no-fwd-hook  && \
+        pip install .[gpu,openai] && \
+        cd ..   && \
+        git clone https://github.com/dakinggg/composer.git && \
+        cd composer && \
+        git checkout 2-3-patch && \
+        pip install -e .[all] && \
+        cd .. && \
+        pip install --no-dependencies "git+ssh://git@github.com/mosaicml/megablocks-private.git@main#egg=megablocks[all]" && \
+        pip install --no-dependencies git+https://github.com/tgale96/grouped_gemm@v0.1.4 && \
+        pip install git+https://github.com/NVIDIA/TransformerEngine.git@stable && \
+        pip uninstall -y torch && \
+        pip uninstall -y pytorch-triton && \
+        pip uninstall -y torchvision && \
+        pip install https://download.pytorch.org/whl/nightly/pytorch_triton-2.2.0%2Be28a256d71-cp310-cp310-linux_x86_64.whl && \
+        pip install https://download.pytorch.org/whl/nightly/cu121/torch-2.3.0.dev20240110%2Bcu121-cp310-cp310-linux_x86_64.whl && \
+        pip install https://download.pytorch.org/whl/nightly/cu121/torchvision-0.18.0.dev20240110%2Bcu121-cp310-cp310-linux_x86_64.whl && \
         git clone --branch v2.4.2 https://github.com/Dao-AILab/flash-attention.git && \
         cd flash-attention && \
         MAX_JOBS=1 python${PYTHON_VERSION} setup.py install && \
