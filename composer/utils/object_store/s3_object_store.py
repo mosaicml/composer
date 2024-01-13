@@ -106,7 +106,9 @@ class S3ObjectStore(ObjectStore):
             aws_session_token=aws_session_token,
         )
         if transfer_config is None:
-            transfer_config = {}
+            transfer_config = {
+                "num_download_attempts" : 10,  # default of 5, increase for resiliency
+            }
         self.transfer_config = TransferConfig(**transfer_config)
 
     def get_uri(self, object_name: str) -> str:
