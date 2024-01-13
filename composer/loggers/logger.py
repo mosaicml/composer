@@ -102,7 +102,15 @@ class Logger:
         if step is None:
             step = self._state.timestamp.batch.value
         for destination in self.destinations:
-            destination.log_images(images, name, channels_last, step, masks, mask_class_labels, use_table)
+            destination.log_images(
+                images,
+                name,
+                channels_last,
+                step,
+                masks,
+                mask_class_labels,
+                use_table,
+            )
 
     def upload_file(
         self,

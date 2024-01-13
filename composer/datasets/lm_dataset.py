@@ -72,8 +72,6 @@ def build_lm_dataloader(
     lm_datasets = [datasets.load_from_disk(i) for i in datadir]  #type: ignore (thirdparty)
 
     # merge the dataset to re-sample from
-    if split is None:
-        raise ValueError('A dataset split is required')
     merged_dataset = [[d[split]] for d in lm_datasets]
     # flatten merged_dataset
     merged_dataset = [item for sublist in merged_dataset for item in sublist]

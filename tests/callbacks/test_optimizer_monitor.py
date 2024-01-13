@@ -66,7 +66,7 @@ def test_fsdp_optimizer_monitor(device, world_size, use_orig_params):
     model = SimpleModel(num_classes=100, num_features=100, num_hidden=100)
     for module in model.modules():
         if len(list(module.parameters())) > 0:
-            module._fsdp_wrap = True
+            module._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
     dataset = RandomClassificationDataset(num_classes=100, shape=(100, 1, 1))
     # Construct the trainer and train
     trainer = Trainer(model=model,
