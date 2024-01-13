@@ -200,19 +200,12 @@ ENV PYTORCH_VERSION=${PYTORCH_VERSION}
 ENV PYTORCH_NIGHTLY_URL=${PYTORCH_NIGHTLY_URL}
 ENV PYTORCH_NIGHTLY_VERSION=${PYTORCH_NIGHTLY_VERSION}
 
-RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
-      CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
-        pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
-            torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
-            torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} ; \
-    else \
-        pip${PYTHON_VERSION} uninstall -y torch && \
-        pip${PYTHON_VERSION} uninstall -y pytorch-triton && \
-        pip${PYTHON_VERSION} uninstall -y torchvision && \
-        pip${PYTHON_VERSION} install https://download.pytorch.org/whl/nightly/pytorch_triton-2.2.0%2Be28a256d71-cp310-cp310-linux_x86_64.whl && \
-        pip${PYTHON_VERSION} install https://download.pytorch.org/whl/nightly/cu121/torch-2.3.0.dev20240110%2Bcu121-cp310-cp310-linux_x86_64.whl && \
-        pip${PYTHON_VERSION} install https://download.pytorch.org/whl/nightly/cu121/torchvision-0.18.0.dev20240110%2Bcu121-cp310-cp310-linux_x86_64.whl ; \
-    fi
+RUN pip${PYTHON_VERSION} uninstall -y torch && \
+    pip${PYTHON_VERSION} uninstall -y pytorch-triton && \
+    pip${PYTHON_VERSION} uninstall -y torchvision && \
+    pip${PYTHON_VERSION} install https://download.pytorch.org/whl/nightly/pytorch_triton-2.2.0%2Be28a256d71-cp310-cp310-linux_x86_64.whl && \
+    pip${PYTHON_VERSION} install https://download.pytorch.org/whl/nightly/cu121/torch-2.3.0.dev20240110%2Bcu121-cp310-cp310-linux_x86_64.whl && \
+    pip${PYTHON_VERSION} install https://download.pytorch.org/whl/nightly/cu121/torchvision-0.18.0.dev20240110%2Bcu121-cp310-cp310-linux_x86_64.whl
 
 #####################################
 # Install EFA and AWS-OFI-NCCL plugin
@@ -299,7 +292,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir --force-reinstall packaging==22.0 && \
         git clone --branch v2.4.2 https://github.com/Dao-AILab/flash-attention.git && \
         cd flash-attention && \
-        MAX_JOBS=1 python${PYTHON_VERSION} setup.py install && \
+        MAX_JOBS=2 python${PYTHON_VERSION} setup.py install && \
         cd .. ; \
     fi
 
