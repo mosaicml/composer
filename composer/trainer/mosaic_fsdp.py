@@ -90,8 +90,16 @@ def patch_pytorch():
         # Monkeypatch dtensor support
         from composer.trainer.mosaic_fsdp_utils import init_fn_t2p2p0
         FullyShardedDataParallel.__init__ = init_fn_t2p2p0  # type: ignore
+
+        # Monkeypath state_dict
+        from torch.distributed.checkpoint import state_dict  # type: ignore
+        state_dict._verify_options = _verify_options_t2p2p0
+
+
     elif version.parse(torch.__version__) < version.parse('2.3.1'):
         # Monkey patch for torch < 2.3.1 ie torch == 2.3.0
+        # Note: this is the same patch as 2.2.0, we are just making a new if branch
+        # for clarity and modularity of changes.
 
         # Allow 2D HSDP
         from torch.distributed.fsdp import _runtime_utils
@@ -107,7 +115,11 @@ def patch_pytorch():
         # _runtime_utils._root_pre_forward = _root_pre_forward
         # FullyShardedDataParallel.forward = forward
 
-        # Note: this is the same patch as 2.2.0, we are just making a new if branch
-        # for clarity and modularity of changes.
+        # Monkeypath state_dict
         from composer.trainer.mosaic_fsdp_utils import init_fn_t2p2p0
         FullyShardedDataParallel.__init__ = init_fn_t2p2p0
+
+        # Monkeypath state_dict
+        from composer.trainer.mosaic_fsdp_utils import _verify_options_t2p2p0
+        from torch.distributed.checkpoint import state_dict  # type: ignore
+        state_dict._verify_options = _verify_options_t2p2p0

@@ -13,7 +13,9 @@ import functools
 import logging
 import math
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Set, Tuple, Union, cast, no_type_check
+import contextlib
+from dataclasses import asdict
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union, cast, no_type_check
 
 import torch
 import torch.distributed._shard.sharded_tensor.metadata as sharded_tensor_meta
@@ -1059,6 +1061,85 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
         # implemented using post-save and pre-load hooks
         _init_state_dict_state(self)
         _register_all_state_dict_hooks(self)
+
+    from torch.distributed.checkpoint.state_dict import StateDictOptions, _StateDictInfo
+
+    def _verify_options_t2p2p0(
+        model: nn.Module,
+        optims: Tuple[torch.optim.Optimizer, ...],
+        optim_only: bool,
+        *,
+        submodules: Optional[Set[nn.Module]] = None,
+        options: Optional[StateDictOptions] = None,
+    ) -> _StateDictInfo:
+        """Verify the model and options passed by the user and generates _StateDictInfo."""
+        from torch.distributed.checkpoint.state_dict import StateDictOptions, _get_fqns, _StateDictInfo
+        from torch.distributed.fsdp import FullOptimStateDictConfig, FullStateDictConfig
+        from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+        from torch.distributed.fsdp import (OptimStateDictConfig, ShardedOptimStateDictConfig, ShardedStateDictConfig,
+                                            StateDictConfig, StateDictType)
+
+        if optim_only and not optims:
+            raise RuntimeError('Optimizers are not passed in but optim_only is set to True.')
+
+        options = options or StateDictOptions()
+        assert options is not None  # pyright
+
+        fqn_param_mapping: Dict[Union[str, torch.Tensor], Union[Set[str], torch.Tensor]] = {}
+        all_fqns = set()
+        for name, param in model.named_parameters():
+            fqns = _get_fqns(model, name)
+            fqns = {fqn.replace('_checkpoint_wrapped_module.', '') for fqn in fqns}
+            fqn_param_mapping[param] = fqns
+            for fqn in fqns:
+                fqn_param_mapping[fqn] = param
+                all_fqns.add(fqn)
+
+        submodule_prefixes = set()
+        if submodules:
+            submodules = set(submodules)
+            for name, module in model.named_modules():
+                if module not in submodules:
+                    continue
+                fqns = _get_fqns(model, name)
+                assert len(fqns) == 1, 'Submodule FQN should only have 1 instance'
+                for fqn in fqns:
+                    submodule_prefixes.add(f'{fqn}.')
+        fsdp_modules = FSDP.fsdp_modules(model)
+        state_dict_config: StateDictConfig
+        optim_state_dict_config: OptimStateDictConfig
+        fsdp_context: Callable
+        if fsdp_modules:
+            # FSDP API only work if at least one FSDP instance exists.
+            if options.full_state_dict:
+                state_dict_config = FullStateDictConfig(offload_to_cpu=options.cpu_offload, rank0_only=options.cpu_offload)
+                optim_state_dict_config = FullOptimStateDictConfig(offload_to_cpu=options.cpu_offload,
+                                                                rank0_only=options.cpu_offload)
+                state_dict_type = StateDictType.FULL_STATE_DICT
+            else:
+                state_dict_config = ShardedStateDictConfig()
+                optim_state_dict_config = ShardedOptimStateDictConfig(offload_to_cpu=options.cpu_offload,)
+                state_dict_type = StateDictType.SHARDED_STATE_DICT
+
+            fsdp_context = functools.partial(
+                FSDP.state_dict_type,
+                module=model,
+                state_dict_type=state_dict_type,
+                state_dict_config=state_dict_config,
+                optim_state_dict_config=optim_state_dict_config,
+            )
+        else:
+            fsdp_context = contextlib.nullcontext
+        return _StateDictInfo(
+            **asdict(options),
+            fqn_param_mapping=fqn_param_mapping,
+            all_fqns=all_fqns,
+            submodule_prefixes=submodule_prefixes,
+            fsdp_context=fsdp_context,
+            fsdp_modules=cast(List[nn.Module], fsdp_modules),
+            handle_model=not optim_only,
+            handle_optim=(len(optims) > 0),
+        )
 
 
 def fsdp_state_has_default_pg(state: '_FSDPState') -> bool:
