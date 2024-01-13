@@ -209,9 +209,9 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
         pip${PYTHON_VERSION} uninstall -y torch && \
         pip${PYTHON_VERSION} uninstall -y pytorch-triton && \
         pip${PYTHON_VERSION} uninstall -y torchvision && \
-        pip${PYTHON_VERSION} install https://download.pytorch.org/whl/nightly/pytorch_triton-2.2.0+e28a256d71-cp310-cp310-linux_x86_64.whl && \
-        pip${PYTHON_VERSION} install https://download.pytorch.org/whl/nightly/cu121/torch-2.3.0.dev20240110+cu121-cp310-cp310-linux_x86_64.whl && \
-        pip${PYTHON_VERSION} install https://download.pytorch.org/whl/nightly/cu121/torchvision-0.18.0.dev20240110+cu121-cp310-cp310-linux_x86_64.whl ; \
+        pip${PYTHON_VERSION} install https://download.pytorch.org/whl/nightly/pytorch_triton-2.2.0%2Be28a256d71-cp310-cp310-linux_x86_64.whl && \
+        pip${PYTHON_VERSION} install https://download.pytorch.org/whl/nightly/cu121/torch-2.3.0.dev20240110%2Bcu121-cp310-cp310-linux_x86_64.whl && \
+        pip${PYTHON_VERSION} install https://download.pytorch.org/whl/nightly/cu121/torchvision-0.18.0.dev20240110%2Bcu121-cp310-cp310-linux_x86_64.whl ; \
     fi
 
 #####################################
