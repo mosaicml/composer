@@ -515,6 +515,8 @@ def load_sharded_checkpoint(
                     ignore_keys = glob_filter(ignore_keys)
                 # Call function to modify state_dict
                 ignore_keys(state_dict)
+                # Ensure state exists
+                state_dict['state'] = state_dict.get('state', {})
 
             if version.parse(torch.__version__) > version.parse('2.1.3'):
                 dist_cp.load(  # type: ignore
@@ -690,14 +692,25 @@ def _flatten_keys(obj: Any, paths: list[str], existing_path: str):
 
 
 def _remove_paths(obj: Union[list, dict[str, Any]], exclude_paths: list[list[str]]):
+    # Build str(key) to key map to undo cast from glob filtering. Despite typing, some state_dict
+    # keys are not strings, so we need to cast them back to their original type.
+    str_key_to_key = {}
+    if isinstance(obj, dict):
+        for key in obj.keys():
+            str_key_to_key[str(key)] = key
+
     # First determine the keys which will be recursed on and which will be removed entirely
     # Group the `exclude_paths` by the key
     keys_to_recurse = {}
     keys_to_remove = []
     for exclude_path_parts in exclude_paths:
         key = exclude_path_parts[0]
+        # Cast list indices to int
         if isinstance(obj, list):
             key = int(key)
+        # Un-str dict keys if necessary
+        if key in str_key_to_key:
+            key = str_key_to_key[key]
         if len(exclude_path_parts) == 1:
             keys_to_remove.append(key)
         else:
@@ -733,12 +746,12 @@ def glob_filter(exclude_globs: list[str]) -> Callable[[dict], None]:
                     f'No parts from loaded checkpoint state_dict were ignored by load_ignore_key {exclude_glob}')
             filtered_paths.extend(filtered_paths_from_glob)
         filtered_paths = list(set(filtered_paths))
-        filtered_paths_str = ', '.join(filtered_paths)
         if filtered_paths:
+            filtered_paths_str = ', '.join(filtered_paths)
             log.info(f'Ignoring the following paths from the loaded checkpoint state_dict: {filtered_paths_str}')
 
         # Loop through all paths to exclude
-        paths_to_remove = [path.split('/') for path in filtered_paths]
+        paths_to_remove = [path.split('/') for path in filtered_paths if len(path) > 0]
         _remove_paths(state_dict, paths_to_remove)
 
     return filter_func
@@ -853,6 +866,8 @@ def _restore_checkpoint(
             ignore_keys = glob_filter(ignore_keys)
         # Call function to modify state_dict
         ignore_keys(state_dict)
+        # Ensure state exists
+        state_dict['state'] = state_dict.get('state', {})
     log.debug(f"Loaded checkpoint with keys {state_dict.keys()} and state keys {state_dict['state'].keys()}")
 
     if is_model_deepspeed(state.model):
