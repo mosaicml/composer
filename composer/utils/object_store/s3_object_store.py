@@ -152,8 +152,8 @@ class S3ObjectStore(ObjectStore):
             if 'S3_CANNED_ACL' in os.environ and 'ACL' not in kwargs['ExtraArgs']:
                 kwargs['ExtraArgs']['ACL'] = os.environ['S3_CANNED_ACL']
 
-        jitter_sec = 30
-        max_retries = 5
+        jitter_sec = 90
+        max_retries = 10
         time.sleep(random.uniform(0, jitter_sec))
         for _ in range(max_retries):
             try:
@@ -165,7 +165,7 @@ class S3ObjectStore(ObjectStore):
                                         **kwargs)
                 break
             except S3UploadFailedError as e:
-                time.sleep(60)
+                time.sleep(120)
                 continue
 
     def download_object(
