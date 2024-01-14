@@ -896,16 +896,18 @@ class State(Serializable):
                     model_state_dict = self.model.state_dict()
             else:
                 model_state_dict = self.model.state_dict()
-                # If model is DDP wrapped, do not save the `module.` prefix, as that is an implementation detail
-                if self.is_model_ddp:
-                    torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, 'module.')
+
+        # If model is DDP wrapped, do not save the `module.` prefix, as that is an implementation detail
+        if self.is_model_ddp:
+            torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(model_state_dict, 'module.')
+
         return model_state_dict
 
     def get_optim_state_dict(self) -> Dict[str, Any]:
-        """Collect the state dict for the model.
+        """Collect the state dict for the optimizer.
 
         Returns:
-            Dict[str, Any]: The state dict for the model.
+            Dict[str, Any]: The state dict for the optimizer.
         """
         if version.parse(torch.__version__) > version.parse('2.1.3'):
             from torch.distributed.checkpoint.state_dict import StateDictOptions, get_optimizer_state_dict
