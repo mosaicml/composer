@@ -1232,7 +1232,8 @@ class State(Serializable):
                             f'Loading model state dict with strict={strict} and FSDP state_dict_type={self.fsdp_state_dict_type}'
                         )
                         with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
-                            missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
+                            missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'],
+                                                                                       strict=strict)
                     else:
                         log.debug(f'Loading model state dict with strict={strict}')
                         missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)

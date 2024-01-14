@@ -1148,7 +1148,8 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
         fqn: str,
         optim_state: Dict[str, Any],
     ) -> Dict[str, Any]:
-        """
+        """Shard function monkeypatch.
+
         Shard the optimizer state for the original parameter with the name ``fqn``.
         This API should only be used when ``use_orig_params`` is True.
         """
