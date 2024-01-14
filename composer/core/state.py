@@ -1212,47 +1212,51 @@ class State(Serializable):
             # with the `module.` prefix
             torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(state_dict['model'], 'module.')
 
-        if version.parse(torch.__version__) > version.parse('2.1.3'):
-            from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
-            set_model_state_dict(
-                model=self.model,
-                model_state_dict=state_dict['model'],
-                options=StateDictOptions(strict=strict, cpu_offload=True),
-            )
-        else:
-            missing_keys, unexpected_keys = [], []
-            try:
-                # Load model if it exists
-                if self.fsdp_enabled and self.fsdp_state_dict_type is not None and not self.load_fsdp_monolith_rank0_only:
-                    log.debug(
-                        f'Loading model state dict with strict={strict} and FSDP state_dict_type={self.fsdp_state_dict_type}'
-                    )
-                    with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
-                        missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
-                else:
-                    log.debug(f'Loading model state dict with strict={strict}')
-                    missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
-            except RuntimeError as e:
-                if 'Missing key(s) in state_dict' in str(e) or 'Unexpected key(s) in state_dict' in str(e):
-                    raise RuntimeError(
-                        textwrap.dedent(
-                            'Failed to load checkpoint due to missing or unexpected keys in state_dict. '
-                            'This is likely due to a change in the model architecture. If this is intentional, '
-                            'you can set load_strict_model_weights=False in the Trainer.')) from e
-                else:
-                    raise e
+        # For FSDP monolith checkpoints, the model does not exist on ranks > 0
+        model_on_rank = state_dict['model'] is not None
 
-            if len(missing_keys) > 0:
-                log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
-            if len(unexpected_keys) > 0:
-                if self.fsdp_config is not None and self.fsdp_config[
-                        'use_orig_params'] and self.fsdp_state_dict_type == 'local':
-                    log.warning(
-                        'You are using use_orig_params=True and fsdp_state_dict_type=local. '
-                        'This results in both the original parameters and the flat parameters being '
-                        'in the state dict. If you see a warning with unexpected keys ending in ._flat_param, the model'
-                        'was still loaded correctly.')
-                log.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
+        if model_on_rank:
+            if version.parse(torch.__version__) > version.parse('2.1.3'):
+                from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
+                set_model_state_dict(
+                    model=self.model,
+                    model_state_dict=state_dict['model'],
+                    options=StateDictOptions(strict=strict, cpu_offload=True),
+                )
+            else:
+                missing_keys, unexpected_keys = [], []
+                try:
+                    # Load model if it exists
+                    if self.fsdp_enabled and self.fsdp_state_dict_type is not None and not self.load_fsdp_monolith_rank0_only:
+                        log.debug(
+                            f'Loading model state dict with strict={strict} and FSDP state_dict_type={self.fsdp_state_dict_type}'
+                        )
+                        with fsdp_state_dict_type_context(self.model, state_dict_type=self.fsdp_state_dict_type):
+                            missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
+                    else:
+                        log.debug(f'Loading model state dict with strict={strict}')
+                        missing_keys, unexpected_keys = self.model.load_state_dict(state_dict['model'], strict=strict)
+                except RuntimeError as e:
+                    if 'Missing key(s) in state_dict' in str(e) or 'Unexpected key(s) in state_dict' in str(e):
+                        raise RuntimeError(
+                            textwrap.dedent(
+                                'Failed to load checkpoint due to missing or unexpected keys in state_dict. '
+                                'This is likely due to a change in the model architecture. If this is intentional, '
+                                'you can set load_strict_model_weights=False in the Trainer.')) from e
+                    else:
+                        raise e
+
+                if len(missing_keys) > 0:
+                    log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
+                if len(unexpected_keys) > 0:
+                    if self.fsdp_config is not None and self.fsdp_config[
+                            'use_orig_params'] and self.fsdp_state_dict_type == 'local':
+                        log.warning(
+                            'You are using use_orig_params=True and fsdp_state_dict_type=local. '
+                            'This results in both the original parameters and the flat parameters being '
+                            'in the state dict. If you see a warning with unexpected keys ending in ._flat_param, the model'
+                            'was still loaded correctly.')
+                    log.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
 
         # If loading FSDP monolith checkpoint on rank 0 only, the model must be wrapped after loading
         if self.load_fsdp_monolith_rank0_only:
