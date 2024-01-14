@@ -12,15 +12,15 @@ import shutil
 import tempfile
 import textwrap
 from pathlib import Path
-from typing import Callable, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
-from composer.core import Callback, Event, State, Time
-from composer.loggers import Logger
+from composer.core import Callback, Event, State, Time, Timestamp
+from composer.loggers import Logger, MLFlowLogger
 from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, PartialFilePath,
                             checkpoint, create_interval_scheduler, create_symlink_file, dist,
                             ensure_folder_has_no_conflicting_files, format_name_with_dist,
-                            format_name_with_dist_and_time, is_model_deepspeed, reproducibility, using_torch_2)
-from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
+                            format_name_with_dist_and_time, is_model_deepspeed, partial_format, using_torch_2)
+from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
 
 log = logging.getLogger(__name__)
 
@@ -264,12 +264,37 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         self.overwrite = overwrite
         self.saved_checkpoints: List[str] = []
+        self.all_saved_checkpoints_to_timestamp: Dict[str, Timestamp] = {}
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
         self.weights_only = weights_only
 
         self.start_batch = None
 
     def init(self, state: State, logger: Logger) -> None:
+        # If MLFlowLogger is being used, format MLFlow-specific placeholders in the save folder and paths.
+        # Assumes that MLFlowLogger comes before CheckpointSaver in the list of loggers.
+        for destination in logger.destinations:
+            if isinstance(destination, MLFlowLogger):
+                mlflow_format_kwargs = {
+                    MLFLOW_EXPERIMENT_ID_FORMAT_KEY: destination._experiment_id,
+                    MLFLOW_RUN_ID_FORMAT_KEY: destination._run_id
+                }
+                self.folder = partial_format(self.folder, **mlflow_format_kwargs)
+
+                self.filename.folder = self.folder
+                if self.latest_filename is not None:
+                    self.latest_filename.folder = self.folder
+
+                # The remote paths have the placeholders in their filename rather than folder
+                if self.remote_file_name is not None:
+                    self.remote_file_name.filename = partial_format(self.remote_file_name.filename,
+                                                                    **mlflow_format_kwargs)
+                if self.latest_remote_file_name is not None:
+                    self.latest_remote_file_name.filename = partial_format(self.latest_remote_file_name.filename,
+                                                                           **mlflow_format_kwargs)
+
+                break
+
         folder = format_name_with_dist(self.folder, state.run_name)
         os.makedirs(folder, exist_ok=True)
 
@@ -303,11 +328,22 @@ class CheckpointSaver(Callback):  # noqa: D101
                 logger,
             )
 
-    def get_state_dict(self, state):
-        return {
-            'state': state.state_dict(),
-            'rng': reproducibility.get_rng_state(),
-        }
+    def state_dict(self) -> Dict[str, Any]:
+        state_dict = {}
+
+        all_checkpoints = []
+        for save_filename, timestamp in self.all_saved_checkpoints_to_timestamp.items():
+            all_checkpoints.append((save_filename, timestamp.state_dict()))
+
+        state_dict['all_saved_checkpoints_to_timestamp'] = all_checkpoints
+        return state_dict
+
+    def load_state_dict(self, state: Dict[str, Any]):
+        if 'all_saved_checkpoints_to_timestamp' in state:
+            for (save_filename, timestamp_state) in state['all_saved_checkpoints_to_timestamp']:
+                load_timestamp = Timestamp()
+                load_timestamp.load_state_dict(timestamp_state)
+                self.all_saved_checkpoints_to_timestamp[save_filename] = load_timestamp
 
     def _save_checkpoint(self, state: State, logger: Logger):
         self.last_checkpoint_batch = state.timestamp.batch
@@ -319,6 +355,9 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         # save the checkpoint to the filename
         filename_with_placeholders = self.filename.format(state, is_deepspeed, keep_placeholders=True)
+        save_filename = checkpoint.get_save_filename(state, filename_with_placeholders)
+        # Store before saving so state_dict in checkpoint has reference to latest checkpoint (itself)
+        self.all_saved_checkpoints_to_timestamp[save_filename] = state.timestamp
 
         saved_path = checkpoint.save_checkpoint(
             state=state,
@@ -329,6 +368,7 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         if not saved_path:  # not all ranks save
             return
+
         metadata_local_file_path = None
         if dist.get_global_rank() == 0 and state.fsdp_elastic_sharded_enabled:
             metadata_local_file_path = format_name_with_dist_and_time(
@@ -361,7 +401,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 ).lstrip('/')
                 assert state.sharded_ckpt_prefix_dir is not None
                 remote_prefix = state.sharded_ckpt_prefix_dir
-                ckpt_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME if using_torch_2() else pathlib.Path(
+                ckpt_filename = checkpoint._TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME if using_torch_2() else pathlib.Path(
                     remote_file_name).name
                 remote_file_name = os.path.join(pathlib.Path(remote_file_name).parent, remote_prefix, ckpt_filename)
                 remote_file_name = format_name_with_dist_and_time(remote_file_name, state.run_name, state.timestamp)
@@ -423,10 +463,10 @@ class CheckpointSaver(Callback):  # noqa: D101
 
         while len(self.saved_checkpoints) > self.num_checkpoints_to_keep:
             prefix_dir = None
-            checkpoint = self.saved_checkpoints.pop(0)
-            prefix_dir = str(Path(checkpoint).parent)
+            checkpoint_to_delete = self.saved_checkpoints.pop(0)
+            prefix_dir = str(Path(checkpoint_to_delete).parent)
             if not sharding_enabled:
-                os.remove(checkpoint)
+                os.remove(checkpoint_to_delete)
             else:
                 if dist.get_global_rank() == 0:
                     shutil.rmtree(prefix_dir)

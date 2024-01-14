@@ -20,7 +20,10 @@ import tqdm
 
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_callback
-from composer.utils.object_store import GCSObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore, UCObjectStore
+from composer.utils.misc import partial_format
+from composer.utils.object_store import (GCSObjectStore, MLFlowObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore,
+                                         UCObjectStore)
+from composer.utils.object_store.mlflow_object_store import MLFLOW_DBFS_PATH_PREFIX
 
 if TYPE_CHECKING:
     from composer.core import Timestamp
@@ -166,7 +169,8 @@ FORMAT_NAME_WITH_DIST_TABLE = """
 
 
 def format_name_with_dist(format_str: str, run_name: str, **extra_format_kwargs: object):  # noqa: D103
-    formatted_str = format_str.format(
+    formatted_str = partial_format(
+        format_str,
         run_name=run_name,
         **_get_dist_config(strict=False),
         **extra_format_kwargs,
@@ -259,7 +263,8 @@ def format_name_with_dist_and_time(
     timestamp: Timestamp,
     **extra_format_kwargs: object,
 ):  # noqa: D103
-    formatted_str = format_str.format(
+    formatted_str = partial_format(
+        format_str,
         run_name=run_name,
         epoch=int(timestamp.epoch),
         batch=int(timestamp.batch),
@@ -350,9 +355,28 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
     elif backend == 'oci':
         return OCIObjectStore(bucket=bucket_name)
     elif backend == 'dbfs':
-        # validate if the path conforms to the requirements for UC volume paths
-        UCObjectStore.validate_path(path)
-        return UCObjectStore(path=path)
+        if path.startswith(MLFLOW_DBFS_PATH_PREFIX):
+            store = None
+            if dist.get_global_rank() == 0:
+                store = MLFlowObjectStore(path)
+
+                # The path may have had placeholders, so update it with the experiment/run IDs initialized by the store
+                path = store.get_dbfs_path(path)
+
+            # Broadcast the rank 0 updated path to all ranks for their own object stores
+            path_list = [path]
+            dist.broadcast_object_list(path_list, src=0)
+            path = path_list[0]
+
+            # Create the object store for all other ranks
+            if dist.get_global_rank() != 0:
+                store = MLFlowObjectStore(path)
+
+            return store
+        else:
+            # validate if the path conforms to the requirements for UC volume paths
+            UCObjectStore.validate_path(path)
+            return UCObjectStore(path=path)
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
                                   'one of the supported object stores')
@@ -388,13 +412,13 @@ def maybe_create_remote_uploader_downloader_from_uri(
     if backend in ['s3', 'oci', 'gs']:
         return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}')
 
+    elif backend == 'dbfs':
+        return RemoteUploaderDownloader(bucket_uri=uri, backend_kwargs={'path': path})
+
     elif backend == 'wandb':
         raise NotImplementedError(f'There is no implementation for WandB via URI. Please use '
                                   'WandBLogger with log_artifacts set to True')
-    elif backend == 'dbfs':
-        # validate if the path conforms to the requirements for UC volume paths
-        UCObjectStore.validate_path(path)
-        return RemoteUploaderDownloader(bucket_uri=uri, backend_kwargs={'path': path})
+
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
                                   'one of the supported RemoteUploaderDownloader object stores')

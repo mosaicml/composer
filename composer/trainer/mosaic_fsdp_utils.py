@@ -4,13 +4,18 @@
 # Released under BSD 3-Clause License,
 # Copyright (c) Facebook, Inc. and its affiliates.
 
+# yapf: disable
+# isort: skip_file
+
 """Utilities for monkey patching FSDP."""
 
 import functools
 import logging
 import math
 import warnings
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Set, Tuple, Union, cast, no_type_check
+import contextlib
+from dataclasses import asdict
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union, cast, no_type_check
 
 import torch
 import torch.distributed._shard.sharded_tensor.metadata as sharded_tensor_meta
@@ -34,6 +39,7 @@ if TYPE_CHECKING:
     if version.parse(torch.__version__) >= version.parse('2.0.1') and version.parse(
             torch.__version__) < version.parse('2.2.0'):
         from torch.distributed.fsdp._common_utils import _FSDPState
+
 
 log = logging.getLogger(__name__)
 
@@ -224,7 +230,7 @@ def _custom_recursive_wrap_t1p13p1(
     modified version of
     https://github.com/pytorch/pytorch/blob/d922c29a22e4bf0fba49526f7536395eb8cd66f4/torch/distributed/fsdp/wrap.py#L353
     which recursively wraps modules as FSDP modules for parameter sharding.
-    This modification enables the user to pass custom FSDP arguements for every wrapped module.
+    This modification enables the user to pass custom FSDP arguments for every wrapped module.
     The added process_group_cache enables different FSDP modules to, when appropriate, use the
     same process group instead of instantiating a new process group.
 
@@ -315,7 +321,7 @@ def custom_auto_wrap_t1p13p1(
     modified version of
     https://github.com/pytorch/pytorch/blob/d922c29a22e4bf0fba49526f7536395eb8cd66f4/torch/distributed/fsdp/fully_sharded_data_parallel.py#L1252
     FSDP's _auto_wrap recursively wraps modules as FSDP modules for parameter sharding.
-    This modification enables the user to pass custom FSDP arguements for every wrapped module.
+    This modification enables the user to pass custom FSDP arguments for every wrapped module.
     The added process_group_cache enables different FSDP modules to, when appropriate, use the
     same process group instead of instantiating a new process group.
 
@@ -370,7 +376,7 @@ def _custom_recursive_wrap_t2p0p1(
     modified version of
     https://github.com/pytorch/pytorch/blob/96ca226a7332be0d8f3d6159d0c797e032ab0721/torch/distributed/fsdp/wrap.py#L320
     which recursively wraps modules as FSDP modules for parameter sharding.
-    This modification enables the user to pass custom FSDP arguements for every wrapped module.
+    This modification enables the user to pass custom FSDP arguments for every wrapped module.
     The added process_group_cache enables different FSDP modules to, when appropriate, use the
     same process group instead of instantiating a new process group.
 
@@ -468,7 +474,7 @@ def _custom_auto_wrap_t2p0p1(
     modified version of
     https://github.com/pytorch/pytorch/blob/96ca226a7332be0d8f3d6159d0c797e032ab0721/torch/distributed/fsdp/_wrap_utils.py#L31
     FSDP's _auto_wrap recursively wraps modules as FSDP modules for parameter sharding.
-    This modification enables the user to pass custom FSDP arguements for every wrapped module.
+    This modification enables the user to pass custom FSDP arguments for every wrapped module.
     The added process_group_cache enables different FSDP modules to, when appropriate, use the
     same process group instead of instantiating a new process group.
 
@@ -756,6 +762,386 @@ def _sharded_pre_load_state_dict_hook(
     _enter_unshard_params_ctx(module, fsdp_state, writeback=True)
 
 
+if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
+        torch.__version__) < version.parse('2.3.1'):
+    import copy
+
+    from torch.distributed._tensor import DeviceMesh, DTensor, Replicate
+    from torch.distributed._tensor import Shard as DShard
+    from torch.distributed.algorithms._comm_hooks import default_hooks
+    from torch.distributed.device_mesh import _mesh_resources
+    from torch.distributed.distributed_c10d import _get_default_group
+    from torch.distributed.fsdp._common_utils import _FSDPState
+    from torch.distributed.fsdp._init_utils import (HYBRID_SHARDING_STRATEGIES, ProcessGroupType,
+                                                    _get_default_comm_hook_state, _init_intra_and_inter_node_groups,
+                                                    _is_valid_hybrid_shard_pg_type, _init_extension)
+    from torch.distributed.fsdp.fully_sharded_data_parallel import (_annotate_modules_for_dynamo, _auto_wrap,
+                                                                    _check_orig_params_flattened, _init_buffer_state,
+                                                                    _init_core_state, _init_device_handle,
+                                                                    _init_ignored_module_states,
+                                                                    _init_param_handle_from_module,
+                                                                    _init_prefetching_state, _init_runtime_state,
+                                                                    _init_state_dict_state,
+                                                                    _register_all_state_dict_hooks,
+                                                                    _register_flat_param)
+    from torch.distributed.fsdp.wrap import CustomPolicy, ModuleWrapPolicy, _Policy
+    from torch.distributed.tensor.parallel.fsdp import DTensorExtensions
+
+    def all_gather_dtensor_t2p2p0(
+        self,
+        tensor: DTensor,
+        parent_mesh: Optional[DeviceMesh],
+    ) -> torch.Tensor:
+        """All gather a DTensor in its FSDP dimension and return the local tensor."""
+        assert parent_mesh == tensor.device_mesh
+
+        placements = list(copy.deepcopy(tensor.placements))
+        # FSDP + TP: [Shard(0), tp_placement] -> [Replicate(), tp_placement]
+        # HSDP + TP: [Replicate(), Shard(0), tp_placement] -> [Replicate(), Replicate(), tp_placement]
+        for i in range(0, len(placements) - 1):
+            placements[i] = Replicate()
+        tensor = tensor.redistribute(
+            device_mesh=tensor.device_mesh,
+            placements=placements,
+        )
+        return tensor.to_local()
+
+    def chunk_dtensor_t2p2p0(
+        self,
+        tensor: torch.Tensor,
+        rank: int,
+        device_mesh: DeviceMesh,
+    ) -> DTensor:
+        """Shard a tensor to chunks along the first dimension.
+
+        The local rank will gets its corresponding chunk as the local tensor to create a DTensor.
+        """
+        parent_mesh = _mesh_resources.get_parent_mesh(device_mesh)
+        if parent_mesh is None:
+            raise RuntimeError('No parent device_mesh is found for FSDP device_mesh.')
+        # if parent_mesh.ndim != 2:
+        #     raise RuntimeError(
+        #         f"Found parent device_mesh of ndim={parent_mesh.ndim},",
+        #         "but only 2D meshes are currently supported.",
+        #     )
+
+        # We need to explicitly call .detach() to return a new tensor detached from the current graph.
+        tensor = tensor.clone().detach()
+
+        # When a layer is not involved in TP, then the tensor will not be a DTensor.
+        # e.g. When a layer is not specified in the parallelize_plan, TP will have no effect on the layer.
+        # e.g. When you do PairwiseParallel on a 3 layer model, TP will have no effect on the third layer.
+        if isinstance(tensor, torch.Tensor) and not isinstance(tensor, DTensor):
+
+            # For tensors, it is replicated across tp dimension and sharded across FSDP dimension.
+            # TP is the inner dimension and FSDP is the outer dimension.
+            # Therefore, shard placements for tensor is (Shard(0), Replicate()).
+            replicate_placements = [Replicate() for _ in range(parent_mesh.ndim)]
+            shard_placements = [Replicate() for _ in range(parent_mesh.ndim)]
+            shard_placements[0] = DShard(0)  # type: ignore[call-overload]
+
+            return DTensor.from_local(tensor, parent_mesh, replicate_placements).redistribute(
+                device_mesh=parent_mesh,
+                placements=shard_placements,
+            )
+
+        else:
+            tp_placements = tensor.placements
+            tp_placement = tp_placements[0]
+
+            tensor = tensor.to_local()
+
+            if parent_mesh.ndim <= 2:
+                # For DTensors, it is sharded across tp dimension first and then sharded across FSDP dimension.
+                # TP is the inner dimension and FSDP is the outer dimension.
+                # Therefore, shard placements for tensor is (Shard(0), tp_placement).
+                replicate_placements = [Replicate() for _ in range(parent_mesh.ndim)]
+                replicate_placements[-1] = tp_placement  # type: ignore[call-overload]
+                shard_placements = [DShard(0) for _ in range(parent_mesh.ndim)]  # type: ignore[misc]
+                shard_placements[-1] = tp_placement  # type: ignore[call-overload]
+
+            elif parent_mesh.ndim == 3:
+                replicate_placements = [Replicate(), Replicate(), tp_placement]
+                shard_placements = [Replicate(), DShard(0), tp_placement]  # type: ignore[misc]
+
+            return DTensor.from_local(tensor, parent_mesh, replicate_placements).redistribute(
+                device_mesh=parent_mesh,
+                placements=shard_placements,
+            )
+
+    DTensorExtensions.all_gather_dtensor = all_gather_dtensor_t2p2p0
+    DTensorExtensions.chunk_dtensor = chunk_dtensor_t2p2p0
+
+    def _is_valid_hybrid_shard_device_mesh_t2p2p0(device_mesh: DeviceMesh) -> bool:
+        #parent_mesh = _mesh_resources.get_parent_mesh(device_mesh)
+        #if parent_mesh is not None:
+        #    raise RuntimeError(
+        #        f"Found device_mesh {device_mesh} passed in has a parent device_mesh {parent_mesh}.",
+        #        "Hybrid sharding + TP is not supported yet.",
+        #    )
+        return isinstance(device_mesh, DeviceMesh) and device_mesh.ndim == 2
+
+    def _init_process_group_state_for_hybrid_shard_t2p2p0(
+        state: _FSDPState,
+        process_group: ProcessGroupType,
+        device_mesh: DeviceMesh,
+    ) -> _FSDPState:
+        if device_mesh:
+            if _is_valid_hybrid_shard_device_mesh_t2p2p0(device_mesh):
+                state._device_mesh = device_mesh
+                # We currently only allow _inter_node_pg to be the outermost dimension, and the
+                # process_group(intra_node) to be the innermost dimension.
+                state._inter_node_pg = device_mesh.get_group(mesh_dim=0)
+                state.process_group = device_mesh.get_group(mesh_dim=1)
+            else:
+                raise ValueError('Expected device_mesh to have ndim=2 '
+                                 f'but got {len(device_mesh.get_group())}')
+        elif process_group is None:
+            default_group = _get_default_group()
+            intra_node_group, inter_node_group = _init_intra_and_inter_node_groups(default_group,
+                                                                                   state._device_handle.device_count())
+            # we shard across intra-node
+            state.process_group = intra_node_group
+            # save _inter_node_pg to allreduce across.
+            state._inter_node_pg = inter_node_group
+        else:
+            # Check type and assign state.process_group and state._inter_node_pg.
+            if _is_valid_hybrid_shard_pg_type(process_group):
+                # Assuming that user passed in as intra node group and inter node group
+                # as documented.
+                state.process_group, state._inter_node_pg = process_group
+            else:
+                raise ValueError('Expected process_group to be passed in as either None or '
+                                 f'Tuple[dist.ProcessGroup, dist.ProcessGroup] but got {type(process_group)}')
+        # Create state for allreduce
+        state._inter_node_state = _get_default_comm_hook_state(process_group=state._inter_node_pg,)
+        return state
+
+    def _init_process_group_state_t2p2p0(
+        state: _FSDPState,
+        process_group: ProcessGroupType,
+        sharding_strategy: ShardingStrategy,
+        policy: Optional[_Policy],
+        device_mesh: Optional[DeviceMesh] = None,
+    ) -> _FSDPState:
+        if process_group is not None and device_mesh is not None:
+            raise ValueError('Cannot pass both process_group and device_mesh at the '
+                             'same time. Please just pass only one of them.')
+        is_hybrid_strategy = sharding_strategy in HYBRID_SHARDING_STRATEGIES
+        if is_hybrid_strategy:
+            if process_group is None and policy is None and device_mesh is None:
+                # Raise an error here, since this is manual wrapping with no process group
+                # passed in, there is no way to ensure all wrapped FSDP instances use the same
+                # process groups.
+                raise ValueError(
+                    f'Manual wrapping with {sharding_strategy}',
+                    'requires explicit specification of process group or device_mesh.',
+                )
+            else:
+                state = _init_process_group_state_for_hybrid_shard_t2p2p0(state, process_group, device_mesh)
+        else:
+            if device_mesh:
+                state._device_mesh = device_mesh
+                state.process_group = device_mesh.get_group(mesh_dim=0)
+            else:
+                state.process_group = (process_group if process_group is not None else _get_default_group())
+
+        state.rank = state.process_group.rank()
+        state.world_size = state.process_group.size()
+        data_parallel_world_size = state.world_size
+        if is_hybrid_strategy:
+            data_parallel_world_size *= state._inter_node_pg.size()
+        state._gradient_predivide_factor = (
+            default_hooks.DefaultState._get_gradient_predivide_factor(data_parallel_world_size))
+        state._gradient_postdivide_factor = (data_parallel_world_size / state._gradient_predivide_factor)
+        return state
+
+    def init_fn_t2p2p0(
+        self,
+        module: nn.Module,
+        process_group: ProcessGroupType = None,
+        sharding_strategy: Optional[ShardingStrategy] = None,
+        cpu_offload: Optional[CPUOffload] = None,
+        auto_wrap_policy: Optional[Union[Callable, ModuleWrapPolicy, CustomPolicy]] = None,
+        backward_prefetch: Optional[BackwardPrefetch] = BackwardPrefetch.BACKWARD_PRE,
+        mixed_precision: Optional[MixedPrecision] = None,
+        ignored_modules: Optional[Iterable[torch.nn.Module]] = None,
+        param_init_fn: Optional[Callable[[nn.Module], None]] = None,
+        device_id: Optional[Union[int, torch.device]] = None,
+        sync_module_states: bool = False,
+        forward_prefetch: bool = False,
+        limit_all_gathers: bool = True,
+        use_orig_params: bool = False,
+        ignored_states: Union[Optional[Iterable[torch.nn.Parameter]], Optional[Iterable[torch.nn.Module]]] = None,
+        device_mesh: Optional[DeviceMesh] = None,
+    ):
+        """Docstring for lint."""
+        torch._C._log_api_usage_once('torch.distributed.fsdp')
+        super(FullyShardedDataParallel, self).__init__()
+        _init_ignored_module_states(self, module, ignored_modules, ignored_states)
+        _init_device_handle(self, module, self._ignored_params, device_id)
+
+        # Add module annotations for Dynamo support (see function for details)
+        _annotate_modules_for_dynamo(module, self._ignored_modules, use_orig_params)
+
+        # Initializes self.process_group, along with rank and world size. This will
+        # also set another attribute, _inter_node_pg, to control the process group
+        # over which sharding occurs, if sharding_strategy is {HYBRID_SHARD, _HYBRID_SHARD_ZERO2}.
+        # Note that this is done before auto_wrapping, so that child FSDP modules simply pick up
+        # the same process group state as the root FSDP module.
+        self._device_mesh = device_mesh
+        _init_process_group_state_t2p2p0(
+            self,
+            process_group,
+            sharding_strategy,
+            auto_wrap_policy,
+            device_mesh,
+        )
+        if auto_wrap_policy is not None:
+            root_kwargs = {
+                'process_group': process_group,
+                'sharding_strategy': sharding_strategy,
+                'cpu_offload': cpu_offload,
+                'backward_prefetch': backward_prefetch,
+                'mixed_precision': mixed_precision,
+                'param_init_fn': param_init_fn,
+                'device_id': device_id,
+                'sync_module_states': sync_module_states,
+                'forward_prefetch': forward_prefetch,
+                'limit_all_gathers': limit_all_gathers,
+                'use_orig_params': use_orig_params,
+                'ignored_states': self._ignored_params,
+                'device_mesh': device_mesh,
+            }
+            if sharding_strategy in HYBRID_SHARDING_STRATEGIES and device_mesh is None:
+                # Share root process groups with children to maintain
+                # the invariant that all FSDP modules will have the same
+                # process groups.
+                root_kwargs['process_group'] = (self.process_group, self._inter_node_pg)
+
+            _auto_wrap(
+                module,
+                auto_wrap_policy,
+                self._ignored_modules,
+                self._ignored_params,
+                root_kwargs,
+                FullyShardedDataParallel,
+            )
+
+        backward_prefetch_limit = 1
+        forward_prefetch_limit = 1
+        _init_core_state(
+            self,
+            sharding_strategy,
+            mixed_precision,
+            cpu_offload,
+            limit_all_gathers,
+            use_orig_params,
+            backward_prefetch_limit,
+            forward_prefetch_limit,
+        )
+        _init_runtime_state(self)
+        _init_prefetching_state(self, backward_prefetch, forward_prefetch)
+        _init_buffer_state(self, module)
+        # extension needs to be set before `_init_param_handle_from_module()`
+        _init_extension(self, device_mesh)
+        _init_param_handle_from_module(
+            self,
+            module,
+            device_id,
+            param_init_fn,
+            sync_module_states,
+        )
+        self._fsdp_wrapped_module = module
+        if not use_orig_params:
+            _check_orig_params_flattened(self, self._ignored_params)
+            _register_flat_param(self, self)
+
+        # `_state_dict_type` controls the `state_dict()` behavior, which is
+        # implemented using post-save and pre-load hooks
+        _init_state_dict_state(self)
+        _register_all_state_dict_hooks(self)
+
+    from torch.distributed.checkpoint.state_dict import StateDictOptions, _StateDictInfo
+
+    def _verify_options_t2p2p0(
+        model: nn.Module,
+        optims: Tuple[torch.optim.Optimizer, ...],
+        optim_only: bool,
+        *,
+        submodules: Optional[Set[nn.Module]] = None,
+        options: Optional[StateDictOptions] = None,
+    ) -> _StateDictInfo:
+        """Verify the model and options passed by the user and generates _StateDictInfo."""
+        from torch.distributed.checkpoint.state_dict import StateDictOptions, _get_fqns, _StateDictInfo
+        from torch.distributed.fsdp import FullOptimStateDictConfig, FullStateDictConfig
+        from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+        from torch.distributed.fsdp import (OptimStateDictConfig, ShardedOptimStateDictConfig, ShardedStateDictConfig,
+                                            StateDictConfig, StateDictType)
+
+        if optim_only and not optims:
+            raise RuntimeError('Optimizers are not passed in but optim_only is set to True.')
+
+        options = options or StateDictOptions()
+        assert options is not None  # pyright
+
+        fqn_param_mapping: Dict[Union[str, torch.Tensor], Union[Set[str], torch.Tensor]] = {}
+        all_fqns = set()
+        for name, param in model.named_parameters():
+            fqns = _get_fqns(model, name)
+            fqns = {fqn.replace('_checkpoint_wrapped_module.', '') for fqn in fqns}
+            fqn_param_mapping[param] = fqns
+            for fqn in fqns:
+                fqn_param_mapping[fqn] = param
+                all_fqns.add(fqn)
+
+        submodule_prefixes = set()
+        if submodules:
+            submodules = set(submodules)
+            for name, module in model.named_modules():
+                if module not in submodules:
+                    continue
+                fqns = _get_fqns(model, name)
+                assert len(fqns) == 1, 'Submodule FQN should only have 1 instance'
+                for fqn in fqns:
+                    submodule_prefixes.add(f'{fqn}.')
+        fsdp_modules = FSDP.fsdp_modules(model)
+        state_dict_config: StateDictConfig
+        optim_state_dict_config: OptimStateDictConfig
+        fsdp_context: Callable
+        if fsdp_modules:
+            # FSDP API only work if at least one FSDP instance exists.
+            if options.full_state_dict:
+                state_dict_config = FullStateDictConfig(offload_to_cpu=options.cpu_offload, rank0_only=options.cpu_offload)
+                optim_state_dict_config = FullOptimStateDictConfig(offload_to_cpu=options.cpu_offload,
+                                                                rank0_only=options.cpu_offload)
+                state_dict_type = StateDictType.FULL_STATE_DICT
+            else:
+                state_dict_config = ShardedStateDictConfig()
+                optim_state_dict_config = ShardedOptimStateDictConfig(offload_to_cpu=options.cpu_offload,)
+                state_dict_type = StateDictType.SHARDED_STATE_DICT
+
+            fsdp_context = functools.partial(
+                FSDP.state_dict_type,
+                module=model,
+                state_dict_type=state_dict_type,
+                state_dict_config=state_dict_config,
+                optim_state_dict_config=optim_state_dict_config,
+            )
+        else:
+            fsdp_context = contextlib.nullcontext
+        return _StateDictInfo(
+            **asdict(options),
+            fqn_param_mapping=fqn_param_mapping,
+            all_fqns=all_fqns,
+            submodule_prefixes=submodule_prefixes,
+            fsdp_context=fsdp_context,
+            fsdp_modules=cast(List[nn.Module], fsdp_modules),
+            handle_model=not optim_only,
+            handle_optim=(len(optims) > 0),
+        )
+
+
 def fsdp_state_has_default_pg(state: '_FSDPState') -> bool:
     """Indicates whether FlatParamHandle has the default process group.
 
@@ -786,6 +1172,153 @@ def fsdp_state_pg_ranks(state: '_FSDPState') -> Tuple[int, ...]:
         return tuple(range(dist.get_world_size()))
     else:
         return tuple(get_process_group_ranks(state.process_group))
+
+
+def _wait_for_computation_stream(
+    computation_stream: torch.Stream,
+    root_state: '_FSDPState',
+    pre_unshard_stream: torch.Stream,
+):
+    """Unshard and pre-unshard streams wait for computation stream.
+
+    Has the unshard and pre-unshard streams wait for the computation stream.
+    For example, this should be called in the FSDP root's pre-forward to
+    respect optimizer step computation.
+    """
+    # Tracing does not need to wait
+    if torch.distributed._functional_collectives.is_torchdynamo_compiling():
+        return
+    # Ensure all unshard streams wait for the computation stream.
+    unshard_streams = set()
+    for fsdp_state in root_state._all_fsdp_states:
+        unshard_streams.add(fsdp_state._unshard_stream)
+    for unshard_stream in unshard_streams:
+        unshard_stream.wait_stream(computation_stream)  # type: ignore[attr-defined]
+    # Having the pre-all-gather stream wait for the current stream even if we
+    # do not leverage the pre-all-gather stream is tolerable since this only
+    # runs once per iteration
+    pre_unshard_stream.wait_stream(computation_stream)  # type: ignore[attr-defined]
+
+
+@no_type_check
+def _root_pre_forward(
+    state: '_FSDPState',
+    module: nn.Module,
+    args,
+    kwargs,
+) -> None:
+    """Runs pre-forward logic specific to the root FSDP instance.
+
+    This should run before any individual module's pre-forward. This starts
+    with an attempt at lazy initialization (which only runs non-vacuously once).
+    Otherwise, if this is called on a non-root FSDP instance, then it returns
+    directly.
+    """
+    from torch.distributed.fsdp._common_utils import _is_composable
+    from torch.distributed.fsdp._runtime_utils import (_cast_buffers_to_dtype_and_device,
+                                                       _get_buffers_and_dtypes_for_computation, _lazy_init,
+                                                       _reset_flat_param_grad_info_if_needed, _root_cast_forward_input)
+    from torch.distributed.utils import _p_assert, _to_kwargs
+    with torch.profiler.record_function('FullyShardedDataParallel._root_pre_forward'):
+        _lazy_init(state, module)
+        _p_assert(state._is_root is not None, 'Expects a root FSDP to have been set')
+        if not state._is_root:
+            # Always cast forward inputs in the root of this local FSDP unit for mixed
+            # precision, as this is where mixed precision could be configured.
+            # This is more useful for auto wrapping that is recommended in composable path.
+            # For manual wrapping, cast forward inputs on each local FSDP unit root will
+            # increase some overhead, so not turned on for model wrapper path right now where
+            # manual wrapping is more broadly used.
+            if _is_composable(state):
+                return _root_cast_forward_input(state, module, args, kwargs)
+            return args, kwargs
+
+        # We cast buffers back to full precision if we're forcing full precision. Disjointly, we check if buffers
+        # are in full precision and if we should cast them back to lower precision, which happens when
+        # exiting eval() mode.
+        handle = state._handle
+        if handle:
+            should_cast_buffers_to_full_prec = handle._force_full_precision
+        else:
+            should_cast_buffers_to_full_prec = True
+
+        if should_cast_buffers_to_full_prec:
+            _cast_buffers_to_dtype_and_device(
+                buffers=dict(module.named_buffers()).values(),
+                buffer_dtypes=list(state._buffer_name_to_orig_dtype.values()),
+                device=state.compute_device,
+            )
+            # This flag is only set when we cast buffers to full precision, to avoid the
+            # CPU overhead that can stem from retrieving all buffers and their types in the
+            # following else branch.
+            state._needs_buffer_dtype_restore_check = True
+        elif getattr(state, '_needs_buffer_dtype_restore_check', False):
+            # Check if buffers are in full precision and we need to cast them
+            # back down.
+            (
+                buffers,
+                buffer_dtypes_for_computation,
+            ) = _get_buffers_and_dtypes_for_computation(state, module)
+            if len(buffers) > 0 and len(buffer_dtypes_for_computation) > 0:
+                if any(buffer.dtype != buffer_dtype_for_computation
+                       for buffer, buffer_dtype_for_computation in zip(buffers, buffer_dtypes_for_computation)):
+                    # Assume we have to cast everything if there is one mismatch
+                    _cast_buffers_to_dtype_and_device(buffers, buffer_dtypes_for_computation, state.compute_device)
+            # We don't have to check this again until we cast buffers to full precision again.
+            state._needs_buffer_dtype_restore_check = False
+
+        if state.forward_prefetch:
+            handles = []
+            for fsdp_state in state._all_fsdp_states:
+                if fsdp_state._handle:
+                    handles.append(fsdp_state._handle)
+            for handle in handles:
+                handle._needs_pre_forward_unshard = True
+                handle._prefetched = False
+
+        _wait_for_computation_stream(
+            state._device_handle.current_stream(),
+            state,
+            state._pre_unshard_stream,
+        )
+        _reset_flat_param_grad_info_if_needed(state._all_handles)
+
+        # Prepares the forward inputs by moving them to ``compute_device``
+        # TODO: Do not use the side stream for tensor copies for now; investigate
+        # the perf with/without it.
+        with torch.profiler.record_function('FullyShardedDataParallel._to_kwargs'):
+            args_tuple, kwargs_tuple = _to_kwargs(args, kwargs, state.compute_device, False)
+        args = args_tuple[0]
+        kwargs = kwargs_tuple[0]
+
+        return _root_cast_forward_input(state, module, args, kwargs)
+
+
+def forward(self, *args: Any, **kwargs: Any) -> Any:
+    """Run the forward pass for the wrapped module, inserting FSDP-specific pre- and post-forward sharding logic."""
+    from torch.distributed.fsdp._runtime_utils import (_post_forward, _post_forward_reshard, _pre_forward,
+                                                       _pre_forward_unshard)
+    from torch.distributed.utils import _p_assert
+    handle = self._handle
+    with torch.autograd.profiler.record_function('FullyShardedDataParallel.forward'):
+        args, kwargs = _root_pre_forward(self, self, args, kwargs)
+        unused = None
+        args, kwargs = _pre_forward(
+            self,
+            handle,
+            _pre_forward_unshard,
+            self._fsdp_wrapped_module,
+            args,
+            kwargs,
+        )
+        if handle:
+            _p_assert(
+                handle.flat_param.device == self.compute_device,
+                'Expected `FlatParameter` to be on the compute device '
+                f'{self.compute_device} but got {handle.flat_param.device}',
+            )
+        output = self._fsdp_wrapped_module(*args, **kwargs)
+        return _post_forward(self, handle, _post_forward_reshard, self, unused, output)
 
 
 @no_type_check
@@ -824,7 +1357,11 @@ def _share_state_and_init_handle_attrs_t2p1(
     # Patching so that _FSDPStates with different process groups have separate unshard streams.
     # Keep track of any new unshard streams we may have to add for specific process groups.
     fsdp_pg_unshard_streams = {}
-    unshard_priority = root_state._unshard_stream.priority
+    try:
+        unshard_priority = root_state._unshard_stream.priority
+    except AttributeError:
+        # Use the default priority of 0 if the stream has no assigned priority.
+        unshard_priority = 0
     for fsdp_state in root_state._all_fsdp_states:
         for attr_name in HOMOGENEOUS_ATTR_NAMES:
             _p_assert(
@@ -893,7 +1430,7 @@ def _share_state_and_init_handle_attrs_t2p2(
     handle = root_state._handle
     if handle:
         handle.init_flat_param_attributes()
-    _validate_and_get_hybrid_shard_state(root_module)
+    # _validate_and_get_hybrid_shard_state(root_module)
     attr_name_to_values: Dict[str, Set[Any]] = {}
     for attr_name in HOMOGENEOUS_ATTR_NAMES:
         attr_name_to_values[attr_name] = set()
@@ -911,7 +1448,11 @@ def _share_state_and_init_handle_attrs_t2p2(
     # Patching so that _FSDPStates with different process groups have separate unshard streams.
     # Keep track of any new unshard streams we may have to add for specific process groups.
     fsdp_pg_unshard_streams = {}
-    unshard_priority = root_state._unshard_stream.priority
+    try:
+        unshard_priority = root_state._unshard_stream.priority
+    except AttributeError:
+        # Use the default priority of 0 if the stream has no assigned priority.
+        unshard_priority = 0
     for fsdp_state in root_state._all_fsdp_states:
         for attr_name in HOMOGENEOUS_ATTR_NAMES:
             _p_assert(

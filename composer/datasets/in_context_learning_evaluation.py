@@ -166,7 +166,7 @@ class InContextLearningQATaskDataset(Dataset):
             if dist.get_local_rank() == 0:
                 get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
-        self.samples = self._read_dataset(dataset)
+        self.samples = self._read_dataset(dataset)  # pyright: ignore[reportGeneralTypeIssues]
         self.samples = strip_data(self.samples)
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
@@ -256,10 +256,11 @@ class InContextLearningQATaskDataset(Dataset):
             # If the preamble is empty then this will be a 0-length list, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
             encoded_example['preamble'] = self.tokenizer(prompt_and_fewshot)
             # If there is an EOS token added, we need to remove it so it is not in the middle of the prompt
-            if self.tokenizer.eos_token_id is not None and len(
-                    encoded_example['preamble']
-                ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
-                encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
+            example_ids = encoded_example['preamble']['input_ids']
+            if (self.tokenizer.eos_token_id is not None and
+                    len(example_ids) > 1 and  # pyright: ignore[reportGeneralTypeIssues]
+                    example_ids[-1] == self.tokenizer.eos_token_id):  # pyright: ignore[reportGeneralTypeIssues]
+                encoded_example['preamble']['input_ids'] = example_ids[:-1]  # pyright: ignore[reportGeneralTypeIssues]
 
             encoded_example['context'] = self.tokenizer(ctxt, add_special_tokens=False)
             encoded_example['aliases'] = list(self.samples[sample_idx]['aliases'])
@@ -267,7 +268,8 @@ class InContextLearningQATaskDataset(Dataset):
             examples.append(encoded_example)
             for answer in self.samples[sample_idx]['aliases']:
                 response = f"{self.samples[sample_idx]['chain_of_thought']}{cot_delimiter}{answer}"
-                max_answer_length = max(max_answer_length, len(self.tokenizer(response)['input_ids']))
+                max_answer_length = max(max_answer_length, len(
+                    self.tokenizer(response)['input_ids']))  # pyright: ignore[reportGeneralTypeIssues]
 
             if len(self.samples[sample_idx]['chain_of_thought']) > 0:
                 has_cot = True
@@ -448,10 +450,11 @@ class InContextLearningLMTaskDataset(Dataset):
             encoded_example['preamble'] = self.tokenizer(
                 preamble
             )  # if the preamble is empty then these will be 0-length lists, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
-            if self.tokenizer.eos_token_id is not None and len(
-                    encoded_example['preamble']
-                ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
-                encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
+            example_ids = encoded_example['preamble']['input_ids']
+            if (self.tokenizer.eos_token_id is not None and
+                    len(encoded_example['preamble']['input_ids']) > 1 and  # pyright: ignore[reportGeneralTypeIssues]
+                    example_ids[-1] == self.tokenizer.eos_token_id):  # pyright: ignore[reportGeneralTypeIssues]
+                encoded_example['preamble']['input_ids'] = example_ids[:-1]  # pyright: ignore[reportGeneralTypeIssues]
 
             encoded_example['context'] = self.tokenizer(ctxt, add_special_tokens=False)
             encoded_example['continuation'] = self.tokenizer(cont, add_special_tokens=False)
@@ -621,10 +624,11 @@ class InContextLearningMultipleChoiceTaskDataset(Dataset):
                 preamble
             )  # if the preamble is empty then these will be 0-length lists, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
 
-            if self.tokenizer.eos_token_id is not None and len(
-                    encoded_example['preamble']
-                ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
-                encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
+            example_ids = encoded_example['preamble']['input_ids']
+            if (self.tokenizer.eos_token_id is not None and
+                    len(example_ids) > 1 and  # pyright: ignore[reportGeneralTypeIssues]
+                    example_ids[-1] == self.tokenizer.eos_token_id):  # pyright: ignore[reportGeneralTypeIssues]
+                encoded_example['preamble']['input_ids'] = example_ids[:-1]  # pyright: ignore[reportGeneralTypeIssues]
 
             encoded_example['gold_idx'] = gold_idx
 
@@ -845,10 +849,11 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
             encoded_example['preamble'] = self.tokenizer(
                 preamble
             )  # if the preamble is empty then these will be 0-length lists, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
-            if self.tokenizer.eos_token_id is not None and len(
-                    encoded_example['preamble']
-                ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
-                encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
+            example_ids = encoded_example['preamble']['input_ids']
+            if (self.tokenizer.eos_token_id is not None and
+                    len(example_ids) > 1 and  # pyright: ignore[reportGeneralTypeIssues]
+                    example_ids[-1] == self.tokenizer.eos_token_id):  # pyright: ignore[reportGeneralTypeIssues]
+                encoded_example['preamble']['input_ids'] = example_ids[:-1]  # pyright: ignore[reportGeneralTypeIssues]
 
             encoded_example['gold_idx'] = gold_idx
             encoded_example['context_options'] = [self.tokenizer(c, add_special_tokens=False) for c in context_options]
@@ -1038,10 +1043,11 @@ class InContextLearningCodeEvalDataset(Dataset):
             # If the preamble is empty then this will be a 0-length list, unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer)
             encoded_example['preamble'] = self.tokenizer(preamble)
             # If there is an EOS token added, we need to remove it so it is not in the middle of the prompt
-            if self.tokenizer.eos_token_id is not None and len(
-                    encoded_example['preamble']
-                ['input_ids']) > 1 and encoded_example['preamble']['input_ids'][-1] == self.tokenizer.eos_token_id:
-                encoded_example['preamble']['input_ids'] = encoded_example['preamble']['input_ids'][:-1]
+            example_ids = encoded_example['preamble']['input_ids']
+            if (self.tokenizer.eos_token_id is not None and
+                    len(example_ids) > 1 and  # pyright: ignore[reportGeneralTypeIssues]
+                    example_ids[-1] == self.tokenizer.eos_token_id):  # pyright: ignore[reportGeneralTypeIssues]
+                encoded_example['preamble']['input_ids'] = example_ids[:-1]  # pyright: ignore[reportGeneralTypeIssues]
 
             encoded_example['prompt'] = self.tokenizer(ctxt, add_special_tokens=False)
             encoded_example['prompt_text'] = self.samples[sample_idx]['prompt']
@@ -1056,10 +1062,12 @@ class InContextLearningCodeEvalDataset(Dataset):
             examples.append(encoded_example)
             max_prompt_length = max(
                 max_prompt_length,
-                len(encoded_example['preamble']['input_ids'] + encoded_example['prompt']['input_ids']))
+                len(encoded_example['preamble']['input_ids'] +
+                    encoded_example['prompt']['input_ids']))  # pyright: ignore[reportGeneralTypeIssues]
             max_answer_length = max(
                 max_answer_length,
-                len(self.tokenizer(encoded_example['canonical_solution'], add_special_tokens=False)['input_ids']))
+                len(self.tokenizer(encoded_example['canonical_solution'],
+                                   add_special_tokens=False)['input_ids']))  # pyright: ignore[reportGeneralTypeIssues]
 
         self.max_prompt_length = max_prompt_length
         self.max_answer_length = max_answer_length + _MAX_ANSWER_BUFFER_LENGTH
@@ -1292,11 +1300,10 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str) -> Di
         if dist.get_local_rank() == 0:
             get_file(dataset_uri, destination_path, overwrite=True)
     dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
-    if 'category' not in dataset.features.keys():
-        raise Exception(
-            f"Attempted to partition dataset by `category` but it doesn't have a `category` key. Got keys: {str(list(dataset.features.keys()))}"
-        )
-    categories = sorted(set(dataset['category']))
+    if 'category' not in dataset.features.keys():  # type: ignore
+        raise Exception((f"Attempted to partition dataset by `category` but it doesn't have "
+                         f'a `category` key. Got keys: {str(list(dataset.features.keys()))}'))  # type: ignore
+    categories = sorted(set(dataset['category']))  # pyright: ignore[reportGeneralTypeIssues]
     output_files = {}
     for cat in categories:
         path = destination_path.split('/')
@@ -1304,7 +1311,7 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str) -> Di
         tmp_path_to_broadcast = str(os.path.abspath(cat_dest))
         gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
         if dist.get_local_rank() == 0:
-            subset = [l for l in dataset if l['category'] == cat]
+            subset = [l for l in dataset if l['category'] == cat]  # pyright: ignore[reportGeneralTypeIssues]
             with open(gathered_paths[0], 'w', encoding='utf8') as f:
                 for l in subset:
                     f.write(json.dumps(l, ensure_ascii=False) + '\n')

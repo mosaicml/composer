@@ -34,7 +34,7 @@ def test_speed_monitor(flops_per_batch: bool):
 
     model = SimpleModel()
     if flops_per_batch:
-        model.flops_per_batch = lambda batch: len(batch) * 100.0
+        model.flops_per_batch = lambda batch: len(batch) * 100.0  # pyright: ignore[reportGeneralTypeIssues]
 
     # Construct the trainer and train
     trainer = Trainer(
