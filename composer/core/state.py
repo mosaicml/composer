@@ -10,7 +10,7 @@ import textwrap
 import warnings
 from collections import OrderedDict
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Sequence, Union, cast
 
 import numpy as np
 import torch
@@ -1182,7 +1182,7 @@ class State(Serializable):
                 # which means they have one sample fetched in _spin_dataloaders before training
                 # starts. This avoids "CUDA error: initialization error" -- its not clear why.
                 # self.dataset_resumption['eval'][evaluator.label] = True
-                    
+
     def load_model_state(
         self,
         state_dict: Dict[str, Any],
@@ -1233,9 +1233,10 @@ class State(Serializable):
             except RuntimeError as e:
                 if 'Missing key(s) in state_dict' in str(e) or 'Unexpected key(s) in state_dict' in str(e):
                     raise RuntimeError(
-                        textwrap.dedent('Failed to load checkpoint due to missing or unexpected keys in state_dict. '
-                                        'This is likely due to a change in the model architecture. If this is intentional, '
-                                        'you can set load_strict_model_weights=False in the Trainer.')) from e
+                        textwrap.dedent(
+                            'Failed to load checkpoint due to missing or unexpected keys in state_dict. '
+                            'This is likely due to a change in the model architecture. If this is intentional, '
+                            'you can set load_strict_model_weights=False in the Trainer.')) from e
                 else:
                     raise e
 
@@ -1250,7 +1251,7 @@ class State(Serializable):
                         'in the state dict. If you see a warning with unexpected keys ending in ._flat_param, the model'
                         'was still loaded correctly.')
                 log.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
-        
+
         # If loading FSDP monolith checkpoint on rank 0 only, the model must be wrapped after loading
         if self.load_fsdp_monolith_rank0_only:
             assert self.fsdp_config is not None
@@ -1293,7 +1294,8 @@ class State(Serializable):
                         category=UserWarning)
                     continue
 
-                optim_state_dict = serialized_value[type(optimizer).__qualname__] if serialized_value is not None else None
+                optim_state_dict = serialized_value[type(
+                    optimizer).__qualname__] if serialized_value is not None else None
                 if self.fsdp_enabled:
                     assert self.fsdp_state_dict_type is not None  # pyright
                     if version.parse(torch.__version__) < version.parse('1.13.0'):
