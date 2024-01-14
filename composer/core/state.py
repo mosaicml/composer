@@ -1213,7 +1213,7 @@ class State(Serializable):
         if version.parse(torch.__version__) > version.parse('2.1.3'):
             from torch.distributed.checkpoint.state_dict import StateDictOptions, set_model_state_dict
             set_model_state_dict(
-                modle=self.model,
+                model=self.model,
                 model_state_dict=state_dict['model'],
                 options=StateDictOptions(strict=strict, cpu_offload=True),
             )
