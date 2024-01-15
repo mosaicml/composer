@@ -16,7 +16,7 @@ import textwrap
 import warnings
 from importlib import import_module
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 import torch
 from packaging import version
@@ -938,7 +938,7 @@ def _save_checkpoint(
     save_filename: str,
     *,
     weights_only: bool = False,
-    save_optimizer: bool = True,
+    save_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
 ) -> Union[str, None]:  # noqa: D103
 
     is_deepspeed = is_model_deepspeed(state.model)
@@ -953,15 +953,19 @@ def _save_checkpoint(
             'rng': reproducibility.get_rng_state(),
         }
     else:
-        full_state = state.state_dict()
-        print("+"*30)
-        print(f'{save_optimizer=}')
-        if not save_optimizer:
-            full_state.pop('optimizers')
         state_dict = {
-            'state': full_state,
+            'state': state.state_dict(),
             'rng': reproducibility.get_rng_state(),
         }
+
+    if save_ignore_keys:
+        # Filter provided list of key paths
+        if not callable(save_ignore_keys):
+            save_ignore_keys = glob_filter(save_ignore_keys)
+        # Call function to modify state_dict
+        save_ignore_keys(state_dict)
+        # Ensure state exists
+        state_dict['state'] = state_dict.get('state', {})
 
     if state.fsdp_sharded_state_dict_enabled:
         # To load optimizer states with 2.0 <= torch < 2.1.3 , the optimizer state must be at the top
@@ -1093,10 +1097,10 @@ def save_checkpoint(
     filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
     *,
     weights_only: bool = False,
-    save_optimizer: bool = True,
+    save_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
 ) -> Union[str, None]:  # noqa: D103
     save_filename = get_save_filename(state, filename)
-    return _save_checkpoint(state, save_filename, weights_only=weights_only, save_optimizer=save_optimizer)
+    return _save_checkpoint(state, save_filename, weights_only=weights_only, save_ignore_keys=save_ignore_keys)
 
 
 save_checkpoint.__doc__ = f"""Checkpoint the training ``state``.
