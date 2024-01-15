@@ -1117,7 +1117,7 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
                                                                 rank0_only=options.cpu_offload)
                 state_dict_type = StateDictType.FULL_STATE_DICT
             else:
-                state_dict_config = ShardedStateDictConfig()
+                state_dict_config = ShardedStateDictConfig(offload_to_cpu=options.cpu_offload,)
                 optim_state_dict_config = ShardedOptimStateDictConfig(offload_to_cpu=options.cpu_offload,)
                 state_dict_type = StateDictType.SHARDED_STATE_DICT
 
@@ -1141,6 +1141,45 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
             handle_optim=(len(optims) > 0),
         )
 
+    from torch.distributed.fsdp._optim_utils import FSDPParamInfo
+    from torch.distributed._state_dict_utils import _gather_state_dict
+    def _shard_orig_param_state(
+        fsdp_param_info: FSDPParamInfo,
+        fqn: str,
+        optim_state: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Shard function monkeypatch.
+
+        Shard the optimizer state for the original parameter with the name ``fqn``.
+        This API should only be used when ``use_orig_params`` is True.
+        """
+        if not optim_state:
+            return {}
+        fsdp_state = fsdp_param_info.state
+        flat_param = fsdp_param_info.handle.flat_param
+        param_idx = fsdp_param_info.param_indices[fqn]
+        shard_param_info = flat_param._shard_param_infos[param_idx]  # type: ignore[attr-defined]
+        optim_state = _gather_state_dict(
+            optim_state,
+            pg=fsdp_state.process_group,
+            device=fsdp_state.compute_device,
+            cpu_offload=True,
+        )
+        if not shard_param_info.in_shard:
+            return {}
+        # Flatten and shard the state.
+        new_optim_state: Dict[str, Any] = {}
+        intra_param_start_idx = shard_param_info.intra_param_start_idx
+        intra_param_end_idx = shard_param_info.intra_param_end_idx
+        for state_name, value in optim_state.items():
+            if (
+                torch.is_tensor(value)
+                and value.dim() > 0
+                and fsdp_state.sharding_strategy != ShardingStrategy.NO_SHARD
+            ):
+                value = value.flatten()[intra_param_start_idx : intra_param_end_idx + 1].clone()  # type: ignore[operator]
+            new_optim_state[state_name] = value
+        return new_optim_state
 
 def fsdp_state_has_default_pg(state: '_FSDPState') -> bool:
     """Indicates whether FlatParamHandle has the default process group.
