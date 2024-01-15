@@ -119,7 +119,7 @@ extra_deps['dev'] = [
     'sphinxcontrib.katex==0.9.6',
     'sphinxcontrib-applehelp==1.0.0',
     'sphinxcontrib-devhelp==1.0.0',
-    'sphinxcontrib-htmlhelp==2.0.0',
+    'sphinxcontrib-htmlhelp==2.0.5',
     'sphinxcontrib-serializinghtml==1.1.5',
     'sphinxcontrib-qthelp==1.0.0',
     'sphinxext.opengraph==0.9.1',
