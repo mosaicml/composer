@@ -518,6 +518,10 @@ def load_sharded_checkpoint(
                 # Ensure state exists
                 state_dict['state'] = state_dict.get('state', {})
 
+            print("+"*30)
+            print(state_dict.keys())
+            print(state_dict.get('state', {}).keys())
+            print(state_dict.get('state', {}).get('optimizers', {}).keys())
             if version.parse(torch.__version__) > version.parse('2.1.3'):
                 dist_cp.load(  # type: ignore
                     state_dict=state_dict,
