@@ -168,7 +168,6 @@ def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is
             log.warning(transform_added_logstring)
 
 
-stop_sequences_criteria: Optional[Callable] = None
 try:
     import transformers
 

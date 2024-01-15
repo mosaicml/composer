@@ -306,7 +306,7 @@ class InContextLearningQATaskDataset(Dataset):
             cot_delimiter = sample['cot_delimiter']
         stopping_criteria = None
         if self.early_stopping_criteria:
-            if stop_sequences_criteria is None:
+            if stop_sequences_criteria is None:  # pyright: ignore [reportGeneralTypeIssues]
                 raise MissingConditionalImportError(extra_deps_group='nlp',
                                                     conda_package='transformers',
                                                     conda_channel='conda-forge')
