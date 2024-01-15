@@ -866,6 +866,7 @@ class Trainer:
         save_overwrite: bool = False,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
         save_weights_only: bool = False,
+        save_optimizer: bool = True,
         save_num_checkpoints_to_keep: int = -1,
         save_metrics: bool = False,
 
@@ -1150,6 +1151,7 @@ class Trainer:
                 latest_remote_file_name=latest_remote_file_name,
                 overwrite=save_overwrite,
                 weights_only=save_weights_only,
+                save_optimizer=save_optimizer,
                 save_interval=save_interval,
                 num_checkpoints_to_keep=save_num_checkpoints_to_keep,
             )

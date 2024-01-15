@@ -938,6 +938,7 @@ def _save_checkpoint(
     save_filename: str,
     *,
     weights_only: bool = False,
+    save_optimizer: bool = True,
 ) -> Union[str, None]:  # noqa: D103
 
     is_deepspeed = is_model_deepspeed(state.model)
@@ -952,8 +953,11 @@ def _save_checkpoint(
             'rng': reproducibility.get_rng_state(),
         }
     else:
+        full_state = state.state_dict()
+        if not save_optimizer:
+            full_state.pop('optimizers')
         state_dict = {
-            'state': state.state_dict(),
+            'state': full_state,
             'rng': reproducibility.get_rng_state(),
         }
 
@@ -1087,9 +1091,10 @@ def save_checkpoint(
     filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
     *,
     weights_only: bool = False,
+    save_optimizer: bool = True,
 ) -> Union[str, None]:  # noqa: D103
     save_filename = get_save_filename(state, filename)
-    return _save_checkpoint(state, save_filename, weights_only=weights_only)
+    return _save_checkpoint(state, save_filename, weights_only=weights_only, save_optimizer=save_optimizer)
 
 
 save_checkpoint.__doc__ = f"""Checkpoint the training ``state``.

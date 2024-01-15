@@ -243,6 +243,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         overwrite: bool = False,
         num_checkpoints_to_keep: int = -1,
         weights_only: bool = False,
+        save_optimizer: bool = True,
     ):
         folder = str(folder)
         filename = str(filename)
@@ -267,6 +268,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.all_saved_checkpoints_to_timestamp: Dict[str, Timestamp] = {}
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
         self.weights_only = weights_only
+        self.save_optimizer = save_optimizer
 
         self.start_batch = None
 
@@ -363,6 +365,7 @@ class CheckpointSaver(Callback):  # noqa: D101
             state=state,
             filename=filename_with_placeholders,
             weights_only=self.weights_only,
+            save_optimizer=self.save_optimizer,
         )
         log.debug(f'Checkpoint locally saved to {saved_path}')
 
