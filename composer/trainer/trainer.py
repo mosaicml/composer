@@ -964,7 +964,9 @@ class Trainer:
         assert not isinstance(device_train_microbatch_size, str)
 
         # Distributed
-        dist.initialize_dist(device, dist_timeout)
+        # NOTE: Do not initialise PyTorch Distributed if just one GPU is used
+        if dist.get_world_size() > 1:
+            dist.initialize_dist(device, dist_timeout)
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, device)
