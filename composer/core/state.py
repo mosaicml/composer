@@ -1349,9 +1349,6 @@ class State(Serializable):
             algorithm_passes (List[AlgorithmPass], optional): A list of algorithm passes to apply to autoloaded algorithms
                 to sort them into the correct order. (default: ``None``)
         """
-        print("+"*30)
-        print(state.keys())
-        print("+"*30)
         state = _ensure_backwards_compatible_checkpointing(state)
 
         # Call load_model_state first since it applies required algorithms
