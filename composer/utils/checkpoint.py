@@ -954,6 +954,8 @@ def _save_checkpoint(
         }
     else:
         full_state = state.state_dict()
+        print("+"*30)
+        print(f'{save_optimizer=}')
         if not save_optimizer:
             full_state.pop('optimizers')
         state_dict = {
