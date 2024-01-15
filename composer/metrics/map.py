@@ -163,8 +163,8 @@ class MAP(Metric):
             dist_sync_fn=dist_sync_fn,
         )
         try:
-            from pycocotools.coco import COCO
-            from pycocotools.cocoeval import COCOeval
+            from pycocotools.coco import COCO  # pyright: ignore[reportMissingModuleSource]
+            from pycocotools.cocoeval import COCOeval  # pyright: ignore[reportMissingModuleSource]
         except ImportError as e:
             raise MissingConditionalImportError(extra_deps_group='coco', conda_package='pycocotools') from e
 

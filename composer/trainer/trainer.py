@@ -39,7 +39,7 @@ from composer.core import (Algorithm, AlgorithmPass, Batch, Callback, DataSpec, 
                            PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode, ensure_data_spec,
                            ensure_evaluator, ensure_time, get_precision_context, validate_eval_automicrobatching)
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
-from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, MosaicMLLogger, ProgressBarLogger,
+from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, MLFlowLogger, MosaicMLLogger, ProgressBarLogger,
                               RemoteUploaderDownloader, WandBLogger)
 from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR
 from composer.models import ComposerModel
@@ -54,8 +54,9 @@ from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectS
                             ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist,
                             get_composer_env_dict, get_device, get_file, is_tpu_installed, map_collection,
                             maybe_create_object_store_from_uri, maybe_create_remote_uploader_downloader_from_uri,
-                            model_eval_mode, parse_uri, reproducibility, using_torch_2)
+                            model_eval_mode, parse_uri, partial_format, reproducibility, using_torch_2)
 from composer.utils.misc import is_model_deepspeed
+from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
 
 if is_tpu_installed():
     import torch_xla.core.xla_model as xm
@@ -130,8 +131,13 @@ def _compile_schedulers(
         if isinstance(scheduler, PyTorchScheduler):
             scale_pytorch_scheduler(scheduler, scale_schedule_ratio)
             compiled_schedulers.append(scheduler)
-        else:  # it's a composer scheduler
-            compiled_schedulers.append(compile_composer_scheduler(scheduler, state, scale_schedule_ratio))
+        # It's a composer scheduler
+        else:
+            compiled_schedulers.append(compile_composer_scheduler(
+                scheduler,
+                state,
+                scale_schedule_ratio,
+            ))
 
     return compiled_schedulers
 
@@ -148,8 +154,7 @@ def _set_evaluator_interval_and_subset_num_batches(
         if evaluator.eval_interval is None:
             evaluator.eval_interval = eval_interval
         eval_dataloader = evaluator.dataloader.dataloader
-        if isinstance(eval_dataloader, collections.abc.Sized) and (evaluator.subset_num_batches is None or
-                                                                   evaluator.subset_num_batches == -1):
+        if isinstance(eval_dataloader, collections.abc.Sized) and evaluator.subset_num_batches == -1:
             try:
                 dataloader_len = len(eval_dataloader)
             except TypeError:
@@ -939,8 +944,7 @@ class Trainer:
                 if not isinstance(compiled_model, ComposerModel):
                     raise ValueError(f'Provided `model` must be a subclass of ComposerModel. ' +
                                      f'Instead found as type `{type(compiled_model)}`')
-                compiled_model.forward = model.dynamo_ctx(
-                    compiled_model.forward)  # pyright: ignore [reportGeneralTypeIssues]
+                compiled_model.forward = model.dynamo_ctx(compiled_model.forward)
                 model = compiled_model
 
         # Microbatching
@@ -1082,6 +1086,11 @@ class Trainer:
             mosaicml_logger = MosaicMLLogger()
             loggers.append(mosaicml_logger)
 
+        # Remote Uploader Downloader
+        # Keep the ``RemoteUploaderDownloader`` below client-provided loggers so the loggers init callbacks run before
+        # the ``RemoteUploaderDownloader`` init. This is necessary to use an ``MLFlowObjectStore`` to log objects to a
+        # run managed by an ``MLFlowLogger``, as the ``MLFlowObjectStore`` relies on the ``MLFlowLogger`` to initialize
+        # the active MLFlow run.
         if save_folder is not None:
             remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
             if remote_ud is not None:
@@ -1150,10 +1159,34 @@ class Trainer:
         self.engine = Engine(state=self.state, logger=self.logger, algorithm_passes=algorithm_passes)
 
         # Set the logger
-        self.state.model.logger = self.logger
+        self.state.model.logger = self.logger  # pyright: ignore[reportGeneralTypeIssues]
 
         # Run Event.INIT
         self.engine.run_event(Event.INIT)
+
+        # If the experiment is being tracked with an `MLFlowLogger`, then MLFlow experiment and run are available
+        # after Event.INIT.
+        if save_folder is not None:
+            mlflow_logger = None
+            for destination in self.logger.destinations:
+                if isinstance(destination, MLFlowLogger):
+                    mlflow_logger = destination
+                    break
+
+            if mlflow_logger is not None:
+                mlflow_experiment_id = mlflow_logger._experiment_id
+                mlflow_run_id = mlflow_logger._run_id
+
+                # The save folder and related paths/filenames may contain format placeholders for the MLFlow IDs, so
+                # populate them now.
+                mlflow_format_kwargs = {
+                    MLFLOW_EXPERIMENT_ID_FORMAT_KEY: mlflow_experiment_id,
+                    MLFLOW_RUN_ID_FORMAT_KEY: mlflow_run_id
+                }
+
+                save_folder = partial_format(save_folder, **mlflow_format_kwargs)
+                if latest_remote_file_name is not None:
+                    latest_remote_file_name = partial_format(latest_remote_file_name, **mlflow_format_kwargs)
 
         # Log hparams.
         if self.auto_log_hparams:
@@ -1315,9 +1348,11 @@ class Trainer:
             self.state.deepspeed_config = _parse_deepspeed_config(self.state.deepspeed_config, state=self.state)
             optimizer = ensure_tuple(self.state.optimizers)[0]
             log.debug('Initializing deepspeed')
-            (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(config=self.state.deepspeed_config,
-                                                                                   model=self.state.model,
-                                                                                   optimizer=optimizer)
+            (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(
+                config=self.state.deepspeed_config,
+                model=self.state.model,
+                optimizer=optimizer,
+            )
             # Since the DeepSpeed ZeRO optimizer does not inherit torch.optim.Optimizer, the schedulers must be
             # compiled and bound BEFORE DeepSpeed initialization. However, this is OK, as the the DeepSpeed Zero
             # optimizer uses the same underlying parameter groups as the original optimizer. See
@@ -1345,8 +1380,6 @@ class Trainer:
                     'latest existing checkpoint in `save_folder`. ')
             if save_latest_filename is None:
                 error_message += 'The `save_latest_filename` must be specified so autoresume knows where to load checkpoints from. '
-            if run_name is None:
-                error_message += 'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name. '
             if error_message != '':
                 raise ValueError(error_message)
             assert save_folder is not None
@@ -1463,8 +1496,7 @@ class Trainer:
         # The model would need to be torch.compile()'d after being wrapped in a distributed strategy
         # to take advantage of any graph breaks.
         if is_torch_2_0 and not is_model_compiled and compile_config is not None:
-            compiled_model = torch.compile(  # pyright: ignore [reportGeneralTypeIssues]
-                self.state.model, **compile_config)
+            compiled_model = torch.compile(self.state.model, **compile_config)
             self.state.model = compiled_model._orig_mod
             self.state.model.forward = compiled_model.dynamo_ctx(self.state.model.forward)
             is_model_compiled = True
@@ -1783,6 +1815,7 @@ class Trainer:
 
         if self.state.max_duration is None:
             _raise_missing_argument_exception('max_duration')
+        assert self.state.max_duration is not None
 
         if self.state.dataloader_len is None and self.state.max_duration.unit == TimeUnit.EPOCH:
             raise ValueError(
@@ -1931,6 +1964,7 @@ class Trainer:
         for metric_name, metric in metrics.items():
             assert isinstance(metric, Metric)
             if dataloader_label == 'train':
+                assert self.state.train_metrics is not None
                 self.state.train_metrics[metric_name] = metric
                 self.state.train_metric_values[metric_name] = computed_metrics[metric_name]
             else:
@@ -2069,7 +2103,7 @@ class Trainer:
                     self.state.scaler.update()
 
                 # total_loss_dict can be None if gradient scaling failed
-                if total_loss_dict is not None:
+                if total_loss_dict is not None:  # pyright: ignore[reportUnnecessaryComparison]
                     map_collection(total_loss_dict, dist.all_reduce)
                     total_loss_dict = {
                         k: loss.cpu().item() / dist.get_world_size() for k, loss in total_loss_dict.items()
@@ -2098,7 +2132,7 @@ class Trainer:
                     for scheduler in self.state.schedulers:
                         scheduler.step()
 
-                if self.state.train_metrics is not None:
+                if self.state.train_metrics is not None:  # pyright: ignore[reportUnnecessaryComparison]
                     self._compute_and_log_metrics(
                         dataloader_label='train',
                         metrics=self.state.train_metrics,
@@ -2133,7 +2167,7 @@ class Trainer:
                 # This happens if the "break" did not trigger above, or if it
                 # did (e.g. duration specified in samples/batches/tokens), but it is still
                 # the end of the dataloader (i.e. next(dataloader) would raise StopIteration)
-                if self.state.train_metrics is not None:
+                if self.state.train_metrics is not None:  # pyright: ignore[reportUnnecessaryComparison]
                     self.state.train_metrics = self._ensure_metrics_device_and_dtype(self.state.train_metrics)
                     self._compute_and_log_metrics(
                         dataloader_label='train',
@@ -2229,7 +2263,7 @@ class Trainer:
         while True:
             # Reset train_metrics on every batch
             # Placing reset here ensures that if auto grad accum catches an OOM, incomplete metric state is cleared
-            if self.state.train_metrics is not None:
+            if self.state.train_metrics is not None:  # pyright: ignore[reportUnnecessaryComparison]
                 for metric in self.state.train_metrics.values():
                     metric.reset()
 
@@ -2453,6 +2487,7 @@ class Trainer:
             else:
                 microbatch_loss = self.state.device.tensor_to_device(torch.zeros(size=(1,)))
                 for loss in ensure_tuple(self.state.loss):
+                    assert isinstance(loss, torch.Tensor)
                     microbatch_loss.add_(loss.mean())
 
                 # Copy the loss if it is a dictionary
@@ -2482,7 +2517,8 @@ class Trainer:
             self.engine.run_event(Event.AFTER_BACKWARD)
 
             # Use microbatch outputs to update training metrics
-            if self.state.train_metrics is not None and len(self.state.train_metrics) != 0:
+            if (self.state.train_metrics is not None and  # pyright: ignore[reportUnnecessaryComparison]
+                    len(self.state.train_metrics) != 0):
                 self.state.train_metrics = self._ensure_metrics_device_and_dtype(self.state.train_metrics)
                 self._eval_train_metrics(device_batch)
 
@@ -2591,8 +2627,7 @@ class Trainer:
                 self.state.batch = self.state.device.batch_to_device(self.state.batch)
 
                 # Perform any device transforms
-                if data_spec.device_transforms is not None:
-                    self.state.batch = data_spec.device_transforms(self.state.batch)
+                self.state.batch = data_spec.device_transforms(self.state.batch)
 
                 # Count the batch size and num tokens before any events run
                 rank_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
@@ -2855,8 +2890,7 @@ class Trainer:
 
             for self.state.batch in self._iter_dataloader(TrainerMode.EVAL):
                 self.state.batch = self.state.device.batch_to_device(self.state.batch)
-                if data_spec.device_transforms is not None:
-                    self.state.batch = data_spec.device_transforms(self.state.batch)
+                self.state.batch = data_spec.device_transforms(self.state.batch)
 
                 # Count the batch size and num tokens before any events run
                 rank_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
@@ -3069,7 +3103,7 @@ class Trainer:
         if self.state.precision != Precision.AMP_FP16:
             return True
 
-        if self.state.optimizers is None:
+        if not hasattr(self.state, 'optimizers'):
             raise RuntimeError('state.optimizers must be set before `_use_closures` can be determined')
 
         return all(

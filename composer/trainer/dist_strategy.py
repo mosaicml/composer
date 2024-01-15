@@ -639,7 +639,8 @@ def prepare_fsdp_module(
                 # If module has attribute `module._activation_checkpointing = ...`, always respect it
                 # Otherwise checkpoint if root object `obj.activation_checkpointing_fn(module)` is true
                 def _check_fn(module: torch.nn.Module) -> bool:
-                    if not is_torch_2_0 and isinstance(module, FlattenParamsWrapper):
+                    if not is_torch_2_0 and isinstance(module,
+                                                       FlattenParamsWrapper):  # pyright: ignore[reportUnboundVariable]
                         return False
                     if isinstance(module, FullyShardedDataParallel):
                         return False
@@ -676,8 +677,7 @@ def prepare_fsdp_module(
 
     # Rebuild optimizer now that parameters are sharded
     if optimizers:
-        optimizers_tuple = ensure_tuple(optimizers)
-        optim = optimizers_tuple[0]
+        optim = ensure_tuple(optimizers)[0]
         optim.param_groups.clear()
 
         assert num_param_groups is not None
