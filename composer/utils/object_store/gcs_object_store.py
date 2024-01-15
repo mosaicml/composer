@@ -76,7 +76,7 @@ class GCSObjectStore(ObjectStore):
             self.client = Client.from_service_account_json(service_account_path)
             self.use_gcs_sdk = True
             try:
-                self.bucket = self.client.get_bucket(self.bucket_name, timeout=60.0)
+                self.bucket = self.client.get_bucket(self.bucket_name, timeout=60)
             except Exception as e:
                 _reraise_gcs_errors(self.get_uri(object_name=''), e)
 
@@ -127,12 +127,15 @@ class GCSObjectStore(ObjectStore):
         blob_exists = Blob(bucket=self.bucket, name=key).exists(self.client)
         if not blob_exists:
             raise FileNotFoundError(f'{object_name} not found in {self.bucket_name}')
+        blob = None
         try:
             key = self.get_key(object_name)
             blob = self.bucket.get_blob(key)
         except Exception as e:
             _reraise_gcs_errors(self.get_uri(object_name), e)
 
+        if blob is None or blob.size is None:
+            return -1
         return blob.size  # size in bytes
 
     def upload_object(self,
@@ -223,6 +226,7 @@ class GCSObjectStore(ObjectStore):
             prefix = ''
         prefix = self.get_key(prefix)
 
+        objects = []
         try:
             objects = self.bucket.list_blobs(prefix=prefix)
         except Exception as e:

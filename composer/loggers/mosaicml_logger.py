@@ -153,6 +153,7 @@ class MosaicMLLogger(LoggerDestination):
         if self._enabled and len(self.buffered_metadata) > 0 and (
                 time.time() - self.time_last_logged > self.log_interval or force_flush):
             try:
+                assert self.run_name is not None
                 if future:
                     f = mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=True, protect=True)
                     self._futures.append(f)

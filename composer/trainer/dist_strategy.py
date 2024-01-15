@@ -243,11 +243,6 @@ def prepare_fsdp_module(
                              'gpu and some ranks are on meta. Either keep all ranks on the same '
                              "device or set fsdp_config['sync_module_states'] = True. Otherwise, "
                              'some weights may be randomly initialized when loading a checkpoint.')
-        # Comment out while we debug deadlock
-        # if fsdp_config['sharding_strategy'] in ('HYBRID_SHARD', '_HYBRID_SHARD_ZERO2'):
-        #     raise ValueError('HSDP (HYBRID_SHARD or _HYBRID_SHARD_ZERO2) requires '
-        #                      'fsdp_config["sync_module_states"] = True or different replicas will '
-        #                      'have different weights.')
 
     # Check if other ranks OOMed after forward/backward pass when using auto microbatching. This
     # may happen when close to memory limit or with uneven memory usage across ranks. Since we
@@ -644,7 +639,8 @@ def prepare_fsdp_module(
                 # If module has attribute `module._activation_checkpointing = ...`, always respect it
                 # Otherwise checkpoint if root object `obj.activation_checkpointing_fn(module)` is true
                 def _check_fn(module: torch.nn.Module) -> bool:
-                    if not is_torch_2_0 and isinstance(module, FlattenParamsWrapper):
+                    if not is_torch_2_0 and isinstance(module,
+                                                       FlattenParamsWrapper):  # pyright: ignore[reportUnboundVariable]
                         return False
                     if isinstance(module, FullyShardedDataParallel):
                         return False
@@ -681,8 +677,7 @@ def prepare_fsdp_module(
 
     # Rebuild optimizer now that parameters are sharded
     if optimizers:
-        optimizers_tuple = ensure_tuple(optimizers)
-        optim = optimizers_tuple[0]
+        optim = ensure_tuple(optimizers)[0]
         optim.param_groups.clear()
 
         assert num_param_groups is not None
