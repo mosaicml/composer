@@ -118,7 +118,7 @@ extra_deps['dev'] = [
     'sphinx-argparse==0.4.0',
     'sphinxcontrib.katex==0.9.6',
     'sphinxcontrib-applehelp==1.0.0',
-    'sphinxcontrib-devhelp==1.0.0',
+    'sphinxcontrib-devhelp==1.0.6',
     'sphinxcontrib-htmlhelp==2.0.0',
     'sphinxcontrib-serializinghtml==1.1.5',
     'sphinxcontrib-qthelp==1.0.0',
