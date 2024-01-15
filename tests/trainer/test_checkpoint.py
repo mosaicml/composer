@@ -750,6 +750,7 @@ class TestCheckpointLoading:
                 assert metrics_equal
 
     @pytest.mark.parametrize('load_ignore_keys,weights_equal,callbacks_equal,rng_equal', [
+        ['*', False, False, False],
         ['state/model/*', False, True, True],
         ['state/callbacks/*', True, False, True],
         ['rng', True, True, False],
