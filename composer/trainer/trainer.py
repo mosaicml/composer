@@ -1443,7 +1443,7 @@ class Trainer:
                 # Set load arguments to defaults as this applies only to the initial non-autoresume
                 # load. We do not reset `load_strict_model_weights` for models with frozen layers.
                 load_weights_only = False
-                load_ignore_keys = None
+                # load_ignore_keys = None
                 load_exclude_algorithms = None
                 log.info('Autoresuming training from checkpoint')
             else:
