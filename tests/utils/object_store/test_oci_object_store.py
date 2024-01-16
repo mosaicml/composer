@@ -85,10 +85,12 @@ def test_download_object(test_oci_obj_store, monkeypatch, tmp_path, mock_bucket_
         oci_os.download_object(object_name=mock_object_name, filename=file_to_download_to)
         mock_get_object.assert_called_once_with(namespace_name=oci_os.namespace,
                                                 bucket_name=mock_bucket_name,
-                                                object_name=mock_object_name)
+                                                object_name=mock_object_name,
+                                                range='bytes=0-0')
 
         with open(file_to_download_to, 'rb') as f:
             actual_content = f.readline()
+
         assert actual_content == file_content
 
     elif result == 'file_exists':

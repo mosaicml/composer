@@ -54,6 +54,64 @@ def test_time_math():
     assert t4 * 2 == Time.from_timestring('1dur')
     assert t1 / t2 == t4
     assert t2 / 2 == t1
+    assert t3 % t3 == Time.from_timestring('0ep')
+    assert t3 % t2 == t1
+
+
+def test_invalid_math():
+    t1 = Time.from_timestring('1ep')
+    t2 = Time.from_timestring('1ba')
+
+    with pytest.raises(RuntimeError):
+        _ = t1 > t2
+
+    with pytest.raises(RuntimeError):
+        _ = t1 < t2
+
+    with pytest.raises(RuntimeError):
+        _ = t1 >= t2
+
+    with pytest.raises(RuntimeError):
+        _ = t1 <= t2
+
+    with pytest.raises(RuntimeError):
+        _ = t1 == t2
+
+    with pytest.raises(RuntimeError):
+        _ = t1 != t2
+
+    with pytest.raises(RuntimeError):
+        _ = t1 + t2
+
+    with pytest.raises(RuntimeError):
+        _ = t1 - t2
+
+    with pytest.raises(RuntimeError):
+        _ = t1 / t2
+
+    with pytest.raises(RuntimeError):
+        _ = t1 % t2
+
+    with pytest.raises(RuntimeError):
+        _ = t1 * t2
+
+
+def test_time_from_input():
+    expected = Time(1, TimeUnit.EPOCH)
+
+    assert Time.from_input(expected) == expected
+    assert Time.from_input('1ep') == expected
+    assert Time.from_input(1, TimeUnit.EPOCH) == expected
+    assert Time.from_input(1, 'ep') == expected
+
+    with pytest.raises(RuntimeError):
+        Time.from_input(None)  # type: ignore
+
+    with pytest.raises(RuntimeError):
+        Time.from_input([123])  # type: ignore
+
+    with pytest.raises(RuntimeError):
+        Time.from_input(1)
 
 
 def test_time_repr():

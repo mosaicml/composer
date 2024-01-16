@@ -6,6 +6,7 @@
 
 """Monkey patch FSDPs _auto_wrap to enable module_kwargs and custom process_group cache and ChunkShardingSpec to enable sharding over all gpus."""
 
+# pyright: reportGeneralTypeIssues=false
 import torch
 from packaging import version
 from torch.distributed._shard.sharding_spec import ChunkShardingSpec
@@ -41,14 +42,92 @@ def patch_pytorch():
         ChunkShardingSpec.build_metadata = build_metadata
 
     elif version.parse(torch.__version__) < version.parse('2.1.1'):
-        # Monkey path for torch < 2.1.1 ie torch == 2.1.0
-        from torch.distributed.fsdp import _state_dict_utils
+        # Monkey patch for torch < 2.1.1 ie torch == 2.1.0
 
         # Monkey patch sharding method
         ChunkShardingSpec.build_metadata = build_metadata
 
         # Monkey patch partial state dict handling
+        from torch.distributed.fsdp import _state_dict_utils
         _state_dict_utils._sharded_pre_load_state_dict_hook = (_sharded_pre_load_state_dict_hook)
 
-    elif version.parse(torch.__version__) >= version.parse('2.1.1'):
-        raise NotImplementedError(f'FullyShardedDataParallel is not supported for torch >= 2.2.0')
+        # Allow 2D HSDP
+        from torch.distributed.fsdp import _runtime_utils
+        _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
+
+    elif version.parse(torch.__version__) < version.parse('2.1.3'):
+        # Monkey patch for torch < 2.1.3 ie torch == 2.1.1, 2.1.2
+
+        # Allow 2D HSDP
+        from torch.distributed.fsdp import _runtime_utils
+        _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
+
+        # # Better overlap communication and computation
+        # from composer.trainer.mosaic_fsdp_utils import (_root_pre_forward, _share_state_and_init_handle_attrs_t2p1,
+        #                                                 _wait_for_computation_stream, forward)
+        # _runtime_utils._share_state_and_init_handle_attrs = _share_state_and_init_handle_attrs_t2p1
+        # _runtime_utils._wait_for_computation_stream = _wait_for_computation_stream
+        # _runtime_utils._root_pre_forward = _root_pre_forward
+        # FullyShardedDataParallel.forward = forward
+
+    elif version.parse(torch.__version__) < version.parse('2.2.1'):
+        # Monkey patch for torch < 2.2.1 ie torch == 2.2.0
+
+        # Allow 2D HSDP
+        from torch.distributed.fsdp import _runtime_utils
+        _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
+
+        # # Better overlap communication and computation
+        # from torch.distributed.fsdp import _runtime_utils
+
+        # from composer.trainer.mosaic_fsdp_utils import (_root_pre_forward, _share_state_and_init_handle_attrs_t2p2,
+        #                                                 _wait_for_computation_stream, forward)
+        # _runtime_utils._share_state_and_init_handle_attrs = _share_state_and_init_handle_attrs_t2p2
+        # _runtime_utils._wait_for_computation_stream = _wait_for_computation_stream
+        # _runtime_utils._root_pre_forward = _root_pre_forward
+        # FullyShardedDataParallel.forward = forward
+
+        # Monkeypatch dtensor support
+        from composer.trainer.mosaic_fsdp_utils import init_fn_t2p2p0
+        FullyShardedDataParallel.__init__ = init_fn_t2p2p0  # type: ignore
+
+        # Monkeypath state_dict
+        from torch.distributed.checkpoint import state_dict  # type: ignore
+
+        from composer.trainer.mosaic_fsdp_utils import _verify_options_t2p2p0
+        state_dict._verify_options = _verify_options_t2p2p0
+
+    elif version.parse(torch.__version__) < version.parse('2.3.1'):
+        # Monkey patch for torch < 2.3.1 ie torch == 2.3.0
+        # Note: this is the same patch as 2.2.0, we are just making a new if branch
+        # for clarity and modularity of changes.
+
+        # Allow 2D HSDP
+        from torch.distributed.fsdp import _runtime_utils
+        _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
+
+        # # Better overlap communication and computation
+        # from torch.distributed.fsdp import _runtime_utils
+
+        # from composer.trainer.mosaic_fsdp_utils import (_root_pre_forward, _share_state_and_init_handle_attrs_t2p2,
+        #                                                 _wait_for_computation_stream, forward)
+        # _runtime_utils._share_state_and_init_handle_attrs = _share_state_and_init_handle_attrs_t2p2
+        # _runtime_utils._wait_for_computation_stream = _wait_for_computation_stream
+        # _runtime_utils._root_pre_forward = _root_pre_forward
+        # FullyShardedDataParallel.forward = forward
+
+        # Monkeypath state_dict
+        from composer.trainer.mosaic_fsdp_utils import init_fn_t2p2p0
+        FullyShardedDataParallel.__init__ = init_fn_t2p2p0
+
+        # Monkeypath state_dict
+        from torch.distributed.checkpoint import state_dict  # type: ignore
+
+        from composer.trainer.mosaic_fsdp_utils import _verify_options_t2p2p0
+        state_dict._verify_options = _verify_options_t2p2p0
+
+        # Monkeypatch sharding optim state
+        from torch.distributed.fsdp import _optim_utils
+
+        from composer.trainer.mosaic_fsdp_utils import _shard_orig_param_state
+        _optim_utils._shard_orig_param_state = _shard_orig_param_state
