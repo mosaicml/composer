@@ -1184,7 +1184,7 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
             ):
                 value = value.flatten()[intra_param_start_idx : intra_param_end_idx + 1].clone()  # type: ignore[operator]
             new_optim_state[state_name] = value
-            torch.cuda.synchronize()
+            # torch.cuda.synchronize()
         return new_optim_state
 
 def fsdp_state_has_default_pg(state: '_FSDPState') -> bool:
