@@ -1384,16 +1384,17 @@ def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config
         for p1, p2 in zip(trainer.state.model.parameters(), load_trainer.state.model.parameters()):
             torch.testing.assert_close(p1, p2)
 
-    loaded_ckpt_1 = torch.load(str(tmp_path / 'trainer1' / 'hf-checkpoint.pt'))
-    loaded_ckpt_2 = torch.load(str(tmp_path / 'trainer2' / 'hf-checkpoint.pt'))
+    if dist.get_global_rank() == 0:
+        loaded_ckpt_1 = torch.load(str(tmp_path / 'trainer1' / 'hf-checkpoint.pt'))
+        loaded_ckpt_2 = torch.load(str(tmp_path / 'trainer2' / 'hf-checkpoint.pt'))
 
-    # Check that only the LoRA parameters were saved
-    if just_lora:
-        assert all('lora' in k for k in loaded_ckpt_1['state']['model'].keys())
-        assert all('lora' in k for k in loaded_ckpt_2['state']['model'].keys())
-    else:
-        assert not all('lora' in k for k in loaded_ckpt_1['state']['model'].keys())
-        assert not all('lora' in k for k in loaded_ckpt_2['state']['model'].keys())
+        # Check that only the LoRA parameters were saved
+        if just_lora:
+            assert all('lora' in k for k in loaded_ckpt_1['state']['model'].keys())
+            assert all('lora' in k for k in loaded_ckpt_2['state']['model'].keys())
+        else:
+            assert not all('lora' in k for k in loaded_ckpt_1['state']['model'].keys())
+            assert not all('lora' in k for k in loaded_ckpt_2['state']['model'].keys())
 
 
 def test_filtered_state_dict(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path):
