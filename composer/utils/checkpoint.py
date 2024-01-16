@@ -938,7 +938,7 @@ def _save_checkpoint(
     save_filename: str,
     *,
     weights_only: bool = False,
-    save_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
+    ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
 ) -> Union[str, None]:  # noqa: D103
 
     is_deepspeed = is_model_deepspeed(state.model)
@@ -958,12 +958,12 @@ def _save_checkpoint(
             'rng': reproducibility.get_rng_state(),
         }
 
-    if save_ignore_keys:
+    if ignore_keys:
         # Filter provided list of key paths
-        if not callable(save_ignore_keys):
-            save_ignore_keys = glob_filter(save_ignore_keys)
+        if not callable(ignore_keys):
+            ignore_keys = glob_filter(ignore_keys)
         # Call function to modify state_dict
-        save_ignore_keys(state_dict)
+        ignore_keys(state_dict)
         # Ensure state exists
         state_dict['state'] = state_dict.get('state', {})
 
@@ -1097,10 +1097,10 @@ def save_checkpoint(
     filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
     *,
     weights_only: bool = False,
-    save_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
+    ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
 ) -> Union[str, None]:  # noqa: D103
     save_filename = get_save_filename(state, filename)
-    return _save_checkpoint(state, save_filename, weights_only=weights_only, save_ignore_keys=save_ignore_keys)
+    return _save_checkpoint(state, save_filename, weights_only=weights_only, ignore_keys=ignore_keys)
 
 
 save_checkpoint.__doc__ = f"""Checkpoint the training ``state``.
