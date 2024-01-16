@@ -1343,33 +1343,57 @@ def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config
     trainer = get_lm_trainer(
         tiny_gpt2_model,
         tiny_gpt2_tokenizer,
-        str(tmp_path),
+        str(tmp_path / 'trainer1'),
         peft_config=gpt2_peft_config,
         device_train_microbatch_size=1,
         mlm=False,
         fsdp_config=fsdp_config,
         just_lora=just_lora,
     )
+
+    for n, p in trainer.state.model.model.named_parameters():
+        if 'lora' in n:
+            assert p.requires_grad
+        else:
+            assert not p.requires_grad
+
     trainer.fit()
     trainer.close()
 
     load_trainer = get_lm_trainer(
         stashed_model,
         tiny_gpt2_tokenizer,
-        str(tmp_path),
+        str(tmp_path / 'trainer2'),
         peft_config=gpt2_peft_config,
         device_train_microbatch_size=1,
         mlm=False,
-        load_path=str(tmp_path / 'hf-checkpoint.pt'),
+        load_path=str(tmp_path / 'trainer1' / 'hf-checkpoint.pt'),
         fsdp_config=fsdp_config,
         just_lora=just_lora,
     )
+
+    for n, p in load_trainer.state.model.model.named_parameters():
+        if 'lora' in n:
+            assert p.requires_grad
+        else:
+            assert not p.requires_grad
 
     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
     with FSDP.summon_full_params(trainer.state.model), FSDP.summon_full_params(load_trainer.state.model):
         for p1, p2 in zip(trainer.state.model.parameters(), load_trainer.state.model.parameters()):
             torch.testing.assert_close(p1, p2)
+
+    loaded_ckpt_1 = torch.load(str(tmp_path / 'trainer1' / 'hf-checkpoint.pt'))
+    loaded_ckpt_2 = torch.load(str(tmp_path / 'trainer2' / 'hf-checkpoint.pt'))
+
+    # Check that only the LoRA parameters were saved
+    if just_lora:
+        assert all('lora' in k for k in loaded_ckpt_1['state']['model'].keys())
+        assert all('lora' in k for k in loaded_ckpt_2['state']['model'].keys())
+    else:
+        assert not all('lora' in k for k in loaded_ckpt_1['state']['model'].keys())
+        assert not all('lora' in k for k in loaded_ckpt_2['state']['model'].keys())
 
 
 def test_filtered_state_dict(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path):
