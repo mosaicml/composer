@@ -54,6 +54,7 @@ class MLFlowLogger(LoggerDestination):
             synchronously to the MLflow backend. If ``False``, Mlflow will log asynchronously. (default: ``False``)
         log_system_metrics (bool, optional): Whether to log system metrics. If ``True``, Mlflow will
             log system metrics (CPU/GPU/memory/network usage) during training. (default: ``True``)
+        ignore_metrics (List[str], optional): A list of metrics to ignore when logging metrics. (default: ``[]``)
     """
 
     def __init__(
@@ -68,6 +69,7 @@ class MLFlowLogger(LoggerDestination):
         model_registry_uri: Optional[str] = None,
         synchronous: bool = False,
         log_system_metrics: bool = True,
+        ignore_metrics: Optional[List[str]] = [],
     ) -> None:
         try:
             import mlflow
@@ -85,6 +87,7 @@ class MLFlowLogger(LoggerDestination):
         self.model_registry_uri = model_registry_uri
         self.synchronous = synchronous
         self.log_system_metrics = log_system_metrics
+        self.ignore_metrics = ignore_metrics
         if self.model_registry_uri == 'databricks-uc':
             if len(self.model_registry_prefix.split('.')) != 2:
                 raise ValueError(f'When registering to Unity Catalog, model_registry_prefix must be in the format ' +
@@ -198,7 +201,7 @@ class MLFlowLogger(LoggerDestination):
         from mlflow import log_metrics
         if self._enabled:
             # Convert all metrics to floats to placate mlflow.
-            metrics = {k: float(v) for k, v in metrics.items()}
+            metrics = {k: float(v) for k, v in metrics.items() if k not in self.ignore_metrics}
             log_metrics(
                 metrics=metrics,
                 step=step,
