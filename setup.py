@@ -103,7 +103,6 @@ extra_deps['dev'] = [
     'coverage[toml]==7.3.4',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
-    'toml==0.10.2',
     'ipython==8.11.0',
     'ipykernel==6.28.0',
     'jupyter==1.0.0',
