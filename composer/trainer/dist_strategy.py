@@ -661,8 +661,7 @@ def prepare_fsdp_module(
 
     # Print FSDP wrapped model and FSDP config if `verbose=True`
     if fsdp_config['verbose']:
-        log.info(f'FSDP: Wrapped Model:')
-        log.info(model)
+        log.info(f'FSDP: Wrapped model: {model}')
         log.info(f'FSDP: Using sharding_strategy={sharding_strategy}')
         log.info(f'FSDP: Using cpu_offload={cpu_offload}')
         log.info(f'FSDP: Using mixed_precision={mixed_precision}')
