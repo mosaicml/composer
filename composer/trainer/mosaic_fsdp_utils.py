@@ -1165,7 +1165,6 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
             optim_state,
             pg=fsdp_state.process_group,
             device=fsdp_state.compute_device,
-            # cpu_offload=True,
         )
         if not shard_param_info.in_shard:
             return {}
