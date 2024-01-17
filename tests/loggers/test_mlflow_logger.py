@@ -588,7 +588,7 @@ def test_mlflow_ignore_metrics(tmp_path, device):
         tracking_uri=mlflow_uri,
         experiment_name=experiment_name,
         log_system_metrics=False,
-        ignore_metrics=['metrics/train/MulticlassAccuracy', 'loss/train/total'],
+        ignore_metrics=[r'^metrics/eval/.*$'],
     )
     # Reduce the system metrics sampling interval to speed up the test.
     mlflow.set_system_metrics_sampling_interval(1)
@@ -621,8 +621,8 @@ def test_mlflow_ignore_metrics(tmp_path, device):
 
     # Test metrics logged.
     for metric_name in [
-            'metrics/eval/MulticlassAccuracy',
-            'metrics/eval/CrossEntropy',
+            'metrics/train/MulticlassAccuracy',
+            'loss/train/total',
     ]:
         metric_file = run_file_path / Path('metrics') / Path(metric_name)
         with open(metric_file) as f:
@@ -632,7 +632,7 @@ def test_mlflow_ignore_metrics(tmp_path, device):
         assert len(lines) == num_batches
 
     # Test metrics are not logged.
-    for metric_name in ['metrics/train/MulticlassAccuracy', 'loss/train/total']:
+    for metric_name in ['metrics/eval/MulticlassAccuracy', 'metrics/eval/CrossEntropy']:
         metric_file = run_file_path / Path('metrics') / Path(metric_name)
         assert not os.path.exists(metric_file)
 
