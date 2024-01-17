@@ -75,7 +75,7 @@ repos:
       - id: mixed-line-ending
       - id: trailing-whitespace
   - repo: https://github.com/Lucas-C/pre-commit-hooks
-    rev: v1.1.13
+    rev: v1.5.4
     hooks:
       - id: insert-license
         args:
@@ -83,6 +83,7 @@ repos:
           - .ci/FILE_HEADER
           - --comment-style
           - "#"
+          - --allow-past-years
         types: [python]
         exclude: 'composer\/trainer\/activation_checkpointing.py'
 
