@@ -63,8 +63,8 @@ def _trim_context(context_enc: List, continuation_enc: List, max_seq_len: int) -
     """
     Trims a list of tokens down to `max_seq_len` if the length of the list plus the continuation
     is more than `max_seq_len`. It will always trim tokens from the left, i.e. tokens at the beginning
-    of the context will be removed. 
-    
+    of the context will be removed.
+
     Args:
         context_enc (list): list of tokens in the context
         continuation_enc (lsit): list of tokens in the continuation
@@ -94,7 +94,7 @@ def _get_continuation_span(context_enc: List, continuation_enc: List) -> list:
         continuation_enc (list): list of continuation tokens
 
     Returns:
-        torch.tensor: a tensor containing indices corresponding to continuation tokens 
+        torch.tensor: a tensor containing indices corresponding to continuation tokens
     """
     return torch.tensor(range(len(context_enc), len(context_enc) + len(continuation_enc)))
 
@@ -1162,8 +1162,9 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             'test_outputs': 'test_outputs',
             'languages': 'language'
         }
-        # Linting complains if this is not set in init
+        # Linting complains if these are not set in init
         self.max_prompt_length = 0
+        self.max_answer_length = 0
         static_keys = ['mode', 'pass_at_k', 'generation_length', 'generation_kwargs']
         list_keys = ['prompts', 'tests', 'entry_points', 'test_inputs', 'test_outputs', 'languages', 'labels']
         tensor_keys = ['input_ids', 'attention_mask']
@@ -1192,7 +1193,8 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             'test_outputs': [],
             'languages': [],
             'pass_at_k': pass_at_k,
-            'generation_length': self.max_seq_len - self.max_prompt_length,
+            # 'generation_length': self.max_seq_len - self.max_prompt_length,
+            'generation_length': min(self.max_answer_length, self.max_seq_len - self.max_prompt_length),
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
                 'num_beams': 1,  # single beam
@@ -1212,14 +1214,21 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         Returns:
             dataset: a HuggingFace Dataset with different padding lengths for example[self.context_key]
         """
+        # TODO: maybe don't put this here
         max_prompt_length = 0
+        max_answer_length = 0
         for example in self.dataset:
             unpadded_example = [token for token in example[self.context_key] if token != self.pad_tok_id]
             max_prompt_length = max(
                 max_prompt_length,
                 len(unpadded_example),
             )
+
+            len_tokenized_answer = len(
+                self.tokenizer(example['canonical_solution'], add_special_tokens=False)['input_ids'])
+            max_answer_length = max(max_answer_length, len_tokenized_answer)
         self.max_prompt_length = max_prompt_length
+        self.max_answer_length = max_answer_length
 
         def _trim_padding(example: Dict):
             # Remove padding tokens applied during tokenization

@@ -7,11 +7,13 @@ from __future__ import annotations
 
 import collections.abc
 import fnmatch
+import json
 import logging
 import operator
 import os
 import time
 import warnings
+from concurrent.futures import wait
 from functools import reduce
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
@@ -57,22 +59,25 @@ class MosaicMLLogger(LoggerDestination):
             Example 2: ``ignore_keys = ["wall_clock/*"]`` would ignore all wall clock metrics.
 
             (default: ``None``)
+        ignore_exceptions: Flag to disable logging exceptions. Defaults to False.
     """
 
     def __init__(
         self,
         log_interval: int = 60,
         ignore_keys: Optional[List[str]] = None,
+        ignore_exceptions: bool = False,
     ) -> None:
         self.log_interval = log_interval
         self.ignore_keys = ignore_keys
+        self.ignore_exceptions = ignore_exceptions
         self._enabled = dist.get_global_rank() == 0
         if self._enabled:
-            self.allowed_fails_left = 3
             self.time_last_logged = 0
             self.train_dataloader_len = None
-            self.time_failed_count_adjusted = 0
             self.buffered_metadata: Dict[str, Any] = {}
+            self._futures = []
+
             self.run_name = os.environ.get(RUN_NAME_ENV_VAR)
             if self.run_name is not None:
                 log.info(f'Logging to mosaic run {self.run_name}')
@@ -97,6 +102,9 @@ class MosaicMLLogger(LoggerDestination):
                 run_url = callback.run_url
                 if run_url is not None:
                     self._log_metadata({'wandb/run_url': run_url})
+                    log.debug(f'Logging WandB run URL to metadata: {run_url}')
+                else:
+                    log.debug('WandB run URL not found, not logging to metadata')
         self._flush_metadata(force_flush=True)
 
     def batch_start(self, state: State, logger: Logger) -> None:
@@ -113,6 +121,8 @@ class MosaicMLLogger(LoggerDestination):
         self._flush_metadata()
 
     def fit_end(self, state: State, logger: Logger) -> None:
+        # Log model training finished time for run events
+        self._log_metadata({'train_finished_time': time.time()})
         training_progress_data = self._get_training_progress_metrics(state)
         log.debug(f'\nLogging FINAL training progress data to metadata:\n{dict_to_str(training_progress_data)}')
         self._log_metadata(training_progress_data)
@@ -140,20 +150,25 @@ class MosaicMLLogger(LoggerDestination):
         """Flush buffered metadata to MosaicML if enough time has passed since last flush."""
         if self._enabled and (time.time() - self.time_last_logged > self.log_interval or force_flush):
             try:
-                mcli.update_run_metadata(self.run_name, self.buffered_metadata)
+                f = mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=True, protect=True)
                 self.buffered_metadata = {}
                 self.time_last_logged = time.time()
-                # If we have not failed in the last hour, increase the allowed fails. This increases
-                # robustness to transient network issues.
-                if time.time() - self.time_failed_count_adjusted > 3600 and self.allowed_fails_left < 3:
-                    self.allowed_fails_left += 1
-                    self.time_failed_count_adjusted = time.time()
-            except Exception as e:
-                log.error(f'Failed to log metadata to Mosaic with error: {e}')
-                self.allowed_fails_left -= 1
-                self.time_failed_count_adjusted = time.time()
-                if self.allowed_fails_left <= 0:
+                self._futures.append(f)
+                done, incomplete = wait(self._futures, timeout=0.01)
+                log.info(f'Logged {len(done)} metadata to MosaicML, waiting on {len(incomplete)}')
+                # Raise any exceptions
+                for f in done:
+                    if f.exception() is not None:
+                        raise f.exception()  # type: ignore
+                self._futures = list(incomplete)
+            except Exception:
+                log.exception('Failed to log metadata to Mosaic')  # Prints out full traceback
+                if self.ignore_exceptions:
+                    log.info('Ignoring exception and disabling MosaicMLLogger.')
                     self._enabled = False
+                else:
+                    log.info('Raising exception. To ignore exceptions, set ignore_exceptions=True.')
+                    raise
 
     def _get_training_progress_metrics(self, state: State) -> Dict[str, Any]:
         """Calculates training progress metrics.
@@ -209,24 +224,26 @@ def format_data_to_json_serializable(data: Any):
         str: ``data`` as a string.
     """
     try:
+        ret = None
         if data is None:
-            return 'None'
-        if type(data) in (str, int, float, bool):
-            return data
-        if isinstance(data, torch.Tensor):
+            ret = 'None'
+        elif type(data) in (str, int, float, bool):
+            ret = data
+        elif isinstance(data, torch.Tensor):
             if data.shape == () or reduce(operator.mul, data.shape, 1) == 1:
-                return format_data_to_json_serializable(data.cpu().item())
-            return 'Tensor of shape ' + str(data.shape)
-        if isinstance(data, collections.abc.Mapping):
-            return {format_data_to_json_serializable(k): format_data_to_json_serializable(v) for k, v in data.items()}
-        if isinstance(data, collections.abc.Iterable):
-            return [format_data_to_json_serializable(v) for v in data]
-
-        # Unknown format catch-all
-        return str(data)
+                ret = format_data_to_json_serializable(data.cpu().item())
+            ret = 'Tensor of shape ' + str(data.shape)
+        elif isinstance(data, collections.abc.Mapping):
+            ret = {format_data_to_json_serializable(k): format_data_to_json_serializable(v) for k, v in data.items()}
+        elif isinstance(data, collections.abc.Iterable):
+            ret = [format_data_to_json_serializable(v) for v in data]
+        else:  # Unknown format catch-all
+            ret = str(data)
+        json.dumps(ret)  # Check if ret is JSON serializable
+        return ret
     except RuntimeError as e:
-        warnings.warn('Encountered unexpected error while formatting data to be JSON serializable. '
-                      f'Returning empty string instead. Error: {str(e)}')
+        warnings.warn(f'Encountered unexpected error while formatting data of type {type(data)} to '
+                      f'be JSON serializable. Returning empty string instead. Error: {str(e)}')
         return ''
 
 

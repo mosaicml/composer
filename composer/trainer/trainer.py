@@ -1078,17 +1078,18 @@ class Trainer:
                 loggers.append(
                     ConsoleLogger(stream=console_stream, log_interval=console_log_interval, log_traces=log_traces))
 
-        if save_folder is not None:
-            remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
-            if remote_ud is not None:
-                loggers.append(remote_ud)
-
         # MosaicML Logger
+        # Keep MosaicML logger above the RemoteUploaderDownloader so that fit end is reported before the final checkpoint begins uploading
         if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and os.environ.get(
                 MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and not any(isinstance(x, MosaicMLLogger) for x in loggers):
             log.info('Detected run on MosaicML platform. Adding MosaicMLLogger to loggers.')
             mosaicml_logger = MosaicMLLogger()
             loggers.append(mosaicml_logger)
+
+        if save_folder is not None:
+            remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
+            if remote_ud is not None:
+                loggers.append(remote_ud)
 
         # Logger
         self.logger = Logger(state=self.state, destinations=loggers)
@@ -1409,8 +1410,11 @@ class Trainer:
                 # Disable object_store since _get_autoresume_checkpoint will download the checkpoint
                 # To the save folder, if needed.
                 load_object_store = None
-                # Disable `load_weights_only` since this applies only to the initial training run
+                # Set load arguments to defaults as this applies only to the initial non-autoresume
+                # load. We do not reset `load_strict_model_weights` for models with frozen layers.
                 load_weights_only = False
+                load_ignore_keys = None
+                load_exclude_algorithms = None
                 log.info('Autoresuming training from checkpoint')
             else:
                 log.info('No previous autoresume checkpoint found')

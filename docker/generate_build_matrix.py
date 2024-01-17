@@ -19,12 +19,12 @@ import tabulate
 import yaml
 
 LATEST_PYTHON_VERSION = '3.10'
-PRODUCTION_PYTORCH_VERSION = '2.1.0'
+PRODUCTION_PYTORCH_VERSION = '2.1.1'
 
 
 def _get_torchvision_version(pytorch_version: str):
-    if pytorch_version == '2.1.0':
-        return '0.16.0'
+    if pytorch_version == '2.1.1':
+        return '0.16.1'
     if pytorch_version == '2.0.1':
         return '0.15.2'
     if pytorch_version == '1.13.1':
@@ -41,7 +41,7 @@ def _get_base_image(cuda_version: str):
 def _get_cuda_version(pytorch_version: str, use_cuda: bool):
     if not use_cuda:
         return ''
-    if pytorch_version == '2.1.0':
+    if pytorch_version == '2.1.1':
         return '12.1.0'
     if pytorch_version == '2.0.1':
         return '11.8.0'
@@ -54,6 +54,48 @@ def _get_cuda_version_tag(cuda_version: str):
     if not cuda_version:
         return 'cpu'
     return 'cu' + ''.join(cuda_version.split('.')[:2])
+
+
+def _get_cuda_override(cuda_version: str):
+    if cuda_version == '12.1.0':
+        cuda_121_override_string = ('cuda>=12.1 brand=tesla,driver>=450,driver<451 '
+                                    'brand=tesla,driver>=470,driver<471 brand=unknown,driver>=470,driver<471 '
+                                    'brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471 '
+                                    'brand=geforce,driver>=470,driver<471 brand=geforcertx,driver>=470,driver<471 '
+                                    'brand=quadro,driver>=470,driver<471 brand=quadrortx,driver>=470,driver<471 '
+                                    'brand=titan,driver>=470,driver<471 brand=titanrtx,driver>=470,driver<471 '
+                                    'brand=tesla,driver>=510,driver<511 brand=unknown,driver>=510,driver<511 '
+                                    'brand=nvidia,driver>=510,driver<511 brand=nvidiartx,driver>=510,driver<511 '
+                                    'brand=geforce,driver>=510,driver<511 brand=geforcertx,driver>=510,driver<511 '
+                                    'brand=quadro,driver>=510,driver<511 brand=quadrortx,driver>=510,driver<511 '
+                                    'brand=titan,driver>=510,driver<511 brand=titanrtx,driver>=510,driver<511 '
+                                    'brand=tesla,driver>=515,driver<516 brand=unknown,driver>=515,driver<516 '
+                                    'brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=515,driver<516 '
+                                    'brand=geforce,driver>=515,driver<516 brand=geforcertx,driver>=515,driver<516 '
+                                    'brand=quadro,driver>=515,driver<516 brand=quadrortx,driver>=515,driver<516 '
+                                    'brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=515,driver<516 '
+                                    'brand=tesla,driver>=525,driver<526 brand=unknown,driver>=525,driver<526 '
+                                    'brand=nvidia,driver>=525,driver<526 brand=nvidiartx,driver>=525,driver<526 '
+                                    'brand=geforce,driver>=525,driver<526 brand=geforcertx,driver>=525,driver<526 '
+                                    'brand=quadro,driver>=525,driver<526 brand=quadrortx,driver>=525,driver<526 '
+                                    'brand=titan,driver>=525,driver<526 brand=titanrtx,driver>=525,driver<526')
+
+        return cuda_121_override_string
+
+    if cuda_version == '11.8.0':
+        cuda_118_override_string = ('cuda>=11.8 brand=tesla,driver>=470,driver<471 '
+                                    'brand=tesla,driver>=515,driver<516 brand=unknown,driver>=470,driver<471 '
+                                    'brand=unknown,driver>=515,driver<516 brand=nvidia,driver>=470,driver<471 '
+                                    'brand=nvidia,driver>=515,driver<516 brand=nvidiartx,driver>=470,driver<471 '
+                                    'brand=nvidiartx,driver>=515,driver<516 brand=geforce,driver>=470,driver<471 '
+                                    'brand=geforce,driver>=515,driver<516 brand=quadro,driver>=470,driver<471 '
+                                    'brand=quadro,driver>=515,driver<516 brand=titan,driver>=470,driver<471 '
+                                    'brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=470,driver<471 '
+                                    'brand=titanrtx,driver>=515,driver<516')
+
+        return cuda_118_override_string
+
+    return ''
 
 
 def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: str, stage: str, interconnect: str):
@@ -124,7 +166,7 @@ def _write_table(table_tag: str, table_contents: str):
 
 def _main():
     python_versions = ['3.10']
-    pytorch_versions = ['2.1.0', '2.0.1', '1.13.1']
+    pytorch_versions = ['2.1.1', '2.0.1', '1.13.1']
     cuda_options = [True, False]
     stages = ['pytorch_stage']
     interconnects = ['mellanox', 'EFA']  # mellanox is default, EFA needed for AWS
@@ -163,6 +205,8 @@ def _main():
                 '',
             'PYTORCH_NIGHTLY_VERSION':
                 '',
+            'NVIDIA_REQUIRE_CUDA_OVERRIDE':
+                _get_cuda_override(cuda_version),
         }
 
         # Only build EFA image on latest python with cuda on pytorch_stage
@@ -189,6 +233,7 @@ def _main():
         'CUDA_VERSION': '12.1.0',
         'IMAGE_NAME': 'torch-nightly-2-2-0-20231024-cu121',
         'MOFED_VERSION': '5.5-1.0.3.2',
+        'NVIDIA_REQUIRE_CUDA_OVERRIDE': _get_cuda_override('12.1.0'),
         'PYTHON_VERSION': '3.10',
         'PYTORCH_VERSION': '2.2.0',
         'PYTORCH_NIGHTLY_URL': 'https://download.pytorch.org/whl/nightly/cu121',
@@ -201,7 +246,7 @@ def _main():
     composer_entries = []
 
     # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
-    composer_versions = ['0.16.4']  # Only build images for the latest composer version
+    composer_versions = ['0.17.1']  # Only build images for the latest composer version
     composer_python_versions = [LATEST_PYTHON_VERSION]  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):
@@ -228,6 +273,7 @@ def _main():
                 composer_version=composer_version,
                 use_cuda=use_cuda,
             ),
+            'NVIDIA_REQUIRE_CUDA_OVERRIDE': _get_cuda_override(cuda_version),
         }
 
         composer_entries.append(entry)
