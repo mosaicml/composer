@@ -1167,9 +1167,6 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
             device=fsdp_state.compute_device,
             # cpu_offload=True,
         )
-        print(f'{fqn=}, gather state dict time: {time.time() - start_time}')
-        print(f'{fsdp_param_info=}')
-        print(f'{optim_state=}')
         if not shard_param_info.in_shard:
             return {}
         # Flatten and shard the state.
