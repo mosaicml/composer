@@ -149,6 +149,13 @@ class S3ObjectStore(ObjectStore):
             if 'S3_CANNED_ACL' in os.environ and 'ACL' not in kwargs['ExtraArgs']:
                 kwargs['ExtraArgs']['ACL'] = os.environ['S3_CANNED_ACL']
 
+        self.client.upload_file(Bucket=self.bucket,
+                                Key=self.get_key(object_name),
+                                Filename=filename,
+                                Callback=cb_wrapper,
+                                Config=self.transfer_config,
+                                **kwargs)
+
     def download_object(
         self,
         object_name: str,
