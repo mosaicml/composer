@@ -113,7 +113,6 @@ class MosaicMLLogger(LoggerDestination):
 
     def batch_end(self, state: State, logger: Logger) -> None:
         training_progress_data = self._get_training_progress_metrics(state)
-        log.debug(f'\nLogging training progress data to metadata:\n{dict_to_str(training_progress_data)}')
         self._log_metadata(training_progress_data)
         self._flush_metadata()
 
