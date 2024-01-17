@@ -345,6 +345,7 @@ RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get autoclean && \
     apt-get clean && \
+    apt-get install -y libsnappy-dev && \
     rm -rf /var/lib/apt/lists/*
 
 #########################
@@ -353,7 +354,8 @@ RUN apt-get update && \
 RUN pip install --no-cache-dir --upgrade \
     certifi${CERTIFI_VERSION} \
     ipython${IPYTHON_VERSION} \
-    urllib3${URLLIB3_VERSION}
+    urllib3${URLLIB3_VERSION} \
+    python-snappy
 
 ##################################################
 # Override NVIDIA mistaken env var for 11.8 images
