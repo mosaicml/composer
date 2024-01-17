@@ -18,7 +18,7 @@
     brand=unknown,driver>=525,driver<526 brand=nvidia,driver>=525,driver<526 brand=nvidiartx,driver>=525,driver<526
     brand=geforce,driver>=525,driver<526 brand=geforcertx,driver>=525,driver<526 brand=quadro,driver>=525,driver<526
     brand=quadrortx,driver>=525,driver<526 brand=titan,driver>=525,driver<526 brand=titanrtx,driver>=525,driver<526
-  PYTHON_VERSION: '3.10'
+  PYTHON_VERSION: '3.11'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.1.2
@@ -46,7 +46,7 @@
     brand=unknown,driver>=525,driver<526 brand=nvidia,driver>=525,driver<526 brand=nvidiartx,driver>=525,driver<526
     brand=geforce,driver>=525,driver<526 brand=geforcertx,driver>=525,driver<526 brand=quadro,driver>=525,driver<526
     brand=quadrortx,driver>=525,driver<526 brand=titan,driver>=525,driver<526 brand=titanrtx,driver>=525,driver<526
-  PYTHON_VERSION: '3.10'
+  PYTHON_VERSION: '3.11'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.1.2
@@ -61,7 +61,7 @@
   IMAGE_NAME: torch-2-1-2-cpu
   MOFED_VERSION: ''
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
-  PYTHON_VERSION: '3.10'
+  PYTHON_VERSION: '3.11'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.1.2
@@ -81,7 +81,7 @@
     brand=geforce,driver>=470,driver<471 brand=geforce,driver>=515,driver<516 brand=quadro,driver>=470,driver<471
     brand=quadro,driver>=515,driver<516 brand=titan,driver>=470,driver<471 brand=titan,driver>=515,driver<516
     brand=titanrtx,driver>=470,driver<471 brand=titanrtx,driver>=515,driver<516
-  PYTHON_VERSION: '3.10'
+  PYTHON_VERSION: '3.11'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.0.1
@@ -100,7 +100,7 @@
     brand=geforce,driver>=470,driver<471 brand=geforce,driver>=515,driver<516 brand=quadro,driver>=470,driver<471
     brand=quadro,driver>=515,driver<516 brand=titan,driver>=470,driver<471 brand=titan,driver>=515,driver<516
     brand=titanrtx,driver>=470,driver<471 brand=titanrtx,driver>=515,driver<516
-  PYTHON_VERSION: '3.10'
+  PYTHON_VERSION: '3.11'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.0.1
@@ -114,7 +114,7 @@
   IMAGE_NAME: torch-2-0-1-cpu
   MOFED_VERSION: ''
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
-  PYTHON_VERSION: '3.10'
+  PYTHON_VERSION: '3.11'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.0.1
@@ -128,7 +128,7 @@
   IMAGE_NAME: torch-1-13-1-cu117
   MOFED_VERSION: 5.5-1.0.3.2
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
-  PYTHON_VERSION: '3.10'
+  PYTHON_VERSION: '3.11'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 1.13.1
@@ -142,7 +142,7 @@
   IMAGE_NAME: torch-1-13-1-cu117-aws
   MOFED_VERSION: ''
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
-  PYTHON_VERSION: '3.10'
+  PYTHON_VERSION: '3.11'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 1.13.1
@@ -156,7 +156,7 @@
   IMAGE_NAME: torch-1-13-1-cpu
   MOFED_VERSION: ''
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
-  PYTHON_VERSION: '3.10'
+  PYTHON_VERSION: '3.11'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 1.13.1
@@ -183,7 +183,7 @@
     brand=unknown,driver>=525,driver<526 brand=nvidia,driver>=525,driver<526 brand=nvidiartx,driver>=525,driver<526
     brand=geforce,driver>=525,driver<526 brand=geforcertx,driver>=525,driver<526 brand=quadro,driver>=525,driver<526
     brand=quadrortx,driver>=525,driver<526 brand=titan,driver>=525,driver<526 brand=titanrtx,driver>=525,driver<526
-  PYTHON_VERSION: '3.10'
+  PYTHON_VERSION: '3.11'
   PYTORCH_NIGHTLY_URL: https://download.pytorch.org/whl/nightly/cu121
   PYTORCH_NIGHTLY_VERSION: dev20231213+cu121
   PYTORCH_VERSION: 2.2.0
@@ -211,7 +211,7 @@
     brand=unknown,driver>=525,driver<526 brand=nvidia,driver>=525,driver<526 brand=nvidiartx,driver>=525,driver<526
     brand=geforce,driver>=525,driver<526 brand=geforcertx,driver>=525,driver<526 brand=quadro,driver>=525,driver<526
     brand=quadrortx,driver>=525,driver<526 brand=titan,driver>=525,driver<526 brand=titanrtx,driver>=525,driver<526
-  PYTHON_VERSION: '3.10'
+  PYTHON_VERSION: '3.11'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.1.2
@@ -227,7 +227,7 @@
   IMAGE_NAME: composer-0-17-2-cpu
   MOFED_VERSION: 5.5-1.0.3.2
   NVIDIA_REQUIRE_CUDA_OVERRIDE: ''
-  PYTHON_VERSION: '3.10'
+  PYTHON_VERSION: '3.11'
   PYTORCH_NIGHTLY_URL: ''
   PYTORCH_NIGHTLY_VERSION: ''
   PYTORCH_VERSION: 2.1.2
