@@ -69,7 +69,7 @@ class MLFlowLogger(LoggerDestination):
         model_registry_uri: Optional[str] = None,
         synchronous: bool = False,
         log_system_metrics: bool = True,
-        ignore_metrics: Optional[List[str]] = [],
+        ignore_metrics: Optional[List[str]] = None,
     ) -> None:
         try:
             import mlflow
@@ -87,7 +87,7 @@ class MLFlowLogger(LoggerDestination):
         self.model_registry_uri = model_registry_uri
         self.synchronous = synchronous
         self.log_system_metrics = log_system_metrics
-        self.ignore_metrics = ignore_metrics
+        self.ignore_metrics = [] if ignore_metrics is None else ignore_metrics
         if self.model_registry_uri == 'databricks-uc':
             if len(self.model_registry_prefix.split('.')) != 2:
                 raise ValueError(f'When registering to Unity Catalog, model_registry_prefix must be in the format ' +
