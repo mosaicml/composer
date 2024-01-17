@@ -588,7 +588,7 @@ def test_mlflow_ignore_metrics(tmp_path, device):
         tracking_uri=mlflow_uri,
         experiment_name=experiment_name,
         log_system_metrics=False,
-        ignore_metrics=[r'^metrics/eval/.*$'],
+        ignore_metrics=['metrics/eval/*'],
     )
     # Reduce the system metrics sampling interval to speed up the test.
     mlflow.set_system_metrics_sampling_interval(1)

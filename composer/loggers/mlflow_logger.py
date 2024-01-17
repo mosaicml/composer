@@ -5,9 +5,9 @@
 
 from __future__ import annotations
 
+import fnmatch
 import os
 import pathlib
-import re
 import textwrap
 import time
 import warnings
@@ -55,7 +55,7 @@ class MLFlowLogger(LoggerDestination):
             synchronously to the MLflow backend. If ``False``, Mlflow will log asynchronously. (default: ``False``)
         log_system_metrics (bool, optional): Whether to log system metrics. If ``True``, Mlflow will
             log system metrics (CPU/GPU/memory/network usage) during training. (default: ``True``)
-        ignore_metrics (List[str], optional): A list of regexes for metrics to ignore when logging. (default: ``None``)
+        ignore_metrics (List[str], optional): A list of glob patterns for metrics to ignore when logging. (default: ``None``)
     """
 
     def __init__(
@@ -205,10 +205,8 @@ class MLFlowLogger(LoggerDestination):
             metrics = {
                 k: float(v)
                 for k, v in metrics.items()
-                if not any(re.match(pattern, k) for pattern in self.ignore_metrics)
+                if not any(fnmatch.fnmatch(k, pattern) for pattern in self.ignore_metrics)
             }
-            print(f"ignored metrics: {self.ignore_metrics}")
-            print(f"logged metrics: {metrics}")
             log_metrics(
                 metrics=metrics,
                 step=step,
