@@ -33,6 +33,15 @@ __all__ = [
 
 
 def strip_data(example: Dict) -> Dict:
+    """
+    Remove white space from the begging and end of string values in a dictionary
+
+    Args:
+        example: dictionary to be stripped
+
+    Returns:
+        dict: the same dictionary with .strip() applied to any value in the dict that is a string
+    """
     return {k: v.strip() if isinstance(v, str) else v for k, v in example.items()}
 
 
@@ -40,11 +49,30 @@ def _tokenizer_needs_prefix_space(tokenizer: transformers.PreTrainedTokenizerBas
     """
     Test for whether a prefix space is needed before the continuation.
     Sentencepiece tokenization should not have a prefix space, but gpt2 style BPE should.
+
+    Args:
+        tokenizer: Tokenizer to test
+
+    Returns:
+        bool: whether or not the tokenizer needs a prefix space
     """
     return len(tokenizer(' a', add_special_tokens=False)['input_ids']) == 1
 
 
 def _trim_context(context_enc: List, continuation_enc: List, max_seq_len: int) -> List:
+    """
+    Trims a list of tokens down to `max_seq_len` if the length of the list plus the continuation
+    is more than `max_seq_len`. It will always trim tokens from the left, i.e. tokens at the beginning
+    of the context will be removed. 
+    
+    Args:
+        context_enc (list): list of tokens in the context
+        continuation_enc (lsit): list of tokens in the continuation
+        max_seq_len (int): maximum length the model can ingest
+
+    Returns:
+        list: the encoded context trimmed from the left
+    """
     if len(continuation_enc) + len(context_enc) > max_seq_len:
         context_max_subseq_len = max_seq_len - len(continuation_enc)
 
@@ -58,6 +86,16 @@ def _trim_context(context_enc: List, continuation_enc: List, max_seq_len: int) -
 
 
 def _get_continuation_span(context_enc: List, continuation_enc: List) -> list:
+    """
+    Gets the list of indices of the continutaion tokens for language modeling or generaiton tasks.
+
+    Args:
+        context_enc (list): list of context tokens
+        continuation_enc (list): list of continuation tokens
+
+    Returns:
+        torch.tensor: a tensor containing indices corresponding to continuation tokens 
+    """
     return torch.tensor(range(len(context_enc), len(context_enc) + len(continuation_enc)))
 
 
@@ -80,7 +118,6 @@ def _make_padded_input(context_enc: List,
     Returns:
         input (torch.tensor): the padded and encoded context
         continuation_span (torch.tensor): the _inclusive_ range of indices corresponding to the continuation
-
     """
 
     inp = torch.tensor(
@@ -118,6 +155,13 @@ def convert_tokens_to_tensors(batch: Dict, tokenize_labels: bool) -> Dict[str, A
     because some content in the dataset, like generation args or single ints, should not be converted.
 
     Here, we convert those lists of tokens back into tensors in order to feed them into the model.
+
+    Args:
+        batch (dict): a dictionary of batched inputs
+        tokenize_labels (bool): whether or not the labels are tokenized (and need to be stacked)
+
+    Returns:
+        dict: the batch with torch tensors in the corresponding keys instead of lists of lists
     """
     batch['input_ids'] = torch.stack(list(map(torch.tensor, batch['input_ids'])))
     if tokenize_labels:
@@ -292,7 +336,6 @@ class InContextLearningDataset(Dataset):
 
         Args:
             dict: keyword arguments that be written into base_batch['generation_kwargs']
-
         """
         if 'generation_kwargs' not in self.base_batch:
             self.base_batch['generation_kwargs'] = {}
@@ -306,6 +349,7 @@ class InContextLearningDataset(Dataset):
                       hf_parsing_map: Dict = None) -> transformers.Dataset:
         """
         Reads a dataset and handles parsing it from HuggingFace.
+
         Args:
             dataset_uri (str): A local path, a remote path beginning with ``s3://`` or another backend, or a HuggingFace dataset uri.
                 Alternate backends must be supported by :meth:`composer.utils.maybe_create_object_store_from_uri`.
@@ -353,6 +397,7 @@ class InContextLearningDataset(Dataset):
         contextes with answers appended.
 
         Returns the formatted prompt_string + concatenated list of formatted few shot examples as a string.
+
         Args:
             num_fewshot (int): number of examples to prepend
             example_idx (int): current example idx
@@ -398,6 +443,7 @@ class InContextLearningDataset(Dataset):
     def _get_answer_from_example(self, example: Dict[str, Any], in_context: bool = False) -> str:
         """
         Returns the answer from the example.
+
         Args:
             example (Dict): the example from which to retrieve the answer
 
@@ -415,6 +461,7 @@ class InContextLearningDataset(Dataset):
         unless the tokenizer adds special tokens to empty strings (e.g. OPT tokenizer).
         If there is an EOS token added, we need to remove it so it is not in the middle of the prompt,
         as the specific eval question's prompt will follow the input_ids.
+
         Args:
             input_ids (List): the tokenized input
 
@@ -428,7 +475,8 @@ class InContextLearningDataset(Dataset):
 
     def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
         """
-        Runs text through the tokenizer and handles special cases.
+        Runs text through the tokenizer and handle special cases.
+
         Args:
             prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
             ctxt (str): the specific example's derrived context
@@ -502,6 +550,7 @@ class InContextLearningDataset(Dataset):
     def collate_fn(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
         The function that the dataloader uses to accumulate data into batches.
+
         Args:
             data (List): list of tokenized datapoints (dicts returned by self._tokenize_example)
 
@@ -638,7 +687,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
 
     def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
         """
-        Runs text through the tokenizer and handles special cases.
+        Runs text through the tokenizer and handle special cases.
         Args:
             prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
             ctx (str): the specific example's derrived context
@@ -776,7 +825,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
 
     def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
         """
-        Runs text through the tokenizer and handles special cases.
+        Runs text through the tokenizer and handle special cases.
         Args:
             prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
             ctx (str): the specific example's derrived context
@@ -953,7 +1002,6 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
 
         Returns:
             str: the single correct context for a given continuation
-
         """
         context_options = example[self.choices_key]
         gold_idx = example['gold']
@@ -1016,7 +1064,8 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
 
     def _tokenize_example(self, prompt_and_fewshot: str, context_options: List[str], example: Dict) -> Dict[str, Any]:
         """
-        Runs text through the tokenizer and handles special cases.
+        Runs text through the tokenizer and handle special cases.
+
         Args:
             prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
             ctx (str): the specific example's derrived context
@@ -1156,16 +1205,15 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
 
     def adjust_padding(self):
         """
-        Adjusts padding to the maximum prompt size rather than max_seq_len.
-        Needs to be done after the dataset has been processed because we can't get the prompt length
-        until after we've tokenized it.
+        Adjusts padding to the maximum prompt length rather than max_seq_len.
+        Needs to be done after the dataset has been processed because we don't know the maximum
+        prompt length until after we've tokenized it.
 
         Returns:
-            dataset:
+            dataset: a HuggingFace Dataset with different padding lengths for example[self.context_key]
         """
         max_prompt_length = 0
         for example in self.dataset:
-            # TODO: Will this elimanate tokens we want to keep?
             unpadded_example = [token for token in example[self.context_key] if token != self.pad_tok_id]
             max_prompt_length = max(
                 max_prompt_length,
@@ -1173,10 +1221,10 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             )
         self.max_prompt_length = max_prompt_length
 
-        def _trim_padding(example):
+        def _trim_padding(example: Dict):
             # Remove padding tokens applied during tokenization
             unpadded_prompt = [token for token in example[self.context_key] if token != self.pad_tok_id]
-            # Pad only to max_promp_length
+            # Reapply padding only to max_prompt_length
             full_prompt = _trim_context(unpadded_prompt, [], self.max_prompt_length)
             padded_context = _make_padded_input(full_prompt, [], self.max_prompt_length, self.pad_tok_id,
                                                 self.padding_side)
@@ -1224,6 +1272,16 @@ def build_icl_dataloader(
     generations_per_sample: int,
     generation_kwargs: Dict,
 ) -> DataSpec:
+    """
+    Factory method that builds the specific dataset for the specified icl_task_type.
+    See documentation for `get_icl_task_dataloader` for arugment documentation.
+
+    When writing a dataset for a new task, here you will need to:
+        1. add the dataset to the factory and choose an appropriate string
+        2. set the batch size for that task (see InContextLearningMultipleChoiceTaskDataset for why
+            this might be different)
+        3. set the `split_batch` funciton if necessary
+    """
     if icl_task_type == 'multiple_choice':
         dataset = InContextLearningMultipleChoiceTaskDataset(
             dataset_uri=dataset_uri,
