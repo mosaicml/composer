@@ -43,7 +43,7 @@ To install composer, once inside the image, run `pip install mosaicml`.
 | Ubuntu 20.04   | Base     | 1.13.1            | cpu                 | 3.10             | `mosaicml/pytorch:1.13.1-cpu-python3.10-ubuntu20.04`                                     |
 <!-- END_PYTORCH_BUILD_MATRIX -->
 
-**Note**: The `mosaicml/pytorch:latest`, `mosaicml/pytorch:latest_cpu`, and `mosaicml/pytorch:latest-aws`
+**Note**: The `mosaicml/pytorch:latest`, `mosaicml/pytorch:latest-cpu`, and `mosaicml/pytorch:latest-aws`
 images will always point to the stable version of PyTorch which we have battle tested and recommend for production use.  The `latest` label
 may not point to an image with the most recent release of PyTorch, however we do update our images frequently so that newer versions can
 be proven out.
