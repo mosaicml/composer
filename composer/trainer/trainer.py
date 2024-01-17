@@ -700,6 +700,27 @@ class Trainer:
             state. This parameter has no effect if ``save_folder`` is ``None``. (default: ``False``)
 
             .. seealso:: :class:`~.CheckpointSaver`
+        save_ignore_keys (List[str] | (Dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
+            which, when provided, will be ignored from the state_dict before a checkpoint is saved. Each path is a list
+            of strings specifying the keys to index into ``state_dict`` joined together with `/` as a separator (as PyTorch
+            uses `.` in parameter names). If a prefix is provided, all children are also ignored (see Example 2).
+            See :mod:`composer.core.state` for the structure of state_dict.
+
+            Example 1: ``save_ignore_keys = ["state/model/layer1.weights", "state/model/layer1.bias"]`` would ignore
+            layer 1 weights and bias.
+
+            Example 2: ``save_ignore_keys = ["state/model/*"]`` would ignore the entire model, which would have the same
+            effect as the previous example if there was only 1 layer.
+
+            Example 3: ``save_ignore_keys = ["state/model/layer*.weights"]`` would ignore all weights in the model.
+
+            Example 4: ``save_ignore_keys = ["state/rank_zero_seed", "rng"]`` would reset all randomness when
+            saving the checkpoint.
+
+            If a callable, it should take one argument which is the state_dict. The callable is free to arbitrarily modify
+            the state_dict before it is loaded.
+
+            (default: ``None``)
         save_num_checkpoints_to_keep (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
             are removed first. Set to ``-1`` to keep all checkpoints locally. (default: ``-1``)
 
@@ -866,6 +887,7 @@ class Trainer:
         save_overwrite: bool = False,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
         save_weights_only: bool = False,
+        save_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
         save_num_checkpoints_to_keep: int = -1,
         save_metrics: bool = False,
 
@@ -1150,6 +1172,7 @@ class Trainer:
                 latest_remote_file_name=latest_remote_file_name,
                 overwrite=save_overwrite,
                 weights_only=save_weights_only,
+                ignore_keys=save_ignore_keys,
                 save_interval=save_interval,
                 num_checkpoints_to_keep=save_num_checkpoints_to_keep,
             )
@@ -1443,7 +1466,7 @@ class Trainer:
                 # Set load arguments to defaults as this applies only to the initial non-autoresume
                 # load. We do not reset `load_strict_model_weights` for models with frozen layers.
                 load_weights_only = False
-                load_ignore_keys = None
+                # load_ignore_keys = None
                 load_exclude_algorithms = None
                 log.info('Autoresuming training from checkpoint')
             else:
