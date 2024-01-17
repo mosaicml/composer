@@ -35,12 +35,11 @@ from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
 from composer.callbacks import CheckpointSaver, OptimizerMonitor
-from composer.core import (Algorithm, AlgorithmPass, Batch, BreakEpochException, Callback, DataSpec, Engine, Evaluator,
-                           Event, Precision, PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode,
-                           ensure_data_spec, ensure_evaluator, ensure_time, get_precision_context,
-                           validate_eval_automicrobatching)
+from composer.core import (Algorithm, AlgorithmPass, Batch, Callback, DataSpec, Engine, Evaluator, Event, Precision,
+                           PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode, ensure_data_spec,
+                           ensure_evaluator, ensure_time, get_precision_context, validate_eval_automicrobatching)
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
-from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, MosaicMLLogger, ProgressBarLogger,
+from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, MLFlowLogger, MosaicMLLogger, ProgressBarLogger,
                               RemoteUploaderDownloader, WandBLogger)
 from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR
 from composer.models import ComposerModel
@@ -55,8 +54,9 @@ from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectS
                             ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist,
                             get_composer_env_dict, get_device, get_file, is_tpu_installed, map_collection,
                             maybe_create_object_store_from_uri, maybe_create_remote_uploader_downloader_from_uri,
-                            model_eval_mode, parse_uri, reproducibility, using_torch_2)
+                            model_eval_mode, parse_uri, partial_format, reproducibility, using_torch_2)
 from composer.utils.misc import is_model_deepspeed
+from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
 
 if is_tpu_installed():
     import torch_xla.core.xla_model as xm
@@ -131,8 +131,13 @@ def _compile_schedulers(
         if isinstance(scheduler, PyTorchScheduler):
             scale_pytorch_scheduler(scheduler, scale_schedule_ratio)
             compiled_schedulers.append(scheduler)
-        else:  # it's a composer scheduler
-            compiled_schedulers.append(compile_composer_scheduler(scheduler, state, scale_schedule_ratio))
+        # It's a composer scheduler
+        else:
+            compiled_schedulers.append(compile_composer_scheduler(
+                scheduler,
+                state,
+                scale_schedule_ratio,
+            ))
 
     return compiled_schedulers
 
@@ -149,8 +154,7 @@ def _set_evaluator_interval_and_subset_num_batches(
         if evaluator.eval_interval is None:
             evaluator.eval_interval = eval_interval
         eval_dataloader = evaluator.dataloader.dataloader
-        if isinstance(eval_dataloader, collections.abc.Sized) and (evaluator.subset_num_batches is None or
-                                                                   evaluator.subset_num_batches == -1):
+        if isinstance(eval_dataloader, collections.abc.Sized) and evaluator.subset_num_batches == -1:
             try:
                 dataloader_len = len(eval_dataloader)
             except TypeError:
@@ -696,6 +700,27 @@ class Trainer:
             state. This parameter has no effect if ``save_folder`` is ``None``. (default: ``False``)
 
             .. seealso:: :class:`~.CheckpointSaver`
+        save_ignore_keys (List[str] | (Dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
+            which, when provided, will be ignored from the state_dict before a checkpoint is saved. Each path is a list
+            of strings specifying the keys to index into ``state_dict`` joined together with `/` as a separator (as PyTorch
+            uses `.` in parameter names). If a prefix is provided, all children are also ignored (see Example 2).
+            See :mod:`composer.core.state` for the structure of state_dict.
+
+            Example 1: ``save_ignore_keys = ["state/model/layer1.weights", "state/model/layer1.bias"]`` would ignore
+            layer 1 weights and bias.
+
+            Example 2: ``save_ignore_keys = ["state/model/*"]`` would ignore the entire model, which would have the same
+            effect as the previous example if there was only 1 layer.
+
+            Example 3: ``save_ignore_keys = ["state/model/layer*.weights"]`` would ignore all weights in the model.
+
+            Example 4: ``save_ignore_keys = ["state/rank_zero_seed", "rng"]`` would reset all randomness when
+            saving the checkpoint.
+
+            If a callable, it should take one argument which is the state_dict. The callable is free to arbitrarily modify
+            the state_dict before it is loaded.
+
+            (default: ``None``)
         save_num_checkpoints_to_keep (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
             are removed first. Set to ``-1`` to keep all checkpoints locally. (default: ``-1``)
 
@@ -862,6 +887,7 @@ class Trainer:
         save_overwrite: bool = False,
         save_interval: Union[str, int, Time, Callable[[State, Event], bool]] = '1ep',
         save_weights_only: bool = False,
+        save_ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
         save_num_checkpoints_to_keep: int = -1,
         save_metrics: bool = False,
 
@@ -940,8 +966,7 @@ class Trainer:
                 if not isinstance(compiled_model, ComposerModel):
                     raise ValueError(f'Provided `model` must be a subclass of ComposerModel. ' +
                                      f'Instead found as type `{type(compiled_model)}`')
-                compiled_model.forward = model.dynamo_ctx(
-                    compiled_model.forward)  # pyright: ignore [reportGeneralTypeIssues]
+                compiled_model.forward = model.dynamo_ctx(compiled_model.forward)
                 model = compiled_model
 
         # Microbatching
@@ -961,10 +986,7 @@ class Trainer:
         assert not isinstance(device_train_microbatch_size, str)
 
         # Distributed
-        if deepspeed_config is not None or fsdp_config is not None or dist.get_world_size() > 1:
-            # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
-            # And torch.distributed is always required for multi-rank training
-            dist.initialize_dist(device, dist_timeout)
+        dist.initialize_dist(device, dist_timeout)
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, device)
@@ -1086,6 +1108,11 @@ class Trainer:
             mosaicml_logger = MosaicMLLogger()
             loggers.append(mosaicml_logger)
 
+        # Remote Uploader Downloader
+        # Keep the ``RemoteUploaderDownloader`` below client-provided loggers so the loggers init callbacks run before
+        # the ``RemoteUploaderDownloader`` init. This is necessary to use an ``MLFlowObjectStore`` to log objects to a
+        # run managed by an ``MLFlowLogger``, as the ``MLFlowObjectStore`` relies on the ``MLFlowLogger`` to initialize
+        # the active MLFlow run.
         if save_folder is not None:
             remote_ud = maybe_create_remote_uploader_downloader_from_uri(save_folder, loggers)
             if remote_ud is not None:
@@ -1145,6 +1172,7 @@ class Trainer:
                 latest_remote_file_name=latest_remote_file_name,
                 overwrite=save_overwrite,
                 weights_only=save_weights_only,
+                ignore_keys=save_ignore_keys,
                 save_interval=save_interval,
                 num_checkpoints_to_keep=save_num_checkpoints_to_keep,
             )
@@ -1154,10 +1182,34 @@ class Trainer:
         self.engine = Engine(state=self.state, logger=self.logger, algorithm_passes=algorithm_passes)
 
         # Set the logger
-        self.state.model.logger = self.logger
+        self.state.model.logger = self.logger  # pyright: ignore[reportGeneralTypeIssues]
 
         # Run Event.INIT
         self.engine.run_event(Event.INIT)
+
+        # If the experiment is being tracked with an `MLFlowLogger`, then MLFlow experiment and run are available
+        # after Event.INIT.
+        if save_folder is not None:
+            mlflow_logger = None
+            for destination in self.logger.destinations:
+                if isinstance(destination, MLFlowLogger):
+                    mlflow_logger = destination
+                    break
+
+            if mlflow_logger is not None:
+                mlflow_experiment_id = mlflow_logger._experiment_id
+                mlflow_run_id = mlflow_logger._run_id
+
+                # The save folder and related paths/filenames may contain format placeholders for the MLFlow IDs, so
+                # populate them now.
+                mlflow_format_kwargs = {
+                    MLFLOW_EXPERIMENT_ID_FORMAT_KEY: mlflow_experiment_id,
+                    MLFLOW_RUN_ID_FORMAT_KEY: mlflow_run_id
+                }
+
+                save_folder = partial_format(save_folder, **mlflow_format_kwargs)
+                if latest_remote_file_name is not None:
+                    latest_remote_file_name = partial_format(latest_remote_file_name, **mlflow_format_kwargs)
 
         # Log hparams.
         if self.auto_log_hparams:
@@ -1297,7 +1349,8 @@ class Trainer:
 
         # FSDP wrap if not using monolith checkpoint on rank 0 only
         if self.state.fsdp_config is not None and fsdp_auto_wrap and not self.state.load_fsdp_monolith_rank0_only:
-            prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
+            with reproducibility.seed_context(self.state.rank_zero_seed):
+                prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 
         # Configure Deepspeed
         if self.state.deepspeed_config is not None:
@@ -1318,9 +1371,11 @@ class Trainer:
             self.state.deepspeed_config = _parse_deepspeed_config(self.state.deepspeed_config, state=self.state)
             optimizer = ensure_tuple(self.state.optimizers)[0]
             log.debug('Initializing deepspeed')
-            (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(config=self.state.deepspeed_config,
-                                                                                   model=self.state.model,
-                                                                                   optimizer=optimizer)
+            (self.state.model, self.state.optimizers, _, _) = deepspeed.initialize(
+                config=self.state.deepspeed_config,
+                model=self.state.model,
+                optimizer=optimizer,
+            )
             # Since the DeepSpeed ZeRO optimizer does not inherit torch.optim.Optimizer, the schedulers must be
             # compiled and bound BEFORE DeepSpeed initialization. However, this is OK, as the the DeepSpeed Zero
             # optimizer uses the same underlying parameter groups as the original optimizer. See
@@ -1348,8 +1403,6 @@ class Trainer:
                     'latest existing checkpoint in `save_folder`. ')
             if save_latest_filename is None:
                 error_message += 'The `save_latest_filename` must be specified so autoresume knows where to load checkpoints from. '
-            if run_name is None:
-                error_message += 'The `run_name` must be specified when using autoresume so Event.INIT is run with the correct run name. '
             if error_message != '':
                 raise ValueError(error_message)
             assert save_folder is not None
@@ -1444,7 +1497,8 @@ class Trainer:
         # FSDP wrap if model is not yet wrapped and FSDP is enabled. This can happen if
         # load_fsdp_monolith_rank0_only=True but no checkpoint was loaded.
         if not self.state.fsdp_enabled and self.state.fsdp_config is not None and self.state.fsdp_auto_wrap and self.state.load_fsdp_monolith_rank0_only:
-            prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
+            with reproducibility.seed_context(self.state.rank_zero_seed):
+                prepare_fsdp_module(model, optimizers, self.state.fsdp_config, precision, device, auto_microbatching)
 
         self.engine.run_event(Event.AFTER_LOAD)
 
@@ -1465,8 +1519,7 @@ class Trainer:
         # The model would need to be torch.compile()'d after being wrapped in a distributed strategy
         # to take advantage of any graph breaks.
         if is_torch_2_0 and not is_model_compiled and compile_config is not None:
-            compiled_model = torch.compile(  # pyright: ignore [reportGeneralTypeIssues]
-                self.state.model, **compile_config)
+            compiled_model = torch.compile(self.state.model, **compile_config)
             self.state.model = compiled_model._orig_mod
             self.state.model.forward = compiled_model.dynamo_ctx(self.state.model.forward)
             is_model_compiled = True
@@ -1785,6 +1838,7 @@ class Trainer:
 
         if self.state.max_duration is None:
             _raise_missing_argument_exception('max_duration')
+        assert self.state.max_duration is not None
 
         if self.state.dataloader_len is None and self.state.max_duration.unit == TimeUnit.EPOCH:
             raise ValueError(
@@ -1933,6 +1987,7 @@ class Trainer:
         for metric_name, metric in metrics.items():
             assert isinstance(metric, Metric)
             if dataloader_label == 'train':
+                assert self.state.train_metrics is not None
                 self.state.train_metrics[metric_name] = metric
                 self.state.train_metric_values[metric_name] = computed_metrics[metric_name]
             else:
@@ -2018,144 +2073,146 @@ class Trainer:
         finished_epoch_early = False
         last_wct = datetime.datetime.now()
 
+        if self.state.max_duration is None:
+            # This is essentially just a type check, as max_duration should always be
+            # asserted to be not None when Trainer.fit() is called
+            raise RuntimeError('max_duration must be specified when initializing the Trainer')
+
         while self.state.timestamp < self.state.max_duration:
-            try:
-                if int(self.state.timestamp.batch_in_epoch) == 0:
-                    self.engine.run_event(Event.EPOCH_START)
-                    self.logger.log_metrics({'time/epoch': self.state.timestamp.epoch.value})
+            if int(self.state.timestamp.batch_in_epoch) == 0:
+                self.engine.run_event(Event.EPOCH_START)
+                self.logger.log_metrics({'time/epoch': self.state.timestamp.epoch.value})
 
-                dataloader = self.state.dataloader
-                if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
-                    dataloader.sampler.set_epoch(int(self.state.timestamp.epoch))
+            dataloader = self.state.dataloader
+            if isinstance(dataloader, DataLoader) and isinstance(dataloader.sampler, DistributedSampler):
+                dataloader.sampler.set_epoch(int(self.state.timestamp.epoch))
 
-                for batch_idx, self.state.batch in enumerate(self._iter_dataloader(TrainerMode.TRAIN)):
-                    # Spin dataloader forward unless dataloader handles internally with dataset_resumption
-                    if self.spin_dataloaders and 'train' not in self.state.dataset_resumption and batch_idx < int(
-                            self.state.timestamp.batch_in_epoch):
-                        # Restore the RNG state immediately before the next batch is yielded from the dataloader
-                        if batch_idx + 1 == int(self.state.timestamp.batch_in_epoch) and self._rng_state is not None:
-                            reproducibility.load_rng_state(self._rng_state)
-                            self._rng_state = None
-                        continue
+            for batch_idx, self.state.batch in enumerate(self._iter_dataloader(TrainerMode.TRAIN)):
+                # Spin dataloader forward unless dataloader handles internally with dataset_resumption
+                if self.spin_dataloaders and 'train' not in self.state.dataset_resumption and batch_idx < int(
+                        self.state.timestamp.batch_in_epoch):
+                    # Restore the RNG state immediately before the next batch is yielded from the dataloader
+                    if batch_idx + 1 == int(self.state.timestamp.batch_in_epoch) and self._rng_state is not None:
+                        reproducibility.load_rng_state(self._rng_state)
+                        self._rng_state = None
+                    continue
 
-                    self.state.batch = self.state.device.batch_to_device(self.state.batch)
-                    self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
-                    rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
-                    rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
+                self.state.batch = self.state.device.batch_to_device(self.state.batch)
+                self.state.batch = self._train_data_spec.device_transforms(self.state.batch)
+                rank_num_samples = self._train_data_spec.get_num_samples_in_batch(self.state.batch)
+                rank_num_tokens = self._train_data_spec.get_num_tokens_in_batch(self.state.batch)
 
-                    if self.state.deepspeed_enabled:
-                        self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
+                if self.state.deepspeed_enabled:
+                    self.state.batch = _fix_batch_precision_for_deepspeed(self.state.batch, self.state.precision)
 
-                    self.engine.run_event(Event.AFTER_DATALOADER)
+                self.engine.run_event(Event.AFTER_DATALOADER)
 
-                    self.engine.run_event(Event.BATCH_START)
+                self.engine.run_event(Event.BATCH_START)
 
-                    # Log time values
-                    self.logger.log_metrics({
-                        'time/batch': self.state.timestamp.batch.value,
-                        'time/sample': self.state.timestamp.sample.value,
-                        'time/batch_in_epoch': self.state.timestamp.batch_in_epoch.value,
-                        'time/sample_in_epoch': self.state.timestamp.sample_in_epoch.value,
-                    })
-                    if rank_num_tokens > 0:
-                        self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
-                        self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
+                # Log time values
+                self.logger.log_metrics({
+                    'time/batch': self.state.timestamp.batch.value,
+                    'time/sample': self.state.timestamp.sample.value,
+                    'time/batch_in_epoch': self.state.timestamp.batch_in_epoch.value,
+                    'time/sample_in_epoch': self.state.timestamp.sample_in_epoch.value,
+                })
+                if rank_num_tokens > 0:
+                    self.logger.log_metrics({'time/token': self.state.timestamp.token.value})
+                    self.logger.log_metrics({'time/token_in_epoch': self.state.timestamp.token_in_epoch.value})
 
-                    total_loss_dict = self._train_batch(use_grad_scaling)
+                total_loss_dict = self._train_batch(use_grad_scaling)
 
-                    if use_grad_scaling:
-                        self.state.scaler.update()
+                if use_grad_scaling:
+                    self.state.scaler.update()
 
-                    # total_loss_dict can be None if gradient scaling failed
-                    if total_loss_dict is not None:
-                        map_collection(total_loss_dict, dist.all_reduce)
-                        total_loss_dict = {
-                            k: loss.cpu().item() / dist.get_world_size() for k, loss in total_loss_dict.items()
-                        }
-                        self.state.total_loss_dict = total_loss_dict
-                        self.logger.log_metrics(total_loss_dict)
+                # total_loss_dict can be None if gradient scaling failed
+                if total_loss_dict is not None:  # pyright: ignore[reportUnnecessaryComparison]
+                    map_collection(total_loss_dict, dist.all_reduce)
+                    total_loss_dict = {
+                        k: loss.cpu().item() / dist.get_world_size() for k, loss in total_loss_dict.items()
+                    }
+                    self.state.total_loss_dict = total_loss_dict
+                    self.logger.log_metrics(total_loss_dict)
 
-                    # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
-                    # next batch's wall clock time. The time accumulation must be done here so schedulers
-                    # have the latest timing information
+                # The scheduler step.step() and compute_and_log_metrics() are going to be included in the
+                # next batch's wall clock time. The time accumulation must be done here so schedulers
+                # have the latest timing information
 
-                    now = datetime.datetime.now()
+                now = datetime.datetime.now()
 
-                    batch_time = now - last_wct
+                batch_time = now - last_wct
 
-                    total_num_samples, total_num_tokens, batch_time = self._accumulate_time_across_ranks(
-                        rank_num_samples,
-                        rank_num_tokens,
-                        batch_time,
+                total_num_samples, total_num_tokens, batch_time = self._accumulate_time_across_ranks(
+                    rank_num_samples,
+                    rank_num_tokens,
+                    batch_time,
+                )
+
+                # `now` is actually in the past, but want to include the time it takes to perform this reduction
+                last_wct = now
+
+                if self._scheduler_step_frequency == TimeUnit.BATCH:
+                    for scheduler in self.state.schedulers:
+                        scheduler.step()
+
+                if self.state.train_metrics is not None:  # pyright: ignore[reportUnnecessaryComparison]
+                    self._compute_and_log_metrics(
+                        dataloader_label='train',
+                        metrics=self.state.train_metrics,
                     )
 
-                    # `now` is actually in the past, but want to include the time it takes to perform this reduction
-                    last_wct = now
+                self.state.previous_timestamp = self.state.timestamp
+                self.state.timestamp = self.state.timestamp.to_next_batch(
+                    samples=total_num_samples,
+                    tokens=total_num_tokens,
+                    duration=batch_time,
+                )
 
-                    if self._scheduler_step_frequency == TimeUnit.BATCH:
-                        for scheduler in self.state.schedulers:
-                            scheduler.step()
+                self.engine.run_event(Event.BATCH_END)
 
-                    if self.state.train_metrics is not None:
-                        self._compute_and_log_metrics(
-                            dataloader_label='train',
-                            metrics=self.state.train_metrics,
-                        )
+                # Pause the timing during evaluation
+                # Evaluation time is tracked separately in state.eval_timestamp
+                duration = datetime.datetime.now() - last_wct
+                self._run_evaluators(Event.BATCH_END)
+                last_wct = datetime.datetime.now() - duration
 
-                    self.state.previous_timestamp = self.state.timestamp
-                    self.state.timestamp = self.state.timestamp.to_next_batch(
-                        samples=total_num_samples,
-                        tokens=total_num_tokens,
-                        duration=batch_time,
+                self.engine.run_event(Event.BATCH_CHECKPOINT)
+
+                if self.state.timestamp >= self.state.max_duration:
+                    # If max_duration is specified in batches, samples, or tokens, and
+                    # and the max_duration is reached mid-epoch, then break out of the dataloader
+                    # to finish the epoch early and finish training.
+                    finished_epoch_early = True
+                    break
+
+            if not finished_epoch_early or self.state.dataloader_len == self.state.timestamp.batch_in_epoch:
+                # Trigger the epoch end events if the dataloader was exhausted.
+                # This happens if the "break" did not trigger above, or if it
+                # did (e.g. duration specified in samples/batches/tokens), but it is still
+                # the end of the dataloader (i.e. next(dataloader) would raise StopIteration)
+                if self.state.train_metrics is not None:  # pyright: ignore[reportUnnecessaryComparison]
+                    self.state.train_metrics = self._ensure_metrics_device_and_dtype(self.state.train_metrics)
+                    self._compute_and_log_metrics(
+                        dataloader_label='train',
+                        metrics=self.state.train_metrics,
                     )
 
-                    self.engine.run_event(Event.BATCH_END)
+                if self._scheduler_step_frequency == TimeUnit.EPOCH:
+                    for scheduler in self.state.schedulers:
+                        scheduler.step()
 
-                    # Pause the timing during evaluation
-                    # Evaluation time is tracked separately in state.eval_timestamp
-                    duration = datetime.datetime.now() - last_wct
-                    self._run_evaluators(Event.BATCH_END)
-                    last_wct = datetime.datetime.now() - duration
+                self.state.previous_timestamp = self.state.timestamp
+                self.state.timestamp = self.state.timestamp.to_next_epoch()
 
-                    self.engine.run_event(Event.BATCH_CHECKPOINT)
+                self.engine.run_event(Event.EPOCH_END)
 
-                    if self.state.timestamp >= self.state.max_duration:
-                        # If max_duration is specified in batches, samples, or tokens, and
-                        # and the max_duration is reached mid-epoch, then break out of the dataloader
-                        # to finish the epoch early and finish training.
-                        finished_epoch_early = True
-                        break
+                # Pause the timing during evaluation
+                # Evaluation time is tracked separately in state.eval_timestamp
+                duration = datetime.datetime.now() - last_wct
+                self._run_evaluators(Event.EPOCH_END)
+                last_wct = datetime.datetime.now() - duration
 
-                if not finished_epoch_early or self.state.dataloader_len == self.state.timestamp.batch_in_epoch:
-                    # Trigger the epoch end events if the dataloader was exhausted.
-                    # This happens if the "break" did not trigger above, or if it
-                    # did (e.g. duration specified in samples/batches/tokens), but it is still
-                    # the end of the dataloader (i.e. next(dataloader) would raise StopIteration)
-                    if self.state.train_metrics is not None:
-                        self.state.train_metrics = self._ensure_metrics_device_and_dtype(self.state.train_metrics)
-                        self._compute_and_log_metrics(
-                            dataloader_label='train',
-                            metrics=self.state.train_metrics,
-                        )
-
-                    if self._scheduler_step_frequency == TimeUnit.EPOCH:
-                        for scheduler in self.state.schedulers:
-                            scheduler.step()
-
-                    self.state.previous_timestamp = self.state.timestamp
-                    self.state.timestamp = self.state.timestamp.to_next_epoch()
-
-                    self.engine.run_event(Event.EPOCH_END)
-
-                    # Pause the timing during evaluation
-                    # Evaluation time is tracked separately in state.eval_timestamp
-                    duration = datetime.datetime.now() - last_wct
-                    self._run_evaluators(Event.EPOCH_END)
-                    last_wct = datetime.datetime.now() - duration
-
-                    self.engine.run_event(Event.EPOCH_CHECKPOINT)
-            except BreakEpochException:
-                log.info(f'Skipping the rest of Epoch {int(self.state.timestamp.epoch)}')
+                self.engine.run_event(Event.EPOCH_CHECKPOINT)
 
         # Log final time values
         self.logger.log_metrics({
@@ -2229,7 +2286,7 @@ class Trainer:
         while True:
             # Reset train_metrics on every batch
             # Placing reset here ensures that if auto grad accum catches an OOM, incomplete metric state is cleared
-            if self.state.train_metrics is not None:
+            if self.state.train_metrics is not None:  # pyright: ignore[reportUnnecessaryComparison]
                 for metric in self.state.train_metrics.values():
                     metric.reset()
 
@@ -2453,6 +2510,7 @@ class Trainer:
             else:
                 microbatch_loss = self.state.device.tensor_to_device(torch.zeros(size=(1,)))
                 for loss in ensure_tuple(self.state.loss):
+                    assert isinstance(loss, torch.Tensor)
                     microbatch_loss.add_(loss.mean())
 
                 # Copy the loss if it is a dictionary
@@ -2474,7 +2532,6 @@ class Trainer:
 
             if self.state.deepspeed_enabled:
                 self.state.deepspeed_model.backward(microbatch_loss)
-
             else:
                 # Scale loss based on the number of samples in the microbatch to maintain gradient numerics
                 microbatch_loss.mul_(microbatch_num_samples / current_batch_size)
@@ -2483,7 +2540,8 @@ class Trainer:
             self.engine.run_event(Event.AFTER_BACKWARD)
 
             # Use microbatch outputs to update training metrics
-            if self.state.train_metrics is not None and len(self.state.train_metrics) != 0:
+            if (self.state.train_metrics is not None and  # pyright: ignore[reportUnnecessaryComparison]
+                    len(self.state.train_metrics) != 0):
                 self.state.train_metrics = self._ensure_metrics_device_and_dtype(self.state.train_metrics)
                 self._eval_train_metrics(device_batch)
 
@@ -2592,8 +2650,7 @@ class Trainer:
                 self.state.batch = self.state.device.batch_to_device(self.state.batch)
 
                 # Perform any device transforms
-                if data_spec.device_transforms is not None:
-                    self.state.batch = data_spec.device_transforms(self.state.batch)
+                self.state.batch = data_spec.device_transforms(self.state.batch)
 
                 # Count the batch size and num tokens before any events run
                 rank_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
@@ -2856,8 +2913,7 @@ class Trainer:
 
             for self.state.batch in self._iter_dataloader(TrainerMode.EVAL):
                 self.state.batch = self.state.device.batch_to_device(self.state.batch)
-                if data_spec.device_transforms is not None:
-                    self.state.batch = data_spec.device_transforms(self.state.batch)
+                self.state.batch = data_spec.device_transforms(self.state.batch)
 
                 # Count the batch size and num tokens before any events run
                 rank_num_samples = data_spec.get_num_samples_in_batch(self.state.batch)
@@ -3070,7 +3126,7 @@ class Trainer:
         if self.state.precision != Precision.AMP_FP16:
             return True
 
-        if self.state.optimizers is None:
+        if not hasattr(self.state, 'optimizers'):
             raise RuntimeError('state.optimizers must be set before `_use_closures` can be determined')
 
         return all(

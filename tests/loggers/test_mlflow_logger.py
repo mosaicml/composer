@@ -4,6 +4,7 @@
 import csv
 import json
 import os
+import time
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -28,7 +29,9 @@ def _get_latest_mlflow_run(experiment_name, tracking_uri=None):
     # NB: Convert tracking URI to string because MlflowClient doesn't support non-string
     # (e.g. PosixPath) tracking URI representations
     client = MlflowClient(str(tracking_uri))
-    experiment_id = (client.get_experiment_by_name(experiment_name).experiment_id)
+    experiment = client.get_experiment_by_name(experiment_name)
+    assert experiment is not None
+    experiment_id = experiment.experiment_id
     first_run_or_empty = client.search_runs(
         experiment_ids=[experiment_id],
         max_results=1,
@@ -163,6 +166,26 @@ def test_mlflow_experiment_init_experiment_name(monkeypatch):
     id_logger.post_close()
 
 
+def test_mlflow_experiment_init_existing_composer_run(monkeypatch):
+    """ Test that an existing MLFlow run is used if one already exists in the experiment for the Composer run.
+    """
+    mlflow = pytest.importorskip('mlflow')
+
+    monkeypatch.setattr(mlflow, 'set_tracking_uri', MagicMock())
+    monkeypatch.setattr(mlflow, 'start_run', MagicMock())
+
+    mock_state = MagicMock()
+    mock_state.run_name = 'dummy-run-name'
+
+    existing_id = 'dummy-id'
+    mock_search_runs = MagicMock(return_value=[MagicMock(info=MagicMock(run_id=existing_id))])
+    monkeypatch.setattr(mlflow, 'search_runs', mock_search_runs)
+
+    test_logger = MLFlowLogger()
+    test_logger.init(state=mock_state, logger=MagicMock())
+    assert test_logger._run_id == existing_id
+
+
 def test_mlflow_experiment_set_up(tmp_path):
     """ Test that MLFlow experiment is set up correctly within mlflow
     """
@@ -188,6 +211,7 @@ def test_mlflow_experiment_set_up(tmp_path):
     )
     run_id = run.info.run_id
     experiment_id = run.info.experiment_id
+    tags = run.data.tags
 
     # Check uri set correctly.
     assert mlflow_uri.exists()
@@ -205,6 +229,9 @@ def test_mlflow_experiment_set_up(tmp_path):
     expected_run_name = mlflow_run_name
     actual_run_name = run_cfg['run_name']
     assert actual_run_name == expected_run_name
+
+    # Check run tagged with Composer run name.
+    assert tags['composer_run_name'] == mock_state.run_name
 
     # Check run ended.
     test_mlflow_logger.post_close()
@@ -284,7 +311,6 @@ def test_mlflow_log_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
         metadata={'task': 'llm/v1/completions'},
         task='text-generation',
     )
-    test_mlflow_logger._flush()
     test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(mlflow_exp_name, tracking_uri=mlflow_uri)
@@ -328,7 +354,6 @@ def test_mlflow_save_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
         metadata={'task': 'llm/v1/completions'},
         task='text-generation',
     )
-    test_mlflow_logger._flush()
     test_mlflow_logger.post_close()
 
     loaded_model = mlflow.transformers.load_model(local_mlflow_save_path, return_type='components')
@@ -372,7 +397,6 @@ def test_mlflow_register_model(tmp_path, monkeypatch):
                                              registry_uri='databricks-uc')
     assert mlflow.get_registry_uri() == 'databricks-uc'
 
-    test_mlflow_logger._flush()
     test_mlflow_logger.post_close()
 
 
@@ -411,7 +435,6 @@ def test_mlflow_register_model_non_databricks(tmp_path, monkeypatch):
                                              tags=None,
                                              registry_uri='my_registry_uri')
 
-    test_mlflow_logger._flush()
     test_mlflow_logger.post_close()
 
 
@@ -434,14 +457,17 @@ def test_mlflow_register_uc_error(tmp_path, monkeypatch):
 
 @device('cpu')
 def test_mlflow_logging_works(tmp_path, device):
-    pytest.importorskip('mlflow')
+    mlflow = pytest.importorskip('mlflow')
 
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
     experiment_name = 'mlflow_logging_test'
     test_mlflow_logger = MLFlowLogger(
         tracking_uri=mlflow_uri,
         experiment_name=experiment_name,
+        log_system_metrics=True,
     )
+    # Reduce the system metrics sampling interval to speed up the test.
+    mlflow.set_system_metrics_sampling_interval(1)
 
     dataset_size = 64
     batch_size = 4
@@ -456,7 +482,8 @@ def test_mlflow_logging_works(tmp_path, device):
                       eval_interval=eval_interval,
                       device=device)
     trainer.fit()
-    test_mlflow_logger._flush()
+    # Allow async logging to finish.
+    time.sleep(3)
     test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(
@@ -470,8 +497,10 @@ def test_mlflow_logging_works(tmp_path, device):
 
     # Test metrics logged.
     for metric_name in [
-            'metrics/train/MulticlassAccuracy', 'metrics/eval/MulticlassAccuracy', 'metrics/eval/CrossEntropy',
-            'loss/train/total'
+            'metrics/train/MulticlassAccuracy',
+            'metrics/eval/MulticlassAccuracy',
+            'metrics/eval/CrossEntropy',
+            'loss/train/total',
     ]:
         metric_file = run_file_path / Path('metrics') / Path(metric_name)
         with open(metric_file) as f:
@@ -485,9 +514,17 @@ def test_mlflow_logging_works(tmp_path, device):
     actual_params_list = [param_filepath.stem for param_filepath in param_path.iterdir()]
 
     expected_params_list = [
-        'num_cpus_per_node', 'node_name', 'num_nodes', 'rank_zero_seed', 'composer_version', 'composer_commit_hash'
+        'num_cpus_per_node', 'node_name', 'num_nodes', 'rank_zero_seed', 'composer_version', 'composer_commit_hash',
+        'mlflow_experiment_id', 'mlflow_run_id'
     ]
     assert set(expected_params_list) == set(actual_params_list)
+
+    # Test system metrics logged.
+    metric_file = run_file_path / Path('metrics') / Path('system/cpu_utilization_percentage')
+    assert os.path.exists(metric_file)
+
+    # Undo the setup to avoid affecting other test cases.
+    mlflow.set_system_metrics_sampling_interval(None)
 
 
 @device('cpu')
@@ -527,7 +564,6 @@ def test_mlflow_log_image_works(tmp_path, device):
                       device=device)
 
     trainer.fit()
-    test_mlflow_logger._flush()
     test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(

@@ -188,7 +188,6 @@ The full spec and defaults for Composer's `fsdp_config` is here:
       'activation_cpu_offload': bool = True | False, # Default: False
       'backward_prefetch': str = 'BACKWARD_PRE' | 'BACKWARD_POST' | 'NONE', # Default: 'BACKWARD_POST'
       'cpu_offload': bool = True | False, # Default: False, cpu_offload not supported yet
-      'flatten_parameters': bool = True | False, # Default: True
       'forward_prefetch': bool = True | False, # Default: False
       'ignored_modules': Optional[Iterable[torch.nn.Module]], # Default: None
       'keep_low_precision_grads': bool = True | False, # Default: False
@@ -202,6 +201,7 @@ The full spec and defaults for Composer's `fsdp_config` is here:
       #   'reduce_dtype': 'fp32' | 'fp16' | 'bf16',
       #   'buffer_dtype': 'fp32' | 'fp16' | 'bf16',
       # },
+      'process_group': str = 'self' | 'node' | 'local_rank_across_nodes' | 'setK' | 'modK', # Default: None
       'save_planner': torch.distributed.checkpoint.planner.SavePlanner, # Default: None
       'sharded_ckpt_prefix_dir': str = 'ep{epoch}-ba{batch}', # Default: 'ep{epoch}-ba{batch}'
       'sharding_strategy': str = 'FULL_SHARD' | 'SHARD_GRAD_OP' | 'NO_SHARD', # Default: 'FULL_SHARD'

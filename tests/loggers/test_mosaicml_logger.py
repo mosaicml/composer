@@ -59,10 +59,11 @@ def test_format_data_to_json_serializable():
         'key3': 3.14,
         'key4': True,
         'key5': torch.tensor([1, 2, 3]),
-        'key6': {
+        'key6': torch.tensor([42]),
+        'key7': {
             'inner_key': 'inner_value'
         },
-        'key7': [1, 2, 3],
+        'key8': [1, 2, 3],
     }
     formatted_data = format_data_to_json_serializable(data)
 
@@ -72,10 +73,11 @@ def test_format_data_to_json_serializable():
         'key3': 3.14,
         'key4': True,
         'key5': 'Tensor of shape torch.Size([3])',
-        'key6': {
+        'key6': 42,
+        'key7': {
             'inner_key': 'inner_value'
         },
-        'key7': [1, 2, 3],
+        'key8': [1, 2, 3],
     }
 
     assert formatted_data == expected_formatted_data
@@ -87,6 +89,7 @@ def test_logged_data_is_json_serializable(monkeypatch, callback_cls: Type[Callba
     """Test that all logged data is json serializable, which is a requirement to use MAPI."""
 
     mock_mapi = MockMAPI()
+    monkeypatch.setenv('MOSAICML_PLATFORM', 'True')
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
     run_name = 'small_chungus'
     monkeypatch.setenv('RUN_NAME', run_name)
@@ -116,11 +119,13 @@ def test_logged_data_is_json_serializable(monkeypatch, callback_cls: Type[Callba
 def test_logged_data_exception_handling(monkeypatch, world_size: int, ignore_exceptions: bool):
     """Test that exceptions in MAPI are raised properly."""
     mock_mapi = MockMAPI(simulate_exception=True)
+    monkeypatch.setenv('MOSAICML_PLATFORM', 'True')
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
     run_name = 'small_chungus'
     monkeypatch.setenv('RUN_NAME', run_name)
 
     logger = MosaicMLLogger(ignore_exceptions=ignore_exceptions)
+    logger.buffered_metadata = {'key': 'value'}  # Add dummy data so logging runs
     if dist.get_global_rank() != 0:
         assert logger._enabled is False
         logger._flush_metadata(force_flush=True)
@@ -137,6 +142,7 @@ def test_logged_data_exception_handling(monkeypatch, world_size: int, ignore_exc
 
 def test_metric_partial_filtering(monkeypatch):
     mock_mapi = MockMAPI()
+    monkeypatch.setenv('MOSAICML_PLATFORM', 'True')
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
     run_name = 'small_chungus'
     monkeypatch.setenv('RUN_NAME', run_name)
@@ -156,6 +162,7 @@ def test_metric_partial_filtering(monkeypatch):
 
 def test_logged_composer_version(monkeypatch):
     mock_mapi = MockMAPI()
+    monkeypatch.setenv('MOSAICML_PLATFORM', 'True')
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
     run_name = 'small_chungus'
     monkeypatch.setenv('RUN_NAME', run_name)
@@ -176,6 +183,7 @@ def test_logged_composer_version(monkeypatch):
 
 def test_metric_full_filtering(monkeypatch):
     mock_mapi = MockMAPI()
+    monkeypatch.setenv('MOSAICML_PLATFORM', 'True')
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
     run_name = 'small_chungus'
     monkeypatch.setenv('RUN_NAME', run_name)
@@ -189,7 +197,7 @@ def test_metric_full_filtering(monkeypatch):
     )
     trainer.fit()
 
-    assert len(mock_mapi.run_metadata[run_name].keys()) == 0
+    assert run_name not in mock_mapi.run_metadata
 
 
 class SetWandBRunURL(Callback):
@@ -206,6 +214,7 @@ class SetWandBRunURL(Callback):
 
 def test_wandb_run_url(monkeypatch):
     mock_mapi = MockMAPI()
+    monkeypatch.setenv('MOSAICML_PLATFORM', 'True')
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
     run_name = 'small_chungus'
     monkeypatch.setenv('RUN_NAME', run_name)
@@ -228,6 +237,7 @@ def test_wandb_run_url(monkeypatch):
 @pytest.mark.parametrize('logger_set', [True, False])
 def test_auto_add_logger(monkeypatch, platform_env_var, access_token_env_var, logger_set):
     mock_mapi = MockMAPI()
+    monkeypatch.setenv('MOSAICML_PLATFORM', 'True')
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
     run_name = 'small_chungus'
     monkeypatch.setenv('RUN_NAME', run_name)
@@ -265,6 +275,7 @@ def test_run_events_logged(monkeypatch):
     2. training progress (i.e. [batch=x/xx] at batch end)
     '''
     mock_mapi = MockMAPI()
+    monkeypatch.setenv('MOSAICML_PLATFORM', 'True')
     monkeypatch.setattr(mcli, 'update_run_metadata', mock_mapi.update_run_metadata)
     run_name = 'test-run-name'
     monkeypatch.setenv('RUN_NAME', run_name)

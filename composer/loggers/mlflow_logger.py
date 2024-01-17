@@ -21,7 +21,7 @@ from composer.loggers.logger_destination import LoggerDestination
 from composer.utils import MissingConditionalImportError, dist
 
 if TYPE_CHECKING:
-    from mlflow import ModelVersion
+    from mlflow import ModelVersion  # pyright: ignore[reportGeneralTypeIssues]
 
 __all__ = ['MLFlowLogger']
 
@@ -47,9 +47,13 @@ class MLFlowLogger(LoggerDestination):
             (default: ``10``).
         model_registry_prefix (str, optional): The prefix to use when registering models.
             If registering to Unity Catalog, must be in the format ``{catalog_name}.{schema_name}``.
-            (default: empty string)
+            (default: `''`)
         model_registry_uri (str, optional): The URI of the model registry to use. To register models
             to Unity Catalog, set to ``databricks-uc``. (default: None)
+        synchronous (bool, optional): Whether to log synchronously. If ``True``, Mlflow will log
+            synchronously to the MLflow backend. If ``False``, Mlflow will log asynchronously. (default: ``False``)
+        log_system_metrics (bool, optional): Whether to log system metrics. If ``True``, Mlflow will
+            log system metrics (CPU/GPU/memory/network usage) during training. (default: ``True``)
     """
 
     def __init__(
@@ -62,11 +66,12 @@ class MLFlowLogger(LoggerDestination):
         flush_interval: int = 10,
         model_registry_prefix: str = '',
         model_registry_uri: Optional[str] = None,
+        synchronous: bool = False,
+        log_system_metrics: bool = True,
     ) -> None:
         try:
             import mlflow
             from mlflow import MlflowClient
-            from mlflow.utils.autologging_utils import MlflowAutologgingQueueingClient
         except ImportError as e:
             raise MissingConditionalImportError(extra_deps_group='mlflow',
                                                 conda_package='mlflow',
@@ -78,6 +83,8 @@ class MLFlowLogger(LoggerDestination):
         self.tags = tags
         self.model_registry_prefix = model_registry_prefix
         self.model_registry_uri = model_registry_uri
+        self.synchronous = synchronous
+        self.log_system_metrics = log_system_metrics
         if self.model_registry_uri == 'databricks-uc':
             if len(self.model_registry_prefix.split('.')) != 2:
                 raise ValueError(f'When registering to Unity Catalog, model_registry_prefix must be in the format ' +
@@ -86,6 +93,10 @@ class MLFlowLogger(LoggerDestination):
         self._rank_zero_only = rank_zero_only
         self._last_flush_time = time.time()
         self._flush_interval = flush_interval
+
+        self._experiment_id: Optional[str] = None
+        self._run_id = None
+
         if self._enabled:
             self.tracking_uri = str(tracking_uri or mlflow.get_tracking_uri())
             mlflow.set_tracking_uri(self.tracking_uri)
@@ -95,16 +106,16 @@ class MLFlowLogger(LoggerDestination):
             # Set up MLflow state
             self._run_id = None
             if self.experiment_name is None:
-                self.experiment_name = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,
-                                                 DEFAULT_MLFLOW_EXPERIMENT_NAME)
+                self.experiment_name = os.getenv(
+                    mlflow.environment_variables.MLFLOW_EXPERIMENT_NAME.name,  # type: ignore
+                    DEFAULT_MLFLOW_EXPERIMENT_NAME,
+                )
             self._mlflow_client = MlflowClient(self.tracking_uri)
-            # Create an instance of MlflowAutologgingQueueingClient - an optimized version
-            # of MlflowClient - that automatically batches metrics together and supports
-            # asynchronous logging for improved performance
-            self._optimized_mlflow_client = MlflowAutologgingQueueingClient(self.tracking_uri)
-            # Set experiment. We use MlflowClient for experiment retrieval and creation
-            # because MlflowAutologgingQueueingClient doesn't support it
-            env_exp_id = os.getenv(mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name, None)
+            # Set experiment.
+            env_exp_id = os.getenv(
+                mlflow.environment_variables.MLFLOW_EXPERIMENT_ID.name,  # pyright: ignore[reportGeneralTypeIssues]
+                None,
+            )
             if env_exp_id is not None:
                 self._experiment_id = env_exp_id
             else:
@@ -121,22 +132,51 @@ class MLFlowLogger(LoggerDestination):
         if self.run_name is None:
             self.run_name = state.run_name
 
+        # Store the Composer run name in the MLFlow run tags so it can be retrieved for autoresume.
+        self.tags = self.tags or {}
+        self.tags['composer_run_name'] = state.run_name
+
         # Adjust name and group based on `rank_zero_only`.
         if not self._rank_zero_only:
             self.run_name += f'-rank{dist.get_global_rank()}'
 
         # Start run
         if self._enabled:
-            env_run_id = os.getenv(mlflow.environment_variables.MLFLOW_RUN_ID.name, None)
+            env_run_id = os.getenv(
+                mlflow.environment_variables.MLFLOW_RUN_ID.name,  # pyright: ignore[reportGeneralTypeIssues]
+                None,
+            )
             if env_run_id is not None:
                 self._run_id = env_run_id
             else:
-                new_run = self._mlflow_client.create_run(
-                    experiment_id=self._experiment_id,
-                    run_name=self.run_name,
-                )
-                self._run_id = new_run.info.run_id
-            mlflow.start_run(run_id=self._run_id, tags=self.tags)
+                # Search for an existing run tagged with this Composer run.
+                assert self._experiment_id is not None
+                existing_runs = mlflow.search_runs(experiment_ids=[self._experiment_id],
+                                                   filter_string=f'tags.composer_run_name = "{state.run_name}"',
+                                                   output_format='list')
+                if len(existing_runs) > 0:
+                    self._run_id = existing_runs[0].info.run_id
+                else:
+                    new_run = self._mlflow_client.create_run(
+                        experiment_id=self._experiment_id,
+                        run_name=self.run_name,
+                    )
+                    self._run_id = new_run.info.run_id
+            mlflow.start_run(
+                run_id=self._run_id,
+                tags=self.tags,
+                log_system_metrics=self.log_system_metrics,
+            )
+
+        # If rank zero only, broadcast the MLFlow experiment and run IDs to other ranks, so the MLFlow run info is
+        # available to other ranks during runtime.
+        if self._rank_zero_only:
+            mlflow_ids_list = [self._experiment_id, self._run_id]
+            dist.broadcast_object_list(mlflow_ids_list, src=0)
+            self._experiment_id, self._run_id = mlflow_ids_list
+
+    def after_load(self, state: State, logger: Logger) -> None:
+        logger.log_hyperparameters({'mlflow_experiment_id': self._experiment_id, 'mlflow_run_id': self._run_id})
 
     def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
         if self._enabled:
@@ -147,6 +187,7 @@ class MLFlowLogger(LoggerDestination):
                                                     conda_package='pandas',
                                                     conda_channel='conda-forge') from e
             table = pd.DataFrame.from_records(data=rows, columns=columns)
+            assert isinstance(self._run_id, str)
             self._mlflow_client.log_table(
                 run_id=self._run_id,
                 data=table,
@@ -154,32 +195,30 @@ class MLFlowLogger(LoggerDestination):
             )
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
+        from mlflow import log_metrics
         if self._enabled:
             # Convert all metrics to floats to placate mlflow.
             metrics = {k: float(v) for k, v in metrics.items()}
-            self._optimized_mlflow_client.log_metrics(
-                run_id=self._run_id,
+            log_metrics(
                 metrics=metrics,
                 step=step,
+                synchronous=self.synchronous,
             )
-            time_since_flush = time.time() - self._last_flush_time
-            if time_since_flush >= self._flush_interval:
-                self._optimized_mlflow_client.flush(synchronous=False)
-                self._last_flush_time = time.time()
 
     def log_hyperparameters(self, hyperparameters: Dict[str, Any]):
+        from mlflow import log_params
+
         if self._enabled:
-            self._optimized_mlflow_client.log_params(
-                run_id=self._run_id,
+            log_params(
                 params=hyperparameters,
+                synchronous=self.synchronous,
             )
-            self._optimized_mlflow_client.flush(synchronous=False)
 
     def register_model(
         self,
         model_uri: str,
         name: str,
-        await_registration_for: Optional[int] = 300,
+        await_registration_for: int = 300,
         tags: Optional[Dict[str, Any]] = None,
     ) -> 'ModelVersion':
         """Register a model to model registry.
@@ -187,10 +226,10 @@ class MLFlowLogger(LoggerDestination):
         Args:
             model_uri (str): The URI of the model to register.
             name (str): The name of the model to register. Will be appended to ``model_registry_prefix``.
-            await_registration_for (Optional[int], optional): The number of seconds to wait for the model to be registered.
+            await_registration_for (int, optional): The number of seconds to wait for the model to be registered.
                 Defaults to 300.
-            tags (Dict[str, Any], optional): A dictionary of tags to add to the model. Defaults to None.
-            registry_uri (str, optional): The URI of the model registry. Defaults to 'databricks-uc' which will register to
+            tags (Optional[Dict[str, Any]], optional): A dictionary of tags to add to the model. Defaults to None.
+            registry_uri (str, optional): The URI of the model registry. Defaults to `None` which will register to
                 the Databricks Unity Catalog.
 
         Returns:
@@ -261,6 +300,7 @@ class MLFlowLogger(LoggerDestination):
                 images = [images]
             for im_ind, image in enumerate(images):
                 image = _convert_to_mlflow_image(image, channels_last)
+                assert isinstance(self._run_id, str)
                 self._mlflow_client.log_image(image=image,
                                               artifact_file=f'{name}_{step}_{im_ind}.png',
                                               run_id=self._run_id)
@@ -269,15 +309,9 @@ class MLFlowLogger(LoggerDestination):
         if self._enabled:
             import mlflow
 
-            # We use MlflowClient for run termination because MlflowAutologgingQueueingClient's
-            # run termination relies on scheduling Python futures, which is not supported within
-            # the Python atexit handler in which post_close() is called
+            assert isinstance(self._run_id, str)
             self._mlflow_client.set_terminated(self._run_id)
             mlflow.end_run()
-
-    def _flush(self):
-        """Test-only method to synchronously flush all queued metrics."""
-        return self._optimized_mlflow_client.flush(synchronous=True)
 
 
 def _convert_to_mlflow_image(image: Union[np.ndarray, torch.Tensor], channels_last: bool) -> np.ndarray:
