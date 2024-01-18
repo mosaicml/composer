@@ -102,6 +102,14 @@ class HuggingFaceModel(ComposerModel):
             if isinstance(self.model, PeftModel):
                 self.model_forward_args = inspect.getfullargspec(self.model.base_model.model.forward).args
 
+        # inspect.getfullargspec HuggingFace quantized model could not return args correctly
+        if not self.model_forward_args:
+            self.model_forward_args = inspect.signature(
+                self.model.forward).parameters.keys()
+            
+        if not self.model_forward_args:
+            raise ValueError('Could not determine the forward arguments of the model. Please open a GitHub issue.')
+
         self.tokenizer = tokenizer
 
         self.peft_filter_state_dict_trainable = peft_filter_state_dict_trainable
