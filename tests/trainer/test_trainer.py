@@ -340,9 +340,7 @@ class TestTrainerInitOrFit:
     @pytest.mark.parametrize('train_subset_num_batches', [-1, 1])
     def test_infinite_train_loader(self, model: ComposerModel, max_duration: Union[int, str],
                                    train_subset_num_batches: int):
-        should_raise = (isinstance(max_duration, int) or
-                        max_duration.endswith('ep')) and (train_subset_num_batches is None or
-                                                          train_subset_num_batches == -1)
+        should_raise = (isinstance(max_duration, int) or max_duration.endswith('ep')) and train_subset_num_batches == -1
         context = pytest.raises(
             ValueError,
             match='max_duration cannot be specified in epochs') if should_raise else contextlib.nullcontext()
@@ -366,7 +364,7 @@ class TestTrainerInitOrFit:
         train_dataloader: DataLoader,
         model: ComposerModel,
         max_duration: Time[int],
-        new_duration: Time,
+        new_duration: Optional[Time],
         reset_time: bool,
     ):
         # Train once

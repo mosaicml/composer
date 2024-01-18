@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from composer.utils import MLFlowObjectStore
-from composer.utils.object_store.mlflow_object_store import PLACEHOLDER_EXPERIMENT_ID, PLACEHOLDER_RUN_ID
+from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_PLACEHOLDER, MLFLOW_RUN_ID_PLACEHOLDER
 
 TEST_PATH_FORMAT = 'databricks/mlflow-tracking/{experiment_id}/{run_id}/artifacts/'
 EXPERIMENT_ID = '123'
@@ -66,7 +66,7 @@ def test_init_with_experiment_and_no_run(monkeypatch):
     mock_mlflow_client.return_value.create_run.return_value = MagicMock(
         info=MagicMock(run_id=RUN_ID, run_name='test-run'))
 
-    store = MLFlowObjectStore(TEST_PATH_FORMAT.format(experiment_id=EXPERIMENT_ID, run_id=PLACEHOLDER_RUN_ID))
+    store = MLFlowObjectStore(TEST_PATH_FORMAT.format(experiment_id=EXPERIMENT_ID, run_id=MLFLOW_RUN_ID_PLACEHOLDER))
     assert store.experiment_id == EXPERIMENT_ID
     assert store.run_id == RUN_ID
 
@@ -76,7 +76,7 @@ def test_init_with_run_and_no_experiment(monkeypatch):
     monkeypatch.setattr(dbx_sdk, 'WorkspaceClient', MagicMock())
 
     with pytest.raises(ValueError):
-        MLFlowObjectStore(TEST_PATH_FORMAT.format(experiment_id=PLACEHOLDER_EXPERIMENT_ID, run_id=RUN_ID))
+        MLFlowObjectStore(TEST_PATH_FORMAT.format(experiment_id=MLFLOW_EXPERIMENT_ID_PLACEHOLDER, run_id=RUN_ID))
 
 
 def test_init_with_active_run(monkeypatch):
@@ -91,7 +91,7 @@ def test_init_with_active_run(monkeypatch):
     mock_active_run.return_value = MagicMock(info=MagicMock(experiment_id=EXPERIMENT_ID, run_id=RUN_ID))
 
     store = MLFlowObjectStore(
-        TEST_PATH_FORMAT.format(experiment_id=PLACEHOLDER_EXPERIMENT_ID, run_id=PLACEHOLDER_RUN_ID))
+        TEST_PATH_FORMAT.format(experiment_id=MLFLOW_EXPERIMENT_ID_PLACEHOLDER, run_id=MLFLOW_RUN_ID_PLACEHOLDER))
     assert store.experiment_id == EXPERIMENT_ID
     assert store.run_id == RUN_ID
 
@@ -109,7 +109,7 @@ def test_init_with_existing_experiment_and_no_run(monkeypatch):
         info=MagicMock(run_id=RUN_ID, run_name='test-run'))
 
     store = MLFlowObjectStore(
-        TEST_PATH_FORMAT.format(experiment_id=PLACEHOLDER_EXPERIMENT_ID, run_id=PLACEHOLDER_RUN_ID))
+        TEST_PATH_FORMAT.format(experiment_id=MLFLOW_EXPERIMENT_ID_PLACEHOLDER, run_id=MLFLOW_RUN_ID_PLACEHOLDER))
     assert store.experiment_id == EXPERIMENT_ID
     assert store.run_id == RUN_ID
 
@@ -128,7 +128,7 @@ def test_init_with_no_experiment_and_no_run(monkeypatch):
         info=MagicMock(run_id=RUN_ID, run_name='test-run'))
 
     store = MLFlowObjectStore(
-        TEST_PATH_FORMAT.format(experiment_id=PLACEHOLDER_EXPERIMENT_ID, run_id=PLACEHOLDER_RUN_ID))
+        TEST_PATH_FORMAT.format(experiment_id=MLFLOW_EXPERIMENT_ID_PLACEHOLDER, run_id=MLFLOW_RUN_ID_PLACEHOLDER))
     assert store.experiment_id == EXPERIMENT_ID
     assert store.run_id == RUN_ID
 
@@ -190,16 +190,19 @@ def test_get_artifact_path(mlflow_object_store):
     assert mlflow_object_store.get_artifact_path(DEFAULT_PATH + ARTIFACT_PATH) == ARTIFACT_PATH
 
     # Absolute DBFS path with placeholders
-    path = TEST_PATH_FORMAT.format(experiment_id=PLACEHOLDER_EXPERIMENT_ID, run_id=PLACEHOLDER_RUN_ID) + ARTIFACT_PATH
+    path = TEST_PATH_FORMAT.format(experiment_id=MLFLOW_EXPERIMENT_ID_PLACEHOLDER,
+                                   run_id=MLFLOW_RUN_ID_PLACEHOLDER) + ARTIFACT_PATH
     assert mlflow_object_store.get_artifact_path(path) == ARTIFACT_PATH
 
     # Raises ValueError for different experiment ID
-    path = TEST_PATH_FORMAT.format(experiment_id='different-experiment', run_id=PLACEHOLDER_RUN_ID) + ARTIFACT_PATH
+    path = TEST_PATH_FORMAT.format(experiment_id='different-experiment',
+                                   run_id=MLFLOW_RUN_ID_PLACEHOLDER) + ARTIFACT_PATH
     with pytest.raises(ValueError):
         mlflow_object_store.get_artifact_path(path)
 
     # Raises ValueError for different run ID
-    path = TEST_PATH_FORMAT.format(experiment_id=PLACEHOLDER_EXPERIMENT_ID, run_id='different-run') + ARTIFACT_PATH
+    path = TEST_PATH_FORMAT.format(experiment_id=MLFLOW_EXPERIMENT_ID_PLACEHOLDER,
+                                   run_id='different-run') + ARTIFACT_PATH
     with pytest.raises(ValueError):
         mlflow_object_store.get_artifact_path(path)
 

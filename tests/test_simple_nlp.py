@@ -47,6 +47,7 @@ def test_simple_nlp_classification():
     trainer.eval()
 
     # Check that there is some train/eval accuracy
+    assert trainer.state.train_metrics is not None
     assert trainer.state.train_metrics['MulticlassAccuracy'].compute() != 0.0
     assert trainer.state.eval_metrics['eval']['MulticlassAccuracy'].compute() != 0.0
 
@@ -100,6 +101,7 @@ def test_simple_nlp_mlm(tiny_bert_tokenizer, tiny_bert_model):
     trainer.eval()
 
     # Check that there is some train/eval cross entropy
+    assert trainer.state.train_metrics is not None
     assert trainer.state.train_metrics['LanguageCrossEntropy'].compute() != 0.0
     assert trainer.state.eval_metrics['eval']['LanguageCrossEntropy'].compute() != 0.0
 

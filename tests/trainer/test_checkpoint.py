@@ -65,6 +65,7 @@ def _load_checkpoint(filename: Union[str, pathlib.Path]):
 
 
 def _assert_checkpoints_equivalent(file1, file2, atol=0.0, rtol=0.0):
+    # TODO: consider merging with _assert_checkpoints_equal
     checkpoint_1 = _load_checkpoint(file1)
     checkpoint_2 = _load_checkpoint(file2)
 
@@ -84,6 +85,10 @@ def _assert_checkpoints_equivalent(file1, file2, atol=0.0, rtol=0.0):
     for ckpt in [checkpoint_1, checkpoint_2]:
         if 'DummyStatefulCallback' in ckpt['state']['callbacks']:
             del ckpt['state']['callbacks']['DummyStatefulCallback']
+
+    # Remove all saved checkpoints to timestamp (accumulates between runs)
+    del checkpoint_1['state']['callbacks']['CheckpointSaver']['all_saved_checkpoints_to_timestamp']
+    del checkpoint_2['state']['callbacks']['CheckpointSaver']['all_saved_checkpoints_to_timestamp']
 
     deep_compare(checkpoint_1, checkpoint_2, atol=atol, rtol=rtol)
 
@@ -280,6 +285,7 @@ class TestCheckpointSaving:
             'weights_only': False,
             'save_interval': '1ep',
             'num_checkpoints_to_keep': -1,
+            'ignore_keys': None,
         }
         expected_folder = expected_path.rstrip('/') if expected_path != '' else '.'
         mock_checkpoint_saver.assert_called_once_with(folder=expected_folder, **rest_of_checkpoint_saver_kwargs)
@@ -689,7 +695,11 @@ class TestCheckpointLoading:
 
         last_checkpoint = os.path.join('first', 'ep2.pt')
         if missing_key or unexpected_key:
-            error_context = pytest.raises(RuntimeError, match='Failed to load checkpoint due to')
+            message = r'Error\(s\) in loading state_dict'
+            if version.parse(torch.__version__) < version.parse('2.1.3'):
+                # Composer implements strict for older torch versions
+                message = 'Failed to load checkpoint due to'
+            error_context = pytest.raises(RuntimeError, match=message)
         else:
             error_context = contextlib.nullcontext()
 
@@ -741,6 +751,7 @@ class TestCheckpointLoading:
                 assert metrics_equal
 
     @pytest.mark.parametrize('load_ignore_keys,weights_equal,callbacks_equal,rng_equal', [
+        ['*', False, False, False],
         ['state/model/*', False, True, True],
         ['state/callbacks/*', True, False, True],
         ['rng', True, True, False],
@@ -758,6 +769,44 @@ class TestCheckpointLoading:
             load_path=last_checkpoint,
             load_ignore_keys=[load_ignore_keys],
         )
+
+        # Check weights loaded properly
+        with contextlib.nullcontext() if weights_equal else pytest.raises(AssertionError):
+            self._assert_weights_equivalent(
+                trainer_1.state.model,
+                trainer_2.state.model,
+            )
+
+        # Check callbacks state
+        stateful_callbacks_equal = self._stateful_callbacks_equal(
+            trainer_1.state.callbacks,
+            trainer_2.state.callbacks,
+        )
+        if callbacks_equal:
+            assert stateful_callbacks_equal
+        else:
+            assert not stateful_callbacks_equal
+
+        if rng_equal:
+            assert trainer_1_rng_state is not None
+            deep_compare(trainer_1_rng_state, trainer_2._rng_state)
+
+    @pytest.mark.parametrize('save_ignore_keys,weights_equal,callbacks_equal,rng_equal', [
+        ['*', False, False, False],
+        ['state/model/*', False, True, True],
+        ['state/callbacks/*', True, False, True],
+        ['rng', True, True, False],
+    ])
+    @pytest.mark.filterwarnings('ignore:.* is not in the state_dict.*:UserWarning')
+    def test_save_ignore_keys(self, save_ignore_keys, weights_equal, callbacks_equal, rng_equal):
+
+        trainer_1 = self.get_trainer(save_folder='first', save_ignore_keys=[save_ignore_keys])
+        trainer_1.fit()
+        trainer_1_rng_state = reproducibility.get_rng_state()
+        trainer_1.close()
+
+        last_checkpoint = os.path.join('first', 'ep2.pt')
+        trainer_2 = self.get_trainer(load_path=last_checkpoint)
 
         # Check weights loaded properly
         with contextlib.nullcontext() if weights_equal else pytest.raises(AssertionError):
@@ -972,8 +1021,10 @@ class TestCheckpointLoading:
         old_init, old_repr = NoOpModel.__init__, NoOpModel.__repr__
         NoOpModel.__init__ = lambda self, x: None  # type: ignore
         NoOpModel.__repr__ = lambda self: 'NoOpModel(3)'
-        with pytest.warns(UserWarning, match='required_on_load algorithm.*'), pytest.raises(
-                ValueError, match='loaded state dict contains a parameter group.*'):
+        error_context = pytest.raises(KeyError, match='module.0.weight')
+        if version.parse(torch.__version__) < version.parse('2.1.3'):
+            error_context = pytest.raises(ValueError, match='loaded state dict contains a parameter group.*')
+        with pytest.warns(UserWarning, match='required_on_load algorithm.*'), error_context:
             trainer_3 = self.get_trainer(load_path=os.path.join('first', 'ep1.pt'),)
             trainer_3.fit(duration='1ba')
         # Restore algorithm
@@ -1305,6 +1356,7 @@ def test_rotate_checkpoints(
             dataset=train_dataset,
             sampler=dist.get_sampler(train_dataset),
         ),
+        precision='fp32',
         save_folder=str(save_folder),
         save_filename='checkpoint_{rank}_{batch}.pt',
         save_interval='1ba',
