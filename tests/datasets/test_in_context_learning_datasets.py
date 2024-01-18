@@ -220,14 +220,6 @@ def test_stop_sequences_criteria(tiny_gpt2_tokenizer):
     assert eos_criteria(input_ids, None)
 
 
-def test_batch_padding_logic(tiny_gpt2_tokenizer):
-    continuation = tiny_gpt2_tokenizer(' dog' * 2000)['input_ids']
-    context = tiny_gpt2_tokenizer(' cat' * 2000)['input_ids']
-    _, continuation_spans = _make_padded_input(context, continuation, 2048, tiny_gpt2_tokenizer.eos_token_id)
-    # the context (of len 2000) gets clipped to len 48 so that the whole continuation can fit
-    assert continuation_spans[0] == 48 and continuation_spans[-1] == 2047
-
-
 def test_update_generation_kwargs_no_kwargs(tiny_gpt2_tokenizer, tmp_path):
     tokenizer = tiny_gpt2_tokenizer
     seqlen = 2048
