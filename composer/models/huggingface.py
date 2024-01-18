@@ -96,7 +96,7 @@ class HuggingFaceModel(ComposerModel):
         self.model = model
         self.config: PretrainedConfig = model.config
         self.model_forward_args = inspect.getfullargspec(self.model.forward).args
-        import transformers
+
         if _peft_installed and self.model_forward_args == ['self']:
             from peft import PeftModel
             if isinstance(self.model, PeftModel):
