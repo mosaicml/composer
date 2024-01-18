@@ -429,7 +429,6 @@ class HuggingFaceModel(ComposerModel):
         return hf_model, hf_tokenizer
 
     def forward(self, batch):
-        print(batch)
         if isinstance(batch, Mapping):
             # Further input validation is left to the huggingface forward call
             batch = {k: v for k, v in batch.items() if k in self.model_forward_args}
