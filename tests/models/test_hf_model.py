@@ -28,8 +28,6 @@ from tests.common.markers import device, world_size
 from tests.common.models import (configure_tiny_bert_model, configure_tiny_bert_tokenizer, configure_tiny_gpt2_model,
                                  configure_tiny_gpt2_tokenizer, configure_tiny_mistral_model,
                                  configure_tiny_mistral_tokenizer, configure_tiny_t5_model, configure_tiny_t5_tokenizer)
-from tests.common.models import (configure_tiny_bert_model, configure_tiny_bert_tokenizer, configure_tiny_gpt2_model,
-                                 configure_tiny_gpt2_tokenizer, configure_tiny_t5_model, configure_tiny_t5_tokenizer)
 from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
 
 if TYPE_CHECKING:
