@@ -36,7 +36,8 @@ def from_BertOutput(layer: torch.nn.Module,
                     non_gated_layer_bias: bool = False) -> BERTGatedFFOutput:
     """Defines a replacement policy from a :class:`transformers.models.bert.modeling_bert.BertOutput` to a :class:`composer.algorithms.gated_linear_units.gated_linear_unit_layers.BERTGatedFFOutput`"""
     assert isinstance(
-        layer, BertOutput
+        layer,
+        BertOutput  # pyright: ignore[reportUnboundVariable]
     ), 'The replacement policy requires an instance of transformers.models.bert.modeling_bert.BertOutput for the necessary fields to be defined.'
     return BERTGatedFFOutput(
         d_embed=layer.dense.out_features,  #type: ignore dense.out_features member of BertOutput
@@ -85,12 +86,20 @@ def apply_gated_linear_units(model: torch.nn.Module,
     unwrapped_model = model.model if isinstance(model, HuggingFaceModel) else model
 
     # ensure that the model is an instance of a Hugging Face BertPreTrainedModel class, since our replacement policy is only defined for BERTs
-    if not isinstance(unwrapped_model, BertPreTrainedModel):
+    if not isinstance(unwrapped_model, BertPreTrainedModel):  # pyright: ignore[reportUnboundVariable]
         raise TypeError(
             'Gated Linear Units only has a surgery policy defined for subclasses of transformers.BertPreTrainedModel')
 
+    # Early exit if nothing to replace
+    if module_surgery.count_module_instances(
+            module=model, module_class=BertIntermediate) == 0:  # pyright: ignore[reportUnboundVariable]
+        return
+
     if act_fn is None:
-        intermediate_modules = {module for module in model.modules() if isinstance(module, BertIntermediate)}
+        intermediate_modules = {
+            module for module in model.modules()
+            if isinstance(module, BertIntermediate)  # pyright: ignore[reportUnboundVariable]
+        }  # pyright: ignore[reportUnboundVariable]
         if len(intermediate_modules) == 0:
             warnings.warn(
                 NoEffectWarning('No instances of BertIntermediate were found so Gated Linear Units will be skipped '
@@ -126,8 +135,8 @@ def apply_gated_linear_units(model: torch.nn.Module,
 
     # prepare the replacement policy and perform replacement
     policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
-        BertIntermediate: from_BertIntermediate,
-        BertOutput: from_bound_BertOutput
+        BertIntermediate: from_BertIntermediate,  # pyright: ignore[reportUnboundVariable]
+        BertOutput: from_bound_BertOutput  # pyright: ignore[reportUnboundVariable]
     }
     replaced_instances = module_surgery.replace_module_classes(module=model, optimizers=optimizers, policies=policy)
     if len(replaced_instances) == 0:

@@ -21,6 +21,7 @@ from composer.core import DataSpec
 from composer.datasets.in_context_learning_evaluation import (InContextLearningCodeEvalDataset,
                                                               _get_fewshot_sample_idxs, _make_padded_input,
                                                               get_icl_task_dataloader)
+from composer.datasets.utils import MultiTokenEOSCriteria
 from composer.loggers import InMemoryLogger
 from composer.metrics import (InContextLearningCodeEvalAccuracy, InContextLearningLMAccuracy,
                               InContextLearningMultipleChoiceAccuracy, InContextLearningQAAccuracy)
@@ -67,6 +68,22 @@ def test_fewshot_sample_idxs_randomness():
 
     assert rng_1_sample_2 == rng_2_sample_2
     assert rng_1_sample_2 != rng_3_sample_2
+
+
+def test_stop_sequences_criteria(tiny_gpt2_tokenizer):
+    pytest.importorskip('transformers')
+    eos_criteria = MultiTokenEOSCriteria('\n\n', tiny_gpt2_tokenizer, 2)
+    seq1 = tiny_gpt2_tokenizer('Dogs are furry')['input_ids']
+    seq2 = tiny_gpt2_tokenizer('Dogs are furry\n\n')['input_ids']
+    seq1 = [50257] * (len(seq2) - len(seq1)) + seq1
+    input_ids = torch.tensor([seq1, seq2])
+    assert not eos_criteria(input_ids, None)
+
+    eos_criteria = MultiTokenEOSCriteria('\n\n', tiny_gpt2_tokenizer, 2)
+    seq1 = tiny_gpt2_tokenizer('Dogs are furry\n\n')['input_ids']
+    seq2 = tiny_gpt2_tokenizer('Dogs are furry\n\n')['input_ids']
+    input_ids = torch.tensor([seq1, seq2])
+    assert eos_criteria(input_ids, None)
 
 
 def test_batch_padding_logic(tiny_gpt2_tokenizer):
@@ -525,7 +542,10 @@ def test_qa_task_dataloader_w_null_eos(dataset_uri, tiny_gpt2_tokenizer, tmp_pat
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 4
     seqlen = 512
+<<<<<<< HEAD
     # empirical number from the small test dataset
+=======
+>>>>>>> dev
     tiny_gpt2_tokenizer.eos_token_id = None
     with pytest.raises(ValueError):
         _ = get_icl_task_dataloader('question_answering',

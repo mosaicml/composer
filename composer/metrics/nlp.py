@@ -329,8 +329,6 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
         do_normalization = batch.get('do_normalization', True)
         stopping_criteria = batch.get('stopping_criteria', None)
         for sample_output, sample_labels, prompt_tensor in zip(outputs, labels, batch['input_ids']):
-        
-
             final_answer = sample_output
             if stopping_criteria is not None and len(stopping_criteria) > 0:
                 final_answer = re.split('|'.join(stopping_criteria), final_answer)[0]

@@ -6,7 +6,7 @@
 import logging
 import textwrap
 import warnings
-from typing import Callable, List, Tuple, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -169,52 +169,59 @@ def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is
             log.warning(transform_added_logstring)
 
 
-class MultiTokenEOSCriteria(transformers.StoppingCriteria):
-    """Criteria to stop on the specified multi-token sequence.
-    Slightly modified from: https://github.com/EleutherAI/lm-evaluation-harness/blob/78545d42f2ca95c6fe0ed220d456eeb94f4485e9/lm_eval/utils.py#L614-L649
-    """
+try:
+    import transformers
 
-    def __init__(
-        self,
-        sequence: str,
+    class MultiTokenEOSCriteria(transformers.StoppingCriteria):
+        """Criteria to stop on the specified multi-token sequence.
+        Slightly modified from: https://github.com/EleutherAI/lm-evaluation-harness/blob/78545d42f2ca95c6fe0ed220d456eeb94f4485e9/lm_eval/utils.py#L614-L649
+        """
+
+        def __init__(
+            self,
+            stop_sequence: str,
+            tokenizer: transformers.PreTrainedTokenizer,
+            batch_size: int,
+        ) -> None:
+            self.done_tracker = [False] * batch_size
+            self.stop_sequence = stop_sequence
+            self.stop_sequence_ids = tokenizer.encode(stop_sequence, add_special_tokens=False)
+
+            # we look back for 2 more tokens than it takes to encode our stop sequence
+            # because tokenizers suck, and a model might generate `['\n', '\n']` but our `sequence` is `['\n\n']`
+            # and we don't want to mistakenly not stop a generation because our
+            # (string) stop sequence was output in a different tokenization
+
+            # NOTE: there is a minor danger that this will end up looking back 2 tokens into the past, into the inputs to the model,
+            # and stopping generation immediately as a result. With only 2 extra tokens of lookback, this risk is minimized
+            self.stop_sequence_id_len = len(self.stop_sequence_ids) + 2
+            self.tokenizer = tokenizer
+
+        def __call__(self, input_ids, scores: Optional[torch.FloatTensor] = None, **kwargs) -> bool:
+            # For efficiency, we compare the last n tokens where n is the number of tokens in the stop_sequence
+            lookback_ids_batch = input_ids[:, :][:, -self.stop_sequence_id_len:]
+
+            lookback_tokens_batch = self.tokenizer.batch_decode(lookback_ids_batch)
+            for i, done in enumerate(self.done_tracker):
+                if i >= len(lookback_tokens_batch):
+                    # The last batch of a dataset may be smaller than `batch_size`
+                    # Automatically set those indices in the done_tracker to True
+                    # since those indices don't show up in the current batch
+                    self.done_tracker[i] = True
+                    break
+                elif not done:
+                    self.done_tracker[i] = self.stop_sequence in lookback_tokens_batch[i]
+            return False not in self.done_tracker
+
+    def stop_sequences_criteria(
         tokenizer: transformers.PreTrainedTokenizer,
+        stop_sequences: List[str],
         batch_size: int,
-    ) -> None:
-        self.done_tracker = [False] * batch_size
-        self.sequence = sequence
-        self.sequence_ids = tokenizer.encode(sequence, add_special_tokens=False)
-        # we look back for 2 more tokens than it takes to encode our stop sequence
-        # because tokenizers suck, and a model might generate `['\n', '\n']` but our `sequence` is `['\n\n']`
-        # and we don't want to mistakenly not stop a generation because our
-        # (string) stop sequence was output in a different tokenization
+    ) -> transformers.StoppingCriteriaList:
+        return transformers.StoppingCriteriaList([
+            *[MultiTokenEOSCriteria(sequence, tokenizer, batch_size) for sequence in stop_sequences],
+        ])
 
-        # NOTE: there is a minor danger that this will end up looking back 2 tokens into the past, into the inputs to the model,
-        # and stopping generation immediately as a result. With only 2 extra tokens of lookback, this risk is minimized
-        self.sequence_id_len = len(self.sequence_ids) + 2
-        self.tokenizer = tokenizer
-
-    def __call__(self, input_ids, scores, **kwargs) -> bool:
-        # For efficiency, we compare the last n tokens where n is the number of tokens in the stop_sequence
-        lookback_ids_batch = input_ids[:, :][:, -self.sequence_id_len:]
-
-        lookback_tokens_batch = self.tokenizer.batch_decode(lookback_ids_batch)
-        for i, done in enumerate(self.done_tracker):
-            if i >= len(lookback_tokens_batch):
-                # the last batch of a dataset may b smaller than `batch_size`
-                # automatically set those indices in the done_tracker to True
-                # since those indices don't show up in the current batch
-                self.done_tracker[i] = True
-                break
-            elif not done:
-                self.done_tracker[i] = self.sequence in lookback_tokens_batch[i]
-        return False not in self.done_tracker
-
-
-def stop_sequences_criteria(
-    tokenizer: transformers.PreTrainedTokenizer,
-    stop_sequences: List[str],
-    batch_size: int,
-) -> transformers.StoppingCriteriaList:
-    return transformers.StoppingCriteriaList([
-        *[MultiTokenEOSCriteria(sequence, tokenizer, batch_size) for sequence in stop_sequences],
-    ])
+except ImportError as e:
+    stop_sequences_criteria = None  # pyright: ignore [reportGeneralTypeIssues]
+    MultiTokenEOSCriteria = None  # pyright: ignore [reportGeneralTypeIssues]

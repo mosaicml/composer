@@ -18,7 +18,8 @@ from composer.core import Precision, State
 from composer.devices import Device
 from composer.trainer.meta_safe_apply import meta_safe_apply
 from composer.trainer.mosaic_fsdp import patch_pytorch
-from composer.trainer.mosaic_fsdp_utils import BACKWARD_PREFETCH_MAP, SHARDING_MAP, get_cpu_offload, get_mixed_precision
+from composer.trainer.mosaic_fsdp_utils import (BACKWARD_PREFETCH_MAP, SHARDING_MAP, _set_custom_fsdp_module_kwargs,
+                                                get_cpu_offload, get_mixed_precision)
 from composer.utils import StringEnum, dist, ensure_tuple, using_torch_2
 
 __all__ = ['DDPSyncStrategy', 'ddp_sync_context', 'prepare_ddp_module', 'prepare_fsdp_module']
@@ -143,6 +144,7 @@ def set_fsdp_default(fsdp_config: Dict[str, Any]):
     fsdp_config.setdefault('load_monolith_rank0_only', False)
     fsdp_config.setdefault('load_planner', None)
     fsdp_config.setdefault('mixed_precision', 'DEFAULT')
+    fsdp_config.setdefault('process_group', None)
     fsdp_config.setdefault('save_planner', None)
     fsdp_config.setdefault('sharded_ckpt_prefix_dir', 'ep{epoch}-ba{batch}')
     fsdp_config.setdefault('sharding_strategy', 'FULL_SHARD')
@@ -229,7 +231,7 @@ def prepare_fsdp_module(
 
     set_fsdp_default(fsdp_config)
 
-    # Check sync_module_states is True for mixed initialization
+    # Check sync_module_states is True for mixed initialization or HSDP
     if fsdp_config['sync_module_states'] == False:
         rank_on_meta = 1 if next(model.parameters()).device.type == 'meta' else 0
         all_ranks_meta = device.tensor_to_device(torch.tensor([rank_on_meta], dtype=torch.uint8))
@@ -267,6 +269,13 @@ def prepare_fsdp_module(
         # `nn.Module.named_parameters`.
         # Setting it to `True` is mandatory when using `torch.compile()`.
         kwargs['use_orig_params'] = fsdp_config['use_orig_params']
+        if version.parse(torch.__version__.split('.dev')[0]) >= version.parse('2.2.0'):
+            if 'device_mesh' in fsdp_config:
+                from torch.distributed._tensor import init_device_mesh
+                kwargs['device_mesh'] = init_device_mesh(
+                    'cuda',
+                    tuple([int(x) for x in fsdp_config['device_mesh']]),
+                )
 
     # necessary variables for optimizers with multiple param groups in FSDP
     num_param_groups = None
@@ -347,6 +356,10 @@ def prepare_fsdp_module(
                 f'Consider using `amp` or `bf16` for precision or setting param_dtype in mixed_precision to `None` '
                 f'with sharding strategy `{sharding_map_key}.`')
 
+    process_group = None
+    if fsdp_config['process_group'] is not None:
+        process_group_dict = {'process_group': fsdp_config['process_group']}
+        process_group = _set_custom_fsdp_module_kwargs(process_group_dict, process_group_cache)['process_group']
     backward_prefetch = BACKWARD_PREFETCH_MAP[fsdp_config['backward_prefetch'].upper()]
     activation_checkpointing = fsdp_config['activation_checkpointing']
     activation_cpu_offload = fsdp_config['activation_cpu_offload']
@@ -510,7 +523,6 @@ def prepare_fsdp_module(
                         ret = bool(module._fsdp_wrap)
                     elif hasattr(obj, 'fsdp_wrap_fn') and isinstance(obj.fsdp_wrap_fn, Callable):
                         ret = obj.fsdp_wrap_fn(module)
-                        from composer.trainer.mosaic_fsdp_utils import _set_custom_fsdp_module_kwargs
                         if isinstance(ret, dict):
                             ret = _set_custom_fsdp_module_kwargs(ret, process_group_cache)
                     if ret and auto_microbatching:
@@ -553,6 +565,7 @@ def prepare_fsdp_module(
 
             fsdp_obj = FullyShardedDataParallel(
                 obj,
+                process_group=process_group,
                 sharding_strategy=sharding_strategy,
                 auto_wrap_policy=_auto_wrap_policy,  # type: ignore FSDP type bug
                 cpu_offload=cpu_offload,
@@ -626,7 +639,8 @@ def prepare_fsdp_module(
                 # If module has attribute `module._activation_checkpointing = ...`, always respect it
                 # Otherwise checkpoint if root object `obj.activation_checkpointing_fn(module)` is true
                 def _check_fn(module: torch.nn.Module) -> bool:
-                    if not is_torch_2_0 and isinstance(module, FlattenParamsWrapper):
+                    if not is_torch_2_0 and isinstance(module,
+                                                       FlattenParamsWrapper):  # pyright: ignore[reportUnboundVariable]
                         return False
                     if isinstance(module, FullyShardedDataParallel):
                         return False
@@ -647,24 +661,22 @@ def prepare_fsdp_module(
 
     # Print FSDP wrapped model and FSDP config if `verbose=True`
     if fsdp_config['verbose']:
-        print(f'FSDP: Wrapped Model:')
-        print(model)
-        print(f'FSDP: Using sharding_strategy={sharding_strategy}')
-        print(f'FSDP: Using cpu_offload={cpu_offload}')
-        print(f'FSDP: Using mixed_precision={mixed_precision}')
-        print(f'FSDP: Using backward_prefetch={backward_prefetch}')
-        print(f'FSDP: Using activation_checkpointing={activation_checkpointing}')
-        print(f'FSDP: Using activation_cpu_offload={activation_cpu_offload}')
-        print(f'FSDP: Using sync_module_states={sync_module_states}')
-        print(f'FSDP: Using forward_prefetch={forward_prefetch}')
-        print(f'FSDP: Using limit_all_gathers={limit_all_gathers}')
-        print(f'FSDP: Using state_dict_type={state_dict_type}')
-        print(f'FSDP: Using sharded_ckpt_prefix_dir={sharded_ckpt_prefix_dir}')
+        log.info(f'FSDP: Wrapped model: {model}')
+        log.info(f'FSDP: Using sharding_strategy={sharding_strategy}')
+        log.info(f'FSDP: Using cpu_offload={cpu_offload}')
+        log.info(f'FSDP: Using mixed_precision={mixed_precision}')
+        log.info(f'FSDP: Using backward_prefetch={backward_prefetch}')
+        log.info(f'FSDP: Using activation_checkpointing={activation_checkpointing}')
+        log.info(f'FSDP: Using activation_cpu_offload={activation_cpu_offload}')
+        log.info(f'FSDP: Using sync_module_states={sync_module_states}')
+        log.info(f'FSDP: Using forward_prefetch={forward_prefetch}')
+        log.info(f'FSDP: Using limit_all_gathers={limit_all_gathers}')
+        log.info(f'FSDP: Using state_dict_type={state_dict_type}')
+        log.info(f'FSDP: Using sharded_ckpt_prefix_dir={sharded_ckpt_prefix_dir}')
 
     # Rebuild optimizer now that parameters are sharded
     if optimizers:
-        optimizers_tuple = ensure_tuple(optimizers)
-        optim = optimizers_tuple[0]
+        optim = ensure_tuple(optimizers)[0]
         optim.param_groups.clear()
 
         assert num_param_groups is not None
