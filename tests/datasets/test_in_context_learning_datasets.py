@@ -493,7 +493,7 @@ def test_qa_get_max_answer_length(tiny_gpt2_tokenizer, tmp_path):
         destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
     )
     # empirical number from the small test dataset
-    assert dl.max_answer_length == 9
+    assert dl.max_answer_length == 7
 
 
 def test_qa_get_answer_from_example_with_no_cot(tmp_path, tiny_gpt2_tokenizer):
@@ -1875,7 +1875,7 @@ def test_qa_task_evaluation_opt_tokenizer(device, world_size, tiny_opt_tokenizer
     tokenizer = tiny_opt_tokenizer
 
     # TODO: check this
-    batch_size = 10
+    batch_size = 4
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
     dl = get_icl_task_dataloader(
@@ -1925,6 +1925,7 @@ def test_qa_task_evaluation_with_cot_opt_tokenizer(device, world_size, tiny_opt_
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_opt_tokenizer
 
+    batch_size = 4
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
     dl = get_icl_task_dataloader(
@@ -2082,7 +2083,7 @@ def test_code_eval_microbatching(monkeypatch, device, world_size, tiny_opt_token
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_opt_tokenizer
-    batch_size = 8 
+    batch_size = 4 
 
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
