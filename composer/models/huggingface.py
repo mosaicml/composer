@@ -540,7 +540,7 @@ class HuggingFaceModel(ComposerModel):
             tmp_dir = Path(tmp_dir)
             model_dir = tmp_dir / 'model'
             tokenizer_dir = tmp_dir / 'tokenizer'
-            
+
             from transformers import PretrainedConfig
             assert isinstance(self.model.config, PretrainedConfig)
             original_model_config: PretrainedConfig = self.model.config
