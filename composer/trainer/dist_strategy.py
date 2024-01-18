@@ -661,19 +661,18 @@ def prepare_fsdp_module(
 
     # Print FSDP wrapped model and FSDP config if `verbose=True`
     if fsdp_config['verbose']:
-        print(f'FSDP: Wrapped Model:')
-        print(model)
-        print(f'FSDP: Using sharding_strategy={sharding_strategy}')
-        print(f'FSDP: Using cpu_offload={cpu_offload}')
-        print(f'FSDP: Using mixed_precision={mixed_precision}')
-        print(f'FSDP: Using backward_prefetch={backward_prefetch}')
-        print(f'FSDP: Using activation_checkpointing={activation_checkpointing}')
-        print(f'FSDP: Using activation_cpu_offload={activation_cpu_offload}')
-        print(f'FSDP: Using sync_module_states={sync_module_states}')
-        print(f'FSDP: Using forward_prefetch={forward_prefetch}')
-        print(f'FSDP: Using limit_all_gathers={limit_all_gathers}')
-        print(f'FSDP: Using state_dict_type={state_dict_type}')
-        print(f'FSDP: Using sharded_ckpt_prefix_dir={sharded_ckpt_prefix_dir}')
+        log.info(f'FSDP: Wrapped model: {model}')
+        log.info(f'FSDP: Using sharding_strategy={sharding_strategy}')
+        log.info(f'FSDP: Using cpu_offload={cpu_offload}')
+        log.info(f'FSDP: Using mixed_precision={mixed_precision}')
+        log.info(f'FSDP: Using backward_prefetch={backward_prefetch}')
+        log.info(f'FSDP: Using activation_checkpointing={activation_checkpointing}')
+        log.info(f'FSDP: Using activation_cpu_offload={activation_cpu_offload}')
+        log.info(f'FSDP: Using sync_module_states={sync_module_states}')
+        log.info(f'FSDP: Using forward_prefetch={forward_prefetch}')
+        log.info(f'FSDP: Using limit_all_gathers={limit_all_gathers}')
+        log.info(f'FSDP: Using state_dict_type={state_dict_type}')
+        log.info(f'FSDP: Using sharded_ckpt_prefix_dir={sharded_ckpt_prefix_dir}')
 
     # Rebuild optimizer now that parameters are sharded
     if optimizers:
