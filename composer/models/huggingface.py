@@ -104,9 +104,8 @@ class HuggingFaceModel(ComposerModel):
 
         # inspect.getfullargspec HuggingFace quantized model could not return args correctly
         if not self.model_forward_args:
-            self.model_forward_args = inspect.signature(
-                self.model.forward).parameters.keys()
-            
+            self.model_forward_args = inspect.signature(self.model.forward).parameters.keys()
+
         if not self.model_forward_args:
             raise ValueError('Could not determine the forward arguments of the model. Please open a GitHub issue.')
 
