@@ -285,6 +285,8 @@ class InContextLearningDataset(Dataset):
         self.prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
 
         self.max_seq_len = max_seq_len
+        if not isinstance(pad_tok_id, int):
+            raise ValueError(f'`InContextLearningDataset` must be an integer. Found {pad_tok_id} instead')
         self.pad_tok_id = pad_tok_id
         self.num_fewshot = num_fewshot
         self.padding_side = padding_side
@@ -629,6 +631,8 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
                  early_stopping_criteria: Optional[List[str]] = None,
                  do_normalization: bool = True,
                  *args, **kwargs):
+        if kwargs['tokenizer'].eos_token_id is None:
+            raise ValueError('`InContextLearningQATaskDataset` tokenizer must have non-null `eos_token_id`')
         self.cot_delimiter = cot_delimiter
         self.has_cot = False
         self.max_answer_length = 0
