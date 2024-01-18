@@ -111,6 +111,10 @@ class HuggingFaceModel(ComposerModel):
                                                     conda_package='peft',
                                                     conda_channel='conda-forge')
 
+        if peft_config is not None:
+            # Hugging Face requires the peft type to be upper case, so we do that here
+            # https://github.com/huggingface/peft/blob/ebbff4023ad276cbcb2466fd7e99be7d3ae0ae11/src/peft/utils/peft_types.py#L22-L51
+            peft_config.peft_type = peft_config.peft_type.upper()
         if peft_config is not None and peft_config.peft_type != 'LORA':
             raise ValueError(
                 f'PEFT type {peft_config.peft_type} is not supported by HuggingFaceModel. Only LORA is supported.')
