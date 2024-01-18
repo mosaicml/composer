@@ -674,7 +674,7 @@ def write_huggingface_pretrained_from_composer_checkpoint(
         trainer.fit()
         trainer.close()
 
-    Example:
+    xample:
 
     .. testcode::
 
