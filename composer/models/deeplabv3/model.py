@@ -24,6 +24,9 @@ from composer.utils import dist
 
 __all__ = ['deeplabv3', 'composer_deeplabv3']
 
+_IMAGENET1K_V1_URL = 'https://download.pytorch.org/models/resnet101-63fe2227.pth'
+_IMAGENET1K_V2_URL = 'https://download.pytorch.org/models/resnet101-cd907fc2.pth'
+
 
 class SimpleSegmentationModel(torch.nn.Module):
 
@@ -89,9 +92,9 @@ def deeplabv3(num_classes: int,
         if backbone_weights:
             pretrained = True
             if backbone_weights == 'IMAGENET1K_V1':
-                resnet.model_urls[backbone_arch] = 'https://download.pytorch.org/models/resnet101-63fe2227.pth'
+                resnet.model_urls[backbone_arch] = _IMAGENET1K_V1_URL  # pyright: ignore[reportGeneralTypeIssues]
             elif backbone_weights == 'IMAGENET1K_V2':
-                resnet.model_urls[backbone_arch] = 'https://download.pytorch.org/models/resnet101-cd907fc2.pth'
+                resnet.model_urls[backbone_arch] = _IMAGENET1K_V2_URL  # pyright: ignore[reportGeneralTypeIssues]
             else:
                 ValueError(
                     textwrap.dedent(f"""\

@@ -122,7 +122,7 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
 
     obj = urlparse('s3://mosaicml-internal-integration-testing/read_only/CIFAR-10/')
     s3 = boto3.resource('s3')
-    bucket = s3.Bucket(obj.netloc)
+    bucket = s3.Bucket(obj.netloc)  # pyright: ignore[reportGeneralTypeIssues]
     files = bucket.objects.filter(Prefix=obj.path.lstrip('/'))
     for file in files:
         target = os.path.join(os.getcwd(), 'data', os.path.relpath(file.key, obj.path.lstrip('/')))

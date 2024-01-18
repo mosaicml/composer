@@ -32,7 +32,7 @@ class HealthChecker(Callback):
     [30, 30, 45], then the range (45-30=15) would exceed a threshold of 10%.
 
     Args:
-        threshold (float, optional): Threshold of GPU utilization range to
+        threshold (int, optional): Threshold of GPU utilization range to
             trigger an alert. Defaults to 10.
         sample_freq (int, optional): Sample frequency in seconds. Default: 5.
         window_size (int, optional): Window size in seconds. HealthChecker will
@@ -46,7 +46,7 @@ class HealthChecker(Callback):
 
     def __init__(
         self,
-        threshold: float = 10,
+        threshold: int = 10,
         sample_freq: int = 5,
         window_size: int = 120,
         wait: int = 120,

@@ -109,7 +109,7 @@ class SqueezeExciteConv2d(torch.nn.Module):
     def __init__(self, *args, latent_channels: float = 0.125, conv: Optional[torch.nn.Conv2d] = None, **kwargs):
         super().__init__()
         self.conv = torch.nn.Conv2d(*args, **kwargs) if conv is None else conv
-        self.conv._already_squeeze_excited = True  # Mark to avoid rewrapping on duplicate calls
+        self.conv._already_squeeze_excited = True  # Mark to avoid rewrapping on duplicate calls # pyright: ignore[reportGeneralTypeIssues]
         self.se = SqueezeExcite2d(num_features=self.conv.out_channels, latent_channels=latent_channels)
 
     def forward(self, input: torch.Tensor) -> torch.Tensor:
