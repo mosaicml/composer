@@ -107,20 +107,19 @@ def get_gpu_flops_available(state: State):
         device_name = 'v100-pcie'
     elif 't4' in device_name:
         device_name = 't4'
-    else:
-        device_name = None
 
-    if device_name is not None:
-        try:
-            gpu_flops_available = int(GPU_AVAILABLE_FLOPS[device_name][state.precision.value])
-        except:
-            gpu_flops_available = None
+    if device_name in GPU_AVAILABLE_FLOPS and state.precision.value in GPU_AVAILABLE_FLOPS[device_name]:
+        gpu_flops_available = int(GPU_AVAILABLE_FLOPS[device_name][state.precision.value])
+    else:
+        gpu_flops_available = None
 
     if gpu_flops_available is None:
         warnings.warn(
-            f'gpu_flop count not found for {device_name} with precision: {state.precision.value}; ' +\
-            f'MFU cannot be calculated and reported. gpu_flops_available can be manually' +\
-            f'overridden by setting gpu_flops_available in SpeedMonitor.'
+            f'gpu_flop count not found for {device_name} with precision={state.precision.value} ' +\
+            f'so MFU cannot be calculated and reported. gpu_flops_available can be manually ' +\
+            f'overridden by setting gpu_flops_available in SpeedMonitor or {device_name} can ' +\
+            f'be added to GPU_AVAILABLE_FLOPS in composer/callbacks/speed_monitor.py',
+            stacklevel=2,
         )
         # Setting to 0 will disable MFU computation and prevent
         # the speed monitor from running this helper every batch
@@ -174,8 +173,7 @@ class SpeedMonitor(Callback):
     +-------------------------------------+-----------------------------------------------------------+
     |                                     | Rolling average (over `window_size` most recent           |
     | `throughput/tokens_per_sec`         | batches) of the number of tokens processed per second.    |
-    |                                     | Only logged when dataloader.dataset has `max_seq_len`.    |
-    |                                     | This may include padding depending on dataset             |
+    |                                     | Only logged if dataspec returns tokens per batch          |
     +-------------------------------------+-----------------------------------------------------------+
     |                                     | Estimates flops by `flops_per_batch * batches_per_sec`    |
     | `throughput/flops_per_sec`          | if model has attribute `flops_per_batch`                  |
@@ -186,8 +184,8 @@ class SpeedMonitor(Callback):
     | `throughput/device/samples_per_sec` | `throughput/samples_per_sec` divided by world size        |
     +-------------------------------------+-----------------------------------------------------------+
     |                                     | `throughput/tokens_per_sec` divided by world size. Only   |
-    | `throughput/device/tokens_per_sec`  | logged when dataloader.dataset has `max_seq_len`. This    |
-    |                                     | may include pad tokens depending on dataset               |
+    | `throughput/device/tokens_per_sec`  | logged if dataspec returns tokens per batch               |
+    |                                     |                                                           |
     +-------------------------------------+-----------------------------------------------------------+
     |                                     | `throughput/flops_per_sec` divided by world size. Only    |
     | `throughput/device/flops_per_sec`   | logged when model has attribute `flops_per_batch`         |
@@ -222,6 +220,7 @@ class SpeedMonitor(Callback):
     ):
         # Track the batch num samples and wct to compute throughput over a window of batches
         self.history_samples: Deque[int] = deque(maxlen=window_size + 1)
+        self.history_tokens: Deque[int] = deque(maxlen=window_size + 1)
         self.history_wct: Deque[float] = deque(maxlen=window_size + 1)
         self.history_flops: Deque[float] = deque(maxlen=window_size + 1)
 
@@ -259,6 +258,7 @@ class SpeedMonitor(Callback):
     def batch_end(self, state: State, logger: Logger):
         # Add the new element
         self.history_samples.append(state.timestamp.sample.value)
+        self.history_tokens.append(state.timestamp.token.value)
         self.history_wct.append(state.timestamp.total_wct.total_seconds())
 
         # Log the throughput
@@ -266,6 +266,7 @@ class SpeedMonitor(Callback):
             world_size = dist.get_world_size()
             elapsed_batches = len(self.history_samples) - 1
             elapsed_samples = int(self.history_samples[-1]) - int(self.history_samples[0])
+            elapsed_tokens = int(self.history_tokens[-1]) - int(self.history_tokens[0])
             elapsed_wct = self.history_wct[-1] - self.history_wct[0]
             batches_per_sec = elapsed_batches / elapsed_wct
             samples_per_sec = elapsed_samples / elapsed_wct
@@ -277,17 +278,13 @@ class SpeedMonitor(Callback):
                 'throughput/device/batches_per_sec': dev_batches_per_sec,
                 'throughput/device/samples_per_sec': dev_samples_per_sec,
             })
-
-            # Compute token stats if dataloader.dataset has max_seq_len. Assumes no padding.
-            try:
-                max_seq_len = state.dataloader.dataset.max_seq_len  # type: ignore
-                # Only applicable to seq data / models
+            if elapsed_tokens > 0:
+                tokens_per_sec = elapsed_tokens / elapsed_wct
+                dev_tokens_per_sec = tokens_per_sec / world_size
                 logger.log_metrics({
-                    'throughput/tokens_per_sec': samples_per_sec * max_seq_len,
-                    'throughput/device/tokens_per_sec': dev_samples_per_sec * max_seq_len,
+                    'throughput/tokens_per_sec': tokens_per_sec,
+                    'throughput/device/tokens_per_sec': dev_tokens_per_sec,
                 })
-            except AttributeError:
-                pass
 
         # Compute flops stats if model has flops_per_batch
         composer_model = state.model

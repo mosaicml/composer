@@ -70,15 +70,16 @@ while True:
         break
     else:
         assert end != -1, 'there should be a balanced number of start and ends'
-        long_description = long_description[:start] + long_description[end + len(end_tag):]
+        long_description = long_description[:start] + \
+            long_description[end + len(end_tag):]
 
 install_requires = [
     'pyyaml>=6.0,<7',
     'tqdm>=4.62.3,<5',
     'torchmetrics>=0.10.0,<1.1',
     'torch_optimizer>=0.3.0,<0.4',
-    'torchvision>=0.13.1,<0.17',
-    'torch>=1.13.1,<2.1.2',
+    'torchvision>=0.13.1,<0.20',  # TODO: Tighten before release
+    'torch>=1.13.1,<2.3.1',  # TODO: Tighten before release
     'requests>=2.26.0,<3',
     'numpy>=1.21.5,<1.27.0',
     'psutil>=5.8.0,<6',
@@ -87,7 +88,7 @@ install_requires = [
     'py-cpuinfo>=8.0.0,<10',
     'packaging>=21.3.0,<23',
     'importlib-metadata>=5.0.0,<7',
-    'mosaicml-cli>=0.5.25,<0.6',
+    'mosaicml-cli>=0.5.25,<0.7',
 ]
 extra_deps = {}
 
@@ -98,13 +99,13 @@ extra_deps['dev'] = [
     # Pinning versions strictly to avoid random test failures.
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
-    'junitparser==3.1.0',
-    'coverage[toml]==7.3.0',
+    'junitparser==3.1.1',
+    'coverage[toml]==7.3.4',
     'fasteners==0.18',  # object store tests require fasteners
-    'pytest==7.4.3',
+    'pytest==7.4.4',
     'toml==0.10.2',
     'ipython==8.11.0',
-    'ipykernel==6.26.0',
+    'ipykernel==6.28.0',
     'jupyter==1.0.0',
     'yamllint==1.33.0',
     'recommonmark==0.7.1',
@@ -116,7 +117,12 @@ extra_deps['dev'] = [
     'sphinx_markdown_tables==0.0.17',
     'sphinx-argparse==0.4.0',
     'sphinxcontrib.katex==0.9.6',
-    'sphinxext.opengraph==0.9.0',
+    'sphinxcontrib-applehelp==1.0.0',
+    'sphinxcontrib-devhelp==1.0.0',
+    'sphinxcontrib-htmlhelp==2.0.0',
+    'sphinxcontrib-serializinghtml==1.1.5',
+    'sphinxcontrib-qthelp==1.0.0',
+    'sphinxext.opengraph==0.9.1',
     'sphinxemoji==0.2.0',
     'furo==2022.9.29',
     'sphinx-copybutton==0.5.2',
@@ -125,7 +131,7 @@ extra_deps['dev'] = [
     'sphinx_panels==0.6.0',
     'sphinxcontrib-images==0.9.4',
     'pytest_codeblocks==0.17.0',
-    'traitlets==5.13.0',
+    'traitlets==5.14.1',
     'nbsphinx==0.9.1',
     'pandoc==2.3',
     'pypandoc==1.12',
@@ -184,7 +190,7 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<4.36,!=4.34.0',
+    'transformers>=4.11,<4.37,!=4.34.0',
     'datasets>=2.4,<3',
 ]
 
@@ -223,12 +229,12 @@ extra_deps['onnx'] = [
 ]
 
 extra_deps['mlflow'] = [
-    'mlflow>=2.5.0,<3.0',
+    'mlflow>=2.9.2,<3.0',
 ]
 
 extra_deps['pandas'] = ['pandas>=2.0.0,<3.0']
 
-extra_deps['databricks'] = ['databricks-sdk>=0.8.0,<1.0']
+extra_deps['databricks'] = ['databricks-sdk>=0.15.0,<1.0']
 
 extra_deps['all'] = {dep for deps in extra_deps.values() for dep in deps}
 

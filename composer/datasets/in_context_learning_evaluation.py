@@ -8,13 +8,14 @@ import copy
 import json
 import os
 import random
-from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Union, Optional
 
 import torch
 from torch.utils.data import DataLoader, Dataset
 
 from composer.core import DataSpec
 from composer.core.data_spec import _default_split_batch, _split_list
+from composer.datasets.utils import stop_sequences_criteria
 from composer.utils import MissingConditionalImportError, dist, get_file
 
 if TYPE_CHECKING:
@@ -617,8 +618,17 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
     Additional Args:
         cot_delimiter (str): Delimiter to place between the chain of thought and continuations.
     """
+                # init:
+                #  early_stopping_criteria: Optional[List[str]] = None,
+                #  do_normalization: bool = True):
+        # self.early_stopping_criteria = early_stopping_criteria
+        # self.do_normalization = do_normalization
 
-    def __init__(self, cot_delimiter: str = '', *args, **kwargs):
+    def __init__(self, 
+                 cot_delimiter: str = '', 
+                 early_stopping_criteria: Optional[List[str]] = None,
+                 do_normalization: bool = True,
+                 *args, **kwargs):
         self.cot_delimiter = cot_delimiter
         self.has_cot = False
         self.max_answer_length = 0
@@ -633,15 +643,19 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
                          *args,
                          **kwargs)
         # NOTE: set these after init call bcus they take class vars
+        self.early_stopping_criteria = early_stopping_criteria
         self.base_batch = {
             'input_ids': [],
             'mode': 'generate',
             'labels': [],
             'cot_delimiter': self.cot_delimiter,
             'generation_length': self.max_answer_length,
+            'stopping_criteria': early_stopping_criteria,
+            'do_normalization': do_normalization,
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
-                'use_cache': True
+                'use_cache': True,
+                'eos_token_id': self.tokenizer.eos_token_id,
             }
         }
         self.batch_mapping = {
@@ -718,6 +732,19 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
                 max_answer_length = max(max_answer_length, len(self.tokenizer(response)['input_ids']))
         max_answer_length = max_answer_length + (_MAX_ANSWER_BUFFER_LENGTH if len(self.cot_delimiter) > 0 else 0)
         return max_answer_length
+
+    def collate_fn(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        batch = super().collate_fn(data)
+        batch_size = batch['input_ids'].shape[0]
+        stopping_criteria = None
+        if self.early_stopping_criteria:
+            if stop_sequences_criteria is None:  # pyright: ignore [reportUnnecessaryComparison]
+                raise MissingConditionalImportError(extra_deps_group='nlp',
+                                                    conda_package='transformers',
+                                                    conda_channel='conda-forge')
+            stopping_criteria = stop_sequences_criteria(self.tokenizer, self.early_stopping_criteria, batch_size)
+        batch['generation_kwargs']['stopping_criteria'] = stopping_criteria
+        return batch
 
 
 class InContextLearningLMTaskDataset(InContextLearningDataset):
@@ -887,7 +914,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         batch = copy.deepcopy(self.base_batch)
         for data_pair in data:
             choice_start_idx = len(batch['continuation_indices'])
-            # TODO: use batch_mappings? Could be fine as is
+            # NOTE: not using batch_mapping
             for i, context_enc in enumerate(data_pair[self.context_key]):
                 batch['input_ids'].append(context_enc)
                 batch['continuation_indices'].append(data_pair['continuation_indices'][i])
@@ -1200,8 +1227,12 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
                 'num_beams': 1,  # single beam
                 'num_return_sequences': generations_per_sample,
                 'do_sample': True,
-                'use_cache': True
-            },
+                # # TODO: remove top_p and top_k and suggest using generation kwargs?
+                # 'top_p': self.top_p,
+                # 'top_k': self.top_k,
+                'use_cache': True,
+                'eos_token_id': self.tokenizer.eos_token_id
+            }
         }
         self._update_generation_kwargs(kwargs.get('generation_kwargs'))
 
@@ -1228,7 +1259,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
                 self.tokenizer(example['canonical_solution'], add_special_tokens=False)['input_ids'])
             max_answer_length = max(max_answer_length, len_tokenized_answer)
         self.max_prompt_length = max_prompt_length
-        self.max_answer_length = max_answer_length
+        self.max_answer_length = max_answer_length + _MAX_ANSWER_BUFFER_LENGTH
 
         def _trim_padding(example: Dict):
             # Remove padding tokens applied during tokenization
@@ -1280,7 +1311,8 @@ def build_icl_dataloader(
     pass_at_k: int,
     generations_per_sample: int,
     generation_kwargs: Dict,
-) -> DataSpec:
+    early_stopping_criteria: Optional[List[str]] = None,
+    do_normalization: bool = True) -> DataSpec:
     """
     Factory method that builds the specific dataset for the specified icl_task_type.
     See documentation for `get_icl_task_dataloader` for arugment documentation.
@@ -1360,6 +1392,8 @@ def build_icl_dataloader(
             hf_loading_vars=hf_loading_vars,
             hf_parsing_map=hf_parsing_map,
             cot_delimiter=cot_delimiter,
+            early_stopping_criteria=early_stopping_criteria,
+            do_normalization=do_normalization,
             generation_kwargs=generation_kwargs,
         )
         effective_batchsize = batch_size
@@ -1460,7 +1494,7 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_lo
         tmp_path_to_broadcast = str(os.path.abspath(cat_dest))
         gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
         if dist.get_local_rank() == 0:
-            subset = [l for l in dataset if l['category'] == cat]
+            subset = [l for l in dataset if l['category'] == cat]  # pyright: ignore[reportGeneralTypeIssues]
             with open(gathered_paths[0], 'w', encoding='utf8') as f:
                 for l in subset:
                     f.write(json.dumps(l, ensure_ascii=False) + '\n')
@@ -1489,6 +1523,8 @@ def get_icl_task_dataloader(
     hf_loading_vars: Dict = None,
     hf_parsing_map: Dict = None,
     generation_kwargs: Dict = None,
+    early_stopping_criteria: Optional[List[str]] = None,
+    do_normalization: bool = True
 ) -> Union[DataSpec, Dict[str, DataSpec]]:
     """
     This constructs a dataloader (or dataloaders if has_categories is True) capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
@@ -1546,6 +1582,8 @@ def get_icl_task_dataloader(
                                                   keyword args in this fucntion (see https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig
                                                   for more details)
 
+                                                  # TODO: add early stopping doucmentation
+
     Returns:
         DataLoader: A dataloader used for performing in-context learning evaluation on the dataset provided.
     """
@@ -1576,6 +1614,8 @@ def get_icl_task_dataloader(
                 hf_loading_vars=hf_loading_vars,
                 hf_parsing_map=hf_parsing_map,
                 generation_kwargs=generation_kwargs,
+                early_stopping_criteria=early_stopping_criteria,
+                do_normalization=do_normalization,
             )
         return result_dls
     else:
@@ -1599,4 +1639,6 @@ def get_icl_task_dataloader(
             pass_at_k=pass_at_k,
             generations_per_sample=generations_per_sample,
             generation_kwargs=generation_kwargs,
+            early_stopping_criteria=early_stopping_criteria,
+            do_normalization=do_normalization,
         )

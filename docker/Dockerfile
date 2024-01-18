@@ -38,7 +38,7 @@ ARG MOFED_VERSION=5.5-1.0.3.2
 
 # Version of EFA Drivers to install (for AWS Elastic Fabric Adapter support)
 # Leave blank for no EFA Drivers
-ARG AWS_OFI_NCCL_VERSION=v1.7.3-aws
+ARG AWS_OFI_NCCL_VERSION=v1.7.4-aws
 
 # Upgrade certifi to resolve CVE-2022-23491
 ARG CERTIFI_VERSION='>=2022.12.7'
@@ -250,7 +250,8 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
         ./configure --prefix=/opt/aws-ofi-nccl/install \
             --with-libfabric=/opt/amazon/efa/ \
             --with-cuda=/usr/local/cuda \
-            --disable-tests && \
+            --disable-tests \
+            --enable-platform-aws && \
         make && make install ; \
     fi
 
@@ -293,7 +294,10 @@ RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \
 RUN if [ -n "$CUDA_VERSION" ] ; then \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir ninja==1.11.1 && \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir --force-reinstall packaging==22.0 && \
-        pip${PYTHON_VERSION} install --no-cache-dir flash-attn==1.0.9; \
+        git clone --branch v2.4.2 https://github.com/Dao-AILab/flash-attention.git && \
+        cd flash-attention && \
+        MAX_JOBS=1 python${PYTHON_VERSION} setup.py install && \
+        cd .. ; \
     fi
 
 ###############

@@ -91,16 +91,6 @@ def sort_selective_backprop_first(algorithms: Sequence[Algorithm], event: Event)
     return sort_to_front(algorithms, cls=SelectiveBackprop)
 
 
-def sort_fused_layernorm_last(algorithms: Sequence[Algorithm], event: Event) -> Sequence[Algorithm]:  #noqa: D403
-    """FusedLayerNorm should run after other algorithms that add LayerNorms (e.g. GatedLinearUnits).
-
-    This ensures that all LayerNorms are converted to optimized fused versions.
-
-    """
-    from composer.algorithms import FusedLayerNorm
-    return sort_to_back(algorithms, cls=FusedLayerNorm)
-
-
 def sort_low_precision_layernorm_last(algorithms: Sequence[Algorithm],
                                       event: Event) -> Sequence[Algorithm]:  #noqa: D403
     """LowPrecisionLayerNorm should run after other algorithms that add LayerNorms (e.g. GatedLinearUnits).

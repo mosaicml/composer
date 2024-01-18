@@ -46,7 +46,7 @@ class MosaicMLLambdaEvalClient(EvalClient):
         ret_helper = [False] * len(test_cases)
         for i in range(self.num_retries):
             try:
-                ret_helper = mcli.get_code_eval_output(test_cases).data
+                ret_helper = mcli.get_code_eval_output(test_cases).data  # pyright: ignore[reportGeneralTypeIssues]
                 break
             except mcli.MAPIException as e:
                 if e.status >= 500:

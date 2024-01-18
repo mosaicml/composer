@@ -512,10 +512,7 @@ class ADE20k(Dataset):
         self.image_transforms = image_transforms
         self.target_transforms = target_transforms
 
-        # Check datadir value
-        if self.datadir is None:
-            raise ValueError('datadir must be specified')
-        elif not os.path.exists(self.datadir):
+        if not os.path.exists(self.datadir):
             raise FileNotFoundError(f'datadir path does not exist: {self.datadir}')
 
         # Check split value
