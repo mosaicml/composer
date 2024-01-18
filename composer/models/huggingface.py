@@ -481,6 +481,7 @@ class HuggingFaceModel(ComposerModel):
 
             # HF encoder decoder models like T5 expect either decoder_input_ids or labels,
             # so we add decoder_input_ids to the batch if it is missing
+            from transformers import PretrainedConfig
             assert isinstance(self.model.config, PretrainedConfig)
             model_config: PretrainedConfig = self.model.config
             if model_config.is_encoder_decoder and 'decoder_input_ids' not in batch:
@@ -539,7 +540,8 @@ class HuggingFaceModel(ComposerModel):
             tmp_dir = Path(tmp_dir)
             model_dir = tmp_dir / 'model'
             tokenizer_dir = tmp_dir / 'tokenizer'
-
+            
+            from transformers import PretrainedConfig
             assert isinstance(self.model.config, PretrainedConfig)
             original_model_config: PretrainedConfig = self.model.config
             original_model_config.save_pretrained(model_dir)
@@ -624,6 +626,7 @@ class HuggingFaceModel(ComposerModel):
         if not using_torch_2() and not self.dummy_forward_called and is_model_fsdp(self.model):
             with torch.no_grad():
                 maybe_decoder_input_ids = {}
+                from transformers import PretrainedConfig
                 assert isinstance(self.model.config, PretrainedConfig)
                 model_config: PretrainedConfig = self.model.config
                 if model_config.is_encoder_decoder:
