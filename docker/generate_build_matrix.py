@@ -165,7 +165,7 @@ def _write_table(table_tag: str, table_contents: str):
 
 
 def _main():
-    python_versions = ['3.11', '3.10']
+    python_versions = ['3.10']
     pytorch_versions = ['2.1.2', '2.0.1', '1.13.1']
     cuda_options = [True, False]
     stages = ['pytorch_stage']
