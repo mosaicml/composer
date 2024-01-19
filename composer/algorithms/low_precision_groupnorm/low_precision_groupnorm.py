@@ -86,8 +86,10 @@ class LPGroupNorm(torch.nn.GroupNorm):
     def forward(self, x):
         module_device = x.device
         downcast_x = _cast_if_autocast_enabled(x)
-        downcast_weight = _cast_if_autocast_enabled(self.weight) if self.weight is not None else self.weight
-        downcast_bias = _cast_if_autocast_enabled(self.bias) if self.bias is not None else self.bias
+        downcast_weight = _cast_if_autocast_enabled(
+            self.weight) if self.weight is not None else self.weight  # pyright: ignore[reportUnnecessaryComparison]
+        downcast_bias = _cast_if_autocast_enabled(
+            self.bias) if self.bias is not None else self.bias  # pyright: ignore[reportUnnecessaryComparison]
         with torch.autocast(enabled=False, device_type=module_device.type):
             return F.group_norm(downcast_x, self.num_groups, downcast_weight, downcast_bias, self.eps)
 
@@ -111,11 +113,11 @@ def _to_LPGroupNorm(layer: torch.nn.Module, module_index: int) -> LPGroupNorm:
     lp_groupnorm = LPGroupNorm(layer.num_groups, layer.num_channels, layer.eps, layer.affine)
 
     with torch.no_grad():
-        if layer.weight is None:
+        if layer.weight is None:  # pyright: ignore[reportUnnecessaryComparison]
             lp_groupnorm.register_parameter('weight', None)
         else:
             lp_groupnorm.weight.copy_(layer.weight)  # type: ignore
-        if layer.bias is None:
+        if layer.bias is None:  # pyright: ignore[reportUnnecessaryComparison]
             lp_groupnorm.register_parameter('bias', None)
         else:
             lp_groupnorm.bias.copy_(layer.bias)  # type: ignore

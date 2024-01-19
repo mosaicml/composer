@@ -87,7 +87,7 @@ class ObjectStore(abc.ABC):
 
         Args:
             object_name (str): Object name (where object will be stored in the container)
-            filename (str | pathlib.Path): Path the the object on disk
+            filename (str | pathlib.Path): Path to the object on disk
             callback ((int, int) -> None, optional): If specified, the callback is periodically called with the number of bytes
                 uploaded and the total size of the object being uploaded.
             **kwargs: other arguments to the upload object function are supported
@@ -133,6 +133,7 @@ class ObjectStore(abc.ABC):
                 downloaded and the total size of the object.
 
         Raises:
+            FileExistsError: If ``filename`` already exists and ``overwrite`` is ``False``.
             FileNotFoundError: If the file was not found in the object store.
             ObjectStoreTransientError: If there was a transient connection issue with downloading the object.
         """
