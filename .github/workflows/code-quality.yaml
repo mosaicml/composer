@@ -1,17 +1,13 @@
 name: Code Quality Checks
 on:
-  push:
-    branches:
-      - dev
-      - main
-      - release/**
-  pull_request:
   workflow_call:
-  workflow_dispatch:
-# Cancel old runs when a new commit is pushed to the same branch if not on main or dev
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
+    inputs:
+      python_version:
+        required: true
+        type: string
+      pip_deps:
+        required: true
+        type: string
 defaults:
   run:
     working-directory: .
@@ -19,24 +15,16 @@ jobs:
   code-quality:
     runs-on: ubuntu-20.04
     timeout-minutes: 15
-    strategy:
-      matrix:
-        python_version:
-          - "3.8"
-          - "3.9"
-          - "3.10"
-        pip_deps:
-          - "[dev]"
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python_version }}
+          python-version: ${{ inputs.python_version }}
       - name: Setup
         run: |
           set -ex
           python -m pip install --upgrade 'pip<23' wheel
-          python -m pip install --upgrade .${{ matrix.pip_deps }}
+          python -m pip install --upgrade .${{ inputs.pip_deps }}
       - name: Run checks
         run: |
           pre-commit run --all-files
