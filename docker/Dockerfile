@@ -15,15 +15,15 @@ ARG BASE_IMAGE=${CUDA_VERSION:+"nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu2
 ARG BASE_IMAGE=${BASE_IMAGE:-"ubuntu:20.04"}
 
 # The Python version to install
-ARG PYTHON_VERSION=3.11
+ARG PYTHON_VERSION=3.10
 
 # The Pytorch Version to install
-ARG PYTORCH_VERSION=2.1.2
+ARG PYTORCH_VERSION=1.13.1
 
 # The Torchvision version to install.
 # Reference https://github.com/pytorch/vision#installation to determine the Torchvision
 # version that corresponds to the PyTorch version
-ARG TORCHVISION_VERSION=0.16.2
+ARG TORCHVISION_VERSION=0.14.1
 
 # In the Dockerimage, Pillow-SIMD is installed instead of Pillow. To trick pip into thinking that
 # Pillow is also installed (so it won't override it with a future pip install), a Pillow stub is included
@@ -345,7 +345,6 @@ RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get autoclean && \
     apt-get clean && \
-    apt-get install -y libsnappy-dev && \
     rm -rf /var/lib/apt/lists/*
 
 #########################
