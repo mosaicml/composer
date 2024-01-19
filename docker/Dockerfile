@@ -353,8 +353,7 @@ RUN apt-get update && \
 RUN pip install --no-cache-dir --upgrade \
     certifi${CERTIFI_VERSION} \
     ipython${IPYTHON_VERSION} \
-    urllib3${URLLIB3_VERSION} \
-    python-snappy
+    urllib3${URLLIB3_VERSION}
 
 ##################################################
 # Override NVIDIA mistaken env var for 11.8 images
