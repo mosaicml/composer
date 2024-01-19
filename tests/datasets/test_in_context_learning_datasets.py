@@ -10,7 +10,6 @@ from pathlib import Path
 import pytest
 import torch
 from torch.utils.data import DataLoader
-from transformers import AutoTokenizer
 
 from composer import Evaluator
 from composer.core import DataSpec
@@ -411,7 +410,6 @@ def test_tokenize_example_with_no_tokenize_labels(tiny_gpt2_tokenizer, tmp_path)
     tokenized_example = dl._tokenize_example('What spell does this invoke? ', 'exort exort wex\nSpell: ',
                                              {'answer': ' Meatball'})
     tokenized_input = [2061, 4822, 857, 428, 26342, 30, 220, 1069, 419, 409, 419, 356, 87, 198, 31221, 25]
-    # import IPython; IPython.embed()
     assert tokenized_example['context'][:len(tokenized_input)].tolist() == tokenized_input
     assert tokenized_example['context'][-1] == tokenizer.eos_token_id
     assert len(tokenized_example['context']) == seqlen
@@ -1628,7 +1626,8 @@ def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_st
                                  continuation_delimiter='',
                                  question_prelimiter='Code start: \n',
                                  destination_path=str(tmp_path / f'icl_{num_fewshot}.jsonl'),
-                                 generations_per_sample=generations_per_sample)
+                                 generations_per_sample=generations_per_sample,
+                                 generation_kwargs={"temperature": .9, "top_k": 40})
     assert isinstance(dl, DataSpec)
 
     assert isinstance(dl.dataloader, DataLoader)  # pyright
@@ -1670,6 +1669,57 @@ def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_st
         "Code start: \nfrom typing import List\n\n\ndef below_zero(operations: List[int]) -> bool:\n    \"\"\" You're given a list of deposit and withdrawal operations on a bank account that starts with\n    zero balance. Your task is to detect if at any point the balance of account fallls below zero, and\n    at that point function should return True. Otherwise it should return False.\n    >>> below_zero([1, 2, 3])\n    False\n    >>> below_zero([1, 2, -4, 5])\n    True\n    \"\"\"\n"
     )
 
+@pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
+@pytest.mark.parametrize('num_fewshot', [0, 1])
+def test_eval_split_batch(tiny_opt_tokenizer, dataset_uri, num_fewshot, tmp_path):
+    pytest.importorskip('datasets')
+
+    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
+    try:
+        from transformers import AutoTokenizer
+    except ImportError:
+        pytest.importorskip('transformers')
+    tokenizer = AutoTokenizer.from_pretrained('mosaicml/mpt-7b')
+    dataset_uri = f'{local_data}/{dataset_uri}'
+    batch_size = 4
+    seqlen = 512
+
+    dl = get_icl_task_dataloader('code_evaluation',
+                                 dataset_uri=dataset_uri,
+                                 tokenizer=tokenizer,
+                                 batch_size=batch_size,
+                                 max_seq_len=seqlen,
+                                 pad_tok_id=tokenizer.eos_token_id,
+                                 num_fewshot=num_fewshot,
+                                 prompt_string='',
+                                 example_delimiter='\n',
+                                 continuation_delimiter='',
+                                 question_prelimiter='Code start: \n',
+                                 destination_path=str(tmp_path / f'icl_{num_fewshot}.jsonl'),
+                                 generations_per_sample=1,
+                                 generation_kwargs={"temperature": .9, "top_k": 40})
+    assert isinstance(dl, DataSpec)
+    assert isinstance(dl.dataloader, DataLoader)  # pyright
+    batch = next(dl.dataloader._get_iterator())
+    microbatch_size = 1
+    microbatches = dl.split_batch(batch, microbatch_size)
+    assert len(microbatches) == 4
+    for microbatch in microbatches:
+        assert dl.get_num_samples_in_batch(microbatch) == 1
+        assert 'input_ids' in microbatch
+        # TODO: what should this be?
+        # assert tuple(microbatch['input_ids'].shape) == (microbatch_size, seqlen)
+        assert 'attention_mask' in microbatch
+        # assert tuple(microbatch['attention_mask'].shape) == (microbatch_size, seqlen)
+        assert isinstance(microbatch['generation_kwargs'], dict)
+        assert microbatch['generation_kwargs']['temperature'] == .9
+        assert microbatch['generation_kwargs']['top_k'] == 40
+        assert microbatch['generation_kwargs']['pad_token_id'] == 0
+        assert microbatch['generation_kwargs']['num_beams'] == 1
+        assert microbatch['generation_kwargs']['num_return_sequences'] == 1
+        assert microbatch['generation_kwargs']['do_sample'] == True
+        assert microbatch['generation_kwargs']['use_cache'] == True
+        assert microbatch['generation_kwargs']['eos_token_id'] == 0
 
 @pytest.mark.parametrize('dataset_uri', ['lambada_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 5])
@@ -1865,7 +1915,6 @@ def test_mc_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_g
 @pytest.mark.filterwarnings(r'ignore:.*The dataloader_len \(2\) is greater than the length.*:UserWarning')
 @device('gpu')
 @world_size(1, 2)
-# @pytest.mark.parametrize('num_fewshot', [0, 5])
 def test_qa_task_evaluation_opt_tokenizer(device, world_size, tiny_opt_tokenizer, tiny_opt_model, num_fewshot,
                                           dataset_uri, tmp_path):
     pytest.importorskip('datasets')
@@ -1874,7 +1923,6 @@ def test_qa_task_evaluation_opt_tokenizer(device, world_size, tiny_opt_tokenizer
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_opt_tokenizer
 
-    # TODO: check this
     batch_size = 4
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
@@ -1893,10 +1941,6 @@ def test_qa_task_evaluation_opt_tokenizer(device, world_size, tiny_opt_tokenizer
     )
 
     evaluator = Evaluator(label='triviaqa', dataloader=dl, metric_names=['InContextLearningQAAccuracy'])
-    # try:
-    #     from transformers import AutoModelForCausalLM
-    # except ImportError:
-    #     pytest.importorskip('transformers')
     model = HuggingFaceModel(
         model=tiny_opt_model,
         tokenizer=tokenizer,
@@ -1915,7 +1959,6 @@ def test_qa_task_evaluation_opt_tokenizer(device, world_size, tiny_opt_tokenizer
 @pytest.mark.parametrize('dataset_uri', ['gsm8k_small.jsonl'])
 @device('gpu')
 @world_size(1, 2)
-# @pytest.mark.parametrize('num_fewshot', [5])
 @pytest.mark.filterwarnings(r'ignore:.*The dataloader_len \(2\) is greater than the length.*:UserWarning')
 def test_qa_task_evaluation_with_cot_opt_tokenizer(device, world_size, tiny_opt_tokenizer, tiny_opt_model, num_fewshot,
                                                    dataset_uri, tmp_path):
@@ -1944,10 +1987,6 @@ def test_qa_task_evaluation_with_cot_opt_tokenizer(device, world_size, tiny_opt_
     )
 
     evaluator = Evaluator(label='gsm8k', dataloader=dl, metric_names=['InContextLearningQAAccuracy'])
-    # try:
-    #     from transformers import AutoModelForCausalLM
-    # except ImportError:
-    #     pytest.importorskip('transformers')
     model = HuggingFaceModel(
         model=tiny_opt_model,
         tokenizer=tokenizer,
@@ -1966,8 +2005,6 @@ def test_qa_task_evaluation_with_cot_opt_tokenizer(device, world_size, tiny_opt_
 @pytest.mark.parametrize('num_fewshot', [0, 5])
 @device('gpu')
 @world_size(1, 2)
-# @pytest.mark.parametrize('num_fewshot', [0, 5])
-# @pytest.mark.filterwarnings(r'ignore:.*The dataloader_len \(2\) is greater than the length.*:UserWarning')
 def test_qa_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tiny_gpt2_model,
                             tmp_path):
     pytest.importorskip('datasets')
@@ -2013,7 +2050,6 @@ def test_qa_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_g
 @pytest.mark.filterwarnings(r'ignore:.*The dataloader_len \(2\) is greater than the length.*:UserWarning')
 @device('gpu')
 @world_size(1, 2)
-# @pytest.mark.parametrize('num_fewshot', [5])
 def test_qa_task_with_cot_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tiny_gpt2_model,
                                      tmp_path):
     pytest.importorskip('datasets')
@@ -2073,8 +2109,6 @@ def test_code_eval_requires_valid_envvar(monkeypatch):
 @device('gpu')
 @world_size(1, 2)
 @pytest.mark.filterwarnings(r'ignore:.*The dataloader_len \(2\) is greater than the length.*:UserWarning')
-# def test_code_eval_microbatching(monkeypatch, device, world_size, num_fewshot, dataset_uri, tmp_path,
-#                                  generations_per_sample):
 def test_code_eval_microbatching(monkeypatch, device, world_size, tiny_opt_tokenizer, tiny_opt_model, num_fewshot,
                                  dataset_uri, tmp_path, generations_per_sample):
     pytest.importorskip('datasets')
@@ -2106,10 +2140,6 @@ def test_code_eval_microbatching(monkeypatch, device, world_size, tiny_opt_token
                           dataloader=dl,
                           metric_names=['InContextLearningCodeEvalAccuracy'],
                           device_eval_microbatch_size=1)
-    try:
-        from transformers import AutoModelForCausalLM
-    except ImportError:
-        pytest.importorskip('transformers')
     model = HuggingFaceModel(
         model=tiny_opt_model,
         tokenizer=tokenizer,

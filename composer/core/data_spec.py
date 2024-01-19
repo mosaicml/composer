@@ -58,7 +58,7 @@ def _split_mapping(m, microbatch_size: int):
         num_chunks = len(list(chunked.values())[0])
     # Broadcast primitives to all chunks
     for k, v in m.items():
-        if isinstance(v, (int, float, str, bool, dict)):
+        if isinstance(v, (int, float, str, bool)):
             chunked[k] = [v] * num_chunks
     return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
 

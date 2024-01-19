@@ -1212,7 +1212,8 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             *args,
             **kwargs,
         )
-        self.dataset = self.adjust_padding()
+        self._set_max_prompt_and_answer_lengths()
+        self.dataset = self.dataset.map(self._trim_padding)
         self.base_batch = {
             'input_ids': [],
             'mode': 'generate',
@@ -1224,32 +1225,22 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             'test_outputs': [],
             'languages': [],
             'pass_at_k': pass_at_k,
-            # 'generation_length': self.max_seq_len - self.max_prompt_length,
             'generation_length': min(self.max_answer_length, self.max_seq_len - self.max_prompt_length),
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
                 'num_beams': 1,  # single beam
                 'num_return_sequences': generations_per_sample,
                 'do_sample': True,
-                # # TODO: remove top_p and top_k and suggest using generation kwargs?
-                # 'top_p': self.top_p,
-                # 'top_k': self.top_k,
                 'use_cache': True,
                 'eos_token_id': self.tokenizer.eos_token_id
             }
         }
         self._update_generation_kwargs(kwargs.get('generation_kwargs'))
 
-    def adjust_padding(self):
+    def _set_max_prompt_and_answer_lengths(self):
         """
-        Adjusts padding to the maximum prompt length rather than max_seq_len.
-        Needs to be done after the dataset has been processed because we don't know the maximum
-        prompt length until after we've tokenized it.
-
-        Returns:
-            dataset: a HuggingFace Dataset with different padding lengths for example[self.context_key]
+        Iterates through the dataset and finds the maximum prompt length and sequence lengths
         """
-        # TODO: maybe don't put this here
         max_prompt_length = 0
         max_answer_length = 0
         for example in self.dataset:
@@ -1265,18 +1256,25 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         self.max_prompt_length = max_prompt_length
         self.max_answer_length = max_answer_length + _MAX_ANSWER_BUFFER_LENGTH
 
-        def _trim_padding(example: Dict):
-            # Remove padding tokens applied during tokenization
-            unpadded_prompt = [token for token in example[self.context_key] if token != self.pad_tok_id]
-            # Reapply padding only to max_prompt_length
-            full_prompt = _trim_context(unpadded_prompt, [], self.max_prompt_length)
-            padded_context = _make_padded_input(full_prompt, [], self.max_prompt_length, self.pad_tok_id,
-                                                self.padding_side)
+    def _trim_padding(self, example: Dict):
+        """
+        Adjusts padding to the maximum prompt length rather than max_seq_len.
+        Needs to be done after the dataset has been processed because we don't know the maximum
+        prompt length until after we've tokenized it.
 
-            example[self.context_key] = padded_context
-            return example
+        Returns:
+            dataset: a HuggingFace Dataset with different padding lengths for example[self.context_key]
+        """
+        # Remove padding tokens applied during tokenization
+        unpadded_prompt = [token for token in example[self.context_key] if token != self.pad_tok_id]
+        # Reapply padding only to max_prompt_length
+        full_prompt = _trim_context(unpadded_prompt, [], self.max_prompt_length)
+        padded_context = _make_padded_input(full_prompt, [], self.max_prompt_length, self.pad_tok_id,
+                                            self.padding_side)
 
-        return self.dataset.map(_trim_padding)
+        example[self.context_key] = padded_context
+        return example
+
 
     def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
         """
