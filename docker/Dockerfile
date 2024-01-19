@@ -118,6 +118,7 @@ RUN apt-get update && \
     tcl \
     libjpeg8-dev \
     less \
+    libsnappy-dev \
     # For AWS EFA:
     autoconf \
     autotools-dev \
@@ -353,7 +354,8 @@ RUN apt-get update && \
 RUN pip install --no-cache-dir --upgrade \
     certifi${CERTIFI_VERSION} \
     ipython${IPYTHON_VERSION} \
-    urllib3${URLLIB3_VERSION}
+    urllib3${URLLIB3_VERSION} \
+    python-snappy
 
 ##################################################
 # Override NVIDIA mistaken env var for 11.8 images
