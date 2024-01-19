@@ -18,7 +18,7 @@ import packaging.version
 import tabulate
 import yaml
 
-LATEST_PYTHON_VERSION = '3.11'
+LATEST_PYTHON_VERSION = '3.10'
 PRODUCTION_PYTORCH_VERSION = '2.1.2'
 
 
