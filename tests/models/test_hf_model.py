@@ -1203,16 +1203,31 @@ def test_eval_forward_generate(device, world_size, hf_model, hf_tokenizer, use_f
     assert all(isinstance(decoded_generation, str) for decoded_generation in generation2)
 
 
-def test_peft_init(tiny_gpt2_model, gpt2_peft_config):
+@pytest.mark.parametrize('peft_type', ['LORA', 'loRa'])
+@pytest.mark.parametrize('task_type', ['CAUSAL_LM', 'causal_lm'])
+def test_peft_init(peft_type: str, task_type: str, tiny_gpt2_model, gpt2_peft_config):
     pytest.importorskip('peft')
     from peft import PeftModelForCausalLM
 
+    peft_config = copy.deepcopy(gpt2_peft_config)
+    peft_config.peft_type = peft_type
+    peft_config.task_type = task_type
+
     original_model = copy.deepcopy(tiny_gpt2_model)
-    hf_model = HuggingFaceModel(tiny_gpt2_model, peft_config=gpt2_peft_config)
+    hf_model = HuggingFaceModel(tiny_gpt2_model, peft_config=peft_config)
     assert isinstance(hf_model.model, PeftModelForCausalLM)
     assert hf_model.model.peft_config['default'].peft_type == 'LORA'
     assert hf_model.model.peft_config['default'].task_type == 'CAUSAL_LM'
     assert hf_model.model.config == original_model.config
+
+
+def test_peft_init_errors(tiny_gpt2_model, gpt2_peft_config):
+    pytest.importorskip('peft')
+    peft_config = copy.deepcopy(gpt2_peft_config)
+    peft_config.peft_type = 'NOT_LORA'
+
+    with pytest.raises(ValueError):
+        _ = HuggingFaceModel(tiny_gpt2_model, peft_config=peft_config)
 
 
 def test_peft_init_not_installed(tiny_gpt2_model, gpt2_peft_config):

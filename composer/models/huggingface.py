@@ -739,7 +739,7 @@ def get_peft_config_from_composer_state_dict(state_dict: Dict[str, Any]) -> Opti
         state_dict (Dict[str, Any]): The state dict to get the config from
 
     Returns:
-        peft.PeftConfig: The PEFT config
+        Optional[peft.PeftConfig]: The PEFT config. Will be ``None`` if the model is not a PEFT model.
     """
     try:
         import peft
@@ -850,6 +850,19 @@ def write_huggingface_pretrained_from_composer_checkpoint(
 def filter_state_dict_peft(state_dict: Dict[str, Any],
                            peft_config: 'PeftConfig',
                            remove_adapter_names: bool = True) -> Dict[str, Any]:
+    """Filter a state dict to only include the weights needed for a PEFT model
+
+    Note: This function only works with LORA PEFT models right now.
+
+    Args:
+        state_dict (Dict[str, Any]): The state dict to filter
+        peft_config (PeftConfig): The PEFT config to use to filter the state dict
+        remove_adapter_names (bool, optional): Whether to remove the adapter names from the state dict keys. Defaults to True.
+
+    Returns:
+        Dict[str, Any]: The filtered state dict
+    """
+
     if peft_config.peft_type != 'LORA':
         raise NotImplementedError(f'Only LoRA PEFT is supported. Got {peft_config.peft_type}')
 
