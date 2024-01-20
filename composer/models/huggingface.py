@@ -83,7 +83,7 @@ class HuggingFaceModel(ComposerModel):
                  shift_labels: Optional[bool] = None,
                  allow_embedding_resizing: bool = False,
                  peft_config: Optional['PeftConfig'] = None,
-                 peft_filter_state_dict_trainable: bool = False) -> None:
+                 peft_filter_state_dict_trainable: bool = True) -> None:
         try:
             import transformers
             del transformers  # unused
@@ -192,11 +192,16 @@ class HuggingFaceModel(ComposerModel):
                 self.model = get_peft_model(self.model, peft_config)
                 log.info(f'PEFT model created. {self.model}')
 
+        self.model_is_peft = False
+        if _peft_installed:
+            from peft import PeftModel
+            self.using_peft = isinstance(self.model, PeftModel)
+
     def state_dict(self, *args, **kwargs) -> Dict[str, Any]:
         """Returns the state dict of the model."""
         full_state_dict = super().state_dict(*args, **kwargs)
 
-        if self.peft_filter_state_dict_trainable:
+        if self.using_peft and self.peft_filter_state_dict_trainable:
             active_adapter = self.model.active_adapter
             assert isinstance(active_adapter, str)
             full_state_dict = filter_state_dict_peft(full_state_dict, self.model.peft_config[active_adapter], False)
