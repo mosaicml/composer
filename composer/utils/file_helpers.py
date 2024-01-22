@@ -354,7 +354,7 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
         return GCSObjectStore(bucket=bucket_name)
     elif backend == 'oci':
         return OCIObjectStore(bucket=bucket_name)
-    elif backend == 'azure':
+    elif backend in ['azure', 'AZURE_BLOBS']:
         return LibcloudObjectStore(
             provider='AZURE_BLOBS', 
             container=bucket_name, 
@@ -418,7 +418,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
             return None
     if backend in ['s3', 'oci', 'gs']:
         return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}')
-    elif backend == 'azure':
+    elif backend in ['azure', 'AZURE_BLOBS']:
         return RemoteUploaderDownloader(
             bucket_uri=f'libcloud://{bucket_name}',
             backend_kwargs={

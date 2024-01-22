@@ -163,7 +163,6 @@ class PartialFilePath:
 
 
 def is_checkpoint_legacy_sharded(object_store: Optional[ObjectStore], source_path: str):
-    print(f'!!! {object_store=}')
     metadata_path = str(Path(source_path) / Path('.metadata'))
     if object_store is None:
         return not os.path.exists(metadata_path)
