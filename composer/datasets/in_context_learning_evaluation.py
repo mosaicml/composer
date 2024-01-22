@@ -8,7 +8,7 @@ import copy
 import json
 import os
 import random
-from typing import TYPE_CHECKING, Any, Dict, List, Tuple, Union, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Union
 
 import torch
 from torch.utils.data import DataLoader, Dataset
@@ -20,6 +20,7 @@ from composer.utils import MissingConditionalImportError, dist, get_file
 
 if TYPE_CHECKING:
     import transformers
+    from datasets import Dataset
 
 # Allow models to have slightly more tokens than were used in the most verbose CoT in the dataset
 _MAX_ANSWER_BUFFER_LENGTH = 10
@@ -86,7 +87,7 @@ def _trim_context(context_enc: List, continuation_enc: List, max_seq_len: int) -
     return context_enc
 
 
-def _get_continuation_span(context_enc: List, continuation_enc: List) -> list:
+def _get_continuation_span(context_enc: List, continuation_enc: List) -> torch.Tensor:
     """
     Gets the list of indices of the continutaion tokens for language modeling or generaiton tasks.
 
@@ -104,7 +105,7 @@ def _make_padded_input(context_enc: List,
                        continuation_enc: List,
                        max_seq_len: int,
                        pad_tok_id: int,
-                       padding_side: str = 'right') -> Tuple[torch.tensor, torch.tensor]:
+                       padding_side: str = 'right') -> torch.Tensor:
     """
     Takes an encoded context and continuation and clips the beginning of the context if they're too long.
     Adds the padding token to the specified side.
@@ -171,7 +172,7 @@ def convert_tokens_to_tensors(batch: Dict, tokenize_labels: bool) -> Dict[str, A
     return batch
 
 
-def _get_fewshot_sample_idxs(dataset_size: int, num_fewshot: int, example_idx: int, rng: random.Random) -> List[int]:
+def _get_fewshot_sample_idxs(dataset_size: int, num_fewshot: int, example_idx: int, rng: random.Random) -> Set[int]:
     """
     Samples indices without replacement. If num_fewshot exceeds the number of unique examples in the dataset,
     then we will have fewer than num_fewshot examples in context.
@@ -204,7 +205,7 @@ class InContextLearningDataset(Dataset):
     A base dataset that constructs batches for in-context learning task evaluations.
     The dataset format is expected to be a local jsonl file, a cloud link to a jsonl file, or a Hugging Face dataset link.
     'context' refers to the input a model will recieve before generating an output. For example, the question in question answering tasks,
-        the preceding text in a language modeling task, or the document and question regarding the document in a document understanding task.
+    the preceding text in a language modeling task, or the document and question regarding the document in a document understanding task.
     'example' refers to an loaded dictionary, generally containing a context, an answer, and any other information needed to run the task.
     'answer' refers to the desired output of the model.
 
@@ -216,10 +217,10 @@ class InContextLearningDataset(Dataset):
 
     Additionally, base_batch and batch_mapping must be defined.
         - base_batch (Dict): the base dictionary that the dataset will use to construct a batch. This should contain static values, like generation_kwargs or mode,
-                             and empty lists for values that will need to be accumulated from each example.
-                             NOTE: Sometimes you will need to set base_batch directly after the init call, e.g. in order to use class variables
-                                   like self.pad_tok_id or self.max_answer_length. If you manually set generation_kwargs this way, you'll need to call self._update_generation_kwargs()
-                                   after setting self.base_batch.
+        and empty lists for values that will need to be accumulated from each example.
+        NOTE: Sometimes you will need to set base_batch directly after the init call, e.g. in order to use class variables
+        like self.pad_tok_id or self.max_answer_length. If you manually set generation_kwargs this way, you'll need to call self._update_generation_kwargs()
+        after setting self.base_batch.
         - batch_mapping (Dict): A mapping with keys that are keys in the batch and values that are columns in the loaded dataset.
                                 collate_fn will use this mapping to create batches from self.dataset.
 
@@ -265,21 +266,21 @@ class InContextLearningDataset(Dataset):
         example_delimiter: str,
         continuation_delimiter: str,
         destination_path: str,
-        static_keys: List = None,
-        list_keys: List = None,
-        tensor_keys: List = None,
         prelimiter: str = '',
         context_key: str = 'context',
         answer_key: str = 'answer',
         strip_dataset: bool = True,
         padding_side: str = 'right',
-        padding_size: int = None,
-        base_batch: Dict = None,
-        batch_mapping: Dict = None,
-        hf_loading_vars: Dict = None,
-        hf_parsing_map: Dict = None,
-        tokenize_labels: bool = True,
-        generation_kwargs: Dict = None,
+        static_keys: Optional[List] = None,
+        list_keys: Optional[List] = None,
+        tensor_keys: Optional[List] = None,
+        padding_size: Optional[int] = None,
+        base_batch: Optional[Dict] = None,
+        batch_mapping: Optional[Dict] = None,
+        hf_loading_vars: Optional[Dict] = None,
+        hf_parsing_map: Optional[Dict] = None,
+        tokenize_labels: Optional[bool] = True,
+        generation_kwargs: Optional[Dict] = None,
     ):
         self.tokenizer = tokenizer
         self.prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
@@ -348,8 +349,8 @@ class InContextLearningDataset(Dataset):
     def _read_dataset(self,
                       dataset_uri: str,
                       destination_path: str,
-                      hf_loading_vars: Dict = None,
-                      hf_parsing_map: Dict = None) -> transformers.Dataset:
+                      hf_loading_vars: Optional[Dict[str, Any]] = None,
+                      hf_parsing_map: Optional[Dict[str, Any]] = None) -> 'Dataset':
         """
         Reads a dataset and handles parsing it from HuggingFace.
 
@@ -375,6 +376,8 @@ class InContextLearningDataset(Dataset):
             dataset_uri = dataset_uri.replace('hf://', '')
             dataset = load_dataset(dataset_uri, **hf_loading_vars)
             if hf_parsing_map:
+                # assert statement only for type checking
+                assert hf_parsing_map is not None, f'hf_parsing_map to be utilized but recieved object {hf_parsing_map}'
                 dataset_parsing_func = lambda example: {
                     k: ' '.join([str(example[col]) for col in v]) for k, v in hf_parsing_map.items()
                 }
@@ -620,23 +623,27 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
     Additional Args:
         cot_delimiter (str): Delimiter to place between the chain of thought and continuations.
     """
-                # init:
-                #  early_stopping_criteria: Optional[List[str]] = None,
-                #  do_normalization: bool = True):
-        # self.early_stopping_criteria = early_stopping_criteria
-        # self.do_normalization = do_normalization
 
-    def __init__(self, 
-                 cot_delimiter: str = '', 
+    # init:
+    #  early_stopping_criteria: Optional[List[str]] = None,
+    #  do_normalization: bool = True):
+    # self.early_stopping_criteria = early_stopping_criteria
+    # self.do_normalization = do_normalization
+
+    def __init__(self,
+                 cot_delimiter: str = '',
                  early_stopping_criteria: Optional[List[str]] = None,
                  do_normalization: bool = True,
-                 *args, **kwargs):
+                 *args,
+                 **kwargs):
         if kwargs['tokenizer'].eos_token_id is None:
             raise ValueError('`InContextLearningQATaskDataset` tokenizer must have non-null `eos_token_id`')
         self.cot_delimiter = cot_delimiter
         self.has_cot = False
         self.max_answer_length = 0
-        static_keys = ['mode', 'cot_delimiter', 'generation_length', 'generation_kwargs', 'do_normalization', 'stopping_criteria']
+        static_keys = [
+            'mode', 'cot_delimiter', 'generation_length', 'generation_kwargs', 'do_normalization', 'stopping_criteria'
+        ]
         tensor_keys = ['input_ids', 'attention_mask']
         list_keys = ['labels']
         super().__init__(padding_side='left',
@@ -1159,8 +1166,8 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
     - pass_at_k: passed value for pass_at_k
     - generation_length: derrived maximum generation length
     - generation_kwargs: Dictionary of kwargs neeeded for generation. Includes the following, which will be individually overwritten
-        by keys in generaiton_kwargs if set (see https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig
-        for more details):
+    by keys in generaiton_kwargs if set (see https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig
+    for more details):
         - pad_token_id: ID for padding token, derived automatically
         - num_beams: how many beams to search for generations, set to 1
         - num_return_sequences: value passed for 'generations_per_sample', how many generations per prompt
@@ -1240,6 +1247,9 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
     def _set_max_prompt_and_answer_lengths(self):
         """
         Iterates through the dataset and finds the maximum prompt length and sequence lengths
+
+        Returns:
+            None
         """
         max_prompt_length = 0
         max_answer_length = 0
@@ -1269,12 +1279,10 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         unpadded_prompt = [token for token in example[self.context_key] if token != self.pad_tok_id]
         # Reapply padding only to max_prompt_length
         full_prompt = _trim_context(unpadded_prompt, [], self.max_prompt_length)
-        padded_context = _make_padded_input(full_prompt, [], self.max_prompt_length, self.pad_tok_id,
-                                            self.padding_side)
+        padded_context = _make_padded_input(full_prompt, [], self.max_prompt_length, self.pad_tok_id, self.padding_side)
 
         example[self.context_key] = padded_context
         return example
-
 
     def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
         """
@@ -1294,27 +1302,27 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
 
 
 def build_icl_dataloader(
-    icl_task_type: str,
-    dataset_uri: str,
-    tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
-    batch_size: int,
-    max_seq_len: int,
-    pad_tok_id: int,
-    num_fewshot: int,
-    prompt_string: str,  # e.g. 'translate english to french:'
-    example_delimiter: str,  # e.g. '\n'
-    continuation_delimiter: str,  # e.g. ''
-    hf_loading_vars: Dict,
-    hf_parsing_map: Dict,
-    destination_path: str,
-    prelimiter: str,  # e.g. 'Question: '
-    cot_delimiter: str,
-    fewshot_random_seed: int,
-    pass_at_k: int,
-    generations_per_sample: int,
-    generation_kwargs: Dict,
-    early_stopping_criteria: Optional[List[str]] = None,
-    do_normalization: bool = True) -> DataSpec:
+        icl_task_type: str,
+        dataset_uri: str,
+        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
+        batch_size: int,
+        max_seq_len: int,
+        pad_tok_id: int,
+        num_fewshot: int,
+        prompt_string: str,  # e.g. 'translate english to french:'
+        example_delimiter: str,  # e.g. '\n'
+        continuation_delimiter: str,  # e.g. ''
+        hf_loading_vars: Dict,
+        hf_parsing_map: Dict,
+        destination_path: str,
+        prelimiter: str,  # e.g. 'Question: '
+        cot_delimiter: str,
+        fewshot_random_seed: int,
+        pass_at_k: int,
+        generations_per_sample: int,
+        generation_kwargs: Dict,
+        early_stopping_criteria: Optional[List[str]] = None,
+        do_normalization: bool = True) -> DataSpec:
     """
     Factory method that builds the specific dataset for the specified icl_task_type.
     See documentation for `get_icl_task_dataloader` for arugment documentation.
@@ -1505,29 +1513,28 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_lo
 
 
 def get_icl_task_dataloader(
-    icl_task_type: str,
-    dataset_uri: str,
-    tokenizer: transformers.PreTrainedTokenizerBase,
-    batch_size: int,
-    max_seq_len: int,
-    pad_tok_id: int,
-    num_fewshot: int,
-    prompt_string: str = '',  # e.g. 'translate english to french:'
-    example_delimiter: str = '\n',  # e.g. '\n'
-    continuation_delimiter: str = ' ',
-    destination_path: str = '',
-    question_prelimiter: str = '',  # e.g. 'Question: '
-    fewshot_random_seed: int = 1234,
-    pass_at_k: int = 1,
-    generations_per_sample: int = 20,
-    cot_delimiter: str = '',
-    has_categories: bool = False,
-    hf_loading_vars: Dict = None,
-    hf_parsing_map: Dict = None,
-    generation_kwargs: Dict = None,
-    early_stopping_criteria: Optional[List[str]] = None,
-    do_normalization: bool = True
-) -> Union[DataSpec, Dict[str, DataSpec]]:
+        icl_task_type: str,
+        dataset_uri: str,
+        tokenizer: transformers.PreTrainedTokenizerBase,
+        batch_size: int,
+        max_seq_len: int,
+        pad_tok_id: int,
+        num_fewshot: int,
+        prompt_string: str = '',  # e.g. 'translate english to french:'
+        example_delimiter: str = '\n',  # e.g. '\n'
+        continuation_delimiter: str = ' ',
+        destination_path: str = '',
+        question_prelimiter: str = '',  # e.g. 'Question: '
+        fewshot_random_seed: int = 1234,
+        pass_at_k: int = 1,
+        generations_per_sample: int = 20,
+        cot_delimiter: str = '',
+        has_categories: bool = False,
+        hf_loading_vars: Dict = None,
+        hf_parsing_map: Dict = None,
+        generation_kwargs: Dict = None,
+        early_stopping_criteria: Optional[List[str]] = None,
+        do_normalization: bool = True) -> Union[DataSpec, Dict[str, DataSpec]]:
     """
     This constructs a dataloader (or dataloaders if has_categories is True) capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
 
