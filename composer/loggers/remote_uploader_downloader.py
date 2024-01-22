@@ -103,7 +103,7 @@ class RemoteUploaderDownloader(LoggerDestination):
             backend_kwargs={
                 'provider': 's3',
                 'container': 'my-bucket',
-                'provider_kwargs=': {
+                'provider_kwargs': {
                     'key': 'AKIA...',
                     'secret': '*********',
                     'region': 'ap-northeast-1',

@@ -413,10 +413,14 @@ def maybe_create_remote_uploader_downloader_from_uri(
         return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}')
     elif backend == 'azure':
         return RemoteUploaderDownloader(
-            provider='AZURE_BLOBS',
             bucket_uri=f'libcloud://{bucket_name}',
-            key_environ='AZURE_ACCOUNT_NAME',
-            secret_environ='AZURE_ACCOUNT_ACCESS_KEY',
+            backend_kwargs={
+                'provider': 'AZURE_BLOBS',
+                'provider_kwargs': {
+                    'key_environ': 'AZURE_ACCOUNT_NAME',
+                    'secret_environ': 'AZURE_ACCOUNT_ACCESS_KEY',
+                }
+            },
         )
     elif backend == 'dbfs':
         return RemoteUploaderDownloader(bucket_uri=uri, backend_kwargs={'path': path})
