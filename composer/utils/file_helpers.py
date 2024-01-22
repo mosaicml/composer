@@ -22,7 +22,7 @@ from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_callback
 from composer.utils.misc import partial_format
 from composer.utils.object_store import (GCSObjectStore, MLFlowObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore,
-                                         UCObjectStore)
+                                         UCObjectStore, LibcloudObjectStore)
 from composer.utils.object_store.mlflow_object_store import MLFLOW_DBFS_PATH_PREFIX
 
 if TYPE_CHECKING:
@@ -354,6 +354,13 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
         return GCSObjectStore(bucket=bucket_name)
     elif backend == 'oci':
         return OCIObjectStore(bucket=bucket_name)
+    elif backend == 'azure':
+        return LibcloudObjectStore(
+            provider='AZURE_BLOBS', 
+            container=bucket_name, 
+            key_environ='AZURE_ACCOUNT_NAME',
+            secret_environ='AZURE_ACCOUNT_ACCESS_KEY',
+        )
     elif backend == 'dbfs':
         if path.startswith(MLFLOW_DBFS_PATH_PREFIX):
             store = None
@@ -409,8 +416,6 @@ def maybe_create_remote_uploader_downloader_from_uri(
             warnings.warn(
                 f'There already exists a RemoteUploaderDownloader object to handle the uri: {uri} you specified')
             return None
-    print(backend, backend=='azure')
-    assert False
     if backend in ['s3', 'oci', 'gs']:
         return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}')
     elif backend == 'azure':
