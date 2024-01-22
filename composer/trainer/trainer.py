@@ -2983,6 +2983,13 @@ class Trainer:
                                                 outputs[k] = v.cpu()
                                             else:
                                                 outputs[k] = v
+                                    elif isinstance(self.state.outputs, Sequence):
+                                        outputs = []
+                                        for v in self.state.outputs:
+                                            if isinstance(v, torch.Tensor):
+                                                outputs.append(v.cpu())
+                                            else:
+                                                outputs.append(v)
                                     else:
                                         outputs = self.state.outputs.cpu()
                                 else:
