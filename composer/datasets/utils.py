@@ -179,7 +179,7 @@ try:
         def __init__(
             self,
             stop_sequence: str,
-            tokenizer: transformers.PreTrainedTokenizer,
+            tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
             batch_size: int,
         ) -> None:
             self.done_tracker = [False] * batch_size
@@ -213,7 +213,7 @@ try:
             return False not in self.done_tracker
 
     def stop_sequences_criteria(
-        tokenizer: transformers.PreTrainedTokenizer,
+        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
         stop_sequences: List[str],
         batch_size: int,
     ) -> transformers.StoppingCriteriaList:
