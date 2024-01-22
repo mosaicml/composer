@@ -96,14 +96,17 @@ class LibcloudObjectStore(ObjectStore):
         if provider_kwargs is None:
             provider_kwargs = {}
 
+        print('key' not in provider_kwargs, os.environ.get(key_environ, 'chungus1'))
         if 'key' not in provider_kwargs and \
            key_environ and key_environ in os.environ:
             provider_kwargs['key'] = os.environ[key_environ]
 
+        print('secret' not in provider_kwargs, os.environ.get(secret_environ, 'chungus2'))
         if 'secret' not in provider_kwargs and \
            secret_environ and secret_environ in os.environ:
             provider_kwargs['secret'] = os.environ[secret_environ]
 
+        print(provider_kwargs)
         self.chunk_size = chunk_size
         self._provider_name = provider
         self._provider = provider_cls(**provider_kwargs)
