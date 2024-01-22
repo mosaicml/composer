@@ -170,6 +170,7 @@ def is_checkpoint_legacy_sharded(object_store: Optional[ObjectStore], source_pat
         try:
             with tempfile.TemporaryDirectory() as temp_dir:
                 metadata_destination = os.path.join(str(temp_dir), '.metadata')
+                print(f'{metadata_destination=}, {metadata_path=}')
                 object_store.download_object(object_name=metadata_path, filename=metadata_destination)
             return False
         except FileNotFoundError:
@@ -283,6 +284,7 @@ def load_checkpoint(
             ObjectStore), 'For loading sharded checkpoints load_object_store must be set with the class ObjectStore'
         using_legacy_sharded = is_checkpoint_legacy_sharded(object_store, path)
 
+    print(f'{state.fsdp_elastic_sharded_enabled=}, {using_legacy_sharded=}')
     if state.fsdp_elastic_sharded_enabled and not using_legacy_sharded:
         rng_state_dicts = load_sharded_checkpoint(
             source_path=path,
