@@ -13,7 +13,7 @@ import logging
 import os
 import random
 import re
-import sys
+#import sys
 import tempfile
 import textwrap
 import time
