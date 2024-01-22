@@ -116,7 +116,7 @@ extra_deps['dev'] = [
     'sphinx_markdown_tables==0.0.17',
     'sphinx-argparse==0.4.0',
     'sphinxcontrib.katex==0.9.6',
-    'sphinxcontrib-applehelp==1.0.0',
+    'sphinxcontrib-applehelp==1.0.8',
     'sphinxcontrib-devhelp==1.0.0',
     'sphinxcontrib-htmlhelp==2.0.0',
     'sphinxcontrib-serializinghtml==1.1.5',
