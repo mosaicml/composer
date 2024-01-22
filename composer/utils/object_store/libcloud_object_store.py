@@ -96,6 +96,9 @@ class LibcloudObjectStore(ObjectStore):
         if provider_kwargs is None:
             provider_kwargs = {}
 
+        for name, value in os.environ.items():
+            print("{0}: {1}".format(name, value))
+
         print('key' not in provider_kwargs, os.environ.get(key_environ, 'chungus1'))
         if 'key' not in provider_kwargs and \
            key_environ and key_environ in os.environ:
