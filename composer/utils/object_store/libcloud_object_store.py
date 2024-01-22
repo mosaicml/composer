@@ -148,6 +148,7 @@ class LibcloudObjectStore(ObjectStore):
         Args:
             object_name (str): The name of the object.
         """
+        object_name = object_name.lstrip(self._container.name)  # Strip container for URIs
         from libcloud.storage.types import ObjectDoesNotExistError
         try:
             return self._provider.get_object(self._container.name, object_name)
