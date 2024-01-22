@@ -21,8 +21,8 @@ import tqdm
 from composer.utils import dist
 from composer.utils.iter_helpers import iterate_with_callback
 from composer.utils.misc import partial_format
-from composer.utils.object_store import (GCSObjectStore, MLFlowObjectStore, ObjectStore, OCIObjectStore, S3ObjectStore,
-                                         UCObjectStore, LibcloudObjectStore)
+from composer.utils.object_store import (GCSObjectStore, LibcloudObjectStore, MLFlowObjectStore, ObjectStore,
+                                         OCIObjectStore, S3ObjectStore, UCObjectStore)
 from composer.utils.object_store.mlflow_object_store import MLFLOW_DBFS_PATH_PREFIX
 
 if TYPE_CHECKING:
@@ -357,8 +357,8 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
         return OCIObjectStore(bucket=bucket_name)
     elif backend == 'azure':
         return LibcloudObjectStore(
-            provider='AZURE_BLOBS', 
-            container=bucket_name, 
+            provider='AZURE_BLOBS',
+            container=bucket_name,
             key_environ='AZURE_ACCOUNT_NAME',
             secret_environ='AZURE_ACCOUNT_ACCESS_KEY',
         )
