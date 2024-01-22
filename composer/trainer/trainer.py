@@ -925,8 +925,8 @@ class Trainer:
     ):
         
         # Check if the current Python version is compatible
-        major, minor = sys.version_info[0], sys.version_info[1]
-        assert (major == 3 and minor <= 8) or (major < 3), f"Python version {major}.{minor} is not supported. Please use Python 3.9 or higher."
+        # major, minor = sys.version_info[0], sys.version_info[1]
+        # assert (major == 3 and minor <= 8) or (major < 3), f"Python version {major}.{minor} is not supported. Please use Python 3.9 or higher."
 
         self.auto_log_hparams = auto_log_hparams
         self.python_log_level = python_log_level
