@@ -416,6 +416,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
             bucket_uri=f'libcloud://{bucket_name}',
             backend_kwargs={
                 'provider': 'AZURE_BLOBS',
+                'container': bucket_name,
                 'provider_kwargs': {
                     'key_environ': 'AZURE_ACCOUNT_NAME',
                     'secret_environ': 'AZURE_ACCOUNT_ACCESS_KEY',
