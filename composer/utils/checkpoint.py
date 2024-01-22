@@ -163,7 +163,7 @@ class PartialFilePath:
 
 
 def is_checkpoint_legacy_sharded(object_store: Optional[ObjectStore], source_path: str):
-    log.warning(f'{object_store=}')
+    print(f'!! {object_store=}')
     metadata_path = str(Path(source_path) / Path('.metadata'))
     if object_store is None:
         return not os.path.exists(metadata_path)
@@ -171,11 +171,11 @@ def is_checkpoint_legacy_sharded(object_store: Optional[ObjectStore], source_pat
         try:
             with tempfile.TemporaryDirectory() as temp_dir:
                 metadata_destination = os.path.join(str(temp_dir), '.metadata')
-                log.debug(f'{metadata_destination=} {metadata_path=}')
+                print(f'!!{metadata_destination=} {metadata_path=}')
                 object_store.download_object(object_name=metadata_path, filename=metadata_destination)
             return False
         except FileNotFoundError as e:
-            log.debug(e)
+            print(e)
             return True
 
 
