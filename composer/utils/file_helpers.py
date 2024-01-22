@@ -342,6 +342,7 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
     Returns:
         Optional[ObjectStore]: Returns an :class:`composer.utils.ObjectStore` if the URI is of a supported format, otherwise None
     """
+    uri = uri.replace('AZURE_BLOBS', 'azure')
     backend, bucket_name, path = parse_uri(uri)
     if backend == '':
         return None
@@ -354,7 +355,7 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
         return GCSObjectStore(bucket=bucket_name)
     elif backend == 'oci':
         return OCIObjectStore(bucket=bucket_name)
-    elif backend in ['azure', 'AZURE_BLOBS']:
+    elif backend == 'azure':
         return LibcloudObjectStore(
             provider='AZURE_BLOBS', 
             container=bucket_name, 
@@ -405,6 +406,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
     Returns:
         Optional[RemoteUploaderDownloader]: Returns a :class:`composer.loggers.RemoteUploaderDownloader` if the URI is of a supported format, otherwise None
     """
+    uri = uri.replace('AZURE_BLOBS', 'azure')
     from composer.loggers import RemoteUploaderDownloader
     existing_remote_uds = [logger_dest for logger_dest in loggers if isinstance(logger_dest, RemoteUploaderDownloader)]
     backend, bucket_name, path = parse_uri(uri)
@@ -418,7 +420,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
             return None
     if backend in ['s3', 'oci', 'gs']:
         return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}')
-    elif backend in ['azure', 'AZURE_BLOBS']:
+    elif backend == 'azure:'
         return RemoteUploaderDownloader(
             bucket_uri=f'libcloud://{bucket_name}',
             backend_kwargs={

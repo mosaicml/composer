@@ -283,7 +283,6 @@ def load_checkpoint(
             ObjectStore), 'For loading sharded checkpoints load_object_store must be set with the class ObjectStore'
         using_legacy_sharded = is_checkpoint_legacy_sharded(object_store, path)
 
-    print(f'\n\n!! {using_legacy_sharded=}')
     if state.fsdp_elastic_sharded_enabled and not using_legacy_sharded:
         rng_state_dicts = load_sharded_checkpoint(
             source_path=path,
