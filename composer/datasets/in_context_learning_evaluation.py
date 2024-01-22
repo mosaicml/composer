@@ -1124,9 +1124,7 @@ class InContextLearningCodeEvalDataset(Dataset):
             test_outputs.append(test_output)
             languages.append(language)
 
-        stopping_criteria = None
-        if self.early_stopping_criteria:
-            stopping_criteria = stop_sequences_criteria(self.tokenizer, self.early_stopping_criteria, len(inputs))
+       
         batch = {
             'input_ids': torch.stack(inputs),
             'mode': 'generate',
@@ -1148,7 +1146,6 @@ class InContextLearningCodeEvalDataset(Dataset):
                 'top_p': self.top_p,
                 'top_k': self.top_k,
                 'use_cache': True,
-                'stopping_criteria': stopping_criteria,
                 'eos_token_id': self.tokenizer.eos_token_id
             }
         }
@@ -1273,8 +1270,7 @@ def build_icl_dataloader(
                                                    code_prelimiter=question_prelimiter,
                                                    fewshot_random_seed=fewshot_random_seed,
                                                    pass_at_k=pass_at_k,
-                                                   generations_per_sample=generations_per_sample,
-                                                   early_stopping_criteria=early_stopping_criteria)
+                                                   generations_per_sample=generations_per_sample)
         effective_batchsize = batch_size
     else:
         raise Exception(f'Unrecognized ICL task type: {icl_task_type}')
