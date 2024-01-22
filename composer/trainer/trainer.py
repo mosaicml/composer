@@ -1475,6 +1475,7 @@ class Trainer:
         if load_path is not None:
             if load_object_store is None:
                 load_object_store = maybe_create_object_store_from_uri(load_path)
+                print(f'\n\n!! {load_path=}, {load_object_store=}')
             if isinstance(load_object_store, WandBLogger):
                 import wandb
                 if wandb.run is None:
