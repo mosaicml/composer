@@ -411,14 +411,18 @@ def maybe_create_remote_uploader_downloader_from_uri(
             return None
     if backend in ['s3', 'oci', 'gs']:
         return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}')
-
+    elif backend == 'azure':
+        return RemoteUploaderDownloader(
+            provider='AZURE_BLOBS',
+            bucket_uri=f'libcloud://{bucket_name}',
+            key_environ='AZURE_ACCOUNT_NAME',
+            secret_environ='AZURE_ACCOUNT_ACCESS_KEY',
+        )
     elif backend == 'dbfs':
         return RemoteUploaderDownloader(bucket_uri=uri, backend_kwargs={'path': path})
-
     elif backend == 'wandb':
         raise NotImplementedError(f'There is no implementation for WandB via URI. Please use '
                                   'WandBLogger with log_artifacts set to True')
-
     else:
         raise NotImplementedError(f'There is no implementation for the cloud backend {backend} via URI. Please use '
                                   'one of the supported RemoteUploaderDownloader object stores')
