@@ -31,6 +31,7 @@ def _get_torchvision_version(pytorch_version: str):
         return '0.14.1'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
+
 def _get_pytorch_version(python_version: str):
     if python_version == '3.10':
         return ['1.13.1', '2.0.1', '2.1.2']
@@ -216,7 +217,7 @@ def _main():
 
             # Only build EFA image on latest python with cuda on pytorch_stage
             if interconnect == 'EFA' and not (python_version == LATEST_PYTHON_VERSION and use_cuda and
-                                            stage == 'pytorch_stage'):
+                                              stage == 'pytorch_stage'):
                 continue
 
             # Skip the mellanox drivers if not in the cuda images or using EFA
