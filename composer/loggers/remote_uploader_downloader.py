@@ -412,6 +412,7 @@ class RemoteUploaderDownloader(LoggerDestination):
             if formatted_remote_file_name in self._logged_objects and not overwrite:
                 raise FileExistsError(
                     f'Object {formatted_remote_file_name} was already enqueued to be uploaded, but overwrite=False.')
+            print(f'{formatted_remote_file_name=}, {copied_path=}')
             self._logged_objects[formatted_remote_file_name] = (copied_path, overwrite)
 
     def can_upload_files(self) -> bool:
