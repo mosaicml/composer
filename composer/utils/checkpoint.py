@@ -172,7 +172,7 @@ def is_checkpoint_legacy_sharded(object_store: Optional[ObjectStore], source_pat
                 metadata_destination = os.path.join(str(temp_dir), '.metadata')
                 object_store.download_object(object_name=metadata_path, filename=metadata_destination)
             return False
-        except FileNotFoundError as e:
+        except FileNotFoundError:
             return True
 
 
