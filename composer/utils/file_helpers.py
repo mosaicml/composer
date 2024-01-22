@@ -409,6 +409,7 @@ def maybe_create_remote_uploader_downloader_from_uri(
             warnings.warn(
                 f'There already exists a RemoteUploaderDownloader object to handle the uri: {uri} you specified')
             return None
+    print(backend, backend=='azure')
     if backend in ['s3', 'oci', 'gs']:
         return RemoteUploaderDownloader(bucket_uri=f'{backend}://{bucket_name}')
     elif backend == 'azure':
