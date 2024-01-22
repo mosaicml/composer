@@ -911,7 +911,7 @@ def test_separate_eval_metrics(tiny_bert_model, tiny_bert_tokenizer):
 
 @pytest.mark.parametrize('checkpoint_upload_folder', [None, 's3://checkpoints-bucket/'])
 @pytest.mark.parametrize('local_save_filename', [None, 'local-checkpoint.pt'])
-@pytest.mark.filterwarnings("ignore:TypedStorage is deprecated.*:UserWarning")
+@pytest.mark.filterwarnings('ignore:TypedStorage is deprecated.*:UserWarning')
 def test_write_hf_from_composer(checkpoint_upload_folder, local_save_filename, tiny_bert_model, tiny_bert_tokenizer,
                                 tmp_path):
     transformers = pytest.importorskip('transformers')
@@ -945,7 +945,8 @@ def test_write_hf_from_composer(checkpoint_upload_folder, local_save_filename, t
 
     check_hf_model_equivalence(tiny_bert_model, loaded_hf_model)
 
-@pytest.mark.filterwarnings("ignore:TypedStorage is deprecated.*:UserWarning")
+
+@pytest.mark.filterwarnings('ignore:TypedStorage is deprecated.*:UserWarning')
 def test_write_hf_from_composer_direct(tiny_bert_tokenizer, tmp_path):
     # tests that the logic to write out a huggingface checkpoint from a composer checkpoint
     # still works when the huggingface model is instantiated directly rather than using from_pretrained
