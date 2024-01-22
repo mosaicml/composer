@@ -74,7 +74,7 @@ class SimpleModel(ComposerClassifier):
             fc2,
             torch.nn.Softmax(dim=-1),
         )
-        net.param_init_fn = self.param_init_fn
+        net.param_init_fn = self.param_init_fn  # pyright: ignore[reportGeneralTypeIssues]
         super().__init__(module=net, num_classes=num_classes)
 
         # Important: It is crucial that the FC layers are bound to `self`
@@ -90,7 +90,7 @@ class SimpleModel(ComposerClassifier):
 
         if isinstance(module, torch.nn.Linear):
             init_fn(module.weight)
-            if module.bias is not None:
+            if module.bias is not None:  # pyright: ignore[reportUnnecessaryComparison]
                 torch.nn.init.zeros_(module.bias)
 
 
@@ -131,7 +131,7 @@ class SimpleWeightTiedModel(ComposerClassifier):
 
         self.mlp = mlp
         self.net = net
-        self.net.param_init_fn = self.param_init_fn
+        self.net.param_init_fn = self.param_init_fn  # pyright: ignore[reportGeneralTypeIssues]
 
         self.mlp.fc1.weight = self.mlp.fc2.weight
 
@@ -140,7 +140,7 @@ class SimpleWeightTiedModel(ComposerClassifier):
 
         if isinstance(module, torch.nn.Linear):
             init_fn(module.weight)
-            if module.bias is not None:
+            if module.bias is not None:  # pyright: ignore[reportUnnecessaryComparison]
                 torch.nn.init.zeros_(module.bias)
 
 
@@ -166,7 +166,7 @@ class EmbeddedWeightTiedModel(ComposerClassifier):
 
         super().__init__(module=net, num_classes=num_features)
 
-        self.module.param_init_fn = self.param_init_fn
+        self.module.param_init_fn = self.param_init_fn  # pyright: ignore[reportGeneralTypeIssues]
 
         self.net1 = net1
         self.net2 = net2
@@ -178,7 +178,7 @@ class EmbeddedWeightTiedModel(ComposerClassifier):
 
         if isinstance(module, torch.nn.Linear):
             init_fn(module.weight)
-            if module.bias is not None:
+            if module.bias is not None:  # pyright: ignore[reportUnnecessaryComparison]
                 torch.nn.init.zeros_(module.bias)
 
 
@@ -465,7 +465,7 @@ def configure_tiny_bert_config():
 
 
 def configure_tiny_bert_hf_model(use_logits=True):
-    return HuggingFaceModel(configure_tiny_bert_model(), configure_tiny_bert_tokenizer(), use_logits)
+    return HuggingFaceModel(configure_tiny_bert_model(), configure_tiny_bert_tokenizer(), use_logits)  # type: ignore
 
 
 def configure_tiny_deberta_model():
@@ -490,7 +490,11 @@ def configure_tiny_deberta_config():
 
 
 def configure_tiny_deberta_hf_model(use_logits=True):
-    return HuggingFaceModel(configure_tiny_deberta_model(), configure_tiny_deberta_tokenizer(), use_logits)
+    return HuggingFaceModel(
+        configure_tiny_deberta_model(),  # type: ignore
+        configure_tiny_deberta_tokenizer(),  # type: ignore
+        use_logits,
+    )
 
 
 def configure_tiny_gpt2_model():
@@ -515,7 +519,7 @@ def configure_tiny_gpt2_config():
 
 
 def configure_tiny_gpt2_hf_model(use_logits=True):
-    return HuggingFaceModel(configure_tiny_gpt2_model(), configure_tiny_gpt2_tokenizer(), use_logits)
+    return HuggingFaceModel(configure_tiny_gpt2_model(), configure_tiny_gpt2_tokenizer(), use_logits)  # type: ignore
 
 
 def configure_tiny_t5_model():
@@ -540,4 +544,4 @@ def configure_tiny_t5_config():
 
 
 def configure_tiny_t5_hf_model(use_logits=True):
-    return HuggingFaceModel(configure_tiny_t5_model(), configure_tiny_t5_tokenizer(), use_logits)
+    return HuggingFaceModel(configure_tiny_t5_model(), configure_tiny_t5_tokenizer(), use_logits)  # type: ignore

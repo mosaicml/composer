@@ -15,12 +15,12 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from composer.core import Callback, Event, State, Time, Timestamp
-from composer.loggers import Logger
+from composer.loggers import Logger, MLFlowLogger
 from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, PartialFilePath,
                             checkpoint, create_interval_scheduler, create_symlink_file, dist,
                             ensure_folder_has_no_conflicting_files, format_name_with_dist,
-                            format_name_with_dist_and_time, is_model_deepspeed, using_torch_2)
-from composer.utils.checkpoint import _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
+                            format_name_with_dist_and_time, is_model_deepspeed, partial_format, using_torch_2)
+from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
 
 log = logging.getLogger(__name__)
 
@@ -199,10 +199,6 @@ class CheckpointSaver(Callback):  # noqa: D101
             progress). It should return ``True`` if a checkpoint should be saved given the current state and
             event.
 
-        weights_only (bool): If ``True``, save only the model weights instead of the entire training state.
-            This parameter must be ``False`` when using DeepSpeed. Default: ``False``.
-
-
         num_checkpoints_to_keep (int, optional): The number of checkpoints to keep locally. The oldest checkpoints
             are removed first. Set to ``-1`` to keep all checkpoints locally. Default: ``-1``.
 
@@ -213,6 +209,31 @@ class CheckpointSaver(Callback):  # noqa: D101
 
             This parameter only controls how many checkpoints are kept locally; checkpoints are not deleted from
             remote file systems.
+
+        weights_only (bool): If ``True``, save only the model weights instead of the entire training state.
+            This parameter must be ``False`` when using DeepSpeed. Default: ``False``.
+
+        ignore_keys (List[str] | (Dict) -> None, optional): A list of paths for the ``state_dict`` of the checkpoint,
+            which, when provided, will be ignored from the state_dict before a checkpoint is saved. Each path is a list
+            of strings specifying the keys to index into ``state_dict`` joined together with `/` as a separator (as PyTorch
+            uses `.` in parameter names). If a prefix is provided, all children are also ignored (see Example 2).
+            See :mod:`composer.core.state` for the structure of state_dict.
+
+            Example 1: ``save_ignore_keys = ["state/model/layer1.weights", "state/model/layer1.bias"]`` would ignore
+            layer 1 weights and bias.
+
+            Example 2: ``save_ignore_keys = ["state/model/*"]`` would ignore the entire model, which would have the same
+            effect as the previous example if there was only 1 layer.
+
+            Example 3: ``save_ignore_keys = ["state/model/layer*.weights"]`` would ignore all weights in the model.
+
+            Example 4: ``save_ignore_keys = ["state/rank_zero_seed", "rng"]`` would reset all randomness when
+            saving the checkpoint.
+
+            If a callable, it should take one argument which is the state_dict. The callable is free to arbitrarily modify
+            the state_dict before it is loaded.
+
+            (default: ``None``)
 
     Attributes:
         saved_checkpoints (List[Tuple[Timestamp, List[pathlib.Path]]]): The checkpoint timestamps and filepaths.
@@ -243,6 +264,7 @@ class CheckpointSaver(Callback):  # noqa: D101
         overwrite: bool = False,
         num_checkpoints_to_keep: int = -1,
         weights_only: bool = False,
+        ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
     ):
         folder = str(folder)
         filename = str(filename)
@@ -267,10 +289,35 @@ class CheckpointSaver(Callback):  # noqa: D101
         self.all_saved_checkpoints_to_timestamp: Dict[str, Timestamp] = {}
         self.num_checkpoints_to_keep = num_checkpoints_to_keep
         self.weights_only = weights_only
+        self.ignore_keys = ignore_keys
 
         self.start_batch = None
 
     def init(self, state: State, logger: Logger) -> None:
+        # If MLFlowLogger is being used, format MLFlow-specific placeholders in the save folder and paths.
+        # Assumes that MLFlowLogger comes before CheckpointSaver in the list of loggers.
+        for destination in logger.destinations:
+            if isinstance(destination, MLFlowLogger):
+                mlflow_format_kwargs = {
+                    MLFLOW_EXPERIMENT_ID_FORMAT_KEY: destination._experiment_id,
+                    MLFLOW_RUN_ID_FORMAT_KEY: destination._run_id
+                }
+                self.folder = partial_format(self.folder, **mlflow_format_kwargs)
+
+                self.filename.folder = self.folder
+                if self.latest_filename is not None:
+                    self.latest_filename.folder = self.folder
+
+                # The remote paths have the placeholders in their filename rather than folder
+                if self.remote_file_name is not None:
+                    self.remote_file_name.filename = partial_format(self.remote_file_name.filename,
+                                                                    **mlflow_format_kwargs)
+                if self.latest_remote_file_name is not None:
+                    self.latest_remote_file_name.filename = partial_format(self.latest_remote_file_name.filename,
+                                                                           **mlflow_format_kwargs)
+
+                break
+
         folder = format_name_with_dist(self.folder, state.run_name)
         os.makedirs(folder, exist_ok=True)
 
@@ -335,10 +382,11 @@ class CheckpointSaver(Callback):  # noqa: D101
         # Store before saving so state_dict in checkpoint has reference to latest checkpoint (itself)
         self.all_saved_checkpoints_to_timestamp[save_filename] = state.timestamp
 
-        saved_path = checkpoint._save_checkpoint(
+        saved_path = checkpoint.save_checkpoint(
             state=state,
-            save_filename=save_filename,
+            filename=filename_with_placeholders,
             weights_only=self.weights_only,
+            ignore_keys=self.ignore_keys,
         )
         log.debug(f'Checkpoint locally saved to {saved_path}')
 
@@ -377,7 +425,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 ).lstrip('/')
                 assert state.sharded_ckpt_prefix_dir is not None
                 remote_prefix = state.sharded_ckpt_prefix_dir
-                ckpt_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME if using_torch_2() else pathlib.Path(
+                ckpt_filename = checkpoint._TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME if using_torch_2() else pathlib.Path(
                     remote_file_name).name
                 remote_file_name = os.path.join(pathlib.Path(remote_file_name).parent, remote_prefix, ckpt_filename)
                 remote_file_name = format_name_with_dist_and_time(remote_file_name, state.run_name, state.timestamp)

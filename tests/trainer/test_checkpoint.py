@@ -285,6 +285,7 @@ class TestCheckpointSaving:
             'weights_only': False,
             'save_interval': '1ep',
             'num_checkpoints_to_keep': -1,
+            'ignore_keys': None,
         }
         expected_folder = expected_path.rstrip('/') if expected_path != '' else '.'
         mock_checkpoint_saver.assert_called_once_with(folder=expected_folder, **rest_of_checkpoint_saver_kwargs)
@@ -750,6 +751,7 @@ class TestCheckpointLoading:
                 assert metrics_equal
 
     @pytest.mark.parametrize('load_ignore_keys,weights_equal,callbacks_equal,rng_equal', [
+        ['*', False, False, False],
         ['state/model/*', False, True, True],
         ['state/callbacks/*', True, False, True],
         ['rng', True, True, False],
@@ -767,6 +769,44 @@ class TestCheckpointLoading:
             load_path=last_checkpoint,
             load_ignore_keys=[load_ignore_keys],
         )
+
+        # Check weights loaded properly
+        with contextlib.nullcontext() if weights_equal else pytest.raises(AssertionError):
+            self._assert_weights_equivalent(
+                trainer_1.state.model,
+                trainer_2.state.model,
+            )
+
+        # Check callbacks state
+        stateful_callbacks_equal = self._stateful_callbacks_equal(
+            trainer_1.state.callbacks,
+            trainer_2.state.callbacks,
+        )
+        if callbacks_equal:
+            assert stateful_callbacks_equal
+        else:
+            assert not stateful_callbacks_equal
+
+        if rng_equal:
+            assert trainer_1_rng_state is not None
+            deep_compare(trainer_1_rng_state, trainer_2._rng_state)
+
+    @pytest.mark.parametrize('save_ignore_keys,weights_equal,callbacks_equal,rng_equal', [
+        ['*', False, False, False],
+        ['state/model/*', False, True, True],
+        ['state/callbacks/*', True, False, True],
+        ['rng', True, True, False],
+    ])
+    @pytest.mark.filterwarnings('ignore:.* is not in the state_dict.*:UserWarning')
+    def test_save_ignore_keys(self, save_ignore_keys, weights_equal, callbacks_equal, rng_equal):
+
+        trainer_1 = self.get_trainer(save_folder='first', save_ignore_keys=[save_ignore_keys])
+        trainer_1.fit()
+        trainer_1_rng_state = reproducibility.get_rng_state()
+        trainer_1.close()
+
+        last_checkpoint = os.path.join('first', 'ep2.pt')
+        trainer_2 = self.get_trainer(load_path=last_checkpoint)
 
         # Check weights loaded properly
         with contextlib.nullcontext() if weights_equal else pytest.raises(AssertionError):

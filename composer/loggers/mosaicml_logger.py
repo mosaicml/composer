@@ -113,7 +113,6 @@ class MosaicMLLogger(LoggerDestination):
 
     def batch_end(self, state: State, logger: Logger) -> None:
         training_progress_data = self._get_training_progress_metrics(state)
-        log.debug(f'\nLogging training progress data to metadata:\n{dict_to_str(training_progress_data)}')
         self._log_metadata(training_progress_data)
         self._flush_metadata()
 
@@ -153,6 +152,7 @@ class MosaicMLLogger(LoggerDestination):
         if self._enabled and len(self.buffered_metadata) > 0 and (
                 time.time() - self.time_last_logged > self.log_interval or force_flush):
             try:
+                assert self.run_name is not None
                 if future:
                     f = mcli.update_run_metadata(self.run_name, self.buffered_metadata, future=True, protect=True)
                     self._futures.append(f)

@@ -295,7 +295,10 @@ RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \
 RUN if [ -n "$CUDA_VERSION" ] ; then \
     pip${PYTHON_VERSION} install --upgrade --no-cache-dir ninja==1.11.1 && \
     pip${PYTHON_VERSION} install --upgrade --no-cache-dir --force-reinstall packaging==22.0 && \
-    pip${PYTHON_VERSION} install --no-cache-dir flash-attn==1.0.9; \
+    git clone --branch v2.4.2 https://github.com/Dao-AILab/flash-attention.git && \
+    cd flash-attention && \
+    MAX_JOBS=1 python${PYTHON_VERSION} setup.py install && \
+    cd .. ; \
     fi
 
 ###############

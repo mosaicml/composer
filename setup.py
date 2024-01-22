@@ -78,8 +78,8 @@ install_requires = [
     'tqdm>=4.62.3,<5',
     'torchmetrics>=0.10.0,<1.1',
     'torch_optimizer>=0.3.0,<0.4',
-    'torchvision>=0.13.1,<0.19',
-    'torch>=1.13.1,<2.2.1',
+    'torchvision>=0.13.1,<0.20',  # TODO: Tighten before release
+    'torch>=1.13.1,<2.3.1',  # TODO: Tighten before release
     'requests>=2.26.0,<3',
     'numpy>=1.21.5,<1.27.0',
     'psutil>=5.8.0,<6',
@@ -88,7 +88,7 @@ install_requires = [
     'py-cpuinfo>=8.0.0,<10',
     'packaging>=21.3.0,<23',
     'importlib-metadata>=5.0.0,<7',
-    'mosaicml-cli>=0.5.25,<0.6',
+    'mosaicml-cli>=0.5.25,<0.7',
 ]
 extra_deps = {}
 
@@ -103,7 +103,6 @@ extra_deps['dev'] = [
     'coverage[toml]==7.3.4',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
-    'toml==0.10.2',
     'ipython==8.11.0',
     'ipykernel==6.28.0',
     'jupyter==1.0.0',
@@ -117,6 +116,11 @@ extra_deps['dev'] = [
     'sphinx_markdown_tables==0.0.17',
     'sphinx-argparse==0.4.0',
     'sphinxcontrib.katex==0.9.6',
+    'sphinxcontrib-applehelp==1.0.0',
+    'sphinxcontrib-devhelp==1.0.0',
+    'sphinxcontrib-htmlhelp==2.0.0',
+    'sphinxcontrib-serializinghtml==1.1.5',
+    'sphinxcontrib-qthelp==1.0.0',
     'sphinxext.opengraph==0.9.1',
     'sphinxemoji==0.2.0',
     'furo==2022.9.29',
@@ -130,7 +134,7 @@ extra_deps['dev'] = [
     'nbsphinx==0.9.1',
     'pandoc==2.3',
     'pypandoc==1.12',
-    'GitPython==3.1.40',
+    'GitPython==3.1.41',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
     'cryptography==41.0.5',
