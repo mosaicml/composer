@@ -107,6 +107,8 @@ class HuggingFaceModel(ComposerModel):
         if not self.model_forward_args:
             raise ValueError('Could not determine the forward arguments of the model. Please open a GitHub issue.')
 
+        self.model_forward_args = set(self.model_forward_args)
+
         self.tokenizer = tokenizer
 
         self.peft_filter_state_dict_trainable = peft_filter_state_dict_trainable

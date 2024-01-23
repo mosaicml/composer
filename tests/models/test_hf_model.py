@@ -1235,7 +1235,7 @@ def test_peft_init_errors(tiny_gpt2_model, gpt2_peft_config):
 def test_peft_init_not_installed(tiny_gpt2_model, gpt2_peft_config):
     pytest.importorskip('peft')
 
-    with patch('composer.models.huggingface._peft_installed', False):
+    with patch('composer.models.huggingface.peft_installed', False):
         with pytest.raises(ImportError):
             from composer.models import HuggingFaceModel
             _ = HuggingFaceModel(tiny_gpt2_model, peft_config=gpt2_peft_config)
