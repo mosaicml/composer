@@ -16,6 +16,7 @@ from tqdm import tqdm
 
 from composer.core import DataSpec
 from composer.core.data_spec import _default_split_batch, _split_list
+from composer.datasets.utils import stop_sequences_criteria
 from composer.utils import MissingConditionalImportError, dist, get_file
 
 if TYPE_CHECKING:
@@ -139,21 +140,21 @@ class InContextLearningQATaskDataset(Dataset):
             })
         return result
 
-    def __init__(
-        self,
-        dataset_uri: str,
-        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
-        max_seq_len: int,
-        pad_tok_id: int,
-        num_fewshot: int,
-        prompt_string: str,
-        example_delimiter: str,
-        continuation_delimiter: str,
-        destination_path: str,
-        question_prelimiter: str,
-        fewshot_random_seed: int,
-        cot_delimiter: str = '',
-    ):
+    def __init__(self,
+                 dataset_uri: str,
+                 tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
+                 max_seq_len: int,
+                 pad_tok_id: int,
+                 num_fewshot: int,
+                 prompt_string: str,
+                 example_delimiter: str,
+                 continuation_delimiter: str,
+                 destination_path: str,
+                 question_prelimiter: str,
+                 fewshot_random_seed: int,
+                 cot_delimiter: str = '',
+                 early_stopping_criteria: Optional[List[str]] = None,
+                 do_normalization: bool = True):
         if tokenizer.eos_token_id is None:
             raise ValueError('`InContextLearningQATaskDataset` tokenizer must have non-null `eos_token_id`')
         try:
@@ -166,6 +167,8 @@ class InContextLearningQATaskDataset(Dataset):
             if dist.get_local_rank() == 0:
                 get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
+        self.early_stopping_criteria = early_stopping_criteria
+        self.do_normalization = do_normalization
         self.samples = self._read_dataset(dataset)  # pyright: ignore[reportGeneralTypeIssues]
         self.samples = strip_data(self.samples)
         self.tokenizer = tokenizer
@@ -301,17 +304,26 @@ class InContextLearningQATaskDataset(Dataset):
             # We will search for the answer within the portion of the model response
             # beginning with `cot_delimiter`
             cot_delimiter = sample['cot_delimiter']
-
+        stopping_criteria = None
+        if self.early_stopping_criteria:
+            if stop_sequences_criteria is None:  # pyright: ignore [reportUnnecessaryComparison]
+                raise MissingConditionalImportError(extra_deps_group='nlp',
+                                                    conda_package='transformers',
+                                                    conda_channel='conda-forge')
+            stopping_criteria = stop_sequences_criteria(self.tokenizer, self.early_stopping_criteria, len(inputs))
         batch = {
             'input_ids': torch.stack(inputs),
             'mode': 'generate',
             'labels': answers,
             'cot_delimiter': cot_delimiter,
             'generation_length': self.max_answer_length,
+            'stopping_criteria': self.early_stopping_criteria,
+            'do_normalization': self.do_normalization,
             'generation_kwargs': {
                 'pad_token_id': self.pad_tok_id,
                 'use_cache': True,
-                'eos_token_id': self.tokenizer.eos_token_id
+                'stopping_criteria': stopping_criteria,
+                'eos_token_id': self.tokenizer.eos_token_id,
             }
         }
 
@@ -325,7 +337,9 @@ class InContextLearningQATaskDataset(Dataset):
         # Don't split kwargs that don't change
         # Normally split torch tensors
         # List split lists of strings
-        no_split = ['mode', 'generation_length', 'generation_kwargs', 'cot_delimiter']
+        no_split = [
+            'mode', 'generation_length', 'generation_kwargs', 'cot_delimiter', 'do_normalization', 'stopping_criteria'
+        ]
         normal_split = ['input_ids', 'attention_mask']
         list_split = ['labels']
         chunked = {}
@@ -341,7 +355,7 @@ class InContextLearningQATaskDataset(Dataset):
                 raise ValueError(f'Unexpected key {k}')
         num_chunks = len(chunked['input_ids'])
         for k, v in batch.items():
-            if isinstance(v, (int, float, str, bool, dict)):
+            if k in no_split:
                 chunked[k] = [v] * num_chunks
         return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
 
@@ -1170,23 +1184,24 @@ class InContextLearningCodeEvalDataset(Dataset):
 
 
 def build_icl_dataloader(
-    icl_task_type: str,
-    dataset_uri: str,
-    tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
-    batch_size: int,
-    max_seq_len: int,
-    pad_tok_id: int,
-    num_fewshot: int,
-    prompt_string: str,  # e.g. 'translate english to french:'
-    example_delimiter: str,  # e.g. '\n'
-    continuation_delimiter: str,  # e.g. ''
-    destination_path: str,
-    question_prelimiter: str = '',  # e.g. 'Question: '
-    cot_delimiter: str = '',
-    fewshot_random_seed: int = 1234,
-    pass_at_k: int = 1,
-    generations_per_sample: int = 1,
-) -> DataSpec:
+        icl_task_type: str,
+        dataset_uri: str,
+        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
+        batch_size: int,
+        max_seq_len: int,
+        pad_tok_id: int,
+        num_fewshot: int,
+        prompt_string: str,  # e.g. 'translate english to french:'
+        example_delimiter: str,  # e.g. '\n'
+        continuation_delimiter: str,  # e.g. ''
+        destination_path: str,
+        question_prelimiter: str = '',  # e.g. 'Question: '
+        cot_delimiter: str = '',
+        fewshot_random_seed: int = 1234,
+        pass_at_k: int = 1,
+        generations_per_sample: int = 1,
+        early_stopping_criteria: Optional[List[str]] = None,
+        do_normalization: bool = True) -> DataSpec:
     if icl_task_type == 'multiple_choice':
         dataset = InContextLearningMultipleChoiceTaskDataset(dataset_uri,
                                                              tokenizer,
@@ -1237,7 +1252,9 @@ def build_icl_dataloader(
                                                  destination_path=destination_path,
                                                  question_prelimiter=question_prelimiter,
                                                  fewshot_random_seed=fewshot_random_seed,
-                                                 cot_delimiter=cot_delimiter)
+                                                 cot_delimiter=cot_delimiter,
+                                                 early_stopping_criteria=early_stopping_criteria,
+                                                 do_normalization=do_normalization)
         effective_batchsize = batch_size
     elif icl_task_type == 'code_evaluation':
         dataset = InContextLearningCodeEvalDataset(dataset_uri,
@@ -1336,7 +1353,9 @@ def get_icl_task_dataloader(
         pass_at_k: int = 1,
         generations_per_sample: int = 1,
         cot_delimiter: str = '',
-        has_categories: bool = False) -> Union[DataSpec, Dict[str, DataSpec]]:
+        has_categories: bool = False,
+        early_stopping_criteria: Optional[List[str]] = None,
+        do_normalization: bool = True) -> Union[DataSpec, Dict[str, DataSpec]]:
     """This constructs a dataloader (or dataloaders if has_categories is True) capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
 
     >>> dl = get_icl_task_dataloader(
@@ -1389,41 +1408,41 @@ def get_icl_task_dataloader(
         categories = sorted(output_files.keys())
         for category in categories:
             partition_uri = output_files[category]
-            result_dls[category] = build_icl_dataloader(
-                icl_task_type,
-                partition_uri,
-                tokenizer,
-                batch_size,
-                max_seq_len,
-                pad_tok_id,
-                num_fewshot,
-                prompt_string,
-                example_delimiter,
-                continuation_delimiter,
-                partition_uri + '_tmp',
-                question_prelimiter,
-                cot_delimiter,
-                fewshot_random_seed,
-                pass_at_k,
-                generations_per_sample,
-            )
+            result_dls[category] = build_icl_dataloader(icl_task_type,
+                                                        partition_uri,
+                                                        tokenizer,
+                                                        batch_size,
+                                                        max_seq_len,
+                                                        pad_tok_id,
+                                                        num_fewshot,
+                                                        prompt_string,
+                                                        example_delimiter,
+                                                        continuation_delimiter,
+                                                        partition_uri + '_tmp',
+                                                        question_prelimiter,
+                                                        cot_delimiter,
+                                                        fewshot_random_seed,
+                                                        pass_at_k,
+                                                        generations_per_sample,
+                                                        early_stopping_criteria=early_stopping_criteria,
+                                                        do_normalization=do_normalization)
         return result_dls
     else:
-        return build_icl_dataloader(
-            icl_task_type,
-            dataset_uri,
-            tokenizer,
-            batch_size,
-            max_seq_len,
-            pad_tok_id,
-            num_fewshot,
-            prompt_string,
-            example_delimiter,
-            continuation_delimiter,
-            destination_path,
-            question_prelimiter,
-            cot_delimiter,
-            fewshot_random_seed,
-            pass_at_k,
-            generations_per_sample,
-        )
+        return build_icl_dataloader(icl_task_type,
+                                    dataset_uri,
+                                    tokenizer,
+                                    batch_size,
+                                    max_seq_len,
+                                    pad_tok_id,
+                                    num_fewshot,
+                                    prompt_string,
+                                    example_delimiter,
+                                    continuation_delimiter,
+                                    destination_path,
+                                    question_prelimiter,
+                                    cot_delimiter,
+                                    fewshot_random_seed,
+                                    pass_at_k,
+                                    generations_per_sample,
+                                    early_stopping_criteria=early_stopping_criteria,
+                                    do_normalization=do_normalization)

@@ -576,3 +576,69 @@ def test_mlflow_log_image_works(tmp_path, device):
     run_file_path = mlflow_uri / Path(experiment_id) / Path(run_id)
     im_dir = run_file_path / Path('artifacts')
     assert len(os.listdir(im_dir)) == expected_num_ims
+
+
+@device('cpu')
+def test_mlflow_ignore_metrics(tmp_path, device):
+    mlflow = pytest.importorskip('mlflow')
+
+    mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
+    experiment_name = 'mlflow_logging_test'
+    test_mlflow_logger = MLFlowLogger(
+        tracking_uri=mlflow_uri,
+        experiment_name=experiment_name,
+        log_system_metrics=False,
+        ignore_metrics=['metrics/eval/*', 'nothing/should/match', 'metrics/train/CrossEntropy'],
+    )
+    # Reduce the system metrics sampling interval to speed up the test.
+    mlflow.set_system_metrics_sampling_interval(1)
+
+    dataset_size = 64
+    batch_size = 4
+    num_batches = 4
+    eval_interval = '1ba'
+
+    trainer = Trainer(model=SimpleConvModel(),
+                      loggers=test_mlflow_logger,
+                      train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
+                      eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
+                      max_duration=f'{num_batches}ba',
+                      eval_interval=eval_interval,
+                      device=device)
+    trainer.fit()
+    # Allow async logging to finish.
+    time.sleep(3)
+    test_mlflow_logger.post_close()
+
+    run = _get_latest_mlflow_run(
+        experiment_name=experiment_name,
+        tracking_uri=mlflow_uri,
+    )
+    run_id = run.info.run_id
+    experiment_id = run.info.experiment_id
+
+    run_file_path = mlflow_uri / Path(experiment_id) / Path(run_id)
+
+    # Test metrics logged.
+    for metric_name in [
+            'metrics/train/MulticlassAccuracy',
+            'loss/train/total',
+    ]:
+        metric_file = run_file_path / Path('metrics') / Path(metric_name)
+        with open(metric_file) as f:
+            csv_reader = csv.reader(f, delimiter=' ')
+            lines = list(csv_reader)
+
+        assert len(lines) == num_batches
+
+    # Test metrics are not logged.
+    for metric_name in ['metrics/eval/MulticlassAccuracy', 'metrics/eval/CrossEntropy', 'metrics/train/CrossEntropy']:
+        metric_file = run_file_path / Path('metrics') / Path(metric_name)
+        assert not os.path.exists(metric_file)
+
+    # Test system metrics are not logged.
+    metric_file = run_file_path / Path('metrics') / Path('system/cpu_utilization_percentage')
+    assert not os.path.exists(metric_file)
+
+    # Undo the setup to avoid affecting other test cases.
+    mlflow.set_system_metrics_sampling_interval(None)
