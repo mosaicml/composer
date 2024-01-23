@@ -294,14 +294,9 @@ RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \
 ##########################
 # Install Flash Attention
 ##########################
-RUN if [ -n "$CUDA_VERSION" ] ; then \
-        pip${PYTHON_VERSION} install --upgrade --no-cache-dir ninja==1.11.1 && \
-        pip${PYTHON_VERSION} install --upgrade --no-cache-dir --force-reinstall packaging==22.0 && \
-        git clone --branch v2.4.2 https://github.com/Dao-AILab/flash-attention.git && \
-        cd flash-attention && \
-        MAX_JOBS=2 python${PYTHON_VERSION} setup.py install && \
-        cd .. ; \
-    fi
+RUN pip install --update setuptools && \
+    pip install packaging==22.0 && \
+    pip flash-attn==2.3.6
 
 ###############
 # Install cmake
