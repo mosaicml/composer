@@ -1488,6 +1488,9 @@ class State(Serializable):
                         continue
                     source = serialized_value[type(target).__qualname__]
                     target.load_state_dict(source)
+                    if attribute_name == 'timestamp':
+                        print(target)
+                        print(source)
             else:
                 # direct serialization
                 try:
