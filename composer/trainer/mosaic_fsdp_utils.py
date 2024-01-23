@@ -1180,7 +1180,7 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
             new_optim_state[state_name] = value
         torch.cuda.synchronize()
         return new_optim_state
-    
+
     from torch.distributed.fsdp._init_utils import FSDP_SYNCED, _check_module_states_for_sync_module_states, PARAM_BROADCAST_BUCKET_SIZE
     from torch.utils._python_dispatch import is_traceable_wrapper_subclass
     from torch.distributed.utils import _sync_params_and_buffers
@@ -1189,8 +1189,7 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
         params: List[nn.Parameter],
         process_group: dist.ProcessGroup,
     ) -> None:
-        """
-        Synchronize module states (i.e. parameters ``params`` and all not-yet-synced buffers) by broadcasting from rank 0 to all ranks.
+        """Synchronize module states (i.e. parameters ``params`` and all not-yet-synced buffers) by broadcasting from rank 0 to all ranks.
 
         Precondition: ``sync_module_states == True`` and ``self.process_group`` has
         been set.
@@ -1226,4 +1225,3 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
             PARAM_BROADCAST_BUCKET_SIZE,
             src=0,
         )
-
