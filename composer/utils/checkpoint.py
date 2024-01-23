@@ -436,7 +436,7 @@ def load_sharded_checkpoint(
     class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
         def __init__(self, source_path: str, destination_path: str, object_store):
-            self.source_path = parse_uri(source_path)
+            self.source_path = source_path
             self.destination_path = destination_path
             self.object_store = object_store
 
