@@ -1106,8 +1106,8 @@ class MTBenchJudge(InContextLearningMetric):
             self.init_openai()
         for i, first_generation in enumerate(outputs['generation_one']):
             second_generation = outputs['generation_two'][i]
-            prompt_one = batch['untokenized_prompt_one']
-            prompt_two = batch['untokenized_prompt_two']
+            prompt_one = batch['untokenized_prompt_one'][i]
+            prompt_two = batch['untokenized_prompt_two'][i]
             result, formatted_template = self.call_judge(prompt_one=prompt_one,
                                                         prompt_two=prompt_two,
                                                         first_generation=first_generation,

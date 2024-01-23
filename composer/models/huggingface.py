@@ -435,7 +435,9 @@ class HuggingFaceModel(ComposerModel):
                                        synced_gpus=dist.get_world_size() > 1,
                                        **batch.get('generation_kwargs', {}))
 
-            first_generation_as_list = self.tokenizer.batch_decode(first_generation.tolist(), skip_special_tokens=True)
+            # We index first_generation like this because it excludes the input prompt and returns only the model's generation.
+            # TODO: is .tolist() needed here?
+            first_generation_as_list = self.tokenizer.batch_decode(first_generation[:, batch['input_ids'].shape[1]:].tolist(), skip_special_tokens=True)
             new_inputs = []
             for i, gen_one in enumerate(first_generation_as_list):
                 # TODO: tokenization a la what's down below?
@@ -487,7 +489,7 @@ class HuggingFaceModel(ComposerModel):
             if len(self.tokenizer(' a', add_special_tokens=False)['input_ids']) == 1:
                 # TODO: skip_special_tokens?
                 generation_one = self.tokenizer.batch_decode(first_generation[:, input_shape[1]:], skip_special_tokens=True)
-                generation_two = self.tokenizer.batch_decode(second_generation[:, input_shape[1]:], skip_special_tokens=True)
+                generation_two = self.tokenizer.batch_decode(second_generation[:, batched_combined_prompts.shape[1]:], skip_special_tokens=True)
                 # outputs = {"generation_one": generation_one, "generation_two": generation_two}
                 # return outputs
             else:
