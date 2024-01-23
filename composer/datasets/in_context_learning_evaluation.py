@@ -271,6 +271,7 @@ class InContextLearningDataset(Dataset):
         answer_key: str = 'answer',
         strip_dataset: bool = True,
         padding_side: str = 'right',
+        tokenize_labels: bool = True,
         static_keys: Optional[List] = None,
         list_keys: Optional[List] = None,
         tensor_keys: Optional[List] = None,
@@ -279,7 +280,6 @@ class InContextLearningDataset(Dataset):
         batch_mapping: Optional[Dict] = None,
         hf_loading_vars: Optional[Dict] = None,
         hf_parsing_map: Optional[Dict] = None,
-        tokenize_labels: Optional[bool] = True,
         generation_kwargs: Optional[Dict] = None,
     ):
         self.tokenizer = tokenizer
@@ -374,10 +374,12 @@ class InContextLearningDataset(Dataset):
             ) from e
         if 'hf://' in dataset_uri:
             dataset_uri = dataset_uri.replace('hf://', '')
+            if hf_loading_vars is None:
+                hf_loading_vars = {}
+            # TODO: need to ensure split is defined here?
             dataset = load_dataset(dataset_uri, **hf_loading_vars)
-            if hf_parsing_map:
+            if hf_parsing_map is not None:
                 # assert statement only for type checking
-                assert hf_parsing_map is not None, f'hf_parsing_map to be utilized but recieved object {hf_parsing_map}'
                 dataset_parsing_func = lambda example: {
                     k: ' '.join([str(example[col]) for col in v]) for k, v in hf_parsing_map.items()
                 }
@@ -667,7 +669,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
             'input_ids': self.context_key,
             'labels': 'aliases',
         }
-        self._update_generation_kwargs(kwargs.get('generation_kwargs'))
+        self._update_generation_kwargs(kwargs.get('generation_kwargs', {}))
 
     def _read_dataset(
         self,
@@ -810,10 +812,10 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
 
     def __init__(self,
                  choices_key: str = 'choices',
-                 static_keys: List = None,
-                 list_of_tensors_keys: List = None,
-                 list_of_tuples_keys: List = None,
-                 list_of_primitives: List = None,
+                 static_keys: Optional[List] = None,
+                 list_of_tensors_keys: Optional[List] = None,
+                 list_of_tuples_keys: Optional[List] = None,
+                 list_of_primitives: Optional[List] = None,
                  *args,
                  **kwargs):
         self.choices_key = choices_key
@@ -1001,6 +1003,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
     - labels: Identical to the input, used by the model to calculate loss/metrics
     - gold_indices: List of length |batch_size // N| indicating for each question, which of the answers is correct (via an integer [0, N-1])
     - choice_groupings: Indicates which indices of the batch correspond to which questions
+
     """
 
     def __init__(self, choices_key='context_options', *args, **kwargs):
@@ -1236,7 +1239,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
                 'eos_token_id': self.tokenizer.eos_token_id
             }
         }
-        self._update_generation_kwargs(kwargs.get('generation_kwargs'))
+        self._update_generation_kwargs(kwargs.get('generation_kwargs', {}))
 
     def _set_max_prompt_and_answer_lengths(self):
         """
@@ -1486,12 +1489,12 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_lo
             if dist.get_local_rank() == 0:
                 get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
-    assert hasattr(dataset,
-                   'features'), f"'features' not found in loaded dataset. Did you parse the HF Dataset correctly?"
-    if 'category' not in dataset.features.keys():
-        raise Exception(
-            f"Attempted to partition dataset by `category` but it doesn't have a `category` key. Got keys: {str(list(dataset.features.keys()))}"
-        )
+    # assert hasattr(dataset,
+    #                'features'), f"'features' not found in loaded dataset. Did you parse the HF Dataset correctly?"
+    # if 'category' not in dataset.features.keys():
+    #     raise Exception(
+    #         f"Attempted to partition dataset by `category` but it doesn't have a `category` key. Got keys: {str(list(dataset.features.keys()))}"
+    #     )
     categories = sorted(set(dataset['category']))
     output_files = {}
     for cat in categories:
@@ -1511,7 +1514,7 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_lo
 def get_icl_task_dataloader(
         icl_task_type: str,
         dataset_uri: str,
-        tokenizer: transformers.PreTrainedTokenizerBase,
+        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
         batch_size: int,
         max_seq_len: int,
         pad_tok_id: int,
@@ -1526,9 +1529,9 @@ def get_icl_task_dataloader(
         generations_per_sample: int = 20,
         cot_delimiter: str = '',
         has_categories: bool = False,
-        hf_loading_vars: Dict = None,
-        hf_parsing_map: Dict = None,
-        generation_kwargs: Dict = None,
+        hf_loading_vars: Optional[Dict] = None,
+        hf_parsing_map: Optional[Dict] = None,
+        generation_kwargs: Optional[Dict] = None,
         early_stopping_criteria: Optional[List[str]] = None,
         do_normalization: bool = True) -> Union[DataSpec, Dict[str, DataSpec]]:
     """
@@ -1592,6 +1595,14 @@ def get_icl_task_dataloader(
     Returns:
         DataLoader: A dataloader used for performing in-context learning evaluation on the dataset provided.
     """
+    if hf_loading_vars is None:
+        hf_loading_vars = {}
+    if hf_parsing_map is None:
+        hf_parsing_map = {}
+    if generation_kwargs is None:
+        generation_kwargs = {}
+    if early_stopping_criteria is None:
+        early_stopping_criteria = []
 
     if has_categories:
         result_dls = {}
