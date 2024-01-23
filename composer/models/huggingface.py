@@ -435,11 +435,16 @@ class HuggingFaceModel(ComposerModel):
                                        synced_gpus=dist.get_world_size() > 1,
                                        **batch.get('generation_kwargs', {}))
 
+            log.info("first generation")
+            log.info(first_generation)
             # We index first_generation like this because it excludes the input prompt and returns only the model's generation.
-            # TODO: is .tolist() needed here?
             first_generation_as_list = self.tokenizer.batch_decode(first_generation[:, batch['input_ids'].shape[1]:], skip_special_tokens=True)
+            log.info("first generation as list:")
+            log.info(first_generation_as_list)
             new_inputs = []
             for i, gen_one in enumerate(first_generation_as_list):
+                log.info("gen one")
+                log.info(gen_one)
                 # TODO: tokenization a la what's down below?
                 tokenized_new_input = self.tokenizer.apply_chat_template(
                     [{
