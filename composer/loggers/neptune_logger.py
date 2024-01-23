@@ -24,19 +24,25 @@ if TYPE_CHECKING:
 
 
 class NeptuneLogger(LoggerDestination):
-    """LoggerDestination implementation that sends the logs to Neptune.
+    """Log to `neptune.ai <https://neptune.ai/>`_.
 
     Args:
-        project (str, optional): The name of your Neptune project, in the form `workspace-name/project-name`.
-            If you leave it empty, the NEPTUNE_PROJECT environment variable will be used.
-        api_token (str, optional): Your Neptune API token. You can leave out this argument if you save your token to the
-            NEPTUNE_API_TOKEN environment variable (recommended).
+        project (str, optional): The name of your Neptune project,
+            in the form "workspace-name/project-name". If you leave it empty, the
+            ``NEPTUNE_PROJECT`` environment variable will be used.
+        api_token (str, optional): Your Neptune API token.
+            You can leave out this argument if you save your token to the
+            ``NEPTUNE_API_TOKEN`` environment variable (recommended).
             You can find your API token in the user menu of the Neptune web app.
-        rank_zero_only (bool, optional): Whether to log only on the rank-zero process. Default: ``True``.
-        upload_artifacts (bool, optional): Whether the logger should upload artifacts to Neptune. Default: ``False``.
-        base_namespace (str, optional): The name of the base namespace to log the metadata to. Default: "training".
-        neptune_kwargs (Dict[str, Any], optional): Any additional keyword arguments to the neptune.init_run()
-            function. For options, see the [Run API reference](https://docs.neptune.ai/api/neptune/#init_run) in the
+        rank_zero_only (bool, optional): Whether to log only on the rank-zero process.
+            Default: ``True``.
+        upload_artifacts (bool, optional): Whether the logger should upload artifacts to Neptune.
+            Default: ``False``.
+        base_namespace (str, optional): The name of the base namespace to log the metadata to.
+            Default: "training".
+        neptune_kwargs (Dict[str, Any], optional): Any additional keyword arguments to the
+            ``neptune.init_run()`` function. For options, see the
+            `Run API reference <https://docs.neptune.ai/api/neptune/#init_run>`_ in the
             Neptune docs.
 
     Example:
