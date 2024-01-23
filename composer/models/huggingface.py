@@ -435,18 +435,10 @@ class HuggingFaceModel(ComposerModel):
                                        synced_gpus=dist.get_world_size() > 1,
                                        **batch.get('generation_kwargs', {}))
 
-            log.info("first generation")
-            log.info(first_generation)
             # We index first_generation like this because it excludes the input prompt and returns only the model's generation.
             first_generation_as_list = self.tokenizer.batch_decode(first_generation[:, batch['input_ids'].shape[1]:], skip_special_tokens=True)
-            log.info("first generation as list:")
-            log.info(first_generation_as_list)
             new_inputs = []
             for i, gen_one in enumerate(first_generation_as_list):
-                log.info("gen one, untok prompt 1, untok prompt 2")
-                log.info(gen_one)
-                log.info(batch['untokenized_prompt_one'][i])
-                log.info(batch['untokenized_prompt_two'][i])
                 # TODO: tokenization a la what's down below?
                 tokenized_new_input = self.tokenizer.apply_chat_template(
                     [{
@@ -454,7 +446,7 @@ class HuggingFaceModel(ComposerModel):
                         'content': batch['untokenized_prompt_one'][i]
                     },
                     {
-                        'role': 'model',
+                        'role': 'assistant',
                         'content': gen_one 
                     },
                     {
@@ -464,21 +456,13 @@ class HuggingFaceModel(ComposerModel):
                     tokenize=True,
                     add_generation_prompt=True,
                 )
-                log.info("tokenized_new_input")
-                log.info(self.tokenizer.decode(tokenized_new_input))
                 new_inputs.append(tokenized_new_input)
             padding_size = max([len(new_input) for new_input in new_inputs])
 
             batched_combined_prompts = []
             for new_input in new_inputs:
-                log.info("new_input")
-                log.info(self.tokenizer.decode(new_input))
                 trimmed_new_input = _trim_context(new_input, [], padding_size)
-                log.info("trimmed new_input")
-                log.info(self.tokenizer.decode(trimmed_new_input))
                 padded_new_input = _make_padded_input(trimmed_new_input, [], padding_size, batch['padding_token'], 'left')
-                log.info("padded new_input")
-                log.info(self.tokenizer.decode(padded_new_input))
                 batched_combined_prompts.append(padded_new_input)
 
             prompt_device = batch['input_ids'].device
@@ -494,16 +478,12 @@ class HuggingFaceModel(ComposerModel):
             batched_combined_attention_mask = ~(batched_combined_prompts == batch['padding_token'])
             batched_combined_prompts = batched_combined_prompts.to(prompt_device)
             batched_combined_attention_mask = batched_combined_attention_mask.to(attention_mask_device)
-            log.info("Input:")
-            log.info(self.tokenizer.batch_decode(batched_combined_prompts))
 
             second_generation = self.generate(batched_combined_prompts,
                                        attention_mask=batched_combined_attention_mask,
                                        max_new_tokens=batch['max_seq_len']-padding_size,
                                        synced_gpus=dist.get_world_size() > 1,
                                        **batch.get('generation_kwargs', {}))
-            log.info("Raw Outputs:")
-            log.info(self.tokenizer.batch_decode(second_generation))
 
             # don't remove prefix space to sentencepiece models
             if len(self.tokenizer(' a', add_special_tokens=False)['input_ids']) == 1:
@@ -522,9 +502,6 @@ class HuggingFaceModel(ComposerModel):
                                                                         skip_special_tokens=True)
                         ]
             outputs = {"generation_one": generation_one, "generation_two": generation_two}
-            log.info("Logging outputs:")
-            log.info(outputs)
-            log.info("-----------------------------")
             return outputs
                 
                     
