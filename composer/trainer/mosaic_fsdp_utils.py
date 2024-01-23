@@ -1187,7 +1187,7 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
     def _sync_module_params_and_buffers(
         module: nn.Module,
         params: List[nn.Parameter],
-        process_group: dist.ProcessGroup,
+        process_group,
     ) -> None:
         """Synchronize module states (i.e. parameters ``params`` and all not-yet-synced buffers) by broadcasting from rank 0 to all ranks.
 
