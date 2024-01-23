@@ -95,7 +95,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         mkdir -p /tmp/cuda-keyring && \
         wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb && \
         dpkg -i /tmp/cuda-keyring/cuda-keyring_1.0-1_all.deb && \
-        rm -rf /tmp/cuda-keyring \
+        rm -rf /tmp/cuda-keyring && \
         du -h --max-depth=3 ; \
     fi
 RUN apt-get update && \
@@ -129,7 +129,7 @@ RUN apt-get update && \
         htop && \
     apt-get autoclean && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* \
+    rm -rf /var/lib/apt/lists/* && \
     du -h --max-depth=3
 
 ###############################
@@ -140,7 +140,7 @@ RUN add-apt-repository ppa:git-core/ppa && \
         git && \
     apt-get autoclean && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* \
+    rm -rf /var/lib/apt/lists/* && \
     du -h --max-depth=3
 
 ##############################
@@ -151,7 +151,7 @@ RUN \
     apt-get install -y --no-install-recommends nodejs && \
     apt-get autoclean && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* \
+    rm -rf /var/lib/apt/lists/* && \
     du -h --max-depth=3
 
 ################
@@ -172,11 +172,11 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
     python${PYTHON_VERSION}-venv && \
     apt-get autoclean && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* \
+    rm -rf /var/lib/apt/lists/* && \
     du -h --max-depth=3
 
 RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} - && \
-    pip${PYTHON_VERSION} install --no-cache-dir --upgrade 'pip<23' setuptools \
+    pip${PYTHON_VERSION} install --no-cache-dir --upgrade 'pip<23' setuptools && \
     du -h --max-depth=3
 
 #####################
@@ -191,7 +191,7 @@ COPY pillow_stub /tmp/pillow_stub
 
 RUN pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
     pip${PYTHON_VERSION} install --no-cache-dir --upgrade pillow_simd==${PILLOW_SIMD_VERSION} && \
-    rm -rf /tmp/pillow_stub \
+    rm -rf /tmp/pillow_stub && \
     du -h --max-depth=3
 
 #################
@@ -211,12 +211,12 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
       CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
         pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
             torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
-            torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} \
+            torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} && \
             du -h --max-depth=3 ; \
     else \
         pip${PYTHON_VERSION} install --no-cache-dir --pre --index-url ${PYTORCH_NIGHTLY_URL} \
             torch==${PYTORCH_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
-	        torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
+	        torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} && \
             du -h --max-depth=3 ; \
     fi
 
@@ -238,7 +238,7 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
         libhwloc-dev && \
     apt-get autoclean && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* \
+    rm -rf /var/lib/apt/lists/* && \
     du -h --max-depth=3 ; \
     fi
 
@@ -249,7 +249,7 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
         cd aws-efa-installer && \
         apt-get update && \
         ./efa_installer.sh -y -g -d --skip-kmod --skip-limit-conf --no-verify && \
-        rm -rf /tmp/aws-efa-installer* \
+        rm -rf /tmp/aws-efa-installer* && \
         du -h --max-depth=3 ; \
     fi
 
@@ -263,7 +263,7 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
             --with-cuda=/usr/local/cuda \
             --disable-tests \
             --enable-platform-aws && \
-        make && make install \
+        make && make install && \
         du -h --max-depth=3 ; \
     fi
 
@@ -278,7 +278,7 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
         wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz && \
         tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz -C /tmp/mofed && \
         /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64/mlnxofedinstall --user-space-only --without-fw-update --force && \
-        rm -rf /tmp/mofed \
+        rm -rf /tmp/mofed && \
         du -h --max-depth=3 ; \
     fi
 
@@ -298,7 +298,7 @@ RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \
             --global-option="--cuda_ext" \
             --target  /usr/local/lib/python${PYTHON_VERSION}/dist-packages \
             ./ && \
-        rm -rf /tmp/apex \
+        rm -rf /tmp/apex && \
         du -h --max-depth=3 ; \
     fi
 
@@ -311,20 +311,20 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         git clone --branch v2.4.2 https://github.com/Dao-AILab/flash-attention.git && \
         cd flash-attention && \
         MAX_JOBS=1 python${PYTHON_VERSION} setup.py install && \
-        cd .. \
+        cd .. && \
         du -h --max-depth=3 ; \
     fi
 
 ###############
 # Install cmake
 ###############
-RUN pip${PYTHON_VERSION} install --no-cache-dir cmake==3.26.3 \
+RUN pip${PYTHON_VERSION} install --no-cache-dir cmake==3.26.3 && \
     du -h --max-depth=3
 
 ###########################
 # Install Pandoc Dependency
 ###########################
-RUN pip${PYTHON_VERSION} install --no-cache-dir pandoc==2.3 \
+RUN pip${PYTHON_VERSION} install --no-cache-dir pandoc==2.3 && \
     du -h --max-depth=3 /
 
 ################################
@@ -346,7 +346,7 @@ RUN mkdir -p ${COMPOSER_PYTHON_BIN} && \
     # Include this folder, and the local bin folder, on the path
     echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/profile && \
     echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/bash.bashrc && \
-    echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/zshenv \
+    echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/zshenv && \
     du -h --max-depth=3
 
 # Ensure that non-interactive shells load /etc/profile
@@ -357,7 +357,7 @@ ENV BASH_ENV=/etc/profile
 #########################
 RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml && \
     usermod -a -G sudo mosaicml && \
-    echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers \
+    echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers && \
     du -h --max-depth=3
 
 #########################
@@ -367,7 +367,7 @@ RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get autoclean && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* \
+    rm -rf /var/lib/apt/lists/* && \
     du -h --max-depth=3
 
 #########################
@@ -377,8 +377,8 @@ RUN pip install --no-cache-dir --upgrade \
         certifi${CERTIFI_VERSION} \
         ipython${IPYTHON_VERSION} \
         urllib3${URLLIB3_VERSION} \
-        python-snappy \
-        du -h --max-depth=3
+        python-snappy
+RUN du -h --max-depth=3
 
 ##################################################
 # Override NVIDIA mistaken env var for 11.8 images
