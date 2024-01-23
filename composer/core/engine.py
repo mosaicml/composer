@@ -86,6 +86,8 @@ from composer.loggers import Logger, LoggerDestination
 from composer.profiler import ProfilerAction
 from composer.utils import ensure_tuple
 
+from torch.utils.data.dataloader import _MultiProcessingDataLoaderIter
+
 log = logging.getLogger(__name__)
 
 __all__ = ['Trace', 'Engine', 'Traces']
@@ -513,15 +515,17 @@ class Engine():
         # down. It is only required to set the flag if the user manually calls `close()` and still holds
         # a reference to the engine.
         self._is_closed = True
+        # Unregistering the closing function to remove annoying references to state and logger
+        atexit.unregister(self._close)
 
     @staticmethod
     def _close(state: State, logger: Logger):
         """The actual shutdown logic, as a static method, so the underlying engine can still be garbage collected."""
-        # log.debug('Closing the engine.')
+        log.debug('Closing the engine.')
         callback_to_has_exception: Dict[Callback, bool] = {}
         for callback in state.callbacks:
             try:
-                # log.debug('Closing callback %s', type(callback).__name__)
+                log.debug('Closing callback %s', type(callback).__name__)
                 callback.close(state, logger)
             except Exception as e:
                 log.error(
@@ -535,22 +539,22 @@ class Engine():
         for callback in state.callbacks:
             if callback_to_has_exception[callback] is False:
                 try:
-                    # log.debug('Post-closing callback %s', type(callback).__name__)
+                    log.debug('Post-closing callback %s', type(callback).__name__)
                     callback.post_close()
                 except Exception as e:
                     log.error(f'Error running {callback.__class__.__name__}.post_close().', exc_info=e, stack_info=True)
                 else:
                     _OPEN_CALLBACKS.discard(callback)
 
-        # Try to shut down any persistent workers
+        # Try to shut down any persistent workers in any dataloader
         try:
-            state.train_dataloader._iterator._shutdown_workers()  # type: ignore [reportGeneralTypeIssues]
+            state._train_dataloader._iterator._shutdown_workers()  # type: ignore [reportGeneralTypeIssues]
         except AttributeError as e:
             pass
         except Exception as e:
             log.error(f'Error running state.train_dataloader._iterator._shutdown_workers().', exc_info=e, stack_info=True)
         try:
-            state.dataloader._iterator._shutdown_workers()  # type: ignore [reportGeneralTypeIssues]
+            state._dataloader._iterator._shutdown_workers()  # type: ignore [reportGeneralTypeIssues]
         except AttributeError as e:
             pass
         except Exception as e:
@@ -568,4 +572,6 @@ class Engine():
         except Exception as e:
             log.error(f'Error running evaluator(s).dataloader.dataloader._iterator._shutdown_workers().', exc_info=e, stack_info=True)
 
+        # NOTE: Unregistering annoying function from `atexit` since it keeps file descriptors alive
+        atexit.unregister(_MultiProcessingDataLoaderIter._clean_up_worker)
         log.debug('Engine closed.')
