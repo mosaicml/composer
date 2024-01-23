@@ -507,7 +507,10 @@ def load_sharded_checkpoint(
                 # For older versions of torch, we load optimizer separately.
                 if version.parse(torch.__version__) < version.parse('2.1.3'):
                     cur_state_dict.pop('optimizers')
-                state_dict = {'state': cur_state_dict}
+                state_dict = {
+                    'state': cur_state_dict,
+                    'rng': reproducibility.get_rng_state(),
+                }
 
             if ignore_keys:
                 # Filter provided list of key paths
@@ -518,21 +521,35 @@ def load_sharded_checkpoint(
                 # Ensure state exists
                 state_dict['state'] = state_dict.get('state', {})
 
+            # Only some ranks are meant to load checkpoint
+            expect_file = False
+            process_group = None
+            device_mesh = state.fsdp_device_mesh
+            if device_mesh is not None and device_mesh.ndim == 2:
+                expect_file = (device_mesh.get_local_rank(mesh_dim=0) == 0)
+                if expect_file:
+                    process_group = device_mesh.get_group(1)  # Only save on first replica
+                    log.debug(f'global_rank={dist.get_global_rank()}, {expect_file=}')
+            else:
+                expect_file = True
+
             if version.parse(torch.__version__) > version.parse('2.1.3'):
                 dist_cp.load(  # type: ignore
                     state_dict=state_dict,
                     storage_reader=storage_reader,
                     planner=load_planner,
+                    process_group=process_group,
                 )
             else:
                 dist_cp.load_state_dict(
                     state_dict=state_dict,
                     storage_reader=storage_reader,
                     planner=load_planner,
+                    process_group=process_group,
                 )
 
             state.load_state_dict(
-                state_dict['state'],
+                state_dict,
                 logger,
                 strict=strict_model_weights,
                 exclude_algorithms=exclude_algorithms,
@@ -547,26 +564,26 @@ def load_sharded_checkpoint(
                                                                 storage_reader=storage_reader)
                 state._legacy_load_optim_state(optim_state)
 
-        # 3. Optionally load RNG
-        rng_state_dicts = reproducibility.get_rng_state()
-        if not load_weights_only:
-            # If we are resuming on more ranks than were used at save time we only want to load in rngs for those ranks
-            num_ranks_that_saved_rng = _get_num_ranks_that_saved_rng(storage_reader.read_metadata())
-            rng_state_dicts_load = {}
-            rng_state_dicts_load['rng'] = rng_state_dicts[:num_ranks_that_saved_rng] if len(
-                rng_state_dicts) > num_ranks_that_saved_rng else rng_state_dicts
-            dist_cp.load_state_dict(
-                state_dict=rng_state_dicts_load,
-                storage_reader=storage_reader,
-                planner=load_planner,
-            )
-            # We also want to append newly generated rng states for the ranks that don't have an rng state to load in
-            # if we are resuming on more ranks than were used at save time.
-            if len(rng_state_dicts) > num_ranks_that_saved_rng:
-                rng_state_dicts_load['rng'].extend(rng_state_dicts[num_ranks_that_saved_rng:])
-            rng_state_dicts = rng_state_dicts_load['rng']
+        # # 3. Optionally load RNG
+        # rng_state_dicts = reproducibility.get_rng_state()
+        # if not load_weights_only:
+        #     # If we are resuming on more ranks than were used at save time we only want to load in rngs for those ranks
+        #     num_ranks_that_saved_rng = _get_num_ranks_that_saved_rng(storage_reader.read_metadata())
+        #     rng_state_dicts_load = {}
+        #     rng_state_dicts_load['rng'] = rng_state_dicts[:num_ranks_that_saved_rng] if len(
+        #         rng_state_dicts) > num_ranks_that_saved_rng else rng_state_dicts
+        #     dist_cp.load_state_dict(
+        #         state_dict=rng_state_dicts_load,
+        #         storage_reader=storage_reader,
+        #         planner=load_planner,
+        #     )
+        #     # We also want to append newly generated rng states for the ranks that don't have an rng state to load in
+        #     # if we are resuming on more ranks than were used at save time.
+        #     if len(rng_state_dicts) > num_ranks_that_saved_rng:
+        #         rng_state_dicts_load['rng'].extend(rng_state_dicts[num_ranks_that_saved_rng:])
+        #     rng_state_dicts = rng_state_dicts_load['rng']
 
-    return rng_state_dicts
+    return state_dict.get('rng', None)
 
 
 def _get_local_rank_zero_path(path: Optional[str]) -> str:
