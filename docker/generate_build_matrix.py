@@ -231,14 +231,14 @@ def _main():
         'AWS_OFI_NCCL_VERSION': '',
         'BASE_IMAGE': 'nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04',
         'CUDA_VERSION': '12.1.0',
-        'IMAGE_NAME': 'torch-nightly-2-3-0-20240120-cu121',
+        'IMAGE_NAME': 'torch-nightly-2-3-0-20240114-cu121',
         'MOFED_VERSION': '5.5-1.0.3.2',
         'NVIDIA_REQUIRE_CUDA_OVERRIDE': _get_cuda_override('12.1.0'),
         'PYTHON_VERSION': '3.10',
         'PYTORCH_VERSION': '2.3.0',
         'PYTORCH_NIGHTLY_URL': 'https://download.pytorch.org/whl/nightly/cu121',
-        'PYTORCH_NIGHTLY_VERSION': 'dev20240120+cu121',
-        'TAGS': ['mosaicml/pytorch:2.3.0_cu121-nightly20240120-python3.10-ubuntu20.04'],
+        'PYTORCH_NIGHTLY_VERSION': 'dev20240114+cu121',
+        'TAGS': ['mosaicml/pytorch:2.3.0_cu121-nightly20240114-python3.10-ubuntu20.04'],
         'TARGET': 'pytorch_stage',
         'TORCHVISION_VERSION': '0.18.0'
     }
