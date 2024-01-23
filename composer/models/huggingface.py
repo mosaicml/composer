@@ -478,6 +478,8 @@ class HuggingFaceModel(ComposerModel):
             batched_combined_attention_mask = ~(batched_combined_prompts == batch['padding_token'])
             batched_combined_prompts = batched_combined_prompts.to(prompt_device)
             batched_combined_attention_mask = batched_combined_attention_mask.to(attention_mask_device)
+            log.info("Inputs:")
+            log.info(self.tokenizer.batch_decode(batched_combined_prompts))
 
             second_generation = self.generate(batched_combined_prompts,
                                        attention_mask=batched_combined_attention_mask,
@@ -485,6 +487,9 @@ class HuggingFaceModel(ComposerModel):
                                        synced_gpus=dist.get_world_size() > 1,
                                        **batch.get('generation_kwargs', {}))
 
+            log.info("Raw Detokenized Outputs:")
+            log.info(self.tokenizer.batch_decode(first_generation))
+            log.info(self.tokenizer.batch_decode(second_generation))
             # don't remove prefix space to sentencepiece models
             if len(self.tokenizer(' a', add_special_tokens=False)['input_ids']) == 1:
                 # TODO: skip_special_tokens?
@@ -502,6 +507,8 @@ class HuggingFaceModel(ComposerModel):
                                                                         skip_special_tokens=True)
                         ]
             outputs = {"generation_one": generation_one, "generation_two": generation_two}
+            log.info("Outputs:")
+            log.info(self.tokenizer.batch_decode(outputs))
             return outputs
                 
                     
