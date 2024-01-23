@@ -118,6 +118,7 @@ RUN apt-get update && \
         tcl \
         libjpeg8-dev \
         less \
+        libsnappy-dev \
         # For AWS EFA:
         autoconf \
         autotools-dev \
