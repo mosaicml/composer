@@ -294,9 +294,11 @@ RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \
 ##########################
 # Install Flash Attention
 ##########################
-RUN pip install --update setuptools && \
-    pip install packaging==22.0 && \
-    pip flash-attn==2.3.6
+RUN if [ -n "$CUDA_VERSION" ] ; then \
+        pip${PYTHON_VERSION} install --upgrade --no-cache-dir ninja==1.11.1 && \
+        pip${PYTHON_VERSION} install --upgrade --no-cache-dir --force-reinstall packaging==22.0 && \
+        pip${PYTHON_VERSION} install --no-cache-dir flash-attn==1.0.9; \
+    fi
 
 ###############
 # Install cmake
