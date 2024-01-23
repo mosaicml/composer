@@ -437,7 +437,7 @@ class HuggingFaceModel(ComposerModel):
 
             # We index first_generation like this because it excludes the input prompt and returns only the model's generation.
             # TODO: is .tolist() needed here?
-            first_generation_as_list = self.tokenizer.batch_decode(first_generation[:, batch['input_ids'].shape[1]:].tolist(), skip_special_tokens=True)
+            first_generation_as_list = self.tokenizer.batch_decode(first_generation[:, batch['input_ids'].shape[1]:], skip_special_tokens=True)
             new_inputs = []
             for i, gen_one in enumerate(first_generation_as_list):
                 # TODO: tokenization a la what's down below?
