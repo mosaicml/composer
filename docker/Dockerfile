@@ -98,8 +98,6 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         rm -rf /tmp/cuda-keyring ; \
     fi
 
-RUN du -h --max-depth=1 / --exclude=/proc --exclude=/sys
-
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libgomp1 \
@@ -133,8 +131,6 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN du -h --max-depth=1 / --exclude=/proc --exclude=/sys
-
 ###############################
 # Install latest version of git
 ###############################
@@ -145,8 +141,6 @@ RUN add-apt-repository ppa:git-core/ppa && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN du -h --max-depth=1 / --exclude=/proc --exclude=/sys
-
 ##############################
 # Install NodeJS (for Pyright)
 ##############################
@@ -156,8 +150,6 @@ RUN \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-
-RUN du -h --max-depth=1 / --exclude=/proc --exclude=/sys
 
 ################
 # Install Python
@@ -179,8 +171,6 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN du -h --max-depth=1 / --exclude=/proc --exclude=/sys
-
 RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} - && \
     pip${PYTHON_VERSION} install --no-cache-dir --upgrade 'pip<23' setuptools
 
@@ -197,8 +187,6 @@ COPY pillow_stub /tmp/pillow_stub
 RUN pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
     pip${PYTHON_VERSION} install --no-cache-dir --upgrade pillow_simd==${PILLOW_SIMD_VERSION} && \
     rm -rf /tmp/pillow_stub
-
-RUN du -h --max-depth=1 / --exclude=/proc --exclude=/sys
 
 #################
 # Install Pytorch
@@ -224,8 +212,6 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
 	        torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} ; \
     fi
 
-RUN du -h --max-depth=1 / --exclude=/proc --exclude=/sys
-
 #####################################
 # Install EFA and AWS-OFI-NCCL plugin
 #####################################
@@ -247,8 +233,6 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
     rm -rf /var/lib/apt/lists/* ; \
     fi
 
-RUN du -h --max-depth=1 / --exclude=/proc --exclude=/sys
-
 RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
         cd /tmp && \
         curl -OsS https://efa-installer.amazonaws.com/aws-efa-installer-${EFA_INSTALLER_VERSION}.tar.gz && \
@@ -258,8 +242,6 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
         ./efa_installer.sh -y -g -d --skip-kmod --skip-limit-conf --no-verify && \
         rm -rf /tmp/aws-efa-installer* ; \
     fi
-
-RUN du -h --max-depth=1 / --exclude=/proc --exclude=/sys
 
 RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
         git clone https://github.com/aws/aws-ofi-nccl.git /opt/aws-ofi-nccl && \
@@ -273,8 +255,6 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
             --enable-platform-aws && \
         make && make install ; \
     fi
-
-RUN du -h --max-depth=1 / --exclude=/proc --exclude=/sys
 
 ###################################
 # Mellanox OFED driver installation
@@ -290,8 +270,7 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
         rm -rf /tmp/mofed ; \
     fi
 
-RUN du -h --max-depth=1 / --exclude=/proc --exclude=/sys
-
+ 
 #####################
 # Install NVIDIA Apex
 #####################
@@ -311,35 +290,21 @@ RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \
         rm -rf /tmp/apex ; \
     fi
 
-RUN du -h --max-depth=1 / --exclude=/proc --exclude=/sys
-
+ 
 ##########################
 # Install Flash Attention
 ##########################
-RUN if [ -n "$CUDA_VERSION" ] ; then \
-        pip${PYTHON_VERSION} install --upgrade --no-cache-dir ninja==1.11.1 && \
-        pip${PYTHON_VERSION} install --upgrade --no-cache-dir --force-reinstall packaging==22.0 && \
-        git clone --branch v2.4.2 https://github.com/Dao-AILab/flash-attention.git && \
-        cd flash-attention && \
-        MAX_JOBS=1 python${PYTHON_VERSION} setup.py install && \
-        cd .. ; \
-    fi
-
-RUN du -h --max-depth=1 / --exclude=/proc --exclude=/sys
+RUN pip install flash-attn==2.5.0
 
 ###############
 # Install cmake
 ###############
 RUN pip${PYTHON_VERSION} install --no-cache-dir cmake==3.26.3
 
-RUN du -h --max-depth=1 / --exclude=/proc --exclude=/sys
-
 ###########################
 # Install Pandoc Dependency
 ###########################
 RUN pip${PYTHON_VERSION} install --no-cache-dir pandoc==2.3
-
-RUN du -h --max-depth=1 / --exclude=/proc --exclude=/sys
 
 ################################
 # Use the correct python version
@@ -362,8 +327,6 @@ RUN mkdir -p ${COMPOSER_PYTHON_BIN} && \
     echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/bash.bashrc && \
     echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/zshenv
 
-RUN du -h --max-depth=1 / --exclude=/proc --exclude=/sys
-
 # Ensure that non-interactive shells load /etc/profile
 ENV BASH_ENV=/etc/profile
 
@@ -374,8 +337,6 @@ RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml 
     usermod -a -G sudo mosaicml && \
     echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
-RUN du -h --max-depth=1 / --exclude=/proc --exclude=/sys
-
 #########################
 # Upgrade apt packages
 #########################
@@ -385,8 +346,6 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN du -h --max-depth=1 / --exclude=/proc --exclude=/sys
-
 #########################
 # Upgrade pip packages
 #########################
@@ -395,8 +354,6 @@ RUN pip install --no-cache-dir --upgrade \
         ipython${IPYTHON_VERSION} \
         urllib3${URLLIB3_VERSION} \
         python-snappy
-
-RUN du -h --max-depth=1 / --exclude=/proc --exclude=/sys
 
 ##################################################
 # Override NVIDIA mistaken env var for 11.8 images
