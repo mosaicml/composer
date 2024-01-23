@@ -58,7 +58,7 @@ class HuggingFaceModel(ComposerModel):
         allow_embedding_resizing (bool, optional): If True, the model's embeddings will be automatically resized when they are smaller than the tokenizer vocab size. Default: ``False``.
         peft_config (PeftConfig, optional): Optional PEFT config to apply to the model. If provided, the model will be converted to a PEFT model. Only LoRA is currently supported.
         peft_filter_state_dict_trainable (bool, optional): If True _and_ PEFT is active, the state dict will only contain the PEFT weights, not the frozen base model weights.
-        
+
         .. note:: To ensure correct behavior, set `shift_labels` manually if using a custom model (i.e., if `model` is not
         an instance of a registered 🤗 Transformers class).
     .. warning:: This wrapper is designed to work with 🤗 datasets that define a `labels` column.
