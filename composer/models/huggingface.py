@@ -495,8 +495,6 @@ class HuggingFaceModel(ComposerModel):
                 # TODO: skip_special_tokens?
                 generation_one = self.tokenizer.batch_decode(first_generation[:, input_shape[1]:], skip_special_tokens=True)
                 generation_two = self.tokenizer.batch_decode(second_generation[:, batched_combined_prompts.shape[1]:], skip_special_tokens=True)
-                # outputs = {"generation_one": generation_one, "generation_two": generation_two}
-                # return outputs
             else:
                 generation_one = [
                             ' ' + generation
@@ -505,7 +503,7 @@ class HuggingFaceModel(ComposerModel):
                         ]
                 generation_two = [
                             ' ' + generation
-                            for generation in self.tokenizer.batch_decode(second_generation[:, input_shape[1]:],
+                            for generation in self.tokenizer.batch_decode(second_generation[:, batched_combined_prompts.shape[1]:],
                                                                         skip_special_tokens=True)
                         ]
             outputs = {"generation_one": generation_one, "generation_two": generation_two}
