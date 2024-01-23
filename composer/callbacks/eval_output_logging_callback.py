@@ -99,11 +99,13 @@ class EvalOutputLogging(Callback):
     def eval_after_all(self, state: State, logger: Logger) -> None:
         # eval after all runs after all evaluators have completed during eval within training
         #  (either in training or eval)
+        print(f"eval after all", flush=True)
         self._write_tables_to_output_dir(state)
         self.table = {}
 
     def eval_standalone_end(self, state: State, logger: Logger) -> None:
         # eval standalone end runs after all evaluators have completed during a direct call to trainer.eval()
+        print(f"eval after all", flush=True)
         self._write_tables_to_output_dir(state)
         self.table = {}
 
