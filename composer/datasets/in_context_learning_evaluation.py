@@ -624,12 +624,6 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         cot_delimiter (str): Delimiter to place between the chain of thought and continuations.
     """
 
-    # init:
-    #  early_stopping_criteria: Optional[List[str]] = None,
-    #  do_normalization: bool = True):
-    # self.early_stopping_criteria = early_stopping_criteria
-    # self.do_normalization = do_normalization
-
     def __init__(self,
                  cot_delimiter: str = '',
                  early_stopping_criteria: Optional[List[str]] = None,
@@ -1492,6 +1486,8 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_lo
             if dist.get_local_rank() == 0:
                 get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
+    assert hasattr(dataset,
+                   'features'), f"'features' not found in loaded dataset. Did you parse the HF Dataset correctly?"
     if 'category' not in dataset.features.keys():
         raise Exception(
             f"Attempted to partition dataset by `category` but it doesn't have a `category` key. Got keys: {str(list(dataset.features.keys()))}"
