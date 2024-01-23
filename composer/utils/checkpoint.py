@@ -515,9 +515,10 @@ def load_sharded_checkpoint(
             process_group = None
             device_mesh = state.fsdp_device_mesh
             if device_mesh is not None and device_mesh.ndim == 2:
+                # If hybrid shard, only rank in first replica saves
                 expect_file = (device_mesh.get_local_rank(mesh_dim=0) == 0)
                 if expect_file:
-                    process_group = device_mesh.get_group(1)  # Only save on first replica
+                    process_group = device_mesh.get_group(1)  # Shard process_group for first replica
                     log.debug(f'global_rank={dist.get_global_rank()}, {expect_file=}')
             else:
                 expect_file = True
@@ -997,9 +998,10 @@ def _save_checkpoint(
         process_group = None
         device_mesh = state.fsdp_device_mesh
         if device_mesh is not None and device_mesh.ndim == 2:
+            # If hybrid shard, only rank in first replica saves
             expect_file = (device_mesh.get_local_rank(mesh_dim=0) == 0)
             if expect_file:
-                process_group = device_mesh.get_group(1)  # Only save on first replica
+                process_group = device_mesh.get_group(1)  # Shard process_group for first replica
                 log.debug(f'global_rank={dist.get_global_rank()}, {expect_file=}')
         else:
             expect_file = True
