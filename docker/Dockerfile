@@ -96,7 +96,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb && \
         dpkg -i /tmp/cuda-keyring/cuda-keyring_1.0-1_all.deb && \
         rm -rf /tmp/cuda-keyring ; \
-        du -hs /var/lib/apt/lists/* /usr/lib/python3/* \
+        du -h --max-depth=3 \
     fi
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -130,7 +130,7 @@ RUN apt-get update && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* \
-    du -hs /var/lib/apt/lists/* /usr/lib/python3/*
+    du -h --max-depth=3
 
 ###############################
 # Install latest version of git
@@ -141,7 +141,7 @@ RUN add-apt-repository ppa:git-core/ppa && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* \
-    du -hs /var/lib/apt/lists/* /usr/lib/python3/*
+    du -h --max-depth=3
 
 ##############################
 # Install NodeJS (for Pyright)
@@ -152,7 +152,7 @@ RUN \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* \
-    du -hs /var/lib/apt/lists/* /usr/lib/python3/*
+    du -h --max-depth=3
 
 ################
 # Install Python
@@ -173,11 +173,11 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* \
-    du -hs /var/lib/apt/lists/* /usr/lib/python3/*
+    du -h --max-depth=3
 
 RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} - && \
     pip${PYTHON_VERSION} install --no-cache-dir --upgrade 'pip<23' setuptools \
-    du -hs /var/lib/apt/lists/* /usr/lib/python3/*
+    du -h --max-depth=3
 
 #####################
 # Install pillow-simd
@@ -192,7 +192,7 @@ COPY pillow_stub /tmp/pillow_stub
 RUN pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
     pip${PYTHON_VERSION} install --no-cache-dir --upgrade pillow_simd==${PILLOW_SIMD_VERSION} && \
     rm -rf /tmp/pillow_stub \
-    du -hs /var/lib/apt/lists/* /usr/lib/python3/*
+    du -h --max-depth=3
 
 #################
 # Install Pytorch
@@ -212,12 +212,12 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
         pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
             torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
             torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} ; \
-            du -hs /var/lib/apt/lists/* /usr/lib/python3/* \
+            du -h --max-depth=3 \
     else \
         pip${PYTHON_VERSION} install --no-cache-dir --pre --index-url ${PYTORCH_NIGHTLY_URL} \
             torch==${PYTORCH_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
 	        torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} ; \
-            du -hs /var/lib/apt/lists/* /usr/lib/python3/* \
+            du -h --max-depth=3 \
     fi
 
 #####################################
@@ -239,7 +239,7 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* ; \
-    du -hs /var/lib/apt/lists/* /usr/lib/python3/* \
+    du -h --max-depth=3 \
     fi
 
 RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
@@ -250,7 +250,7 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
         apt-get update && \
         ./efa_installer.sh -y -g -d --skip-kmod --skip-limit-conf --no-verify && \
         rm -rf /tmp/aws-efa-installer* ; \
-        du -hs /var/lib/apt/lists/* /usr/lib/python3/* \
+        du -h --max-depth=3 \
     fi
 
 RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
@@ -264,7 +264,7 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
             --disable-tests \
             --enable-platform-aws && \
         make && make install ; \
-        du -hs /var/lib/apt/lists/* /usr/lib/python3/* \
+        du -h --max-depth=3 \
     fi
 
 ###################################
@@ -279,7 +279,7 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
         tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz -C /tmp/mofed && \
         /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64/mlnxofedinstall --user-space-only --without-fw-update --force && \
         rm -rf /tmp/mofed ; \
-        du -hs /var/lib/apt/lists/* /usr/lib/python3/* \
+        du -h --max-depth=3 \
     fi
 
 #####################
@@ -299,7 +299,7 @@ RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \
             --target  /usr/local/lib/python${PYTHON_VERSION}/dist-packages \
             ./ && \
         rm -rf /tmp/apex ; \
-        du -hs /var/lib/apt/lists/* /usr/lib/python3/* \
+        du -h --max-depth=3 \
     fi
 
 ##########################
@@ -312,20 +312,20 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         cd flash-attention && \
         MAX_JOBS=1 python${PYTHON_VERSION} setup.py install && \
         cd .. ; \
-        du -hs /var/lib/apt/lists/* /usr/lib/python3/* \
+        du -h --max-depth=3 \
     fi
 
 ###############
 # Install cmake
 ###############
 RUN pip${PYTHON_VERSION} install --no-cache-dir cmake==3.26.3 \
-    du -hs /var/lib/apt/lists/* /usr/lib/python3/*
+    du -h --max-depth=3
 
 ###########################
 # Install Pandoc Dependency
 ###########################
 RUN pip${PYTHON_VERSION} install --no-cache-dir pandoc==2.3 \
-    du -hs /var/lib/apt/lists/* /usr/lib/python3/*
+    du -h --max-depth=3 /
 
 ################################
 # Use the correct python version
@@ -347,7 +347,7 @@ RUN mkdir -p ${COMPOSER_PYTHON_BIN} && \
     echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/profile && \
     echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/bash.bashrc && \
     echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/zshenv \
-    du -hs /var/lib/apt/lists/* /usr/lib/python3/*
+    du -h --max-depth=3
 
 # Ensure that non-interactive shells load /etc/profile
 ENV BASH_ENV=/etc/profile
@@ -358,7 +358,7 @@ ENV BASH_ENV=/etc/profile
 RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml && \
     usermod -a -G sudo mosaicml && \
     echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers \
-    du -hs /var/lib/apt/lists/* /usr/lib/python3/*
+    du -h --max-depth=3
 
 #########################
 # Upgrade apt packages
@@ -368,7 +368,7 @@ RUN apt-get update && \
     apt-get autoclean && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* \
-    du -hs /var/lib/apt/lists/* /usr/lib/python3/*
+    du -h --max-depth=3
 
 #########################
 # Upgrade pip packages
@@ -378,7 +378,7 @@ RUN pip install --no-cache-dir --upgrade \
         ipython${IPYTHON_VERSION} \
         urllib3${URLLIB3_VERSION} \
         python-snappy \
-        du -hs /var/lib/apt/lists/* /usr/lib/python3/*
+        du -h --max-depth=3
 
 ##################################################
 # Override NVIDIA mistaken env var for 11.8 images
