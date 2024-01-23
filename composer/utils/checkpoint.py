@@ -170,9 +170,6 @@ def is_checkpoint_legacy_sharded(object_store: Optional[ObjectStore], source_pat
         try:
             with tempfile.TemporaryDirectory() as temp_dir:
                 metadata_destination = os.path.join(str(temp_dir), '.metadata')
-                print(f'AA {metadata_path=}')
-                _, _, metadata_path = parse_uri(metadata_path)
-                print(f'BB {metadata_path=}')
                 object_store.download_object(object_name=metadata_path, filename=metadata_destination)
             return False
         except FileNotFoundError:
@@ -439,9 +436,6 @@ def load_sharded_checkpoint(
     class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
         def __init__(self, source_path: str, destination_path: str, object_store):
-            print(f'A {source_path=}')
-            _, _, self.source_path = parse_uri(source_path)
-            print(f'B {source_path=}')
             self.destination_path = destination_path
             self.object_store = object_store
 
