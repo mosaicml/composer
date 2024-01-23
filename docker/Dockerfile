@@ -95,8 +95,8 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         mkdir -p /tmp/cuda-keyring && \
         wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb && \
         dpkg -i /tmp/cuda-keyring/cuda-keyring_1.0-1_all.deb && \
-        rm -rf /tmp/cuda-keyring ; \
-        du -h --max-depth=3 \
+        rm -rf /tmp/cuda-keyring \
+        du -h --max-depth=3 ; \
     fi
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -211,13 +211,13 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
       CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
         pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
             torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
-            torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} ; \
-            du -h --max-depth=3 \
+            torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} \
+            du -h --max-depth=3 ; \
     else \
         pip${PYTHON_VERSION} install --no-cache-dir --pre --index-url ${PYTORCH_NIGHTLY_URL} \
             torch==${PYTORCH_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
-	        torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} ; \
-            du -h --max-depth=3 \
+	        torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
+            du -h --max-depth=3 ; \
     fi
 
 #####################################
@@ -238,8 +238,8 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
         libhwloc-dev && \
     apt-get autoclean && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* ; \
-    du -h --max-depth=3 \
+    rm -rf /var/lib/apt/lists/* \
+    du -h --max-depth=3 ; \
     fi
 
 RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
@@ -249,8 +249,8 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
         cd aws-efa-installer && \
         apt-get update && \
         ./efa_installer.sh -y -g -d --skip-kmod --skip-limit-conf --no-verify && \
-        rm -rf /tmp/aws-efa-installer* ; \
-        du -h --max-depth=3 \
+        rm -rf /tmp/aws-efa-installer* \
+        du -h --max-depth=3 ; \
     fi
 
 RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
@@ -263,8 +263,8 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
             --with-cuda=/usr/local/cuda \
             --disable-tests \
             --enable-platform-aws && \
-        make && make install ; \
-        du -h --max-depth=3 \
+        make && make install \
+        du -h --max-depth=3 ; \
     fi
 
 ###################################
@@ -278,8 +278,8 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
         wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz && \
         tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz -C /tmp/mofed && \
         /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64/mlnxofedinstall --user-space-only --without-fw-update --force && \
-        rm -rf /tmp/mofed ; \
-        du -h --max-depth=3 \
+        rm -rf /tmp/mofed \
+        du -h --max-depth=3 ; \
     fi
 
 #####################
@@ -298,8 +298,8 @@ RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \
             --global-option="--cuda_ext" \
             --target  /usr/local/lib/python${PYTHON_VERSION}/dist-packages \
             ./ && \
-        rm -rf /tmp/apex ; \
-        du -h --max-depth=3 \
+        rm -rf /tmp/apex \
+        du -h --max-depth=3 ; \
     fi
 
 ##########################
@@ -311,8 +311,8 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         git clone --branch v2.4.2 https://github.com/Dao-AILab/flash-attention.git && \
         cd flash-attention && \
         MAX_JOBS=1 python${PYTHON_VERSION} setup.py install && \
-        cd .. ; \
-        du -h --max-depth=3 \
+        cd .. \
+        du -h --max-depth=3 ; \
     fi
 
 ###############
