@@ -99,7 +99,9 @@ def patch_pytorch():
         state_dict._verify_options = _verify_options_t2p2p0
 
         # Monkeypatch sharding optim state
-        from torch.distributed.fsdp import _optim_utils
+        from torch.distributed.fsdp import _optim_utils, _init_utils
 
-        from composer.trainer.mosaic_fsdp_utils import _shard_orig_param_state
+        from composer.trainer.mosaic_fsdp_utils import _shard_orig_param_state, _sync_module_params_and_buffers
         _optim_utils._shard_orig_param_state = _shard_orig_param_state
+        _init_utils._sync_module_params_and_buffers = _sync_module_params_and_buffers
+
