@@ -270,7 +270,7 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
         rm -rf /tmp/mofed ; \
     fi
 
- 
+
 #####################
 # Install NVIDIA Apex
 #####################
@@ -290,7 +290,7 @@ RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \
         rm -rf /tmp/apex ; \
     fi
 
- 
+
 ##########################
 # Install Flash Attention
 ##########################

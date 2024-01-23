@@ -38,6 +38,7 @@ jobs:
           BUILD_MATRIX=$(python .github/bin/gen_docker_matrix.py docker/build_matrix.yaml -b COMPOSER_INSTALL_COMMAND=$COMPOSER_INSTALL_COMMAND)
           echo $BUILD_MATRIX >> $GITHUB_OUTPUT
   stage-docker-build:
+    timeout-minutes: 1440
     needs: build-image-matrix
     uses: ./.github/workflows/docker-configure-build-push.yaml
     strategy:
