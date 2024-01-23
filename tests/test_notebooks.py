@@ -80,6 +80,7 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
         cell_source = cell_source.replace('batch_size = 1024', 'batch_size = 64')
         cell_source = cell_source.replace('download=True', 'download=False')
     if notebook_name == 'auto_microbatching':
+        cell_source = cell_source.replace('batch_size = 2048', 'batch_size = 1024')
         cell_source = cell_source.replace('download=True', 'download=False')
     if notebook_name == 'migrate_from_ptl':
         cell_source = cell_source.replace('batch_size=256', 'batch_size=64')
