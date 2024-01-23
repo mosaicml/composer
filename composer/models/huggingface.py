@@ -443,8 +443,10 @@ class HuggingFaceModel(ComposerModel):
             log.info(first_generation_as_list)
             new_inputs = []
             for i, gen_one in enumerate(first_generation_as_list):
-                log.info("gen one")
+                log.info("gen one, untok prompt 1, untok prompt 2")
                 log.info(gen_one)
+                log.info(batch['untokenized_prompt_one'][i])
+                log.info(batch['untokenized_prompt_two'][i])
                 # TODO: tokenization a la what's down below?
                 tokenized_new_input = self.tokenizer.apply_chat_template(
                     [{
@@ -462,13 +464,21 @@ class HuggingFaceModel(ComposerModel):
                     tokenize=True,
                     add_generation_prompt=True,
                 )
+                log.info("tokenized_new_input")
+                log.info(self.tokenizer.decode(tokenized_new_input))
                 new_inputs.append(tokenized_new_input)
             padding_size = max([len(new_input) for new_input in new_inputs])
 
             batched_combined_prompts = []
             for new_input in new_inputs:
+                log.info("new_input")
+                log.info(self.tokenizer.decode(new_input))
                 trimmed_new_input = _trim_context(new_input, [], padding_size)
+                log.info("trimmed new_input")
+                log.info(self.tokenizer.decode(trimmed_new_input))
                 padded_new_input = _make_padded_input(trimmed_new_input, [], padding_size, batch['padding_token'], 'left')
+                log.info("padded new_input")
+                log.info(self.tokenizer.decode(padded_new_input))
                 batched_combined_prompts.append(padded_new_input)
 
             prompt_device = batch['input_ids'].device
