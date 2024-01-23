@@ -983,7 +983,6 @@ class InContextLearningCodeEvalDataset(Dataset):
             if dist.get_local_rank() == 0:
                 get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
-        self.early_stopping_criteria = early_stopping_criteria
         self.samples = list(
             dataset.map(
                 lambda examples: {
