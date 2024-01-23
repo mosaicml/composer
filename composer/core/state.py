@@ -994,6 +994,8 @@ class State(Serializable):
                     serialized_value = None
             else:
                 serialized_value = attribute_value
+            if attribute_name == 'timestamp':
+                print('\n\n !!!', attribute_name, serialized_value)
 
             if serialized_value is not None:
                 state_dict[attribute_name] = serialized_value
@@ -1488,9 +1490,6 @@ class State(Serializable):
                         continue
                     source = serialized_value[type(target).__qualname__]
                     target.load_state_dict(source)
-                    if attribute_name == 'timestamp':
-                        print(target)
-                        print(source)
             else:
                 # direct serialization
                 try:
