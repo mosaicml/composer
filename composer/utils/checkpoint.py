@@ -539,7 +539,7 @@ def load_sharded_checkpoint(
                 )
 
             state.load_state_dict(
-                state_dict,
+                state_dict['state'],
                 logger,
                 strict=strict_model_weights,
                 exclude_algorithms=exclude_algorithms,
