@@ -78,7 +78,7 @@ class EvalOutputLogging(Callback):
             df = pd.DataFrame.from_records(data=rows, columns=cols)
             df['benchmark'] = benchmark
             full_df = pd.concat([full_df, df], ignore_index=True)
-
+        print(f"uploading to {self.output_directory}/{upload_file_name}", flush=True)
         with tempfile.NamedTemporaryFile('wb') as f:
             full_df.to_csv(f, sep='\t', index=False)
             tmp_file = f.name
