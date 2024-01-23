@@ -294,8 +294,9 @@ RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \
 ##########################
 # Install Flash Attention
 ##########################
-RUN pip install packaging==22.0 && \
-    pip install flash-attn==2.5.0 --no-build-isolation
+RUN pip install --upgrade pip setuptools
+RUN pip install packaging==22.0
+RUN pip install flash-attn==2.5.0 --no-build-isolation
 
 ###############
 # Install cmake
