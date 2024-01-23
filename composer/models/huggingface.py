@@ -508,7 +508,7 @@ class HuggingFaceModel(ComposerModel):
                         ]
             outputs = {"generation_one": generation_one, "generation_two": generation_two}
             log.info("Outputs:")
-            log.info(self.tokenizer.batch_decode(outputs))
+            log.info(outputs)
             return outputs
                 
                     
