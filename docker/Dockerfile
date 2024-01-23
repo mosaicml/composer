@@ -95,7 +95,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
         mkdir -p /tmp/cuda-keyring && \
         wget -P /tmp/cuda-keyring https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb && \
         dpkg -i /tmp/cuda-keyring/cuda-keyring_1.0-1_all.deb && \
-        rm -rf /tmp/cuda-keyring \
+        rm -rf /tmp/cuda-keyring ; \
     fi
 
 RUN set -eux; \
@@ -181,16 +181,13 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
     python${PYTHON_VERSION}-venv && \
     apt-get autoclean && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* 
+    rm -rf /var/lib/apt/lists/*
 
 RUN set -eux; \
     du -h --max-depth=3
 
 RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} - && \
     pip${PYTHON_VERSION} install --no-cache-dir --upgrade 'pip<23' setuptools
-
-RUN set -eux; \
-    du -h --max-depth=3
 
 #####################
 # Install pillow-simd
@@ -226,11 +223,11 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
       CUDA_VERSION_TAG=$(python${PYTHON_VERSION} -c "print('cu' + ''.join('${CUDA_VERSION}'.split('.')[:2]) if '${CUDA_VERSION}' else 'cpu')") && \
         pip${PYTHON_VERSION} install --no-cache-dir --find-links https://download.pytorch.org/whl/torch_stable.html \
             torch==${PYTORCH_VERSION}+${CUDA_VERSION_TAG} \
-            torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} \
+            torchvision==${TORCHVISION_VERSION}+${CUDA_VERSION_TAG} ; \
     else \
         pip${PYTHON_VERSION} install --no-cache-dir --pre --index-url ${PYTORCH_NIGHTLY_URL} \
             torch==${PYTORCH_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
-	        torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} \
+	        torchvision==${TORCHVISION_VERSION}.${PYTORCH_NIGHTLY_VERSION} ; \
     fi
 
 RUN set -eux; \
@@ -300,7 +297,7 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
         wget -nv -P /tmp/mofed http://content.mellanox.com/ofed/MLNX_OFED-${MOFED_VERSION}/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz && \
         tar -zxvf /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64.tgz -C /tmp/mofed && \
         /tmp/mofed/MLNX_OFED_LINUX-${MOFED_VERSION}-ubuntu20.04-x86_64/mlnxofedinstall --user-space-only --without-fw-update --force && \
-        rm -rf /tmp/mofed && ; \
+        rm -rf /tmp/mofed ; \
     fi
 
 RUN set -eux; \
@@ -322,7 +319,7 @@ RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \
             --global-option="--cuda_ext" \
             --target  /usr/local/lib/python${PYTHON_VERSION}/dist-packages \
             ./ && \
-        rm -rf /tmp/apex && ; \
+        rm -rf /tmp/apex ; \
     fi
 
 RUN set -eux; \
@@ -346,14 +343,18 @@ RUN set -eux; \
 ###############
 # Install cmake
 ###############
-RUN pip${PYTHON_VERSION} install --no-cache-dir cmake==3.26.3 && \
+RUN pip${PYTHON_VERSION} install --no-cache-dir cmake==3.26.3
+
+RUN set -eux; \
     du -h --max-depth=3
 
 ###########################
 # Install Pandoc Dependency
 ###########################
-RUN pip${PYTHON_VERSION} install --no-cache-dir pandoc==2.3 && \
-    du -h --max-depth=3 /
+RUN pip${PYTHON_VERSION} install --no-cache-dir pandoc==2.3
+
+RUN set -eux; \
+    du -h --max-depth=3
 
 ################################
 # Use the correct python version
@@ -374,7 +375,9 @@ RUN mkdir -p ${COMPOSER_PYTHON_BIN} && \
     # Include this folder, and the local bin folder, on the path
     echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/profile && \
     echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/bash.bashrc && \
-    echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/zshenv && \
+    echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/zshenv
+
+RUN set -eux; \
     du -h --max-depth=3
 
 # Ensure that non-interactive shells load /etc/profile
@@ -385,7 +388,7 @@ ENV BASH_ENV=/etc/profile
 #########################
 RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml && \
     usermod -a -G sudo mosaicml && \
-    echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers 
+    echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
 RUN set -eux; \
     du -h --max-depth=3
@@ -410,7 +413,7 @@ RUN pip install --no-cache-dir --upgrade \
         ipython${IPYTHON_VERSION} \
         urllib3${URLLIB3_VERSION} \
         python-snappy
-        
+
 RUN set -eux; \
     du -h --max-depth=3
 
