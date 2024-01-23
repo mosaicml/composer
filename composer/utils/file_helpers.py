@@ -319,6 +319,7 @@ def parse_uri(uri: str) -> Tuple[str, str, str]:
         Tuple[str, str, str]: A tuple containing the backend (e.g. s3), bucket name, and path.
                               Backend name will be empty string if the input is a local path
     """
+    uri = uri.replace('AZURE_BLOBS', 'azure')  # urlparse does not support _ in scheme
     parse_result = urlparse(uri)
     backend, net_loc, path = parse_result.scheme, parse_result.netloc, parse_result.path
     bucket_name = net_loc if '@' not in net_loc else net_loc.split('@')[0]
@@ -342,7 +343,6 @@ def maybe_create_object_store_from_uri(uri: str) -> Optional[ObjectStore]:
     Returns:
         Optional[ObjectStore]: Returns an :class:`composer.utils.ObjectStore` if the URI is of a supported format, otherwise None
     """
-    uri = uri.replace('AZURE_BLOBS', 'azure')
     backend, bucket_name, path = parse_uri(uri)
     if backend == '':
         return None
@@ -406,7 +406,6 @@ def maybe_create_remote_uploader_downloader_from_uri(
     Returns:
         Optional[RemoteUploaderDownloader]: Returns a :class:`composer.loggers.RemoteUploaderDownloader` if the URI is of a supported format, otherwise None
     """
-    uri = uri.replace('AZURE_BLOBS', 'azure')
     from composer.loggers import RemoteUploaderDownloader
     existing_remote_uds = [logger_dest for logger_dest in loggers if isinstance(logger_dest, RemoteUploaderDownloader)]
     backend, bucket_name, path = parse_uri(uri)

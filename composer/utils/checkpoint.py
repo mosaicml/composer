@@ -23,7 +23,7 @@ from packaging import version
 
 from composer.utils import dist, reproducibility
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist,
-                                         format_name_with_dist_and_time, get_file, is_tar)
+                                         format_name_with_dist_and_time, get_file, is_tar, parse_uri)
 from composer.utils.misc import is_model_deepspeed, using_torch_2
 from composer.utils.object_store import ObjectStore
 
@@ -170,6 +170,7 @@ def is_checkpoint_legacy_sharded(object_store: Optional[ObjectStore], source_pat
         try:
             with tempfile.TemporaryDirectory() as temp_dir:
                 metadata_destination = os.path.join(str(temp_dir), '.metadata')
+                _, _, metadata_path = parse_uri(metadata_path)
                 object_store.download_object(object_name=metadata_path, filename=metadata_destination)
             return False
         except FileNotFoundError:
@@ -436,7 +437,7 @@ def load_sharded_checkpoint(
     class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
         def __init__(self, source_path: str, destination_path: str, object_store):
-            self.source_path = source_path
+            _, _, self.source_path = parse_uri(source_path)
             self.destination_path = destination_path
             self.object_store = object_store
 
