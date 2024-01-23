@@ -11,7 +11,7 @@ import textwrap
 import uuid
 from contextlib import nullcontext as does_not_raise
 from functools import partial
-from typing import Any, Callable, Optional, Sequence
+from typing import Any, Callable, Optional, Sequence, Union
 from unittest.mock import patch
 
 import numpy as np
@@ -623,7 +623,7 @@ def test_fsdp_partitioned_state_dict_load(
     precision: str,
     optimizer: str,
     weights_only: bool,
-    load_ignore_keys: list[str],
+    load_ignore_keys: Union[list[str], None],
     use_remote,
     s3_bucket,
     s3_ephemeral_prefix,
@@ -716,8 +716,9 @@ def test_fsdp_partitioned_state_dict_load(
         state_dict_from_trainer2,
     )
     if not weights_only:
-        expect_diff_rng = any('rng' in x for x in load_ignore_keys)
-        with pytest.raises(AssertionError) if expect_diff_rng else contextlib.nullcontext():
+        if any('rng' in x for x in load_ignore_keys):
+            assert rng1 is not None and rng2 is None
+        else:
             _compare_rng_states_between_trainers(rng1, rng2)
         _compare_optims_between_state_dicts(
             state_dict_from_trainer1_ba2,
