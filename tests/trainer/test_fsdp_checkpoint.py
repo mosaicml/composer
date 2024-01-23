@@ -635,6 +635,7 @@ def test_fsdp_partitioned_state_dict_load(
         pytest.xfail(('Loading a state_dict_type="local" checkpoint with strict=True '
                       'errors out. See https://github.com/pytorch/pytorch/issues/102667 '
                       'for more info'))
+    load_ignore_keys = [] if load_ignore_keys is None else load_ignore_keys
 
     if autoresume:
         local_run_name = f'my-cool-autoresume-run-{uuid.uuid1()}'
