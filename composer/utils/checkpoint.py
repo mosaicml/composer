@@ -367,8 +367,7 @@ def load_sharded_checkpoint(
     ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
     exclude_algorithms: Optional[list[str]] = None,
     algorithm_passes: Optional[list[AlgorithmPass]] = None,
-) -> list[dict]:
-
+) -> Union[list[dict], None]:
     if not using_torch_2():
         raise ValueError(
             f'Sharded checkpoint loading requires torch version >= 2.0.0. You have torch version {torch.__version__}')
@@ -388,16 +387,6 @@ def load_sharded_checkpoint(
     from torch.distributed.checkpoint.metadata import Metadata
     from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
     from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
-
-    # This function is used so we can figure out which ranks need to load saved rngs and which can just make their own.
-    def _get_num_ranks_that_saved_rng(metadata: Metadata):
-        rng_inds = []
-        for field_name, field_value in metadata.planner_data.items():
-            if 'rng' in field_name:
-                _, rng_rank_index, _ = field_value
-                rng_inds.append(rng_rank_index)
-        rng_inds = set(rng_inds)
-        return len(rng_inds)
 
     class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
         """FileSystemReader that validates checkpoint files prior to reading."""
@@ -501,13 +490,13 @@ def load_sharded_checkpoint(
         with torch.no_grad():
             # 1. Load model and metadata first
             if load_weights_only:
-                state_dict = {'state': {'model': state.get_model_state_dict()}}
+                state_dict: Dict[str, Any] = {'state': {'model': state.get_model_state_dict()}}
             else:
                 cur_state_dict = state.state_dict()
                 # For older versions of torch, we load optimizer separately.
                 if version.parse(torch.__version__) < version.parse('2.1.3'):
                     cur_state_dict.pop('optimizers')
-                state_dict = {
+                state_dict: Dict[str, Any] = {
                     'state': cur_state_dict,
                     'rng': reproducibility.get_rng_state(),
                 }
