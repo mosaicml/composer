@@ -601,11 +601,15 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
 @pytest.mark.gpu
 @world_size(2)
 @pytest.mark.parametrize('weights_only', [False, True])
-@pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
 @pytest.mark.parametrize('state_dict_type', ['sharded', 'local'])
-@pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.parametrize('use_remote', [pytest.param(True, marks=pytest.mark.remote), False])
-@pytest.mark.parametrize('autoresume', [True, False])
+@pytest.mark.parametrize('optimizer,precision,autoresume,load_ignore_keys', [
+    ['adamw', 'amp_bf16', False, None],
+    ['adam', 'amp_bf16', False, None],
+    ['adamw', 'amp_fp16', False, None],
+    ['adamw', 'amp_bf16', True, None],
+    ['adamw', 'amp_bf16', False, ['rng']],
+])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
@@ -619,6 +623,7 @@ def test_fsdp_partitioned_state_dict_load(
     precision: str,
     optimizer: str,
     weights_only: bool,
+    load_ignore_keys: list[str],
     use_remote,
     s3_bucket,
     s3_ephemeral_prefix,
@@ -700,6 +705,7 @@ def test_fsdp_partitioned_state_dict_load(
         optimizer=optimizer,
         load_weights_only=weights_only,
         fsdp_config=fsdp_config,
+        load_ignore_keys=load_ignore_keys,
     )
     state_dict_from_trainer2 = trainer2.state.state_dict()
     rng2 = trainer2._rng_state
@@ -709,7 +715,9 @@ def test_fsdp_partitioned_state_dict_load(
         state_dict_from_trainer2,
     )
     if not weights_only:
-        _compare_rng_states_between_trainers(rng1, rng2)
+        expect_diff_rng = any('rng' in x for x in load_ignore_keys)
+        with pytest.raises(AssertionError) if expect_diff_rng else contextlib.nullcontext():
+            _compare_rng_states_between_trainers(rng1, rng2)
         _compare_optims_between_state_dicts(
             state_dict_from_trainer1_ba2,
             state_dict_from_trainer2,
