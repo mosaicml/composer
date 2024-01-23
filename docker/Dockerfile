@@ -99,7 +99,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
     fi
 
 RUN set -eux; \
-    du -h --max-depth=3
+    du -h --max-depth=3 /
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -135,7 +135,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 RUN set -eux; \
-    du -h --max-depth=3
+    du -h --max-depth=3 /
 
 ###############################
 # Install latest version of git
@@ -148,7 +148,7 @@ RUN add-apt-repository ppa:git-core/ppa && \
     rm -rf /var/lib/apt/lists/*
 
 RUN set -eux; \
-    du -h --max-depth=3
+    du -h --max-depth=3 /
 
 ##############################
 # Install NodeJS (for Pyright)
@@ -161,7 +161,7 @@ RUN \
     rm -rf /var/lib/apt/lists/*
 
 RUN set -eux; \
-    du -h --max-depth=3
+    du -h --max-depth=3 /
 
 ################
 # Install Python
@@ -184,7 +184,7 @@ RUN add-apt-repository ppa:deadsnakes/ppa && \
     rm -rf /var/lib/apt/lists/*
 
 RUN set -eux; \
-    du -h --max-depth=3
+    du -h --max-depth=3 /
 
 RUN curl -fsSL https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} - && \
     pip${PYTHON_VERSION} install --no-cache-dir --upgrade 'pip<23' setuptools
@@ -204,7 +204,7 @@ RUN pip${PYTHON_VERSION} install --no-cache-dir --upgrade /tmp/pillow_stub && \
     rm -rf /tmp/pillow_stub
 
 RUN set -eux; \
-    du -h --max-depth=3
+    du -h --max-depth=3 /
 
 #################
 # Install Pytorch
@@ -231,7 +231,7 @@ RUN if [ -z "$PYTORCH_NIGHTLY_URL" ] ; then \
     fi
 
 RUN set -eux; \
-    du -h --max-depth=3
+    du -h --max-depth=3 /
 
 #####################################
 # Install EFA and AWS-OFI-NCCL plugin
@@ -255,7 +255,7 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
     fi
 
 RUN set -eux; \
-    du -h --max-depth=3
+    du -h --max-depth=3 /
 
 RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
         cd /tmp && \
@@ -268,7 +268,7 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
     fi
 
 RUN set -eux; \
-    du -h --max-depth=3
+    du -h --max-depth=3 /
 
 RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
         git clone https://github.com/aws/aws-ofi-nccl.git /opt/aws-ofi-nccl && \
@@ -284,7 +284,7 @@ RUN if [ -n "$AWS_OFI_NCCL_VERSION" ] ; then \
     fi
 
 RUN set -eux; \
-    du -h --max-depth=3
+    du -h --max-depth=3 /
 
 ###################################
 # Mellanox OFED driver installation
@@ -301,7 +301,7 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
     fi
 
 RUN set -eux; \
-    du -h --max-depth=3
+    du -h --max-depth=3 /
 
 #####################
 # Install NVIDIA Apex
@@ -323,7 +323,7 @@ RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \
     fi
 
 RUN set -eux; \
-    du -h --max-depth=3
+    du -h --max-depth=3 /
 
 ##########################
 # Install Flash Attention
@@ -338,7 +338,7 @@ RUN if [ -n "$CUDA_VERSION" ] ; then \
     fi
 
 RUN set -eux; \
-    du -h --max-depth=3
+    du -h --max-depth=3 /
 
 ###############
 # Install cmake
@@ -346,7 +346,7 @@ RUN set -eux; \
 RUN pip${PYTHON_VERSION} install --no-cache-dir cmake==3.26.3
 
 RUN set -eux; \
-    du -h --max-depth=3
+    du -h --max-depth=3 /
 
 ###########################
 # Install Pandoc Dependency
@@ -354,7 +354,7 @@ RUN set -eux; \
 RUN pip${PYTHON_VERSION} install --no-cache-dir pandoc==2.3
 
 RUN set -eux; \
-    du -h --max-depth=3
+    du -h --max-depth=3 /
 
 ################################
 # Use the correct python version
@@ -378,7 +378,7 @@ RUN mkdir -p ${COMPOSER_PYTHON_BIN} && \
     echo "export PATH=~/.local/bin:$COMPOSER_PYTHON_BIN:$PATH" >> /etc/zshenv
 
 RUN set -eux; \
-    du -h --max-depth=3
+    du -h --max-depth=3 /
 
 # Ensure that non-interactive shells load /etc/profile
 ENV BASH_ENV=/etc/profile
@@ -391,7 +391,7 @@ RUN useradd -rm -d /home/mosaicml -s /bin/bash -u 1000 -U -s /bin/bash mosaicml 
     echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 
 RUN set -eux; \
-    du -h --max-depth=3
+    du -h --max-depth=3 /
 
 #########################
 # Upgrade apt packages
@@ -403,7 +403,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 RUN set -eux; \
-    du -h --max-depth=3
+    du -h --max-depth=3 /
 
 #########################
 # Upgrade pip packages
@@ -415,7 +415,7 @@ RUN pip install --no-cache-dir --upgrade \
         python-snappy
 
 RUN set -eux; \
-    du -h --max-depth=3
+    du -h --max-depth=3 /
 
 ##################################################
 # Override NVIDIA mistaken env var for 11.8 images
