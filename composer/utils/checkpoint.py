@@ -532,7 +532,7 @@ def load_sharded_checkpoint(
                     planner=load_planner,
                 )
 
-            print(f'LOADING STATE DICT', state)
+            print(f'LOADING STATE DICT', state_dict['state'])
 
             state.load_state_dict(
                 state_dict['state'],
