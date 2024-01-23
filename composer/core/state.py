@@ -1489,6 +1489,8 @@ class State(Serializable):
                             category=UserWarning)
                         continue
                     source = serialized_value[type(target).__qualname__]
+                    if attribute_name == 'timestamp':
+                        print(f'\nLOAD {source=} {target=}')
                     target.load_state_dict(source)
             else:
                 # direct serialization
