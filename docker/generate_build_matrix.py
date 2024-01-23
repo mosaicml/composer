@@ -32,7 +32,7 @@ def _get_torchvision_version(pytorch_version: str):
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
-def _get_pytorch_version(python_version: str):
+def _get_pytorch_versions(python_version: str):
     if python_version == '3.10':
         return ['1.13.1', '2.0.1', '2.1.2']
     if python_version == '3.11':
@@ -182,7 +182,7 @@ def _main():
 
     for product in itertools.product(python_versions, cuda_options, stages, interconnects):
         python_version, use_cuda, stage, interconnect = product
-        for pytorch_version in _get_pytorch_version(python_version):
+        for pytorch_version in _get_pytorch_versions(python_version):
             cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
             entry = {
                 'IMAGE_NAME':
