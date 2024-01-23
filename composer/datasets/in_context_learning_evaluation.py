@@ -1312,6 +1312,7 @@ class MTBench(InContextLearningDataset):
             'tokenized_prompt_two': [],
             'generation_length':
                 int((self.max_seq_len / 2) - (self.max_prompt_one_length + self.max_prompt_two_length)),
+            'max_seq_len': self.max_seq_len,
             'padding_token':
                 self.pad_tok_id
         }
