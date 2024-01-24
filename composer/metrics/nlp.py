@@ -1114,6 +1114,9 @@ class MTBenchJudge(InContextLearningMetric):
                                                         reference_answer_one=batch['reference_answer_one'][i],
                                                         reference_answer_two=batch['reference_answer_two'][i])
 
+            log.info("********* Formatted Response and Result: *********")
+            log.info(formatted_template)
+            log.info(result)
             score = None
             match = re.search(self.ONE_SCORE_PATTERN, result)
             if not match:
