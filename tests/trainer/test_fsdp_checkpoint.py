@@ -561,11 +561,7 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
     # Set the error expectations.
     expectation = does_not_raise()
     if not is_valid_checkpoint:
-        if using_torch_2() and state_dict_type == 'sharded':
-            from torch.distributed.checkpoint import CheckpointException
-            expectation = pytest.raises(CheckpointException)
-        else:
-            expectation = pytest.raises(ValueError)
+        expectation = pytest.raises(ValueError)
 
     def mock_get_checkpoint_validation_function():
         return lambda _: is_valid_checkpoint
