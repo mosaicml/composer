@@ -1639,8 +1639,9 @@ def get_icl_task_dataloader(
         generation_kwargs (Dict, default = None): A dictionary containing keyword arguments to be passed along to the model's generate function. Overwrites any previously specified generation
                                                   keyword args in this fucntion (see https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig
                                                   for more details)
-
-                                                  TODO: add early stopping doucmentation
+        early_stopping (List, default = None): A list of strings that, when found in a model's output, will be treated as a stopping criteria at metric computation time.
+            Used in QA tasks with CoT
+        do_normalization (bool, default = True): Whether or not to normalize the outputs and labels in InContextLearningQAAccuracy. Only used in QA tasks.
 
     Returns:
         DataLoader: A dataloader used for performing in-context learning evaluation on the dataset provided.
