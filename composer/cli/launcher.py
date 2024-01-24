@@ -21,7 +21,7 @@ import psutil
 import torch
 
 import composer
-from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR
+from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_LOG_DIR, MOSAICML_PLATFORM_ENV_VAR
 from composer.utils import get_free_tcp_port
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
@@ -471,9 +471,9 @@ def main():
 
     # If running on the Mosaic platform, log all gpu ranks' stderr and stdout to Mosaic platform
     if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and os.environ.get(
-            MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and os.environ.get('MOSAICML_LOG_DIR') is not None:
+            MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and os.environ.get(MOSAICML_LOG_DIR) is not None:
         log.info('Logging all gpu ranks to Mosaic Platform')
-        log_dir = os.environ.get('MOSAICML_LOG_DIR')
+        log_dir = os.environ.get(MOSAICML_LOG_DIR)
         args.stdout = f'{log_dir}/gpu_{{rank}}_stdout.txt'
         args.stderr = f'{log_dir}/gpu_{{rank}}_stderr.txt'
     else:
