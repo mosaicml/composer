@@ -46,11 +46,9 @@ def test_tokenizer_needs_prefix_space_when_space_not_needed(tiny_gpt2_tokenizer)
 
 
 def test_tokenizer_needs_prefix_space_when_space_needed():
-    try:
-        from transformers import AutoTokenizer
-    except ImportError:
-        pytest.importorskip('transformers')
-    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)  # type: ignore reportUnboundVariable
+    transformers = pytest.importorskip('transformers')
+    tokenizer = transformers.AutoTokenizer.from_pretrained('facebook/opt-125m',
+                                                           use_fast=False)  # type: ignore reportUnboundVariable
     assert _tokenizer_needs_prefix_space(tokenizer)
 
 
@@ -313,11 +311,9 @@ def test_get_answer_from_example(tiny_gpt2_tokenizer, tmp_path):
 
 
 def test_fix_eos_on_preamble(tmp_path):
-    try:
-        from transformers import AutoTokenizer
-    except ImportError:
-        pytest.importorskip('transformers')
-    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m', use_fast=False)  # type: ignore reportUnboundVariable
+    transformers = pytest.importorskip('transformers')
+    tokenizer = transformers.AutoTokenizer.from_pretrained('facebook/opt-125m',
+                                                           use_fast=False)  # type: ignore reportUnboundVariable
     seqlen = 2048
     num_fewshot = 0
     prompt_string = ''
@@ -421,11 +417,8 @@ def test_qa_set_cot_no_cot(tmp_path):
     pytest.importorskip('datasets')
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/triviaqa_small.jsonl'
-    try:
-        from transformers import AutoTokenizer
-    except ImportError:
-        pytest.importorskip('transformers')
-    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m')  # type: ignore reportUnboundVariable
+    transformers = pytest.importorskip('transformers')
+    tokenizer = transformers.AutoTokenizer.from_pretrained('facebook/opt-125m')  # type: ignore reportUnboundVariable
 
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
@@ -448,11 +441,8 @@ def test_qa_set_cot_has_cot(tmp_path):
     pytest.importorskip('datasets')
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/gsm8k_small.jsonl'
-    try:
-        from transformers import AutoTokenizer
-    except ImportError:
-        pytest.importorskip('transformers')
-    tokenizer = AutoTokenizer.from_pretrained('facebook/opt-125m')  # type: ignore reportUnboundVariable
+    transformers = pytest.importorskip('transformers')
+    tokenizer = transformers.AutoTokenizer.from_pretrained('facebook/opt-125m')  # type: ignore reportUnboundVariable
 
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
@@ -609,7 +599,7 @@ def test_code_adjust_padding(tiny_gpt2_tokenizer, tmp_path):
         generations_per_sample=10,
     )
 
-    assert all(len(data['prompt']) == 148 for data in dl.dataset)
+    assert all(len(data['prompt']) == 148 for data in dl.dataset)  # pyright: ignore [reportGeneralTypeIssues]
 
 
 def test_code_update_gen_kwargs(tiny_gpt2_tokenizer, tmp_path):
@@ -937,14 +927,10 @@ def test_schema_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
 @pytest.mark.parametrize('dataset_uri', ['winograd_small.jsonl'])
 def test_schema_task_dataloader_sentpiece_tokenizer(dataset_uri, tmp_path):
     pytest.importorskip('datasets')
+    transformers = pytest.importorskip('transformers')
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
-
-    try:
-        from transformers import AutoTokenizer
-    except ImportError:
-        pytest.importorskip('transformers')
-    tokenizer = AutoTokenizer.from_pretrained(
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
         'huggyllama/llama-7b',  # type: ignore reportUnboundVariable
         use_fast=False)
     dataset_uri = f'{local_data}/{dataset_uri}'
@@ -1377,11 +1363,9 @@ def test_code_eval_split_batch(dataset_uri, tmp_path):
     pytest.importorskip('datasets')
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     dataset_uri = f'{local_data}/{dataset_uri}'
-    try:
-        from transformers import AutoTokenizer
-    except ImportError:
-        pytest.importorskip('transformers')
-    tokenizer = AutoTokenizer.from_pretrained('EleutherAI/gpt-neox-20b')  # type: ignore reportUnboundVariable
+    transformers = pytest.importorskip('transformers')
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        'EleutherAI/gpt-neox-20b')  # type: ignore reportUnboundVariable
 
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
@@ -1451,11 +1435,8 @@ def test_code_eval_sentpiece_dataloader(dataset_uri, tmp_path, num_fewshot, prom
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
-    try:
-        from transformers import AutoTokenizer
-    except ImportError:
-        pytest.importorskip('transformers')
-    tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b')  # type: ignore reportUnboundVariable
+    transformers = pytest.importorskip('transformers')
+    tokenizer = transformers.AutoTokenizer.from_pretrained('huggyllama/llama-7b')  # type: ignore reportUnboundVariable
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 4
     seqlen = 2048
@@ -1521,11 +1502,8 @@ def test_code_eval_test_cases(dataset_uri, tmp_path):
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
-    try:
-        from transformers import AutoTokenizer
-    except ImportError:
-        pytest.importorskip('transformers')
-    tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b')  # type: ignore reportUnboundVariable
+    transformers = pytest.importorskip('transformers')
+    tokenizer = transformers.AutoTokenizer.from_pretrained('huggyllama/llama-7b')  # type: ignore reportUnboundVariable
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 4
     seqlen = 512
@@ -1573,11 +1551,8 @@ def test_code_eval_pass_at_k_validity(dataset_uri, tmp_path):
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
-    try:
-        from transformers import AutoTokenizer
-    except ImportError:
-        pytest.importorskip('transformers')
-    tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b')  # type: ignore reportUnboundVariable
+    transformers = pytest.importorskip('transformers')
+    tokenizer = transformers.AutoTokenizer.from_pretrained('huggyllama/llama-7b')  # type: ignore reportUnboundVariable
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 2
     seqlen = 64
@@ -1608,11 +1583,8 @@ def test_code_eval_task_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_st
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
-    try:
-        from transformers import AutoTokenizer
-    except ImportError:
-        pytest.importorskip('transformers')
-    tokenizer = AutoTokenizer.from_pretrained('mosaicml/mpt-7b')  # type: ignore reportUnboundVariable
+    transformers = pytest.importorskip('transformers')
+    tokenizer = transformers.AutoTokenizer.from_pretrained('mosaicml/mpt-7b')  # type: ignore reportUnboundVariable
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 4
     seqlen = 2048
@@ -1682,11 +1654,8 @@ def test_eval_split_batch(tiny_opt_tokenizer, dataset_uri, num_fewshot, tmp_path
     pytest.importorskip('datasets')
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
-    try:
-        from transformers import AutoTokenizer
-    except ImportError:
-        pytest.importorskip('transformers')
-    tokenizer = AutoTokenizer.from_pretrained('mosaicml/mpt-7b')  # type: ignore reportUnboundVariable
+    transformers = pytest.importorskip('transformers')
+    tokenizer = transformers.AutoTokenizer.from_pretrained('mosaicml/mpt-7b')  # type: ignore reportUnboundVariable
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 4
     seqlen = 512
@@ -1758,10 +1727,7 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
 
     evaluator = Evaluator(label='lambada', dataloader=dl, metric_names=['InContextLearningLMAccuracy'])
 
-    try:
-        import transformers
-    except ImportError:
-        pytest.importorskip('transformers')
+    transformers = pytest.importorskip('transformers')
     config = transformers.AutoConfig.from_pretrained('EleutherAI/gpt-neo-125M')
     model = transformers.AutoModelForCausalLM.from_config(config)
     model = HuggingFaceModel(

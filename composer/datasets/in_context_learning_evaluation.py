@@ -20,7 +20,7 @@ from composer.utils import MissingConditionalImportError, dist, get_file
 
 if TYPE_CHECKING:
     import transformers
-    from datasets import Dataset
+    from datasets import Dataset as HFDataset
 
 # Allow models to have slightly more tokens than were used in the most verbose CoT in the dataset
 _MAX_ANSWER_BUFFER_LENGTH = 10
@@ -58,7 +58,9 @@ def _tokenizer_needs_prefix_space(tokenizer: transformers.PreTrainedTokenizerBas
     Returns:
         bool: whether or not the tokenizer needs a prefix space
     """
-    return len(tokenizer(' a', add_special_tokens=False)['input_ids']) == 1
+    test_tokens = tokenizer(' a', add_special_tokens=False)['input_ids']
+    assert isinstance(test_tokens, list)
+    return len(test_tokens) == 1
 
 
 def _trim_context(context_enc: List, continuation_enc: List, max_seq_len: int) -> List:
@@ -282,6 +284,16 @@ class InContextLearningDataset(Dataset):
         hf_parsing_map: Optional[Dict] = None,
         generation_kwargs: Optional[Dict] = None,
     ):
+        try:
+            import datasets
+            del datasets
+        except ImportError as e:
+            raise MissingConditionalImportError(
+                extra_deps_group='nlp',
+                conda_package='datasets',
+                conda_channel='conda-forge',
+            ) from e
+
         self.tokenizer = tokenizer
         self.prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
 
@@ -307,13 +319,13 @@ class InContextLearningDataset(Dataset):
         self.tensor_keys = tensor_keys
 
         hf_loading_vars = hf_loading_vars or {}
-        self.dataset = self._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_map)
+        self.dataset: HFDataset = self._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_map)
         self.strip_data = strip_dataset
         if self.strip_data:
             self.dataset = self.dataset.map(strip_data)
 
         fewshot_rng = random.Random(fewshot_random_seed)
-        self.dataset = self.dataset.map(
+        self.dataset: HFDataset = self.dataset.map(
             self._prep_example,
             with_indices=True,
             fn_kwargs={
@@ -350,7 +362,7 @@ class InContextLearningDataset(Dataset):
                       dataset_uri: str,
                       destination_path: str,
                       hf_loading_vars: Optional[Dict[str, Any]] = None,
-                      hf_parsing_map: Optional[Dict[str, Any]] = None) -> 'Dataset':
+                      hf_parsing_map: Optional[Dict[str, Any]] = None) -> 'HFDataset':
         """
         Reads a dataset and handles parsing it from HuggingFace.
 
@@ -364,31 +376,26 @@ class InContextLearningDataset(Dataset):
         Returns:
             dataset: a loaded HF dataset
         """
-        try:
-            from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
-        except ImportError as e:
-            raise MissingConditionalImportError(
-                extra_deps_group='nlp',
-                conda_package='datasets',
-                conda_channel='conda-forge',
-            ) from e
+        from datasets import Dataset as HFDataset
+        from datasets import load_dataset
         if 'hf://' in dataset_uri:
             dataset_uri = dataset_uri.replace('hf://', '')
             if hf_loading_vars is None:
                 hf_loading_vars = {}
-            # TODO: need to ensure split is defined here?
             dataset = load_dataset(dataset_uri, **hf_loading_vars)
-            if hf_parsing_map is not None:
-                # assert statement only for type checking
+            if hf_parsing_map:
                 dataset_parsing_func = lambda example: {
-                    k: ' '.join([str(example[col]) for col in v]) for k, v in hf_parsing_map.items()
+                    k: ' '.join([str(example[col]) for col in v])
+                    for k, v in hf_parsing_map.items()  # pyright: ignore[reportOptionalMemberAccess]
                 }
+                assert isinstance(dataset, HFDataset)
                 dataset = dataset.map(dataset_parsing_func, remove_columns=dataset.column_names)
         else:
             with dist.local_rank_zero_download_and_wait(destination_path):
                 if dist.get_local_rank() == 0:
                     get_file(dataset_uri, destination_path, overwrite=True)
             dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
+        assert isinstance(dataset, HFDataset)
         return dataset
 
     def _generate_few_shot_prompt(
@@ -418,9 +425,18 @@ class InContextLearningDataset(Dataset):
         few_shot_text = preamble
 
         if num_fewshot > 0:
-            fewshot_idxs = _get_fewshot_sample_idxs(len(self.dataset), num_fewshot, example_idx, fewshot_rng)
+            fewshot_idxs = _get_fewshot_sample_idxs(
+                len(self.dataset),
+                num_fewshot,
+                example_idx,
+                fewshot_rng,
+            )
             for fewshot_idx in fewshot_idxs:
-                ctxt = self._construct_context(self.dataset[fewshot_idx], few_shot_text, add_answer=True)
+                ctxt = self._construct_context(
+                    self.dataset[fewshot_idx],
+                    few_shot_text,
+                    add_answer=True,
+                )
                 few_shot_text += ctxt
 
         return few_shot_text
@@ -495,20 +511,26 @@ class InContextLearningDataset(Dataset):
         """
         tokenized_example = {}
         # Always add special tokens to preamble
-        preamble = self.tokenizer(prompt_and_fewshot)
-        preamble = self._fix_eos_on_preamble(preamble['input_ids'])
+        preamble = self.tokenizer(prompt_and_fewshot)['input_ids']
+        assert isinstance(preamble, list)
+        preamble = self._fix_eos_on_preamble(preamble)
         if self.strip_data:
             # rstrip context because a prompt ending in a space results in degenerate output
             ctxt = ctxt.rstrip()
         # Never add special tokens to context
         tokenized_context = self.tokenizer(ctxt, add_special_tokens=False)['input_ids']
+        assert isinstance(preamble, list)
+        assert isinstance(tokenized_context, list)
+
         tokenized_context = preamble + tokenized_context
 
         if self.tokenize_labels:
             # Never add special tokens to answer
             tokenized_answer = self.tokenizer(self._get_answer_from_example(example),
                                               add_special_tokens=False)['input_ids']
+            assert isinstance(tokenized_answer, list)
             trimmed_context = _trim_context(tokenized_context, tokenized_answer, self.padding_size)
+            assert isinstance(trimmed_context, list)
             continuation_indices = _get_continuation_span(trimmed_context, tokenized_answer)
             padded_context = _make_padded_input(trimmed_context, tokenized_answer, self.padding_size, self.pad_tok_id,
                                                 self.padding_side)
@@ -517,7 +539,13 @@ class InContextLearningDataset(Dataset):
             tokenized_example[self.answer_key] = tokenized_answer
             tokenized_example['continuation_indices'] = continuation_indices
         else:
-            trimmed_context = _trim_context(tokenized_context, [], self.padding_size)
+            assert isinstance(tokenized_context, list)
+            trimmed_context = _trim_context(
+                tokenized_context,
+                [],
+                self.padding_size,
+            )
+            assert isinstance(trimmed_context, list)
             padded_context = _make_padded_input(trimmed_context, [], self.padding_size, self.pad_tok_id,
                                                 self.padding_side)
 
@@ -533,7 +561,7 @@ class InContextLearningDataset(Dataset):
         num_fewshot: int,
         prompt_string: str,
         fewshot_rng: random.Random,
-    ) -> List[Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """
         Prepares a single example from a HF Dataset into tokenized format with prompt and fewshot examples.
 
@@ -555,7 +583,7 @@ class InContextLearningDataset(Dataset):
         tokenized_example = self._tokenize_example(prompt_and_fewshot, ctxt, example)
         return tokenized_example
 
-    def collate_fn(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def collate_fn(self, data: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         The function that the dataloader uses to accumulate data into batches.
 
@@ -675,9 +703,9 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         self,
         dataset_uri: str,
         destination_path: str,
-        hf_loading_vars: Dict = None,
-        hf_parsing_map: Dict = None,
-    ):
+        hf_loading_vars: Dict,
+        hf_parsing_map: Dict,
+    ) -> 'HFDataset':
         dataset = super()._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_map)
         self.has_cot = 'chain_of_thought' in dataset.features
         dataset = dataset.map(
@@ -736,11 +764,13 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
                     response = (f'{example["chain_of_thought"]}{self.cot_delimiter}{answer}')
                 else:
                     response = answer
-                max_answer_length = max(max_answer_length, len(self.tokenizer(response)['input_ids']))
+                tokenized_repsonse = self.tokenizer(response)['input_ids']
+                assert isinstance(tokenized_repsonse, list)
+                max_answer_length = max(max_answer_length, len(tokenized_repsonse))
         max_answer_length = max_answer_length + (_MAX_ANSWER_BUFFER_LENGTH if len(self.cot_delimiter) > 0 else 0)
         return max_answer_length
 
-    def collate_fn(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def collate_fn(self, data: List[Dict[str, Any]]) -> Dict[str, Any]:
         batch = super().collate_fn(data)
         batch_size = batch['input_ids'].shape[0]
         stopping_criteria = None
@@ -871,13 +901,15 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         # NOTE: some of this is repeated from super class but for loop makes things considerably different
         tokenized_example = {}
         # Always add special tokens to preamble
-        preamble = self.tokenizer(prompt_and_fewshot)
-        preamble = self._fix_eos_on_preamble(preamble['input_ids'])
+        preamble = self.tokenizer(prompt_and_fewshot)['input_ids']
+        assert isinstance(preamble, list)
+        preamble = self._fix_eos_on_preamble(preamble)
         if self.strip_data:
             # rstrip context because a prompt ending in a space results in degenerate output
             ctxt = ctxt.rstrip()
         # Never add special tokens to context
         tokenized_context = self.tokenizer(ctxt, add_special_tokens=False)['input_ids']
+        assert isinstance(tokenized_context, list)
         tokenized_context = preamble + tokenized_context
 
         tokenized_example[self.context_key] = []
@@ -890,10 +922,18 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
 
             # Never add special tokens to answer
             tokenized_answer = self.tokenizer(choice, add_special_tokens=False)['input_ids']
+            assert isinstance(tokenized_context, list)
+            assert isinstance(tokenized_answer, list)
             trimmed_context = _trim_context(tokenized_context, tokenized_answer, self.padding_size)
+            assert isinstance(trimmed_context, list)
             continuation_indices = _get_continuation_span(trimmed_context, tokenized_answer)
-            padded_context = _make_padded_input(trimmed_context, tokenized_answer, self.padding_size, self.pad_tok_id,
-                                                self.padding_side)
+            padded_context = _make_padded_input(
+                trimmed_context,
+                tokenized_answer,
+                self.padding_size,
+                self.pad_tok_id,
+                self.padding_side,
+            )
 
             tokenized_example[self.context_key].append(padded_context)
             tokenized_example[self.answer_key].append(tokenized_answer)
@@ -902,7 +942,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         tokenized_example['gold'] = example['gold']
         return tokenized_example
 
-    def collate_fn(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def collate_fn(self, data: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         The function that the dataloader uses to accumulate data into batches.
         We run each distinct query + answer choice through the model separately and determine which
@@ -938,7 +978,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
     def get_num_samples_in_batch(self, batch) -> int:
         return batch['input_ids'].shape[0] // self.num_choices
 
-    def split_batch(self, batch: Any, microbatch_size: int) -> Dict[str, Any]:
+    def split_batch(self, batch: Any, microbatch_size: int) -> List[Dict[str, Any]]:
         """
         Split batch while ensuring all continuations are in the same microbatch.
 
@@ -1047,7 +1087,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         context = f'{context}{self.continuation_delimiter}{continuation}'
         return context
 
-    def _construct_multiple_contexts(self, example: Dict, preceding_text: str = '') -> str:
+    def _construct_multiple_contexts(self, example: Dict, preceding_text: str = '') -> List[str]:
         """
         Takes a example and constructs all contexts. Optionally, appends this to preceeding text (such as a
         prompt or fewshot examples).
@@ -1075,7 +1115,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         num_fewshot: int,
         prompt_string: str,
         fewshot_rng: random.Random,
-    ) -> List[Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """
         Prepares a single example from a HF Dataset into tokenized format with prompt and fewshot examples.
 
@@ -1110,10 +1150,13 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
             Dict: dictionary with the tokenized data
         """
         tokenized_example = {}
-        preamble = self.tokenizer(prompt_and_fewshot)
-        preamble = self._fix_eos_on_preamble(preamble['input_ids'])
+        preamble = self.tokenizer(prompt_and_fewshot)['input_ids']
+        assert isinstance(preamble, list)
+        preamble = self._fix_eos_on_preamble(preamble)
         encoded_contexts = [
-            preamble + self.tokenizer(c, add_special_tokens=False)['input_ids'] for c in context_options
+            preamble +  # pyright: ignore[reportGeneralTypeIssues]
+            self.tokenizer(c, add_special_tokens=False)['input_ids']  # pyright: ignore[reportGeneralTypeIssues]
+            for c in context_options
         ]
         continuation = example['continuation']
         if self.prefix_space:
@@ -1124,7 +1167,10 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         tokenized_example['continuation_indices'] = []
         tokenized_example[self.answer_key] = []
         for context in encoded_contexts:
+            assert isinstance(context, list)
+            assert isinstance(tokenized_continuation, list)
             trimmed_context = _trim_context(context, tokenized_continuation, self.padding_size)
+            assert isinstance(trimmed_context, list)
             continuation_indices = _get_continuation_span(trimmed_context, tokenized_continuation)
             padded_context = _make_padded_input(trimmed_context, tokenized_continuation, self.padding_size,
                                                 self.pad_tok_id, self.padding_side)
@@ -1251,15 +1297,15 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         max_prompt_length = 0
         max_answer_length = 0
         for example in self.dataset:
+            assert isinstance(example, Dict)
             unpadded_example = [token for token in example[self.context_key] if token != self.pad_tok_id]
-            max_prompt_length = max(
-                max_prompt_length,
-                len(unpadded_example),
-            )
+            max_prompt_length = max(max_prompt_length, len(unpadded_example))
 
-            len_tokenized_answer = len(
-                self.tokenizer(example['canonical_solution'], add_special_tokens=False)['input_ids'])
+            tokenized_answer = self.tokenizer(example['canonical_solution'], add_special_tokens=False)['input_ids']
+            assert isinstance(tokenized_answer, list)
+            len_tokenized_answer = len(tokenized_answer)
             max_answer_length = max(max_answer_length, len_tokenized_answer)
+
         self.max_prompt_length = max_prompt_length
         self.max_answer_length = max_answer_length + _MAX_ANSWER_BUFFER_LENGTH
 
@@ -1301,7 +1347,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
 def build_icl_dataloader(
         icl_task_type: str,
         dataset_uri: str,
-        tokenizer: Union[transformers.PreTrainedTokenizer, transformers.PreTrainedTokenizerFast],
+        tokenizer: transformers.PreTrainedTokenizerBase,
         batch_size: int,
         max_seq_len: int,
         pad_tok_id: int,
@@ -1469,7 +1515,8 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_lo
         Dict[str, str]: Mapping of category names to partitioned dataset local files names.
     """
     try:
-        from datasets import load_dataset  # pyright: ignore [reportGeneralTypeIssues]
+        from datasets import Dataset as HFDataset
+        from datasets import IterableDataset, load_dataset
     except ImportError as e:
         raise MissingConditionalImportError(
             extra_deps_group='nlp',
@@ -1479,23 +1526,26 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_lo
     if dataset_uri.startswith('hf://'):
         dataset_uri = dataset_uri.replace('hf://', '')
         dataset = load_dataset(dataset_uri, **hf_loading_vars)
+        assert isinstance(dataset, HFDataset) or isinstance(dataset, IterableDataset)
         if hf_parsing_map:
             dataset_parsing_func = lambda example: {
                 k: ' '.join([str(example[col]) for col in v]) for k, v in hf_parsing_map.items()
             }
+            assert hasattr(dataset, 'column_names')
             dataset = dataset.map(dataset_parsing_func, remove_columns=dataset.column_names)
     else:
         with dist.local_rank_zero_download_and_wait(destination_path):
             if dist.get_local_rank() == 0:
                 get_file(dataset_uri, destination_path, overwrite=True)
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
-    # assert hasattr(dataset,
-    #                'features'), f"'features' not found in loaded dataset. Did you parse the HF Dataset correctly?"
-    # if 'category' not in dataset.features.keys():
-    #     raise Exception(
-    #         f"Attempted to partition dataset by `category` but it doesn't have a `category` key. Got keys: {str(list(dataset.features.keys()))}"
-    #     )
-    categories = sorted(set(dataset['category']))
+    assert isinstance(dataset, HFDataset) or isinstance(dataset, IterableDataset)
+    assert hasattr(dataset, 'features')
+    assert dataset.features is not None
+    if 'category' not in dataset.features.keys():
+        raise Exception(f"""Attempted to partition dataset by `category` \
+            but it doesn't have a `category` key. \
+            Got keys: {str(list(dataset.features.keys()))}""")
+    categories = sorted(set(dataset['category']))  # pyright: ignore[reportGeneralTypeIssues]
     output_files = {}
     for cat in categories:
         path = destination_path.split('/')
@@ -1590,7 +1640,7 @@ def get_icl_task_dataloader(
                                                   keyword args in this fucntion (see https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig
                                                   for more details)
 
-                                                  # TODO: add early stopping doucmentation
+                                                  TODO: add early stopping doucmentation
 
     Returns:
         DataLoader: A dataloader used for performing in-context learning evaluation on the dataset provided.
