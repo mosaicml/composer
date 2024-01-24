@@ -305,7 +305,6 @@ def _launch_processes(
                     text=True,
                 )
             else:
-
                 def _get_file(format: str):
                     filename = format.format(
                         rank=global_rank,
@@ -314,19 +313,40 @@ def _launch_processes(
                         local_world_size=nproc,
                         node_rank=node_rank,
                     )
-                    return open(filename, 'a+')
+                    return open(filename, 'x+')
+                
+                # If running on the Mosaic platform, also log all gpu ranks' stderr and stdout to Mosaic platform
+                gpu_rank_file = None
+                if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and os.environ.get(
+                        MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and os.environ.get(MOSAICML_LOG_DIR) is not None:
+                    log.info('Logging all gpu ranks to Mosaic Platform')
+                    log_dir = os.environ.get(MOSAICML_LOG_DIR)
+                    gpu_rank_file = _get_file(f'{log_dir}/gpu_{{rank}}.txt')
 
                 stderr_file = _get_file(stderr_file_format)
                 stdout_file = _get_file(stdout_file_format)
-
+                    
                 process = subprocess.Popen(
                     cmd,
-                    stdout=stdout_file,
-                    stderr=stderr_file,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                     text=True,
                 )
-                process.stderr = stderr_file
-                process.stdout = stdout_file
+
+                while True:
+                    output = process.stdout.readline()
+                    error = process.stderr.readline()
+                    if output:
+                        stdout_file.write(output)
+                        if gpu_rank_file is not None:
+                            gpu_rank_file.write(output)
+                    if error:
+                        stderr_file.write(error)
+                        if gpu_rank_file is not None:
+                            gpu_rank_file.write(error)
+                    if output == '' and error == '' and process.poll() is not None:
+                        break
+
             processes[global_rank] = process
 
 
@@ -469,18 +489,10 @@ def main():
     processes = {}
     log_tmpdir = tempfile.TemporaryDirectory()
 
-    # If running on the Mosaic platform, log all gpu ranks' stderr and stdout to Mosaic platform
-    if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and os.environ.get(
-            MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and os.environ.get(MOSAICML_LOG_DIR) is not None:
-        log.info('Logging all gpu ranks to Mosaic Platform')
-        log_dir = os.environ.get(MOSAICML_LOG_DIR)
-        args.stdout = f'{log_dir}/gpu_{{rank}}_stdout.txt'
-        args.stderr = f'{log_dir}/gpu_{{rank}}_stderr.txt'
-    else:
-        if not args.stdout:
-            args.stdout = f'{log_tmpdir.name}/rank{{rank}}.stdout.txt'
-        if not args.stderr:
-            args.stderr = f'{log_tmpdir.name}/rank{{rank}}.stderr.txt'
+    if not args.stdout:
+        args.stdout = f'{log_tmpdir.name}/rank{{rank}}.stdout.txt'
+    if not args.stderr:
+        args.stderr = f'{log_tmpdir.name}/rank{{rank}}.stderr.txt'
 
     try:
         _launch_processes(nproc=args.nproc,
