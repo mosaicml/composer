@@ -388,6 +388,15 @@ def load_sharded_checkpoint(
     from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
     from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
 
+    def _get_num_ranks_that_saved_rng(metadata: Metadata):
+        rng_inds = []
+        for field_name, field_value in metadata.planner_data.items():
+            if 'rng' in field_name:
+                _, rng_rank_index, _ = field_value
+                rng_inds.append(rng_rank_index)
+        rng_inds = set(rng_inds)
+        return len(rng_inds)
+
     class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
         """FileSystemReader that validates checkpoint files prior to reading."""
 
@@ -496,9 +505,10 @@ def load_sharded_checkpoint(
                 # For older versions of torch, we load optimizer separately.
                 if version.parse(torch.__version__) < version.parse('2.2.9'):
                     cur_state_dict.pop('optimizers')
+                num_rng_ranks = _get_num_ranks_that_saved_rng
                 state_dict: Dict[str, Any] = {
                     'state': cur_state_dict,
-                    'rng': reproducibility.get_rng_state(),
+                    'rng': reproducibility.get_rng_state()[:num_rng_ranks],
                 }
 
             if ignore_keys:
