@@ -248,7 +248,7 @@ def _main():
         'TARGET': 'pytorch_stage',
         'TORCHVISION_VERSION': '0.18.0'
     }
-    pytorch_entries.append(nightly_entry_10)
+    pytorch_entries.append(nightly_entry_310)
 
     nightly_entry_311 = {
         'AWS_OFI_NCCL_VERSION': '',
@@ -265,7 +265,7 @@ def _main():
         'TARGET': 'pytorch_stage',
         'TORCHVISION_VERSION': '0.18.0'
     }
-    pytorch_entries.append(nightly_entry_11)
+    pytorch_entries.append(nightly_entry_311)
 
     composer_entries = []
 
