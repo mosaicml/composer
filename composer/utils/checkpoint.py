@@ -367,8 +367,7 @@ def load_sharded_checkpoint(
     ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
     exclude_algorithms: Optional[list[str]] = None,
     algorithm_passes: Optional[list[AlgorithmPass]] = None,
-) -> list[dict]:
-
+) -> Union[list[dict], None]:
     if not using_torch_2():
         raise ValueError(
             f'Sharded checkpoint loading requires torch version >= 2.0.0. You have torch version {torch.__version__}')
@@ -388,16 +387,6 @@ def load_sharded_checkpoint(
     from torch.distributed.checkpoint.metadata import Metadata
     from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
     from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
-
-    # This function is used so we can figure out which ranks need to load saved rngs and which can just make their own.
-    def _get_num_ranks_that_saved_rng(metadata: Metadata):
-        rng_inds = []
-        for field_name, field_value in metadata.planner_data.items():
-            if 'rng' in field_name:
-                _, rng_rank_index, _ = field_value
-                rng_inds.append(rng_rank_index)
-        rng_inds = set(rng_inds)
-        return len(rng_inds)
 
     class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
         """FileSystemReader that validates checkpoint files prior to reading."""
@@ -501,13 +490,16 @@ def load_sharded_checkpoint(
         with torch.no_grad():
             # 1. Load model and metadata first
             if load_weights_only:
-                state_dict = {'state': {'model': state.get_model_state_dict()}}
+                state_dict: Dict[str, Any] = {'state': {'model': state.get_model_state_dict()}}
             else:
                 cur_state_dict = state.state_dict()
                 # For older versions of torch, we load optimizer separately.
                 if version.parse(torch.__version__) < version.parse('2.1.3'):
                     cur_state_dict.pop('optimizers')
-                state_dict = {'state': cur_state_dict}
+                state_dict: Dict[str, Any] = {
+                    'state': cur_state_dict,
+                    'rng': reproducibility.get_rng_state(),
+                }
 
             if ignore_keys:
                 # Filter provided list of key paths
@@ -518,17 +510,32 @@ def load_sharded_checkpoint(
                 # Ensure state exists
                 state_dict['state'] = state_dict.get('state', {})
 
+            # Only some ranks are meant to load checkpoint
+            expect_file = False
+            process_group = None
+            device_mesh = state.fsdp_device_mesh
+            if device_mesh is not None and device_mesh.ndim == 2:
+                # If hybrid shard, only rank in first replica saves
+                expect_file = (device_mesh.get_local_rank(mesh_dim=0) == 0)
+                if expect_file:
+                    process_group = device_mesh.get_group(1)  # Shard process_group for first replica
+                    log.debug(f'global_rank={dist.get_global_rank()}, {expect_file=}')
+            else:
+                expect_file = True
+
             if version.parse(torch.__version__) > version.parse('2.1.3'):
                 dist_cp.load(  # type: ignore
                     state_dict=state_dict,
                     storage_reader=storage_reader,
                     planner=load_planner,
+                    process_group=process_group,
                 )
             else:
                 dist_cp.load_state_dict(
                     state_dict=state_dict,
                     storage_reader=storage_reader,
                     planner=load_planner,
+                    process_group=process_group,
                 )
 
             state.load_state_dict(
@@ -547,26 +554,7 @@ def load_sharded_checkpoint(
                                                                 storage_reader=storage_reader)
                 state._legacy_load_optim_state(optim_state)
 
-        # 3. Optionally load RNG
-        rng_state_dicts = reproducibility.get_rng_state()
-        if not load_weights_only:
-            # If we are resuming on more ranks than were used at save time we only want to load in rngs for those ranks
-            num_ranks_that_saved_rng = _get_num_ranks_that_saved_rng(storage_reader.read_metadata())
-            rng_state_dicts_load = {}
-            rng_state_dicts_load['rng'] = rng_state_dicts[:num_ranks_that_saved_rng] if len(
-                rng_state_dicts) > num_ranks_that_saved_rng else rng_state_dicts
-            dist_cp.load_state_dict(
-                state_dict=rng_state_dicts_load,
-                storage_reader=storage_reader,
-                planner=load_planner,
-            )
-            # We also want to append newly generated rng states for the ranks that don't have an rng state to load in
-            # if we are resuming on more ranks than were used at save time.
-            if len(rng_state_dicts) > num_ranks_that_saved_rng:
-                rng_state_dicts_load['rng'].extend(rng_state_dicts[num_ranks_that_saved_rng:])
-            rng_state_dicts = rng_state_dicts_load['rng']
-
-    return rng_state_dicts
+    return state_dict.get('rng', None)
 
 
 def _get_local_rank_zero_path(path: Optional[str]) -> str:
@@ -1010,9 +998,10 @@ def _save_checkpoint(
         process_group = None
         device_mesh = state.fsdp_device_mesh
         if device_mesh is not None and device_mesh.ndim == 2:
+            # If hybrid shard, only rank in first replica saves
             expect_file = (device_mesh.get_local_rank(mesh_dim=0) == 0)
             if expect_file:
-                process_group = device_mesh.get_group(1)  # Only save on first replica
+                process_group = device_mesh.get_group(1)  # Shard process_group for first replica
                 log.debug(f'global_rank={dist.get_global_rank()}, {expect_file=}')
         else:
             expect_file = True
