@@ -663,4 +663,8 @@ def _upload_worker(
             file_queue.task_done()
             completed_queue.put_nowait(remote_file_name)
 
+        # Throttle uploads to avoid overloading the object store
+        rank_wait_interval = 0.5
+        time.sleep(rank_wait_interval * dist.get_global_rank())
+
         upload_file()

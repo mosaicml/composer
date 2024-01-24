@@ -9,8 +9,6 @@ import os
 import pathlib
 import uuid
 from typing import Any, Callable, Dict, List, Optional, Union
-import time
-import random
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
@@ -132,7 +130,6 @@ class S3ObjectStore(ObjectStore):
                       **kwargs):
         try:
             from boto3.s3.transfer import S3Transfer
-            from boto3.exceptions import S3UploadFailedError
         except ImportError as e:
             raise MissingConditionalImportError('streaming', 'boto3') from e
 
@@ -152,21 +149,12 @@ class S3ObjectStore(ObjectStore):
             if 'S3_CANNED_ACL' in os.environ and 'ACL' not in kwargs['ExtraArgs']:
                 kwargs['ExtraArgs']['ACL'] = os.environ['S3_CANNED_ACL']
 
-        jitter_sec = 90
-        max_retries = 10
-        time.sleep(random.uniform(0, jitter_sec))
-        for _ in range(max_retries):
-            try:
-                self.client.upload_file(Bucket=self.bucket,
-                                        Key=self.get_key(object_name),
-                                        Filename=filename,
-                                        Callback=cb_wrapper,
-                                        Config=self.transfer_config,
-                                        **kwargs)
-                break
-            except S3UploadFailedError as e:
-                time.sleep(120)
-                continue
+        self.client.upload_file(Bucket=self.bucket,
+                                Key=self.get_key(object_name),
+                                Filename=filename,
+                                Callback=cb_wrapper,
+                                Config=self.transfer_config,
+                                **kwargs)
 
     def download_object(
         self,

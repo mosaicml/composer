@@ -16,6 +16,7 @@ import textwrap
 import warnings
 from importlib import import_module
 from pathlib import Path
+import time
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 import torch
@@ -522,6 +523,10 @@ def load_sharded_checkpoint(
                     log.debug(f'global_rank={dist.get_global_rank()}, {expect_file=}')
             else:
                 expect_file = True
+
+            # Throttle uploads to avoid overloading the object store
+            rank_wait_interval = 10.0 / 128  # Assume each 128 GPU replica can upload in 10 seconds
+            time.sleep(rank_wait_interval * dist.get_global_rank())
 
             if version.parse(torch.__version__) > version.parse('2.2.9'):
                 dist_cp.load(  # type: ignore
