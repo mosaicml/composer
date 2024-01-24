@@ -474,8 +474,8 @@ def main():
             MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and os.environ.get('MOSAICML_LOG_DIR') is not None:
         log.info('Logging all gpu ranks to Mosaic Platform')
         log_dir = os.environ.get('MOSAICML_LOG_DIR')
-        args.stdout = f'{log_dir}/gpu_{{rank}}.txt'
-        args.stderr = f'{log_dir}/gpu_{{rank}}.txt'
+        args.stdout = f'{log_dir}/gpu_{{rank}}_stdout.txt'
+        args.stderr = f'{log_dir}/gpu_{{rank}}_stderr.txt'
     else:
         if not args.stdout:
             args.stdout = f'{log_tmpdir.name}/rank{{rank}}.stdout.txt'
