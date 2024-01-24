@@ -20,7 +20,7 @@ from composer.utils import MissingConditionalImportError, dist, get_file
 
 if TYPE_CHECKING:
     import transformers
-    from datasets import Dataset as HFDataset
+    from datasets import Dataset as HFDataset  # pyright: ignore[reportGeneralTypeIssues]
 
 # Allow models to have slightly more tokens than were used in the most verbose CoT in the dataset
 _MAX_ANSWER_BUFFER_LENGTH = 10
@@ -376,8 +376,8 @@ class InContextLearningDataset(Dataset):
         Returns:
             dataset: a loaded HF dataset
         """
-        from datasets import Dataset as HFDataset
-        from datasets import load_dataset
+        from datasets import Dataset as HFDataset  # pyright: ignore[reportGeneralTypeIssues]
+        from datasets import load_dataset  # pyright: ignore[reportGeneralTypeIssues]
         if 'hf://' in dataset_uri:
             dataset_uri = dataset_uri.replace('hf://', '')
             if hf_loading_vars is None:
@@ -1515,8 +1515,8 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_lo
         Dict[str, str]: Mapping of category names to partitioned dataset local files names.
     """
     try:
-        from datasets import Dataset as HFDataset
-        from datasets import IterableDataset, load_dataset
+        from datasets import Dataset as HFDataset  # pyright: ignore[reportGeneralTypeIssues]
+        from datasets import IterableDataset, load_dataset  # pyright: ignore[reportGeneralTypeIssues]
     except ImportError as e:
         raise MissingConditionalImportError(
             extra_deps_group='nlp',
