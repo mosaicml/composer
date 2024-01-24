@@ -36,7 +36,7 @@ def _get_pytorch_versions(python_version: str):
     if python_version == '3.10':
         return ['1.13.1', '2.0.1', '2.1.2']
     if python_version == '3.11':
-        return ['2.1.2']
+        return []
     raise ValueError(f'Invalid python_version: {python_version}')
 
 
