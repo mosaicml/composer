@@ -83,6 +83,24 @@ def test_stop_sequences_criteria(tiny_gpt2_tokenizer):
     assert eos_criteria(input_ids, None)
 
 
+def test_stop_sequences_criteria_sentencepiece():
+    pytest.importorskip('datasets')
+
+    tokenizer = AutoTokenizer.from_pretrained('huggyllama/llama-7b', use_fast=False)
+    eos_criteria = MultiTokenEOSCriteria('\n\n', tokenizer, 2)
+    seq1 = tokenizer('\n\nDogs')['input_ids']  # check to make sure starting with the start sequence doesnt break it
+    seq2 = tokenizer('Dogs are furry\n\n')['input_ids']
+    seq1 = [50257] * (len(seq2) - len(seq1)) + seq1
+    input_ids = torch.tensor([seq1, seq2])
+    assert not eos_criteria(input_ids, None)
+
+    eos_criteria = MultiTokenEOSCriteria('\n\n', tokenizer, 2)
+    seq1 = tokenizer('Dogs are furry\n\n')['input_ids']
+    seq2 = tokenizer('Dogs are furry\n\n')['input_ids']
+    input_ids = torch.tensor([seq1, seq2])
+    assert eos_criteria(input_ids, None)
+
+
 def test_batch_padding_logic(tiny_gpt2_tokenizer):
     continuation = tiny_gpt2_tokenizer(' dog' * 2000)['input_ids']
     context = tiny_gpt2_tokenizer(' cat' * 2000)['input_ids']
