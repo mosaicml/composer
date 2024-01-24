@@ -966,12 +966,17 @@ class IFEvalJudge(InContextLearningMetric):
             kwargs = batch['kwargs'][i]
             # Removes k, v pairs when value is none for each dict in the the list
             kwargs = [{k: v for k, v in kwarg_dict.items() if v is not None} for kwarg_dict in kwargs]
+            log.info("---------------------------------------")
+            log.info(batch['prompt'][i])
+            log.info("---------------------------------------")
+            log.info(output)
             res = InstructionResult(key=batch['key'][i],
                                     instruction_id_list=batch['instruction_id_list'][i],
                                     prompt=batch['prompt'][i],
                                     kwargs=kwargs,
                                     response=output)
             result = instruction_following_eval([res], aggregate=False)
+            log.info(result)
             # TODO: these dicts just get cast to strings
             if self.cache_responses:
                 self.response_cache.append({
