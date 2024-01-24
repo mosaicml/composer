@@ -336,7 +336,6 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
         do_normalization = batch.get('do_normalization', True)
         stopping_criteria = batch.get('stopping_criteria', None)
         for sample_output, sample_labels, prompt_tensor in zip(outputs, labels, batch['input_ids']):
-        
 
             final_answer = sample_output
             if stopping_criteria is not None and len(stopping_criteria) > 0:
@@ -966,9 +965,9 @@ class IFEvalJudge(InContextLearningMetric):
             kwargs = batch['kwargs'][i]
             # Removes k, v pairs when value is none for each dict in the the list
             kwargs = [{k: v for k, v in kwarg_dict.items() if v is not None} for kwarg_dict in kwargs]
-            log.info("---------------------------------------")
+            log.info('---------------------------------------')
             log.info(batch['prompt'][i])
-            log.info("---------------------------------------")
+            log.info('---------------------------------------')
             log.info(output)
             res = InstructionResult(key=batch['key'][i],
                                     instruction_id_list=batch['instruction_id_list'][i],
@@ -1112,14 +1111,14 @@ class MTBenchJudge(InContextLearningMetric):
             prompt_one = batch['untokenized_prompt_one'][i]
             prompt_two = batch['untokenized_prompt_two'][i]
             result, formatted_template = self.call_judge(prompt_one=prompt_one,
-                                                        prompt_two=prompt_two,
-                                                        first_generation=first_generation,
-                                                        second_generation=second_generation,
-                                                        category=batch['category'][i],
-                                                        reference_answer_one=batch['reference_answer_one'][i],
-                                                        reference_answer_two=batch['reference_answer_two'][i])
+                                                         prompt_two=prompt_two,
+                                                         first_generation=first_generation,
+                                                         second_generation=second_generation,
+                                                         category=batch['category'][i],
+                                                         reference_answer_one=batch['reference_answer_one'][i],
+                                                         reference_answer_two=batch['reference_answer_two'][i])
 
-            log.info("********* Formatted Response and Result: *********")
+            log.info('********* Formatted Response and Result: *********')
             log.info(formatted_template)
             log.info(result)
             score = None
@@ -1134,11 +1133,7 @@ class MTBenchJudge(InContextLearningMetric):
                 self.invalid_judge_response += 1
             self.total += 1
             if self.cache_responses:
-                self.response_cache.append({
-                    'score': score,
-                    'result': result,
-                    'formatted_template': formatted_template
-                })
+                self.response_cache.append({'score': score, 'result': result, 'formatted_template': formatted_template})
 
         # OpenAI Client can't be copied by deepcopy and will throw an error, so we delete it after we use it
         # Initializatin takes ~12 ms
