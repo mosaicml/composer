@@ -29,9 +29,9 @@ def simple_model_with_grads():
     # Force wrap every module in FSDP, to allow for testing FSDP
     # gradient clipping properly.
     for module in model:
-        module._fsdp_wrap = True
+        module._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
 
-    model._fsdp_wrap = True
+    model._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
     o = model(x)
     loss_fn = nn.CrossEntropyLoss()
     loss = loss_fn(o, y)
@@ -64,7 +64,7 @@ def cnn_model_with_grads():
     # Force wrap every module in FSDP, to allow for testing FSDP
     # gradient clipping properly.
     for layer in model.modules():
-        layer._fsdp_wrap = True
+        layer._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
 
     o = model(x)
     loss_fn = nn.CrossEntropyLoss()
@@ -79,7 +79,7 @@ def simple_transformer_model_with_grads():
     # Force wrap every module in FSDP, to allow for testing FSDP
     # gradient clipping properly.
     for layer in model.modules():
-        layer._fsdp_wrap = True
+        layer._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
 
     x = dummy_transformer_classifier_batch(num_classes=3)
     o = model(x)
@@ -104,7 +104,7 @@ def hf_model_with_grads():
     # Force wrap every module in FSDP, to allow for testing FSDP
     # gradient clipping properly.
     for layer in model.modules():
-        layer._fsdp_wrap = True
+        layer._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
 
     x = dummy_tiny_bert_classification_batch(num_classes=3)
     o = model(x).logits

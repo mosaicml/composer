@@ -164,6 +164,7 @@ def test_extract_hparams_trainer():
         'save_overwrite': False,
         'save_interval': '1ep',
         'save_weights_only': False,
+        'save_ignore_keys': None,
         'save_num_checkpoints_to_keep': -1,
         'save_metrics': False,
 

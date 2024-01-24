@@ -592,7 +592,7 @@ class InfiniteDataloader(DataLoader):
         return None
 
 
-@pytest.mark.parametrize('eval_subset_num_batches,success', [[None, False], [-1, False], [1, True]])
+@pytest.mark.parametrize('eval_subset_num_batches,success', [[-1, False], [1, True]])
 def test_infinite_eval_dataloader(eval_subset_num_batches, success):
     """Test the `eval_subset_num_batches` is required with infinite dataloader."""
     # Construct the trainer

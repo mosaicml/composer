@@ -98,6 +98,7 @@ def test_hf_train_eval_predict(num_classes: int, tiny_bert_config):
     trainer.eval()
 
     # Check that there is some train/eval accuracy
+    assert trainer.state.train_metrics is not None
     assert trainer.state.train_metrics['MulticlassAccuracy'].compute() != 0.0
     assert trainer.state.eval_metrics['eval']['MulticlassAccuracy'].compute() != 0.0
 
@@ -153,6 +154,7 @@ def test_hf_train_eval_predict_regression(tiny_deberta_config):
     trainer.eval()
 
     # Check that there is some train/eval accuracy
+    assert trainer.state.train_metrics is not None
     assert trainer.state.train_metrics['PearsonCorrCoef'].compute() != 0.0
     assert trainer.state.eval_metrics['eval']['PearsonCorrCoef'].compute() != 0.0
 
@@ -909,6 +911,7 @@ def test_separate_eval_metrics(tiny_bert_model, tiny_bert_tokenizer):
 
 @pytest.mark.parametrize('checkpoint_upload_folder', [None, 's3://checkpoints-bucket/'])
 @pytest.mark.parametrize('local_save_filename', [None, 'local-checkpoint.pt'])
+@pytest.mark.filterwarnings('ignore:TypedStorage is deprecated.*:UserWarning')
 def test_write_hf_from_composer(checkpoint_upload_folder, local_save_filename, tiny_bert_model, tiny_bert_tokenizer,
                                 tmp_path):
     transformers = pytest.importorskip('transformers')
@@ -943,6 +946,7 @@ def test_write_hf_from_composer(checkpoint_upload_folder, local_save_filename, t
     check_hf_model_equivalence(tiny_bert_model, loaded_hf_model)
 
 
+@pytest.mark.filterwarnings('ignore:TypedStorage is deprecated.*:UserWarning')
 def test_write_hf_from_composer_direct(tiny_bert_tokenizer, tmp_path):
     # tests that the logic to write out a huggingface checkpoint from a composer checkpoint
     # still works when the huggingface model is instantiated directly rather than using from_pretrained
@@ -1074,12 +1078,10 @@ def test_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
     generation1 = model.generate(**input_dict, max_new_tokens=5, pad_token_id=hf_tokenizer.pad_token_id)
     generation2 = model.generate(**input_dict, max_new_tokens=3, pad_token_id=hf_tokenizer.pad_token_id)
 
-    assert generation1.shape == (2,
-                                 (input_dict['input_ids'].shape[1] if not hf_model.config.is_encoder_decoder else 1) +
-                                 5)
-    assert generation2.shape == (2,
-                                 (input_dict['input_ids'].shape[1] if not hf_model.config.is_encoder_decoder else 1) +
-                                 3)
+    generation1_dim2 = (input_dict['input_ids'].shape[1] if not hf_model.config.is_encoder_decoder else 1) + 5
+    assert generation1.shape == (2, generation1_dim2)  # pyright: ignore[reportGeneralTypeIssues]
+    generation2_dim2 = (input_dict['input_ids'].shape[1] if not hf_model.config.is_encoder_decoder else 1) + 3
+    assert generation2.shape == (2, generation2_dim2)  # pyright: ignore[reportGeneralTypeIssues]
 
     decoded_generation1 = hf_tokenizer.batch_decode(generation1, skip_special_tokens=True)
     decoded_generation2 = hf_tokenizer.batch_decode(generation2, skip_special_tokens=True)

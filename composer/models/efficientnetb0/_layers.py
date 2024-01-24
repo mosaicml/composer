@@ -125,7 +125,7 @@ class DepthwiseSeparableConv(nn.Module):
         super().__init__()
         self.drop_connect_rate = drop_connect_rate
         self.has_residual = (in_channels == out_channels and stride == 1)
-        self.has_se = se_ratio is not None and se_ratio > 0.0
+        self.has_se = se_ratio > 0.0
 
         padding = calculate_same_padding(kernel_size, dilation=1, stride=stride)
         self.conv_depthwise = nn.Conv2d(in_channels=in_channels,
@@ -209,7 +209,7 @@ class MBConvBlock(nn.Module):
         super().__init__()
         self.drop_connect_rate = drop_connect_rate
         self.has_residual = (in_channels == out_channels and stride == 1)
-        self.has_se = se_ratio is not None and se_ratio > 0.0
+        self.has_se = se_ratio > 0.0
 
         mid_channels = round_channels(in_channels, expand_ratio)
 

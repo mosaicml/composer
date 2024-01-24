@@ -210,9 +210,11 @@ class UCObjectStore(ObjectStore):
             if file_info.is_dir:
                 raise IsADirectoryError(f'{object_name} is a UC directory, not a file.')
 
-            return file_info.file_size  # pyright: ignore
+            assert file_info.file_size is not None
+            return file_info.file_size
         except DatabricksError as e:
             _wrap_errors(self.get_uri(object_name), e)
+        return -1
 
     def list_objects(self, prefix: Optional[str]) -> List[str]:
         """List all objects in the object store with the given prefix.
@@ -242,3 +244,4 @@ class UCObjectStore(ObjectStore):
             return [f['path'] for f in resp.get('files', []) if not f['is_dir']]
         except DatabricksError as e:
             _wrap_errors(self.get_uri(prefix), e)
+        return []
