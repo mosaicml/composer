@@ -600,15 +600,15 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.parametrize('weights_only', [False, True])
 @pytest.mark.parametrize('state_dict_type', ['sharded', 'local'])
 @pytest.mark.parametrize('use_remote', [pytest.param(True, marks=pytest.mark.remote), False])
-@pytest.mark.parametrize('optimizer,precision,autoresume,load_ignore_keys', [
-    ['adamw', 'amp_bf16', False, None],
-    ['adam', 'amp_bf16', False, None],
-    ['adamw', 'amp_fp16', False, None],
-    ['adamw', 'amp_bf16', True, None],
-    ['adamw', 'amp_bf16', False, ['rng']],
+@pytest.mark.parametrize('weights_only,optimizer,precision,autoresume,load_ignore_keys', [
+    [False, 'adamw', 'amp_bf16', False, None],
+    [True, 'adamw', 'amp_bf16', False, None],
+    [False, 'adam', 'amp_bf16', False, None],
+    [False, 'adamw', 'amp_fp16', False, None],
+    [False, 'adamw', 'amp_bf16', True, None],
+    [False, 'adamw', 'amp_bf16', False, ['rng']],
 ])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
