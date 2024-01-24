@@ -505,7 +505,7 @@ def load_sharded_checkpoint(
                 # For older versions of torch, we load optimizer separately.
                 if version.parse(torch.__version__) < version.parse('2.2.9'):
                     cur_state_dict.pop('optimizers')
-                num_rng_ranks = _get_num_ranks_that_saved_rng
+                num_rng_ranks = _get_num_ranks_that_saved_rng(storage_reader.read_metadata())
                 state_dict: Dict[str, Any] = {
                     'state': cur_state_dict,
                     'rng': reproducibility.get_rng_state()[:num_rng_ranks],
