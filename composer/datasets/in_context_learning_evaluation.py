@@ -213,17 +213,17 @@ class InContextLearningDataset(Dataset):
 
     When creating a new ICL Dataset, it is likely that you will need to reimplement the following methods:
 
-    - _construct_context(): Takes a single example dictionary and formulates the context as a string for that eval question.
-    - _get_answer_from_example(): Takes a single example dictionary and formulates the correct, ground truth answer as a string.
-    - _tokenize_example(): Tokenizes the example and adds any extra content from the original dictionary that needs to be passed downstream.
-    - _read_dataset(): Loads the dataset and does basic parsing. If additional parsing must be done, this is a good place to do so (See InContextLearningQATaskDataset._read_dataset())
+    - construct_context(): Takes a single example dictionary and formulates the context as a string for that eval question.
+    - get_answer_from_example(): Takes a single example dictionary and formulates the correct, ground truth answer as a string.
+    - tokenize_example(): Tokenizes the example and adds any extra content from the original dictionary that needs to be passed downstream.
+    - read_dataset(): Loads the dataset and does basic parsing. If additional parsing must be done, this is a good place to do so (See InContextLearningQATaskDataset.read_dataset())
 
     Additionally, base_batch and batch_mapping must be defined.
 
     - base_batch (Dict): The base dictionary that the dataset will use to construct a batch. This should contain static values, like generation_kwargs or mode,
       and empty lists for values that will need to be accumulated from each example.
       NOTE: Sometimes you will need to set base_batch directly after the init call, e.g. in order to use class variables
-      like self.pad_tok_id or self.max_answer_length. If you manually set generation_kwargs this way, you'll need to call self._update_generation_kwargs()
+      like self.pad_tok_id or self.max_answer_length. If you manually set generation_kwargs this way, you'll need to call self.update_generation_kwargs()
       after setting self.base_batch.
     - batch_mapping (Dict): A mapping with keys that are keys in the batch and values that are columns in the loaded dataset.
       collate_fn will use this mapping to create batches from self.dataset.
@@ -315,14 +315,14 @@ class InContextLearningDataset(Dataset):
         self.tokenize_labels = tokenize_labels
         self.batch_mapping = batch_mapping or {}
         self.base_batch = base_batch or {}
-        self._update_generation_kwargs(generation_kwargs or {})
+        self.update_generation_kwargs(generation_kwargs or {})
 
         self.static_keys = static_keys
         self.list_keys = list_keys
         self.tensor_keys = tensor_keys
 
         hf_loading_vars = hf_loading_vars or {}
-        self.dataset: HFDataset = self._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_map)
+        self.dataset: HFDataset = self.read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_map)
         self.strip_data = strip_dataset
         if self.strip_data:
             self.dataset = self.dataset.map(strip_data)
@@ -347,7 +347,7 @@ class InContextLearningDataset(Dataset):
     def get_num_samples_in_batch(self, batch: Dict) -> int:
         return batch['input_ids'].shape[0]
 
-    def _update_generation_kwargs(self, generation_kwargs: Dict) -> None:
+    def update_generation_kwargs(self, generation_kwargs: Dict) -> None:
         """
         Updates self.base_batch with the passed in generation_kwargs.
         This must be run after self.base_batch is set (for example, if self.base_batch is set after __init__() is run,
@@ -361,11 +361,11 @@ class InContextLearningDataset(Dataset):
         if generation_kwargs:
             self.base_batch['generation_kwargs'].update(generation_kwargs)
 
-    def _read_dataset(self,
-                      dataset_uri: str,
-                      destination_path: str,
-                      hf_loading_vars: Optional[Dict[str, Any]] = None,
-                      hf_parsing_map: Optional[Dict[str, Any]] = None) -> 'HFDataset':
+    def read_dataset(self,
+                     dataset_uri: str,
+                     destination_path: str,
+                     hf_loading_vars: Optional[Dict[str, Any]] = None,
+                     hf_parsing_map: Optional[Dict[str, Any]] = None) -> 'HFDataset':
         """
         Reads a dataset and handles parsing it from HuggingFace.
 
@@ -435,7 +435,7 @@ class InContextLearningDataset(Dataset):
                 fewshot_rng,
             )
             for fewshot_idx in fewshot_idxs:
-                ctxt = self._construct_context(
+                ctxt = self.construct_context(
                     self.dataset[fewshot_idx],
                     few_shot_text,
                     add_answer=True,
@@ -444,7 +444,7 @@ class InContextLearningDataset(Dataset):
 
         return few_shot_text
 
-    def _construct_context(self, example: Dict, preceding_text: str = '', add_answer: bool = False) -> str:
+    def construct_context(self, example: Dict, preceding_text: str = '', add_answer: bool = False) -> str:
         """
         Takes an example and constructs a context, i.e. the input the model reads for this example.
         Optionally adds the correct answer (for fewshot examples) and handles example delimiters
@@ -464,10 +464,10 @@ class InContextLearningDataset(Dataset):
             ctxt = f'{self.example_delimiter}{ctxt}'
         ctxt = f'{ctxt}{self.continuation_delimiter}'
         if add_answer:
-            ctxt = f'{ctxt}{self._get_answer_from_example(example, in_context=add_answer)}'
+            ctxt = f'{ctxt}{self.get_answer_from_example(example, in_context=add_answer)}'
         return ctxt
 
-    def _get_answer_from_example(self, example: Dict[str, Any], in_context: bool = False) -> str:
+    def get_answer_from_example(self, example: Dict[str, Any], in_context: bool = False) -> str:
         """
         Returns the answer from the example.
 
@@ -500,7 +500,7 @@ class InContextLearningDataset(Dataset):
             input_ids = input_ids[:-1]
         return input_ids
 
-    def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
+    def tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
         """
         Runs text through the tokenizer and handle special cases.
 
@@ -529,7 +529,7 @@ class InContextLearningDataset(Dataset):
 
         if self.tokenize_labels:
             # Never add special tokens to answer
-            tokenized_answer = self.tokenizer(self._get_answer_from_example(example),
+            tokenized_answer = self.tokenizer(self.get_answer_from_example(example),
                                               add_special_tokens=False)['input_ids']
             assert isinstance(tokenized_answer, list)
             trimmed_context = _trim_context(tokenized_context, tokenized_answer, self.padding_size)
@@ -553,7 +553,7 @@ class InContextLearningDataset(Dataset):
                                                 self.padding_side)
 
             tokenized_example[self.context_key] = padded_context
-            tokenized_example[self.answer_key] = self._get_answer_from_example(example)
+            tokenized_example[self.answer_key] = self.get_answer_from_example(example)
 
         return tokenized_example
 
@@ -582,8 +582,8 @@ class InContextLearningDataset(Dataset):
             Dict: Contains a dictionary with the tokenized data
         """
         prompt_and_fewshot = self._generate_few_shot_prompt(num_fewshot, example_idx, prompt_string, fewshot_rng)
-        ctxt = self._construct_context(example, prompt_and_fewshot, add_answer=False)
-        tokenized_example = self._tokenize_example(prompt_and_fewshot, ctxt, example)
+        ctxt = self.construct_context(example, prompt_and_fewshot, add_answer=False)
+        tokenized_example = self.tokenize_example(prompt_and_fewshot, ctxt, example)
         return tokenized_example
 
     def collate_fn(self, data: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -700,16 +700,16 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
             'input_ids': self.context_key,
             'labels': 'aliases',
         }
-        self._update_generation_kwargs(kwargs.get('generation_kwargs', {}))
+        self.update_generation_kwargs(kwargs.get('generation_kwargs', {}))
 
-    def _read_dataset(
+    def read_dataset(
         self,
         dataset_uri: str,
         destination_path: str,
         hf_loading_vars: Dict,
         hf_parsing_map: Dict,
     ) -> 'HFDataset':
-        dataset = super()._read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_map)
+        dataset = super().read_dataset(dataset_uri, destination_path, hf_loading_vars, hf_parsing_map)
         self.has_cot = 'chain_of_thought' in dataset.features
         dataset = dataset.map(
             lambda examples: {
@@ -723,7 +723,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         self.padding_size = self.max_seq_len - self.max_answer_length
         return dataset
 
-    def _get_answer_from_example(self, example: Dict, in_context=False) -> str:
+    def get_answer_from_example(self, example: Dict, in_context=False) -> str:
         """
         Returns the answer from the example. Applies chain of thought if self.has_cot is marked as true.
         Args:
@@ -737,7 +737,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         else:
             return example[self.answer_key]
 
-    def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
+    def tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
         """
         Run text through the tokenizer and handle special cases.
         Args:
@@ -748,7 +748,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         Returns:
             Dict: Dictionary with the tokenized data
         """
-        tokenized_example = super()._tokenize_example(prompt_and_fewshot, ctxt, example)
+        tokenized_example = super().tokenize_example(prompt_and_fewshot, ctxt, example)
         tokenized_example['aliases'] = list(example.get('aliases', []))
         return tokenized_example
 
@@ -877,7 +877,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         self.batch_mapping_per_choice = {'input_ids': 'context', 'labels': 'context'}
         self.batch_map_per_example = {'gold_indices': 'gold'}
 
-    def _get_answer_from_example(self, example: Dict, in_context=False) -> str:
+    def get_answer_from_example(self, example: Dict, in_context=False) -> str:
         """
         Returns the correct answer from the example's choices.
         Args:
@@ -890,7 +890,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         gold_idx = example['gold']
         return choices[gold_idx]
 
-    def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
+    def tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
         """
         Runs text through the tokenizer and handle special cases.
         Args:
@@ -1068,7 +1068,7 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
             'choice_groupings': [],
         }
 
-    def _construct_context(self, example, preceding_text: str = '', add_answer: bool = False) -> str:
+    def construct_context(self, example, preceding_text: str = '', add_answer: bool = False) -> str:
         """
         Takes a example and constructs a context with the correct context for the example's continuation.
 
@@ -1136,10 +1136,10 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         """
         prompt_and_fewshot = self._generate_few_shot_prompt(num_fewshot, example_idx, prompt_string, fewshot_rng)
         ctxt = self._construct_multiple_contexts(example, prompt_and_fewshot)
-        tokenized_example = self._tokenize_example(prompt_and_fewshot, ctxt, example)
+        tokenized_example = self.tokenize_example(prompt_and_fewshot, ctxt, example)
         return tokenized_example
 
-    def _tokenize_example(self, prompt_and_fewshot: str, context_options: List[str], example: Dict) -> Dict[str, Any]:
+    def tokenize_example(self, prompt_and_fewshot: str, context_options: List[str], example: Dict) -> Dict[str, Any]:
         """
         Runs text through the tokenizer and handle special cases.
 
@@ -1290,7 +1290,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
                 'eos_token_id': self.tokenizer.eos_token_id
             }
         }
-        self._update_generation_kwargs(kwargs.get('generation_kwargs', {}))
+        self.update_generation_kwargs(kwargs.get('generation_kwargs', {}))
 
     def _set_max_prompt_and_answer_lengths(self):
         """
@@ -1332,12 +1332,12 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         example[self.context_key] = padded_context
         return example
 
-    def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
+    def tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
         """
         Adds extra code task details to the example dictionary.
         See InContextLearningDataset for more details
         """
-        tokenized_example = super()._tokenize_example(prompt_and_fewshot, ctxt, example)
+        tokenized_example = super().tokenize_example(prompt_and_fewshot, ctxt, example)
         tokenized_example['prompt_text'] = example['prompt']
         tokenized_example['task_id'] = example['task_id']
         tokenized_example['canonical_solution'] = example['canonical_solution']

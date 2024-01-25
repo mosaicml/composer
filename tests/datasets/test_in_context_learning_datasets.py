@@ -284,16 +284,16 @@ def test_construct_context(tiny_gpt2_tokenizer, tmp_path):
                                   destination_path=str(tmp_path / 'test_dataset_lm_juggernaut.jsonl'),
                                   hf_loading_vars=hf_loading_vars,
                                   hf_parsing_map=hf_parsing_map)
-    constructed_context = dl._construct_context({'context': 'quas quas exort', 'answer': 'ice wall'})
+    constructed_context = dl.construct_context({'context': 'quas quas exort', 'answer': 'ice wall'})
     assert constructed_context == 'Orbs: quas quas exort\nSpell: '
-    constructed_context = dl._construct_context({'context': 'quas quas exort', 'answer': 'ice wall'}, add_answer=True)
+    constructed_context = dl.construct_context({'context': 'quas quas exort', 'answer': 'ice wall'}, add_answer=True)
     assert constructed_context == 'Orbs: quas quas exort\nSpell: ice wall'
-    constructed_context = dl._construct_context({
+    constructed_context = dl.construct_context({
         'context': 'quas quas exort',
         'answer': 'ice wall'
     },
-                                                preceding_text='The harsh White Waste beckons!',
-                                                add_answer=True)
+                                               preceding_text='The harsh White Waste beckons!',
+                                               add_answer=True)
     assert constructed_context == '\nOrbs: quas quas exort\nSpell: ice wall'
 
 
@@ -323,7 +323,7 @@ def test_get_answer_from_example(tiny_gpt2_tokenizer, tmp_path):
                                   destination_path=str(tmp_path / 'test_dataset_lm_juggernaut.jsonl'),
                                   hf_loading_vars=hf_loading_vars,
                                   hf_parsing_map=hf_parsing_map)
-    answer = dl._get_answer_from_example({'context': 'wex exort exort', 'answer': 'alacrity'})
+    answer = dl.get_answer_from_example({'context': 'wex exort exort', 'answer': 'alacrity'})
     assert answer == ' alacrity'
 
 
@@ -390,8 +390,8 @@ def test_tokenize_example_with_tokenize_labels(tiny_gpt2_tokenizer, tmp_path):
                                   hf_loading_vars=hf_loading_vars,
                                   hf_parsing_map=hf_parsing_map,
                                   tokenize_labels=True)
-    tokenized_example = dl._tokenize_example('What spell does this invoke? ', 'exort exort wex\nSpell: ',
-                                             {'answer': ' Meatball'})
+    tokenized_example = dl.tokenize_example('What spell does this invoke? ', 'exort exort wex\nSpell: ',
+                                            {'answer': ' Meatball'})
     tokenized_input = [2061, 4822, 857, 428, 26342, 30, 220, 1069, 419, 409, 419, 356, 87, 198, 31221, 25, 19145, 1894]
     assert tokenized_example['context'][:len(tokenized_input)].tolist() == tokenized_input
     assert tokenized_example['context'][-1] == tokenizer.eos_token_id
@@ -427,8 +427,8 @@ def test_tokenize_example_with_no_tokenize_labels(tiny_gpt2_tokenizer, tmp_path)
                                   hf_loading_vars=hf_loading_vars,
                                   hf_parsing_map=hf_parsing_map,
                                   tokenize_labels=False)
-    tokenized_example = dl._tokenize_example('What spell does this invoke? ', 'exort exort wex\nSpell: ',
-                                             {'answer': ' Meatball'})
+    tokenized_example = dl.tokenize_example('What spell does this invoke? ', 'exort exort wex\nSpell: ',
+                                            {'answer': ' Meatball'})
     tokenized_input = [2061, 4822, 857, 428, 26342, 30, 220, 1069, 419, 409, 419, 356, 87, 198, 31221, 25]
     assert tokenized_example['context'][:len(tokenized_input)].tolist() == tokenized_input
     assert tokenized_example['context'][-1] == tokenizer.eos_token_id
@@ -528,7 +528,7 @@ def test_qa_get_answer_from_example_with_no_cot(tmp_path, tiny_gpt2_tokenizer):
         cot_delimiter=' ### ',
         destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
     )
-    answer = dl._get_answer_from_example({
+    answer = dl.get_answer_from_example({
         'context': 'empty',
         'answer': 'this is the correct answer',
         'chain_of_thought': "Let's think step by step. "
@@ -557,7 +557,7 @@ def test_qa_get_answer_from_example_with_cot(tmp_path, tiny_gpt2_tokenizer):
         destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
     )
     dl.has_cot = True
-    answer = dl._get_answer_from_example({
+    answer = dl.get_answer_from_example({
         'context': 'empty',
         'answer': 'this is the correct answer',
         'chain_of_thought': "Let's think step by step. "
@@ -586,7 +586,7 @@ def test_qa_tokenize_example(tiny_gpt2_tokenizer, tmp_path):
         destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
     )
     dl.has_cot = True
-    tokenized_example = dl._tokenize_example(
+    tokenized_example = dl.tokenize_example(
         'starting prompt', 'a context', {
             'context': 'empty',
             'answer': 'this is the correct answer',
@@ -680,9 +680,9 @@ def test_mc_tokenize_example(tiny_gpt2_tokenizer, tmp_path):
         'choices': ['A', 'B', 'C', 'D'],
         'gold': 2
     }
-    tokenized_example = dl._tokenize_example(prompt_and_fewshot='Answer the following: ',
-                                             ctxt=example['context'],
-                                             example=example)
+    tokenized_example = dl.tokenize_example(prompt_and_fewshot='Answer the following: ',
+                                            ctxt=example['context'],
+                                            example=example)
     unpadded_queries = [context[context != tokenizer.eos_token_id] for context in tokenized_example['query']]
     untokenized_inputs = [tokenizer.decode(unpadded_input) for unpadded_input in unpadded_queries]
     correct_output = [
@@ -714,9 +714,9 @@ def test_schema_construct_context(tiny_gpt2_tokenizer, tmp_path):
         destination_path=str(tmp_path / 'test_human_eval_small.jsonl'),
     )
     example = {'context_options': ['cont one', 'cont two'], 'gold': 0, 'continuation': 'this is a continuation'}
-    constructed_context = dl._construct_context(example)
+    constructed_context = dl.construct_context(example)
     assert constructed_context == 'cont one ### this is a continuation'
-    constructed_context = dl._construct_context(example, preceding_text='text')
+    constructed_context = dl.construct_context(example, preceding_text='text')
     assert constructed_context == '\ncont one ### this is a continuation'
 
 
@@ -768,9 +768,9 @@ def test_schema_tokenize_example(tiny_gpt2_tokenizer, tmp_path):
         destination_path=str(tmp_path / 'test_human_eval_small.jsonl'),
     )
     example = {'context_options': ['context one', 'context two'], 'gold': 0, 'continuation': 'this is a continuation'}
-    tokenized_example = dl._tokenize_example(prompt_and_fewshot='prompt ',
-                                             context_options=example['context_options'],
-                                             example=example)
+    tokenized_example = dl.tokenize_example(prompt_and_fewshot='prompt ',
+                                            context_options=example['context_options'],
+                                            example=example)
     assert all(tiny_gpt2_tokenizer.decode(cont) == ' this is a continuation' for cont in tokenized_example['answer'])
     unpadded_inputs = [context[context != tokenizer.eos_token_id] for context in tokenized_example['context_options']]
     untokenized_inputs = [tokenizer.decode(unpadded_input) for unpadded_input in unpadded_inputs]
