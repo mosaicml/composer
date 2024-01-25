@@ -594,9 +594,8 @@ def load_sharded_checkpoint(
                     log.info(f'global_rank={dist.get_global_rank()}, {file_list=}')
 
                     for file_name in file_list:
-                        log.info(f'global_rank={dist.get_global_rank()}, {os.listdir(download_path)=}')
                         full_path = os.path.join(download_path, file_name)
-                        log.info(f'global_rank={dist.get_global_rank()}, {full_path=}')
+                        log.info(f'{full_path=}, {os.listdir(download_path)=}')
                         file_object = [None]
                         if dist.get_global_rank() % shard_size == dist.get_global_rank():
                             # Process with rank 0 reads the file and prepares the object
