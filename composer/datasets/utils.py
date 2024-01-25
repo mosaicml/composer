@@ -179,7 +179,7 @@ try:
         def __init__(
             self,
             stop_sequence: str,
-            tokenizer: transformers.PreTrainedTokenizer,
+            tokenizer: transformers.PreTrainedTokenizerBase,
             batch_size: int,
         ) -> None:
             self.done_tracker = [False] * batch_size
