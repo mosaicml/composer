@@ -598,16 +598,11 @@ def load_sharded_checkpoint(
                 dist.barrier()
                 log.debug('POST BARRIER 2')
 
-                # # Remove model and optimizer from state_dict
-                # model_state_dict = state_dict['state']['model']
-                # optim_state_dict = state_dict['state']['optimizers']
-                # print(f'model_state_dict.keys()={model_state_dict.keys()}')
-                # print(f'optim_state_dict.keys()={optim_state_dict.keys()}')
-                # # print(f'{model_state_dict=}')
-                # # print(f'{optim_state_dict=}')
-                # del state_dict['state']['model']
-                # del state_dict['state']['optimizers']
-                # # print(state_dict['state'])
+                # Remove model and optimizer from state_dict
+                model_state_dict = state_dict['state']['model']
+                optim_state_dict = state_dict['state']['optimizers']
+                del state_dict['state']['model']
+                del state_dict['state']['optimizers']
 
                 # # Broadcast model
                 # for key in sorted(model_state_dict.keys()):
@@ -626,18 +621,14 @@ def load_sharded_checkpoint(
                 #         group=replicate_process_group,
                 #     )
 
-                # # Broadcast everything but model and optimizer
-                # state_dict_list = [state_dict['state']] * replicate_size
-                # dist.broadcast_object_list(
-                #     state_dict_list,
-                #     src=dist.get_global_rank() % shard_size,
-                #     group=replicate_process_group,
-                # )
-                # state_dict['state'] = state_dict_list[0]
+                # Broadcast everything but model and optimizer
+                state_dict_list = [state_dict['state']]
+                dist.broadcast_object_list(state_dict_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
+                state_dict['state'] = state_dict_list[0]
 
-                # # Restore model and optimizer
-                # state_dict['state']['model'] = model_state_dict
-                # state_dict['state']['optimizers'] = optim_state_dict
+                # Restore model and optimizer
+                state_dict['state']['model'] = model_state_dict
+                state_dict['state']['optimizers'] = optim_state_dict
 
                 # log.debug('PRE BARRIER')
                 # dist.barrier()
@@ -657,7 +648,7 @@ def load_sharded_checkpoint(
                 # dist.broadcast_object_list(list_b, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
                 # log.debug(f'POST {list_b=}')
 
-                log.info(f'PRE {state_dict["state"]["model"]["model.lm_head.weight"]=}')
+                # log.info(f'PRE {state_dict["state"]["model"]["model.lm_head.weight"]=}')
                 # state_dict_list = [state_dict['state']]
                 # dist.broadcast_object_list(state_dict_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
                 # state_dict['state'] = state_dict_list[0]
