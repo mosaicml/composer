@@ -558,7 +558,7 @@ def load_sharded_checkpoint(
             # log.debug(f'Rank {dist.get_global_rank()} waiting {rank_wait_interval * dist.get_local_rank()} seconds')
             # time.sleep(rank_wait_interval * dist.get_local_rank())
 
-            if expect_file or True:
+            if expect_file:
                 if version.parse(torch.__version__) > version.parse('2.2.9'):
                     dist_cp.load(  # type: ignore
                         state_dict=state_dict,
