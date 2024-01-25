@@ -657,10 +657,11 @@ def load_sharded_checkpoint(
                 # dist.broadcast_object_list(list_b, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
                 # log.debug(f'POST {list_b=}')
 
-                # state_dict_list = [state_dict['state']]
-                # dist.broadcast_object_list(state_dict_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
-                # state_dict['state'] = state_dict_list[0]
-                # log.info(f'{state_dict["state"]["model"]=}')
+                log.info(f'PRE {state_dict["state"]["model"]["model.lm_head.weight"]=}')
+                state_dict_list = [state_dict['state']]
+                dist.broadcast_object_list(state_dict_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
+                state_dict['state'] = state_dict_list[0]
+                log.info(f'POST {state_dict["state"]["model"]["model.lm_head.weight"]=}')
 
             state.load_state_dict(
                 state_dict['state'],
