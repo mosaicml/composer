@@ -577,19 +577,23 @@ def load_sharded_checkpoint(
                     )
             # else:
             #     dist.barrier()
-            log.debug('PRE BARRIER 1')
-            dist.barrier(group=process_group)
-            log.debug('POST BARRIER 1')
-            log.debug('PRE BARRIER 2')
-            dist.barrier()
-            log.debug('POST BARRIER 2')
 
             if device_mesh is not None and device_mesh.ndim == 2:
-                process_group = device_mesh.get_group(0)  # Replicate process_group
+                replicate_process_group = device_mesh.get_group(0)  # Replicate replicate_process_group
                 replicate_size, shard_size = device_mesh.size(0), device_mesh.size(1)
                 import torch.distributed.distributed_c10d as dist_torch
-                log.info(f'Ranks: {dist_torch._world.pg_group_ranks[process_group]}')
+                log.info(f'Ranks: {dist_torch._world.pg_group_ranks[replicate_process_group]}')
                 log.info(f'global_rank={dist.get_global_rank()}, {shard_size=}')
+
+                log.debug('PRE BARRIER SHARD')
+                dist.barrier(group=process_group)
+                log.debug('POST BARRIER SHARD')
+                log.debug('PRE BARRIER REPLCIATE')
+                dist.barrier(group=replicate_process_group)
+                log.debug('POST BARRIER REPLICATE')
+                log.debug('PRE BARRIER 2')
+                dist.barrier()
+                log.debug('POST BARRIER 2')
 
                 # # Remove model and optimizer from state_dict
                 # model_state_dict = state_dict['state']['model']
@@ -607,7 +611,7 @@ def load_sharded_checkpoint(
                 #     dist.broadcast(
                 #         model_state_dict[key].to_local(),
                 #         src=dist.get_global_rank() % shard_size,
-                #         group=process_group,
+                #         group=replicate_process_group,
                 #     )
 
                 # # Broadcast optimizer
@@ -616,7 +620,7 @@ def load_sharded_checkpoint(
                 #     dist.broadcast(
                 #         optim_state_dict[key]['exp_avg'].to_local(),
                 #         src=dist.get_global_rank() % shard_size,
-                #         group=process_group,
+                #         group=replicate_process_group,
                 #     )
 
                 # # Broadcast everything but model and optimizer
@@ -624,7 +628,7 @@ def load_sharded_checkpoint(
                 # dist.broadcast_object_list(
                 #     state_dict_list,
                 #     src=dist.get_global_rank() % shard_size,
-                #     group=process_group,
+                #     group=replicate_process_group,
                 # )
                 # state_dict['state'] = state_dict_list[0]
 
@@ -647,11 +651,11 @@ def load_sharded_checkpoint(
                 if dist.get_global_rank() % shard_size == 0:
                     list_b[0] = 'b0'
                 log.debug(f'PRE {list_b=}')
-                dist.broadcast_object_list(list_b, src=dist.get_global_rank() % shard_size, group=process_group)
+                dist.broadcast_object_list(list_b, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
                 log.debug(f'POST {list_b=}')
 
                 state_dict_list = [state_dict['state']]
-                dist.broadcast_object_list(state_dict_list, src=dist.get_global_rank() % shard_size, group=process_group)
+                dist.broadcast_object_list(state_dict_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
                 state_dict['state'] = state_dict_list[0]
                 log.info(f'{state_dict["state"]["model"]=}')
 
