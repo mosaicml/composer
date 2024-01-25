@@ -91,7 +91,7 @@ def _trim_context(context_enc: List, continuation_enc: List, max_seq_len: int) -
 
 def _get_continuation_span(context_enc: List, continuation_enc: List) -> torch.Tensor:
     """
-    Gets the list of indices of the continutaion tokens for language modeling or generaiton tasks.
+    Gets the list of indices of the continuation tokens for language modeling or generation tasks.
 
     Args:
         context_enc (list): list of context tokens
