@@ -639,28 +639,28 @@ def load_sharded_checkpoint(
                 # state_dict['state']['model'] = model_state_dict
                 # state_dict['state']['optimizers'] = optim_state_dict
 
-                log.debug('PRE BARRIER')
-                dist.barrier()
-                log.debug('POST BARRIER')
+                # log.debug('PRE BARRIER')
+                # dist.barrier()
+                # log.debug('POST BARRIER')
 
-                list_a = ['a']
-                if dist.get_global_rank() == 0:
-                    list_a[0] = 'a0'
-                log.debug(f'PRE {list_a=}')
-                dist.broadcast_object_list(list_a, src=0)
-                log.debug(f'POST {list_a=}')
+                # list_a = ['a']
+                # if dist.get_global_rank() == 0:
+                #     list_a[0] = 'a0'
+                # log.debug(f'PRE {list_a=}')
+                # dist.broadcast_object_list(list_a, src=0)
+                # log.debug(f'POST {list_a=}')
 
-                list_b = ['b']
-                if dist.get_global_rank() % shard_size == dist.get_global_rank():
-                    list_b[0] = 'b0'
-                log.debug(f'PRE {list_b=}')
-                dist.broadcast_object_list(list_b, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
-                log.debug(f'POST {list_b=}')
+                # list_b = ['b']
+                # if dist.get_global_rank() % shard_size == dist.get_global_rank():
+                #     list_b[0] = 'b0'
+                # log.debug(f'PRE {list_b=}')
+                # dist.broadcast_object_list(list_b, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
+                # log.debug(f'POST {list_b=}')
 
-                state_dict_list = [state_dict['state']]
-                dist.broadcast_object_list(state_dict_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
-                state_dict['state'] = state_dict_list[0]
-                log.info(f'{state_dict["state"]["model"]=}')
+                # state_dict_list = [state_dict['state']]
+                # dist.broadcast_object_list(state_dict_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
+                # state_dict['state'] = state_dict_list[0]
+                # log.info(f'{state_dict["state"]["model"]=}')
 
             state.load_state_dict(
                 state_dict['state'],
