@@ -182,6 +182,8 @@ def test_fewshot_sample_idxs_randomness():
     assert rng_1_sample_2 != rng_3_sample_2
 
 
+@pytest.mark.filterwarnings(
+    r'ignore:The repository for mosaicml/test_dataset contains custom code which must*:FutureWarning')
 def test_update_generation_kwargs(tiny_gpt2_tokenizer, tmp_path):
     tokenizer = tiny_gpt2_tokenizer
     seqlen = 2048
@@ -227,6 +229,8 @@ def test_stop_sequences_criteria(tiny_gpt2_tokenizer):
     assert eos_criteria(input_ids, None)
 
 
+@pytest.mark.filterwarnings(
+    r'ignore:The repository for mosaicml/test_dataset contains custom code which must*:FutureWarning')
 def test_update_generation_kwargs_no_kwargs(tiny_gpt2_tokenizer, tmp_path):
     tokenizer = tiny_gpt2_tokenizer
     seqlen = 2048
@@ -254,6 +258,8 @@ def test_update_generation_kwargs_no_kwargs(tiny_gpt2_tokenizer, tmp_path):
     assert not dl.base_batch['generation_kwargs']
 
 
+@pytest.mark.filterwarnings(
+    r'ignore:The repository for mosaicml/test_dataset contains custom code which must*:FutureWarning')
 def test_construct_context(tiny_gpt2_tokenizer, tmp_path):
     tokenizer = tiny_gpt2_tokenizer
     seqlen = 2048
@@ -291,6 +297,8 @@ def test_construct_context(tiny_gpt2_tokenizer, tmp_path):
     assert constructed_context == '\nOrbs: quas quas exort\nSpell: ice wall'
 
 
+@pytest.mark.filterwarnings(
+    r'ignore:The repository for mosaicml/test_dataset contains custom code which must*:FutureWarning')
 def test_get_answer_from_example(tiny_gpt2_tokenizer, tmp_path):
     tokenizer = tiny_gpt2_tokenizer
     seqlen = 2048
@@ -319,6 +327,8 @@ def test_get_answer_from_example(tiny_gpt2_tokenizer, tmp_path):
     assert answer == ' alacrity'
 
 
+@pytest.mark.filterwarnings(
+    r'ignore:The repository for mosaicml/test_dataset contains custom code which must*:FutureWarning')
 def test_fix_eos_on_preamble(tmp_path):
     transformers = pytest.importorskip('transformers')
     tokenizer = transformers.AutoTokenizer.from_pretrained('facebook/opt-125m',
@@ -353,6 +363,8 @@ def test_fix_eos_on_preamble(tmp_path):
     assert fixed_preamble[-1] != tokenizer.eos_token_id
 
 
+@pytest.mark.filterwarnings(
+    r'ignore:The repository for mosaicml/test_dataset contains custom code which must*:FutureWarning')
 def test_tokenize_example_with_tokenize_labels(tiny_gpt2_tokenizer, tmp_path):
     tokenizer = tiny_gpt2_tokenizer
     seqlen = 2048
@@ -388,6 +400,8 @@ def test_tokenize_example_with_tokenize_labels(tiny_gpt2_tokenizer, tmp_path):
     assert 'continuation_indices' in tokenized_example
 
 
+@pytest.mark.filterwarnings(
+    r'ignore:The repository for mosaicml/test_dataset contains custom code which must*:FutureWarning')
 def test_tokenize_example_with_no_tokenize_labels(tiny_gpt2_tokenizer, tmp_path):
     tokenizer = tiny_gpt2_tokenizer
     seqlen = 2048
