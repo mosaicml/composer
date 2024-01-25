@@ -2,11 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import contextlib
+import json
 import os
 import random
 import types
 from pathlib import Path
 
+import pandas as pd
 import pytest
 import torch
 import transformers
@@ -14,6 +16,7 @@ from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
 
 from composer import Evaluator
+from composer.callbacks import EvalOutputLogging
 from composer.core import DataSpec
 from composer.datasets.in_context_learning_evaluation import (InContextLearningCodeEvalDataset,
                                                               _get_fewshot_sample_idxs, _make_padded_input,
@@ -539,6 +542,10 @@ def test_qa_task_dataloader_w_null_eos(dataset_uri, tiny_gpt2_tokenizer, tmp_pat
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 4
     seqlen = 512
+<<<<<<< HEAD
+    # empirical number from the small test dataset
+=======
+>>>>>>> dev
     tiny_gpt2_tokenizer.eos_token_id = None
     with pytest.raises(ValueError):
         _ = get_icl_task_dataloader('question_answering',
@@ -1021,10 +1028,23 @@ def test_lm_task_evaluation(device, dataset_uri, num_fewshot, tiny_gpt2_tokenize
         use_logits=True,
     )
 
-    trainer = Trainer(model=model, max_duration='1ep', loggers=in_memory_logger)
+    trainer = Trainer(model=model,
+                      max_duration='1ep',
+                      loggers=in_memory_logger,
+                      callbacks=EvalOutputLogging(subset_sample=2, output_directory=str(tmp_path)))
     trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
+
     assert 'metrics/lambada/InContextLearningLMAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/lambada/InContextLearningLMAccuracy'][0][1].item() == 0
+    icl_outputs = json.loads(in_memory_logger.tables['icl_outputs/lambada/InContextLearningLMAccuracy'])
+    assert icl_outputs['columns'] == ['context_tok', 'continuation_tok_target', 'continuation_tok_pred', 'correct']
+    assert len(icl_outputs['data']) == 2
+
+    with open(str(tmp_path) + '/eval-outputs-ba0.tsv', 'r') as f:
+        df = pd.read_csv(f, sep='\t')
+    assert len(df) == 2
+    assert list(
+        df.columns) == ['context_tok', 'continuation_tok_target', 'continuation_tok_pred', 'correct', 'benchmark']
 
 
 @pytest.mark.parametrize('dataset_uri', ['winograd_small.jsonl'])
@@ -1203,11 +1223,19 @@ def test_qa_task_evaluation_opt_tokenizer(device, world_size, tiny_opt_tokenizer
         use_logits=True,
     )
 
-    trainer = Trainer(model=model, max_duration='1ba', loggers=in_memory_logger)
+    trainer = Trainer(model=model,
+                      max_duration='1ba',
+                      loggers=in_memory_logger,
+                      callbacks=EvalOutputLogging(subset_sample=2, output_directory=str(tmp_path)))
 
     trainer.eval(eval_dataloader=evaluator, subset_num_batches=2)
     assert 'metrics/triviaqa/InContextLearningQAAccuracy' in in_memory_logger.data.keys()
     assert in_memory_logger.data['metrics/triviaqa/InContextLearningQAAccuracy'][0][1].item() == 0
+    icl_outputs = json.loads(in_memory_logger.tables['icl_outputs/triviaqa/InContextLearningQAAccuracy'])
+    assert icl_outputs['columns'] == [
+        'prompt', 'original_model_output', 'cleaned_model_output', 'original_labels', 'cleaned_labels', 'correct'
+    ]
+    assert len(icl_outputs['data']) == 2
 
 
 @pytest.mark.parametrize('dataset_uri', ['gsm8k_small.jsonl'])

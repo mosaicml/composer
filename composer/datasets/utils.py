@@ -10,6 +10,7 @@ from typing import Callable, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
+import transformers
 from PIL import Image
 from torchvision import transforms
 from torchvision.datasets import VisionDataset

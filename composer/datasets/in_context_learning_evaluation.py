@@ -169,7 +169,7 @@ class InContextLearningQATaskDataset(Dataset):
         dataset = load_dataset('json', data_files=destination_path, split='train', streaming=False)
         self.early_stopping_criteria = early_stopping_criteria
         self.do_normalization = do_normalization
-        self.samples = self._read_dataset(dataset)  # pyright: ignore[reportGeneralTypeIssues]
+        self.samples = self._read_dataset(dataset)
         self.samples = strip_data(self.samples)
         self.tokenizer = tokenizer
         self.max_seq_len = max_seq_len
@@ -230,6 +230,7 @@ class InContextLearningQATaskDataset(Dataset):
             example_delimiter (str): The delimiter used to separate each individual context/continuation pair
             continuation_delimiter (str): The delimiter used to separate each context from its continuation
             question_prelimiter (str): The text to prepend to each question
+            cot_delimiter (str): The delimiter used to separate the chain-of-thought (if present) from the final model response.
             fewshot_rng (random.Random): Random number generator to use for fewshot sampling
             cot_delimiter (str): The delimiter used to separate the chain-of-thought (if present) from the final model response.
 
@@ -246,7 +247,6 @@ class InContextLearningQATaskDataset(Dataset):
             prompt_and_fewshot = self._format_prompt_and_fewshot(num_fewshot, prompt_string, example_delimiter,
                                                                  continuation_delimiter, question_prelimiter,
                                                                  cot_delimiter, fewshot_rng, sample_idx)
-
             ctxt = self.samples[sample_idx]['context']
             ctxt = f'{question_prelimiter}{ctxt}'
             if len(prompt_and_fewshot) > 0:
@@ -266,6 +266,7 @@ class InContextLearningQATaskDataset(Dataset):
                 encoded_example['preamble']['input_ids'] = example_ids[:-1]  # pyright: ignore[reportGeneralTypeIssues]
 
             encoded_example['context'] = self.tokenizer(ctxt, add_special_tokens=False)
+
             encoded_example['aliases'] = list(self.samples[sample_idx]['aliases'])
             encoded_example['cot_delimiter'] = cot_delimiter
             examples.append(encoded_example)
@@ -1122,6 +1123,7 @@ class InContextLearningCodeEvalDataset(Dataset):
             test_outputs.append(test_output)
             languages.append(language)
 
+       
         batch = {
             'input_ids': torch.stack(inputs),
             'mode': 'generate',
