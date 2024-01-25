@@ -576,7 +576,7 @@ def load_sharded_checkpoint(
 
             if device_mesh is not None and device_mesh.ndim == 2:
                 process_group = device_mesh.get_group(0)  # Replicate process_group
-                shard_size = device_mesh.size(1)
+                replicate_size, shard_size = device_mesh.size(0), device_mesh.size(1)
                 import torch.distributed.distributed_c10d as dist_torch
                 log.info(f'Ranks: {dist_torch._world.pg_group_ranks[process_group]}')
                 log.info(f'global_rank={dist.get_global_rank()}, {shard_size=}')
@@ -593,7 +593,7 @@ def load_sharded_checkpoint(
                 print(state_dict['state'])
 
                 # Broadcast everything but model and optimizer
-                state_dict_list = [state_dict['state']]
+                state_dict_list = [state_dict['state']] * replicate_size
                 dist.broadcast_object_list(
                     state_dict_list,
                     src=dist.get_global_rank() % shard_size,
