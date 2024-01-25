@@ -593,7 +593,7 @@ def load_sharded_checkpoint(
                     file_list = file_list[0]
                     log.info(f'global_rank={dist.get_global_rank()}, {file_list=}')
 
-                    for file_name in range(file_list):
+                    for file_name in file_list:
                         log.info(f'global_rank={dist.get_global_rank()}, {os.listdir(download_path)=}')
                         full_path = os.path.join(download_path, file_name)
                         log.info(f'global_rank={dist.get_global_rank()}, {full_path=}')
