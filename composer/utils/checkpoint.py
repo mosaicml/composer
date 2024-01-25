@@ -648,11 +648,11 @@ def load_sharded_checkpoint(
                 # dist.broadcast_object_list(list_b, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
                 # log.debug(f'POST {list_b=}')
 
-                log.info(f'PRE {state_dict["state"]["model"]["model.lm_head.weight"]=}')
-                state_dict_list = [state_dict['state']]
-                dist.broadcast_object_list(state_dict_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
-                state_dict['state'] = state_dict_list[0]
-                log.info(f'POST {state_dict["state"]["model"]["model.lm_head.weight"]=}')
+                # log.info(f'PRE {state_dict["state"]["model"]["model.lm_head.weight"]=}')
+                # state_dict_list = [state_dict['state']]
+                # dist.broadcast_object_list(state_dict_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
+                # state_dict['state'] = state_dict_list[0]
+                # log.info(f'POST {state_dict["state"]["model"]["model.lm_head.weight"]=}')
 
                 # # Broadcast piecemeal
                 # for key in sorted(state_dict['state'].keys()):
@@ -664,13 +664,13 @@ def load_sharded_checkpoint(
                 #         state_dict['state'][key] = broadcast_list[0]
                 #         log.debug(f'Post broadcast for {key=}')
 
-            state.load_state_dict(
-                state_dict['state'],
-                logger,
-                strict=strict_model_weights,
-                exclude_algorithms=exclude_algorithms,
-                algorithm_passes=algorithm_passes,
-            )
+            # state.load_state_dict(
+            #     state_dict['state'],
+            #     logger,
+            #     strict=strict_model_weights,
+            #     exclude_algorithms=exclude_algorithms,
+            #     algorithm_passes=algorithm_passes,
+            # )
 
             # 2. Optionally load optimizer
             # if we are using later than 2.2.9 then optimizer will already be loaded
