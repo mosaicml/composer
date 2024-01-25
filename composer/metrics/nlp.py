@@ -1064,32 +1064,48 @@ class MTBenchJudge(InContextLearningMetric):
         self.client = OpenAI()
 
     def call_judge(self,
-                   prompt_one,
-                   prompt_two,
-                   first_generation,
-                   second_generation,
-                   category,
+                   prompt_one: str,
+                   first_generation: str,
+                   prompt_two: str = None,
+                   second_generation: str = None,
+                   category: str = None,
                    reference_answer_one=None,
                    reference_answer_two=None) -> List[str]:
-        # if sample_answer.startswith(' '):
-        #     sample_answer = sample_answer.lstrip()
 
         if category == 'math':
-            system_prompt = deepcopy(self.SINGLE_V1_MATH_MULTI_TURN_TEMPLATE_SYSTEM_PROMPT)
-            template = deepcopy(self.SINGLE_V1_MATH_MULTI_TURN_TEMPLATE)
-            formatted_template = template.format(question_1=prompt_one,
-                                                 question_2=prompt_two,
-                                                 answer_1=first_generation,
-                                                 answer_2=second_generation,
-                                                 ref_answer_1=reference_answer_one,
-                                                 ref_answer_2=reference_answer_two)
+            if not prompt_two:
+                system_prompt = deepcopy(self.SINGLE_V1_SYSTEM_PROMPT)
+                template = deepcopy(self.SINGLE_V1_MATH)
+                formatted_template = template.format(
+                    question=prompt_one,
+                    answer=first_generation,
+                    ref_answer_1=reference_answer_one,
+                )
+            else:
+                system_prompt = deepcopy(self.SINGLE_V1_MATH_MULTI_TURN_TEMPLATE_SYSTEM_PROMPT)
+                template = deepcopy(self.SINGLE_V1_MATH_MULTI_TURN_TEMPLATE)
+                formatted_template = template.format(question_1=prompt_one,
+                                                     question_2=prompt_two,
+                                                     answer_1=first_generation,
+                                                     answer_2=second_generation,
+                                                     ref_answer_1=reference_answer_one,
+                                                     ref_answer_2=reference_answer_two)
         else:
-            system_prompt = deepcopy(self.MULTI_TURN_SYSTEM_PROMPT)
-            template = deepcopy(self.SINGLE_V1_MULTI_TURN_TEMPLATE)
-            formatted_template = template.format(question_1=prompt_one,
-                                                 question_2=prompt_two,
-                                                 answer_1=first_generation,
-                                                 answer_2=second_generation)
+            if not prompt_two:
+                system_prompt = deepcopy(self.SINGLE_V1_SYSTEM_PROMPT)
+                template = deepcopy(self.SINGLE_V1)
+                formatted_template = template.format(
+                    question=prompt_one,
+                    answer=first_generation,
+                )
+
+            else:
+                system_prompt = deepcopy(self.MULTI_TURN_SYSTEM_PROMPT)
+                template = deepcopy(self.SINGLE_V1_MULTI_TURN_TEMPLATE)
+                formatted_template = template.format(question_1=prompt_one,
+                                                     question_2=prompt_two,
+                                                     answer_1=first_generation,
+                                                     answer_2=second_generation)
 
         response = self.client.chat.completions.create(model='gpt-4',
                                                        messages=[{
@@ -1109,36 +1125,55 @@ class MTBenchJudge(InContextLearningMetric):
         for i, first_generation in enumerate(outputs['generation_one']):
             second_generation = outputs['generation_two'][i]
             prompt_one = batch['untokenized_prompt_one'][i]
-            prompt_two = batch['untokenized_prompt_two'][i]
             result, formatted_template = self.call_judge(prompt_one=prompt_one,
-                                                         prompt_two=prompt_two,
                                                          first_generation=first_generation,
-                                                         second_generation=second_generation,
                                                          category=batch['category'][i],
-                                                         reference_answer_one=batch['reference_answer_one'][i],
-                                                         reference_answer_two=batch['reference_answer_two'][i])
+                                                         reference_answer_one=batch['reference_answer_one'][i])
+            self.score_result(result, batch['category'][i], formatted_template)
 
-            log.info('********* Formatted Response and Result: *********')
+            log.info(
+                f'********* Formatted Response and Result For Generation 1 on question {batch["question_id"][i]}: *********'
+            )
             log.info(formatted_template)
             log.info(result)
-            score = None
-            match = re.search(self.ONE_SCORE_PATTERN, result)
-            if not match:
-                match = re.search(self.ONE_SCORE_PATTERN_BACKUP, result)
-            if match:
-                score = ast.literal_eval(match.groups()[0])
-                self.all_scores += torch.tensor(score)
-                self.update_category_score(batch['category'][i], score)
-            else:
-                self.invalid_judge_response += 1
-            self.total += 1
-            if self.cache_responses:
-                self.response_cache.append({'score': score, 'result': result, 'formatted_template': formatted_template})
+
+            prompt_two = batch['untokenized_prompt_two'][i]
+            result, formatted_template = self.call_judge(
+                prompt_one=prompt_one,
+                first_generation=first_generation,
+                prompt_two=prompt_two,
+                second_generation=second_generation,
+                category=batch['category'][i],
+                reference_answer_one=batch['reference_answer_one'][i],
+                reference_answer_two=batch['reference_answer_two'][i],
+            )
+            self.score_result(result, batch['category'][i], formatted_template)
+
+            log.info(
+                f'********* Formatted Response and Result For Generation 2 on question {batch["question_id"][i]}: *********'
+            )
+            log.info(formatted_template)
+            log.info(result)
 
         # OpenAI Client can't be copied by deepcopy and will throw an error, so we delete it after we use it
         # Initializatin takes ~12 ms
         del self.client
         self.client = None
+
+    def score_result(self, result: str, category: str, formatted_template: str):
+        score = None
+        match = re.search(self.ONE_SCORE_PATTERN, result)
+        if not match:
+            match = re.search(self.ONE_SCORE_PATTERN_BACKUP, result)
+        if match:
+            score = ast.literal_eval(match.groups()[0])
+            self.all_scores += torch.tensor(score)
+            self.update_category_score(category, score)
+        else:
+            self.invalid_judge_response += 1
+        self.total += 1
+        if self.cache_responses:
+            self.response_cache.append({'score': score, 'result': result, 'formatted_template': formatted_template})
 
     def update_category_score(self, category, score):
         if category == 'math':
