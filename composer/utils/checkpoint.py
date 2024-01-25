@@ -563,12 +563,12 @@ def load_sharded_checkpoint(
                 """Implement functionality similar to c10d::gather_object but without distributed enabled."""
                 if self.use_dist:
                     gather_objs = (
-                        [None] * dist.get_world_size(self.group)
+                        [None] * torch.distributed.get_world_size(self.group)
                         if self.is_coordinator
                         else None
                     )
 
-                    dist.gather_object(
+                    torch.distributed.gather_object(
                         obj=object,
                         object_gather_list=gather_objs if self.is_coordinator else None,
                         dst=self.coordinator_rank,
