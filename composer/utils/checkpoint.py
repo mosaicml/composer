@@ -609,14 +609,15 @@ def load_sharded_checkpoint(
                         group=process_group,
                     )
 
-                # Broadcast everything but model and optimizer
-                state_dict_list = [state_dict['state']] * replicate_size
-                dist.broadcast_object_list(
-                    state_dict_list,
-                    src=dist.get_global_rank() % shard_size,
-                    group=process_group,
-                )
-                state_dict['state'] = state_dict_list[0]
+                # # Broadcast everything but model and optimizer
+                # state_dict_list = [state_dict['state']] * replicate_size
+                # dist.broadcast_object_list(
+                #     state_dict_list,
+                #     src=dist.get_global_rank() % shard_size,
+                #     group=process_group,
+                # )
+                # state_dict['state'] = state_dict_list[0]
+
                 # Restore model and optimizer
                 state_dict['state']['model'] = model_state_dict
                 state_dict['state']['optimizers'] = optim_state_dict
