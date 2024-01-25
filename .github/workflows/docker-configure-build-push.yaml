@@ -36,7 +36,6 @@ on:
         required: true
 jobs:
   configure-build-push:
-    timeout-minutes: 1440
     runs-on: ubuntu-latest
     steps:
       - name: Maximize Build Space on Worker
