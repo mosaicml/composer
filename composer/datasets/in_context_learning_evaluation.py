@@ -212,19 +212,21 @@ class InContextLearningDataset(Dataset):
     'answer' refers to the desired output of the model.
 
     When creating a new ICL Dataset, it is likely that you will need to reimplemente the following methods:
+
     - _construct_context(): takes a single example dictionary and formulates the context as a string for that eval question.
     - _get_answer_from_example(): takes a single example dictionary and formulates the correct, ground truth answer as a string.
     - _tokenize_example(): tokenizes the example and adds any extra content from the original dictionary that needs to be passed downstream.
     - _read_dataset(): loads the dataset and does basic parsing. If additional parsing must be done, this is a good place to do so (See InContextLearningQATaskDataset._read_dataset())
 
     Additionally, base_batch and batch_mapping must be defined.
+
     - base_batch (Dict): the base dictionary that the dataset will use to construct a batch. This should contain static values, like generation_kwargs or mode,
-    and empty lists for values that will need to be accumulated from each example.
-    NOTE: Sometimes you will need to set base_batch directly after the init call, e.g. in order to use class variables
-    like self.pad_tok_id or self.max_answer_length. If you manually set generation_kwargs this way, you'll need to call self._update_generation_kwargs()
-    after setting self.base_batch.
+      and empty lists for values that will need to be accumulated from each example.
+      NOTE: Sometimes you will need to set base_batch directly after the init call, e.g. in order to use class variables
+      like self.pad_tok_id or self.max_answer_length. If you manually set generation_kwargs this way, you'll need to call self._update_generation_kwargs()
+      after setting self.base_batch.
     - batch_mapping (Dict): A mapping with keys that are keys in the batch and values that are columns in the loaded dataset.
-                            collate_fn will use this mapping to create batches from self.dataset.
+      collate_fn will use this mapping to create batches from self.dataset.
 
     Args:
         dataset_uri (str): A local path, a remote path beginning with ``s3://`` or another backend, or a HuggingFace dataset uri prepended with ``hf://``.
@@ -237,8 +239,8 @@ class InContextLearningDataset(Dataset):
         num_fewshot (int): The number of complete fewshot examples to prepend before each test example. These are not identical across examples.
         fewshot_random_seed (int): Random seed to use for fewshot sampling.
         prompt_string (str): Prompt string to put once before all fewshot examples/test examples (e.g. 'Translate english to french.').
-        example_delimiter (str): Separator inserted before (context, answer) pairs (e.g. '\n') for fewshot sampling and prompting.
-        continuation_delimiter: (str): Separator inserted between context and answer in each example (e.g. '\nA: ').
+        example_delimiter (str): Separator inserted before (context, answer) pairs (e.g. '\\n') for fewshot sampling and prompting.
+        continuation_delimiter: (str): Separator inserted between context and answer in each example (e.g. '\\nA: ').
         destination_path (str): Temporary path to store downloaded datasets.
         prelimiter (str): Text to be prepended before each context, including few shot examples (e.g. "Question: ").
         context_key (str): The key in the loaded dataset that contains the context.
@@ -1211,8 +1213,8 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
     - pass_at_k: passed value for pass_at_k
     - generation_length: derrived maximum generation length
     - generation_kwargs: Dictionary of kwargs neeeded for generation. Includes the following, which will be individually overwritten
-    by keys in generaiton_kwargs if set (see https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig
-    for more details):
+      by keys in generaiton_kwargs if set (see https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig
+      for more details):
 
         - pad_token_id: ID for padding token, derived automatically
         - num_beams: how many beams to search for generations, set to 1
@@ -1617,7 +1619,7 @@ def get_icl_task_dataloader(
                 pad_tok_id=tokenizer.pad_token_id,
                 num_fewshot=10,
                 prompt_string='translate english to french',
-                example_delimiter='\n',
+                example_delimiter='\\n',
                 continuation_delimiter=''
                 )
             eval_evaluator = Evaluator(
@@ -1645,8 +1647,8 @@ def get_icl_task_dataloader(
         pad_tok_id (int): The special token used for padding batches.
         num_fewshot (int): The number of complete fewshot examples to prepend before each test example. These are not identical across examples.
         prompt_string (str, default = ''): Prompt string to put once before all fewshot examples/test examples (e.g. 'Translate english to french.').
-        example_delimiter (str, default = '\n'): Separator inserted before (context, answer) pairs (e.g. '\n') for fewshot sampling and prompting.
-        continuation_delimiter: (str, default = ' '): Separator inserted between context and answer in each example (e.g. '\nA: ').
+        example_delimiter (str, default = '\\n'): Separator inserted before (context, answer) pairs (e.g. '\\n') for fewshot sampling and prompting.
+        continuation_delimiter: (str, default = ' '): Separator inserted between context and answer in each example (e.g. '\\nA: ').
         destination_path: (str, default = ''): This is the local file where remote datasets will be saved.
         question_prelimiter: (str, default = ''): Text to be prepended before each context, including few shot examples (e.g. "Question: ").
         fewshot_random_seed (int, default = 1234): Random seed to use for fewshot sampling
