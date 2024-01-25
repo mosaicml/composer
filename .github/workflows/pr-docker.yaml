@@ -18,7 +18,7 @@ jobs:
   build-image-matrix:
     if: github.repository_owner == 'mosaicml'
     runs-on: ubuntu-latest
-    timeout-minutes: 1440
+    timeout-minutes: 2
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
