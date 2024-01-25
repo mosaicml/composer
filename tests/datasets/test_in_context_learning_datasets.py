@@ -1789,9 +1789,9 @@ def test_schema_task_evaluation(num_fewshot, dataset_uri, tiny_gpt2_tokenizer, t
 
 @pytest.mark.parametrize('dataset_uri', ['mmlu_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 5])
-@pytest.mark.filterwarnings(r'ignore:Cannot split .* of length.*:UserWarning')
 @device('gpu')
 @world_size(1, 2)
+@pytest.mark.filterwarnings(r'ignore:Cannot split .* of length.*:UserWarning')
 def test_mc_task_evaluation_subcategories(device, world_size, dataset_uri, num_fewshot, tiny_gpt2_model,
                                           tiny_gpt2_tokenizer, tmp_path):
     pytest.importorskip('datasets')
@@ -1800,13 +1800,15 @@ def test_mc_task_evaluation_subcategories(device, world_size, dataset_uri, num_f
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_gpt2_tokenizer
     batch_size = 8
+    max_seq_len = 64
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
     gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
+    reproducibility.seed_all(1234)
     dls = get_icl_task_dataloader('multiple_choice',
                                   dataset_uri=dataset_uri,
                                   tokenizer=tokenizer,
                                   batch_size=batch_size,
-                                  max_seq_len=1024,
+                                  max_seq_len=max_seq_len,
                                   pad_tok_id=tokenizer.eos_token_id,
                                   num_fewshot=num_fewshot,
                                   prompt_string='',
@@ -1840,6 +1842,7 @@ def test_mc_task_evaluation_subcategories(device, world_size, dataset_uri, num_f
 
 @pytest.mark.parametrize('dataset_uri', ['piqa_small.jsonl', 'hellaswag_small.jsonl'])
 @pytest.mark.parametrize('num_fewshot', [0, 5])
+@pytest.mark.filterwarnings(r'ignore:Cannot split .* of length.*:UserWarning')
 @device('gpu')
 @world_size(1, 2)
 def test_mc_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tmp_path,
@@ -1850,6 +1853,8 @@ def test_mc_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_g
     dataset_uri = f'{local_data}/{dataset_uri}'
     tokenizer = tiny_gpt2_tokenizer
     batch_size = 8
+    tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
+    gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
 
     # seed because the fewshot selection is currently unseeded
     reproducibility.seed_all(1234)
@@ -1858,13 +1863,13 @@ def test_mc_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_g
         dataset_uri=dataset_uri,
         tokenizer=tokenizer,
         batch_size=batch_size,
-        max_seq_len=1024,
+        max_seq_len=64,
         pad_tok_id=tokenizer.eos_token_id,
         num_fewshot=num_fewshot,
         prompt_string='',
         example_delimiter='\n',
         continuation_delimiter=': ',
-        destination_path=str(tmp_path / 'icl.jsonl'),
+        destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
     )
 
     evaluator = Evaluator(label='mc', dataloader=dl, metric_names=['InContextLearningMultipleChoiceAccuracy'])
@@ -1884,12 +1889,15 @@ def test_mc_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_g
     with open(dataset_uri) as f:
         for _ in f:
             num_samples += 1
-    assert trainer.state.eval_metrics['mc']['InContextLearningMultipleChoiceAccuracy'].total == num_samples
+    total = trainer.state.eval_metrics['mc']['InContextLearningMultipleChoiceAccuracy'].total
+    dist.all_reduce(total)  # type: ignore
+    assert total.item() == num_samples  # type: ignore
 
 
 @pytest.mark.parametrize('num_fewshot', [0, 5])
 @pytest.mark.parametrize('dataset_uri', ['triviaqa_small.jsonl'])
 @pytest.mark.filterwarnings(r'ignore:.*The dataloader_len \(2\) is greater than the length.*:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:Cannot split .* of length.*:UserWarning')
 @device('gpu')
 @world_size(1, 2)
 def test_qa_task_evaluation_opt_tokenizer(device, world_size, tiny_opt_tokenizer, tiny_opt_model, num_fewshot,
@@ -1937,6 +1945,7 @@ def test_qa_task_evaluation_opt_tokenizer(device, world_size, tiny_opt_tokenizer
 @device('gpu')
 @world_size(1, 2)
 @pytest.mark.filterwarnings(r'ignore:.*The dataloader_len \(2\) is greater than the length.*:UserWarning')
+@pytest.mark.filterwarnings(r'ignore:Cannot split .* of length.*:UserWarning')
 def test_qa_task_evaluation_with_cot_opt_tokenizer(device, world_size, tiny_opt_tokenizer, tiny_opt_model, num_fewshot,
                                                    dataset_uri, tmp_path):
     pytest.importorskip('datasets')
@@ -1982,6 +1991,7 @@ def test_qa_task_evaluation_with_cot_opt_tokenizer(device, world_size, tiny_opt_
 @pytest.mark.parametrize('num_fewshot', [0, 5])
 @device('gpu')
 @world_size(1, 2)
+@pytest.mark.filterwarnings(r'ignore:.*The dataloader_len \(2\) is greater than the length.*:UserWarning')
 def test_qa_task_evaluation(device, world_size, num_fewshot, dataset_uri, tiny_gpt2_tokenizer, tiny_gpt2_model,
                             tmp_path):
     pytest.importorskip('datasets')
