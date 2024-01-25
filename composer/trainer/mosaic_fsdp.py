@@ -69,16 +69,6 @@ def patch_pytorch():
         from torch.distributed.fsdp import _runtime_utils
         _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
 
-        # Monkeypatch dtensor support
-        from composer.trainer.mosaic_fsdp_utils import init_fn_t2p2p0
-        FullyShardedDataParallel.__init__ = init_fn_t2p2p0  # type: ignore
-
-        # Monkeypath state_dict
-        from torch.distributed.checkpoint import state_dict  # type: ignore
-
-        from composer.trainer.mosaic_fsdp_utils import _verify_options_t2p2p0
-        state_dict._verify_options = _verify_options_t2p2p0
-
     elif version.parse(torch.__version__) < version.parse('2.3.1'):
         # Monkey patch for torch < 2.3.1 ie torch == 2.3.0
         # Note: this is the same patch as 2.2.0, we are just making a new if branch
