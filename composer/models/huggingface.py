@@ -46,7 +46,7 @@ class HuggingFaceModel(ComposerModel):
     A wrapper class that converts 🤗 Transformers models to composer models.
 
     Args:
-        model (transformers.PreTrainedModel): A 🤗 Transformers model.
+        model (Union[transformers.PreTrainedModel, peft.PeftModel)): A 🤗 Transformers model or a PEFT model.
         tokenizer (transformers.PreTrainedTokenizer, optional): The tokenizer used to prepare the dataset. Default ``None``.
 
             .. note:: If the tokenizer is provided, its config will be saved in the composer checkpoint, and it can be reloaded
@@ -94,6 +94,24 @@ class HuggingFaceModel(ComposerModel):
                                                 conda_package='transformers',
                                                 conda_channel='conda-forge') from e
 
+        if peft_config is not None:
+            if not peft_installed:
+                raise MissingConditionalImportError(extra_deps_group='peft',
+                                                    conda_package='peft',
+                                                    conda_channel='conda-forge')
+
+        if peft_config is not None:
+            # Hugging Face requires the peft type and task type to be upper case, so we do that here
+            # https://github.com/huggingface/peft/blob/ebbff4023ad276cbcb2466fd7e99be7d3ae0ae11/src/peft/utils/peft_types.py#L22-L51
+            if isinstance(peft_config.peft_type, str):
+                peft_config.peft_type = peft_config.peft_type.upper()
+            if isinstance(peft_config.task_type, str):
+                peft_config.task_type = peft_config.task_type.upper()
+
+            if peft_config.peft_type != 'LORA':
+                raise ValueError(
+                    f'PEFT type {peft_config.peft_type} is not supported by HuggingFaceModel. Only LORA is supported.')
+
         super().__init__()
         self.model = model
         self.config: PretrainedConfig = model.config
@@ -112,22 +130,6 @@ class HuggingFaceModel(ComposerModel):
         self.tokenizer = tokenizer
 
         self.peft_filter_state_dict_trainable = peft_filter_state_dict_trainable
-        if peft_config is not None:
-            if not peft_installed:
-                raise MissingConditionalImportError(extra_deps_group='peft',
-                                                    conda_package='peft',
-                                                    conda_channel='conda-forge')
-
-        if peft_config is not None:
-            # Hugging Face requires the peft type and task type to be upper case, so we do that here
-            # https://github.com/huggingface/peft/blob/ebbff4023ad276cbcb2466fd7e99be7d3ae0ae11/src/peft/utils/peft_types.py#L22-L51
-            if isinstance(peft_config.peft_type, str):
-                peft_config.peft_type = peft_config.peft_type.upper()
-            if isinstance(peft_config.task_type, str):
-                peft_config.task_type = peft_config.task_type.upper()
-        if peft_config is not None and peft_config.peft_type != 'LORA':
-            raise ValueError(
-                f'PEFT type {peft_config.peft_type} is not supported by HuggingFaceModel. Only LORA is supported.')
 
         if self.tokenizer is None:
             log.warning(
@@ -192,7 +194,7 @@ class HuggingFaceModel(ComposerModel):
                 self.model = get_peft_model(self.model, peft_config)
                 log.info(f'PEFT model created. {self.model}')
 
-        self.model_is_peft = False
+        self.using_peft = False
         if peft_installed:
             from peft import PeftModel
             self.using_peft = isinstance(self.model, PeftModel)
@@ -576,18 +578,17 @@ class HuggingFaceModel(ComposerModel):
             }
 
             # Also save PEFT config if the model is a peft model
-            if peft_installed:
-                from peft import PeftModel
-                if isinstance(self.model, PeftModel):
-                    active_adapter = self.model.active_adapter
-                    self.model.peft_config[active_adapter].save_pretrained(str(model_dir))
-                    with open(model_dir / 'adapter_config.json') as _peft_config:
-                        peft_config = json.load(_peft_config)
+            if self.using_peft:
+                assert isinstance(self.model, PeftModel)
+                active_adapter = self.model.active_adapter
+                self.model.peft_config[active_adapter].save_pretrained(str(model_dir))
+                with open(model_dir / 'adapter_config.json') as _peft_config_file:
+                    peft_config = json.load(_peft_config_file)
 
-                    model_output['peft_config'] = {
-                        'file_extension': '.json',
-                        'content': peft_config,
-                    }
+                model_output['peft_config'] = {
+                    'file_extension': '.json',
+                    'content': peft_config,
+                }
 
             if self.tokenizer is not None:
                 for tokenizer_file_name in tokenizer_dir.iterdir():
@@ -752,10 +753,11 @@ def get_peft_config_from_composer_state_dict(state_dict: Dict[str, Any]) -> Opti
         raise MissingConditionalImportError(extra_deps_group='nlp', conda_package='peft',
                                             conda_channel='conda-forge') from e
 
-    if 'peft_config' not in state_dict['state']['integrations']['huggingface']['model']:
+    hf_model_dict = state_dict['state']['integrations']['huggingface']['model']
+    if 'peft_config' not in hf_model_dict:
         return None
 
-    peft_config_dict = state_dict['state']['integrations']['huggingface']['model']['peft_config']['content']
+    peft_config_dict = hf_model_dict['peft_config']['content']
 
     return peft.get_peft_config(peft_config_dict)
 
