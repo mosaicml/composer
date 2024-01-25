@@ -453,6 +453,7 @@ def load_sharded_checkpoint(
             super().__init__(destination_path)
 
         def read_data(self, plan: LoadPlan, planner: LoadPlanner):
+            log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
             # 1. Download to the destination all files that this rank is responsible for.
             for plan_item in plan.items:
                 # Each plan item has a storage index which points to the relative path of the shard file at save time.
@@ -460,12 +461,14 @@ def load_sharded_checkpoint(
                 # Download the shard file to the relative path it's associated to and save that relative path
                 # to the root directory specified to the FileSystem reader constructor.
                 file_destination = str(Path(self.destination_path) / Path(relative_file_path))
+                log.debug(f'Rank {dist.get_global_rank()} downloading {relative_file_path} to {file_destination}.')
                 # The file could have already been downloaded as diffeent plan items can point to same file.
                 if not os.path.exists(file_destination):
                     self.object_store.download_object(object_name=str(
                         Path(self.source_path) / Path(relative_file_path)),
                                                       filename=file_destination)
 
+            log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
             # 2. Wait for all ranks to finish.
             dist.barrier()
 
