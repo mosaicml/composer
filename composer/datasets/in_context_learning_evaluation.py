@@ -39,10 +39,10 @@ def strip_data(example: Dict) -> Dict:
     Remove white space from the begging and end of string values in a dictionary
 
     Args:
-        example: dictionary to be stripped
+        example: Dictionary to be stripped
 
     Returns:
-        dict: the same dictionary with .strip() applied to any value in the dict that is a string
+        dict: The same dictionary with .strip() applied to any value in the dict that is a string
     """
     return {k: v.strip() if isinstance(v, str) else v for k, v in example.items()}
 
@@ -56,7 +56,7 @@ def _tokenizer_needs_prefix_space(tokenizer: transformers.PreTrainedTokenizerBas
         tokenizer: Tokenizer to test
 
     Returns:
-        bool: whether or not the tokenizer needs a prefix space
+        bool: Whether or not the tokenizer needs a prefix space
     """
     test_tokens = tokenizer(' a', add_special_tokens=False)['input_ids']
     assert isinstance(test_tokens, list)
@@ -70,12 +70,12 @@ def _trim_context(context_enc: List, continuation_enc: List, max_seq_len: int) -
     of the context will be removed.
 
     Args:
-        context_enc (list): list of tokens in the context
-        continuation_enc (lsit): list of tokens in the continuation
-        max_seq_len (int): maximum length the model can ingest
+        context_enc (list): List of tokens in the context
+        continuation_enc (lsit): List of tokens in the continuation
+        max_seq_len (int): Maximum length the model can ingest
 
     Returns:
-        list: the encoded context trimmed from the left
+        list: The encoded context trimmed from the left
     """
     if len(continuation_enc) + len(context_enc) > max_seq_len:
         context_max_subseq_len = max_seq_len - len(continuation_enc)
@@ -94,11 +94,11 @@ def _get_continuation_span(context_enc: List, continuation_enc: List) -> torch.T
     Gets the list of indices of the continuation tokens for language modeling or generation tasks.
 
     Args:
-        context_enc (list): list of context tokens
-        continuation_enc (list): list of continuation tokens
+        context_enc (list): List of context tokens
+        continuation_enc (list): List of continuation tokens
 
     Returns:
-        torch.tensor: a tensor containing indices corresponding to continuation tokens
+        torch.tensor: A tensor containing indices corresponding to continuation tokens
     """
     return torch.tensor(range(len(context_enc), len(context_enc) + len(continuation_enc)))
 
@@ -113,15 +113,15 @@ def _make_padded_input(context_enc: List,
     Adds the padding token to the specified side.
 
     Args:
-        context_enc (List): the encoded input to the model
-        continuation_enc (List): the encoded desired output for the example
-        max_seq_list (int): maximum length sequences can be
-        pad_tok_id (int): the token id we pad with
-        padding_side (str): which side to pad the context on. Can be 'right' or 'left
+        context_enc (List): The encoded input to the model
+        continuation_enc (List): The encoded desired output for the example
+        max_seq_list (int): Maximum length sequences can be
+        pad_tok_id (int): The token id we pad with
+        padding_side (str): Which side to pad the context on. Can be 'right' or 'left
 
     Returns:
-        input (torch.tensor): the padded and encoded context
-        continuation_span (torch.tensor): the _inclusive_ range of indices corresponding to the continuation
+        input (torch.tensor): The padded and encoded context
+        continuation_span (torch.tensor): The _inclusive_ range of indices corresponding to the continuation
     """
 
     inp = torch.tensor(
@@ -161,11 +161,11 @@ def convert_tokens_to_tensors(batch: Dict, tokenize_labels: bool) -> Dict[str, A
     Here, we convert those lists of tokens back into tensors in order to feed them into the model.
 
     Args:
-        batch (dict): a dictionary of batched inputs
-        tokenize_labels (bool): whether or not the labels are tokenized (and need to be stacked)
+        batch (dict): A dictionary of batched inputs
+        tokenize_labels (bool): Whether or not the labels are tokenized (and need to be stacked)
 
     Returns:
-        dict: the batch with torch tensors in the corresponding keys instead of lists of lists
+        dict: The batch with torch tensors in the corresponding keys instead of lists of lists
     """
     batch['input_ids'] = torch.stack(list(map(torch.tensor, batch['input_ids'])))
     if tokenize_labels:
@@ -179,13 +179,13 @@ def _get_fewshot_sample_idxs(dataset_size: int, num_fewshot: int, example_idx: i
     Samples indices without replacement. If num_fewshot exceeds the number of unique examples in the dataset,
     then we will have fewer than num_fewshot examples in context.
     Args:
-        dataset_size (int): length of the dataset
-        num_fewshot (int): number of examples to prepend
-        example_idx (int): current example's index (excluded from fewshot choices)
-        rng (random.Random): rng for repeatable sample selection
+        dataset_size (int): Length of the dataset
+        num_fewshot (int): Number of examples to prepend
+        example_idx (int): Current example's index (excluded from fewshot choices)
+        rng (random.Random): RNG for repeatable sample selection
 
     Returns:
-        list: indices of the examples chosen for fewshot selection
+        list: Indices of the examples chosen for fewshot selection
     """
     num_fewshot = min(dataset_size - 1, num_fewshot)
     fewshot_idxs = set(rng.sample(range(0, dataset_size), num_fewshot))
@@ -213,14 +213,14 @@ class InContextLearningDataset(Dataset):
 
     When creating a new ICL Dataset, it is likely that you will need to reimplement the following methods:
 
-    - _construct_context(): takes a single example dictionary and formulates the context as a string for that eval question.
-    - _get_answer_from_example(): takes a single example dictionary and formulates the correct, ground truth answer as a string.
-    - _tokenize_example(): tokenizes the example and adds any extra content from the original dictionary that needs to be passed downstream.
-    - _read_dataset(): loads the dataset and does basic parsing. If additional parsing must be done, this is a good place to do so (See InContextLearningQATaskDataset._read_dataset())
+    - _construct_context(): Takes a single example dictionary and formulates the context as a string for that eval question.
+    - _get_answer_from_example(): Takes a single example dictionary and formulates the correct, ground truth answer as a string.
+    - _tokenize_example(): Tokenizes the example and adds any extra content from the original dictionary that needs to be passed downstream.
+    - _read_dataset(): Loads the dataset and does basic parsing. If additional parsing must be done, this is a good place to do so (See InContextLearningQATaskDataset._read_dataset())
 
     Additionally, base_batch and batch_mapping must be defined.
 
-    - base_batch (Dict): the base dictionary that the dataset will use to construct a batch. This should contain static values, like generation_kwargs or mode,
+    - base_batch (Dict): The base dictionary that the dataset will use to construct a batch. This should contain static values, like generation_kwargs or mode,
       and empty lists for values that will need to be accumulated from each example.
       NOTE: Sometimes you will need to set base_batch directly after the init call, e.g. in order to use class variables
       like self.pad_tok_id or self.max_answer_length. If you manually set generation_kwargs this way, you'll need to call self._update_generation_kwargs()
@@ -354,7 +354,7 @@ class InContextLearningDataset(Dataset):
         likely because base_batch needs a class variable like self.pad_tok_id or self.max_answer_length).
 
         Args:
-            dict: keyword arguments that be written into base_batch['generation_kwargs']
+            dict: Keyword arguments that be written into base_batch['generation_kwargs']
         """
         if 'generation_kwargs' not in self.base_batch:
             self.base_batch['generation_kwargs'] = {}
@@ -377,7 +377,7 @@ class InContextLearningDataset(Dataset):
             hf_parsing_map (Dict): Dictionary in the form of {icl_key: [hf_col1, hf_col2]} that will map one or more hf columns, in order, to ICL dataset columns
 
         Returns:
-            dataset: a loaded HF dataset
+            dataset: A loaded HF dataset
         """
         from datasets import Dataset as HFDataset  # pyright: ignore[reportGeneralTypeIssues]
         from datasets import load_dataset  # pyright: ignore[reportGeneralTypeIssues]
@@ -417,13 +417,13 @@ class InContextLearningDataset(Dataset):
         Returns the formatted prompt_string + concatenated list of formatted few shot examples as a string.
 
         Args:
-            num_fewshot (int): number of examples to prepend
-            example_idx (int): current example idx
-            preamble (str): text to occur at the beginning of the task. Generally instructions or a prompt.
-            fewshot_rng (random.Random): seeded sampler to chose samples with
+            num_fewshot (int): Number of examples to prepend
+            example_idx (int): Current example idx
+            preamble (str): Text to occur at the beginning of the task. Generally instructions or a prompt.
+            fewshot_rng (random.Random): Seeded sampler to chose samples with
 
         Returns:
-            str: the original preamble with num_fewshot examples appended
+            str: The original preamble with num_fewshot examples appended
         """
         few_shot_text = preamble
 
@@ -450,9 +450,9 @@ class InContextLearningDataset(Dataset):
         Optionally adds the correct answer (for fewshot examples) and handles example delimiters
 
         Args:
-            example (Dict): the example from which to construct the context
-            preceding_text (str): any preceding text, used as a check for prepending self.example_delimiter
-            add_answer (bool): bool for whether or not to add the answer on the end of the context (e.g. for fewshot examples)
+            example (Dict): The example from which to construct the context
+            preceding_text (str): Any preceding text, used as a check for prepending self.example_delimiter
+            add_answer (bool): Bool for whether or not to add the answer on the end of the context (e.g. for fewshot examples)
 
         Returns:
             str: The constructed context. The default output context is
@@ -472,10 +472,10 @@ class InContextLearningDataset(Dataset):
         Returns the answer from the example.
 
         Args:
-            example (Dict): the example from which to retrieve the answer
+            example (Dict): The example from which to retrieve the answer
 
         Returns:
-            str: the answer in the example
+            str: The answer in the example
         """
         cont = example[self.answer_key]
         if self.prefix_space and not cont.startswith(' ') and not in_context:
@@ -490,10 +490,10 @@ class InContextLearningDataset(Dataset):
         as the specific eval question's prompt will follow the input_ids.
 
         Args:
-            input_ids (List): the tokenized input
+            input_ids (List): The tokenized input
 
         Returns:
-            input_ids: the tokenized input conditionally edited
+            input_ids: The tokenized input conditionally edited
         """
         if (self.tokenizer.eos_token_id is not None and len(input_ids) > 1 and
                 input_ids[-1] == self.tokenizer.eos_token_id):
@@ -505,12 +505,12 @@ class InContextLearningDataset(Dataset):
         Runs text through the tokenizer and handle special cases.
 
         Args:
-            prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
-            ctxt (str): the specific example's derrived context
-            example (Dict): the example as a dictionary. Used for additional processing in inherited classes.
+            prompt_and_fewshot (str): The collection of the prompt and fewshot examples that belongs before the example's context
+            ctxt (str): The specific example's derrived context
+            example (Dict): The example as a dictionary. Used for additional processing in inherited classes.
 
         Returns:
-            Dict: dictionary with the tokenized data
+            Dict: Dictionary with the tokenized data
         """
         tokenized_example = {}
         # Always add special tokens to preamble
@@ -573,13 +573,13 @@ class InContextLearningDataset(Dataset):
 
         Args:
             example (Dict): A Dictionary from the hf dataset
-            example_idx (int): the index of example
+            example_idx (int): The index of example
             num_fewshot (int): Number of examples context/continuation pairs to prepend to the test pair
             prompt_string (str): The prompt to prepend to all inputs
             fewshot_rng (random.Random): Random number generator to use for fewshot sampling
 
         Returns:
-            Dict: contains a dictionary with the tokenized data
+            Dict: Contains a dictionary with the tokenized data
         """
         prompt_and_fewshot = self._generate_few_shot_prompt(num_fewshot, example_idx, prompt_string, fewshot_rng)
         ctxt = self._construct_context(example, prompt_and_fewshot, add_answer=False)
@@ -591,10 +591,10 @@ class InContextLearningDataset(Dataset):
         The function that the dataloader uses to accumulate data into batches.
 
         Args:
-            data (List): list of tokenized datapoints (dicts returned by self._tokenize_example)
+            data (List): List of tokenized datapoints (dicts returned by self._tokenize_example)
 
         Returns:
-            Dict: dictionary for a single batch
+            Dict: Dictionary for a single batch
         """
         batch = copy.deepcopy(self.base_batch)
         for data_pair in data:
@@ -612,11 +612,11 @@ class InContextLearningDataset(Dataset):
         Handling for certain specialty columns that must be split into batches in different formats.
 
         Args:
-            batch (Dict): batch of data
-            microbatch_size (int): size of microbatches
+            batch (Dict): Batch of data
+            microbatch_size (int): Size of microbatches
 
         Returns:
-            List: list of chunked batches
+            List: List of chunked batches
         """
         # Don't split kwargs that don't change
         # Normally split torch tensors
@@ -647,9 +647,9 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
     QA tasks evaluate a model's ability to answer questions using a consistent format.
 
     The input format is expected to be a jsonl file with the following fields:
-    - context: the question
-    - answer: the preferred answer to the question
-    - aliases: a list of aliases for the answer
+    - context: The question
+    - answer: The preferred answer to the question
+    - aliases: A list of aliases for the answer
 
     See InContextLearningDataset for more details.
 
@@ -727,10 +727,10 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         """
         Returns the answer from the example. Applies chain of thought if self.has_cot is marked as true.
         Args:
-            example (Dict): the example from which to retrieve the answer
+            example (Dict): The example from which to retrieve the answer
 
         Returns:
-            str: the answer in from the example with chain of thought and delimiter if needed
+            str: The answer in from the example with chain of thought and delimiter if needed
         """
         if self.has_cot:
             return f'{example["chain_of_thought"]}{self.cot_delimiter}{example[self.answer_key]}'
@@ -741,12 +741,12 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         """
         Run text through the tokenizer and handle special cases.
         Args:
-            prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
-            ctx (str): the specific example's derrived context
-            example (Dict): the example as a dictionary.
+            prompt_and_fewshot (str): The collection of the prompt and fewshot examples that belongs before the example's context
+            ctx (str): The specific example's derrived context
+            example (Dict): The example as a dictionary.
 
         Returns:
-            Dict: dictionary with the tokenized data
+            Dict: Dictionary with the tokenized data
         """
         tokenized_example = super()._tokenize_example(prompt_and_fewshot, ctxt, example)
         tokenized_example['aliases'] = list(example.get('aliases', []))
@@ -757,7 +757,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
         Loops over the dataset and finds the longest answer length.
 
         Returns:
-            int: the maximum answer length with an additional buffer of {_MAX_ANSWER_BUFFER_LENGTH} if chain of thought is present
+            int: The maximum answer length with an additional buffer of {_MAX_ANSWER_BUFFER_LENGTH} if chain of thought is present
         """
         max_answer_length = 0
         for example in dataset:
@@ -793,8 +793,8 @@ class InContextLearningLMTaskDataset(InContextLearningDataset):
     Language modeling tasks test a model's ability to properly predict tokens based on preceding tokens.
 
     The input format is expected to be a jsonl file with the following fields:
-    - context: preceding text
-    - continuation: the expected continuation
+    - context: Preceding text
+    - continuation: The expected continuation
 
     See InContextLearningDataset for more details.
     """
@@ -827,9 +827,9 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
     inputs per question can stored in the same batch.
 
     The default input format is a jsonl file with the following fields:
-    - query: the preceding text, question, or document relevant to the choices
-    - gold: index of the correct choice under 'choices'
-    - choices: a list of strings, each being one of the potential choices
+    - query: The preceding text, question, or document relevant to the choices
+    - gold: Index of the correct choice under 'choices'
+    - choices: A list of strings, each being one of the potential choices
 
     Each batch then consists of ``|batch_size // N|`` distinct questions and has the following the structure.
     - input_ids: Input tensor ``|batch x seqlen x # tokens|``
@@ -840,7 +840,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
     - choice_groupings: Indicates which indices of the batch correspond to which questions
 
     Additional Args:
-        choices_key (str): the key under which the choices are stored in the saved dataset. Defaults to 'choices'.
+        choices_key (str): The key under which the choices are stored in the saved dataset. Defaults to 'choices'.
     """
 
     def __init__(self,
@@ -881,10 +881,10 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         """
         Returns the correct answer from the example's choices.
         Args:
-            example (Dict): the example from which to retrieve the answer
+            example (Dict): The example from which to retrieve the answer
 
         Returns:
-            str: the full string of the correct answer based on the 'gold' key
+            str: The full string of the correct answer based on the 'gold' key
         """
         choices = example[self.choices_key]
         gold_idx = example['gold']
@@ -894,12 +894,12 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         """
         Runs text through the tokenizer and handle special cases.
         Args:
-            prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
-            ctx (str): the specific example's derrived context
-            example (Dict): the example as a dictionary.
+            prompt_and_fewshot (str): The collection of the prompt and fewshot examples that belongs before the example's context
+            ctx (str): The specific example's derrived context
+            example (Dict): The example as a dictionary.
 
         Returns:
-            Dict: dictionary with the tokenized data
+            Dict: Dictionary with the tokenized data
         """
         # NOTE: some of this is repeated from super class but for loop makes things considerably different
         tokenized_example = {}
@@ -956,10 +956,10 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         which contiguous sequences of elements in the batch correspond to which question
         gold_indices indicates which of the [0, N-1] choices is the correct one for each question.
         Args:
-            data (List): list of tokenized datapoints (dicts returned by self._tokenize_example)
+            data (List): List of tokenized datapoints (dicts returned by self._tokenize_example)
 
         Returns:
-            Dict: dictionary for a single batch
+            Dict: Dictionary for a single batch
         """
         batch = copy.deepcopy(self.base_batch)
         for data_pair in data:
@@ -991,11 +991,11 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
         microbatch_size are tracked in logical example, we split logical attributes by
         microbatch_size and real attributes by microbatch_size * num_choices.
         Args:
-            batch (Dict): batch of data
-            microbatch_size (int): size of microbatches
+            batch (Dict): Batch of data
+            microbatch_size (int): Size of microbatches
 
         Returns:
-            list: list of chunked batches
+            list: List of chunked batches
         """
         chunked = {}
         for k, v in batch.items():
@@ -1034,9 +1034,9 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
     to determine the model's choice of fill-in word.
 
     The default input format is a jsonl file with the following fields:
-    - context_options: list of strings corresponding to possible preceding context options for the continuation
-    - gold: index of the correct context from 'context_options'
-    - continuation: the finishing continuation
+    - context_options: List of strings corresponding to possible preceding context options for the continuation
+    - gold: Index of the correct context from 'context_options'
+    - continuation: The finishing continuation
 
     Each batch then consists of ``batch_size // N`` distinct tasks and has the following the structure
     - input_ids: Input tensor ``batch x seqlen x # of tokens``
@@ -1073,12 +1073,12 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         Takes a example and constructs a context with the correct context for the example's continuation.
 
         Args:
-            example (Dict): the example from which to construct the context
-            preceding_text (str): any preceding text, needed to if self.example_delimiter is needed at the beginning
-            add_answer (bool): this will always be true when calling this function for SchemaTaskDataset
+            example (Dict): The example from which to construct the context
+            preceding_text (str): Any preceding text, needed to if self.example_delimiter is needed at the beginning
+            add_answer (bool): This will always be true when calling this function for SchemaTaskDataset
 
         Returns:
-            str: the single correct context for a given continuation
+            str: The single correct context for a given continuation
         """
         context_options = example[self.choices_key]
         gold_idx = example['gold']
@@ -1095,11 +1095,11 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         prompt or fewshot examples).
 
         Args:
-            example (Dict): the example from which to construct the context
-            preceding_text (str): any preceding text, needed to if self.example_delimiter is needed at the beginning
+            example (Dict): The example from which to construct the context
+            preceding_text (str): Any preceding text, needed to if self.example_delimiter is needed at the beginning
 
         Returns:
-            list: all context options for the selected example with formatting
+            list: All context options for the selected example with formatting
         """
         context_options = example[self.choices_key]
         if len(preceding_text) > 0:
@@ -1126,13 +1126,13 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
 
         Args:
             example (Dict): A dictionary from the hf dataset
-            example_idx (int): the index of example
+            example_idx (int): The index of example
             num_fewshot (int): Number of examples context/continuation pairs to prepend to the test pair
             prompt_string (str): The prompt to prepend to all inputs
             fewshot_rng (random.Random): Random number generator to use for fewshot sampling
 
         Returns:
-            Dict: contains a dictionary with the tokenized data
+            Dict: Contains a dictionary with the tokenized data
         """
         prompt_and_fewshot = self._generate_few_shot_prompt(num_fewshot, example_idx, prompt_string, fewshot_rng)
         ctxt = self._construct_multiple_contexts(example, prompt_and_fewshot)
@@ -1144,12 +1144,12 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         Runs text through the tokenizer and handle special cases.
 
         Args:
-            prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
-            ctx (str): the specific example's derrived context
-            example (Dict): the example as a dictionary.
+            prompt_and_fewshot (str): The collection of the prompt and fewshot examples that belongs before the example's context
+            ctx (str): The specific example's derrived context
+            example (Dict): The example as a dictionary.
 
         Returns:
-            Dict: dictionary with the tokenized data
+            Dict: Dictionary with the tokenized data
         """
         tokenized_example = {}
         preamble = self.tokenizer(prompt_and_fewshot)['input_ids']
@@ -1190,36 +1190,36 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
 
     The input format is expected to be a jsonl file with the following fields:
 
-    - task_id: label of given task
-    - prompt: the code snippet that must be completed
-    - entry_point: the entry to the function/code snippet to generate
-    - canonical_solution: working solution
-    - test: the checker code that will run to completion if the code generation is valid and otherwise throw assertion
-    - test_inputs: list of test inputs
-    - test_outputs: list of test outputs
-    - language: the language of the code snippet
+    - task_id: Label of given task
+    - prompt: The code snippet that must be completed
+    - entry_point: The entry to the function/code snippet to generate
+    - canonical_solution: Working solution
+    - test: The checker code that will run to completion if the code generation is valid and otherwise throw assertion
+    - test_inputs: List of test inputs
+    - test_outputs: List of test outputs
+    - language: The language of the code snippet
 
     Each batch then consists of the following the structure
 
     - input_ids: Input tensor batch x seqlen x num tokens
     - mode: Indicates to the model that this is an ICL task and may rely on a custom code path to properly update metrics
-    - mode: always set to 'generate'
-    - labels: exact solution for the coding problem
-    - prompts: prompt for the task
-    - entry_points: list of entry points
-    - test_inputs: list of test inputs
-    - test_outputs: list of test outputs
-    - languages:  list of languages
-    - pass_at_k: passed value for pass_at_k
-    - generation_length: derrived maximum generation length
+    - mode: Always set to 'generate'
+    - labels: Exact solution for the coding problem
+    - prompts: Prompt for the task
+    - entry_points: List of entry points
+    - test_inputs: List of test inputs
+    - test_outputs: List of test outputs
+    - languages:  List of languages
+    - pass_at_k: Passed value for pass_at_k
+    - generation_length: Derrived maximum generation length
     - generation_kwargs: Dictionary of kwargs neeeded for generation. Includes the following, which will be individually overwritten
       by keys in generaiton_kwargs if set (see https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig
       for more details):
 
         - pad_token_id: ID for padding token, derived automatically
-        - num_beams: how many beams to search for generations, set to 1
-        - num_return_sequences: value passed for 'generations_per_sample', how many generations per prompt
-        - do_sample: determines whether model is sampling or greedily decoding. Always set to True
+        - num_beams: How many beams to search for generations, set to 1
+        - num_return_sequences: Value passed for 'generations_per_sample', how many generations per prompt
+        - do_sample: Determines whether model is sampling or greedily decoding. Always set to True
         - use_cache: Whether or not to use past key values to speed up sampling. Always set to True
 
     Additional Args:
@@ -1321,7 +1321,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
         prompt length until after we've tokenized it.
 
         Returns:
-            dataset: a HuggingFace Dataset with different padding lengths for example[self.context_key]
+            dataset: A HuggingFace Dataset with different padding lengths for example[self.context_key]
         """
         # Remove padding tokens applied during tokenization
         unpadded_prompt = [token for token in example[self.context_key] if token != self.pad_tok_id]
@@ -1653,7 +1653,7 @@ def get_icl_task_dataloader(
         question_prelimiter: (str, default = ''): Text to be prepended before each context, including few shot examples (e.g. "Question: ").
         fewshot_random_seed (int, default = 1234): Random seed to use for fewshot sampling
         pass_at_k (int): k for how many chances the model gets to write passing code.
-        generations_per_sample (int): how many outputs to generate per prompt. Passed in generation_kwargs under "num_return_sequences" and overwritten by generation_kwargs dict.
+        generations_per_sample (int): How many outputs to generate per prompt. Passed in generation_kwargs under "num_return_sequences" and overwritten by generation_kwargs dict.
         cot_delimiter (str): Delimiter to place between chain of thoughts and continuations.
         has_categories: (bool): If ``True``, we will search the dataset file for a category key, and partition the dataset into a separate dataloader for each category occurring in the data.
         hf_loading_vars (Dict, default = None): A dictionary containing keyword arguments to be passed into `load_dataset` if dataset is being pulled from HF.
