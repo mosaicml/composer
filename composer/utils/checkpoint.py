@@ -553,25 +553,49 @@ def load_sharded_checkpoint(
             else:
                 expect_file = True
 
-            # Throttle uploads to avoid overloading the object store
-            rank_wait_interval = 10.0
-            log.debug(f'Rank {dist.get_global_rank()} waiting {rank_wait_interval * dist.get_local_rank()} seconds')
-            time.sleep(rank_wait_interval * dist.get_local_rank())
+            # # Throttle uploads to avoid overloading the object store
+            # rank_wait_interval = 10.0
+            # log.debug(f'Rank {dist.get_global_rank()} waiting {rank_wait_interval * dist.get_local_rank()} seconds')
+            # time.sleep(rank_wait_interval * dist.get_local_rank())
 
-            if version.parse(torch.__version__) > version.parse('2.2.9'):
-                dist_cp.load(  # type: ignore
-                    state_dict=state_dict,
-                    storage_reader=storage_reader,
-                    planner=load_planner,
-                    process_group=process_group,
-                )
-            else:
-                dist_cp.load_state_dict(
-                    state_dict=state_dict,
-                    storage_reader=storage_reader,
-                    planner=load_planner,
-                    process_group=process_group,
-                )
+            if expect_file:
+                if version.parse(torch.__version__) > version.parse('2.2.9'):
+                    dist_cp.load(  # type: ignore
+                        state_dict=state_dict,
+                        storage_reader=storage_reader,
+                        planner=load_planner,
+                        process_group=process_group,
+                    )
+                else:
+                    dist_cp.load_state_dict(
+                        state_dict=state_dict,
+                        storage_reader=storage_reader,
+                        planner=load_planner,
+                        process_group=process_group,
+                    )
+
+            if device_mesh is not None and device_mesh.ndim == 2:
+                process_group = device_mesh.get_group(0)  # Replicate process_group
+                shard_size = device_mesh.size(1)
+                import torch.distributed.distributed_c10d as dist_torch
+                log.info(f'Ranks: {dist_torch._world.pg_group_ranks[process_group]}')
+                log.info(f'global_rank={dist.get_global_rank()}, {shard_size=}')
+                model_state_dict = state_dict['state']['model']
+                optim_state_dict = state_dict['state']['optimizers']
+                print(f'model_state_dict.keys()={model_state_dict.keys()}')
+                print(f'optim_state_dict.keys()={optim_state_dict.keys()}')
+                print(f'{model_state_dict=}')
+                print(f'{optim_state_dict=}')
+                del state_dict['state']['model']
+                del optim_state['state']['optimizers']
+                print(state_dict)
+                state_dict_list = [state_dict]
+                dist.broadcast_object_list(
+                    state_dict_list,
+                    src=dist.get_global_rank() % shard_size,
+                    group=process_group,
+                 )
+                state_dict = state_dict_list[0]
 
             state.load_state_dict(
                 state_dict['state'],

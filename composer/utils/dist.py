@@ -319,7 +319,7 @@ def all_reduce(
                        '`composer.utils.dist.initialize_dist` has been called first.')
 
 
-def broadcast(tensor: torch.Tensor, src: int) -> None:
+def broadcast(tensor: torch.Tensor, src: int, group = None) -> None:
     """Broadcasts the tensor to the whole group.
 
     ``tensor`` must have the same number of elements in all processes participating in the collective.
@@ -329,6 +329,8 @@ def broadcast(tensor: torch.Tensor, src: int) -> None:
         tensor (torch.Tensor): Data to be sent if ``src`` is the rank of current process,
             and tensor to be used to save received data otherwise.
         src (int): Source rank
+        group (ProcessGroup, optional): The process group to work on. If ``None``,
+            the default process group will be used. Default is ``None``.
     """
     if dist.is_available() and dist.is_initialized():
         dist.broadcast(tensor, src)
@@ -343,7 +345,7 @@ def broadcast(tensor: torch.Tensor, src: int) -> None:
                        '`composer.utils.dist.initialize_dist` has been called first.')
 
 
-def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
+def broadcast_object_list(object_list: List[Any], src: int = 0, group = None) -> None:
     """Broadcasts picklable objects in ``object_list`` to the whole group.
 
     Similar to :func:`broadcast`, but Python objects can be passed in.
@@ -356,12 +358,14 @@ def broadcast_object_list(object_list: List[Any], src: int = 0) -> None:
             Each object must be picklable. Only objects on the ``src`` rank will be broadcast,
             but each rank must provide lists of equal sizes.
         src (int, optional): Source rank (default: ``0``)
+        group (ProcessGroup, optional): The process group to work on. If ``None``,
+            the default process group will be used. Default is ``None``.
 
     Returns:
         None:  ``object_list`` will be modified in-place and set to values of ``object_list`` from the ``src`` rank.
     """
     if dist.is_available() and dist.is_initialized():
-        dist.broadcast_object_list(object_list, src)
+        dist.broadcast_object_list(object_list, src, group)
         # torch.distributed will replace the None's in obj_gather_list with the gathered objects on rank 0
         # or will just be None on non-rank-0
         return
