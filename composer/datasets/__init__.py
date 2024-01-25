@@ -11,11 +11,15 @@ from composer.datasets.cifar import (build_cifar10_dataloader, build_ffcv_cifar1
                                      build_streaming_cifar10_dataloader, build_synthetic_cifar10_dataloader)
 from composer.datasets.imagenet import (build_ffcv_imagenet_dataloader, build_imagenet_dataloader,
                                         build_streaming_imagenet1k_dataloader, build_synthetic_imagenet_dataloader)
+from composer.datasets.in_context_learning_evaluation import (InContextLearningCodeEvalDataset,
+                                                              InContextLearningDataset, InContextLearningLMTaskDataset,
+                                                              InContextLearningMultipleChoiceTaskDataset,
+                                                              InContextLearningQATaskDataset,
+                                                              InContextLearningSchemaTaskDataset)
 from composer.datasets.lm_dataset import build_lm_dataloader
 from composer.datasets.mnist import build_mnist_dataloader, build_synthetic_mnist_dataloader
 from composer.datasets.synthetic import (SyntheticBatchPairDataset, SyntheticDataLabelType, SyntheticDataType,
                                          SyntheticPILDataset)
-from composer.datasets.in_context_learning_evaluation import InContextLearningDataset, InContextLearningQATaskDataset, InContextLearningLMTaskDataset, InContextLearningCodeEvalDataset, InContextLearningMultipleChoiceTaskDataset, InContextLearningSchemaTaskDataset
 
 __all__ = [
     'ADE20k',
@@ -25,11 +29,11 @@ __all__ = [
     'SyntheticDataLabelType',
     'SyntheticDataType',
     'SyntheticPILDataset',
-    'InContextLearningDataset', 
-    'InContextLearningQATaskDataset', 
-    'InContextLearningLMTaskDataset', 
-    'InContextLearningCodeEvalDataset', 
-    'InContextLearningMultipleChoiceTaskDataset', 
+    'InContextLearningDataset',
+    'InContextLearningQATaskDataset',
+    'InContextLearningLMTaskDataset',
+    'InContextLearningCodeEvalDataset',
+    'InContextLearningMultipleChoiceTaskDataset',
     'InContextLearningSchemaTaskDataset',
     'build_ade20k_dataloader',
     'build_streaming_ade20k_dataloader',
