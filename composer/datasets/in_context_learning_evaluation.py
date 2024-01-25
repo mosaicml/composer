@@ -739,7 +739,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
 
     def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
         """
-        Runs text through the tokenizer and handle special cases.
+        Run text through the tokenizer and handle special cases.
         Args:
             prompt_and_fewshot (str): the collection of the prompt and fewshot examples that belongs before the example's context
             ctx (str): the specific example's derrived context
