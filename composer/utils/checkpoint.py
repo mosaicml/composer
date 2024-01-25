@@ -469,7 +469,7 @@ def load_sharded_checkpoint(
 
             # 2. Wait for all ranks to finish.
             log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
-            # Use busy wait to avoid timeouts on large downloads for non-sharded checkpoints
+            # Use busy wait to avoid timeouts on large downloads
             signal_file_path = os.path.join(self.destination_path,
                                             f'.node_{dist.get_node_rank()}_local_rank0_completed')
             if dist.get_local_rank() == 0:
