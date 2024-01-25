@@ -554,7 +554,7 @@ def load_sharded_checkpoint(
                 expect_file = True
 
             # Throttle uploads to avoid overloading the object store
-            rank_wait_interval = 160.0 / 8
+            rank_wait_interval = 10.0
             log.debug(f'Rank {dist.get_global_rank()} waiting {rank_wait_interval * dist.get_local_rank()} seconds')
             time.sleep(rank_wait_interval * dist.get_local_rank())
 
