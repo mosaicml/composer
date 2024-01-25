@@ -253,7 +253,7 @@ def get_node_rank() -> int:
     return _get_distributed_config_var(env_var='NODE_RANK', default=0, human_name='node rank')
 
 
-def barrier(group = None) -> None:
+def barrier(group=None) -> None:
     """Synchronizes all processes.
 
     This function blocks until all processes reach this function.
@@ -323,7 +323,7 @@ def all_reduce(
                        '`composer.utils.dist.initialize_dist` has been called first.')
 
 
-def broadcast(tensor: torch.Tensor, src: int, group = None) -> None:
+def broadcast(tensor: torch.Tensor, src: int, group=None) -> None:
     """Broadcasts the tensor to the whole group.
 
     ``tensor`` must have the same number of elements in all processes participating in the collective.
@@ -349,7 +349,7 @@ def broadcast(tensor: torch.Tensor, src: int, group = None) -> None:
                        '`composer.utils.dist.initialize_dist` has been called first.')
 
 
-def broadcast_object_list(object_list: List[Any], src: int = 0, group = None) -> None:
+def broadcast_object_list(object_list: List[Any], src: int = 0, group=None) -> None:
     """Broadcasts picklable objects in ``object_list`` to the whole group.
 
     Similar to :func:`broadcast`, but Python objects can be passed in.
