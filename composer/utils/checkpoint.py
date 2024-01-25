@@ -587,7 +587,7 @@ def load_sharded_checkpoint(
                 if dist.get_local_rank() == 0:
                     # for file_name in os.listdir(download_path):
                     #     full_path = os.path.join(download_path, file_name)
-                    file_list = [[list(os.listdir(download_path))]]
+                    file_list = [list(os.listdir(download_path))]
                     log.info(f'global_rank={dist.get_global_rank()}, {file_list=}')
                     dist.broadcast_object_list(file_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
                     file_list = file_list[0]
