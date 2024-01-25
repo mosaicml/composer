@@ -199,7 +199,7 @@ try:
             self.stop_sequence_id_len = len(self.stop_sequence_ids) + 1
             self.tokenizer = tokenizer
 
-        def __call__(self, input_ids, scores: Optional[torch.FloatTensor] = None, **kwargs) -> bool:
+        def __call__(self, input_ids: torch.LongTensor, scores: Optional[torch.FloatTensor] = None, **kwargs) -> bool:
             # For efficiency, we compare the last n tokens where n is the number of tokens in the stop_sequence
             lookback_ids_batch = input_ids[:, :][:, -self.stop_sequence_id_len:]
             lookback_tokens_batch = self.tokenizer.batch_decode(lookback_ids_batch)
@@ -215,7 +215,7 @@ try:
             return False not in self.done_tracker
 
     def stop_sequences_criteria(
-        tokenizer: transformers.PreTrainedTokenizer,
+        tokenizer: transformers.PreTrainedTokenizerBase,
         stop_sequences: List[str],
         batch_size: int,
     ) -> transformers.StoppingCriteriaList:
