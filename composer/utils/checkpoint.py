@@ -553,6 +553,7 @@ def load_sharded_checkpoint(
                 #     log.debug(f'Loading on global_rank={dist.get_global_rank()}, {expect_file=}')
                 process_group = device_mesh.get_group(0)  # Shard process_group
                 storage_reader.process_group = process_group
+                import torch.distributed.distributed_c10d as dist_torch
                 log.info(f'Ranks: {dist_torch._world.pg_group_ranks[process_group]}')
             else:
                 expect_file = True
