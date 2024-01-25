@@ -1154,8 +1154,8 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
         assert isinstance(preamble, list)
         preamble = self._fix_eos_on_preamble(preamble)
         encoded_contexts = [
-            preamble +  # pyright: ignore[reportGeneralTypeIssues]
-            self.tokenizer(c, add_special_tokens=False)['input_ids']  # pyright: ignore[reportGeneralTypeIssues]
+            preamble +  # pyright: ignore[reportOperatorIssue, reportGeneralTypeIssues]
+            self.tokenizer(c, add_special_tokens=False)['input_ids']  # pyright: ignore[reportOperatorIssue, ]
             for c in context_options
         ]
         continuation = example['continuation']
@@ -1359,7 +1359,7 @@ def build_icl_dataloader(
         hf_parsing_map: Dict,
         destination_path: str,
         prelimiter: str,  # e.g. 'Question: '
-        cot_delimiter: str,
+        cot_delimiter: str,  # e.g. ' ### '
         fewshot_random_seed: int,
         pass_at_k: int,
         generations_per_sample: int,
@@ -1545,7 +1545,7 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_lo
         raise Exception(f"""Attempted to partition dataset by `category` \
             but it doesn't have a `category` key. \
             Got keys: {str(list(dataset.features.keys()))}""")
-    categories = sorted(set(dataset['category']))  # pyright: ignore[reportGeneralTypeIssues]
+    categories = sorted(set(dataset['category']))  # pyright: ignore[reportIndexIssue, reportGeneralTypeIssues]
     output_files = {}
     for cat in categories:
         path = destination_path.split('/')
@@ -1553,7 +1553,9 @@ def partition_dataset_by_category(dataset_uri: str, destination_path: str, hf_lo
         tmp_path_to_broadcast = str(os.path.abspath(cat_dest))
         gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
         if dist.get_local_rank() == 0:
-            subset = [l for l in dataset if l['category'] == cat]  # pyright: ignore[reportGeneralTypeIssues]
+            subset = [
+                l for l in dataset if l['category'] == cat  # pyright: ignore[reportGeneralTypeIssues]
+            ]  # pyright: ignore[reportArgumentType, reportCallIssue]
             with open(gathered_paths[0], 'w', encoding='utf8') as f:
                 for l in subset:
                     f.write(json.dumps(l, ensure_ascii=False) + '\n')
