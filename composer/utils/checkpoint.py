@@ -534,9 +534,9 @@ def load_sharded_checkpoint(
             else:
                 expect_file = True
 
-            # Throttle uploads to avoid overloading the object store
-            rank_wait_interval = 5.0 / 128  # Assume each 128 GPU replica can upload in 10 seconds
-            time.sleep(rank_wait_interval * dist.get_global_rank())
+            # # Throttle uploads to avoid overloading the object store
+            # rank_wait_interval = 5.0 / 128  # Assume each 128 GPU replica can upload in 10 seconds
+            # time.sleep(rank_wait_interval * dist.get_global_rank())
 
             if version.parse(torch.__version__) > version.parse('2.2.9'):
                 dist_cp.load(  # type: ignore
