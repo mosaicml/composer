@@ -581,33 +581,33 @@ def load_sharded_checkpoint(
                 log.info(f'Ranks: {dist_torch._world.pg_group_ranks[process_group]}')
                 log.info(f'global_rank={dist.get_global_rank()}, {shard_size=}')
 
-                # Remove model and optimizer from state_dict
-                model_state_dict = state_dict['state']['model']
-                optim_state_dict = state_dict['state']['optimizers']
-                print(f'model_state_dict.keys()={model_state_dict.keys()}')
-                print(f'optim_state_dict.keys()={optim_state_dict.keys()}')
-                # print(f'{model_state_dict=}')
-                # print(f'{optim_state_dict=}')
-                del state_dict['state']['model']
-                del state_dict['state']['optimizers']
-                # print(state_dict['state'])
+                # # Remove model and optimizer from state_dict
+                # model_state_dict = state_dict['state']['model']
+                # optim_state_dict = state_dict['state']['optimizers']
+                # print(f'model_state_dict.keys()={model_state_dict.keys()}')
+                # print(f'optim_state_dict.keys()={optim_state_dict.keys()}')
+                # # print(f'{model_state_dict=}')
+                # # print(f'{optim_state_dict=}')
+                # del state_dict['state']['model']
+                # del state_dict['state']['optimizers']
+                # # print(state_dict['state'])
 
-                # Broadcast model
-                for key in sorted(model_state_dict.keys()):
-                    dist.broadcast(
-                        model_state_dict[key].to_local(),
-                        src=dist.get_global_rank() % shard_size,
-                        group=process_group,
-                    )
+                # # Broadcast model
+                # for key in sorted(model_state_dict.keys()):
+                #     dist.broadcast(
+                #         model_state_dict[key].to_local(),
+                #         src=dist.get_global_rank() % shard_size,
+                #         group=process_group,
+                #     )
 
-                # Broadcast optimizer
-                optim_state_dict = optim_state_dict['DecoupledLionW']['state']
-                for key in sorted(optim_state_dict.keys()):
-                    dist.broadcast(
-                        optim_state_dict[key]['exp_avg'].to_local(),
-                        src=dist.get_global_rank() % shard_size,
-                        group=process_group,
-                    )
+                # # Broadcast optimizer
+                # optim_state_dict = optim_state_dict['DecoupledLionW']['state']
+                # for key in sorted(optim_state_dict.keys()):
+                #     dist.broadcast(
+                #         optim_state_dict[key]['exp_avg'].to_local(),
+                #         src=dist.get_global_rank() % shard_size,
+                #         group=process_group,
+                #     )
 
                 # # Broadcast everything but model and optimizer
                 # state_dict_list = [state_dict['state']] * replicate_size
@@ -618,9 +618,21 @@ def load_sharded_checkpoint(
                 # )
                 # state_dict['state'] = state_dict_list[0]
 
-                # Restore model and optimizer
-                state_dict['state']['model'] = model_state_dict
-                state_dict['state']['optimizers'] = optim_state_dict
+                # # Restore model and optimizer
+                # state_dict['state']['model'] = model_state_dict
+                # state_dict['state']['optimizers'] = optim_state_dict
+
+                list_a = ['a']
+                if dist.get_global_rank() == 0:
+                    list_a[0] = 'a0'
+                dist.broadcast_object_list(list_a, src=0)
+                print(list_a)
+
+                list_b = ['b']
+                if dist.get_global_rank() % shard_size == 0:
+                    list_b[0] = 'b0'
+                dist.broadcast_object_list(list_b, src=dist.get_global_rank() % shard_size, group=process_group)
+                print(list_b)
 
             state.load_state_dict(
                 state_dict['state'],
