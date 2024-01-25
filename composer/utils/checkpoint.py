@@ -587,7 +587,7 @@ def load_sharded_checkpoint(
                 print(f'{model_state_dict=}')
                 print(f'{optim_state_dict=}')
                 del state_dict['state']['model']
-                del optim_state['state']['optimizers']
+                del state_dict['state']['optimizers']
                 print(state_dict)
                 state_dict_list = [state_dict]
                 dist.broadcast_object_list(
