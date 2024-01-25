@@ -655,11 +655,12 @@ def load_sharded_checkpoint(
                 # log.info(f'POST {state_dict["state"]["model"]["model.lm_head.weight"]=}')
                 for key in sorted(state_dict['state'].keys()):
                     if key not in ['model', 'optimizers']:
-                        log.debug(f'Pre broadcast from src={dist.get_global_rank() % shard_size} for {key=}, {state_dict["state"][key]=}')
+                        log.debug(f'Pre broadcast from src={dist.get_global_rank() % shard_size} for {key=}')
                         broadcast_list = [state_dict['state'][key]]
-                        dist.broadcast_object_list(broadcast_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
+                        # dist.broadcast_object_list(broadcast_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
+                        dist.broadcast_object_list(broadcast_list, src=0)
                         state_dict['state'][key] = broadcast_list[0]
-                        log.debug(f'Post broadcast for {key=}, {state_dict["state"][key]=}')
+                        log.debug(f'Post broadcast for {key=}')
 
             state.load_state_dict(
                 state_dict['state'],
