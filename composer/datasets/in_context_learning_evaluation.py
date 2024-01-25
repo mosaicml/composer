@@ -1576,14 +1576,14 @@ def get_icl_task_dataloader(
         max_seq_len: int,
         pad_tok_id: int,
         num_fewshot: int,
-        prompt_string: str = '',  # e.g. 'translate english to french:'
-        example_delimiter: str = '\n',  # e.g. '\n'
-        continuation_delimiter: str = ' ',
+        prompt_string: str,  # e.g. 'translate english to french:'
+        example_delimiter: str,  # e.g. '\n'
+        continuation_delimiter: str = '',
         destination_path: str = '',
         question_prelimiter: str = '',  # e.g. 'Question: '
         fewshot_random_seed: int = 1234,
         pass_at_k: int = 1,
-        generations_per_sample: int = 20,
+        generations_per_sample: int = 1,
         cot_delimiter: str = '',
         has_categories: bool = False,
         hf_loading_vars: Optional[Dict] = None,
