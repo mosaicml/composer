@@ -572,7 +572,7 @@ def load_sharded_checkpoint(
                         planner=load_planner,
                         process_group=process_group,
                     )
-            dist.barrier()
+            # dist.barrier()
 
             if device_mesh is not None and device_mesh.ndim == 2:
                 process_group = device_mesh.get_group(0)  # Replicate process_group
