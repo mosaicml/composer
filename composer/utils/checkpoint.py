@@ -645,6 +645,7 @@ def load_sharded_checkpoint(
                 state_dict_list = [state_dict['state']]
                 dist.broadcast_object_list(state_dict_list, src=dist.get_global_rank() % shard_size, group=process_group)
                 state_dict['state'] = state_dict_list[0]
+                log.info(f'{state_dict["state"]["model"]=}')
 
             state.load_state_dict(
                 state_dict['state'],
