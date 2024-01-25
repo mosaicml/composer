@@ -486,7 +486,6 @@ def load_sharded_checkpoint(
 
             if dist.get_local_rank() == 0:
                 os.remove(signal_file_path)
-            dist.barrier()
 
             # 3. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
             return super().read_data(plan, planner)
@@ -573,6 +572,7 @@ def load_sharded_checkpoint(
                         planner=load_planner,
                         process_group=process_group,
                     )
+            dist.barrier()
 
             if device_mesh is not None and device_mesh.ndim == 2:
                 process_group = device_mesh.get_group(0)  # Replicate process_group
