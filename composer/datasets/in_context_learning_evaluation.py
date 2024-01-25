@@ -211,7 +211,7 @@ class InContextLearningDataset(Dataset):
     'example' refers to an loaded dictionary, generally containing a context, an answer, and any other information needed to run the task.
     'answer' refers to the desired output of the model.
 
-    When creating a new ICL Dataset, it is likely that you will need to reimplemente the following methods:
+    When creating a new ICL Dataset, it is likely that you will need to reimplement the following methods:
 
     - _construct_context(): takes a single example dictionary and formulates the context as a string for that eval question.
     - _get_answer_from_example(): takes a single example dictionary and formulates the correct, ground truth answer as a string.
