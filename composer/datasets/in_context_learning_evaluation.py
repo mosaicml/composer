@@ -302,7 +302,7 @@ class InContextLearningDataset(Dataset):
 
         self.max_seq_len = max_seq_len
         if not isinstance(pad_tok_id, int):
-            raise ValueError(f'`InContextLearningDataset` must be an integer. Found {pad_tok_id} instead')
+            raise ValueError(f'`InContextLearningDataset` must be an integer. Found {type(pad_tok_id)} instead')
         self.pad_tok_id = pad_tok_id
         self.num_fewshot = num_fewshot
         self.padding_side = padding_side
