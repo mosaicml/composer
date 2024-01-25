@@ -551,35 +551,29 @@ def load_sharded_checkpoint(
                 #     process_group = device_mesh.get_group(1)  # Shard process_group for first replica
                 #     storage_reader.process_group = process_group
                 #     log.debug(f'Loading on global_rank={dist.get_global_rank()}, {expect_file=}')
-                process_group = device_mesh.get_group(1)  # Shard process_group
-                storage_reader.process_group = process_group
+                shard_process_group = device_mesh.get_group(1)  # Shard process_group
+                storage_reader.process_group = shard_process_group
                 import torch.distributed.distributed_c10d as dist_torch
-                log.info(f'Ranks: {dist_torch._world.pg_group_ranks[process_group]}')
+                log.info(f'Ranks: {dist_torch._world.pg_group_ranks[shard_process_group]}')
             else:
                 expect_file = True
 
-            # # Throttle uploads to avoid overloading the object store
-            # rank_wait_interval = 10.0
-            # log.debug(f'Rank {dist.get_global_rank()} waiting {rank_wait_interval * dist.get_local_rank()} seconds')
-            # time.sleep(rank_wait_interval * dist.get_local_rank())
+            if expect_file:
+                if False and version.parse(torch.__version__) > version.parse('2.2.9'):
+                    dist_cp.load(  # type: ignore
+                        state_dict=state_dict,
+                        storage_reader=storage_reader,
+                        planner=load_planner,
+                        shard_process_group=shard_process_group,
+                    )
+                else:
+                    dist_cp.load_state_dict(
+                        state_dict=state_dict,
+                        storage_reader=storage_reader,
+                        planner=load_planner,
+                        shard_process_group=shard_process_group,
+                    )
 
-            # if expect_file:
-            if version.parse(torch.__version__) > version.parse('2.2.9'):
-                dist_cp.load(  # type: ignore
-                    state_dict=state_dict,
-                    storage_reader=storage_reader,
-                    planner=load_planner,
-                    # process_group=process_group,
-                )
-            else:
-                dist_cp.load_state_dict(
-                    state_dict=state_dict,
-                    storage_reader=storage_reader,
-                    planner=load_planner,
-                    # process_group=process_group,
-                )
-            # else:
-            #     dist.barrier()
 
             if device_mesh is not None and device_mesh.ndim == 2:
                 replicate_process_group = device_mesh.get_group(0)  # Replicate replicate_process_group
@@ -587,82 +581,52 @@ def load_sharded_checkpoint(
                 import torch.distributed.distributed_c10d as dist_torch
                 log.info(f'Ranks: {dist_torch._world.pg_group_ranks[replicate_process_group]}')
                 log.info(f'global_rank={dist.get_global_rank()}, {shard_size=}')
+                
+                download_path = str(Path(rank0_download_tempdir) / Path('checkpoints'))
+                if dist.get_local_rank() == 0:
+                    # for file_name in os.listdir(download_path):
+                    #     full_path = os.path.join(download_path, file_name)
+                    file_list = [[list(os.listdir(download_path))]]
+                    log.info(f'global_rank={dist.get_global_rank()}, {file_list=}')
+                    dist.broadcast_object_list(file_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
+                    file_list = file_list[0]
+                    log.info(f'global_rank={dist.get_global_rank()}, {file_list=}')
 
-                log.debug('PRE BARRIER SHARD')
-                dist.barrier(group=process_group)
-                log.debug('POST BARRIER SHARD')
-                log.debug('PRE BARRIER REPLCIATE')
-                dist.barrier(group=replicate_process_group)
-                log.debug('POST BARRIER REPLICATE')
-                log.debug('PRE BARRIER 2')
+                    for file_name in range(file_list):
+                        full_path = os.path.join(download_path, file_name)
+                        log.info(f'global_rank={dist.get_global_rank()}, {full_path=}')
+                        file_object = [None]
+                        if dist.get_global_rank() % shard_size == dist.get_global_rank():
+                            # Process with rank 0 reads the file and prepares the object
+                            with open(full_path, 'rb') as f:
+                                file_content = f.read()
+                                # Create an object that includes file content and any other metadata
+                                file_object = [{"content": file_content}]
+                        dist.broadcast_object_list(file_object, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
+                        received_file_object = file_object[0]
+                        if dist.get_global_rank() % shard_size != dist.get_global_rank():
+                            # Process with rank > 0 receives the object and writes the file
+                            with open(full_path, 'wb') as f:
+                                f.write(received_file_object["content"])
                 dist.barrier()
-                log.debug('POST BARRIER 2')
 
-                # # Remove model and optimizer from state_dict
-                # model_state_dict = state_dict['state']['model']
-                # optim_state_dict = state_dict['state']['optimizers']
-                # del state_dict['state']['model']
-                # del state_dict['state']['optimizers']
+                if not expect_file:
+                    if False and version.parse(torch.__version__) > version.parse('2.2.9'):
+                        dist_cp.load(  # type: ignore
+                            state_dict=state_dict,
+                            storage_reader=storage_reader,
+                            planner=load_planner,
+                            shard_process_group=shard_process_group,
+                        )
+                    else:
+                        dist_cp.load_state_dict(
+                            state_dict=state_dict,
+                            storage_reader=storage_reader,
+                            planner=load_planner,
+                            shard_process_group=shard_process_group,
+                        )
 
-                # # Broadcast model
-                # for key in sorted(model_state_dict.keys()):
-                #     dist.broadcast(
-                #         model_state_dict[key].to_local(),
-                #         src=dist.get_global_rank() % shard_size,
-                #         group=replicate_process_group,
-                #     )
 
-                # # Broadcast optimizer
-                # optim_state_dict = optim_state_dict['DecoupledLionW']['state']
-                # for key in sorted(optim_state_dict.keys()):
-                #     dist.broadcast(
-                #         optim_state_dict[key]['exp_avg'].to_local(),
-                #         src=dist.get_global_rank() % shard_size,
-                #         group=replicate_process_group,
-                #     )
-
-                # # Broadcast everything but model and optimizer
-                # state_dict_list = [state_dict['state']]
-                # dist.broadcast_object_list(state_dict_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
-                # state_dict['state'] = state_dict_list[0]
-
-                # # Restore model and optimizer
-                # state_dict['state']['model'] = model_state_dict
-                # state_dict['state']['optimizers'] = optim_state_dict
-
-                # log.debug('PRE BARRIER')
-                # dist.barrier()
-                # log.debug('POST BARRIER')
-
-                # list_a = ['a']
-                # if dist.get_global_rank() == 0:
-                #     list_a[0] = 'a0'
-                # log.debug(f'PRE {list_a=}')
-                # dist.broadcast_object_list(list_a, src=0)
-                # log.debug(f'POST {list_a=}')
-
-                # list_b = ['b']
-                # if dist.get_global_rank() % shard_size == dist.get_global_rank():
-                #     list_b[0] = 'b0'
-                # log.debug(f'PRE {list_b=}')
-                # dist.broadcast_object_list(list_b, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
-                # log.debug(f'POST {list_b=}')
-
-                # log.info(f'PRE {state_dict["state"]["model"]["model.lm_head.weight"]=}')
-                # state_dict_list = [state_dict['state']]
-                # dist.broadcast_object_list(state_dict_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
-                # state_dict['state'] = state_dict_list[0]
-                # log.info(f'POST {state_dict["state"]["model"]["model.lm_head.weight"]=}')
-
-                # # Broadcast piecemeal
-                # for key in sorted(state_dict['state'].keys()):
-                #     if key not in ['model', 'optimizers']:
-                #         log.debug(f'Pre broadcast from src={dist.get_global_rank() % shard_size} for {key=}')
-                #         broadcast_list = [state_dict['state'][key]]
-                #         # dist.broadcast_object_list(broadcast_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
-                #         dist.broadcast_object_list(broadcast_list, src=0)
-                #         state_dict['state'][key] = broadcast_list[0]
-                #         log.debug(f'Post broadcast for {key=}')
 
             state.load_state_dict(
                 state_dict['state'],
@@ -1043,7 +1007,7 @@ def get_save_filename(
     # else Trainer.save_folder / sharded_ckpt_prefix_dir / ba{batch}_rank{dist.get_global_rank()}.pt’
     # e.g. path/to/my/checkpoints/ep1-ba2/__1_0.distcp if torch >2 else its path/to/my/checkpoints/ep1-ba2/b2-rank1.pt
     ckpt_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME if using_torch_2() else format_name_with_dist_and_time(
-        Path(filename).name, state.run_name, state.timestamp)
+        Path(filename).name, state.run_name, gstate.timestamp)
     return str(Path(save_dirpath) / Path(ckpt_filename))
 
 
