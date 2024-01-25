@@ -123,7 +123,7 @@ class MosaicMLLogger(LoggerDestination):
         # Log model training finished time for run events
         self._log_metadata({'train_finished_time': time.time()})
         training_progress_data = self._get_training_progress_metrics(state)
-        log.debug(f'\nLogging FINAL training progress data to metadata:\n{dict_to_str(training_progress_data)}')
+        log.debug(f'\nLogging final training progress data to metadata:\n{dict_to_str(training_progress_data)}')
         self._log_metadata(training_progress_data)
         self._flush_metadata(force_flush=True)
 
@@ -161,7 +161,6 @@ class MosaicMLLogger(LoggerDestination):
                 self.buffered_metadata = {}
                 self.time_last_logged = time.time()
                 done, incomplete = wait(self._futures, timeout=0.01)
-                log.info(f'Logged {len(done)} metadata to MosaicML, waiting on {len(incomplete)}')
                 # Raise any exceptions
                 for f in done:
                     if f.exception() is not None:

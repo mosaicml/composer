@@ -452,6 +452,7 @@ def load_sharded_checkpoint(
             super().__init__(destination_path)
 
         def read_data(self, plan: LoadPlan, planner: LoadPlanner):
+            log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
             # 1. Download to the destination all files that this rank is responsible for.
             for plan_item in plan.items:
                 # Each plan item has a storage index which points to the relative path of the shard file at save time.
@@ -461,11 +462,29 @@ def load_sharded_checkpoint(
                 file_destination = str(Path(self.destination_path) / Path(relative_file_path))
                 # The file could have already been downloaded as diffeent plan items can point to same file.
                 if not os.path.exists(file_destination):
+                    log.debug(f'Rank {dist.get_global_rank()} downloading {relative_file_path} to {file_destination}.')
                     self.object_store.download_object(object_name=str(
                         Path(self.source_path) / Path(relative_file_path)),
                                                       filename=file_destination)
 
             # 2. Wait for all ranks to finish.
+            log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
+            # Use busy wait to avoid timeouts on large downloads for non-sharded checkpoints
+            signal_file_path = os.path.join(self.destination_path,
+                                            f'.node_{dist.get_node_rank()}_local_rank0_completed')
+            if dist.get_local_rank() == 0:
+                with open(signal_file_path, 'wb') as f:
+                    f.write(b'local_rank0_completed')
+
+            # Avoid the collective call until the local rank zero has finished trying to download the
+            # checkpoint so that we don't timeout for large downloads. This syncs all processes on the
+            # node
+            with dist.local_rank_zero_download_and_wait(signal_file_path):
+                # Then, wait to ensure every node has finished downloading the checkpoint
+                dist.barrier()
+
+            if dist.get_local_rank() == 0:
+                os.remove(signal_file_path)
             dist.barrier()
 
             # 3. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
@@ -529,7 +548,7 @@ def load_sharded_checkpoint(
                 expect_file = (device_mesh.get_local_rank(mesh_dim=0) == 0)
                 if expect_file:
                     process_group = device_mesh.get_group(1)  # Shard process_group for first replica
-                    log.debug(f'global_rank={dist.get_global_rank()}, {expect_file=}')
+                    log.debug(f'Loading on global_rank={dist.get_global_rank()}, {expect_file=}')
             else:
                 expect_file = True
 
@@ -1012,7 +1031,7 @@ def _save_checkpoint(
             expect_file = (device_mesh.get_local_rank(mesh_dim=0) == 0)
             if expect_file:
                 process_group = device_mesh.get_group(1)  # Shard process_group for first replica
-                log.debug(f'global_rank={dist.get_global_rank()}, {expect_file=}')
+                log.debug(f'Saving on global_rank={dist.get_global_rank()}, {expect_file=}')
         else:
             expect_file = True
 
