@@ -549,12 +549,13 @@ def load_sharded_checkpoint(
                 expect_file = (device_mesh.get_local_rank(mesh_dim=0) == 0)
                 if expect_file:
                     process_group = device_mesh.get_group(1)  # Shard process_group for first replica
-                    log.debug(f'global_rank={dist.get_global_rank()}, {expect_file=}')
+                    log.debug(f'Loading on global_rank={dist.get_global_rank()}, {expect_file=}')
             else:
                 expect_file = True
 
             # Throttle uploads to avoid overloading the object store
             rank_wait_interval = 160.0 / 8
+            log.debug(f'Rank {dist.get_global_rank()} waiting {rank_wait_interval * dist.get_local_rank()} seconds')
             time.sleep(rank_wait_interval * dist.get_local_rank())
 
             if version.parse(torch.__version__) > version.parse('2.2.9'):
@@ -1036,7 +1037,7 @@ def _save_checkpoint(
             expect_file = (device_mesh.get_local_rank(mesh_dim=0) == 0)
             if expect_file:
                 process_group = device_mesh.get_group(1)  # Shard process_group for first replica
-                log.debug(f'global_rank={dist.get_global_rank()}, {expect_file=}')
+                log.debug(f'Saving on global_rank={dist.get_global_rank()}, {expect_file=}')
         else:
             expect_file = True
 
