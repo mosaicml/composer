@@ -481,12 +481,15 @@ def load_sharded_checkpoint(
             # Avoid the collective call until the local rank zero has finished trying to download the
             # checkpoint so that we don't timeout for large downloads. This syncs all processes on the
             # node
+            log.debug('PRE BARRIER')
             with dist.local_rank_zero_download_and_wait(signal_file_path):
                 # Then, wait to ensure every node has finished downloading the checkpoint
-                dist.barrier()
+                dist.barrier(group=self.process_group)
+            log.debug('POST BARRIER')
 
             if dist.get_local_rank() == 0:
                 os.remove(signal_file_path)
+            log.debug('PRE LOAD')
 
             # 3. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
             return super().read_data(plan, planner)
