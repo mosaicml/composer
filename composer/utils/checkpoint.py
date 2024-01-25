@@ -580,6 +580,8 @@ def load_sharded_checkpoint(
                 import torch.distributed.distributed_c10d as dist_torch
                 log.info(f'Ranks: {dist_torch._world.pg_group_ranks[process_group]}')
                 log.info(f'global_rank={dist.get_global_rank()}, {shard_size=}')
+
+                # Remove model and optimizer from state_dict
                 model_state_dict = state_dict['state']['model']
                 optim_state_dict = state_dict['state']['optimizers']
                 print(f'model_state_dict.keys()={model_state_dict.keys()}')
@@ -589,13 +591,18 @@ def load_sharded_checkpoint(
                 del state_dict['state']['model']
                 del state_dict['state']['optimizers']
                 print(state_dict['state'])
-                state_dict_list = [state_dict]
+
+                # Broadcast everything but model and optimizer
+                state_dict_list = [state_dict['state']]
                 dist.broadcast_object_list(
                     state_dict_list,
                     src=dist.get_global_rank() % shard_size,
                     group=process_group,
                  )
-                state_dict = state_dict_list[0]
+                state_dict['state'] = state_dict_list[0]
+                # Restore model and optimizer
+                state_dict['state']['model'] = model_state_dict
+                state_dict['state']['optimizers'] = optim_state_dict
 
             state.load_state_dict(
                 state_dict['state'],
