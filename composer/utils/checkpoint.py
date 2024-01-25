@@ -584,18 +584,17 @@ def load_sharded_checkpoint(
                 log.info(f'global_rank={dist.get_global_rank()}, {shard_size=}')
                 
                 download_path = str(Path(rank0_download_tempdir) / Path('checkpoints'))
-                if dist.get_local_rank() == 0:
-                    # for file_name in os.listdir(download_path):
-                    #     full_path = os.path.join(download_path, file_name)
-                    file_list = [list(os.listdir(download_path))]
-                    log.info(f'global_rank={dist.get_global_rank()}, {file_list=}')
-                    dist.broadcast_object_list(file_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
-                    file_list = file_list[0]
-                    log.info(f'global_rank={dist.get_global_rank()}, {file_list=}')
+                # if dist.get_local_rank() == 0:
+                file_list = [list(os.listdir(download_path))]
+                # log.info(f'global_rank={dist.get_global_rank()}, {file_list=}')
+                dist.broadcast_object_list(file_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
+                file_list = file_list[0]
+                log.info(f'global_rank={dist.get_global_rank()}, {file_list=}')
 
-                    for file_name in file_list:
+                for file_name in file_list:
+                    if dist.get_local_rank() == 0:
                         full_path = os.path.join(download_path, file_name)
-                        log.info(f'{full_path=}, {os.listdir(download_path)=}')
+                        log.info(f'{full_path=}')
                         file_object = [None]
                         if dist.get_global_rank() % shard_size == dist.get_global_rank():
                             # Process with rank 0 reads the file and prepares the object
@@ -609,8 +608,8 @@ def load_sharded_checkpoint(
                             # Process with rank > 0 receives the object and writes the file
                             with open(full_path, 'wb') as f:
                                 f.write(received_file_object["content"])
-                    log.info(f'global_rank={dist.get_global_rank()}, {os.listdir(download_path)=}')
-                dist.barrier()
+                    dist.barrier()  # Sync after every transfer to avoid timing out
+                log.info(f'global_rank={dist.get_global_rank()}, {os.listdir(download_path)=}')
 
                 if not expect_file:
                     if False and version.parse(torch.__version__) > version.parse('2.2.9'):
