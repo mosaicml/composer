@@ -212,19 +212,19 @@ class InContextLearningDataset(Dataset):
     'answer' refers to the desired output of the model.
 
     When creating a new ICL Dataset, it is likely that you will need to reimplemente the following methods:
-        - _construct_context(): takes a single example dictionary and formulates the context as a string for that eval question.
-        - _get_answer_from_example(): takes a single example dictionary and formulates the correct, ground truth answer as a string.
-        - _tokenize_example(): tokenizes the example and adds any extra content from the original dictionary that needs to be passed downstream.
-        - _read_dataset(): loads the dataset and does basic parsing. If additional parsing must be done, this is a good place to do so (See InContextLearningQATaskDataset._read_dataset())
+    - _construct_context(): takes a single example dictionary and formulates the context as a string for that eval question.
+    - _get_answer_from_example(): takes a single example dictionary and formulates the correct, ground truth answer as a string.
+    - _tokenize_example(): tokenizes the example and adds any extra content from the original dictionary that needs to be passed downstream.
+    - _read_dataset(): loads the dataset and does basic parsing. If additional parsing must be done, this is a good place to do so (See InContextLearningQATaskDataset._read_dataset())
 
     Additionally, base_batch and batch_mapping must be defined.
-        - base_batch (Dict): the base dictionary that the dataset will use to construct a batch. This should contain static values, like generation_kwargs or mode,
-        and empty lists for values that will need to be accumulated from each example.
-        NOTE: Sometimes you will need to set base_batch directly after the init call, e.g. in order to use class variables
-        like self.pad_tok_id or self.max_answer_length. If you manually set generation_kwargs this way, you'll need to call self._update_generation_kwargs()
-        after setting self.base_batch.
-        - batch_mapping (Dict): A mapping with keys that are keys in the batch and values that are columns in the loaded dataset.
-                                collate_fn will use this mapping to create batches from self.dataset.
+    - base_batch (Dict): the base dictionary that the dataset will use to construct a batch. This should contain static values, like generation_kwargs or mode,
+    and empty lists for values that will need to be accumulated from each example.
+    NOTE: Sometimes you will need to set base_batch directly after the init call, e.g. in order to use class variables
+    like self.pad_tok_id or self.max_answer_length. If you manually set generation_kwargs this way, you'll need to call self._update_generation_kwargs()
+    after setting self.base_batch.
+    - batch_mapping (Dict): A mapping with keys that are keys in the batch and values that are columns in the loaded dataset.
+                            collate_fn will use this mapping to create batches from self.dataset.
 
     Args:
         dataset_uri (str): A local path, a remote path beginning with ``s3://`` or another backend, or a HuggingFace dataset uri prepended with ``hf://``.
@@ -254,6 +254,7 @@ class InContextLearningDataset(Dataset):
             Column contents will be concatenated with ' ' seperating them. If not included, will load the columns already present in the HF dataset.
         tokenize_labels (bool): Whether or not the labels should be tokenized. Generally determined by which metric a dataset uses.
         generation_kwargs (Dict): A dictionary containing keyword arguments to be passed along to the model's generate function.
+
     """
 
     def __init__(
@@ -828,12 +829,12 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
     - gold: index of the correct choice under 'choices'
     - choices: a list of strings, each being one of the potential choices
 
-    Each batch then consists of batch_size // N distinct questions and has the following the structure.
-    - input_ids: Input tensor batch x seqlen x # tokens
-    - continuation_indices: List of |batch| consisting of tensors indicating which indices in the sequence correspond to the question answer (aka continuation)
+    Each batch then consists of ``|batch_size // N|`` distinct questions and has the following the structure.
+    - input_ids: Input tensor ``|batch x seqlen x # tokens|``
+    - continuation_indices: List of ``|batch|`` consisting of tensors indicating which indices in the sequence correspond to the question answer (aka continuation)
     - mode: Indicates to the model that this is an ICL task and may rely on a custom code path to properly update metrics
     - labels: Identical to the input, used by the model to calculate loss/metrics
-    - gold_indices: List of length |batch_size // N| indicating for each question, which of the answers is correct (via an integer [0, N-1])
+    - gold_indices: List of length ``|batch_size // N|`` indicating for each question, which of the answers is correct (via an integer [0, N-1])
     - choice_groupings: Indicates which indices of the batch correspond to which questions
 
     Additional Args:
@@ -1025,8 +1026,7 @@ class InContextLearningMultipleChoiceTaskDataset(InContextLearningDataset):
 
 
 class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskDataset):
-    """
-    A dataset that constructs batches for in-context learning schema evaluation.
+    """A dataset that constructs batches for in-context learning schema evaluation.
     A schema task involves sentences with a fill-in-the-blank where the user needs to choose the correct word
     to fill in from a set of N options. We use the partial evaluation technique from https://arxiv.org/abs/1806.02847
     to determine the model's choice of fill-in word.
@@ -1036,12 +1036,12 @@ class InContextLearningSchemaTaskDataset(InContextLearningMultipleChoiceTaskData
     - gold: index of the correct context from 'context_options'
     - continuation: the finishing continuation
 
-    Each batch then consists of batch_size // N distinct tasks and has the following the structure
-    - input_ids: Input tensor batch x seqlen x # tokens
-    - continuation_indices: List of |batch| consisting of tensors indicating which indices in the sequence correspond to the question answer (aka continuation)
+    Each batch then consists of ``batch_size // N`` distinct tasks and has the following the structure
+    - input_ids: Input tensor ``batch x seqlen x # of tokens``
+    - continuation_indices: List of ``batch`` consisting of tensors indicating which indices in the sequence correspond to the question answer (aka continuation)
     - mode: Indicates to the model that this is an ICL task and may rely on a custom code path to properly update metrics
     - labels: Identical to the input, used by the model to calculate loss/metrics
-    - gold_indices: List of length |batch_size // N| indicating for each question, which of the answers is correct (via an integer [0, N-1])
+    - gold_indices: List of length ``batch_size // N`` indicating for each question, which of the answers is correct (via an integer [0, N-1])
     - choice_groupings: Indicates which indices of the batch correspond to which questions
 
     """
@@ -1187,6 +1187,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
     A dataset that constructs batches for in-context learning code evaluation.
 
     The input format is expected to be a jsonl file with the following fields:
+
     - task_id: label of given task
     - prompt: the code snippet that must be completed
     - entry_point: the entry to the function/code snippet to generate
@@ -1197,6 +1198,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
     - language: the language of the code snippet
 
     Each batch then consists of the following the structure
+
     - input_ids: Input tensor batch x seqlen x num tokens
     - mode: Indicates to the model that this is an ICL task and may rely on a custom code path to properly update metrics
     - mode: always set to 'generate'
@@ -1211,6 +1213,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
     - generation_kwargs: Dictionary of kwargs neeeded for generation. Includes the following, which will be individually overwritten
     by keys in generaiton_kwargs if set (see https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig
     for more details):
+
         - pad_token_id: ID for padding token, derived automatically
         - num_beams: how many beams to search for generations, set to 1
         - num_return_sequences: value passed for 'generations_per_sample', how many generations per prompt
@@ -1586,33 +1589,49 @@ def get_icl_task_dataloader(
         generation_kwargs: Optional[Dict] = None,
         early_stopping_criteria: Optional[List[str]] = None,
         do_normalization: bool = True) -> Union[DataSpec, Dict[str, DataSpec]]:
-    """
-    This constructs a dataloader (or dataloaders if has_categories is True) capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
+    """This constructs a dataloader (or dataloaders if has_categories is True) capable of evaluating LLMs on in-context learning language modeling tasks, for example LAMBADA. An example usage is below:
 
-    >>> dl = get_icl_task_dataloader(
-       ... 'language_modeling',
-       ... dataset_uri,
-       ... tokenizer,
-       ... batch_size=2,
-       ... max_seq_len=2048,
-       ... pad_tok_id=tokenizer.pad_token_id,
-       ... num_fewshot=10,
-       ... prompt_string='translate english to french',
-       ... example_delimiter='\n',
-       ... continuation_delimiter=''
-       )
-    >>> eval_evaluator = Evaluator(
-       ...     label="lambada",
-       ...     dataloader=dl,
-       ...     metric_names=['InContextLearningLMAccuracy']
-       ... )
-    >>> trainer = Trainer(
-       ...     model=model,
-       ...     train_dataloader=train_dataloader,
-       ...     eval_dataloader=eval_evaluator,
-       ...     optimizers=optimizer,
-       ...     max_duration="1ep",
-       ... )
+        .. testsetup::
+
+            import transformers
+            from composer.models import HuggingFaceModel
+            from composer.trainer import Trainer
+            dataset_uri = "/tmp/dataset_uri.jsonl"
+            dataset = RandomTextClassificationDataset(size=16, use_keys=True)
+            train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=8)
+            hf_model, tokenizer = HuggingFaceModel.hf_from_composer_checkpoint('composer-hf-checkpoint.pt')
+            # At this point, hf_model is randomly initialized
+            composer_model = HuggingFaceModel(hf_model, hf_tokenizer)
+
+        Example:
+
+        .. testcode::
+
+
+            dl = get_icl_task_dataloader(
+                'language_modeling',
+                dataset_uri,
+                tokenizer,
+                batch_size=2,
+                max_seq_len=2048,
+                pad_tok_id=tokenizer.pad_token_id,
+                num_fewshot=10,
+                prompt_string='translate english to french',
+                example_delimiter='\n',
+                continuation_delimiter=''
+                )
+            eval_evaluator = Evaluator(
+                    label="lambada",
+                    dataloader=dl,
+                    metric_names=['InContextLearningLMAccuracy']
+                )
+            trainer = Trainer(
+                    model=model,
+                    train_dataloader=train_dataloader,
+                    eval_dataloader=eval_evaluator,
+                    optimizers=optimizer,
+                    max_duration="1ep",
+                )
 
     Args:
         icl_task_type (str): Name of icl_task type. One of ['multiple_choice', 'schema', 'language_modeling', 'question_answering', 'code_evaluation']
