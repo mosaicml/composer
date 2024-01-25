@@ -563,21 +563,21 @@ def load_sharded_checkpoint(
             # log.debug(f'Rank {dist.get_global_rank()} waiting {rank_wait_interval * dist.get_local_rank()} seconds')
             # time.sleep(rank_wait_interval * dist.get_local_rank())
 
-            if expect_file:
-                if False and version.parse(torch.__version__) > version.parse('2.2.9'):
-                    dist_cp.load(  # type: ignore
-                        state_dict=state_dict,
-                        storage_reader=storage_reader,
-                        planner=load_planner,
-                        process_group=process_group,
-                    )
-                else:
-                    dist_cp.load_state_dict(
-                        state_dict=state_dict,
-                        storage_reader=storage_reader,
-                        planner=load_planner,
-                        process_group=process_group,
-                    )
+            # if expect_file:
+            if False and version.parse(torch.__version__) > version.parse('2.2.9'):
+                dist_cp.load(  # type: ignore
+                    state_dict=state_dict,
+                    storage_reader=storage_reader,
+                    planner=load_planner,
+                    process_group=process_group,
+                )
+            else:
+                dist_cp.load_state_dict(
+                    state_dict=state_dict,
+                    storage_reader=storage_reader,
+                    planner=load_planner,
+                    process_group=process_group,
+                )
             # else:
             #     dist.barrier()
 
@@ -664,13 +664,13 @@ def load_sharded_checkpoint(
                 #         state_dict['state'][key] = broadcast_list[0]
                 #         log.debug(f'Post broadcast for {key=}')
 
-            # state.load_state_dict(
-            #     state_dict['state'],
-            #     logger,
-            #     strict=strict_model_weights,
-            #     exclude_algorithms=exclude_algorithms,
-            #     algorithm_passes=algorithm_passes,
-            # )
+            state.load_state_dict(
+                state_dict['state'],
+                logger,
+                strict=strict_model_weights,
+                exclude_algorithms=exclude_algorithms,
+                algorithm_passes=algorithm_passes,
+            )
 
             # 2. Optionally load optimizer
             # if we are using later than 2.2.9 then optimizer will already be loaded
