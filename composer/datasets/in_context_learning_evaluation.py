@@ -208,7 +208,7 @@ class InContextLearningDataset(Dataset):
     The dataset format is expected to be a local jsonl file, a cloud link to a jsonl file, or a Hugging Face dataset link.
     'context' refers to the input a model will recieve before generating an output. For example, the question in question answering tasks,
     the preceding text in a language modeling task, or the document and question regarding the document in a document understanding task.
-    'example' refers to an loaded dictionary, generally containing a context, an answer, and any other information needed to run the task.
+    'example' refers to a loaded dictionary, generally containing a context, an answer, and any other information needed to run the task.
     'answer' refers to the desired output of the model.
 
     When creating a new ICL Dataset, it is likely that you will need to reimplement the following methods:
