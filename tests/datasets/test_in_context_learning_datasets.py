@@ -2295,6 +2295,8 @@ def test_lm_spacing_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
     'name': 'juggernaut',
 }])
 @pytest.mark.parametrize('hf_parsing_map', [None, {'context': ['context'], 'continuation': ['continuation']}])
+@pytest.mark.filterwarnings(
+    r'ignore:The repository for mosaicml/test_dataset contains custom code which must*:FutureWarning')
 def test_hf_dataloading_lm_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fewshot, prompt_string,
                                       hf_loading_vars, hf_parsing_map):
     pytest.importorskip('datasets')
@@ -2344,6 +2346,8 @@ def test_hf_dataloading_lm_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path
     'name': 'invoker',
 }])
 @pytest.mark.parametrize('hf_parsing_map', [{'context': ['quas', 'wex', 'exort'], 'answer': ['spell']}])
+@pytest.mark.filterwarnings(
+    r'ignore:The repository for mosaicml/test_dataset contains custom code which must*:FutureWarning')
 def test_hf_dataloading_custom_parsing(dataset_uri, tiny_gpt2_tokenizer, tmp_path, num_fewshot, prompt_string,
                                        hf_loading_vars, hf_parsing_map):
     pytest.importorskip('datasets')
