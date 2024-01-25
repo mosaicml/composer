@@ -13,14 +13,23 @@ from torch.utils.data import DataLoader
 
 from composer import Evaluator
 from composer.core import DataSpec
-from composer.datasets.in_context_learning_evaluation import (InContextLearningCodeEvalDataset,
-                                                              InContextLearningDataset,
-                                                              InContextLearningMultipleChoiceTaskDataset,
-                                                              InContextLearningQATaskDataset,
-                                                              InContextLearningSchemaTaskDataset,
-                                                              _get_continuation_span, _get_fewshot_sample_idxs,
-                                                              _make_padded_input, _tokenizer_needs_prefix_space,
-                                                              _trim_context, get_icl_task_dataloader, strip_data)
+
+# isort: off
+from composer.datasets.in_context_learning_evaluation import (
+    InContextLearningCodeEvalDataset,
+    InContextLearningDataset,
+    InContextLearningMultipleChoiceTaskDataset,
+    InContextLearningQATaskDataset,
+    InContextLearningSchemaTaskDataset,
+    _get_continuation_span,
+    _get_fewshot_sample_idxs,
+    _make_padded_input,
+    _tokenizer_needs_prefix_space,
+    _trim_context,
+    get_icl_task_dataloader,
+    strip_data,
+)
+# isort: on
 from composer.datasets.utils import MultiTokenEOSCriteria
 from composer.loggers import InMemoryLogger
 from composer.metrics import (InContextLearningCodeEvalAccuracy, InContextLearningLMAccuracy,
@@ -1132,7 +1141,7 @@ def test_qa_split_batch(tiny_opt_tokenizer, dataset_uri, tmp_path):
     tokenizer = tiny_opt_tokenizer
 
     tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
-    gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
+    gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)  # for dist
     dl = get_icl_task_dataloader(
         icl_task_type='question_answering',
         dataset_uri=dataset_uri,
