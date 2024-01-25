@@ -247,7 +247,7 @@ def tiny_gpt2_tokenizer_helper():
 def tiny_llama_tokenizer_helper():
     transformers = pytest.importorskip('transformers')
 
-    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('huggyllama/llama-7b', use_fast=True)
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('huggyllama/llama-7b', use_fast=False)
     return hf_tokenizer
 
 
