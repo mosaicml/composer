@@ -558,7 +558,7 @@ def load_sharded_checkpoint(
             # log.debug(f'Rank {dist.get_global_rank()} waiting {rank_wait_interval * dist.get_local_rank()} seconds')
             # time.sleep(rank_wait_interval * dist.get_local_rank())
 
-            if expect_file:
+            if expect_file or True:
                 if version.parse(torch.__version__) > version.parse('2.2.9'):
                     dist_cp.load(  # type: ignore
                         state_dict=state_dict,
@@ -633,6 +633,10 @@ def load_sharded_checkpoint(
                     list_b[0] = 'b0'
                 dist.broadcast_object_list(list_b, src=dist.get_global_rank() % shard_size, group=process_group)
                 print(list_b)
+
+                state_dict_list = [state_dict['state']]
+                dist.broadcast_object_list(state_dict_list, src=dist.get_global_rank() % shard_size, group=process_group)
+                state_dict['state'] = state_dict_list[0]
 
             state.load_state_dict(
                 state_dict['state'],
