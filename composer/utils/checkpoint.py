@@ -564,18 +564,19 @@ def load_sharded_checkpoint(
                         state_dict=state_dict,
                         storage_reader=storage_reader,
                         planner=load_planner,
-                        shard_process_group=shard_process_group,
+                        process_group=shard_process_group,
                     )
                 else:
                     dist_cp.load_state_dict(
                         state_dict=state_dict,
                         storage_reader=storage_reader,
                         planner=load_planner,
-                        shard_process_group=shard_process_group,
+                        process_group=shard_process_group,
                     )
 
 
             if device_mesh is not None and device_mesh.ndim == 2:
+                # Broadcast file to all replicas. Assume replica size is at least 1 node
                 replicate_process_group = device_mesh.get_group(0)  # Replicate replicate_process_group
                 replicate_size, shard_size = device_mesh.size(0), device_mesh.size(1)
                 import torch.distributed.distributed_c10d as dist_torch
@@ -593,6 +594,7 @@ def load_sharded_checkpoint(
                     log.info(f'global_rank={dist.get_global_rank()}, {file_list=}')
 
                     for file_name in range(file_list):
+                        log.info(f'global_rank={dist.get_global_rank()}, {os.listdir(download_path)=}')
                         full_path = os.path.join(download_path, file_name)
                         log.info(f'global_rank={dist.get_global_rank()}, {full_path=}')
                         file_object = [None]
@@ -608,6 +610,7 @@ def load_sharded_checkpoint(
                             # Process with rank > 0 receives the object and writes the file
                             with open(full_path, 'wb') as f:
                                 f.write(received_file_object["content"])
+                    log.info(f'global_rank={dist.get_global_rank()}, {os.listdir(download_path)=}')
                 dist.barrier()
 
                 if not expect_file:
@@ -616,14 +619,14 @@ def load_sharded_checkpoint(
                             state_dict=state_dict,
                             storage_reader=storage_reader,
                             planner=load_planner,
-                            shard_process_group=shard_process_group,
+                            process_group=shard_process_group,
                         )
                     else:
                         dist_cp.load_state_dict(
                             state_dict=state_dict,
                             storage_reader=storage_reader,
                             planner=load_planner,
-                            shard_process_group=shard_process_group,
+                            process_group=shard_process_group,
                         )
 
 
