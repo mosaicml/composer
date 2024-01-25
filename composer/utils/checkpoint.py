@@ -595,7 +595,7 @@ def load_sharded_checkpoint(
                 # Broadcast model
                 for key in sorted(model_state_dict.keys()):
                     dist.broadcast(
-                        model_state_dict[key],
+                        model_state_dict[key].to_local(),
                         src=dist.get_global_rank() % shard_size,
                         group=process_group,
                     )
@@ -604,7 +604,7 @@ def load_sharded_checkpoint(
                 optim_state_dict = optim_state_dict['DecoupledLionW']['state']
                 for key in sorted(optim_state_dict.keys()):
                     dist.broadcast(
-                        optim_state_dict[key]['exp_avg'],
+                        optim_state_dict[key]['exp_avg'].to_local(),
                         src=dist.get_global_rank() % shard_size,
                         group=process_group,
                     )
