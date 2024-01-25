@@ -130,6 +130,10 @@ def _make_padded_input(context_enc: List,
     )
     (inp_len,) = inp.shape
 
+    # Sometimes tokenizers that have neither a pad_tok_id or eos_tok_id will pass None in as the padding
+    # token and cause errors
+    if not isinstance(pad_tok_id, int):
+        raise ValueError(f'`pad_tok_id` must be an integer. Found {type(pad_tok_id)} instead')
     # pad length from seq to padding_length
     if padding_side == 'right':
         inp = torch.cat(
@@ -301,8 +305,6 @@ class InContextLearningDataset(Dataset):
         self.prefix_space = _tokenizer_needs_prefix_space(self.tokenizer)
 
         self.max_seq_len = max_seq_len
-        if not isinstance(pad_tok_id, int):
-            raise ValueError(f'`InContextLearningDataset` must be an integer. Found {type(pad_tok_id)} instead')
         self.pad_tok_id = pad_tok_id
         self.num_fewshot = num_fewshot
         self.padding_side = padding_side
