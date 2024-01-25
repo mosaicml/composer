@@ -253,15 +253,19 @@ def get_node_rank() -> int:
     return _get_distributed_config_var(env_var='NODE_RANK', default=0, human_name='node rank')
 
 
-def barrier() -> None:
+def barrier(group = None) -> None:
     """Synchronizes all processes.
 
     This function blocks until all processes reach this function.
 
     .. seealso:: :func:`torch.distributed.barrier`
+
+    Args:
+        group (ProcessGroup, optional): The process group to work on. If ``None``,
+            the default process group will be used. Default is ``None``.
     """
     if dist.is_available() and dist.is_initialized():
-        dist.barrier()
+        dist.barrier(group=group)
         return
     world_size = get_world_size()
     if world_size == 1:

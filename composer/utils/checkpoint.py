@@ -434,10 +434,11 @@ def load_sharded_checkpoint(
     # A subclass of FileSystemReaderWithValidation that downloads files from the object store before reading them from the local filesystem.
     class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
-        def __init__(self, source_path: str, destination_path: str, object_store):
+        def __init__(self, source_path: str, destination_path: str, object_store, process_group):
             self.source_path = source_path
             self.destination_path = destination_path
             self.object_store = object_store
+            self.process_group = process_group
 
             # Download metadata file.
             Path(self.destination_path).mkdir(parents=True, exist_ok=True)
@@ -482,7 +483,7 @@ def load_sharded_checkpoint(
             # node
             with dist.local_rank_zero_download_and_wait(signal_file_path):
                 # Then, wait to ensure every node has finished downloading the checkpoint
-                dist.barrier()
+                dist.barrier(group=self.process_group)
 
             if dist.get_local_rank() == 0:
                 os.remove(signal_file_path)
@@ -503,17 +504,6 @@ def load_sharded_checkpoint(
     download_dir_context = tempfile.TemporaryDirectory if object_store is not None else contextlib.nullcontext
 
     with download_dir_context() as temp_download_dir:
-        if object_store is not None:
-            # Get the tempfile made on local rank 0.
-            local_rank0_index = dist.get_global_rank() - dist.get_local_rank()
-            rank0_download_tempdir = str(dist.all_gather_object(temp_download_dir)[local_rank0_index])
-            storage_reader = DistCPObjectStoreReader(source_path=source_path,
-                                                     destination_path=str(
-                                                         Path(rank0_download_tempdir) / Path('checkpoints')),
-                                                     object_store=object_store)
-        else:
-            storage_reader = FileSystemReaderWithValidation(source_path)
-
         # We need no_grad because we overwrite tensor values with set_() when we do elastic loading and we don't want the set_ op recorded in the computation graph.
         with torch.no_grad():
             # 1. Load model and metadata first
@@ -551,6 +541,19 @@ def load_sharded_checkpoint(
                     log.debug(f'Loading on global_rank={dist.get_global_rank()}, {expect_file=}')
             else:
                 expect_file = True
+
+            if object_store is not None:
+                # Get the tempfile made on local rank 0.
+                local_rank0_index = dist.get_global_rank() - dist.get_local_rank()
+                rank0_download_tempdir = str(dist.all_gather_object(temp_download_dir)[local_rank0_index])
+                storage_reader = DistCPObjectStoreReader(
+                    source_path=source_path,
+                    destination_path=str(Path(rank0_download_tempdir) / Path('checkpoints')),
+                    object_store=object_store,
+                    process_group=process_group,
+                )
+            else:
+                storage_reader = FileSystemReaderWithValidation(source_path)
 
             # # Throttle uploads to avoid overloading the object store
             # rank_wait_interval = 10.0
