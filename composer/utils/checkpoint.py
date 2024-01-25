@@ -631,14 +631,16 @@ def load_sharded_checkpoint(
                 list_a = ['a']
                 if dist.get_global_rank() == 0:
                     list_a[0] = 'a0'
+                log.debug(f'PRE {list_a=}')
                 dist.broadcast_object_list(list_a, src=0)
-                print(list_a)
+                log.debug(f'POST {list_a=}')
 
                 list_b = ['b']
                 if dist.get_global_rank() % shard_size == 0:
                     list_b[0] = 'b0'
+                log.debug(f'PRE {list_b=}')
                 dist.broadcast_object_list(list_b, src=dist.get_global_rank() % shard_size, group=process_group)
-                print(list_b)
+                log.debug(f'POST {list_b=}')
 
                 state_dict_list = [state_dict['state']]
                 dist.broadcast_object_list(state_dict_list, src=dist.get_global_rank() % shard_size, group=process_group)
