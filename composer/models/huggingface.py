@@ -38,7 +38,7 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-__all__ = ['HuggingFaceModel']
+__all__ = ['HuggingFaceModel', 'peft_installed']
 
 
 class HuggingFaceModel(ComposerModel):
