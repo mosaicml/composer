@@ -231,7 +231,7 @@ class InContextLearningDataset(Dataset):
     Args:
         dataset_uri (str): A local path, a remote path beginning with ``s3://`` or another backend, or a HuggingFace dataset uri prepended with ``hf://``.
             Alternate backends must be supported by :meth:`composer.utils.maybe_create_object_store_from_uri`.
-            A local dataset must consist of rows of JSON data points with task dependant fields.
+            A local dataset must consist of rows of JSON data points with task dependent fields.
             The default keys expected are "context" and "answer".
         tokenizer (transformers.PreTrainedTokenizerBase): The tokenizer used to map between strings and token ids.
         max_seq_len (int): The maximum sequence length supported by the model.
