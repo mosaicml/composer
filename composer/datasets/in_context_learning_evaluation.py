@@ -680,7 +680,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
                          tensor_keys=tensor_keys,
                          *args,
                          **kwargs)
-        # NOTE: set these after init call bcus they take class vars
+        # NOTE: set these after init call because they take class vars
         self.early_stopping_criteria = early_stopping_criteria
         self.base_batch = {
             'input_ids': [],
