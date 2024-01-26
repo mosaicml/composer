@@ -491,6 +491,7 @@ def load_sharded_checkpoint(
             if dist.get_local_rank() == 0:
                 os.remove(signal_file_path)
             dist.barrier()
+            log.debug('Done waiting for all ranks to finish downloading files.')
 
             # 3. Broadcast files to all other replicas if HSDP
             if device_mesh is not None and device_mesh.ndim == 2:
