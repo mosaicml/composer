@@ -218,15 +218,15 @@ def test_stop_sequences_criteria(tiny_gpt2_tokenizer):
     eos_criteria = MultiTokenEOSCriteria('\n\n', tiny_gpt2_tokenizer, 2)
     seq1 = tiny_gpt2_tokenizer('Dogs are furry')['input_ids']
     seq2 = tiny_gpt2_tokenizer('Dogs are furry\n\n')['input_ids']
-    seq1 = [50257] * (len(seq2) - len(seq1)) + seq1
-    input_ids = torch.tensor([seq1, seq2])
-    assert not eos_criteria(input_ids.type(torch.long), None)  # pyright: ignore[reportGeneralTypeIssues]
+    seq1 = [tiny_gpt2_tokenizer.pad_token_id] * (len(seq2) - len(seq1)) + seq1
+    input_ids = torch.LongTensor([seq1, seq2])
+    assert not eos_criteria(input_ids, None)
 
     eos_criteria = MultiTokenEOSCriteria('\n\n', tiny_gpt2_tokenizer, 2)
     seq1 = tiny_gpt2_tokenizer('Dogs are furry\n\n')['input_ids']
     seq2 = tiny_gpt2_tokenizer('Dogs are furry\n\n')['input_ids']
-    input_ids = torch.tensor([seq1, seq2])
-    assert eos_criteria(input_ids.type(torch.long), None)  # pyright: ignore[reportGeneralTypeIssues]
+    input_ids = torch.LongTensor([seq1, seq2])
+    assert eos_criteria(input_ids, None)
 
 
 def test_stop_sequences_criteria_sentencepiece(tiny_llama_tokenizer):
@@ -236,15 +236,15 @@ def test_stop_sequences_criteria_sentencepiece(tiny_llama_tokenizer):
     eos_criteria = MultiTokenEOSCriteria('\n\n', tokenizer, 2)
     seq1 = tokenizer('\n\nDogs')['input_ids']  # check to make sure starting with the stop sequence doesnt break it
     seq2 = tokenizer('Dogs are furry\n\n')['input_ids']
-    seq1 = [50257] * (len(seq2) - len(seq1)) + seq1
-    input_ids = torch.tensor([seq1, seq2])
-    assert not eos_criteria(input_ids.type(torch.long), None)  # pyright: ignore[reportGeneralTypeIssues]
+    seq1 = [tokenizer.eos_token_id] * (len(seq2) - len(seq1)) + seq1
+    input_ids = torch.LongTensor([seq1, seq2])
+    assert not eos_criteria(input_ids, None)
 
     eos_criteria = MultiTokenEOSCriteria('\n\n', tokenizer, 2)
     seq1 = tokenizer('Dogs are furry\n\n')['input_ids']
     seq2 = tokenizer('Dogs are furry\n\n')['input_ids']
-    input_ids = torch.tensor([seq1, seq2])
-    assert eos_criteria(input_ids.type(torch.long), None)  # pyright: ignore[reportGeneralTypeIssues]
+    input_ids = torch.LongTensor([seq1, seq2])
+    assert eos_criteria(input_ids, None)
 
 
 @pytest.mark.filterwarnings(
