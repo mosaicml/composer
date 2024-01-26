@@ -129,35 +129,7 @@ class HuggingFaceModel(ComposerModel):
         is_causal_lm = _is_registered_causal_lm(self.model)
         self.shift_labels = is_causal_lm if shift_labels is None else shift_labels
 
-        if self.tokenizer is None:
-            log.warning(
-                'The tokenizer was not provided. This means the tokenizer config will not be saved in the checkpoint.')
-
-        if tokenizer is not None and self.config.vocab_size < len(tokenizer):
-            if allow_embedding_resizing:
-                # when the embedding size is smaller than the tokenizer vocab size,
-                # the embeddings should get resized to match the tokenizer vocab size
-                log.warning(f'The number of tokens in the tokenizer is greater than the number of tokens in the model.'
-                            f' This would cause an error during training.'
-                            f' Resizing the model embeddings to {len(tokenizer)} from {self.config.vocab_size}.')
-                self.model.resize_token_embeddings(len(tokenizer))
-            else:
-                raise ValueError(
-                    f'The number of tokens in the tokenizer is greater than the number of tokens in the model.'
-                    f' This would cause an error during training.'
-                    f' You can resize the model embeddings to {len(tokenizer)} from {self.config.vocab_size}'
-                    f' by calling `model.resize_token_embeddings(len(tokenizer))` before calling the `HuggingFaceModel`'
-                    f' constructor, or pass `allow_embedding_resizing=True` to have it done automatically.')
-        elif tokenizer is not None and self.config.vocab_size > len(tokenizer):
-            # when the embedding size is greater than the tokenizer vocab size,
-            # the embeddings do not _need_ to be resized to match the tokenizer vocab size,
-            # and should be done by the user if desired
-            log.info(
-                f'The number of tokens in the tokenizer is less than the number of tokens in the model.'
-                f' You may want to resize the model embeddings to {len(tokenizer)} from {self.config.vocab_size}'
-                f' by calling `model.resize_token_embeddings(len(tokenizer))` before calling the `HuggingFaceModel`'
-                f' constructor. The vocab size is sometimes intentionally set to a multiple of 32 or 64 to improve'
-                f' performance.')
+        self._check_tokenizer_and_maybe_resize_embeddings(allow_embedding_resizing)
 
         if is_causal_lm and not self.shift_labels:
             log.warning('The shift_labels argument was set to False but the model is an instance of a'
@@ -167,10 +139,38 @@ class HuggingFaceModel(ComposerModel):
         if peft_config is not None:
             self.model = _maybe_get_peft_model(peft_config, self.model)
 
-        self.using_peft = False
-        if peft_installed:
-            from peft import PeftModel
-            self.using_peft = isinstance(self.model, PeftModel)
+        self.using_peft = isinstance(self.model, PeftModel) if peft_installed else False
+
+    def _check_tokenizer_and_maybe_resize_embeddings(self, allow_embedding_resizing: bool) -> None:
+        if self.tokenizer is None:
+            log.warning(
+                'The tokenizer was not provided. This means the tokenizer config will not be saved in the checkpoint.')
+
+        if self.tokenizer is not None and self.config.vocab_size < len(self.tokenizer):
+            if allow_embedding_resizing:
+                # when the embedding size is smaller than the tokenizer vocab size,
+                # the embeddings should get resized to match the tokenizer vocab size
+                log.warning(f'The number of tokens in the tokenizer is greater than the number of tokens in the model.'
+                            f' This would cause an error during training.'
+                            f' Resizing the model embeddings to {len(self.tokenizer)} from {self.config.vocab_size}.')
+                self.model.resize_token_embeddings(len(self.tokenizer))
+            else:
+                raise ValueError(
+                    f'The number of tokens in the tokenizer is greater than the number of tokens in the model.'
+                    f' This would cause an error during training.'
+                    f' You can resize the model embeddings to {len(self.tokenizer)} from {self.config.vocab_size}'
+                    f' by calling `model.resize_token_embeddings(len(tokenizer))` before calling the `HuggingFaceModel`'
+                    f' constructor, or pass `allow_embedding_resizing=True` to have it done automatically.')
+        elif self.tokenizer is not None and self.config.vocab_size > len(self.tokenizer):
+            # when the embedding size is greater than the tokenizer vocab size,
+            # the embeddings do not _need_ to be resized to match the tokenizer vocab size,
+            # and should be done by the user if desired
+            log.info(
+                f'The number of tokens in the tokenizer is less than the number of tokens in the model.'
+                f' You may want to resize the model embeddings to {len(self.tokenizer)} from {self.config.vocab_size}'
+                f' by calling `model.resize_token_embeddings(len(tokenizer))` before calling the `HuggingFaceModel`'
+                f' constructor. The vocab size is sometimes intentionally set to a multiple of 32 or 64 to improve'
+                f' performance.')
 
     def _get_metric_dict(self, metrics: List[Metric]) -> Dict[str, Metric]:
         """Returns a dictionary of metrics keyed by their class name."""
