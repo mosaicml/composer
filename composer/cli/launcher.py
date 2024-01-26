@@ -389,6 +389,15 @@ def _print_process_exit_status(global_rank: int, process: subprocess.Popen):
         ])
     print('\n'.join(error_msg))
 
+    print(f'Normal stderr')
+    print(stderr)
+    print(f'exc stderr')
+    print(exc.stderr)
+    print(f'normal output')
+    print(output)
+    print(f'exc output')
+    print(exc.output)
+
 
 def _cleanup_processes(processes: Dict[int, subprocess.Popen]):
     for global_rank, process in processes.items():
