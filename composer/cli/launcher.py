@@ -323,7 +323,7 @@ def _launch_processes(
                     stderr=subprocess.STDOUT,
                     text=True,
                 )
-
+                process.stdout = log_file
             processes[global_rank] = process
 
 
@@ -358,6 +358,7 @@ def _print_process_exit_status(global_rank: int, process: subprocess.Popen):
     if process.stdout is None:
         output = None
     else:
+        print(f'stdout found for rank {global_rank}')
         process.stdout.seek(0)
         output = process.stdout.read()
 
@@ -457,7 +458,6 @@ def main():
         log_file_format = f'{os.environ.get(MOSAICML_LOG_DIR)}/gpu_{{rank}}.txt'
 
     try:
-        print('launching processes')
         _launch_processes(nproc=args.nproc,
                           world_size=args.world_size,
                           base_rank=args.base_rank,
