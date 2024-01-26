@@ -265,6 +265,7 @@ setup(name=package_name,
           'Programming Language :: Python :: 3.8',
           'Programming Language :: Python :: 3.9',
           'Programming Language :: Python :: 3.10',
+          'Programming Language :: Python :: 3.11',
       ],
       install_requires=install_requires,
       entry_points={

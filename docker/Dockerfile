@@ -118,6 +118,7 @@ RUN apt-get update && \
         tcl \
         libjpeg8-dev \
         less \
+        libsnappy-dev \
         # For AWS EFA:
         autoconf \
         autotools-dev \
@@ -269,6 +270,7 @@ RUN if [ -n "$MOFED_VERSION" ] ; then \
         rm -rf /tmp/mofed ; \
     fi
 
+
 #####################
 # Install NVIDIA Apex
 #####################
@@ -294,10 +296,7 @@ RUN if [[ -n "$CUDA_VERSION" ]] &&  [[ -z "${PYTORCH_NIGHTLY_URL}" ]]; then \
 RUN if [ -n "$CUDA_VERSION" ] ; then \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir ninja==1.11.1 && \
         pip${PYTHON_VERSION} install --upgrade --no-cache-dir --force-reinstall packaging==22.0 && \
-        git clone --branch v2.4.2 https://github.com/Dao-AILab/flash-attention.git && \
-        cd flash-attention && \
-        MAX_JOBS=1 python${PYTHON_VERSION} setup.py install && \
-        cd .. ; \
+        MAX_JOBS=1 pip${PYTHON_VERSION} install --no-cache-dir flash-attn==2.5.0; \
     fi
 
 ###############
@@ -356,7 +355,8 @@ RUN apt-get update && \
 RUN pip install --no-cache-dir --upgrade \
         certifi${CERTIFI_VERSION} \
         ipython${IPYTHON_VERSION} \
-        urllib3${URLLIB3_VERSION}
+        urllib3${URLLIB3_VERSION} \
+        python-snappy
 
 ##################################################
 # Override NVIDIA mistaken env var for 11.8 images
