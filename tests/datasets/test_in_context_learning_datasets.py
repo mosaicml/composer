@@ -234,7 +234,7 @@ def test_stop_sequences_criteria_sentencepiece(tiny_llama_tokenizer):
 
     tokenizer = tiny_llama_tokenizer
     eos_criteria = MultiTokenEOSCriteria('\n\n', tokenizer, 2)
-    seq1 = tokenizer('\n\nDogs')['input_ids']  # check to make sure starting with the start sequence doesnt break it
+    seq1 = tokenizer('\n\nDogs')['input_ids']  # check to make sure starting with the stop sequence doesnt break it
     seq2 = tokenizer('Dogs are furry\n\n')['input_ids']
     seq1 = [50257] * (len(seq2) - len(seq1)) + seq1
     input_ids = torch.tensor([seq1, seq2])
