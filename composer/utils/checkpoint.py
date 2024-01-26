@@ -513,7 +513,23 @@ def load_sharded_checkpoint(
                             # Process with rank > 0 receives the object and writes the file
                             with open(full_path, 'wb') as f:
                                 f.write(received_file_object['content'])
-                dist.barrier()
+
+                # Busy wait with file lock to avoid dist timeout for large checkpoints
+                signal_file_path = os.path.join(os.path.dirname(self.download_path),
+                                            f'.node_{dist.get_node_rank()}_transfer')
+                if dist.get_local_rank() == 0:
+                    # Once rank 0 is done, it writes file to unblock all ranks
+                    os.makedirs(os.path.dirname(signal_file_path), exist_ok=True)
+                    with open(signal_file_path, 'wb') as f:
+                        f.write(b'local_rank0_completed_transfer')
+                # Block until rank 0 writes file
+                with dist.local_rank_zero_download_and_wait(signal_file_path):
+                    # Add barrier as different shard nodes may have different number of files and
+                    # may finish communicating at different times
+                    dist.barrier()
+                # Clean up file lock
+                if dist.get_local_rank() == 0:
+                    os.remove(signal_file_path)
                 log.debug(f'Local checkpoint files: {os.listdir(self.destination_path)}')
 
             # 4. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
