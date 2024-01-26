@@ -1241,8 +1241,8 @@ def test_peft_init_not_installed(tiny_gpt2_model, gpt2_peft_config):
             _ = HuggingFaceModel(tiny_gpt2_model, peft_config=gpt2_peft_config)
 
 
-@pytest.mark.parametrize('just_lora', [True, False])
-def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, just_lora):
+@pytest.mark.parametrize('should_filter_state_dict_peft', [True, False])
+def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, should_filter_state_dict_peft):
     pytest.importorskip('peft')
 
     trainer = get_lm_trainer(
@@ -1252,7 +1252,7 @@ def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_c
         peft_config=gpt2_peft_config,
         device_train_microbatch_size=1,
         mlm=False,
-        just_lora=just_lora,
+        should_filter_state_dict_peft=should_filter_state_dict_peft,
     )
     trainer.fit()
 
@@ -1264,7 +1264,7 @@ def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_c
         device_train_microbatch_size=1,
         mlm=False,
         load_path=str(tmp_path / 'hf-checkpoint.pt'),
-        just_lora=just_lora,
+        should_filter_state_dict_peft=should_filter_state_dict_peft,
     )
 
     for p1, p2 in zip(trainer.state.model.parameters(), load_trainer.state.model.parameters()):
@@ -1302,8 +1302,8 @@ def test_peft_metadata(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config):
     assert loaded_peft_config == gpt2_peft_config
 
 
-@pytest.mark.parametrize('just_lora', [True, False])
-def test_peft_write_hf_from_composer(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, just_lora):
+@pytest.mark.parametrize('should_filter_state_dict_peft', [True, False])
+def test_peft_write_hf_from_composer(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, should_filter_state_dict_peft):
     peft = pytest.importorskip('peft')
     transformers = pytest.importorskip('transformers')
 
@@ -1318,7 +1318,7 @@ def test_peft_write_hf_from_composer(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_
         peft_config=gpt2_peft_config,
         device_train_microbatch_size=1,
         mlm=False,
-        just_lora=just_lora,
+        should_filter_state_dict_peft=should_filter_state_dict_peft,
     )
     trainer.fit()
 
@@ -1339,10 +1339,10 @@ def test_peft_write_hf_from_composer(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.parametrize('just_lora', [True, False])
+@pytest.mark.parametrize('should_filter_state_dict_peft', [True, False])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
-def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, world_size, just_lora):
+def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, world_size, should_filter_state_dict_peft):
     pytest.importorskip('peft')
 
     fsdp_config = {
@@ -1365,7 +1365,7 @@ def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config
         device_train_microbatch_size=1,
         mlm=False,
         fsdp_config=fsdp_config,
-        just_lora=just_lora,
+        should_filter_state_dict_peft=should_filter_state_dict_peft,
     )
 
     for n, p in trainer.state.model.model.named_parameters():
@@ -1386,7 +1386,7 @@ def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config
         mlm=False,
         load_path=str(tmp_path / 'trainer1' / 'hf-checkpoint.pt'),
         fsdp_config=fsdp_config,
-        just_lora=just_lora,
+        should_filter_state_dict_peft=should_filter_state_dict_peft,
     )
 
     for n, p in load_trainer.state.model.model.named_parameters():
@@ -1405,7 +1405,7 @@ def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config
         loaded_ckpt_1 = torch.load(str(tmp_path / 'trainer1' / 'hf-checkpoint.pt'))
 
         # Check that only the LoRA parameters were saved
-        if just_lora:
+        if should_filter_state_dict_peft:
             assert all('lora' in k for k in loaded_ckpt_1['state']['model'].keys())
         else:
             assert not all('lora' in k for k in loaded_ckpt_1['state']['model'].keys())
