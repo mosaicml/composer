@@ -525,10 +525,22 @@ def load_sharded_checkpoint(
                     dist.barrier()  # Sync after every transfer to avoid timing out
                 log.debug(f'{os.listdir(download_path)=}')
 
-            # 3.5. Validate all files
-            import hashlib
-            metadata_path = os.path.join(download_path, '.metadata')
-            log.info(f'Hash for metadata: {hashlib.md5(open(metadata_path, "rb").read()).hexdigest()}')
+            # 3.5. Verify all other ranks have downloaded files
+            if not first_replica:
+                log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
+                # 1. Download to the destination all files that this rank is responsible for.
+                for plan_item in plan.items:
+                    # Each plan item has a storage index which points to the relative path of the shard file at save time.
+                    relative_file_path = self.storage_data[plan_item.storage_index].relative_path
+                    # Download the shard file to the relative path it's associated to and save that relative path
+                    # to the root directory specified to the FileSystem reader constructor.
+                    file_destination = str(Path(self.destination_path) / Path(relative_file_path))
+                    # The file could have already been downloaded as diffeent plan items can point to same file.
+                    if not os.path.exists(file_destination):
+                        log.debug(f'Rank {dist.get_global_rank()} downloading {relative_file_path} to {file_destination}.')
+                        self.object_store.download_object(object_name=str(
+                            Path(self.source_path) / Path(relative_file_path)),
+                                                        filename=file_destination)
 
             # 4. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
             return super().read_data(plan, planner)
