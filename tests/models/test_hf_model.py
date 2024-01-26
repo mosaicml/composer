@@ -487,7 +487,7 @@ def get_lm_trainer(hf_model,
         metrics=metrics,
         use_logits=True,
         peft_config=peft_config,
-        peft_filter_state_dict_trainable=just_lora,
+        should_filter_state_dict_peft=just_lora,
     )
 
     vocab_size = hf_model.config.vocab_size
@@ -1417,7 +1417,7 @@ def test_filtered_state_dict(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_con
     hf_model = HuggingFaceModel(tiny_gpt2_model,
                                 tokenizer=tiny_gpt2_tokenizer,
                                 peft_config=gpt2_peft_config,
-                                peft_filter_state_dict_trainable=True)
+                                should_filter_state_dict_peft=True)
     state_dict = hf_model.state_dict()
 
     assert len(state_dict.keys()) == 4
