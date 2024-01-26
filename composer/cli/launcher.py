@@ -361,17 +361,11 @@ def _print_process_exit_status(global_rank: int, process: subprocess.Popen):
         process.stdout.seek(0)
         output = process.stdout.read()
 
-    exc = subprocess.CalledProcessError(
-        process.returncode,
-        cmd=process.args,
-        output=output,
-    )
-
     error_msg = [f'Global rank {global_rank} (PID {process.pid}) exited with code {process.returncode}']
     if output is not None:
         error_msg.extend([
             f'----------Begin global rank {global_rank} logs----------',
-            exc.output,
+            output,
             f'----------End global rank {global_rank} logs----------\n',
         ])
     print('\n'.join(error_msg))
