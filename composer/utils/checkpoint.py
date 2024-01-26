@@ -523,7 +523,7 @@ def load_sharded_checkpoint(
                             with open(full_path, 'wb') as f:
                                 f.write(received_file_object["content"])
                         import hashlib
-                    log.info(f'md5sum of {full_path=} is {hashlib.md5(open(file_name, "rb").read()).hexdigest()}')
+                        log.info(f'md5sum of {full_path=} is {hashlib.md5(open(file_name, "rb").read()).hexdigest()}')
                     dist.barrier()  # Sync after every transfer to avoid timing out
                 log.debug(f'{os.listdir(download_path)=}')
 
