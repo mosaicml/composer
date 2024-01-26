@@ -582,26 +582,21 @@ def load_sharded_checkpoint(
             dist_cp.utils._DistWrapper.gather_object = gather_object
             
 
-            dist_cp.load_state_dict(
-                state_dict=state_dict,
-                storage_reader=storage_reader,
-                planner=load_planner,
-            )
-            # if expect_file:
-            #     if False and version.parse(torch.__version__) > version.parse('2.2.9'):
-            #         dist_cp.load(  # type: ignore
-            #             state_dict=state_dict,
-            #             storage_reader=storage_reader,
-            #             planner=load_planner,
-            #             process_group=shard_process_group,
-            #         )
-            #     else:
-            #         dist_cp.load_state_dict(
-            #             state_dict=state_dict,
-            #             storage_reader=storage_reader,
-            #             planner=load_planner,
-            #             process_group=shard_process_group,
-            #         )
+            if expect_file:
+                if False and version.parse(torch.__version__) > version.parse('2.2.9'):
+                    dist_cp.load(  # type: ignore
+                        state_dict=state_dict,
+                        storage_reader=storage_reader,
+                        planner=load_planner,
+                        process_group=shard_process_group,
+                    )
+                else:
+                    dist_cp.load_state_dict(
+                        state_dict=state_dict,
+                        storage_reader=storage_reader,
+                        planner=load_planner,
+                        process_group=shard_process_group,
+                    )
 
 
             if device_mesh is not None and device_mesh.ndim == 2:
@@ -644,12 +639,14 @@ def load_sharded_checkpoint(
                         state_dict=state_dict,
                         storage_reader=storage_reader,
                         planner=load_planner,
+                        process_group=shard_process_group,
                     )
                 else:
                     dist_cp.load_state_dict(
                         state_dict=state_dict,
                         storage_reader=storage_reader,
                         planner=load_planner,
+                        process_group=shard_process_group,
                     )
 
 
