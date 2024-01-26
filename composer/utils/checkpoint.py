@@ -557,8 +557,9 @@ def load_sharded_checkpoint(
                             # Process with rank > 0 receives the object and writes the file
                             with open(full_path, 'wb') as f:
                                 f.write(received_file_object['content'])
-                    dist.barrier()  # Sync after every transfer to avoid timing out
+                    dist.barrier(group=replicate_process_group)  # Sync after every transfer to avoid timing out
                 log.debug(f'{os.listdir(self.destination_path)=}')
+                dist.barrier()
 
             # # 4. Verify all other ranks have downloaded files
             # if not first_replica:
