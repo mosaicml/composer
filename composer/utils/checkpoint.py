@@ -965,7 +965,7 @@ def get_save_filename(
     # else Trainer.save_folder / sharded_ckpt_prefix_dir / ba{batch}_rank{dist.get_global_rank()}.pt’
     # e.g. path/to/my/checkpoints/ep1-ba2/__1_0.distcp if torch >2 else its path/to/my/checkpoints/ep1-ba2/b2-rank1.pt
     ckpt_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME if using_torch_2() else format_name_with_dist_and_time(
-        Path(filename).name, state.run_name, gstate.timestamp)
+        Path(filename).name, state.run_name, state.timestamp)
     return str(Path(save_dirpath) / Path(ckpt_filename))
 
 
