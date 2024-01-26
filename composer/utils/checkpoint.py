@@ -516,7 +516,7 @@ def load_sharded_checkpoint(
 
                 # Busy wait with file lock to avoid dist timeout for large checkpoints
                 signal_file_path = os.path.join(os.path.dirname(self.destination_path),
-                                            f'.node_{dist.get_node_rank()}_transfer')
+                                                f'.node_{dist.get_node_rank()}_transfer')
                 if dist.get_local_rank() == 0:
                     # Once rank 0 is done, it writes file to unblock all ranks
                     os.makedirs(os.path.dirname(signal_file_path), exist_ok=True)
