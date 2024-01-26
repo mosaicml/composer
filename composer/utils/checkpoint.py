@@ -493,37 +493,39 @@ def load_sharded_checkpoint(
             dist.barrier()
             log.debug('Done waiting for all ranks to finish downloading files.')
 
-            # # 3. Broadcast files to all other replicas if HSDP
-            # if device_mesh is not None and device_mesh.ndim == 2:
-            #     # Broadcast file to all replicas. Assume replica size is at least 1 node
-            #     replicate_process_group = device_mesh.get_group(0)  # Replicate replicate_process_group
-            #     shard_size = device_mesh.size(1)
+            # 3. Broadcast files to all other replicas if HSDP
+            if device_mesh is not None and device_mesh.ndim == 2:
+                # Broadcast file to all replicas. Assume replica size is at least 1 node
+                replicate_process_group = device_mesh.get_group(0)  # Replicate replicate_process_group
+                shard_size = device_mesh.size(1)
                 
-            #     # Send list of files to all ranks
-            #     download_path = str(Path(rank0_download_tempdir) / Path('checkpoints'))
-            #     file_list = [list(sorted(os.listdir(download_path)))]
-            #     dist.broadcast_object_list(file_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
-            #     file_list = file_list[0]
-            #     log.debug(f'{file_list=}')
+                # Send list of files to all ranks
+                download_path = str(Path(rank0_download_tempdir) / Path('checkpoints'))
+                file_list = [list(sorted(os.listdir(download_path)))]
+                dist.broadcast_object_list(file_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
+                file_list = file_list[0]
+                log.debug(f'{file_list=}')
 
-            #     # Send each file to the appropriate rank
-            #     for file_name in file_list:
-            #         if dist.get_local_rank() == 0:
-            #             full_path = os.path.join(download_path, file_name)
-            #             log.debug(f'Transferring {full_path=}')
-            #             file_object = [None]
-            #             if dist.get_global_rank() % shard_size == dist.get_global_rank():
-            #                 # Process with rank 0 reads the file and prepares the object
-            #                 with open(full_path, 'rb') as f:
-            #                     file_object = [{"content": f.read()}]
-            #             dist.broadcast_object_list(file_object, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
-            #             received_file_object = file_object[0]
-            #             if dist.get_global_rank() % shard_size != dist.get_global_rank():
-            #                 # Process with rank > 0 receives the object and writes the file
-            #                 with open(full_path, 'wb') as f:
-            #                     f.write(received_file_object["content"])
-            #         dist.barrier()  # Sync after every transfer to avoid timing out
-            #     log.debug(f'{os.listdir(download_path)=}')
+                # Send each file to the appropriate rank
+                for file_name in file_list:
+                    if 'metadata' not in file_name:
+                        continue
+                    if dist.get_local_rank() == 0:
+                        full_path = os.path.join(download_path, file_name)
+                        log.debug(f'Transferring {full_path=}')
+                        file_object = [None]
+                        if dist.get_global_rank() % shard_size == dist.get_global_rank():
+                            # Process with rank 0 reads the file and prepares the object
+                            with open(full_path, 'rb') as f:
+                                file_object = [{"content": f.read()}]
+                        dist.broadcast_object_list(file_object, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
+                        received_file_object = file_object[0]
+                        if dist.get_global_rank() % shard_size != dist.get_global_rank():
+                            # Process with rank > 0 receives the object and writes the file
+                            with open(full_path, 'wb') as f:
+                                f.write(received_file_object["content"])
+                    dist.barrier()  # Sync after every transfer to avoid timing out
+                log.debug(f'{os.listdir(download_path)=}')
 
             # 4. Verify all other ranks have downloaded files
             if not first_replica:
