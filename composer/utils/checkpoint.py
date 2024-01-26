@@ -467,11 +467,11 @@ def load_sharded_checkpoint(
                     file_destination = str(Path(self.destination_path) / Path(relative_file_path))
                     # The file could have already been downloaded as different plan items can point to same file.
                     if not os.path.exists(file_destination):
-                        log.debug(
-                            f'Rank {dist.get_global_rank()} downloading {relative_file_path} to {file_destination}.')
+                        log.debug(f'Downloading {relative_file_path} to {file_destination}.')
                         self.object_store.download_object(object_name=str(
                             Path(self.source_path) / Path(relative_file_path)),
                                                           filename=file_destination)
+                        log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
 
             # 2. Wait for all ranks to finish.
             log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
