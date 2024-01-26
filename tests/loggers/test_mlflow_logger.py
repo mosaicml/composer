@@ -580,8 +580,6 @@ def test_mlflow_log_image_works(tmp_path, device):
 
 @device('cpu')
 def test_mlflow_ignore_metrics(tmp_path, device):
-    mlflow = pytest.importorskip('mlflow')
-
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
     experiment_name = 'mlflow_logging_test'
     test_mlflow_logger = MLFlowLogger(
@@ -590,8 +588,6 @@ def test_mlflow_ignore_metrics(tmp_path, device):
         log_system_metrics=False,
         ignore_metrics=['metrics/eval/*', 'nothing/should/match', 'metrics/train/CrossEntropy'],
     )
-    # Reduce the system metrics sampling interval to speed up the test.
-    mlflow.set_system_metrics_sampling_interval(1)
 
     dataset_size = 64
     batch_size = 4
@@ -640,37 +636,28 @@ def test_mlflow_ignore_metrics(tmp_path, device):
     metric_file = run_file_path / Path('metrics') / Path('system/cpu_utilization_percentage')
     assert not os.path.exists(metric_file)
 
-    # Undo the setup to avoid affecting other test cases.
-    mlflow.set_system_metrics_sampling_interval(None)
-
 
 @device('cpu')
 def test_mlflow_ignore_hyperparameters(tmp_path, device):
-    mlflow = pytest.importorskip('mlflow')
-
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
     experiment_name = 'mlflow_logging_test'
     test_mlflow_logger = MLFlowLogger(tracking_uri=mlflow_uri,
                                       experiment_name=experiment_name,
+                                      log_system_metrics=False,
                                       ignore_hyperparameters=['num*', 'mlflow_run_id', 'nothing'])
-    # Reduce the system metrics sampling interval to speed up the test.
-    mlflow.set_system_metrics_sampling_interval(1)
 
     dataset_size = 64
     batch_size = 4
     num_batches = 4
     eval_interval = '1ba'
 
-    trainer = Trainer(model=SimpleConvModel(),
-                      loggers=test_mlflow_logger,
-                      train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
-                      eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
-                      max_duration=f'{num_batches}ba',
-                      eval_interval=eval_interval,
-                      device=device)
-    trainer.fit()
-    # Allow async logging to finish.
-    time.sleep(3)
+    Trainer(model=SimpleConvModel(),
+            loggers=test_mlflow_logger,
+            train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
+            eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
+            max_duration=f'{num_batches}ba',
+            eval_interval=eval_interval,
+            device=device)
     test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(
@@ -695,6 +682,3 @@ def test_mlflow_ignore_hyperparameters(tmp_path, device):
         'mlflow_experiment_id',
     ]
     assert set(expected_params_list) == set(actual_params_list)
-
-    # Undo the setup to avoid affecting other test cases.
-    mlflow.set_system_metrics_sampling_interval(None)
