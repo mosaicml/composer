@@ -78,15 +78,11 @@ def patch_pytorch():
         from torch.distributed.fsdp import _runtime_utils
         _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
 
-        # Disable validation for all_gather, which is buggy for loading sharded checkpoints
-        from torch.distributed import distributed_c10d
-        distributed_c10d._validate_output_list_for_rank = lambda *args, **kwargs: None
-
-        # Monkeypath state_dict
+        # Monkeypatch state_dict
         from composer.trainer.mosaic_fsdp_utils import init_fn_t2p2p0
         FullyShardedDataParallel.__init__ = init_fn_t2p2p0
 
-        # Monkeypath state_dict
+        # Monkeypatch state_dict
         from torch.distributed.checkpoint import state_dict  # type: ignore
 
         from composer.trainer.mosaic_fsdp_utils import _verify_options_t2p2p0

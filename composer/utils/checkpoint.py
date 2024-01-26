@@ -418,52 +418,8 @@ def load_sharded_checkpoint(
                     continue
                 _ensure_valid_checkpoint(data_path)
                 validated_checkpoint_paths.add(data_path)
-            log.debug('Finished validation')
 
             return super().read_data(plan, planner)
-
-            # import io
-            # from torch.distributed.checkpoint.planner import LoadItemType
-            # from torch.distributed._shard._utils import narrow_tensor_by_index
-            # from torch.futures import Future
-
-            # # group requests by file
-            # per_file = dict()
-            # for read_item in plan.items:
-            #     item_md = self.storage_data[read_item.storage_index]
-            #     path = item_md.relative_path
-            #     per_file.setdefault(path, []).append(read_item)
-
-            # log.debug('Read data')
-            # for relative_path, reqs in per_file.items():
-            #     log.debug(f'Reading {relative_path=}, {reqs=}')
-            #     with (self.path / relative_path).open("rb") as file:
-            #         # TODO sort by offset and cache the reading
-            #         for req in reqs:
-            #             log.debug(f'Reading {req=}, {req.type=}')
-            #             item_md = self.storage_data[req.storage_index]
-            #             file_slice = self._slice_file(file, item_md)
-            #             if req.type == LoadItemType.BYTE_IO:
-            #                 read_bytes = io.BytesIO(file_slice.read(item_md.length))
-            #                 read_bytes.seek(0)
-            #                 planner.load_bytes(req, read_bytes)
-            #             else:
-            #                 tensor = torch.load(file_slice, map_location="cpu")
-            #                 tensor = narrow_tensor_by_index(
-            #                     tensor, req.storage_offsets, req.lengths
-            #                 )
-            #                 target_tensor = planner.resolve_tensor(req).detach()
-
-            #                 assert (
-            #                     target_tensor.size() == tensor.size()
-            #                 ), f"req {req.storage_index} mismatch sizes {target_tensor.size()} vs {tensor.size()}"
-            #                 target_tensor.copy_(tensor)
-            #                 planner.commit_tensor(req, target_tensor)
-
-            # log.debug('Finished reading data')
-            # fut: Future = Future()
-            # fut.set_result(None)
-            # return fut
 
         def read_metadata(self) -> Metadata:
             """Reads metadata file.
@@ -561,29 +517,7 @@ def load_sharded_checkpoint(
                 dist.barrier()
                 log.debug(f'Local checkpoint files: {os.listdir(self.destination_path)}')
 
-            # # 4. Verify all other ranks have downloaded files
-            # if not first_replica:
-            #     log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
-            #     # 1. Download to the destination all files that this rank is responsible for.
-            #     for plan_item in plan.items:
-            #         # Each plan item has a storage index which points to the relative path of the shard file at save time.
-            #         relative_file_path = self.storage_data[plan_item.storage_index].relative_path
-            #         # Download the shard file to the relative path it's associated to and save that relative path
-            #         # to the root directory specified to the FileSystem reader constructor.
-            #         file_destination = str(Path(self.destination_path) / Path(relative_file_path))
-            #         # The file could have already been downloaded as diffeent plan items can point to same file.
-            #         if not os.path.exists(file_destination):
-            #             log.debug(f'Rank {dist.get_global_rank()} downloading {relative_file_path} to {file_destination}.')
-            #             self.object_store.download_object(object_name=str(
-            #                 Path(self.source_path) / Path(relative_file_path)),
-            #                                             filename=file_destination)
-
-            # # 5. Wait for all ranks to finish.
-            # log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
-            # dist.barrier()
-            # log.debug('Done waiting for all ranks to finish downloading files.')
-
-            # 6. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
+            # 4. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
             return super().read_data(plan, planner)
 
     # Check to make sure source_path is a directory.
