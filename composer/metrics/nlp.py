@@ -1035,9 +1035,9 @@ class MTBenchJudge(InContextLearningMetric):
         self.add_state('all_scores', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
-        categories = ["math", "reasoning", "stem", "humanities", "extraction", "coding", "roleply", "writing"]
+        categories = ['math', 'reasoning', 'stem', 'humanities', 'extraction', 'coding', 'roleply', 'writing']
         for category in categories:
-            for metric_to_add in ["score", "total"]:
+            for metric_to_add in ['score', 'total']:
                 self.add_state(f'{category}_{metric_to_add}', default=torch.tensor(0.), dist_reduce_fx='sum')
         # self.add_state('math_score', default=torch.tensor(0.), dist_reduce_fx='sum')
         # self.add_state('math_total', default=torch.tensor(0.), dist_reduce_fx='sum')
@@ -1210,7 +1210,6 @@ class MTBenchJudge(InContextLearningMetric):
             self.second_prompt_score += score
 
         self.all_scores += torch.tensor(score)
-
 
     def compute(self):
         super().compute()
