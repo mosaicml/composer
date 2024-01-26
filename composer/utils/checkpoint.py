@@ -560,7 +560,7 @@ def load_sharded_checkpoint(
 
             # Monkeypatch
             def gather_object(self, object):
-                print(f'{object=}, {self.is_coordinator=}, {self.coordinator_rank=}, {self.rank=}')
+                log.info(f'{object=}, {self.is_coordinator=}, {self.coordinator_rank=}, {self.rank=}')
                 """Implement functionality similar to c10d::gather_object but without distributed enabled."""
                 if self.use_dist:
                     gather_objs = (
