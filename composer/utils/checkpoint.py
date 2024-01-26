@@ -508,8 +508,6 @@ def load_sharded_checkpoint(
 
                 # Send each file to the appropriate rank
                 for file_name in file_list:
-                    if 'metadata' not in file_name:
-                        continue
                     if dist.get_local_rank() == 0:
                         full_path = os.path.join(download_path, file_name)
                         log.debug(f'Transferring {full_path=}')
@@ -525,7 +523,7 @@ def load_sharded_checkpoint(
                             with open(full_path, 'wb') as f:
                                 f.write(received_file_object["content"])
                         import hashlib
-                        log.info(f'md5sum of {full_path=} is {hashlib.md5(open(file_name, "rb").read()).hexdigest()}')
+                    log.info(f'md5sum of {full_path=} is {hashlib.md5(open(file_name, "rb").read()).hexdigest()}')
                     dist.barrier()  # Sync after every transfer to avoid timing out
                 log.debug(f'{os.listdir(download_path)=}')
 
