@@ -864,9 +864,9 @@ def write_huggingface_pretrained_from_composer_checkpoint(
     weights_state_dict = composer_state_dict['state']['model']
     torch.nn.modules.utils.consume_prefix_in_state_dict_if_present(weights_state_dict, prefix='model.')
 
-    # NOTE: This only works for default adapter name
+    # NOTE: This only works for default adapter name, not multiple adapters
     if peft_config is not None:
-        weights_state_dict = filter_state_dict_peft(weights_state_dict, peft_config)
+        weights_state_dict = filter_state_dict_peft(weights_state_dict, peft_config, adapter_name='default')
 
         torch.save(weights_state_dict, Path(output_folder) / 'adapter_model.bin')
     else:
@@ -875,6 +875,7 @@ def write_huggingface_pretrained_from_composer_checkpoint(
 
 def filter_state_dict_peft(state_dict: Dict[str, Any],
                            peft_config: 'PeftConfig',
+                           adapter_name: str = 'default',
                            remove_adapter_names: bool = True) -> Dict[str, Any]:
     """Filter a state dict to only include the weights needed for a PEFT model
 
@@ -908,8 +909,8 @@ def filter_state_dict_peft(state_dict: Dict[str, Any],
                     to_return[bias_name] = state_dict[bias_name]
     else:
         raise NotImplementedError
-    to_return = {k: v for k, v in to_return.items() if (('lora_' in k and 'default' in k) or ('bias' in k))}
+    to_return = {k: v for k, v in to_return.items() if (('lora_' in k and adapter_name in k) or ('bias' in k))}
 
     if remove_adapter_names:
-        to_return = {k.replace(f'.default', ''): v for k, v in to_return.items()}
+        to_return = {k.replace(f'.{adapter_name}', ''): v for k, v in to_return.items()}
     return to_return
