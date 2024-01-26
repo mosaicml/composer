@@ -646,28 +646,17 @@ def test_mlflow_ignore_hyperparameters(tmp_path, device):
                                       log_system_metrics=False,
                                       ignore_hyperparameters=['num*', 'mlflow_run_id', 'nothing'])
 
-    dataset_size = 64
-    batch_size = 4
-    num_batches = 4
-    eval_interval = '1ba'
 
     Trainer(model=SimpleConvModel(),
             loggers=test_mlflow_logger,
-            train_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
-            eval_dataloader=DataLoader(RandomImageDataset(size=dataset_size), batch_size),
-            max_duration=f'{num_batches}ba',
-            eval_interval=eval_interval,
-            device=device)
+            max_duration=f'4ba')
     test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(
         experiment_name=experiment_name,
         tracking_uri=mlflow_uri,
     )
-    run_id = run.info.run_id
-    experiment_id = run.info.experiment_id
-
-    run_file_path = mlflow_uri / Path(experiment_id) / Path(run_id)
+    run_file_path = mlflow_uri / Path(run.info.experiment_id) / Path(run.info.run_id)
 
     # Test params logged.
     param_path = run_file_path / Path('params')
