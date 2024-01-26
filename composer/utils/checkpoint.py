@@ -541,12 +541,12 @@ def load_sharded_checkpoint(
                 state_dict['state'] = state_dict.get('state', {})
 
             # Only some ranks are meant to load checkpoint
-            expect_file = False
+            first_replica = False
             process_group = None
             device_mesh = state.fsdp_device_mesh
             if device_mesh is not None and device_mesh.ndim == 2:
                 # If hybrid shard, only rank in first replica saves
-                expect_file = (device_mesh.get_local_rank(mesh_dim=0) == 0)
+                first_replica = (device_mesh.get_local_rank(mesh_dim=0) == 0)
                 # if expect_file:
                 #     process_group = device_mesh.get_group(1)  # Shard process_group for first replica
                 #     storage_reader.process_group = process_group
@@ -556,7 +556,7 @@ def load_sharded_checkpoint(
                 import torch.distributed.distributed_c10d as dist_torch
                 log.info(f'Ranks: {dist_torch._world.pg_group_ranks[shard_process_group]}')
             else:
-                expect_file = True
+                first_replica = True
 
             # Monkeypatch
             def gather_object(self, object):
@@ -581,8 +581,7 @@ def load_sharded_checkpoint(
                 return result
             dist_cp.utils._DistWrapper.gather_object = gather_object
             
-
-            if expect_file:
+            if first_replica:
                 if False and version.parse(torch.__version__) > version.parse('2.2.9'):
                     dist_cp.load(  # type: ignore
                         state_dict=state_dict,
@@ -633,7 +632,7 @@ def load_sharded_checkpoint(
                 log.debug(f'{os.listdir(download_path)=}')
 
             # Load on all but first replica
-            if not expect_file:
+            if not first_replica:
                 if False and version.parse(torch.__version__) > version.parse('2.2.9'):
                     dist_cp.load(  # type: ignore
                         state_dict=state_dict,
