@@ -474,7 +474,7 @@ def get_lm_trainer(hf_model,
                    sequence_length: int = 4,
                    size: int = 4,
                    peft_config: Optional['PeftConfig'] = None,
-                   just_lora: bool = False):
+                   should_filter_state_dict_peft: bool = False):
     transformers = pytest.importorskip('transformers')
 
     metrics: List[Metric] = [LanguageCrossEntropy(ignore_index=-100)]
