@@ -558,28 +558,28 @@ def load_sharded_checkpoint(
             else:
                 expect_file = True
 
-            # Monkeypatch
-            def gather_object(self, object):
-                print(f'global_rank={dist.get_global_rank()}, {self.is_coordinator=}, {self.coordinator_rank=}, {self.rank=}')
-                """Implement functionality similar to c10d::gather_object but without distributed enabled."""
-                if self.use_dist:
-                    gather_objs = (
-                        [None] * torch.distributed.get_world_size(self.group)
-                        if self.is_coordinator
-                        else None
-                    )
+            # # Monkeypatch
+            # def gather_object(self, object):
+            #     print(f'global_rank={dist.get_global_rank()}, {self.is_coordinator=}, {self.coordinator_rank=}, {self.rank=}')
+            #     """Implement functionality similar to c10d::gather_object but without distributed enabled."""
+            #     if self.use_dist:
+            #         gather_objs = (
+            #             [None] * torch.distributed.get_world_size(self.group)
+            #             if self.is_coordinator
+            #             else None
+            #         )
 
-                    torch.distributed.gather_object(
-                        obj=object,
-                        object_gather_list=gather_objs if self.is_coordinator else None,
-                        dst=self.coordinator_rank,
-                        group=self.group,
-                    )
-                    result = gather_objs
-                else:
-                    result = [object]
-                return result
-            dist_cp.utils._DistWrapper.gather_object = gather_object
+            #         torch.distributed.gather_object(
+            #             obj=object,
+            #             object_gather_list=gather_objs if self.is_coordinator else None,
+            #             dst=self.coordinator_rank,
+            #             group=self.group,
+            #         )
+            #         result = gather_objs
+            #     else:
+            #         result = [object]
+            #     return result
+            # dist_cp.utils._DistWrapper.gather_object = gather_object
             
 
             if expect_file:
