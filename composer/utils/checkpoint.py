@@ -453,20 +453,24 @@ def load_sharded_checkpoint(
             super().__init__(destination_path)
 
         def read_data(self, plan: LoadPlan, planner: LoadPlanner):
-            log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
-            # 1. Download to the destination all files that this rank is responsible for.
-            for plan_item in plan.items:
-                # Each plan item has a storage index which points to the relative path of the shard file at save time.
-                relative_file_path = self.storage_data[plan_item.storage_index].relative_path
-                # Download the shard file to the relative path it's associated to and save that relative path
-                # to the root directory specified to the FileSystem reader constructor.
-                file_destination = str(Path(self.destination_path) / Path(relative_file_path))
-                # The file could have already been downloaded as diffeent plan items can point to same file.
-                if not os.path.exists(file_destination):
-                    log.debug(f'Rank {dist.get_global_rank()} downloading {relative_file_path} to {file_destination}.')
-                    self.object_store.download_object(object_name=str(
-                        Path(self.source_path) / Path(relative_file_path)),
-                                                      filename=file_destination)
+            device_mesh = state.fsdp_device_mesh
+            first_replica = device_mesh is None or device_mesh.get_local_rank(mesh_dim=0) == 0
+
+            if first_replica:
+                log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
+                # 1. Download to the destination all files that this rank is responsible for.
+                for plan_item in plan.items:
+                    # Each plan item has a storage index which points to the relative path of the shard file at save time.
+                    relative_file_path = self.storage_data[plan_item.storage_index].relative_path
+                    # Download the shard file to the relative path it's associated to and save that relative path
+                    # to the root directory specified to the FileSystem reader constructor.
+                    file_destination = str(Path(self.destination_path) / Path(relative_file_path))
+                    # The file could have already been downloaded as diffeent plan items can point to same file.
+                    if not os.path.exists(file_destination):
+                        log.debug(f'Rank {dist.get_global_rank()} downloading {relative_file_path} to {file_destination}.')
+                        self.object_store.download_object(object_name=str(
+                            Path(self.source_path) / Path(relative_file_path)),
+                                                        filename=file_destination)
 
             # 2. Wait for all ranks to finish.
             log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
@@ -489,7 +493,6 @@ def load_sharded_checkpoint(
             dist.barrier()
 
             # 3. Broadcast files to all other replicas if HSDP
-            device_mesh = state.fsdp_device_mesh
             if device_mesh is not None and device_mesh.ndim == 2:
                 # Broadcast file to all replicas. Assume replica size is at least 1 node
                 replicate_process_group = device_mesh.get_group(0)  # Replicate replicate_process_group
@@ -1047,7 +1050,7 @@ def _save_checkpoint(
         device_mesh = state.fsdp_device_mesh
         if device_mesh is not None and device_mesh.ndim == 2:
             # If hybrid shard, only rank in first replica saves
-            expect_file = (device_mesh.get_local_rank(mesh_dim=0) == 0)
+            expect_file = device_mesh.get_local_rank(mesh_dim=0) == 0
             if expect_file:
                 process_group = device_mesh.get_group(1)  # Shard process_group for first replica
                 log.debug(f'Saving on global_rank={dist.get_global_rank()}, {expect_file=}')
