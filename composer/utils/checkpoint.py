@@ -456,9 +456,9 @@ def load_sharded_checkpoint(
             device_mesh = state.fsdp_device_mesh
             first_replica = device_mesh is None or device_mesh.get_local_rank(mesh_dim=0) == 0
 
+            # 1. Download to the destination all files this rank needs if on first replica
             if first_replica:
                 log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
-                # 1. Download to the destination all files that this rank is responsible for.
                 for plan_item in plan.items:
                     # Each plan item has a storage index which points to the relative path of the shard file at save time.
                     relative_file_path = self.storage_data[plan_item.storage_index].relative_path
@@ -490,47 +490,48 @@ def load_sharded_checkpoint(
                 log.debug(f'{file_list=}')
 
                 # Send each file to the appropriate rank
+                import hashlib
                 for file_name in file_list:
                     if dist.get_local_rank() == 0:
                         full_path = os.path.join(self.destination_path, file_name)
                         log.debug(f'Transferring {full_path=}')
                         file_object = [None]
                         if dist.get_global_rank() % shard_size == dist.get_global_rank():
+                            log.debug(f'md5sum of {full_path=} is {hashlib.md5(open(file_name, "rb").read()).hexdigest()}')
                             # Process with rank 0 reads the file and prepares the object
                             with open(full_path, 'rb') as f:
                                 file_object = [{"content": f.read()}]
                         dist.broadcast_object_list(file_object, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
                         received_file_object = file_object[0]
                         if dist.get_global_rank() % shard_size != dist.get_global_rank():
+                            log.debug(f'md5sum of {full_path=} is {hashlib.md5(open(file_name, "rb").read()).hexdigest()}')
                             # Process with rank > 0 receives the object and writes the file
                             with open(full_path, 'wb') as f:
                                 f.write(received_file_object["content"])
-                        # import hashlib
-                        # log.info(f'md5sum of {full_path=} is {hashlib.md5(open(file_name, "rb").read()).hexdigest()}')
                     dist.barrier()  # Sync after every transfer to avoid timing out
                 log.debug(f'{os.listdir(self.destination_path)=}')
 
-            # 4. Verify all other ranks have downloaded files
-            if not first_replica:
-                log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
-                # 1. Download to the destination all files that this rank is responsible for.
-                for plan_item in plan.items:
-                    # Each plan item has a storage index which points to the relative path of the shard file at save time.
-                    relative_file_path = self.storage_data[plan_item.storage_index].relative_path
-                    # Download the shard file to the relative path it's associated to and save that relative path
-                    # to the root directory specified to the FileSystem reader constructor.
-                    file_destination = str(Path(self.destination_path) / Path(relative_file_path))
-                    # The file could have already been downloaded as diffeent plan items can point to same file.
-                    if not os.path.exists(file_destination):
-                        log.debug(f'Rank {dist.get_global_rank()} downloading {relative_file_path} to {file_destination}.')
-                        self.object_store.download_object(object_name=str(
-                            Path(self.source_path) / Path(relative_file_path)),
-                                                        filename=file_destination)
+            # # 4. Verify all other ranks have downloaded files
+            # if not first_replica:
+            #     log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
+            #     # 1. Download to the destination all files that this rank is responsible for.
+            #     for plan_item in plan.items:
+            #         # Each plan item has a storage index which points to the relative path of the shard file at save time.
+            #         relative_file_path = self.storage_data[plan_item.storage_index].relative_path
+            #         # Download the shard file to the relative path it's associated to and save that relative path
+            #         # to the root directory specified to the FileSystem reader constructor.
+            #         file_destination = str(Path(self.destination_path) / Path(relative_file_path))
+            #         # The file could have already been downloaded as diffeent plan items can point to same file.
+            #         if not os.path.exists(file_destination):
+            #             log.debug(f'Rank {dist.get_global_rank()} downloading {relative_file_path} to {file_destination}.')
+            #             self.object_store.download_object(object_name=str(
+            #                 Path(self.source_path) / Path(relative_file_path)),
+            #                                             filename=file_destination)
                         
-            # 5. Wait for all ranks to finish.
-            log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
-            dist.barrier()
-            log.debug('Done waiting for all ranks to finish downloading files.')
+            # # 5. Wait for all ranks to finish.
+            # log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
+            # dist.barrier()
+            # log.debug('Done waiting for all ranks to finish downloading files.')
 
             # 6. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
             return super().read_data(plan, planner)
