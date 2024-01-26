@@ -365,7 +365,6 @@ def _print_process_exit_status(global_rank: int, process: subprocess.Popen):
         process.returncode,
         cmd=process.args,
         output=output,
-        stderr=output,
     )
 
     error_msg = [f'Global rank {global_rank} (PID {process.pid}) exited with code {process.returncode}']
