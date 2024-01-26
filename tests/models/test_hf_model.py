@@ -1242,7 +1242,8 @@ def test_peft_init_not_installed(tiny_gpt2_model, gpt2_peft_config):
 
 
 @pytest.mark.parametrize('should_filter_state_dict_peft', [True, False])
-def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, should_filter_state_dict_peft):
+def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path,
+                               should_filter_state_dict_peft):
     pytest.importorskip('peft')
 
     trainer = get_lm_trainer(
@@ -1303,7 +1304,8 @@ def test_peft_metadata(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config):
 
 
 @pytest.mark.parametrize('should_filter_state_dict_peft', [True, False])
-def test_peft_write_hf_from_composer(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, should_filter_state_dict_peft):
+def test_peft_write_hf_from_composer(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path,
+                                     should_filter_state_dict_peft):
     peft = pytest.importorskip('peft')
     transformers = pytest.importorskip('transformers')
 
@@ -1342,7 +1344,8 @@ def test_peft_write_hf_from_composer(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_
 @pytest.mark.parametrize('should_filter_state_dict_peft', [True, False])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
-def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, world_size, should_filter_state_dict_peft):
+def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, world_size,
+                          should_filter_state_dict_peft):
     pytest.importorskip('peft')
 
     fsdp_config = {
