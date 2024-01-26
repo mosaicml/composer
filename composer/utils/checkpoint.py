@@ -456,6 +456,7 @@ def load_sharded_checkpoint(
             device_mesh = state.fsdp_device_mesh
             first_replica = device_mesh is None or device_mesh.get_local_rank(mesh_dim=0) == 0
 
+            log.info(f'{first_replica=}, {device_mesh is None=}, {device_mesh.get_local_rank(mesh_dim=0)=}')
             if first_replica:
                 log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
                 # 1. Download to the destination all files that this rank is responsible for.
