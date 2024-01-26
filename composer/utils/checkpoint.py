@@ -420,50 +420,50 @@ def load_sharded_checkpoint(
                 validated_checkpoint_paths.add(data_path)
             log.debug('Finished validation')
 
-            # return super().read_data(plan, planner)
+            return super().read_data(plan, planner)
 
-            import io
-            from torch.distributed.checkpoint.planner import LoadItemType
-            from torch.distributed._shard._utils import narrow_tensor_by_index
-            from torch.futures import Future
+            # import io
+            # from torch.distributed.checkpoint.planner import LoadItemType
+            # from torch.distributed._shard._utils import narrow_tensor_by_index
+            # from torch.futures import Future
 
-            # group requests by file
-            per_file = dict()
-            for read_item in plan.items:
-                item_md = self.storage_data[read_item.storage_index]
-                path = item_md.relative_path
-                per_file.setdefault(path, []).append(read_item)
+            # # group requests by file
+            # per_file = dict()
+            # for read_item in plan.items:
+            #     item_md = self.storage_data[read_item.storage_index]
+            #     path = item_md.relative_path
+            #     per_file.setdefault(path, []).append(read_item)
 
-            log.debug('Read data')
-            for relative_path, reqs in per_file.items():
-                log.debug(f'Reading {relative_path=}, {reqs=}')
-                with (self.path / relative_path).open("rb") as file:
-                    # TODO sort by offset and cache the reading
-                    for req in reqs:
-                        log.debug(f'Reading {req=}, {req.type=}')
-                        item_md = self.storage_data[req.storage_index]
-                        file_slice = self._slice_file(file, item_md)
-                        if req.type == LoadItemType.BYTE_IO:
-                            read_bytes = io.BytesIO(file_slice.read(item_md.length))
-                            read_bytes.seek(0)
-                            planner.load_bytes(req, read_bytes)
-                        else:
-                            tensor = torch.load(file_slice, map_location="cpu")
-                            tensor = narrow_tensor_by_index(
-                                tensor, req.storage_offsets, req.lengths
-                            )
-                            target_tensor = planner.resolve_tensor(req).detach()
+            # log.debug('Read data')
+            # for relative_path, reqs in per_file.items():
+            #     log.debug(f'Reading {relative_path=}, {reqs=}')
+            #     with (self.path / relative_path).open("rb") as file:
+            #         # TODO sort by offset and cache the reading
+            #         for req in reqs:
+            #             log.debug(f'Reading {req=}, {req.type=}')
+            #             item_md = self.storage_data[req.storage_index]
+            #             file_slice = self._slice_file(file, item_md)
+            #             if req.type == LoadItemType.BYTE_IO:
+            #                 read_bytes = io.BytesIO(file_slice.read(item_md.length))
+            #                 read_bytes.seek(0)
+            #                 planner.load_bytes(req, read_bytes)
+            #             else:
+            #                 tensor = torch.load(file_slice, map_location="cpu")
+            #                 tensor = narrow_tensor_by_index(
+            #                     tensor, req.storage_offsets, req.lengths
+            #                 )
+            #                 target_tensor = planner.resolve_tensor(req).detach()
 
-                            assert (
-                                target_tensor.size() == tensor.size()
-                            ), f"req {req.storage_index} mismatch sizes {target_tensor.size()} vs {tensor.size()}"
-                            target_tensor.copy_(tensor)
-                            planner.commit_tensor(req, target_tensor)
+            #                 assert (
+            #                     target_tensor.size() == tensor.size()
+            #                 ), f"req {req.storage_index} mismatch sizes {target_tensor.size()} vs {tensor.size()}"
+            #                 target_tensor.copy_(tensor)
+            #                 planner.commit_tensor(req, target_tensor)
 
-            log.debug('Finished reading data')
-            fut: Future = Future()
-            fut.set_result(None)
-            return fut
+            # log.debug('Finished reading data')
+            # fut: Future = Future()
+            # fut.set_result(None)
+            # return fut
 
         def read_metadata(self) -> Metadata:
             """Reads metadata file.
@@ -558,9 +558,8 @@ def load_sharded_checkpoint(
                             with open(full_path, 'wb') as f:
                                 f.write(received_file_object['content'])
                     # dist.barrier(group=replicate_process_group)  # Sync after every transfer to avoid timing out
-                log.debug(f'Pre barrier {os.listdir(self.destination_path)=}')
                 dist.barrier()
-                log.debug(f'Post barrier {os.listdir(self.destination_path)=}')
+                log.debug(f'Local checkpoint files: {os.listdir(self.destination_path)}')
 
             # # 4. Verify all other ranks have downloaded files
             # if not first_replica:
