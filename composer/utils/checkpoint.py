@@ -636,7 +636,7 @@ def load_sharded_checkpoint(
                 log.info(f'global_rank={dist.get_global_rank()}, {os.listdir(download_path)=}')
 
             # Reload on all ranks
-            if version.parse(torch.__version__) > version.parse('2.2.9'):
+            if False and version.parse(torch.__version__) > version.parse('2.2.9'):
                 dist_cp.load(  # type: ignore
                     state_dict=state_dict,
                     storage_reader=storage_reader,
