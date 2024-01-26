@@ -607,14 +607,14 @@ def load_sharded_checkpoint(
                 log.info(f'Ranks: {dist_torch._world.pg_group_ranks[replicate_process_group]}')
                 log.info(f'global_rank={dist.get_global_rank()}, {shard_size=}')
                 
+                # Send list of files to all ranks
                 download_path = str(Path(rank0_download_tempdir) / Path('checkpoints'))
-                # if dist.get_local_rank() == 0:
                 file_list = [list(os.listdir(download_path))]
-                # log.info(f'global_rank={dist.get_global_rank()}, {file_list=}')
                 dist.broadcast_object_list(file_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
                 file_list = file_list[0]
                 log.info(f'global_rank={dist.get_global_rank()}, {file_list=}')
 
+                # Send each file to the appropriate rank
                 for file_name in file_list:
                     if dist.get_local_rank() == 0:
                         full_path = os.path.join(download_path, file_name)
@@ -635,21 +635,19 @@ def load_sharded_checkpoint(
                     dist.barrier()  # Sync after every transfer to avoid timing out
                 log.info(f'global_rank={dist.get_global_rank()}, {os.listdir(download_path)=}')
 
-                if not expect_file:
-                    if False and version.parse(torch.__version__) > version.parse('2.2.9'):
-                        dist_cp.load(  # type: ignore
-                            state_dict=state_dict,
-                            storage_reader=storage_reader,
-                            planner=load_planner,
-                            process_group=shard_process_group,
-                        )
-                    else:
-                        dist_cp.load_state_dict(
-                            state_dict=state_dict,
-                            storage_reader=storage_reader,
-                            planner=load_planner,
-                            process_group=shard_process_group,
-                        )
+            # Reload on all ranks
+            if version.parse(torch.__version__) > version.parse('2.2.9'):
+                dist_cp.load(  # type: ignore
+                    state_dict=state_dict,
+                    storage_reader=storage_reader,
+                    planner=load_planner,
+                )
+            else:
+                dist_cp.load_state_dict(
+                    state_dict=state_dict,
+                    storage_reader=storage_reader,
+                    planner=load_planner,
+                )
 
 
 
