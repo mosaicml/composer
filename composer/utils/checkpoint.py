@@ -434,11 +434,11 @@ def load_sharded_checkpoint(
     # A subclass of FileSystemReaderWithValidation that downloads files from the object store before reading them from the local filesystem.
     class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
-        def __init__(self, source_path: str, destination_path: str, object_store, process_group = None):
+        def __init__(self, source_path: str, destination_path: str, object_store, device_mesh=None):
             self.source_path = source_path
             self.destination_path = destination_path
             self.object_store = object_store
-            self.process_group = process_group
+            self.device_mesh = device_mesh
 
             # Download metadata file.
             Path(self.destination_path).mkdir(parents=True, exist_ok=True)
@@ -487,8 +487,44 @@ def load_sharded_checkpoint(
 
             if dist.get_local_rank() == 0:
                 os.remove(signal_file_path)
+            dist.barrier()
 
-            # 3. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
+            # 3. Broadcast files to all other replicas
+
+            # Only some ranks are meant to load checkpoint
+            device_mesh = state.fsdp_device_mesh
+            if device_mesh is not None and device_mesh.ndim == 2:
+                # Broadcast file to all replicas. Assume replica size is at least 1 node
+                replicate_process_group = device_mesh.get_group(0)  # Replicate replicate_process_group
+                shard_size = device_mesh.size(1)
+                
+                # Send list of files to all ranks
+                download_path = str(Path(rank0_download_tempdir) / Path('checkpoints'))
+                file_list = [list(sorted(os.listdir(download_path)))]
+                dist.broadcast_object_list(file_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
+                file_list = file_list[0]
+                log.debug(f'{file_list=}')
+
+                # Send each file to the appropriate rank
+                for file_name in file_list:
+                    if dist.get_local_rank() == 0:
+                        full_path = os.path.join(download_path, file_name)
+                        log.debug(f'Transferring {full_path=}')
+                        file_object = [None]
+                        if dist.get_global_rank() % shard_size == dist.get_global_rank():
+                            # Process with rank 0 reads the file and prepares the object
+                            with open(full_path, 'rb') as f:
+                                file_object = [{"content": f.read()}]
+                        dist.broadcast_object_list(file_object, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
+                        received_file_object = file_object[0]
+                        if dist.get_global_rank() % shard_size != dist.get_global_rank():
+                            # Process with rank > 0 receives the object and writes the file
+                            with open(full_path, 'wb') as f:
+                                f.write(received_file_object["content"])
+                    dist.barrier()  # Sync after every transfer to avoid timing out
+                log.debug(f'{os.listdir(download_path)=}')
+
+            # 4. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
             return super().read_data(plan, planner)
 
     # Check to make sure source_path is a directory.
@@ -539,116 +575,19 @@ def load_sharded_checkpoint(
                 ignore_keys(state_dict)
                 # Ensure state exists
                 state_dict['state'] = state_dict.get('state', {})
-
-            # Only some ranks are meant to load checkpoint
-            first_replica = False
-            process_group = None
-            device_mesh = state.fsdp_device_mesh
-            if device_mesh is not None and device_mesh.ndim == 2:
-                # If hybrid shard, only rank in first replica saves
-                first_replica = (device_mesh.get_local_rank(mesh_dim=0) == 0)
-                # if expect_file:
-                #     process_group = device_mesh.get_group(1)  # Shard process_group for first replica
-                #     storage_reader.process_group = process_group
-                #     log.debug(f'Loading on global_rank={dist.get_global_rank()}, {expect_file=}')
-                shard_process_group = device_mesh.get_group(1)  # Shard process_group
-                storage_reader.process_group = shard_process_group
-                import torch.distributed.distributed_c10d as dist_torch
-                log.info(f'Ranks: {dist_torch._world.pg_group_ranks[shard_process_group]}')
-            else:
-                first_replica = True
-
-            # Monkeypatch
-            def gather_object(self, object):
-                log.info(f'{object=}, {self.is_coordinator=}, {self.coordinator_rank=}, {self.rank=}')
-                """Implement functionality similar to c10d::gather_object but without distributed enabled."""
-                if self.use_dist:
-                    gather_objs = (
-                        [None] * torch.distributed.get_world_size(self.group)
-                        if self.is_coordinator
-                        else None
-                    )
-
-                    torch.distributed.gather_object(
-                        obj=object,
-                        object_gather_list=gather_objs if self.is_coordinator else None,
-                        dst=self.coordinator_rank,
-                        group=self.group,
-                    )
-                    result = gather_objs
-                else:
-                    result = [object]
-                return result
-            dist_cp.utils._DistWrapper.gather_object = gather_object
             
-            if first_replica:
-                if False and version.parse(torch.__version__) > version.parse('2.2.9'):
-                    dist_cp.load(  # type: ignore
-                        state_dict=state_dict,
-                        storage_reader=storage_reader,
-                        planner=load_planner,
-                        process_group=shard_process_group,
-                    )
-                else:
-                    dist_cp.load_state_dict(
-                        state_dict=state_dict,
-                        storage_reader=storage_reader,
-                        planner=load_planner,
-                        process_group=shard_process_group,
-                    )
-
-
-            if device_mesh is not None and device_mesh.ndim == 2:
-                # Broadcast file to all replicas. Assume replica size is at least 1 node
-                replicate_process_group = device_mesh.get_group(0)  # Replicate replicate_process_group
-                replicate_size, shard_size = device_mesh.size(0), device_mesh.size(1)
-                import torch.distributed.distributed_c10d as dist_torch
-                log.info(f'Ranks: {dist_torch._world.pg_group_ranks[replicate_process_group]}, {shard_size=}')
-                
-                # Send list of files to all ranks
-                download_path = str(Path(rank0_download_tempdir) / Path('checkpoints'))
-                file_list = [list(sorted(os.listdir(download_path)))]
-                dist.broadcast_object_list(file_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
-                file_list = file_list[0]
-                log.debug(f'{file_list=}')
-
-                # Send each file to the appropriate rank
-                for file_name in file_list:
-                    if dist.get_local_rank() == 0:
-                        full_path = os.path.join(download_path, file_name)
-                        log.debug(f'Transferring {full_path=}')
-                        file_object = [None]
-                        if dist.get_global_rank() % shard_size == dist.get_global_rank():
-                            # Process with rank 0 reads the file and prepares the object
-                            with open(full_path, 'rb') as f:
-                                file_object = [{"content": f.read()}]
-                        dist.broadcast_object_list(file_object, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
-                        received_file_object = file_object[0]
-                        if dist.get_global_rank() % shard_size != dist.get_global_rank():
-                            # Process with rank > 0 receives the object and writes the file
-                            with open(full_path, 'wb') as f:
-                                f.write(received_file_object["content"])
-                    dist.barrier()  # Sync after every transfer to avoid timing out
-                log.debug(f'{os.listdir(download_path)=}')
-
-            # Load on all but first replica
-            if not first_replica:
-                if False and version.parse(torch.__version__) > version.parse('2.2.9'):
-                    dist_cp.load(  # type: ignore
-                        state_dict=state_dict,
-                        storage_reader=storage_reader,
-                        planner=load_planner,
-                        process_group=shard_process_group,
-                    )
-                else:
-                    dist_cp.load_state_dict(
-                        state_dict=state_dict,
-                        storage_reader=storage_reader,
-                        planner=load_planner,
-                        process_group=shard_process_group,
-                    )
-
-
+            if version.parse(torch.__version__) > version.parse('2.2.9'):
+                dist_cp.load(  # type: ignore
+                    state_dict=state_dict,
+                    storage_reader=storage_reader,
+                    planner=load_planner,
+                )
+            else:
+                dist_cp.load_state_dict(
+                    state_dict=state_dict,
+                    storage_reader=storage_reader,
+                    planner=load_planner,
+                )
 
             state.load_state_dict(
                 state_dict['state'],
