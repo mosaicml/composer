@@ -434,11 +434,10 @@ def load_sharded_checkpoint(
     # A subclass of FileSystemReaderWithValidation that downloads files from the object store before reading them from the local filesystem.
     class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
-        def __init__(self, source_path: str, destination_path: str, object_store, device_mesh=None):
+        def __init__(self, source_path: str, destination_path: str, object_store):
             self.source_path = source_path
             self.destination_path = destination_path
             self.object_store = object_store
-            self.device_mesh = device_mesh
 
             # Download metadata file.
             Path(self.destination_path).mkdir(parents=True, exist_ok=True)
@@ -483,15 +482,13 @@ def load_sharded_checkpoint(
             # node
             with dist.local_rank_zero_download_and_wait(signal_file_path):
                 # Then, wait to ensure every node has finished downloading the checkpoint
-                dist.barrier(group=self.process_group)
+                dist.barrier()
 
             if dist.get_local_rank() == 0:
                 os.remove(signal_file_path)
             dist.barrier()
 
-            # 3. Broadcast files to all other replicas
-
-            # Only some ranks are meant to load checkpoint
+            # 3. Broadcast files to all other replicas if HSDP
             device_mesh = state.fsdp_device_mesh
             if device_mesh is not None and device_mesh.ndim == 2:
                 # Broadcast file to all replicas. Assume replica size is at least 1 node
