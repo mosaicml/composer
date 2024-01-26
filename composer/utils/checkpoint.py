@@ -525,7 +525,7 @@ def load_sharded_checkpoint(
                     dist.barrier()  # Sync after every transfer to avoid timing out
                 log.debug(f'{os.listdir(download_path)=}')
 
-            # 3.5. Verify all other ranks have downloaded files
+            # 4. Verify all other ranks have downloaded files
             if not first_replica:
                 log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
                 # 1. Download to the destination all files that this rank is responsible for.
@@ -541,8 +541,29 @@ def load_sharded_checkpoint(
                         self.object_store.download_object(object_name=str(
                             Path(self.source_path) / Path(relative_file_path)),
                                                         filename=file_destination)
+                        
+            # 5. Wait for all ranks to finish.
+            log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
+            # Use busy wait to avoid timeouts on large downloads for non-sharded checkpoints
+            signal_file_path = os.path.join(self.destination_path,
+                                            f'.node_{dist.get_node_rank()}_local_rank0_completed')
+            if dist.get_local_rank() == 0:
+                with open(signal_file_path, 'wb') as f:
+                    f.write(b'local_rank0_completed')
 
-            # 4. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
+            # Avoid the collective call until the local rank zero has finished trying to download the
+            # checkpoint so that we don't timeout for large downloads. This syncs all processes on the
+            # node
+            with dist.local_rank_zero_download_and_wait(signal_file_path):
+                # Then, wait to ensure every node has finished downloading the checkpoint
+                dist.barrier()
+
+            if dist.get_local_rank() == 0:
+                os.remove(signal_file_path)
+            dist.barrier()
+            log.debug('Done waiting for all ranks to finish downloading files.')
+
+            # 6. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
             return super().read_data(plan, planner)
 
     # Check to make sure source_path is a directory.
