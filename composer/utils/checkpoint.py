@@ -492,6 +492,8 @@ def load_sharded_checkpoint(
                 # Send each file to the appropriate rank
                 import hashlib
                 for file_name in file_list:
+                    if 'metadata' in file_name:  # All ranks already have the metadata file
+                        continue
                     if dist.get_local_rank() == 0:
                         full_path = os.path.join(self.destination_path, file_name)
                         log.debug(f'Transferring {full_path=}')
@@ -508,7 +510,9 @@ def load_sharded_checkpoint(
                             # Process with rank > 0 receives the object and writes the file
                             with open(full_path, 'wb') as f:
                                 f.write(received_file_object["content"])
+                    log.debug('Finished transfering, enter barrier')
                     dist.barrier()  # Sync after every transfer to avoid timing out
+                    log.debug('Finished barrier')
                 log.debug(f'{os.listdir(self.destination_path)=}')
 
             # # 4. Verify all other ranks have downloaded files
