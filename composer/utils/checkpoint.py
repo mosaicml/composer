@@ -511,9 +511,6 @@ def load_sharded_checkpoint(
                             # log.debug(f'md5sum of {full_path=} is {file_object["content"][:10]}')
                     dist.barrier()  # Sync after every transfer to avoid timing out
                 log.debug(f'{os.listdir(self.destination_path)=}')
-                for file_name in os.listdir(self.destination_path):
-                    path = os.path.join(self.destination_path, file_name)
-                    log.debug(f"{path=}: {os.path.getsize(path)=} bytes")
 
             # # 4. Verify all other ranks have downloaded files
             # if not first_replica:
@@ -602,6 +599,7 @@ def load_sharded_checkpoint(
                     planner=load_planner,
                 )
 
+            log.info(f'Loaded state dict')
             state.load_state_dict(
                 state_dict['state'],
                 logger,
