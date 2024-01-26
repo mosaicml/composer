@@ -194,7 +194,10 @@ class HuggingFaceModel(ComposerModel):
         if self.using_peft and self.peft_filter_state_dict_trainable:
             active_adapter = self.model.active_adapter
             assert isinstance(active_adapter, str)
-            full_state_dict = filter_state_dict_peft(full_state_dict, self.model.peft_config[active_adapter], False)
+            full_state_dict = filter_state_dict_peft(full_state_dict,
+                                                     self.model.peft_config[active_adapter],
+                                                     adapter_name='default',
+                                                     remove_adapter_names=False)
 
         return full_state_dict
 
@@ -884,6 +887,7 @@ def filter_state_dict_peft(state_dict: Dict[str, Any],
     Args:
         state_dict (Dict[str, Any]): The state dict to filter
         peft_config (PeftConfig): The PEFT config to use to filter the state dict
+        adapter_name (str, optional): The name of the adapter to filter for. Defaults to 'default'.
         remove_adapter_names (bool, optional): Whether to remove the adapter names from the state dict keys. Defaults to True.
 
     Returns:
