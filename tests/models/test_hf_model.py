@@ -487,7 +487,7 @@ def get_lm_trainer(hf_model,
         metrics=metrics,
         use_logits=True,
         peft_config=peft_config,
-        should_filter_state_dict_peft=just_lora,
+        should_filter_state_dict_peft=should_filter_state_dict_peft,
     )
 
     vocab_size = hf_model.config.vocab_size
