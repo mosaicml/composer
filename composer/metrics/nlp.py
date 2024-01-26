@@ -1035,22 +1035,26 @@ class MTBenchJudge(InContextLearningMetric):
         self.add_state('all_scores', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
-        self.add_state('math_score', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.add_state('math_total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.add_state('reasoning_score', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.add_state('reasoning_total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.add_state('stem_score', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.add_state('stem_total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.add_state('humanities_score', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.add_state('humanities_total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.add_state('extraction_score', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.add_state('extraction_total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.add_state('coding_score', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.add_state('coding_total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.add_state('roleplay_score', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.add_state('roleplay_total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.add_state('writing_score', default=torch.tensor(0.), dist_reduce_fx='sum')
-        self.add_state('writing_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        categories = ["math", "reasoning", "stem", "humanities", "extraction", "coding", "roleply", "writing"]
+        for category in categories:
+            for metric_to_add in ["score", "total"]:
+                self.add_state(f'{category}_{metric_to_add}', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('math_score', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('math_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('reasoning_score', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('reasoning_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('stem_score', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('stem_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('humanities_score', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('humanities_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('extraction_score', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('extraction_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('coding_score', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('coding_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('roleplay_score', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('roleplay_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('writing_score', default=torch.tensor(0.), dist_reduce_fx='sum')
+        # self.add_state('writing_total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
         self.client = None
 
@@ -1129,7 +1133,7 @@ class MTBenchJudge(InContextLearningMetric):
                                                          first_generation=first_generation,
                                                          category=batch['category'][i],
                                                          reference_answer_one=batch['reference_answer_one'][i])
-            self.score_result(result, batch['category'][i], formatted_template)
+            self.score_result(result, batch['category'][i], formatted_template, first_prompt=True)
 
             log.info(
                 f'********* Formatted Response and Result For Generation 1 on question {batch["question_id"][i]}: *********'
@@ -1147,7 +1151,7 @@ class MTBenchJudge(InContextLearningMetric):
                 reference_answer_one=batch['reference_answer_one'][i],
                 reference_answer_two=batch['reference_answer_two'][i],
             )
-            self.score_result(result, batch['category'][i], formatted_template)
+            self.score_result(result, batch['category'][i], formatted_template, first_prompt=False)
 
             log.info(
                 f'********* Formatted Response and Result For Generation 2 on question {batch["question_id"][i]}: *********'
@@ -1160,22 +1164,21 @@ class MTBenchJudge(InContextLearningMetric):
         del self.client
         self.client = None
 
-    def score_result(self, result: str, category: str, formatted_template: str):
+    def score_result(self, result: str, category: str, formatted_template: str, first_prompt: bool):
         score = None
+        self.total += 1
         match = re.search(self.ONE_SCORE_PATTERN, result)
         if not match:
             match = re.search(self.ONE_SCORE_PATTERN_BACKUP, result)
         if match:
             score = ast.literal_eval(match.groups()[0])
-            self.all_scores += torch.tensor(score)
-            self.update_category_score(category, score)
+            self.update_category_score(category, score, first_prompt)
         else:
             self.invalid_judge_response += 1
-        self.total += 1
         if self.cache_responses:
             self.response_cache.append({'score': score, 'result': result, 'formatted_template': formatted_template})
 
-    def update_category_score(self, category, score):
+    def update_category_score(self, category, score, first_prompt):
         if category == 'math':
             self.math_total += 1
             self.math_score += score
@@ -1201,17 +1204,27 @@ class MTBenchJudge(InContextLearningMetric):
             self.humanities_total += 1
             self.humanities_score += score
 
+        if first_prompt:
+            self.first_prompt_score += score
+        else:
+            self.second_prompt_score += score
+
+        self.all_scores += torch.tensor(score)
+
+
     def compute(self):
         super().compute()
-        log.info(f'Math score:        {(self.math_score / self.math_total).item()}')
-        log.info(f'Writing score:     {(self.writing_score / self.writing_total).item()}')
-        log.info(f'Roleplay score:    {(self.roleplay_score / self.roleplay_total).item()}')
-        log.info(f'Reasoning score:   {(self.reasoning_score / self.reasoning_total).item()}')
-        log.info(f'Coding score:      {(self.coding_score / self.coding_total).item()}')
-        log.info(f'Extraction score:  {(self.extraction_score / self.extraction_total).item()}')
-        log.info(f'STEM score:        {(self.stem_score / self.stem_total).item()}')
-        log.info(f'Humanities score:  {(self.humanities_score / self.humanities_total).item()}')
-        log.info(f'Combined score:    {(self.all_scores / self.total).item()}')
-        log.info(f'Total Questions:   {self.total.item()}')
-        log.info(f'Invalid Responses: {self.invalid_judge_response.item()}')
+        log.info(f'Math:             {(self.math_score / self.math_total).item()}')
+        log.info(f'Writing:          {(self.writing_score / self.writing_total).item()}')
+        log.info(f'Roleplay:         {(self.roleplay_score / self.roleplay_total).item()}')
+        log.info(f'Reasoning:        {(self.reasoning_score / self.reasoning_total).item()}')
+        log.info(f'Coding:           {(self.coding_score / self.coding_total).item()}')
+        log.info(f'Extraction:       {(self.extraction_score / self.extraction_total).item()}')
+        log.info(f'STEM:             {(self.stem_score / self.stem_total).item()}')
+        log.info(f'Humanities:       {(self.humanities_score / self.humanities_total).item()}')
+        log.info(f'First Prompt:     {(self.first_prompt_score / self.total).item()}')
+        log.info(f'Second Prompt:    {(self.second_prompt_score / self.total).item()}')
+        log.info(f'Combined:         {(self.all_scores / self.total).item()}')
+        log.info(f'Total Questions:  {self.total.item()}')
+        log.info(f'Invalid Results:  {self.invalid_judge_response.item()}')
         return self.all_scores / self.total
