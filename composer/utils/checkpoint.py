@@ -501,16 +501,16 @@ def load_sharded_checkpoint(
                         if dist.get_global_rank() % shard_size == dist.get_global_rank():
                             # Process with rank 0 reads the file and prepares the object
                             with open(full_path, 'rb') as f:
-                                file_object = [{"content": f.read()}]
-                            log.debug(f'md5sum of {full_path=} is {hashlib.md5(file_object["content"]).hexdigest()}')
+                                file_object = [{'content': f.read()}]
+                            log.debug(f'md5sum of {full_path=} is {file_object["content"][:10]}')
                         dist.broadcast_object_list(file_object, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
                         received_file_object = file_object[0]
                         if dist.get_global_rank() % shard_size != dist.get_global_rank():
                             # Process with rank > 0 receives the object and writes the file
                             with open(full_path, 'wb') as f:
-                                f.write(received_file_object["content"])
-                            log.debug(f'md5sum of {full_path=} is {hashlib.md5(received_file_object["content"]).hexdigest()}')
-                    log.debug('Finished transfering, enter barrier')
+                                f.write(received_file_object['content'])
+                            log.debug(f'md5sum of {full_path=} is {file_object["content"][:10]}')
+                    log.debug('Finished transferring, enter barrier')
                     dist.barrier()  # Sync after every transfer to avoid timing out
                     log.debug('Finished barrier')
                 log.debug(f'{os.listdir(self.destination_path)=}')
