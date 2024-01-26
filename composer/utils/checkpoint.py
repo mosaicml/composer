@@ -608,7 +608,7 @@ def load_sharded_checkpoint(
                 
                 # Send list of files to all ranks
                 download_path = str(Path(rank0_download_tempdir) / Path('checkpoints'))
-                file_list = [list(os.listdir(download_path))]
+                file_list = [list(sorted(os.listdir(download_path)))]
                 dist.broadcast_object_list(file_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
                 file_list = file_list[0]
                 log.debug(f'{file_list=}')
