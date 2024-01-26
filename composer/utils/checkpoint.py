@@ -558,28 +558,28 @@ def load_sharded_checkpoint(
             else:
                 expect_file = True
 
-            # # Monkeypatch
-            # def gather_object(self, object):
-            #     print(f'global_rank={dist.get_global_rank()}, {self.is_coordinator=}, {self.coordinator_rank=}, {self.rank=}')
-            #     """Implement functionality similar to c10d::gather_object but without distributed enabled."""
-            #     if self.use_dist:
-            #         gather_objs = (
-            #             [None] * torch.distributed.get_world_size(self.group)
-            #             if self.is_coordinator
-            #             else None
-            #         )
+            # Monkeypatch
+            def gather_object(self, object):
+                print(f'{object=}, {self.is_coordinator=}, {self.coordinator_rank=}, {self.rank=}')
+                """Implement functionality similar to c10d::gather_object but without distributed enabled."""
+                if self.use_dist:
+                    gather_objs = (
+                        [None] * torch.distributed.get_world_size(self.group)
+                        if self.is_coordinator
+                        else None
+                    )
 
-            #         torch.distributed.gather_object(
-            #             obj=object,
-            #             object_gather_list=gather_objs if self.is_coordinator else None,
-            #             dst=self.coordinator_rank,
-            #             group=self.group,
-            #         )
-            #         result = gather_objs
-            #     else:
-            #         result = [object]
-            #     return result
-            # dist_cp.utils._DistWrapper.gather_object = gather_object
+                    torch.distributed.gather_object(
+                        obj=object,
+                        object_gather_list=gather_objs if self.is_coordinator else None,
+                        dst=self.coordinator_rank,
+                        group=self.group,
+                    )
+                    result = gather_objs
+                else:
+                    result = [object]
+                return result
+            dist_cp.utils._DistWrapper.gather_object = gather_object
             
 
             if expect_file:
@@ -617,7 +617,7 @@ def load_sharded_checkpoint(
                 for file_name in file_list:
                     if dist.get_local_rank() == 0:
                         full_path = os.path.join(download_path, file_name)
-                        log.debug(f'Transferring.. {full_path=}')
+                        log.debug(f'Transferring {full_path=}')
                         file_object = [None]
                         if dist.get_global_rank() % shard_size == dist.get_global_rank():
                             # Process with rank 0 reads the file and prepares the object
