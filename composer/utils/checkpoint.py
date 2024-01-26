@@ -457,7 +457,7 @@ def load_sharded_checkpoint(
             first_replica = device_mesh is None or device_mesh.get_local_rank(mesh_dim=0) == 0
 
             log.info(f'{first_replica=}, {device_mesh is None=}, {device_mesh.get_local_rank(mesh_dim=0)=}')
-            if first_replica:
+            if dist.get_global_rank() <= 15:
                 log.debug(f'Rank {dist.get_global_rank()} starting to download files.')
                 # 1. Download to the destination all files that this rank is responsible for.
                 for plan_item in plan.items:
@@ -503,7 +503,9 @@ def load_sharded_checkpoint(
                 # Send list of files to all ranks
                 download_path = str(Path(rank0_download_tempdir) / Path('checkpoints'))
                 file_list = [list(sorted(os.listdir(download_path)))]
+                log.info(f'{file_list=}, {dist.get_global_rank() % shard_size=}')
                 dist.broadcast_object_list(file_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
+                log.info(f'Rec {file_list=}')
                 file_list = file_list[0]
                 log.debug(f'{file_list=}')
 
