@@ -465,7 +465,7 @@ def load_sharded_checkpoint(
                     # Download the shard file to the relative path it's associated to and save that relative path
                     # to the root directory specified to the FileSystem reader constructor.
                     file_destination = str(Path(self.destination_path) / Path(relative_file_path))
-                    # The file could have already been downloaded as diffeent plan items can point to same file.
+                    # The file could have already been downloaded as different plan items can point to same file.
                     if not os.path.exists(file_destination):
                         log.debug(f'Rank {dist.get_global_rank()} downloading {relative_file_path} to {file_destination}.')
                         self.object_store.download_object(object_name=str(
@@ -474,22 +474,6 @@ def load_sharded_checkpoint(
 
             # 2. Wait for all ranks to finish.
             log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
-            # Use busy wait to avoid timeouts on large downloads for non-sharded checkpoints
-            signal_file_path = os.path.join(self.destination_path,
-                                            f'.node_{dist.get_node_rank()}_local_rank0_completed')
-            if dist.get_local_rank() == 0:
-                with open(signal_file_path, 'wb') as f:
-                    f.write(b'local_rank0_completed')
-
-            # Avoid the collective call until the local rank zero has finished trying to download the
-            # checkpoint so that we don't timeout for large downloads. This syncs all processes on the
-            # node
-            with dist.local_rank_zero_download_and_wait(signal_file_path):
-                # Then, wait to ensure every node has finished downloading the checkpoint
-                dist.barrier()
-
-            if dist.get_local_rank() == 0:
-                os.remove(signal_file_path)
             dist.barrier()
             log.debug('Done waiting for all ranks to finish downloading files.')
 
@@ -500,8 +484,7 @@ def load_sharded_checkpoint(
                 shard_size = device_mesh.size(1)
                 
                 # Send list of files to all ranks
-                download_path = str(Path(rank0_download_tempdir) / Path('checkpoints'))
-                file_list = [list(sorted(os.listdir(download_path)))]
+                file_list = [list(sorted(os.listdir(self.destination_path)))]
                 dist.broadcast_object_list(file_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
                 file_list = file_list[0]
                 log.debug(f'{file_list=}')
@@ -509,7 +492,7 @@ def load_sharded_checkpoint(
                 # Send each file to the appropriate rank
                 for file_name in file_list:
                     if dist.get_local_rank() == 0:
-                        full_path = os.path.join(download_path, file_name)
+                        full_path = os.path.join(self.destination_path, file_name)
                         log.debug(f'Transferring {full_path=}')
                         file_object = [None]
                         if dist.get_global_rank() % shard_size == dist.get_global_rank():
@@ -525,7 +508,7 @@ def load_sharded_checkpoint(
                         # import hashlib
                         # log.info(f'md5sum of {full_path=} is {hashlib.md5(open(file_name, "rb").read()).hexdigest()}')
                     dist.barrier()  # Sync after every transfer to avoid timing out
-                log.debug(f'{os.listdir(download_path)=}')
+                log.debug(f'{os.listdir(self.destination_path)=}')
 
             # 4. Verify all other ranks have downloaded files
             if not first_replica:
@@ -546,22 +529,6 @@ def load_sharded_checkpoint(
                         
             # 5. Wait for all ranks to finish.
             log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
-            # Use busy wait to avoid timeouts on large downloads for non-sharded checkpoints
-            signal_file_path = os.path.join(self.destination_path,
-                                            f'.node_{dist.get_node_rank()}_local_rank0_completed')
-            if dist.get_local_rank() == 0:
-                with open(signal_file_path, 'wb') as f:
-                    f.write(b'local_rank0_completed')
-
-            # Avoid the collective call until the local rank zero has finished trying to download the
-            # checkpoint so that we don't timeout for large downloads. This syncs all processes on the
-            # node
-            with dist.local_rank_zero_download_and_wait(signal_file_path):
-                # Then, wait to ensure every node has finished downloading the checkpoint
-                dist.barrier()
-
-            if dist.get_local_rank() == 0:
-                os.remove(signal_file_path)
             dist.barrier()
             log.debug('Done waiting for all ranks to finish downloading files.')
 
