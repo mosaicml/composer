@@ -604,28 +604,25 @@ def load_sharded_checkpoint(
                 replicate_process_group = device_mesh.get_group(0)  # Replicate replicate_process_group
                 replicate_size, shard_size = device_mesh.size(0), device_mesh.size(1)
                 import torch.distributed.distributed_c10d as dist_torch
-                log.info(f'Ranks: {dist_torch._world.pg_group_ranks[replicate_process_group]}')
-                log.info(f'global_rank={dist.get_global_rank()}, {shard_size=}')
+                log.info(f'Ranks: {dist_torch._world.pg_group_ranks[replicate_process_group]}, {shard_size=}')
                 
                 # Send list of files to all ranks
                 download_path = str(Path(rank0_download_tempdir) / Path('checkpoints'))
                 file_list = [list(os.listdir(download_path))]
                 dist.broadcast_object_list(file_list, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
                 file_list = file_list[0]
-                log.info(f'global_rank={dist.get_global_rank()}, {file_list=}')
+                log.debug(f'{file_list=}')
 
                 # Send each file to the appropriate rank
                 for file_name in file_list:
                     if dist.get_local_rank() == 0:
                         full_path = os.path.join(download_path, file_name)
-                        log.info(f'{full_path=}')
+                        log.debug(f'Transferring.. {full_path=}')
                         file_object = [None]
                         if dist.get_global_rank() % shard_size == dist.get_global_rank():
                             # Process with rank 0 reads the file and prepares the object
                             with open(full_path, 'rb') as f:
-                                file_content = f.read()
-                                # Create an object that includes file content and any other metadata
-                                file_object = [{"content": file_content}]
+                                file_object = [{"content": f.read()}]
                         dist.broadcast_object_list(file_object, src=dist.get_global_rank() % shard_size, group=replicate_process_group)
                         received_file_object = file_object[0]
                         if dist.get_global_rank() % shard_size != dist.get_global_rank():
@@ -633,7 +630,7 @@ def load_sharded_checkpoint(
                             with open(full_path, 'wb') as f:
                                 f.write(received_file_object["content"])
                     dist.barrier()  # Sync after every transfer to avoid timing out
-                log.info(f'global_rank={dist.get_global_rank()}, {os.listdir(download_path)=}')
+                log.debug(f'{os.listdir(download_path)=}')
 
             # Reload on all ranks
             if False and version.parse(torch.__version__) > version.parse('2.2.9'):
