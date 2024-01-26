@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import copy
 import inspect
 import json
 import logging
@@ -15,7 +16,7 @@ import tempfile
 import textwrap
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Set, Tuple, Type, Union
 
 import torch
 from torchmetrics import Metric
@@ -115,18 +116,18 @@ class HuggingFaceModel(ComposerModel):
         super().__init__()
         self.model = model
         self.config: PretrainedConfig = model.config
-
-        model_for_forward = maybe_get_underlying_model(model)
-        self.model_forward_args = inspect.signature(model_for_forward.forward).parameters.keys()
-
-        if not self.model_forward_args:
-            raise ValueError('Could not determine the forward arguments of the model. Please open a GitHub issue.')
-
-        self.model_forward_args = set(self.model_forward_args)
-
+        self.model_forward_args = self._get_model_forward_args()
         self.tokenizer = tokenizer
-
         self.peft_filter_state_dict_trainable = peft_filter_state_dict_trainable
+        self.use_logits = use_logits
+        self.labels: Optional[torch.Tensor] = None  # set in eval_forward() if exists
+        self.dummy_forward_called = False  # Used to make FSDP generate work, see generate function for more details
+        self.train_metrics: Optional[Dict] = self._get_metric_dict(metrics) if metrics is not None else None
+        self.val_metrics: Optional[Dict] = self._get_metric_dict(
+            eval_metrics) if eval_metrics is not None else copy.deepcopy(self.train_metrics)
+
+        is_causal_lm = _is_registered_causal_lm(self.model)
+        self.shift_labels = is_causal_lm if shift_labels is None else shift_labels
 
         if self.tokenizer is None:
             log.warning(
@@ -158,43 +159,33 @@ class HuggingFaceModel(ComposerModel):
                 f' constructor. The vocab size is sometimes intentionally set to a multiple of 32 or 64 to improve'
                 f' performance.')
 
-        self.use_logits = use_logits
-
-        self.train_metrics: Optional[Dict] = None
-        self.val_metrics: Optional[Dict] = None
-
-        if eval_metrics is not None:
-            self.val_metrics = {metric.__class__.__name__: metric for metric in eval_metrics}
-        if metrics is not None:
-            self.train_metrics = {metric.__class__.__name__: metric for metric in metrics}
-            # if eval_metrics is None, use the same metrics as train_metrics
-            if eval_metrics is None:
-                self.val_metrics = {metric.__class__.__name__: metric for metric in metrics}
-
-        self.labels: Optional[torch.Tensor] = None  # set in eval_forward() if exists
-
-        is_causal_lm = _is_registered_causal_lm(self.model)
-
-        self.shift_labels = is_causal_lm if shift_labels is None else shift_labels
         if is_causal_lm and not self.shift_labels:
             log.warning('The shift_labels argument was set to False but the model is an instance of a'
                         ' HuggingFace Causal LM. This may lead to incorrect behavior.')
             # Note: No warning if shift_labels and not is_causal_lm, since the model may simply be a custom class.
 
-        self.dummy_forward_called = False
-
         if peft_config is not None:
-            from peft import PeftModel
-            if isinstance(self.model, PeftModel):
-                warnings.warn('PEFT model was passed in directly. Ignoring the provided PEFT config.')
-            else:
-                self.model = get_peft_model(self.model, peft_config)
-                log.info(f'PEFT model created. {self.model}')
+            self.model = _maybe_get_peft_model(peft_config, self.model)
 
         self.using_peft = False
         if peft_installed:
             from peft import PeftModel
             self.using_peft = isinstance(self.model, PeftModel)
+
+    def _get_metric_dict(self, metrics: List[Metric]) -> Dict[str, Metric]:
+        """Returns a dictionary of metrics keyed by their class name."""
+        return {metric.__class__.__name__: metric for metric in metrics}
+
+    def _get_model_forward_args(self) -> Set[str]:
+        """Returns the arguments to the model's forward function."""
+        model_forward_args = inspect.signature(maybe_get_underlying_model(self.model).forward).parameters.keys()
+
+        if not model_forward_args:
+            raise ValueError('Could not determine the forward arguments of the model. Please open a GitHub issue.')
+
+        model_forward_args = set(model_forward_args)
+
+        return model_forward_args
 
     def state_dict(self, *args, **kwargs) -> Dict[str, Any]:
         """Returns the state dict of the model."""
@@ -571,8 +562,8 @@ class HuggingFaceModel(ComposerModel):
 
             # Also save PEFT config if the model is a peft model
             if self.using_peft:
-                assert isinstance(self.model, PeftModel)
                 active_adapter = self.model.active_adapter
+                assert isinstance(active_adapter, str)
                 self.model.peft_config[active_adapter].save_pretrained(str(model_dir))
                 with open(model_dir / 'adapter_config.json') as _peft_config_file:
                     peft_config = json.load(_peft_config_file)
@@ -657,6 +648,32 @@ class HuggingFaceModel(ComposerModel):
                 return self.model.generate(input_ids=input_ids, pad_token_id=pad_token_id, **kwargs)
         else:
             return self.model.generate(input_ids=input_ids, pad_token_id=pad_token_id, **kwargs)
+
+
+def _maybe_get_peft_model(
+    peft_config: 'PeftConfig',
+    model: Union[transformers.PreTrainedModel, 'PeftModel'],
+) -> 'PeftModel':
+    """Creates a PEFT model if the model is not already a PEFT model.
+
+    Args:
+        peft_config (Optional[peft.PeftConfig]): The PEFT config to use to create the PEFT model
+        model (Union[transformers.PreTrainedModel, 'PeftModel']): The model to create the PEFT model from
+
+    Returns:
+        PeftModel: The PEFT model
+    """
+    if not peft_installed:
+        raise MissingConditionalImportError(extra_deps_group='peft', conda_package='peft', conda_channel='conda-forge')
+
+    if not isinstance(model, PeftModel):
+        log.info('Creating PEFT model')
+        peft_model = get_peft_model(model, peft_config)
+        assert isinstance(peft_model, PeftModel)
+        return peft_model
+    else:
+        warnings.warn('PEFT model was passed in directly. Ignoring the provided PEFT config.')
+        return model
 
 
 def maybe_get_underlying_model(
