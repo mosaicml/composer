@@ -448,7 +448,7 @@ def load_sharded_checkpoint(
                             read_bytes.seek(0)
                             planner.load_bytes(req, read_bytes)
                         else:
-                            tensor = torch.load(file_slice, map_location="cpu"),
+                            tensor = torch.load(file_slice, map_location="cpu")
                             tensor = narrow_tensor_by_index(
                                 tensor, req.storage_offsets, req.lengths
                             )
@@ -558,8 +558,9 @@ def load_sharded_checkpoint(
                             with open(full_path, 'wb') as f:
                                 f.write(received_file_object['content'])
                     # dist.barrier(group=replicate_process_group)  # Sync after every transfer to avoid timing out
-                log.debug(f'{os.listdir(self.destination_path)=}')
-                # dist.barrier()
+                log.debug(f'Pre barrier {os.listdir(self.destination_path)=}')
+                dist.barrier()
+                log.debug(f'Post barrier {os.listdir(self.destination_path)=}')
 
             # # 4. Verify all other ranks have downloaded files
             # if not first_replica:
