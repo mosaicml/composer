@@ -321,7 +321,7 @@ def _launch_processes(
                 process = subprocess.Popen(
                     cmd,
                     stdout=stdout_file,
-                    stderr=stderr_file,
+                    stderr=subprocess.STDOUT,
                     text=True,
                 )
                 process.stderr = stderr_file
