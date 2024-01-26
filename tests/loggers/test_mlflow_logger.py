@@ -637,8 +637,7 @@ def test_mlflow_ignore_metrics(tmp_path, device):
     assert not os.path.exists(metric_file)
 
 
-@device('cpu')
-def test_mlflow_ignore_hyperparameters(tmp_path, device):
+def test_mlflow_ignore_hyperparameters(tmp_path):
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
     experiment_name = 'mlflow_logging_test'
     test_mlflow_logger = MLFlowLogger(tracking_uri=mlflow_uri,
