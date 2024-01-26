@@ -513,7 +513,7 @@ def load_sharded_checkpoint(
                 log.debug(f'{os.listdir(self.destination_path)=}')
                 for file_name in os.listdir(self.destination_path):
                     path = os.path.join(self.destination_path, file_name)
-                    print(f"{path=}: {os.path.getsize(path)=} bytes")
+                    log.debug(f"{path=}: {os.path.getsize(path)=} bytes")
 
             # # 4. Verify all other ranks have downloaded files
             # if not first_replica:
