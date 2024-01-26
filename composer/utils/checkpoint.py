@@ -418,6 +418,7 @@ def load_sharded_checkpoint(
                     continue
                 _ensure_valid_checkpoint(data_path)
                 validated_checkpoint_paths.add(data_path)
+            log.debug('Finished validation')
             return super().read_data(plan, planner)
 
         def read_metadata(self) -> Metadata:
