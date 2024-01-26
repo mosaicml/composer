@@ -15,7 +15,6 @@ import tempfile
 import time
 import traceback
 from argparse import ArgumentParser
-from threading import Thread
 from typing import Any, Dict, List
 
 import psutil
@@ -327,6 +326,7 @@ def _launch_processes(
 
             processes[global_rank] = process
 
+
 def _monitor_processes(processes: Dict[int, subprocess.Popen]):
     try:
         while True:
@@ -449,15 +449,15 @@ def main():
     processes = {}
     log_tmpdir = tempfile.TemporaryDirectory()
     log_file_format = f'{log_tmpdir.name}/rank{{rank}}.txt'
-    
+
     # If running on the Mosaic platform, also log all gpu ranks' stderr and stdout to Mosaic platform
     if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and os.environ.get(
-                    MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and os.environ.get(MOSAICML_LOG_DIR) is not None:
+            MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and os.environ.get(MOSAICML_LOG_DIR) is not None:
         log.info('Logging all gpu ranks to Mosaic Platform')
         log_file_format = f'{os.environ.get(MOSAICML_LOG_DIR)}/gpu_{{rank}}.txt'
 
     try:
-        print("launching processes")
+        print('launching processes')
         _launch_processes(nproc=args.nproc,
                           world_size=args.world_size,
                           base_rank=args.base_rank,
