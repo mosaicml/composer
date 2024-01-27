@@ -66,8 +66,10 @@ def _split_mapping(m, microbatch_size: int):
     try:
         return [{k: v[idx] for k, v in chunked.items()} for idx in range(num_chunks)]
     except:
-        log.info("num_chunks: ", num_chunks)
-        log.info("chunked: ", chunked)
+        log.info("num_chunks: ")
+        log.info(num_chunks)
+        log.info("chunked: ")
+        log.info(chunked)
 
 
 def _check_list_is_primitives(l):
