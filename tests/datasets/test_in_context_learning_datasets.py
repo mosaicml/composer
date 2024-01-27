@@ -255,7 +255,7 @@ def test_update_generation_kwargs_no_kwargs(tiny_gpt2_tokenizer, tmp_path):
                                   destination_path=str(tmp_path / 'test_dataset_lm_juggernaut.jsonl'),
                                   hf_loading_vars=hf_loading_vars,
                                   hf_parsing_map=hf_parsing_map)
-    assert not dl.base_batch['generation_kwargs']
+    assert not dl.base_batch.get('generation_kwargs')
 
 
 @pytest.mark.filterwarnings(

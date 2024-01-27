@@ -317,7 +317,7 @@ class InContextLearningDataset(Dataset):
         self.tokenize_labels = tokenize_labels
         self.batch_mapping = batch_mapping or {}
         self.base_batch = base_batch or {}
-        self.update_generation_kwargs(generation_kwargs or {})
+        self.update_generation_kwargs(generation_kwargs)
 
         self.static_keys = static_keys
         self.list_keys = list_keys
@@ -349,7 +349,7 @@ class InContextLearningDataset(Dataset):
     def get_num_samples_in_batch(self, batch: Dict) -> int:
         return batch['input_ids'].shape[0]
 
-    def update_generation_kwargs(self, generation_kwargs: Dict) -> None:
+    def update_generation_kwargs(self, generation_kwargs: Optional[Dict]) -> None:
         """
         Updates self.base_batch with the passed in generation_kwargs.
         This must be run after self.base_batch is set (for example, if self.base_batch is set after __init__() is run,
@@ -358,9 +358,9 @@ class InContextLearningDataset(Dataset):
         Args:
             dict: Keyword arguments that be written into base_batch['generation_kwargs']
         """
-        if 'generation_kwargs' not in self.base_batch:
-            self.base_batch['generation_kwargs'] = {}
         if generation_kwargs:
+            if 'generation_kwargs' not in self.base_batch:
+                self.base_batch['generation_kwargs'] = {}
             self.base_batch['generation_kwargs'].update(generation_kwargs)
 
     def read_dataset(self,
