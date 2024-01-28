@@ -474,7 +474,7 @@ def load_sharded_checkpoint(
                         log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
 
             # 2. Wait for all ranks to finish.
-            log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
+            log.debug(f'Finished downloading all files.')
             dist.barrier()
             log.debug('Done waiting for all ranks to finish downloading files.')
 
@@ -514,8 +514,9 @@ def load_sharded_checkpoint(
                             with open(full_path, 'wb') as f:
                                 f.write(received_file_object['content'])
 
+                log.debug(f'Finished transferring files to all ranks.')
                 dist.barrier()
-                log.debug(f'Local checkpoint files: {os.listdir(self.destination_path)}')
+                log.debug(f'Done waiting for all ranks to finish transferring files. Local checkpoint files: {os.listdir(self.destination_path)}')
 
             # 4. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
             return super().read_data(plan, planner)
@@ -569,17 +570,30 @@ def load_sharded_checkpoint(
                 # Ensure state exists
                 state_dict['state'] = state_dict.get('state', {})
 
+            # Get shard process group for HSDP
+            process_group = None
+            coordinator_rank = 0
+            device_mesh = state.fsdp_device_mesh
+            if device_mesh is not None and device_mesh.ndim == 2:
+                process_group = device_mesh.get_group(1)
+                shard_size = device_mesh.size(1)
+                coordinator_rank = dist.get_global_rank() % shard_size
+
             if version.parse(torch.__version__) > version.parse('2.2.9'):
                 dist_cp.load(  # type: ignore
                     state_dict=state_dict,
                     storage_reader=storage_reader,
                     planner=load_planner,
+                    process_group=process_group,
+                    coordinator_rank=coordinator_rank,
                 )
             else:
                 dist_cp.load_state_dict(
                     state_dict=state_dict,
                     storage_reader=storage_reader,
                     planner=load_planner,
+                    process_group=process_group,
+                    coordinator_rank=coordinator_rank,
                 )
 
             log.info(f'Loaded state dict')
