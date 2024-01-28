@@ -468,6 +468,7 @@ def load_sharded_checkpoint(
                     # The file could have already been downloaded as different plan items can point to same file.
                     if not os.path.exists(file_destination):
                         log.debug(f'Downloading {relative_file_path} to {file_destination}.')
+                        log.debug(f'Loading plan item: {plan_item}')
                         self.object_store.download_object(object_name=str(
                             Path(self.source_path) / Path(relative_file_path)),
                                                           filename=file_destination)
