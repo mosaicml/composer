@@ -509,6 +509,7 @@ def load_sharded_checkpoint(
                                                    src=dist.get_global_rank() % shard_size,
                                                    group=replicate_process_group)
                         received_file_object = file_object[0]
+                        assert received_file_object is not None
                         if dist.get_global_rank() % shard_size != dist.get_global_rank():
                             # Process with rank > 0 receives the object and writes the file
                             with open(full_path, 'wb') as f:
@@ -516,7 +517,9 @@ def load_sharded_checkpoint(
 
                 log.debug(f'Finished transferring files to all ranks.')
                 dist.barrier()
-                log.debug(f'Done waiting for all ranks to finish transferring files. Local checkpoint files: {os.listdir(self.destination_path)}')
+                log.debug(
+                    f'Done waiting for all ranks to finish transferring files. Local checkpoint files: {os.listdir(self.destination_path)}'
+                )
 
             # 4. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
             return super().read_data(plan, planner)
