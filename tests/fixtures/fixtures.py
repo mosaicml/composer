@@ -244,9 +244,21 @@ def tiny_gpt2_tokenizer_helper():
     return hf_tokenizer
 
 
+def tiny_llama_tokenizer_helper():
+    transformers = pytest.importorskip('transformers')
+
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('huggyllama/llama-7b', use_fast=False)
+    return hf_tokenizer
+
+
 @pytest.fixture(scope='session')
 def _session_tiny_gpt2_tokenizer():  # type: ignore
     return tiny_gpt2_tokenizer_helper()
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_llama_tokenizer():  # type: ignore
+    return tiny_llama_tokenizer_helper()
 
 
 def tiny_opt_model_helper(config):
@@ -399,6 +411,11 @@ def tiny_gpt2_config(_session_tiny_gpt2_config):
 @pytest.fixture
 def tiny_gpt2_tokenizer(_session_tiny_gpt2_tokenizer):
     return copy.deepcopy(_session_tiny_gpt2_tokenizer)
+
+
+@pytest.fixture
+def tiny_llama_tokenizer(_session_tiny_llama_tokenizer):
+    return copy.deepcopy(_session_tiny_llama_tokenizer)
 
 
 @pytest.fixture
