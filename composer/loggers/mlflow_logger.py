@@ -56,6 +56,7 @@ class MLFlowLogger(LoggerDestination):
         log_system_metrics (bool, optional): Whether to log system metrics. If ``True``, Mlflow will
             log system metrics (CPU/GPU/memory/network usage) during training. (default: ``True``)
         ignore_metrics (List[str], optional): A list of glob patterns for metrics to ignore when logging. (default: ``None``)
+        ignore_hyperparameters (List[str], optional): A list of glob patterns for hyperparameters to ignore when logging. (default: ``None``)
     """
 
     def __init__(
@@ -71,6 +72,7 @@ class MLFlowLogger(LoggerDestination):
         synchronous: bool = False,
         log_system_metrics: bool = True,
         ignore_metrics: Optional[List[str]] = None,
+        ignore_hyperparameters: Optional[List[str]] = None,
     ) -> None:
         try:
             import mlflow
@@ -89,6 +91,7 @@ class MLFlowLogger(LoggerDestination):
         self.synchronous = synchronous
         self.log_system_metrics = log_system_metrics
         self.ignore_metrics = [] if ignore_metrics is None else ignore_metrics
+        self.ignore_hyperparameters = [] if ignore_hyperparameters is None else ignore_hyperparameters
         if self.model_registry_uri == 'databricks-uc':
             if len(self.model_registry_prefix.split('.')) != 2:
                 raise ValueError(f'When registering to Unity Catalog, model_registry_prefix must be in the format ' +
@@ -217,6 +220,11 @@ class MLFlowLogger(LoggerDestination):
         from mlflow import log_params
 
         if self._enabled:
+            hyperparameters = {
+                k: v
+                for k, v in hyperparameters.items()
+                if not any(fnmatch.fnmatch(k, pattern) for pattern in self.ignore_hyperparameters)
+            }
             log_params(
                 params=hyperparameters,
                 synchronous=self.synchronous,
