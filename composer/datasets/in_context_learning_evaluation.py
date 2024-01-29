@@ -350,7 +350,7 @@ class InContextLearningDataset(Dataset):
     def get_num_samples_in_batch(self, batch: Dict) -> int:
         return batch['input_ids'].shape[0]
 
-    def update_generation_kwargs(self, generation_kwargs: Optional[Dict]) -> None:
+    def update_generation_kwargs(self, generation_kwargs: Dict) -> None:
         """
         Updates self.base_batch with the passed in generation_kwargs.
         This must be run after self.base_batch is set (for example, if self.base_batch is set after __init__() is run,
@@ -704,7 +704,7 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
             'labels': 'aliases',
         }
         if 'generation_kwargs' in kwargs:
-            self.update_generation_kwargs(kwargs.get('generation_kwargs'))
+            self.update_generation_kwargs(kwargs['generation_kwargs'])
 
     def read_dataset(
         self,
@@ -1295,7 +1295,7 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
             }
         }
         if 'generation_kwargs' in kwargs:
-            self.update_generation_kwargs(kwargs.get('generation_kwargs'))
+            self.update_generation_kwargs(kwargs['generation_kwargs'])
 
     def _set_max_prompt_and_answer_lengths(self):
         """
