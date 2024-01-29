@@ -280,6 +280,7 @@ def barrier(group=None) -> None:
 def all_reduce(
     tensor: torch.Tensor,
     reduce_operation: str = 'SUM',
+    group = None,
 ) -> None:
     """Reduce a ``tensor`` by applying the ``reduce_operation``.
 
@@ -293,6 +294,8 @@ def all_reduce(
         op (optional): One of the values from
             ``torch.distributed.ReduceOp``
             enum.  Specifies an operation used for element-wise reductions.
+        group (ProcessGroup, optional): The process group to work on. If ``None``,
+            the default process group will be used. Default is ``None``.
     Args:
         tensor (torch.Tensor): Tensor to reduce. The function operates in-place.
         reduce_operation (str, optional): The reduction operation (default: ``SUM``).
@@ -311,7 +314,7 @@ def all_reduce(
     """
     if dist.is_available() and dist.is_initialized():
         reduce_op = getattr(dist.ReduceOp, reduce_operation.upper())
-        dist.all_reduce(tensor, op=reduce_op)
+        dist.all_reduce(tensor, op=reduce_op, group=group)
         return
     world_size = get_world_size()
     if world_size == 1:
@@ -337,7 +340,7 @@ def broadcast(tensor: torch.Tensor, src: int, group=None) -> None:
             the default process group will be used. Default is ``None``.
     """
     if dist.is_available() and dist.is_initialized():
-        dist.broadcast(tensor, src)
+        dist.broadcast(tensor, src=src, group=group)
         return
     world_size = get_world_size()
     if world_size == 1:
@@ -369,7 +372,7 @@ def broadcast_object_list(object_list: List[Any], src: int = 0, group=None) -> N
         None:  ``object_list`` will be modified in-place and set to values of ``object_list`` from the ``src`` rank.
     """
     if dist.is_available() and dist.is_initialized():
-        dist.broadcast_object_list(object_list, src, group)
+        dist.broadcast_object_list(object_list, src=src, group=group)
         # torch.distributed will replace the None's in obj_gather_list with the gathered objects on rank 0
         # or will just be None on non-rank-0
         return
@@ -383,20 +386,22 @@ def broadcast_object_list(object_list: List[Any], src: int = 0, group=None) -> N
                        '`composer.utils.dist.initialize_dist` has been called first.')
 
 
-def all_gather(tensor: torch.Tensor) -> Sequence[torch.Tensor]:
+def all_gather(tensor: torch.Tensor, group = None) -> Sequence[torch.Tensor]:
     """Collects a :class:`~torch.Tensor` from each rank.
 
     .. seealso:: :func:`torch.distributed.all_gather`
 
     Args:
         tensor (torch.Tensor): Tensor from each rank to be gathered.
+        group (ProcessGroup, optional): The process group to work on. If ``None``,
+            the default process group will be used. Default is ``None``.
 
     Returns:
         Sequence[Tensor]: A sequence of tensors indexed by rank.
     """
     if dist.is_available() and dist.is_initialized():
         obj_gather_list = [torch.zeros_like(tensor) for _ in range(get_world_size())]
-        dist.all_gather(obj_gather_list, tensor)
+        dist.all_gather(obj_gather_list, tensor, group=group)
         return obj_gather_list
     world_size = get_world_size()
     if world_size == 1:
@@ -408,13 +413,15 @@ def all_gather(tensor: torch.Tensor) -> Sequence[torch.Tensor]:
                        '`composer.utils.dist.initialize_dist` has been called first.')
 
 
-def all_gather_object(obj: TObj) -> List[TObj]:
+def all_gather_object(obj: TObj, group = None) -> List[TObj]:
     """Collect a pickleable object from each rank and return a list of these objects indexed by rank.
 
     .. seealso:: :func:`torch.distributed.all_gather_object`
 
     Args:
         obj (TObj): Object to be gathered.
+        group (ProcessGroup, optional): The process group to work on. If ``None``,
+            the default process group will be used. Default is ``None``.
 
     Returns:
         List[TObj]: A list of objects indexed by rank.
@@ -422,9 +429,9 @@ def all_gather_object(obj: TObj) -> List[TObj]:
     if dist.is_available() and dist.is_initialized():
         obj_gather_list = [None for _ in range(get_world_size())]
         if is_hpu_installed():
-            all_gather_object_list_hpu(obj_gather_list, obj)
+            all_gather_object_list_hpu(obj_gather_list, obj, group=group)
         else:
-            dist.all_gather_object(obj_gather_list, obj)
+            dist.all_gather_object(obj_gather_list, obj, group=group)
         # torch.distributed will replace the None's in obj_gather_list with the gathered objects on rank 0
         # or will just be None on non-rank-0
         return cast(List[TObj], obj_gather_list)

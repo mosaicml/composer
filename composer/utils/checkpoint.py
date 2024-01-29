@@ -474,48 +474,48 @@ def load_sharded_checkpoint(
                         log.debug(f'Finished downloading {relative_file_path} to {file_destination}.')
 
             # 2. Wait for all ranks to finish.
-            log.debug(f'Finished downloading all files.')
+            log.debug(f'Rank {dist.get_global_rank()} finished downloading all files.')
             dist.barrier()
             log.debug('Done waiting for all ranks to finish downloading files.')
 
             # 3. Broadcast files to all other replicas if HSDP
             if device_mesh is not None and device_mesh.ndim == 2:
                 # Broadcast file to all replicas. Assume replica size is at least 1 node
-                replicate_process_group = device_mesh.get_group(0)  # Replicate replicate_process_group
+                replicate_process_group = device_mesh.get_group(0)
                 shard_size = device_mesh.size(1)
+                rank_in_first_replica = dist.get_global_rank() % shard_size
+                sender = dist.get_global_rank() == rank_in_first_replica
+                receiver = dist.get_global_rank() != rank_in_first_replica
 
                 # Send list of files to all ranks
                 file_list = [sorted(os.listdir(self.destination_path))]
                 dist.broadcast_object_list(file_list,
-                                           src=dist.get_global_rank() % shard_size,
+                                           src=rank_in_first_replica,
                                            group=replicate_process_group)
                 file_list = file_list[0]
-                log.debug(f'{file_list=}')
+                log.debug(f'List of files to broadcast: {file_list}')
 
                 # Send each file to the appropriate rank
                 for file_name in file_list:
                     if 'metadata' in file_name:  # All ranks already have the metadata file
                         continue
-                    if dist.get_local_rank() == 0:
+                    if dist.get_local_rank() == 0:  # Only 1 rank per node needs to transfer file
                         full_path = os.path.join(self.destination_path, file_name)
                         log.debug(f'Transferring {full_path=}')
                         file_object = [None]
-                        if dist.get_global_rank() % shard_size == dist.get_global_rank():
-                            # Process with rank 0 reads the file and prepares the object
+                        if sender:
                             with open(full_path, 'rb') as f:
                                 file_object = [{'content': f.read()}]
-                            # log.debug(f'md5sum of {full_path=} is {file_object["content"][:10]}')
                         dist.broadcast_object_list(file_object,
                                                    src=dist.get_global_rank() % shard_size,
                                                    group=replicate_process_group)
                         received_file_object = file_object[0]
                         assert received_file_object is not None
-                        if dist.get_global_rank() % shard_size != dist.get_global_rank():
-                            # Process with rank > 0 receives the object and writes the file
+                        if receiver:
                             with open(full_path, 'wb') as f:
                                 f.write(received_file_object['content'])
 
-                log.debug(f'Finished transferring files to all ranks.')
+                log.debug(f'Rank {dist.get_global_rank()} finished transferring files to all ranks.')
                 dist.barrier()
                 log.debug(
                     f'Done waiting for all ranks to finish transferring files. Local checkpoint files: {os.listdir(self.destination_path)}'
