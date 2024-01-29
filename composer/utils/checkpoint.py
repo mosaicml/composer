@@ -577,10 +577,13 @@ def load_sharded_checkpoint(
             process_group = None
             coordinator_rank = 0
             device_mesh = state.fsdp_device_mesh
+            log.debug(f'{device_mesh=}')
             if device_mesh is not None and device_mesh.ndim == 2:
+                log.debug(f'Using HSDP')
                 process_group = device_mesh.get_group(1)
                 shard_size = device_mesh.size(1)
                 coordinator_rank = dist.get_global_rank() % shard_size
+            log.debug(f'{process_group=}, {coordinator_rank=}')
 
             if version.parse(torch.__version__) > version.parse('2.2.9'):
                 dist_cp.load(  # type: ignore
