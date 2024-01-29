@@ -474,7 +474,7 @@ def get_lm_trainer(hf_model,
                    sequence_length: int = 4,
                    size: int = 4,
                    peft_config: Optional['PeftConfig'] = None,
-                   should_filter_state_dict_peft: bool = False):
+                   should_save_just_peft: bool = False):
     transformers = pytest.importorskip('transformers')
 
     metrics: List[Metric] = [LanguageCrossEntropy(ignore_index=-100)]
@@ -487,7 +487,7 @@ def get_lm_trainer(hf_model,
         metrics=metrics,
         use_logits=True,
         peft_config=peft_config,
-        should_filter_state_dict_peft=should_filter_state_dict_peft,
+        should_save_just_peft=should_save_just_peft,
     )
 
     vocab_size = hf_model.config.vocab_size
@@ -1241,9 +1241,8 @@ def test_peft_init_not_installed(tiny_gpt2_model, gpt2_peft_config):
             _ = HuggingFaceModel(tiny_gpt2_model, peft_config=gpt2_peft_config)
 
 
-@pytest.mark.parametrize('should_filter_state_dict_peft', [True, False])
-def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path,
-                               should_filter_state_dict_peft):
+@pytest.mark.parametrize('should_save_just_peft', [True, False])
+def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, should_save_just_peft):
     pytest.importorskip('peft')
 
     trainer = get_lm_trainer(
@@ -1253,7 +1252,7 @@ def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_c
         peft_config=gpt2_peft_config,
         device_train_microbatch_size=1,
         mlm=False,
-        should_filter_state_dict_peft=should_filter_state_dict_peft,
+        should_save_just_peft=should_save_just_peft,
     )
     trainer.fit()
 
@@ -1265,7 +1264,7 @@ def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_c
         device_train_microbatch_size=1,
         mlm=False,
         load_path=str(tmp_path / 'hf-checkpoint.pt'),
-        should_filter_state_dict_peft=should_filter_state_dict_peft,
+        should_save_just_peft=should_save_just_peft,
     )
 
     for p1, p2 in zip(trainer.state.model.parameters(), load_trainer.state.model.parameters()):
@@ -1303,9 +1302,9 @@ def test_peft_metadata(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config):
     assert loaded_peft_config == gpt2_peft_config
 
 
-@pytest.mark.parametrize('should_filter_state_dict_peft', [True, False])
+@pytest.mark.parametrize('should_save_just_peft', [True, False])
 def test_peft_write_hf_from_composer(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path,
-                                     should_filter_state_dict_peft):
+                                     should_save_just_peft):
     peft = pytest.importorskip('peft')
     transformers = pytest.importorskip('transformers')
 
@@ -1320,7 +1319,7 @@ def test_peft_write_hf_from_composer(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_
         peft_config=gpt2_peft_config,
         device_train_microbatch_size=1,
         mlm=False,
-        should_filter_state_dict_peft=should_filter_state_dict_peft,
+        should_save_just_peft=should_save_just_peft,
     )
     trainer.fit()
 
@@ -1341,11 +1340,11 @@ def test_peft_write_hf_from_composer(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.parametrize('should_filter_state_dict_peft', [True, False])
+@pytest.mark.parametrize('should_save_just_peft', [True, False])
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
                     reason='requires PyTorch 1.13 or higher')
 def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, world_size,
-                          should_filter_state_dict_peft):
+                          should_save_just_peft):
     pytest.importorskip('peft')
 
     fsdp_config = {
@@ -1368,7 +1367,7 @@ def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config
         device_train_microbatch_size=1,
         mlm=False,
         fsdp_config=fsdp_config,
-        should_filter_state_dict_peft=should_filter_state_dict_peft,
+        should_save_just_peft=should_save_just_peft,
     )
 
     for n, p in trainer.state.model.model.named_parameters():
@@ -1389,7 +1388,7 @@ def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config
         mlm=False,
         load_path=str(tmp_path / 'trainer1' / 'hf-checkpoint.pt'),
         fsdp_config=fsdp_config,
-        should_filter_state_dict_peft=should_filter_state_dict_peft,
+        should_save_just_peft=should_save_just_peft,
     )
 
     for n, p in load_trainer.state.model.model.named_parameters():
@@ -1408,7 +1407,7 @@ def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config
         loaded_ckpt_1 = torch.load(str(tmp_path / 'trainer1' / 'hf-checkpoint.pt'))
 
         # Check that only the LoRA parameters were saved
-        if should_filter_state_dict_peft:
+        if should_save_just_peft:
             assert all('lora' in k for k in loaded_ckpt_1['state']['model'].keys())
         else:
             assert not all('lora' in k for k in loaded_ckpt_1['state']['model'].keys())
@@ -1420,7 +1419,7 @@ def test_filtered_state_dict(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_con
     hf_model = HuggingFaceModel(tiny_gpt2_model,
                                 tokenizer=tiny_gpt2_tokenizer,
                                 peft_config=gpt2_peft_config,
-                                should_filter_state_dict_peft=True)
+                                should_save_just_peft=True)
     state_dict = hf_model.state_dict()
 
     assert len(state_dict.keys()) == 4
