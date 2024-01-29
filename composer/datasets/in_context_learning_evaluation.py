@@ -317,7 +317,8 @@ class InContextLearningDataset(Dataset):
         self.tokenize_labels = tokenize_labels
         self.batch_mapping = batch_mapping or {}
         self.base_batch = base_batch or {}
-        self.update_generation_kwargs(generation_kwargs)
+        if generation_kwargs:
+            self.update_generation_kwargs(generation_kwargs)
 
         self.static_keys = static_keys
         self.list_keys = list_keys
@@ -702,7 +703,8 @@ class InContextLearningQATaskDataset(InContextLearningDataset):
             'input_ids': self.context_key,
             'labels': 'aliases',
         }
-        self.update_generation_kwargs(kwargs.get('generation_kwargs', {}))
+        if 'generation_kwargs' in kwargs:
+            self.update_generation_kwargs(kwargs.get('generation_kwargs'))
 
     def read_dataset(
         self,
@@ -1292,7 +1294,8 @@ class InContextLearningCodeEvalDataset(InContextLearningDataset):
                 'eos_token_id': self.tokenizer.eos_token_id
             }
         }
-        self.update_generation_kwargs(kwargs.get('generation_kwargs', {}))
+        if 'generation_kwargs' in kwargs:
+            self.update_generation_kwargs(kwargs.get('generation_kwargs'))
 
     def _set_max_prompt_and_answer_lengths(self):
         """
