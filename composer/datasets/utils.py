@@ -196,7 +196,7 @@ try:
             self.stop_sequence_id_len = len(self.stop_sequence_ids) + 2
             self.tokenizer = tokenizer
 
-        def __call__(self, input_ids: torch.Tensor, scores: Optional[torch.FloatTensor] = None, **kwargs) -> bool:
+        def __call__(self, input_ids: torch.LongTensor, scores: Optional[torch.FloatTensor] = None, **kwargs) -> bool:
             # For efficiency, we compare the last n tokens where n is the number of tokens in the stop_sequence
             lookback_ids_batch = input_ids[:, :][:, -self.stop_sequence_id_len:]
 
