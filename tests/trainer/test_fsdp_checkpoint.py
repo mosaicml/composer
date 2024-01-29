@@ -401,7 +401,8 @@ def test_fsdp_mixed_with_sync(
         '0.17.0',
         marks=pytest.mark.filterwarnings((r'ignore:MosaicMLLogger is not in the state_dict. Its '
                                           r'state will not be restored.:UserWarning')),
-    )
+    ),
+    '0.18.1',
 ])
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*The CUDA RNG state could not be loaded.*:UserWarning')
