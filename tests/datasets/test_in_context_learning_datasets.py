@@ -258,8 +258,6 @@ def test_update_generation_kwargs_no_kwargs(tiny_gpt2_tokenizer, tmp_path):
     assert not 'generation_kwargs' in dl.base_batch
 
 
-# @pytest.mark.filterwarnings(
-#     r'ignore:The repository for mosaicml/test_dataset contains custom code which must*:FutureWarning')
 def test_update_generation_kwargs_no_kwargs_qa_dataset(tmp_path):
     pytest.importorskip('datasets')
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
@@ -308,7 +306,7 @@ def test_update_generation_kwargs_with_kwargs_qa_dataset(tmp_path):
     assert len(dl.base_batch['generation_kwargs']) == 4
 
 
-@pytest.mark.filterwarnings(
+@pytest.mark.filterwarning(
     r'ignore:The repository for mosaicml/test_dataset contains custom code which must*:FutureWarning')
 def test_construct_context(tiny_gpt2_tokenizer, tmp_path):
     tokenizer = tiny_gpt2_tokenizer
