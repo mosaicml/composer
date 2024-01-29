@@ -306,7 +306,7 @@ def test_update_generation_kwargs_with_kwargs_qa_dataset(tmp_path):
     assert len(dl.base_batch['generation_kwargs']) == 4
 
 
-@pytest.mark.filterwarning(
+@pytest.mark.filterwarnings(
     r'ignore:The repository for mosaicml/test_dataset contains custom code which must*:FutureWarning')
 def test_construct_context(tiny_gpt2_tokenizer, tmp_path):
     tokenizer = tiny_gpt2_tokenizer
