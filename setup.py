@@ -193,6 +193,10 @@ extra_deps['nlp'] = [
     'datasets>=2.4,<3',
 ]
 
+extra_deps['peft'] = [
+    'peft>=0.7.0,<0.8',
+]
+
 extra_deps['sentencepiece'] = [
     'protobuf<3.21',
     'sentencepiece==0.1.99',
