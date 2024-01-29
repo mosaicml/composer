@@ -58,7 +58,7 @@ class HuggingFaceModel(ComposerModel):
         shift_labels (bool, optional): If True, the batch's labels will be shifted before being used to calculate metrics. This should be set to true for CausalLM models and false otherwise. If not specified, `shift_labels` will be set automatically based on the model class name. Default: ``None``.
         allow_embedding_resizing (bool, optional): If True, the model's embeddings will be automatically resized when they are smaller than the tokenizer vocab size. Default: ``False``.
         peft_config (PeftConfig, optional): Optional PEFT config to apply to the model. If provided, the model will be converted to a PEFT model. Only LoRA is currently supported.
-        should_save_just_peft (bool, optional): If True _and_ PEFT is active, the state dict will only contain the PEFT weights, not the frozen base model weights.
+        should_save_peft_only (bool, optional): If True _and_ PEFT is active, the state dict will only contain the PEFT weights, not the frozen base model weights.
 
         .. note:: To ensure correct behavior, set `shift_labels` manually if using a custom model (i.e., if `model` is not
         an instance of a registered 🤗 Transformers class).
@@ -86,7 +86,7 @@ class HuggingFaceModel(ComposerModel):
                  shift_labels: Optional[bool] = None,
                  allow_embedding_resizing: bool = False,
                  peft_config: Optional['PeftConfig'] = None,
-                 should_save_just_peft: bool = True) -> None:
+                 should_save_peft_only: bool = True) -> None:
         try:
             import transformers
             del transformers  # unused
@@ -118,7 +118,7 @@ class HuggingFaceModel(ComposerModel):
         self.config: PretrainedConfig = model.config
         self.model_forward_args = self._get_model_forward_args()
         self.tokenizer = tokenizer
-        self.should_save_just_peft = should_save_just_peft
+        self.should_save_peft_only = should_save_peft_only
         self.use_logits = use_logits
         self.labels: Optional[torch.Tensor] = None  # set in eval_forward() if exists
         self.dummy_forward_called = False  # Used to make FSDP generate work, see generate function for more details
@@ -191,7 +191,7 @@ class HuggingFaceModel(ComposerModel):
         """Returns the state dict of the model."""
         full_state_dict = super().state_dict(*args, **kwargs)
 
-        if self.using_peft and self.should_save_just_peft:
+        if self.using_peft and self.should_save_peft_only:
             active_adapter = self.model.active_adapter
             assert isinstance(active_adapter, str)
             full_state_dict = filter_state_dict_peft(full_state_dict,
