@@ -968,7 +968,6 @@ def test_schema_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
 @pytest.mark.parametrize('dataset_uri', ['winograd_small.jsonl'])
 def test_schema_task_dataloader_sentpiece_tokenizer(dataset_uri, tmp_path, tiny_llama_tokenizer):
     pytest.importorskip('datasets')
-    transformers = pytest.importorskip('transformers')
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
     tokenizer = tiny_llama_tokenizer
