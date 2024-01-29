@@ -490,6 +490,8 @@ def get_lm_trainer(hf_model,
         should_save_peft_only=should_save_peft_only,
     )
 
+    # On torch 2.0, fsdp wrapped modules can not have both frozen and unfrozen params.
+    # On 2.1+, if you have use_orig_params=True, they can. So we need a special case for the tests here.
     if version.parse(torch.__version__) < version.parse('2.1.0') and peft_config is not None:
         for name, module in model.named_modules():
             if 'lora' in name.lower() and 'default' in name.lower():
