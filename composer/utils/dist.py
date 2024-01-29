@@ -280,7 +280,7 @@ def barrier(group=None) -> None:
 def all_reduce(
     tensor: torch.Tensor,
     reduce_operation: str = 'SUM',
-    group = None,
+    group=None,
 ) -> None:
     """Reduce a ``tensor`` by applying the ``reduce_operation``.
 
@@ -386,7 +386,7 @@ def broadcast_object_list(object_list: List[Any], src: int = 0, group=None) -> N
                        '`composer.utils.dist.initialize_dist` has been called first.')
 
 
-def all_gather(tensor: torch.Tensor, group = None) -> Sequence[torch.Tensor]:
+def all_gather(tensor: torch.Tensor, group=None) -> Sequence[torch.Tensor]:
     """Collects a :class:`~torch.Tensor` from each rank.
 
     .. seealso:: :func:`torch.distributed.all_gather`
@@ -413,7 +413,7 @@ def all_gather(tensor: torch.Tensor, group = None) -> Sequence[torch.Tensor]:
                        '`composer.utils.dist.initialize_dist` has been called first.')
 
 
-def all_gather_object(obj: TObj, group = None) -> List[TObj]:
+def all_gather_object(obj: TObj, group=None) -> List[TObj]:
     """Collect a pickleable object from each rank and return a list of these objects indexed by rank.
 
     .. seealso:: :func:`torch.distributed.all_gather_object`

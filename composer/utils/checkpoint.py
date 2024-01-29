@@ -480,7 +480,7 @@ def load_sharded_checkpoint(
 
             # 3. Broadcast files to all other replicas if HSDP
             if device_mesh is not None and device_mesh.ndim == 2:
-                # Broadcast file to all replicas. Assume replica size is at least 1 node
+                # Broadcast file to all replicas
                 replicate_process_group = device_mesh.get_group(0)
                 shard_size = device_mesh.size(1)
                 rank_in_first_replica = dist.get_global_rank() % shard_size
@@ -489,9 +489,7 @@ def load_sharded_checkpoint(
 
                 # Send list of files to all ranks
                 file_list = [sorted(os.listdir(self.destination_path))]
-                dist.broadcast_object_list(file_list,
-                                           src=rank_in_first_replica,
-                                           group=replicate_process_group)
+                dist.broadcast_object_list(file_list, src=rank_in_first_replica, group=replicate_process_group)
                 file_list = file_list[0]
                 log.debug(f'List of files to broadcast: {file_list}')
 
@@ -511,7 +509,7 @@ def load_sharded_checkpoint(
                                                    group=replicate_process_group)
                         received_file_object = file_object[0]
                         assert received_file_object is not None
-                        if receiver:
+                        if receiver and not os.path.exists(full_path):
                             with open(full_path, 'wb') as f:
                                 f.write(received_file_object['content'])
 
@@ -581,12 +579,10 @@ def load_sharded_checkpoint(
                     no_dist=(not dist.is_initialized()),
                 )
             else:
-                dist_cp.load_state_dict(
-                    state_dict=state_dict,
-                    storage_reader=storage_reader,
-                    planner=load_planner,
-                    no_dist=(not dist.is_initialized())
-                )
+                dist_cp.load_state_dict(state_dict=state_dict,
+                                        storage_reader=storage_reader,
+                                        planner=load_planner,
+                                        no_dist=(not dist.is_initialized()))
 
             log.info(f'Loaded state dict')
             state.load_state_dict(
