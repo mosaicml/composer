@@ -218,13 +218,31 @@ def test_stop_sequences_criteria(tiny_gpt2_tokenizer):
     eos_criteria = MultiTokenEOSCriteria('\n\n', tiny_gpt2_tokenizer, 2)
     seq1 = tiny_gpt2_tokenizer('Dogs are furry')['input_ids']
     seq2 = tiny_gpt2_tokenizer('Dogs are furry\n\n')['input_ids']
-    seq1 = [50257] * (len(seq2) - len(seq1)) + seq1
+    seq1 = [tiny_gpt2_tokenizer.pad_token_id] * (len(seq2) - len(seq1)) + seq1
     input_ids = torch.LongTensor([seq1, seq2])
     assert not eos_criteria(input_ids, None)
 
     eos_criteria = MultiTokenEOSCriteria('\n\n', tiny_gpt2_tokenizer, 2)
     seq1 = tiny_gpt2_tokenizer('Dogs are furry\n\n')['input_ids']
     seq2 = tiny_gpt2_tokenizer('Dogs are furry\n\n')['input_ids']
+    input_ids = torch.LongTensor([seq1, seq2])
+    assert eos_criteria(input_ids, None)
+
+
+def test_stop_sequences_criteria_sentencepiece(tiny_llama_tokenizer):
+    pytest.importorskip('datasets')
+
+    tokenizer = tiny_llama_tokenizer
+    eos_criteria = MultiTokenEOSCriteria('\n\n', tokenizer, 2)
+    seq1 = tokenizer('\n\nDogs')['input_ids']  # check to make sure starting with the stop sequence doesnt break it
+    seq2 = tokenizer('Dogs are furry\n\n')['input_ids']
+    seq1 = [tokenizer.eos_token_id] * (len(seq2) - len(seq1)) + seq1
+    input_ids = torch.LongTensor([seq1, seq2])
+    assert not eos_criteria(input_ids, None)
+
+    eos_criteria = MultiTokenEOSCriteria('\n\n', tokenizer, 2)
+    seq1 = tokenizer('Dogs are furry\n\n')['input_ids']
+    seq2 = tokenizer('Dogs are furry\n\n')['input_ids']
     input_ids = torch.LongTensor([seq1, seq2])
     assert eos_criteria(input_ids, None)
 
@@ -948,14 +966,11 @@ def test_schema_task_dataloader(dataset_uri, tiny_gpt2_tokenizer, tmp_path):
 
 
 @pytest.mark.parametrize('dataset_uri', ['winograd_small.jsonl'])
-def test_schema_task_dataloader_sentpiece_tokenizer(dataset_uri, tmp_path):
+def test_schema_task_dataloader_sentpiece_tokenizer(dataset_uri, tmp_path, tiny_llama_tokenizer):
     pytest.importorskip('datasets')
-    transformers = pytest.importorskip('transformers')
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
-    tokenizer = transformers.AutoTokenizer.from_pretrained(
-        'huggyllama/llama-7b',  # type: ignore reportUnboundVariable
-        use_fast=False)
+    tokenizer = tiny_llama_tokenizer
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 2
     seqlen = 64
@@ -1453,13 +1468,13 @@ def test_code_eval_split_batch(dataset_uri, tmp_path):
 @pytest.mark.parametrize('num_fewshot', [0, 2])
 @pytest.mark.parametrize('prompt_string', ['Please code:\n', ''])
 @pytest.mark.parametrize('generations_per_sample', [1, 3])
-def test_code_eval_sentpiece_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_string, generations_per_sample):
+def test_code_eval_sentpiece_dataloader(dataset_uri, tmp_path, num_fewshot, prompt_string, generations_per_sample,
+                                        tiny_llama_tokenizer):
     pytest.importorskip('datasets')
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
-    transformers = pytest.importorskip('transformers')
-    tokenizer = transformers.AutoTokenizer.from_pretrained('huggyllama/llama-7b')  # type: ignore reportUnboundVariable
+    tokenizer = tiny_llama_tokenizer
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 4
     seqlen = 2048
@@ -1520,13 +1535,12 @@ def test_code_eval_sentpiece_dataloader(dataset_uri, tmp_path, num_fewshot, prom
 
 
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
-def test_code_eval_test_cases(dataset_uri, tmp_path):
+def test_code_eval_test_cases(dataset_uri, tmp_path, tiny_llama_tokenizer):
     pytest.importorskip('datasets')
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
-    transformers = pytest.importorskip('transformers')
-    tokenizer = transformers.AutoTokenizer.from_pretrained('huggyllama/llama-7b')  # type: ignore reportUnboundVariable
+    tokenizer = tiny_llama_tokenizer
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 4
     seqlen = 512
@@ -1569,13 +1583,12 @@ def test_code_eval_test_cases(dataset_uri, tmp_path):
 
 
 @pytest.mark.parametrize('dataset_uri', ['human_eval_small.jsonl'])
-def test_code_eval_pass_at_k_validity(dataset_uri, tmp_path):
+def test_code_eval_pass_at_k_validity(dataset_uri, tmp_path, tiny_llama_tokenizer):
     pytest.importorskip('datasets')
 
     local_data = os.path.join(os.path.dirname(__file__), 'local_data')
 
-    transformers = pytest.importorskip('transformers')
-    tokenizer = transformers.AutoTokenizer.from_pretrained('huggyllama/llama-7b')  # type: ignore reportUnboundVariable
+    tokenizer = tiny_llama_tokenizer
     dataset_uri = f'{local_data}/{dataset_uri}'
     batch_size = 2
     seqlen = 64
