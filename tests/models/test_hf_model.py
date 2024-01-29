@@ -477,6 +477,8 @@ def get_lm_trainer(hf_model,
                    should_save_peft_only: bool = False):
     transformers = pytest.importorskip('transformers')
 
+    torch_less_than_2 = version.parse(torch.__version__) < version.parse('2.1.0')
+
     metrics: List[Metric] = [LanguageCrossEntropy(ignore_index=-100)]
     if not is_conditional_generation:
         metrics.append(MaskedAccuracy(ignore_index=-100))
@@ -489,6 +491,14 @@ def get_lm_trainer(hf_model,
         peft_config=peft_config,
         should_save_peft_only=should_save_peft_only,
     )
+
+    if torch_less_than_2 and peft_config is not None:
+        for name, module in model.named_modules():
+            if 'lora' in name.lower() and 'default' in name.lower():
+                has_parameters = any(True for _ in module.parameters())
+                has_buffers = any(True for _ in module.buffers())
+                if has_parameters or has_buffers:
+                    module._fsdp_wrap = True
 
     vocab_size = hf_model.config.vocab_size
     sequence_length = 4
