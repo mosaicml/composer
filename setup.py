@@ -100,7 +100,7 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
     'junitparser==3.1.1',
-    'coverage[toml]==7.3.4',
+    'coverage[toml]==7.4.1',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
     'ipython==8.11.0',
@@ -191,6 +191,10 @@ extra_deps['coco'] = [
 extra_deps['nlp'] = [
     'transformers>=4.11,<4.38,!=4.34.0',
     'datasets>=2.4,<3',
+]
+
+extra_deps['peft'] = [
+    'peft>=0.7.0,<0.8',
 ]
 
 extra_deps['sentencepiece'] = [
