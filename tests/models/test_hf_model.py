@@ -498,7 +498,7 @@ def get_lm_trainer(hf_model,
                 has_parameters = any(True for _ in module.parameters())
                 has_buffers = any(True for _ in module.buffers())
                 if has_parameters or has_buffers:
-                    module._fsdp_wrap = True
+                    module._fsdp_wrap = True  # type: ignore
 
     vocab_size = hf_model.config.vocab_size
     sequence_length = 4
