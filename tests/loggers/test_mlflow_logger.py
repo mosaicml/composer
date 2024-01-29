@@ -646,6 +646,8 @@ def test_mlflow_ignore_hyperparameters(tmp_path):
                                       ignore_hyperparameters=['num*', 'mlflow_run_id', 'nothing'])
 
     Trainer(model=SimpleConvModel(), loggers=test_mlflow_logger, max_duration=f'4ba')
+    # Allow async logging to finish.
+    time.sleep(3)
     test_mlflow_logger.post_close()
 
     run = _get_latest_mlflow_run(
