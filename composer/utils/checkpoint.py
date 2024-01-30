@@ -920,7 +920,7 @@ def get_save_filename(
     save_dirpath = Path(Path(filename).parent) / Path(state.sharded_ckpt_prefix_dir)
     save_dirpath = format_name_with_dist_and_time(str(save_dirpath), state.run_name, state.timestamp)
     # New name is now Trainer.save_folder / sharded_ckpt_prefix_dir / __{dist.get_global_rank()}_0.distcp’
-    # e.g. path/to/my/checkpoints/ep1-ba2/__1_0.distcp 
+    # e.g. path/to/my/checkpoints/ep1-ba2/__1_0.distcp
     ckpt_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
     return str(Path(save_dirpath) / Path(ckpt_filename))
 

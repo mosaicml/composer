@@ -10,12 +10,11 @@ from contextlib import contextmanager, nullcontext
 from typing import Any, Callable, ContextManager, Dict, Iterator, List, Optional, Sequence, Tuple, Union, cast
 
 import torch
-from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (CheckpointImpl,
-                                                                            apply_activation_checkpointing,
-                                                                            checkpoint_wrapper)
+from packaging import version
+from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (CheckpointImpl, apply_activation_checkpointing,
+                                                                         checkpoint_wrapper)
 from torch.distributed.fsdp import FullyShardedDataParallel
 from torch.distributed.fsdp._common_utils import clean_tensor_name
-from packaging import version
 from torch.nn.parallel import DistributedDataParallel
 from torchmetrics import Metric, MetricCollection
 

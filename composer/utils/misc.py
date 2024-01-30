@@ -207,6 +207,7 @@ def model_eval_mode(model: torch.nn.Module):
     finally:
         model.train(mode=is_training)
 
+
 def partial_format(s, *args, **kwargs) -> str:
     """Format a string with a partial set of arguments.
 

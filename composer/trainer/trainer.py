@@ -25,12 +25,12 @@ from typing import (Any, Callable, ContextManager, Dict, Iterable, List, Mapping
 
 import coolname
 import torch
-from torch._dynamo import OptimizedModule
 import torch.distributed
 import torch.nn as nn
 import torch.utils.data
-from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
+from torch._dynamo import OptimizedModule
 from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
+from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
@@ -963,7 +963,7 @@ class Trainer:
             compiled_model = model._orig_mod
             if not isinstance(compiled_model, ComposerModel):
                 raise ValueError(f'Provided `model` must be a subclass of ComposerModel. ' +
-                                    f'Instead found as type `{type(compiled_model)}`')
+                                 f'Instead found as type `{type(compiled_model)}`')
             compiled_model.forward = model.dynamo_ctx(compiled_model.forward)
             model = compiled_model
 
@@ -1515,7 +1515,7 @@ class Trainer:
 
         # The model would need to be torch.compile()'d after being wrapped in a distributed strategy
         # to take advantage of any graph breaks.
-        if is_torch_2_0 and not is_model_compiled and compile_config is not None:
+        if not is_model_compiled and compile_config is not None:
             compiled_model = torch.compile(self.state.model, **compile_config)
             self.state.model = compiled_model._orig_mod
             self.state.model.forward = compiled_model.dynamo_ctx(self.state.model.forward)
@@ -1524,10 +1524,6 @@ class Trainer:
             # debugging purpose and for unit test.
             if self.auto_log_hparams:
                 self.local_hparams['is_model_compiled'] = is_model_compiled
-        elif not is_torch_2_0 and compile_config is not None:
-            raise ValueError(f'`torch.compile` is supported for PyTorch 2.0 or higher.' +
-                             f'Either update your PyTorch version or disable parameter by providing ' +
-                             f'`compile_config` to `None`.')
 
     @property
     def saved_checkpoints(self) -> List[str]:

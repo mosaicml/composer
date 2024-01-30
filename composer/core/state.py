@@ -16,11 +16,13 @@ import numpy as np
 import torch
 import torch.nn.modules.utils
 from packaging import version
+from torch.distributed.fsdp import FullOptimStateDictConfig, FullStateDictConfig
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp import (LocalOptimStateDictConfig, LocalStateDictConfig, ShardedOptimStateDictConfig,
+                                    StateDictType)
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import FullStateDictConfig, LocalStateDictConfig, StateDictType, FullOptimStateDictConfig, ShardedOptimStateDictConfig, LocalOptimStateDictConfig
 from torchmetrics import Metric
 
 from composer.core.data_spec import DataSpec
@@ -97,9 +99,9 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
         raise NotImplementedError(f'No valid FSDP state_dict_type for {state_dict_type}')
 
     with FSDP.state_dict_type(module,
-                                state_dict_type=fsdp_state_dict_type,
-                                state_dict_config=state_dict_config,
-                                optim_state_dict_config=optim_state_dict_config):
+                              state_dict_type=fsdp_state_dict_type,
+                              state_dict_config=state_dict_config,
+                              optim_state_dict_config=optim_state_dict_config):
         yield
 
 
@@ -125,22 +127,6 @@ def fsdp_get_optim_state_dict(model: torch.nn.Module,
     """
     with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
         return FSDP.optim_state_dict(model, optim)  # type: ignore
-
-
-def _legacy_fsdp_get_optim_state_dict(model: torch.nn.Module,
-                                      optim: torch.optim.Optimizer,
-                                      state_dict_type: str = 'full') -> Dict[str, Any]:
-    if state_dict_type == 'full':
-        # Converts local state dict to full.
-        return FSDP.full_optim_state_dict(model=model, optim=optim)
-    elif state_dict_type == 'sharded':
-        # Converts local state dict to sharded.
-        return FSDP.sharded_optim_state_dict(model=model, optim=optim)
-    elif state_dict_type == 'local':
-        # State dict is already local, so just return state dict.
-        return optim.state_dict()
-    else:
-        raise NotImplementedError(f'No valid FSDP state_dict_type for {state_dict_type}')
 
 
 def _legacy_optim_state_dict_to_load(
