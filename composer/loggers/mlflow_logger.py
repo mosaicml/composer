@@ -283,10 +283,11 @@ class MLFlowLogger(LoggerDestination):
                 mlflow.transformers.save_model(**kwargs,)
             elif flavor == 'peft':
                 # TODO: Remove after mlflow fixes the bug that makes this necessary
-                mlflow.store._unity_catalog.registry.rest_store.get_feature_dependencies = lambda *args, **kwargs: ''
+                mlflow.store._unity_catalog.registry.rest_store.get_feature_dependencies = lambda *args, **kwargs: ''  # type: ignore
 
                 # This is a temporary workaround until MLflow supports saving PEFT models.
-                log.warning('Saving PEFT models using MLflow is experimental and the API is subject to change without warning.')
+                log.warning(
+                    'Saving PEFT models using MLflow is experimental and the API is subject to change without warning.')
                 expected_keys = {'path', 'save_pretrained_dir'}
                 if not set(kwargs.keys()) == expected_keys:
                     raise ValueError(f'Expected kwargs to be {expected_keys}, but got {kwargs.keys()}')
@@ -295,15 +296,16 @@ class MLFlowLogger(LoggerDestination):
                     pass
 
                 from mlflow.models.signature import ModelSignature
-                from mlflow.types import DataType, Schema, ColSpec
+                from mlflow.types import ColSpec, DataType, Schema
 
                 input_schema = Schema([
-                    ColSpec(DataType.string, "prompt"), 
-                    ColSpec(DataType.double, "temperature"), 
-                    ColSpec(DataType.long, "max_tokens")])
+                    ColSpec(DataType.string, 'prompt'),
+                    ColSpec(DataType.double, 'temperature'),
+                    ColSpec(DataType.long, 'max_tokens')
+                ])
                 output_schema = Schema([ColSpec(DataType.string)])
                 signature = ModelSignature(inputs=input_schema, outputs=output_schema)
-                
+
                 mlflow.pyfunc.save_model(
                     path=kwargs['path'],
                     artifacts={'lora_checkpoint': kwargs['save_pretrained_dir']},
