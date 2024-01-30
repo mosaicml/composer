@@ -274,8 +274,6 @@ def _compare_timestamps_between_state_dicts(state_dict1, state_dict2):
 @pytest.mark.parametrize('autoresume', [True, False])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.parametrize('load_fsdp_monolith_rank0_only', [True, False])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
 def test_fsdp_full_state_dict_load(
     world_size,
     tmp_path: pathlib.Path,
@@ -341,8 +339,6 @@ def test_fsdp_full_state_dict_load(
 @pytest.mark.gpu
 @world_size(2)
 @pytest.mark.parametrize('sync_module_states', [True, False])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
 def test_fsdp_mixed_with_sync(
     world_size,
     tmp_path: pathlib.Path,
@@ -405,8 +401,6 @@ def test_fsdp_mixed_with_sync(
 ])
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*The CUDA RNG state could not be loaded.*:UserWarning')
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
 def test_fsdp_load_old_checkpoint(
     world_size,
     tmp_path: pathlib.Path,
@@ -417,11 +411,6 @@ def test_fsdp_load_old_checkpoint(
     s3_read_only_prefix: str,
     composer_version: str,
 ):
-
-    if (version.parse(torch.__version__) >= version.parse('1.13.0') and
-            composer_version not in ['0.13.5', '0.14.0', '0.14.1']):
-        pytest.skip(('Composer 0.15.1 and above checkpoints were saved with '
-                     'torch 2 and as a result are not compatible with torch 1.13.'))
     if (version.parse(torch.__version__) >= version.parse('2.0.0') and state_dict_type == 'local'):
         pytest.xfail(('Loading a torch 1.13 checkpoint with torch 2.0 for '
                       'state_dict_type local is not backwards compatible. See '
@@ -495,8 +484,6 @@ def test_fsdp_load_old_checkpoint(
 @world_size(2)
 @pytest.mark.parametrize('optimizer', ['adam', 'adamw'])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
 def test_fsdp_full_state_dict_load_with_ema(
     world_size,
     tmp_path: pathlib.Path,
@@ -552,8 +539,6 @@ def test_fsdp_full_state_dict_load_with_ema(
 @world_size(2)
 @pytest.mark.parametrize('is_valid_checkpoint', [True, False])
 @pytest.mark.parametrize('state_dict_type', ['sharded', 'full'])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning')
@@ -603,8 +588,6 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
     [False, 'adamw', 'amp_bf16', True, None],
     [False, 'adamw', 'amp_bf16', False, ['rng']],
 ])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning')
@@ -729,8 +712,6 @@ def test_fsdp_partitioned_state_dict_load(
 @pytest.mark.parametrize('autoresume', [False, True])  # True commented out for now
 @pytest.mark.parametrize('num_shards', [2, 4, 7])
 @pytest.mark.parametrize('sharding_strategy', ['FULL_SHARD', 'SHARD_GRAD_OP'])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0.1'),
-                    reason='requires PyTorch 2.0.1 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:MosaicMLLogger is not in the state_dict.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
@@ -834,60 +815,6 @@ def test_elastic_resumption(
 
     # Compare state dicts.
     compare_state_dicts()
-
-
-@pytest.mark.gpu
-@world_size(2)
-@pytest.mark.parametrize('state_dict_type', ['local', 'sharded'])
-@pytest.mark.parametrize('autoresume', [True])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
-@pytest.mark.skipif(version.parse(torch.__version__) > version.parse('1.13.0'),
-                    reason='All Pytorch 2.0 checkpoints have just 1 symlink')
-def test_mismatch_timestamp_error(
-    world_size,
-    tmp_path: pathlib.Path,
-    state_dict_type: str,
-    autoresume: bool,
-):
-    run_name = 'my-run-ar' if autoresume else 'my-run'
-    tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
-    save_folder = str(tmp_paths[0] / pathlib.Path(run_name))
-    save_filename = 'ba{batch}-rank{rank}.pt'
-    trainer1 = get_trainer(
-        save_folder=save_folder,
-        save_filename=save_filename,
-        run_name=run_name,
-        autoresume=autoresume,
-        max_duration='2ba',
-        save_interval='1ba',
-        fsdp_config=FSDPConfig(state_dict_type=state_dict_type),
-    )
-    trainer1.fit()
-    trainer1.close()
-    latest_symlink = str(pathlib.Path(save_folder) / pathlib.Path(f'latest-rank{dist.get_global_rank()}.pt'))
-    latest_checkpoint_path = pathlib.Path(save_folder) / pathlib.Path('ba2')
-    assert os.path.join(save_folder, os.readlink(latest_symlink)) == str(latest_checkpoint_path)
-    oldest_checkpoint_relative_path = 'ba1'
-
-    # Corrupt latest checkpoint symlink for rank1 by changing it from batch 2 checkpoint to the batch 1 one
-    # and removing batch 2 checkpoint.
-    if dist.get_global_rank() == 0:
-        os.remove(latest_symlink)
-        os.symlink(src=oldest_checkpoint_relative_path, dst=latest_symlink)
-        assert os.readlink(latest_symlink) == oldest_checkpoint_relative_path
-
-    dist.barrier()
-    expected_error = pytest.raises(RuntimeError, match='Timestamp mismatch error:*')
-
-    with expected_error:
-        get_trainer(
-            save_folder=save_folder,
-            save_filename=save_filename,
-            autoresume=autoresume,
-            run_name=run_name,
-            fsdp_config=FSDPConfig(state_dict_type=state_dict_type),
-        )
 
 
 @pytest.mark.gpu

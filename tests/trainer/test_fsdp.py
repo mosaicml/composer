@@ -26,8 +26,6 @@ _MIXED_PRECISION_TYPES = ['FULL', 'DEFAULT', 'PURE']
 @world_size(2)
 @pytest.mark.gpu
 @pytest.mark.filterwarnings('ignore:The passed in model appears to have tied weights.*:UserWarning')
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='FSDP requires PyTorch 1.13 or higher')
 def test_fsdp_device_initialization(model: ComposerClassifier, mixed_precision: str, reentrant: bool, world_size: int,
                                     device: str):
     """test FSDP device initialization for a simple model with weight tying and a model where two modules
@@ -144,8 +142,6 @@ def test_fsdp_inits_params_once(model: ComposerClassifier, device: str, world_si
 @pytest.mark.parametrize('mixed_precision', _MIXED_PRECISION_TYPES)
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='FSDP requires PyTorch 1.13 or higher')
 def test_fsdp_meta_initialization_none(model: ComposerClassifier, mixed_precision: 'str', world_size: int):
     """
     This test is intended to test FSDP for meta initialization when there are attributes
@@ -173,8 +169,6 @@ def test_fsdp_meta_initialization_none(model: ComposerClassifier, mixed_precisio
 @pytest.mark.parametrize('backward_prefetch_limit', [1, 2])
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='FSDP requires PyTorch 1.13 or higher')
 def test_fsdp_prefetch_limit(forward_prefetch_limit: int, backward_prefetch_limit: int, world_size: int):
     model = SimpleModel()
     model.fc1._fsdp_wrap = True  # pyright: ignore[reportGeneralTypeIssues]
@@ -199,8 +193,6 @@ def test_fsdp_prefetch_limit(forward_prefetch_limit: int, backward_prefetch_limi
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='FSDP requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings('ignore:Instantiating FSDP with custom process groups.*:UserWarning')
 @pytest.mark.filterwarnings('ignore:Composer is instantiating custom process groups.*:UserWarning')
 def test_fsdp_process_group(world_size: int):

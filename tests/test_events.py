@@ -89,8 +89,6 @@ class TestEventCalls:
                          id='gpu-fsdp',
                          marks=[
                              pytest.mark.gpu,
-                             pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                                                reason='requires PyTorch 1.13 or higher'),
                              pytest.mark.filterwarnings('ignore::UserWarning'),
                          ]),
         ])

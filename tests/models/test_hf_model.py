@@ -930,8 +930,6 @@ def test_encoder_decoder(tiny_t5_model, tiny_t5_tokenizer):
 
 
 @pytest.mark.gpu
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings('ignore::UserWarning')
 def test_hf_fsdp(tiny_bert_config, tiny_bert_tokenizer):
     transformers = pytest.importorskip('transformers')
@@ -1095,9 +1093,6 @@ def test_embedding_resizing(tiny_bert_model, tiny_bert_tokenizer, embedding_resi
 @pytest.mark.parametrize('hf_model,hf_tokenizer', [(configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer),
                                                    (configure_tiny_t5_model, configure_tiny_t5_tokenizer)])
 def test_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
-    if use_fsdp and version.parse(torch.__version__) < version.parse('1.13.0'):
-        pytest.skip('FSDP requires torch >= 1.13.0')
-
     transformers = pytest.importorskip('transformers')
     if device == 'cpu' and use_fsdp:
         pytest.skip('FSDP is not supported on CPU.')
@@ -1160,8 +1155,6 @@ def test_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
 @pytest.mark.parametrize('hf_model,hf_tokenizer', [(configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer),
                                                    (configure_tiny_t5_model, configure_tiny_t5_tokenizer)])
 def test_eval_forward_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
-    if use_fsdp and version.parse(torch.__version__) < version.parse('1.13.0'):
-        pytest.skip('FSDP requires torch >= 1.13.0')
     transformers = pytest.importorskip('transformers')
     if device == 'cpu' and use_fsdp:
         pytest.skip('FSDP is not supported on CPU.')
@@ -1351,8 +1344,6 @@ def test_peft_write_hf_from_composer(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_
 @pytest.mark.gpu
 @world_size(2)
 @pytest.mark.parametrize('should_save_peft_only', [True, False])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
 def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, world_size,
                           should_save_peft_only):
     pytest.importorskip('peft')

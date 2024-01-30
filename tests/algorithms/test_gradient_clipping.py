@@ -212,8 +212,6 @@ def _auto_wrap_policy(module: torch.nn.Module, recurse: bool, nonwrapped_numel: 
     hf_model_with_grads
 ])
 @pytest.mark.parametrize('clipping_type', ['norm', 'value'])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
 @pytest.mark.gpu
 @world_size(2)
 def test_gradient_clipping_algorithm_with_fsdp_enabled_does_not_error(
