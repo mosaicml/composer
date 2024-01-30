@@ -4,18 +4,65 @@
 """Utility and helper functions for datasets."""
 
 import logging
-from typing import List, Optional
+import textwrap
+from typing import Callable, List, Optional
 
 import torch
+
+import torch
+from torchvision import transforms
+from torchvision.datasets import VisionDataset
 
 
 __all__ = [
     'add_vision_dataset_transform',
-    'NormalizationFn',
-    'pil_image_collate',
+    'MultiTokenEOSCriteria',
 ]
 
 log = logging.getLogger(__name__)
+
+def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is_tensor_transform: bool = False):
+    """Add a transform to a dataset's collection of transforms.
+    Args:
+        dataset (VisionDataset): A torchvision dataset.
+        transform (Callable): Function to be added to the dataset's collection of
+            transforms.
+        is_tensor_transform (bool): Whether ``transform`` acts on data of the type
+            :class:`~torch.Tensor`. default: ``False``.
+            * If ``True``, and :class:`~torchvision.transforms.ToTensor` is present in the transforms of the
+              ``dataset``, then ``transform`` will be inserted after the
+              :class:`~torchvision.transforms.ToTensor` transform.
+            * If ``False`` and :class:`~torchvision.transforms.ToTensor` is present, the ``transform`` will be
+              inserted before :class:`~torchvision.transforms.ToTensor`.
+            * If :class:`~torchvision.transforms.ToTensor` is not present, the transform will be appended to
+              the end of collection of transforms.
+    Returns:
+        None: The ``dataset`` is modified in-place.
+    """
+    transform_added_logstring = textwrap.dedent(f"""\
+        Transform {transform} added to dataset.
+        Dataset now has the following transforms: {dataset.transform}""")
+
+    if dataset.transform is None:
+        dataset.transform = transform
+        log.warning(transform_added_logstring)
+    elif isinstance(dataset.transform, transforms.Compose):
+        insertion_index = len(dataset.transform.transforms)
+        for i, t in enumerate(dataset.transform.transforms):
+            if isinstance(t, transforms.ToTensor):
+                insertion_index = i
+                break
+        if is_tensor_transform:
+            insertion_index += 1
+        dataset.transform.transforms.insert(insertion_index, transform)
+        log.warning(transform_added_logstring)
+    else:  # transform is some other basic transform, join using Compose
+        if isinstance(dataset.transform, transforms.ToTensor) and not is_tensor_transform:
+            dataset.transform = transforms.Compose([transform, dataset.transform])
+            log.warning(transform_added_logstring)
+        else:
+            dataset.transform = transforms.Compose([dataset.transform, transform])
+            log.warning(transform_added_logstring)
 
 try:
     import transformers
