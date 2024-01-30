@@ -25,7 +25,6 @@ installing Composer within the image.
 ## PyTorch Images
 
 The [`mosaicml/pytorch`](https://hub.docker.com/r/mosaicml/pytorch) images contain PyTorch preinstalled, without Composer.
-The base flavor contains PyTorch pre-installed;
 To install composer, once inside the image, run `pip install mosaicml`.
 
 <!-- BEGIN_PYTORCH_BUILD_MATRIX -->
