@@ -681,7 +681,7 @@ def _maybe_get_peft_model(
 
 def maybe_get_underlying_model(
         model: Union[transformers.PreTrainedModel, 'PeftModel']) -> Union[transformers.PreTrainedModel, 'PeftModel']:
-    """Get the underlying PreTrainedModel from a model if it is a PEFT model
+    """et the underlying PreTrainedModel from a model if it is a PEFT model
 
     Args:
         model (Union[transformers.PreTrainedModel, 'PeftModel']): The model to get the underlying model from
