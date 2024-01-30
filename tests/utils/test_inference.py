@@ -28,7 +28,7 @@ from composer.utils.device import get_device
 from tests.common import SimpleTransformerClassifier, device
 from tests.common.datasets import (RandomImageDataset, dummy_text_classification_dataloader, dummy_tiny_bert_lm_batch,
                                    dummy_transformer_classifier_batch)
-from tests.common.models import configure_tiny_bert_hf_model
+from tests.common.models import composer_resnet, configure_tiny_bert_hf_model
 
 
 class MockFileUploader(LoggerDestination):
