@@ -93,8 +93,7 @@ def _get_cuda_override(cuda_version: str):
                                     'brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=470,driver<471 '
                                     'brand=titanrtx,driver>=515,driver<516')
         return cuda_118_override_string
-    else:
-        return ''
+    return ''
 
 
 def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: str, stage: str, interconnect: str):
