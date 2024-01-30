@@ -16,15 +16,15 @@ jobs:
     runs-on: ubuntu-20.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: ${{ inputs.python_version }}
-      - name: Setup
-        run: |
-          set -ex
-          python -m pip install --upgrade 'pip<23' wheel
-          python -m pip install --upgrade .${{ inputs.pip_deps }}
-      - name: Run checks
-        run: |
-          pre-commit run --all-files
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v4
+      with:
+        python-version: ${{ inputs.python_version }}
+    - name: Setup
+      run: |
+        set -ex
+        python -m pip install --upgrade 'pip<23' wheel
+        python -m pip install --upgrade .${{ inputs.pip_deps }}
+    - name: Run checks
+      run: |
+        pre-commit run --all-files
