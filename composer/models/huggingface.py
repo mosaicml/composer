@@ -23,7 +23,8 @@ from torchmetrics import Metric
 
 from composer.metrics import InContextLearningMetric, InContextLearningQAAccuracy
 from composer.models.base import ComposerModel
-from composer.utils import MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp, safe_torch_load
+from composer.utils import (MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp,
+                            safe_torch_load, using_torch_2)
 
 try:
     from peft import PeftModel, get_peft_model
@@ -140,6 +141,9 @@ class HuggingFaceModel(ComposerModel):
             self.model = _maybe_get_peft_model(peft_config, self.model)
 
         self.using_peft = isinstance(self.model, PeftModel) if peft_installed else False
+
+        if self.using_peft and not using_torch_2():
+            raise RuntimeError('PEFT models are only supported in Torch 2.0+')
 
     def _check_tokenizer_and_maybe_resize_embeddings(self, allow_embedding_resizing: bool) -> None:
         if self.tokenizer is None:
