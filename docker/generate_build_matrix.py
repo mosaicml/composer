@@ -206,9 +206,8 @@ def _main():
                 _get_cuda_override(cuda_version),
         }
 
-        # Only build EFA image on latest python with cuda on pytorch_stage
-        if interconnect == 'EFA' and not (python_version == PRODUCTION_PYTHON_VERSION and use_cuda and
-                                          stage == 'pytorch_stage'):
+        # Only build EFA image on cuda and pytorch_stage
+        if interconnect == 'EFA' and not (use_cuda and stage == 'pytorch_stage'):
             continue
 
         # Skip the mellanox drivers if not in the cuda images or using EFA
