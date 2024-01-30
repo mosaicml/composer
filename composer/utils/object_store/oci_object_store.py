@@ -89,7 +89,7 @@ class OCIObjectStore(ObjectStore):
         return f'oci://{self.bucket}/{object_name}'
 
     def get_object_size(self, object_name: str) -> int:
-        if 'oci' in self.get_uri(prefix):
+        if 'oci' in self.get_uri(object_name):
             print('get_object_size')
             raise Forbidden('Simulated 403 Forbidden error for debugging purposes.') # simulate error recieved from GCS error 403 log
             return
@@ -117,7 +117,7 @@ class OCIObjectStore(ObjectStore):
     ):
         del callback
 
-        if 'oci' in self.get_uri(prefix):
+        if 'oci' in self.get_uri(object_name):
             print('upload_object')
             raise Forbidden('Simulated 403 Forbidden error for debugging purposes.') # simulate error recieved from GCS error 403 log
             return
@@ -169,7 +169,7 @@ class OCIObjectStore(ObjectStore):
 
         with TemporaryDirectory(dir=dirname, prefix=f'{str(filename)}') as temp_dir:
             parts = []
-            if 'oci' in self.get_uri(prefix):
+            if 'oci' in self.get_uri(object_name):
                 print('download_object')
                 raise Forbidden('Simulated 403 Forbidden error for debugging purposes.') # simulate error recieved from GCS error 403 log
                 return
