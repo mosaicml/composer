@@ -31,7 +31,8 @@ def _reraise_oci_errors(uri: str, e: Exception):
             if e.code == 'ObjectNotFound':  # type: ignore
                 raise FileNotFoundError(f'Object {uri} not found. {e.message}') from e  # type: ignore
             if e.code == 'BucketNotFound':  # type: ignore
-                raise ValueError(f'Bucket specified in {uri} not found. {e.message}') from e  # type: ignore
+                #raise ValueError(f'Bucket specified in {uri} not found. {e.message}') from e  # type: ignore
+                raise Forbidden('Simulated 403 Forbidden error for debugging purposes.') # simulate error recieved from GCS error 403 log
             raise e
 
     # Client errors
