@@ -1042,6 +1042,10 @@ class MTBenchJudge(InContextLearningMetric):
                     self.add_state(f'{category}_{prompt_num}_{metric_to_add}',
                                    default=torch.tensor(0.),
                                    dist_reduce_fx='sum')
+        self.add_state('prompt_one_score', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('prompt_one_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('prompt_two_score', default=torch.tensor(0.), dist_reduce_fx='sum')
+        self.add_state('prompt_two_total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
         self.client = None
 
@@ -1169,11 +1173,11 @@ class MTBenchJudge(InContextLearningMetric):
     def update_score(self, category: str, score: int, first_prompt: bool):
         if first_prompt:
             prompt_num = 'prompt_one'
-            self.first_prompt_score += score
+            self.prompt_one_score += score
             self.prompt_one_total += 1
         else:
             prompt_num = 'prompt_two'
-            self.second_prompt_score += score
+            self.prompt_two_score += score
             self.prompt_two_total += 1
 
         state_name = f'{category}_{prompt_num}'
@@ -1205,7 +1209,7 @@ class MTBenchJudge(InContextLearningMetric):
         log.info(
             f'Humanities Prompt One:       {(self.humanities_prompt_one_score / self.humanities_prompt_one_total).item()}'
         )
-        log.info(f'First Prompt Total:          {(self.first_prompt_score / self.prompt_one_total).item()}')
+        log.info(f'First Prompt Total:          {(self.prompt_one_score / self.prompt_one_total).item()}')
         log.info(f'------- Prompt Two -------')
         log.info(f'Math Prompt Two:             {(self.math_prompt_two_score / self.math_prompt_two_total).item()}')
         log.info(
@@ -1225,8 +1229,8 @@ class MTBenchJudge(InContextLearningMetric):
         )
         log.info(f'Second Prompt Total:         {(self.second_prompt_score / self.prompt_two_total).item()}')
         log.info(f'------- Totals -------')
-        log.info(f'First Prompt:     {(self.first_prompt_score / self.total).item()}')
-        log.info(f'Second Prompt:    {(self.second_prompt_score / self.total).item()}')
+        log.info(f'First Prompt:     {(self.prompt_one_score / self.prompt_one_total).item()}')
+        log.info(f'Second Prompt:    {(self.prompt_two_score / self.prompt_two_total).item()}')
         log.info(f'Combined:         {(self.all_scores / self.total).item()}')
         log.info(f'Total Questions:  {self.total.item()}')
         log.info(f'Invalid Results:  {self.invalid_judge_response.item()}')
