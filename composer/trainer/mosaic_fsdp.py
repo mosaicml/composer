@@ -12,9 +12,6 @@ from packaging import version
 from torch.distributed._shard.sharding_spec import ChunkShardingSpec
 from torch.distributed.fsdp import FullyShardedDataParallel
 
-from composer.trainer.mosaic_fsdp_utils import (_sharded_pre_load_state_dict_hook, build_metadata,
-                                                custom_auto_wrap_t1p13p1)
-
 
 def patch_pytorch():
     """Monkey patches pytorch functions based on pytorch version."""
@@ -25,6 +22,7 @@ def patch_pytorch():
         # Monkey patch for torch < 2.0 ie torch == 1.13.1
 
         # Monkey patch _auto_wrap with _custom_auto_wrap fn
+        from composer.trainer.mosaic_fsdp_utils import custom_auto_wrap_t1p13p1
         FullyShardedDataParallel._auto_wrap = custom_auto_wrap_t1p13p1  # type: ignore
 
     elif version.parse(torch.__version__) < version.parse('2.0.1'):
@@ -39,16 +37,23 @@ def patch_pytorch():
         FullyShardedDataParallel.__init__ = init_fn_t2p0p1  # type: ignore
 
         # Monkey patch sharding method
+        from composer.trainer.mosaic_fsdp_utils import build_metadata
+
         ChunkShardingSpec.build_metadata = build_metadata
 
     elif version.parse(torch.__version__) < version.parse('2.1.1'):
         # Monkey patch for torch < 2.1.1 ie torch == 2.1.0
 
         # Monkey patch sharding method
+        from composer.trainer.mosaic_fsdp_utils import build_metadata
+
         ChunkShardingSpec.build_metadata = build_metadata
 
         # Monkey patch partial state dict handling
         from torch.distributed.fsdp import _state_dict_utils
+
+        from composer.trainer.mosaic_fsdp_utils import _sharded_pre_load_state_dict_hook
+
         _state_dict_utils._sharded_pre_load_state_dict_hook = (_sharded_pre_load_state_dict_hook)
 
         # Allow 2D HSDP
@@ -79,14 +84,14 @@ def patch_pytorch():
         _runtime_utils._validate_and_get_hybrid_shard_state = lambda *args, **kwargs: None
 
         # Monkeypath state_dict
-        from composer.trainer.mosaic_fsdp_utils import init_fn_t2p2p0
-        FullyShardedDataParallel.__init__ = init_fn_t2p2p0
+        from composer.trainer.mosaic_fsdp_utils import init_fn_t2p3p0
+        FullyShardedDataParallel.__init__ = init_fn_t2p3p0
 
         # Monkeypath state_dict
         from torch.distributed.checkpoint import state_dict  # type: ignore
 
-        from composer.trainer.mosaic_fsdp_utils import _verify_options_t2p2p0
-        state_dict._verify_options = _verify_options_t2p2p0
+        from composer.trainer.mosaic_fsdp_utils import _verify_options_t2p3p0
+        state_dict._verify_options = _verify_options_t2p3p0
 
         # Monkeypatch sharding optim state
         from torch.distributed.fsdp import _optim_utils

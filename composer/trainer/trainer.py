@@ -2531,7 +2531,7 @@ class Trainer:
                 microbatch_loss_dict[k] = loss.detach().clone().mean() * (microbatch_num_samples / current_batch_size)
 
             if use_grad_scaling:
-                microbatch_loss = cast(torch.Tensor, self.state.scaler.scale(microbatch_loss))
+                microbatch_loss = cast(torch.Tensor, self.state.scaler.scale(microbatch_loss))  # type: ignore
 
             if self.state.deepspeed_enabled:
                 self.state.deepspeed_model.backward(microbatch_loss)
