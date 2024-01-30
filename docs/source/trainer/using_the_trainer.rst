@@ -626,5 +626,4 @@ This was just a quick tour of the features available within our trainer.
 Please see the other guides and notebooks for further details.
 
 .. _Transformers: https://huggingface.co/docs/transformers/index
-.. _TIMM: https://fastai.github.io/timmdocs/
 .. _torchvision: https://pytorch.org/vision/stable/models.html

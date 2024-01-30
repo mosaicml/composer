@@ -142,10 +142,6 @@ extra_deps['dev'] = [
     'setuptools<=59.5.0',
 ]
 
-extra_deps['health_checker'] = {
-    'pynvml>=11.5.0,<12',
-}
-
 extra_deps['system_metrics_monitor'] = {
     'pynvml>=11.5.0,<12',
 }
@@ -169,19 +165,6 @@ extra_deps['comet_ml'] = [
 
 extra_deps['tensorboard'] = [
     'tensorboard>=2.9.1,<3.0.0',
-]
-
-extra_deps['unet'] = [
-    'monai>=0.9.1,<1.4',
-    'scikit-learn>=1.0.1,<2',
-]
-
-extra_deps['vit'] = [
-    'vit_pytorch==1.6.1',
-]
-
-extra_deps['timm'] = [
-    'timm>=0.5.4,<0.6',
 ]
 
 extra_deps['coco'] = [

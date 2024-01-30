@@ -138,19 +138,6 @@ Composer is part of the broader Machine Learning community, and we welcome any c
 
 .. toctree::
    :hidden:
-   :maxdepth: 1
-   :caption: Model Library
-
-   model_cards/BERT.md
-   model_cards/cifar_resnet.md
-   model_cards/deeplabv3.md
-   model_cards/efficientnet.md
-   model_cards/GPT2.md
-   model_cards/resnet.md
-   model_cards/unet.md
-
-.. toctree::
-   :hidden:
    :caption: API Reference
    :maxdepth: 1
    :glob:
