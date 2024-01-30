@@ -7,17 +7,17 @@ version: 2
 
 # Specify build system and tool dependencies
 build:
-   os: "ubuntu-20.04"
-   tools:
-      python: "3.8"
+  os: "ubuntu-20.04"
+  tools:
+    python: "3.8"
 
 # Build documentation in the docs/ directory with Sphinx
 sphinx:
-   builder: html
-   configuration: docs/source/conf.py
+  builder: html
+  configuration: docs/source/conf.py
 
 # Optionally set the version of Python and requirements required to build your docs
 python:
-   install:
-      - method: pip
-        path: .[all]
+  install:
+  - method: pip
+    path: .[all]
