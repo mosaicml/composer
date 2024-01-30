@@ -14,6 +14,7 @@ from typing import Callable, List, Optional, Union
 
 from composer.utils.import_helpers import MissingConditionalImportError
 from composer.utils.object_store.object_store import ObjectStore
+from google.api_core.exceptions import Forbidden
 
 __all__ = ['OCIObjectStore']
 
