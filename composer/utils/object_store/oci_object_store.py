@@ -26,7 +26,7 @@ def _reraise_oci_errors(uri: str, e: Exception):
         raise MissingConditionalImportError(conda_package='oci', extra_deps_group='oci',
                                             conda_channel='conda-forge') from e
 
-    if 'BROKEN-BUCKET' in uri:
+    if 'oci://mosaicml-internal-checkpoints/support-bot-demo/checkpoints/mpt-30b-chat_composer-codebase/' in uri:
         raise Forbidden('Simulated 403 Forbidden error for debugging purposes.') # simulate error recieved from GCS error 403 log
         return
 
