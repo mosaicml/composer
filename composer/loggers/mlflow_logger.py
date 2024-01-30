@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import fnmatch
+import logging
 import os
 import pathlib
 import textwrap
@@ -23,6 +24,8 @@ from composer.utils import MissingConditionalImportError, dist
 
 if TYPE_CHECKING:
     from mlflow import ModelVersion  # pyright: ignore[reportGeneralTypeIssues]
+
+log = logging.getLogger(__name__)
 
 __all__ = ['MLFlowLogger']
 
@@ -265,17 +268,48 @@ class MLFlowLogger(LoggerDestination):
     def save_model(self, flavor: str, **kwargs):
         """Save a model to MLflow.
 
+        Note: The ``'peft'`` flavor is experimental and the API is subject to change without warning.
+
         Args:
-            flavor (str): The MLflow model flavor to use. Currently only ``'transformers'`` is supported.
+            flavor (str): The MLflow model flavor to use. Currently only ``'transformers'`` and ``'peft'`` are supported.
             **kwargs: Keyword arguments to pass to the MLflow model saving function.
 
         Raises:
-            NotImplementedError: If ``flavor`` is not ``'transformers'``.
+            NotImplementedError: If ``flavor`` is not ``'transformers'`` or ``'peft'``.
         """
         if self._enabled:
             import mlflow
             if flavor == 'transformers':
                 mlflow.transformers.save_model(**kwargs,)
+            elif flavor == 'peft':
+                # TODO: Remove after mlflow fixes the bug that makes this necessary
+                mlflow.store._unity_catalog.registry.rest_store.get_feature_dependencies = lambda *args, **kwargs: ''
+
+                # This is a temporary workaround until MLflow supports saving PEFT models.
+                log.warning('Saving PEFT models using MLflow is experimental and the API is subject to change without warning.')
+                expected_keys = {'path', 'save_pretrained_dir'}
+                if not set(kwargs.keys()) == expected_keys:
+                    raise ValueError(f'Expected kwargs to be {expected_keys}, but got {kwargs.keys()}')
+
+                class DummyPyfuncModel(mlflow.pyfunc.PythonModel):
+                    pass
+
+                from mlflow.models.signature import ModelSignature
+                from mlflow.types import DataType, Schema, ColSpec
+
+                input_schema = Schema([
+                    ColSpec(DataType.string, "prompt"), 
+                    ColSpec(DataType.double, "temperature"), 
+                    ColSpec(DataType.long, "max_tokens")])
+                output_schema = Schema([ColSpec(DataType.string)])
+                signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+                
+                mlflow.pyfunc.save_model(
+                    path=kwargs['path'],
+                    artifacts={'lora_checkpoint': kwargs['save_pretrained_dir']},
+                    python_model=DummyPyfuncModel(),
+                    signature=signature,
+                )
             else:
                 raise NotImplementedError(f'flavor {flavor} not supported.')
 
