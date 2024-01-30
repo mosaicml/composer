@@ -31,7 +31,6 @@ from composer.trainer import Trainer
 from composer.utils import dist
 from composer.utils.checkpoint import is_checkpoint_legacy_sharded
 from composer.utils.file_helpers import get_file
-from composer.utils.misc import using_torch_2
 from composer.utils.object_store import S3ObjectStore
 from composer.utils.reproducibility import get_rng_state
 from tests.common import RandomClassificationDataset, deep_compare
@@ -579,10 +578,7 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
     # Determine the checkpoint path for loading.
     checkpoint_relpath = 'ba1-rank0.pt'
     if state_dict_type == 'sharded':
-        if using_torch_2():
-            checkpoint_relpath = 'ba1'
-        else:
-            checkpoint_relpath = 'ba1/ba1-rank{rank}.pt'
+        checkpoint_relpath = 'ba1'
 
     # Load checkpoints with checkpoint validation.
     with expectation:
@@ -628,7 +624,7 @@ def test_fsdp_partitioned_state_dict_load(
 ):
     if weights_only and autoresume:
         pytest.xfail('Weights only with autoresume is not supported')
-    if state_dict_type == 'local' and using_torch_2():
+    if state_dict_type == 'local':
         pytest.xfail(('Loading a state_dict_type="local" checkpoint with strict=True '
                       'errors out. See https://github.com/pytorch/pytorch/issues/102667 '
                       'for more info'))
@@ -675,19 +671,10 @@ def test_fsdp_partitioned_state_dict_load(
         object_store = None
         load_path = str(save_folder.format(run_name=run_name) / pathlib.Path('ba2'))
 
-    if not using_torch_2():
-        load_filename = f"{save_filename.format(batch=2, rank='{rank}')}"
-        assert load_filename == 'ba2-rank{rank}.pt'
-        load_path += '/' + load_filename
-        assert is_checkpoint_legacy_sharded(
-            object_store=object_store,
-            source_path=load_path.replace(f's3://{s3_bucket}/', ''),
-        )
-    else:
-        assert not is_checkpoint_legacy_sharded(
-            object_store=object_store,
-            source_path=load_path.replace(f's3://{s3_bucket}/', ''),
-        )
+    assert not is_checkpoint_legacy_sharded(
+        object_store=object_store,
+        source_path=load_path.replace(f's3://{s3_bucket}/', ''),
+    )
 
     if autoresume:
         load_path = None
@@ -758,7 +745,7 @@ def test_elastic_resumption(
     s3_read_only_prefix,
     num_shards: int,
 ):
-    if state_dict_type == 'local' and using_torch_2():
+    if state_dict_type == 'local':
         pytest.xfail(('Loading a state_dict_type="local" checkpoint with '
                       'strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 '
                       'for more info'))
@@ -879,12 +866,9 @@ def test_mismatch_timestamp_error(
     trainer1.fit()
     trainer1.close()
     latest_symlink = str(pathlib.Path(save_folder) / pathlib.Path(f'latest-rank{dist.get_global_rank()}.pt'))
-    latest_checkpoint_path = pathlib.Path(save_folder) / pathlib.Path('ba2') / (pathlib.Path(
-        save_filename.format(batch=2, rank=dist.get_global_rank())) if not using_torch_2() else pathlib.Path(''))
+    latest_checkpoint_path = pathlib.Path(save_folder) / pathlib.Path('ba2')
     assert os.path.join(save_folder, os.readlink(latest_symlink)) == str(latest_checkpoint_path)
-    oldest_checkpoint_relative_path = str(
-        pathlib.Path('ba1') / (pathlib.Path(save_filename.format(batch=1, rank=dist.get_global_rank()))
-                               if not using_torch_2() else pathlib.Path('')))
+    oldest_checkpoint_relative_path = 'ba1'
 
     # Corrupt latest checkpoint symlink for rank1 by changing it from batch 2 checkpoint to the batch 1 one
     # and removing batch 2 checkpoint.
@@ -911,8 +895,6 @@ def test_mismatch_timestamp_error(
 @pytest.mark.parametrize('state_dict_type', ['sharded', 'local'])
 @pytest.mark.parametrize('num_ckpts_to_keep', [-1, 1, 2, 3])
 @pytest.mark.parametrize('batches_to_train', [3])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning')
@@ -926,7 +908,7 @@ def test_cleanup_sharded_checkpoints(
     s3_ephemeral_prefix,
     request,
 ):
-    if state_dict_type == 'local' and using_torch_2():
+    if state_dict_type == 'local':
         pytest.xfail(('Loading a state_dict_type="local" checkpoint with strict=True '
                       'errors out. See https://github.com/pytorch/pytorch/issues/102667 '
                       'for more info'))
@@ -958,9 +940,7 @@ def test_cleanup_sharded_checkpoints(
         assert num_checkpoint_dirs == num_ckpts_to_keep
     for ckpt_dir in dir_contents:
         full_path_ckpt_dir = os.path.join(shards_dir, ckpt_dir)
-        elastic_file_list = {'.metadata', *[f'__{rank}_0.distcp' for rank in range(dist.get_world_size())]}
-        non_elastic_file_list = {save_filename.format(rank=rank) for rank in range(dist.get_world_size())}
-        file_list = elastic_file_list if using_torch_2() else non_elastic_file_list
+        file_list = {'.metadata', *[f'__{rank}_0.distcp' for rank in range(dist.get_world_size())]}
         assert set(os.listdir(full_path_ckpt_dir)) == file_list
 
 

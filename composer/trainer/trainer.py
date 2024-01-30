@@ -25,10 +25,11 @@ from typing import (Any, Callable, ContextManager, Dict, Iterable, List, Mapping
 
 import coolname
 import torch
+from torch._dynamo import OptimizedModule
 import torch.distributed
 import torch.nn as nn
 import torch.utils.data
-from packaging import version
+from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
 from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader, DistributedSampler
@@ -54,7 +55,7 @@ from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectS
                             ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist,
                             get_composer_env_dict, get_device, get_file, is_tpu_installed, map_collection,
                             maybe_create_object_store_from_uri, maybe_create_remote_uploader_downloader_from_uri,
-                            model_eval_mode, parse_uri, partial_format, reproducibility, using_torch_2)
+                            model_eval_mode, parse_uri, partial_format, reproducibility)
 from composer.utils.misc import is_model_deepspeed
 from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
 
@@ -949,25 +950,22 @@ class Trainer:
         _validate_precision(precision, device)
 
         # check if provided model is compiled or not
-        is_torch_2_0 = using_torch_2()
         is_model_compiled = False
-        if is_torch_2_0:
-            from torch._dynamo import OptimizedModule
-            if isinstance(model, OptimizedModule):
-                log.warning(f'Provided `model` is already compiled with `torch.compile`. Ignoring ' +
-                            f'parameter `compile_config` if provided. If you would like `Trainer` ' +
-                            f'to takes care of model compilation, provide a not-compiled model and ' +
-                            f'`compile_config` parameter.')
-                # The `torch.compile` function returns an object of type `torch._dynamo.OptimizedModule`
-                # which wraps the original `nn.Module` object and later patches its forward method to
-                # optimized `self.forward` method.
-                is_model_compiled = True
-                compiled_model = model._orig_mod
-                if not isinstance(compiled_model, ComposerModel):
-                    raise ValueError(f'Provided `model` must be a subclass of ComposerModel. ' +
-                                     f'Instead found as type `{type(compiled_model)}`')
-                compiled_model.forward = model.dynamo_ctx(compiled_model.forward)
-                model = compiled_model
+        if isinstance(model, OptimizedModule):
+            log.warning(f'Provided `model` is already compiled with `torch.compile`. Ignoring ' +
+                        f'parameter `compile_config` if provided. If you would like `Trainer` ' +
+                        f'to takes care of model compilation, provide a not-compiled model and ' +
+                        f'`compile_config` parameter.')
+            # The `torch.compile` function returns an object of type `torch._dynamo.OptimizedModule`
+            # which wraps the original `nn.Module` object and later patches its forward method to
+            # optimized `self.forward` method.
+            is_model_compiled = True
+            compiled_model = model._orig_mod
+            if not isinstance(compiled_model, ComposerModel):
+                raise ValueError(f'Provided `model` must be a subclass of ComposerModel. ' +
+                                    f'Instead found as type `{type(compiled_model)}`')
+            compiled_model.forward = model.dynamo_ctx(compiled_model.forward)
+            model = compiled_model
 
         # Microbatching
         auto_microbatching = _is_auto_microbatching(device_train_microbatch_size, device=device)
@@ -1328,10 +1326,6 @@ class Trainer:
         self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
 
         if self.state.fsdp_config is not None:
-            if version.parse(torch.__version__) < version.parse('1.13.0'):
-                raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-            from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
-
             # This state should never be reached, but we raise a ValueError just in case
             if self._use_closures() and self.state.precision == Precision.AMP_FP16:
                 raise ValueError(f'Using closures and precision {self.state.precision} is not supported'

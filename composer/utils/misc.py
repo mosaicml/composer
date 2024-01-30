@@ -207,25 +207,6 @@ def model_eval_mode(model: torch.nn.Module):
     finally:
         model.train(mode=is_training)
 
-
-def using_torch_2() -> bool:
-    """Check the PyTorch version and compared it with version 2.0.0.
-
-    Returns:
-        bool: Return True if current version is greater than or equal to 2.0.0 else False
-    """
-    return version.parse(torch.__version__) >= version.parse('2.0.0')
-
-
-def using_torch_2_0_1() -> bool:
-    """Check the PyTorch version and compare it with version 2.0.1.
-
-    Returns:
-        bool: Return True if current version is greater than or equal to 2.0.1 else False
-    """
-    return version.parse(torch.__version__) >= version.parse('2.0.1')
-
-
 def partial_format(s, *args, **kwargs) -> str:
     """Format a string with a partial set of arguments.
 

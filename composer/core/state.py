@@ -19,6 +19,8 @@ from packaging import version
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp import FullStateDictConfig, LocalStateDictConfig, StateDictType, FullOptimStateDictConfig, ShardedOptimStateDictConfig, LocalOptimStateDictConfig
 from torchmetrics import Metric
 
 from composer.core.data_spec import DataSpec
@@ -29,7 +31,6 @@ from composer.core.time import Time, Timestamp, TimeUnit
 from composer.devices import Device
 from composer.utils import (batch_get, batch_set, dist, ensure_tuple, get_composer_env_dict, is_model_deepspeed,
                             reproducibility)
-from composer.utils.misc import using_torch_2
 
 if TYPE_CHECKING:
     import deepspeed
@@ -62,15 +63,9 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
             See torch.distributed.fsdp.StateDictType for more info.
 
     Raises:
-        RuntimeError: if your torch version is earlier than 1.13.0 because FSDP is not available for those versions.
         NotImplementedError: if you specify a state_dict_type not in ['full', 'sharded', 'local'].
     """
-    if version.parse(torch.__version__) < version.parse('1.13.0'):
-        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-    from torch.distributed.fsdp import FullStateDictConfig
-    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-    from torch.distributed.fsdp import LocalStateDictConfig, StateDictType
-    # torch forgot to put ShardedStateDictConfig in torch/distributed/fsdp/__init__.py, so we
+    # Torch forgot to put ShardedStateDictConfig in torch/distributed/fsdp/__init__.py, so we
     # have to import it this way.
     from torch.distributed.fsdp.fully_sharded_data_parallel import ShardedStateDictConfig
 
@@ -82,40 +77,30 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
     if state_dict_type == 'full':
         fsdp_state_dict_type = StateDictType.FULL_STATE_DICT
         state_dict_config = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
-        if using_torch_2():
-            from torch.distributed.fsdp.fully_sharded_data_parallel import FullOptimStateDictConfig
-            optim_state_dict_config = FullOptimStateDictConfig(offload_to_cpu=True, rank0_only=True)
+        optim_state_dict_config = FullOptimStateDictConfig(offload_to_cpu=True, rank0_only=True)
 
     # Sharded is sharded state dict, but unflattened parameters (not useful for FSDP, but
     # useful if you plan to use the state dict outside of FSDP).
     elif state_dict_type == 'sharded':
         fsdp_state_dict_type = StateDictType.SHARDED_STATE_DICT
         state_dict_config = ShardedStateDictConfig()
-        if using_torch_2():
-            state_dict_config = ShardedStateDictConfig(offload_to_cpu=True)
-            from torch.distributed.fsdp.fully_sharded_data_parallel import ShardedOptimStateDictConfig
-            optim_state_dict_config = ShardedOptimStateDictConfig()
+        state_dict_config = ShardedStateDictConfig(offload_to_cpu=True)
+        optim_state_dict_config = ShardedOptimStateDictConfig()
 
     # Local is the FSDP standard sharded, flattened parameters. This is what the parameters
     # are formatted to for a single rank's FSDP module.
     elif state_dict_type == 'local':
         fsdp_state_dict_type = StateDictType.LOCAL_STATE_DICT
         state_dict_config = LocalStateDictConfig()
-        if using_torch_2():
-            from torch.distributed.fsdp.fully_sharded_data_parallel import LocalOptimStateDictConfig
-            optim_state_dict_config = LocalOptimStateDictConfig()
+        optim_state_dict_config = LocalOptimStateDictConfig()
     else:
         raise NotImplementedError(f'No valid FSDP state_dict_type for {state_dict_type}')
 
-    if using_torch_2():
-        with FSDP.state_dict_type(module,
-                                  state_dict_type=fsdp_state_dict_type,
-                                  state_dict_config=state_dict_config,
-                                  optim_state_dict_config=optim_state_dict_config):
-            yield
-    else:
-        with FSDP.state_dict_type(module, state_dict_type=fsdp_state_dict_type, state_dict_config=state_dict_config):
-            yield
+    with FSDP.state_dict_type(module,
+                                state_dict_type=fsdp_state_dict_type,
+                                state_dict_config=state_dict_config,
+                                optim_state_dict_config=optim_state_dict_config):
+        yield
 
 
 def fsdp_get_optim_state_dict(model: torch.nn.Module,
@@ -133,29 +118,18 @@ def fsdp_get_optim_state_dict(model: torch.nn.Module,
             * 'sharded': the sharded, unflattened state_dict, where each rank only gets a single shard.
 
     Raises:
-        RuntimeError: if your torch version is earlier than 1.13.0 because FSDP is not available for those versions.
         NotImplementedError: if you specify a state_dict_type not in ['full', 'sharded', 'local'].
 
     Returns:
         Dict[str, Any]: The state_dict for the given optimizer.
     """
-    if version.parse(torch.__version__) < version.parse('1.13.0'):
-        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-    if not using_torch_2():
-        optim_state_dict = _legacy_fsdp_get_optim_state_dict(model, optim, state_dict_type)
-    else:
-        with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
-            optim_state_dict = FSDP.optim_state_dict(model, optim)  # type: ignore
-    return optim_state_dict
+    with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
+        return FSDP.optim_state_dict(model, optim)  # type: ignore
 
 
 def _legacy_fsdp_get_optim_state_dict(model: torch.nn.Module,
                                       optim: torch.optim.Optimizer,
                                       state_dict_type: str = 'full') -> Dict[str, Any]:
-    if version.parse(torch.__version__) < version.parse('1.13.0'):
-        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
     if state_dict_type == 'full':
         # Converts local state dict to full.
         return FSDP.full_optim_state_dict(model=model, optim=optim)
@@ -175,9 +149,6 @@ def _legacy_optim_state_dict_to_load(
     optim: torch.optim.Optimizer,
     state_dict_type: str = 'full',
 ):
-    if version.parse(torch.__version__) < version.parse('1.13.0'):
-        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
     if state_dict_type == 'sharded':
         # Optimizer and optimizer state dict are already sharded, but not
         # flattened, so we flatten the state dict then load it.
@@ -199,8 +170,6 @@ def _legacy_optim_state_dict_to_load(
 
 
 def get_fsdp_sharded_optim_state_dict(full_optim_state_dict: Dict[str, Any], model: torch.nn.Module):
-    if version.parse(torch.__version__) < version.parse('1.13.0'):
-        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
     from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
     log.debug(
         f'Scattering optimizer state dict with keys {full_optim_state_dict.keys()} and model of type {type(model)}')
@@ -208,9 +177,6 @@ def get_fsdp_sharded_optim_state_dict(full_optim_state_dict: Dict[str, Any], mod
 
 
 def get_fsdp_full_optim_state_dict(model: torch.nn.Module, optim: torch.optim.Optimizer, rank0_only: bool = True):
-    if version.parse(torch.__version__) < version.parse('1.13.0'):
-        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
     return FSDP.full_optim_state_dict(model=model, optim=optim, rank0_only=rank0_only)
 
 
@@ -532,7 +498,7 @@ class State(Serializable):
         if self.fsdp_config is not None:
             self.sharded_ckpt_prefix_dir = self.fsdp_config['sharded_ckpt_prefix_dir']
 
-        if using_torch_2() and self.fsdp_state_dict_type == 'local':
+        if self.fsdp_state_dict_type == 'local':
             raise DeprecationWarning(
                 textwrap.dedent(
                     "FSDP state_dict_type='local' is deprecated in torch>=2.0.0. "
@@ -773,11 +739,8 @@ class State(Serializable):
     @property
     def fsdp_enabled(self):
         """Indicates if FSDP is enabled."""
-        if version.parse(torch.__version__) < version.parse('1.13.0'):
-            return False
-        from torch.distributed.fsdp import FullyShardedDataParallel
         for module in self.model.modules():
-            if isinstance(module, FullyShardedDataParallel):
+            if isinstance(module, FSDP):
                 return True
         return False
 
@@ -809,7 +772,7 @@ class State(Serializable):
 
     @property
     def fsdp_elastic_sharded_enabled(self):
-        return (self.fsdp_sharded_state_dict_enabled and using_torch_2())
+        return self.fsdp_sharded_state_dict_enabled
 
     def _get_integrations_state_dict(self) -> Dict[str, Any]:
         """Gets a dictionary of information about integrations to store in the state dict.
@@ -1134,13 +1097,10 @@ class State(Serializable):
             optim_state_dict = serialized_value[type(optimizer).__qualname__] if serialized_value is not None else None
             if self.fsdp_enabled:
                 assert self.fsdp_state_dict_type is not None  # pyright
-                if version.parse(torch.__version__) < version.parse('1.13.0'):
-                    raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-                from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
                 log.debug(f'Loading FSDP optimizer with fsdp_state_dict_type={self.fsdp_state_dict_type}')
                 # Loading FSDP monolith on rank 0 only requires FSDP.scatter_full_optim_state_dict
                 # as the context manager does not seem to pass rank0_only=True for the optimizer config
-                if not using_torch_2() or self.load_fsdp_monolith_rank0_only:
+                if self.load_fsdp_monolith_rank0_only:
                     optim_state_dict = _legacy_optim_state_dict_to_load(
                         optim_state_dict=optim_state_dict,
                         model=self.model,
@@ -1305,13 +1265,10 @@ class State(Serializable):
                     optimizer).__qualname__] if serialized_value is not None else None
                 if self.fsdp_enabled:
                     assert self.fsdp_state_dict_type is not None  # pyright
-                    if version.parse(torch.__version__) < version.parse('1.13.0'):
-                        raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-                    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
                     log.debug(f'Loading FSDP optimizer with fsdp_state_dict_type={self.fsdp_state_dict_type}')
                     # Loading FSDP monolith on rank 0 only requires FSDP.scatter_full_optim_state_dict
                     # as the context manager does not seem to pass rank0_only=True for the optimizer config
-                    if not using_torch_2() or self.load_fsdp_monolith_rank0_only:
+                    if self.load_fsdp_monolith_rank0_only:
                         optim_state_dict = _legacy_optim_state_dict_to_load(
                             optim_state_dict=optim_state_dict,
                             model=self.model,
