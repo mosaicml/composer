@@ -142,9 +142,6 @@ class HuggingFaceModel(ComposerModel):
 
         self.using_peft = isinstance(self.model, PeftModel) if peft_installed else False
 
-        if self.using_peft and not using_torch_2():
-            raise RuntimeError('PEFT models are only supported in Torch 2.0+')
-
     def _check_tokenizer_and_maybe_resize_embeddings(self, allow_embedding_resizing: bool) -> None:
         if self.tokenizer is None:
             log.warning(
