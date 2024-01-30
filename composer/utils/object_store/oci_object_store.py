@@ -26,14 +26,17 @@ def _reraise_oci_errors(uri: str, e: Exception):
         raise MissingConditionalImportError(conda_package='oci', extra_deps_group='oci',
                                             conda_channel='conda-forge') from e
 
+    if 'BROKEN-BUCKET' in uri:
+        raise Forbidden('Simulated 403 Forbidden error for debugging purposes.') # simulate error recieved from GCS error 403 log
+        return
+
     # If it's an oci service error with code: ObjectNotFound or status 404
     if isinstance(e, oci.exceptions.ServiceError):
         if e.status == 404:  # type: ignore
             if e.code == 'ObjectNotFound':  # type: ignore
                 raise FileNotFoundError(f'Object {uri} not found. {e.message}') from e  # type: ignore
             if e.code == 'BucketNotFound':  # type: ignore
-                #raise ValueError(f'Bucket specified in {uri} not found. {e.message}') from e  # type: ignore
-                raise Forbidden('Simulated 403 Forbidden error for debugging purposes.') # simulate error recieved from GCS error 403 log
+                raise ValueError(f'Bucket specified in {uri} not found. {e.message}') from e  # type: ignore
             raise e
 
     # Client errors
