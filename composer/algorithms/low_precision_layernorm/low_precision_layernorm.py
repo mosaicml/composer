@@ -6,13 +6,11 @@
 from __future__ import annotations
 
 import logging
-import textwrap
 import warnings
 from typing import Dict, Optional, Sequence, Type, Union
 
 import torch
 import torch.nn.functional as F
-from packaging import version
 from torch.optim import Optimizer
 
 from composer.algorithms.warnings import NoEffectWarning
@@ -105,13 +103,6 @@ def _cast_if_autocast_enabled(tensor):
             raise NotImplementedError()
         return tensor.to(dtype=dtype)
     return tensor
-
-
-def check_if_apex_installed():
-    if not APEX_INSTALLED:
-        raise ImportError(
-            'https://github.com/NVIDIA/apex is not installed. The Low Precision LayerNorm algorithm cannot be applied on PyTorch <1.13 without Apex. The MosaicML Docker Images (https://hub.docker.com/r/mosaicml/pytorch) contain a copy of APEX for easy use.'
-        )
 
 
 def _to_LPLayerNorm(layer: torch.nn.Module, module_index: int) -> LPLayerNorm:

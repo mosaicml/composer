@@ -40,8 +40,8 @@ class TrackedDataset(types.Dataset):
     atomic file writes, it is slow and should not be used in any performance measurements.
     """
 
-    def __init__(self, is_train: bool, synthetic_dataset: SyntheticBatchPairDataset, tmp_path: pathlib.Path):
-        self.dataset = synthetic_dataset
+    def __init__(self, is_train: bool, dataset, tmp_path: pathlib.Path):
+        self.dataset = dataset
         self.is_train = is_train
         self.tmp_path = tmp_path
         self.counter = 0
@@ -115,15 +115,11 @@ def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path
     and 2) each ddp process is indeed getting different data.
     """
 
-    model = SimpleModel(num_classes=100)
-
     train_batch_size = 10
     train_subset_num_batches = 3
 
     train_dataset = TrackedDataset(
-        synthetic_dataset=RandomClassificationDataset(
-            size=train_batch_size * train_subset_num_batches,
-        ),
+        dataset=RandomClassificationDataset(size=train_batch_size * train_subset_num_batches,),
         is_train=True,
         tmp_path=tmp_path,
     )
@@ -146,9 +142,7 @@ def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path
     eval_subset_num_batches = 3
 
     eval_dataset = TrackedDataset(
-        synthetic_dataset=RandomClassificationDataset(
-            size=eval_batch_size * eval_subset_num_batches,
-        ),
+        dataset=RandomClassificationDataset(size=eval_batch_size * eval_subset_num_batches,),
         is_train=False,
         tmp_path=tmp_path,
     )
@@ -176,17 +170,19 @@ def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path
         }
 
     max_epochs = 2
-    trainer = Trainer(model=SimpleModel(),
-                      train_dataloader=train_dataloader,
-                      eval_dataloader=eval_dataloader,
-                      device=device,
-                      max_duration=f'{max_epochs}ep',
-                      eval_interval='1ep',
-                      eval_subset_num_batches=eval_subset_num_batches,
-                      train_subset_num_batches=train_subset_num_batches,
-                      deepspeed_config={} if deepspeed else None,
-                      fsdp_config=fsdp_config,
-                      callbacks=[CheckBatch0(tmp_path)])
+    trainer = Trainer(
+        model=SimpleModel(num_classes=100),
+        train_dataloader=train_dataloader,
+        eval_dataloader=eval_dataloader,
+        device=device,
+        max_duration=f'{max_epochs}ep',
+        eval_interval='1ep',
+        eval_subset_num_batches=eval_subset_num_batches,
+        train_subset_num_batches=train_subset_num_batches,
+        deepspeed_config={} if deepspeed else None,
+        fsdp_config=fsdp_config,
+        callbacks=[CheckBatch0(tmp_path)],
+    )
 
     trainer.fit()
 
