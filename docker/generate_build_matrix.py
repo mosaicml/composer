@@ -18,7 +18,7 @@ import packaging.version
 import tabulate
 import yaml
 
-LATEST_PYTHON_VERSION = '3.10'
+PRODUCTION_PYTHON_VERSION = '3.10'
 PRODUCTION_PYTORCH_VERSION = '2.1.2'
 
 
@@ -104,7 +104,7 @@ def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: s
     cuda_version_tag = _get_cuda_version_tag(cuda_version)
     tags = [f'{base_image_name}:{pytorch_version}_{cuda_version_tag}-python{python_version}-ubuntu20.04']
 
-    if python_version == LATEST_PYTHON_VERSION and pytorch_version == PRODUCTION_PYTORCH_VERSION:
+    if python_version == PRODUCTION_PYTHON_VERSION and pytorch_version == PRODUCTION_PYTORCH_VERSION:
         if not cuda_version:
             tags.append(f'{base_image_name}:latest_cpu')
         else:
@@ -206,11 +206,6 @@ def _main():
                 _get_cuda_override(cuda_version),
         }
 
-        # Only build EFA image on latest python with cuda on pytorch_stage
-        if interconnect == 'EFA' and not (python_version == LATEST_PYTHON_VERSION and use_cuda and
-                                          stage == 'pytorch_stage'):
-            continue
-
         # Skip the mellanox drivers if not in the cuda images or using EFA
         if not cuda_version or interconnect == 'EFA':
             entry['MOFED_VERSION'] = ''
@@ -263,7 +258,7 @@ def _main():
 
     # The `GIT_COMMIT` is a placeholder and Jenkins will substitute it with the actual git commit for the `composer_staging` images
     composer_versions = ['0.19.0']  # Only build images for the latest composer version
-    composer_python_versions = [LATEST_PYTHON_VERSION]  # just build composer against the latest
+    composer_python_versions = [PRODUCTION_PYTHON_VERSION]  # just build composer against the latest
 
     for product in itertools.product(composer_python_versions, composer_versions, cuda_options):
         python_version, composer_version, use_cuda = product
