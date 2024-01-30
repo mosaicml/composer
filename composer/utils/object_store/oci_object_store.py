@@ -117,10 +117,10 @@ class OCIObjectStore(ObjectStore):
     ):
         del callback
 
-        if 'oci' in self.get_uri(object_name):
-            print('upload_object')
-            raise Forbidden('Simulated 403 Forbidden error for debugging purposes.') # simulate error recieved from GCS error 403 log
-            return
+        # if 'oci' in self.get_uri(object_name):
+        #     print('upload_object')
+        #     raise Forbidden('Simulated 403 Forbidden error for debugging purposes.') # simulate error recieved from GCS error 403 log
+        #     return
             
         try:
             self.upload_manager.upload_file(namespace_name=self.namespace,
