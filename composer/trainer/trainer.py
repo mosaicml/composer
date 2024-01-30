@@ -986,7 +986,10 @@ class Trainer:
         assert not isinstance(device_train_microbatch_size, str)
 
         # Distributed
-        dist.initialize_dist(device, dist_timeout)
+        if deepspeed_config is not None or fsdp_config is not None or dist.get_world_size() > 1:
+            # Deepspeed and FSDP both require torch.distributed to be initialized, even if the world size is 1
+            # And torch.distributed is always required for multi-rank training
+            dist.initialize_dist(device, dist_timeout)
 
         # Reproducibility
         rank_zero_seed, seed = _distribute_and_get_random_seed(seed, device)
@@ -2537,7 +2540,7 @@ class Trainer:
                 microbatch_loss_dict[k] = loss.detach().clone().mean() * (microbatch_num_samples / current_batch_size)
 
             if use_grad_scaling:
-                microbatch_loss = cast(torch.Tensor, self.state.scaler.scale(microbatch_loss))
+                microbatch_loss = cast(torch.Tensor, self.state.scaler.scale(microbatch_loss))  # type: ignore
 
             if self.state.deepspeed_enabled:
                 self.state.deepspeed_model.backward(microbatch_loss)
@@ -2992,6 +2995,13 @@ class Trainer:
                                                 outputs[k] = v.cpu()
                                             else:
                                                 outputs[k] = v
+                                    elif isinstance(self.state.outputs, Sequence):
+                                        outputs = []
+                                        for v in self.state.outputs:
+                                            if isinstance(v, torch.Tensor):
+                                                outputs.append(v.cpu())
+                                            else:
+                                                outputs.append(v)
                                     else:
                                         outputs = self.state.outputs.cpu()
                                 else:

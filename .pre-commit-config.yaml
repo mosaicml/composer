@@ -44,6 +44,15 @@ repos:
           additional_dependencies:
             - "toml"
       rev: 6.1.1
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.28.0
+    hooks:
+    - id: yamllint
+      name: yamllint
+      description: This hook runs yamllint.
+      entry: yamllint
+      language: python
+      types: [file, yaml]
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.1.0
     hooks:

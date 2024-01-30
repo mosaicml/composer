@@ -76,7 +76,7 @@ while True:
 install_requires = [
     'pyyaml>=6.0,<7',
     'tqdm>=4.62.3,<5',
-    'torchmetrics>=0.10.0,<1.1',
+    'torchmetrics>=0.10.0,<1.3.1',
     'torch_optimizer>=0.3.0,<0.4',
     'torchvision>=0.13.1,<0.20',  # TODO: Tighten before release
     'torch>=1.13.1,<2.3.1',  # TODO: Tighten before release
@@ -100,7 +100,7 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
     'junitparser==3.1.1',
-    'coverage[toml]==7.3.4',
+    'coverage[toml]==7.4.1',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
     'ipython==8.11.0',
@@ -134,7 +134,7 @@ extra_deps['dev'] = [
     'nbsphinx==0.9.1',
     'pandoc==2.3',
     'pypandoc==1.12',
-    'GitPython==3.1.40',
+    'GitPython==3.1.41',
     'moto[s3]>=4.0.1,<5',
     'mock-ssh-server==0.9.1',
     'cryptography==41.0.5',
@@ -189,8 +189,12 @@ extra_deps['coco'] = [
 ]
 
 extra_deps['nlp'] = [
-    'transformers>=4.11,<4.37,!=4.34.0',
+    'transformers>=4.11,<4.38,!=4.34.0',
     'datasets>=2.4,<3',
+]
+
+extra_deps['peft'] = [
+    'peft>=0.7.0,<0.8',
 ]
 
 extra_deps['sentencepiece'] = [
@@ -265,6 +269,7 @@ setup(name=package_name,
           'Programming Language :: Python :: 3.8',
           'Programming Language :: Python :: 3.9',
           'Programming Language :: Python :: 3.10',
+          'Programming Language :: Python :: 3.11',
       ],
       install_requires=install_requires,
       entry_points={
