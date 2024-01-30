@@ -9,6 +9,17 @@ on:
 jobs:
   code-quality:
     uses: ./.github/workflows/code-quality.yaml
+    strategy:
+      matrix:
+        python_version:
+          - '3.8'
+          - '3.9'
+          - '3.10'
+        pip_deps:
+          - '[dev]'
+    with:
+      python_version: ${{ matrix.python_version }}
+      pip_deps: ${{ matrix.pip_deps }}
 
   pypi-packaging:
     name: Build and Publish mosaicml PyPI Package
