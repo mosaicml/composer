@@ -473,6 +473,10 @@ class State(Serializable):
             self.sharded_ckpt_prefix_dir = self.fsdp_config['sharded_ckpt_prefix_dir']
 
         if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
+            if self.fsdp_state_dict_type == 'local':
+                raise ValueError('Composer and PyTorch no longer support saving or loading local state dicts. '
+                                 'To upgrade an older checkpoint, use Composer version 0.18.1 and export to '
+                                 'as a monolithic checkpoint using a callback.')
             raise ValueError(f'fsdp_state_dict_type must be one of [None, "full", "sharded"], but got '
                                 f'{self.fsdp_state_dict_type}')
         if self.fsdp_sharded_state_dict_enabled and self.save_metrics:
