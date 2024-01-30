@@ -22,12 +22,6 @@ from composer.utils import module_surgery
 
 log = logging.getLogger(__name__)
 
-try:
-    from apex.normalization.fused_layer_norm import FusedLayerNorm as APEXFusedLayerNorm
-    APEX_INSTALLED = True
-except ImportError as e:
-    APEX_INSTALLED = False
-
 
 def apply_low_precision_layernorm(model,
                                   precision: Optional[Precision] = None,
@@ -37,22 +31,6 @@ def apply_low_precision_layernorm(model,
         return model
 
     policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {torch.nn.LayerNorm: _to_LPLayerNorm}
-
-    # Prior to v1.13, torch.nn.LayerNorm is slow in bf16 precision.
-    # We use FusedLayerNorm as a fallback.
-    if version.parse(torch.__version__) < version.parse('1.13') and precision == Precision.AMP_BF16:
-        warnings.warn(
-            DeprecationWarning(
-                textwrap.dedent(
-                    'You are using Low Precision LayerNorm on PyTorch < v.1.13 with bfloat16 precision. '
-                    'In this scenario, we fall back to Fused LayerNorm. '
-                    'Fused LayerNorm has been deprecated and will be removed in Composer 0.18. '
-                    'Please upgrade your PyTorch version to >=v.1.13 to use Low Precision LayerNorm without the Fused LayerNorm fallback.'
-                )))
-        check_if_apex_installed()
-        policy: Dict[Type[torch.nn.Module], module_surgery.ReplacementFunction] = {
-            torch.nn.LayerNorm: _to_FusedLayerNorm
-        }
 
     replaced_instances = module_surgery.replace_module_classes(module=model, optimizers=optimizers, policies=policy)
     if len(replaced_instances) == 0:
@@ -153,22 +131,3 @@ def _to_LPLayerNorm(layer: torch.nn.Module, module_index: int) -> LPLayerNorm:
             lp_layernorm.bias.copy_(layer.bias)  # type: ignore
 
     return lp_layernorm
-
-
-def _to_FusedLayerNorm(layer: torch.nn.Module, module_index: int) -> APEXFusedLayerNorm:
-    """Defines a replacement policy from a `torch.nn.LayerNorm` to a `apex.normalization.fused_layer_norm`"""
-    if not isinstance(layer, torch.nn.LayerNorm):
-        raise TypeError(f'Expected torch.nn.LayerNorm, got {type(layer)}')
-    fused_layernorm = APEXFusedLayerNorm(normalized_shape=layer.normalized_shape, eps=layer.eps)
-
-    with torch.no_grad():
-        if layer.weight is None:  # pyright: ignore[reportUnnecessaryComparison]
-            fused_layernorm.weight = None  # pyright: ignore[reportGeneralTypeIssues]
-        else:
-            fused_layernorm.weight.copy_(layer.weight)
-        if layer.bias is None:  # pyright: ignore[reportUnnecessaryComparison]
-            fused_layernorm.bias = None  # pyright: ignore[reportGeneralTypeIssues]
-        else:
-            fused_layernorm.bias.copy_(layer.bias)
-
-    return fused_layernorm
