@@ -1181,12 +1181,14 @@ class MTBenchJudge(InContextLearningMetric):
             self.prompt_two_total += 1
 
         state_name = f'{category}_{prompt_num}'
+        state_name_score = f'{state_name}_score'
+        state_name_total = f'{state_name}_total'
 
-        cur_value = getattr(self, f'{state_name}_score')
-        setattr(self, state_name, cur_value + score)
+        cur_score = getattr(self, state_name_score)
+        setattr(self, state_name_score, cur_score + score)
 
-        cur_total = getattr(self, f'{state_name}_total')
-        setattr(self, state_name, cur_total + 1)
+        cur_total = getattr(self, state_name_total)
+        setattr(self, state_name_total, cur_total + 1)
 
         self.all_scores += torch.tensor(score)
 
