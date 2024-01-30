@@ -13,11 +13,10 @@ from torch.utils.data import DataLoader
 import composer.core.types as types
 from composer import Callback, Event
 from composer.core import State
-from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.loggers import Logger
 from composer.trainer.trainer import Trainer
 from composer.utils import dist
-from tests.common import SimpleModel
+from tests.common import RandomClassificationDataset, SimpleModel
 
 
 def get_file_path(*, is_train: bool, tmp_path: pathlib.Path) -> str:
@@ -121,14 +120,10 @@ def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path
     train_batch_size = 10
     train_subset_num_batches = 3
 
-    synthetic_dataset = SyntheticBatchPairDataset(
-        num_unique_samples_to_create=train_batch_size * train_subset_num_batches,
-        total_dataset_size=10_000,
-        data_shape=(model.num_features, 5, 5),
-        num_classes=model.num_classes,
-    )
     train_dataset = TrackedDataset(
-        synthetic_dataset=synthetic_dataset,
+        synthetic_dataset=RandomClassificationDataset(
+            size=train_batch_size * train_subset_num_batches,
+        ),
         is_train=True,
         tmp_path=tmp_path,
     )
@@ -150,14 +145,10 @@ def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path
     eval_batch_size = 10
     eval_subset_num_batches = 3
 
-    eval_dataset = SyntheticBatchPairDataset(
-        num_unique_samples_to_create=eval_batch_size * eval_subset_num_batches,
-        total_dataset_size=10_000,
-        data_shape=(model.num_features, 5, 5),
-        num_classes=model.num_classes,
-    )
     eval_dataset = TrackedDataset(
-        synthetic_dataset=eval_dataset,
+        synthetic_dataset=RandomClassificationDataset(
+            size=eval_batch_size * eval_subset_num_batches,
+        ),
         is_train=False,
         tmp_path=tmp_path,
     )
@@ -185,7 +176,7 @@ def test_ddp(device: str, world_size: int, deepspeed: bool, fsdp: bool, tmp_path
         }
 
     max_epochs = 2
-    trainer = Trainer(model=model,
+    trainer = Trainer(model=SimpleModel(),
                       train_dataloader=train_dataloader,
                       eval_dataloader=eval_dataloader,
                       device=device,
