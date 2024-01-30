@@ -762,7 +762,7 @@ def _sharded_pre_load_state_dict_hook(
     _enter_unshard_params_ctx(module, fsdp_state, writeback=True)
 
 
-if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
+if version.parse(torch.__version__) > version.parse('2.2.9') and version.parse(
         torch.__version__) < version.parse('2.3.1'):
     import copy
 
@@ -787,7 +787,7 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
     from torch.distributed.fsdp.wrap import CustomPolicy, ModuleWrapPolicy, _Policy
     from torch.distributed.tensor.parallel.fsdp import DTensorExtensions
 
-    def all_gather_dtensor_t2p2p0(
+    def all_gather_dtensor_t2p3p0(
         self,
         tensor: DTensor,
         parent_mesh: Optional[DeviceMesh],
@@ -806,7 +806,7 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
         )
         return tensor.to_local()
 
-    def chunk_dtensor_t2p2p0(
+    def chunk_dtensor_t2p3p0(
         self,
         tensor: torch.Tensor,
         rank: int,
@@ -869,10 +869,10 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
                 placements=shard_placements,
             )
 
-    DTensorExtensions.all_gather_dtensor = all_gather_dtensor_t2p2p0
-    DTensorExtensions.chunk_dtensor = chunk_dtensor_t2p2p0
+    DTensorExtensions.all_gather_dtensor = all_gather_dtensor_t2p3p0
+    DTensorExtensions.chunk_dtensor = chunk_dtensor_t2p3p0
 
-    def _is_valid_hybrid_shard_device_mesh_t2p2p0(device_mesh: DeviceMesh) -> bool:
+    def _is_valid_hybrid_shard_device_mesh_t2p3p0(device_mesh: DeviceMesh) -> bool:
         #parent_mesh = _mesh_resources.get_parent_mesh(device_mesh)
         #if parent_mesh is not None:
         #    raise RuntimeError(
@@ -881,13 +881,13 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
         #    )
         return isinstance(device_mesh, DeviceMesh) and device_mesh.ndim == 2
 
-    def _init_process_group_state_for_hybrid_shard_t2p2p0(
+    def _init_process_group_state_for_hybrid_shard_t2p3p0(
         state: _FSDPState,
         process_group: ProcessGroupType,
         device_mesh: DeviceMesh,
     ) -> _FSDPState:
         if device_mesh:
-            if _is_valid_hybrid_shard_device_mesh_t2p2p0(device_mesh):
+            if _is_valid_hybrid_shard_device_mesh_t2p3p0(device_mesh):
                 state._device_mesh = device_mesh
                 # We currently only allow _inter_node_pg to be the outermost dimension, and the
                 # process_group(intra_node) to be the innermost dimension.
@@ -917,7 +917,7 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
         state._inter_node_state = _get_default_comm_hook_state(process_group=state._inter_node_pg,)
         return state
 
-    def _init_process_group_state_t2p2p0(
+    def _init_process_group_state_t2p3p0(
         state: _FSDPState,
         process_group: ProcessGroupType,
         sharding_strategy: ShardingStrategy,
@@ -938,7 +938,7 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
                     'requires explicit specification of process group or device_mesh.',
                 )
             else:
-                state = _init_process_group_state_for_hybrid_shard_t2p2p0(state, process_group, device_mesh)
+                state = _init_process_group_state_for_hybrid_shard_t2p3p0(state, process_group, device_mesh)
         else:
             if device_mesh:
                 state._device_mesh = device_mesh
@@ -956,7 +956,7 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
         state._gradient_postdivide_factor = (data_parallel_world_size / state._gradient_predivide_factor)
         return state
 
-    def init_fn_t2p2p0(
+    def init_fn_t2p3p0(
         self,
         module: nn.Module,
         process_group: ProcessGroupType = None,
@@ -990,7 +990,7 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
         # Note that this is done before auto_wrapping, so that child FSDP modules simply pick up
         # the same process group state as the root FSDP module.
         self._device_mesh = device_mesh
-        _init_process_group_state_t2p2p0(
+        _init_process_group_state_t2p3p0(
             self,
             process_group,
             sharding_strategy,
@@ -1064,7 +1064,7 @@ if version.parse(torch.__version__) > version.parse('2.1.3') and version.parse(
 
     from torch.distributed.checkpoint.state_dict import StateDictOptions, _StateDictInfo
 
-    def _verify_options_t2p2p0(
+    def _verify_options_t2p3p0(
         model: nn.Module,
         optims: Tuple[torch.optim.Optimizer, ...],
         optim_only: bool,
