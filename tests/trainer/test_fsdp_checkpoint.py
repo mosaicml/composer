@@ -361,7 +361,7 @@ def test_fsdp_mixed_with_sync(
 @world_size(2)
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.parametrize('sharding_strategy', ['FULL_SHARD', 'SHARD_GRAD_OP'])
-@pytest.mark.parametrize('state_dict_type', ['full', 'sharded', 'local'])
+@pytest.mark.parametrize('state_dict_type', ['full', 'sharded'])
 @pytest.mark.parametrize('composer_version', [
     pytest.param(
         '0.13.5',
@@ -411,11 +411,6 @@ def test_fsdp_load_old_checkpoint(
     s3_read_only_prefix: str,
     composer_version: str,
 ):
-    if (version.parse(torch.__version__) >= version.parse('2.0.0') and state_dict_type == 'local'):
-        pytest.xfail(('Loading a torch 1.13 checkpoint with torch 2.0 for '
-                      'state_dict_type local is not backwards compatible. See '
-                      'https://github.com/pytorch/pytorch/issues/102667 for more info'))
-
     if composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']:
         rank = 0 if state_dict_type == 'full' else '{rank}'
 
@@ -465,7 +460,7 @@ def test_fsdp_load_old_checkpoint(
     )
     state_dict2 = trainer.state.state_dict()
 
-    if ((dist.get_global_rank() == 0 and state_dict_type == 'full') or state_dict_type in ['sharded', 'local']):
+    if (dist.get_global_rank() == 0 and state_dict_type == 'full') or state_dict_type == 'sharded':
         filled_load_path = load_path.format(rank=dist.get_global_rank())
         destination = str(tmp_path / pathlib.Path(filled_load_path).name)
         get_file(filled_load_path, destination=destination)
@@ -578,7 +573,6 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.parametrize('state_dict_type', ['sharded', 'local'])
 @pytest.mark.parametrize('use_remote', [pytest.param(True, marks=pytest.mark.remote), False])
 @pytest.mark.parametrize('weights_only,optimizer,precision,autoresume,load_ignore_keys', [
     [False, 'adamw', 'amp_bf16', False, None],
@@ -594,7 +588,6 @@ def test_checkpoint_loading_with_validation(world_size, tmp_path, is_valid_check
 def test_fsdp_partitioned_state_dict_load(
     world_size,
     tmp_path: pathlib.Path,
-    state_dict_type: str,
     autoresume: bool,
     precision: str,
     optimizer: str,
@@ -607,10 +600,6 @@ def test_fsdp_partitioned_state_dict_load(
 ):
     if weights_only and autoresume:
         pytest.xfail('Weights only with autoresume is not supported')
-    if state_dict_type == 'local':
-        pytest.xfail(('Loading a state_dict_type="local" checkpoint with strict=True '
-                      'errors out. See https://github.com/pytorch/pytorch/issues/102667 '
-                      'for more info'))
     load_ignore_keys = [] if load_ignore_keys is None else load_ignore_keys
 
     if autoresume:
@@ -627,7 +616,7 @@ def test_fsdp_partitioned_state_dict_load(
 
     save_filename = 'ba{batch}-rank{rank}.pt'
 
-    fsdp_config = FSDPConfig(state_dict_type=state_dict_type)
+    fsdp_config = FSDPConfig(state_dict_type='sharded')
 
     trainer1 = get_trainer(
         save_folder=str(save_folder),
@@ -707,9 +696,8 @@ def test_fsdp_partitioned_state_dict_load(
 @pytest.mark.gpu
 @pytest.mark.remote
 @world_size(2)
-@pytest.mark.parametrize('state_dict_type', ['sharded'])
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
-@pytest.mark.parametrize('autoresume', [False, True])  # True commented out for now
+@pytest.mark.parametrize('autoresume', [False, True])
 @pytest.mark.parametrize('num_shards', [2, 4, 7])
 @pytest.mark.parametrize('sharding_strategy', ['FULL_SHARD', 'SHARD_GRAD_OP'])
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
@@ -718,7 +706,6 @@ def test_fsdp_partitioned_state_dict_load(
 def test_elastic_resumption(
     world_size,
     tmp_path: pathlib.Path,
-    state_dict_type: str,
     autoresume: bool,
     precision: str,
     sharding_strategy,
@@ -726,17 +713,13 @@ def test_elastic_resumption(
     s3_read_only_prefix,
     num_shards: int,
 ):
-    if state_dict_type == 'local':
-        pytest.xfail(('Loading a state_dict_type="local" checkpoint with '
-                      'strict=True errors out. See https://github.com/pytorch/pytorch/issues/102667 '
-                      'for more info'))
     if autoresume:
         run_name = 'my-autoresume-run'
     else:
         run_name = None
 
     base_path = (f's3://{s3_bucket}/{s3_read_only_prefix}/elastic_test/'
-                 f'{sharding_strategy.lower()}_{state_dict_type}_{precision}_'
+                 f'{sharding_strategy.lower()}_sharded_{precision}_'
                  f'{num_shards}/')
 
     mono_load_path = os.path.join(base_path, 'mono.pt')
@@ -773,7 +756,7 @@ def test_elastic_resumption(
         run_name=run_name,
         max_duration='4ba',
         load_weights_only=False,
-        fsdp_config=FSDPConfig(state_dict_type=state_dict_type),
+        fsdp_config=FSDPConfig(state_dict_type='sharded'),
     )
 
     def get_mono_state_dict_from_sharded_one(trainer):
@@ -819,28 +802,20 @@ def test_elastic_resumption(
 
 @pytest.mark.gpu
 @world_size(2)
-@pytest.mark.parametrize('state_dict_type', ['sharded', 'local'])
 @pytest.mark.parametrize('num_ckpts_to_keep', [-1, 1, 2, 3])
-@pytest.mark.parametrize('batches_to_train', [3])
 @pytest.mark.filterwarnings(r'ignore:TypedStorage is deprecated.:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:Please use DTensor instead and we are deprecating ShardedTensor.:UserWarning')
 def test_cleanup_sharded_checkpoints(
     world_size,
     tmp_path: pathlib.Path,
-    state_dict_type: str,
     num_ckpts_to_keep: int,
-    batches_to_train: int,
     s3_bucket,
     s3_ephemeral_prefix,
     request,
 ):
-    if state_dict_type == 'local':
-        pytest.xfail(('Loading a state_dict_type="local" checkpoint with strict=True '
-                      'errors out. See https://github.com/pytorch/pytorch/issues/102667 '
-                      'for more info'))
-
     run_name = None
+    batches_to_train = 3
 
     tmp_paths = dist.all_gather_object(os.path.abspath(tmp_path))
     save_folder = os.path.join(tmp_paths[0], 'checkpoints', '{run_name}')
@@ -853,7 +828,7 @@ def test_cleanup_sharded_checkpoints(
         max_duration=f'{batches_to_train}ba',
         save_interval='1ba',
         save_num_checkpoints_to_keep=num_ckpts_to_keep,
-        fsdp_config=FSDPConfig(state_dict_type=state_dict_type),
+        fsdp_config=FSDPConfig(state_dict_type='sharded'),
     )
     run_name = trainer1.state.run_name
     trainer1.fit()

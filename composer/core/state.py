@@ -58,14 +58,13 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
         module (torch.nn.Module): The torch module that you want to call `state_dict()`
             or `load_state_dict()` on.
         state_dict_type (str, optional): which of the three state dict types you want to use.
-            choices are ['full', 'sharded', 'local']. Defaults to 'full'.
+            choices are ['full', 'sharded']. Defaults to 'full'.
             * 'full': the full, unsharded state dict materialized only on rank 0 with cpu_offload if necessary
-            * 'local': the sharded, flattened state_dict, where each rank only gets a single shard.
             * 'sharded': the sharded, unflattened state_dict, where each rank only gets a single shard.
             See torch.distributed.fsdp.StateDictType for more info.
 
     Raises:
-        NotImplementedError: if you specify a state_dict_type not in ['full', 'sharded', 'local'].
+        NotImplementedError: if you specify a state_dict_type not in ['full', 'sharded'].
     """
     # Torch forgot to put ShardedStateDictConfig in torch/distributed/fsdp/__init__.py, so we
     # have to import it this way.
@@ -89,12 +88,6 @@ def fsdp_state_dict_type_context(module: torch.nn.Module, state_dict_type: str =
         state_dict_config = ShardedStateDictConfig(offload_to_cpu=True)
         optim_state_dict_config = ShardedOptimStateDictConfig()
 
-    # Local is the FSDP standard sharded, flattened parameters. This is what the parameters
-    # are formatted to for a single rank's FSDP module.
-    elif state_dict_type == 'local':
-        fsdp_state_dict_type = StateDictType.LOCAL_STATE_DICT
-        state_dict_config = LocalStateDictConfig()
-        optim_state_dict_config = LocalOptimStateDictConfig()
     else:
         raise NotImplementedError(f'No valid FSDP state_dict_type for {state_dict_type}')
 
@@ -114,13 +107,12 @@ def fsdp_get_optim_state_dict(model: torch.nn.Module,
         model (torch.nn.Module): The model that the optimizer corresponds to.
         optim (torch.optim.Optimizer): The optimizer that you want a state dict for.
         state_dict_type (str, optional): which of the three state dict types you want to use.
-            choices are ['full', 'sharded', 'local']. Defaults to 'full'.
+            choices are ['full', 'sharded']. Defaults to 'full'.
             * 'full': the full, unsharded state dict materialized only on rank 0
-            * 'local': the sharded, flattened state_dict, where each rank only gets a single shard.
             * 'sharded': the sharded, unflattened state_dict, where each rank only gets a single shard.
 
     Raises:
-        NotImplementedError: if you specify a state_dict_type not in ['full', 'sharded', 'local'].
+        NotImplementedError: if you specify a state_dict_type not in ['full', 'sharded'].
 
     Returns:
         Dict[str, Any]: The state_dict for the given optimizer.
@@ -143,10 +135,6 @@ def _legacy_optim_state_dict_to_load(
                                                                            model=model,
                                                                            optim=optim)
         return flattened_optim_state_dict
-    elif state_dict_type == 'local':
-        # Optimizer and optimizer state dict are already sharded and flattened,
-        # so just load the state_dict.
-        return optim_state_dict
     else:  # fsdp_state_dict_type == 'full'
         # FSDP enabled, but fsdp_state_dict is set to 'full', so the state dict
         # is a full state dict and we must shard and flatten it first before loading it.
@@ -484,11 +472,9 @@ class State(Serializable):
         if self.fsdp_config is not None:
             self.sharded_ckpt_prefix_dir = self.fsdp_config['sharded_ckpt_prefix_dir']
 
-        if self.fsdp_state_dict_type == 'local':
-            raise DeprecationWarning(
-                textwrap.dedent(
-                    "FSDP state_dict_type='local' is deprecated in torch>=2.0.0. "
-                    "Please set fsdp_config['state_dict_type']='sharded' instead and will be removed in v0.17"))
+        if self.fsdp_state_dict_type not in [None, 'full', 'sharded']:
+            raise ValueError(f'fsdp_state_dict_type must be one of [None, "full", "sharded"], but got '
+                                f'{self.fsdp_state_dict_type}')
         if self.fsdp_sharded_state_dict_enabled and self.save_metrics:
             # Sharded state dict breaks in many different ways with torchmetrics, due to both sharding
             # metric tensors and only sometimes flattening path names in state dict and _computed, so
@@ -740,7 +726,7 @@ class State(Serializable):
 
     @property
     def fsdp_sharded_state_dict_enabled(self):
-        return self.fsdp_config is not None and self.fsdp_enabled and self.fsdp_state_dict_type in ['sharded', 'local']
+        return self.fsdp_config is not None and self.fsdp_enabled and self.fsdp_state_dict_type == 'sharded'
 
     @property
     def fsdp_device_mesh(self):
@@ -1196,13 +1182,6 @@ class State(Serializable):
                 if len(missing_keys) > 0:
                     log.warning(f"Found these missing keys in the checkpoint: {', '.join(missing_keys)}")
                 if len(unexpected_keys) > 0:
-                    if self.fsdp_config is not None and self.fsdp_config[
-                            'use_orig_params'] and self.fsdp_state_dict_type == 'local':
-                        log.warning(
-                            'You are using use_orig_params=True and fsdp_state_dict_type=local. '
-                            'This results in both the original parameters and the flat parameters being '
-                            'in the state dict. If you see a warning with unexpected keys ending in ._flat_param, the model'
-                            'was still loaded correctly.')
                     log.warning(f"Found these unexpected keys in the checkpoint: {', '.join(unexpected_keys)}")
 
         # If loading FSDP monolith checkpoint on rank 0 only, the model must be wrapped after loading
