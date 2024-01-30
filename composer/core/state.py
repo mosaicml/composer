@@ -16,10 +16,9 @@ import numpy as np
 import torch
 import torch.nn.modules.utils
 from packaging import version
-from torch.distributed.fsdp import FullOptimStateDictConfig, FullStateDictConfig
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import (LocalOptimStateDictConfig, LocalStateDictConfig, ShardedOptimStateDictConfig,
-                                    StateDictType)
+from torch.distributed.fsdp.fully_sharded_data_parallel import (FullOptimStateDictConfig, FullStateDictConfig,
+                                                                ShardedOptimStateDictConfig, StateDictType)
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader, Dataset
@@ -478,7 +477,7 @@ class State(Serializable):
                                  'To upgrade an older checkpoint, use Composer version 0.18.1 and export to '
                                  'as a monolithic checkpoint using a callback.')
             raise ValueError(f'fsdp_state_dict_type must be one of [None, "full", "sharded"], but got '
-                                f'{self.fsdp_state_dict_type}')
+                             f'{self.fsdp_state_dict_type}')
         if self.fsdp_sharded_state_dict_enabled and self.save_metrics:
             # Sharded state dict breaks in many different ways with torchmetrics, due to both sharding
             # metric tensors and only sometimes flattening path names in state dict and _computed, so

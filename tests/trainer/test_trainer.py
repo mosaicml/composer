@@ -14,7 +14,6 @@ from typing import Any, Dict, List, Optional, Union
 
 import pytest
 import torch
-from packaging import version
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
 

@@ -23,8 +23,7 @@ from torchmetrics import Metric
 
 from composer.metrics import InContextLearningMetric, InContextLearningQAAccuracy
 from composer.models.base import ComposerModel
-from composer.utils import (MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp,
-                            safe_torch_load)
+from composer.utils import MissingConditionalImportError, dist, get_file, import_object, is_model_fsdp, safe_torch_load
 
 try:
     from peft import PeftModel, get_peft_model

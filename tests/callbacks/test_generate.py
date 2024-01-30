@@ -7,7 +7,6 @@ from unittest.mock import Mock
 
 import pytest
 import torch
-from packaging import version
 
 from composer.callbacks import Generate
 from composer.core import Event

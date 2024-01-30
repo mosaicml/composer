@@ -9,7 +9,6 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, Callable, Optional, Set, Type, Union
 
 import torch
-from packaging import version
 from torch.nn.parallel import DistributedDataParallel
 
 if TYPE_CHECKING:

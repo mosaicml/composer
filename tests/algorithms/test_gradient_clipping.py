@@ -5,7 +5,6 @@ from unittest.mock import Mock
 
 import pytest
 import torch
-from packaging import version
 from torch import nn
 
 import composer.algorithms.gradient_clipping.gradient_clipping as gc_module
