@@ -19,7 +19,7 @@ import tabulate
 import yaml
 
 LATEST_PYTHON_VERSION = '3.11'
-PRODUCTION_PYTORCH_VERSION = '2.2.0'
+PRODUCTION_PYTORCH_VERSION = '2.1.2'
 
 
 def _get_torchvision_version(pytorch_version: str):
