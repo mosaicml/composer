@@ -1037,24 +1037,11 @@ class MTBenchJudge(InContextLearningMetric):
 
         categories = ['math', 'reasoning', 'stem', 'humanities', 'extraction', 'coding', 'roleply', 'writing']
         for category in categories:
-            for metric_to_add in ['score', 'total']:
-                self.add_state(f'{category}_{metric_to_add}', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('math_score', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('math_total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('reasoning_score', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('reasoning_total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('stem_score', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('stem_total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('humanities_score', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('humanities_total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('extraction_score', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('extraction_total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('coding_score', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('coding_total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('roleplay_score', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('roleplay_total', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('writing_score', default=torch.tensor(0.), dist_reduce_fx='sum')
-        # self.add_state('writing_total', default=torch.tensor(0.), dist_reduce_fx='sum')
+            for prompt_num in ['prompt_one', 'prompt_two']:
+                for metric_to_add in ['score', 'total']:
+                    self.add_state(f'{category}_{prompt_num}_{metric_to_add}',
+                                   default=torch.tensor(0.),
+                                   dist_reduce_fx='sum')
 
         self.client = None
 
@@ -1166,61 +1153,78 @@ class MTBenchJudge(InContextLearningMetric):
 
     def score_result(self, result: str, category: str, formatted_template: str, first_prompt: bool):
         score = None
-        self.total += 1
         match = re.search(self.ONE_SCORE_PATTERN, result)
         if not match:
             match = re.search(self.ONE_SCORE_PATTERN_BACKUP, result)
         if match:
             score = ast.literal_eval(match.groups()[0])
-            self.update_category_score(category, score, first_prompt)
+            self.update_score(category, score, first_prompt)
         else:
             self.invalid_judge_response += 1
+        self.total += 1
+
         if self.cache_responses:
             self.response_cache.append({'score': score, 'result': result, 'formatted_template': formatted_template})
 
-    def update_category_score(self, category, score, first_prompt):
-        if category == 'math':
-            self.math_total += 1
-            self.math_score += score
-        elif category == 'writing':
-            self.writing_total += 1
-            self.writing_score += score
-        elif category == 'roleplay':
-            self.roleplay_total += 1
-            self.roleplay_score += score
-        elif category == 'reasoning':
-            self.reasoning_total += 1
-            self.reasoning_score += score
-        elif category == 'coding':
-            self.coding_total += 1
-            self.coding_score += score
-        elif category == 'extraction':
-            self.extraction_total += 1
-            self.extraction_score += score
-        elif category == 'stem':
-            self.stem_total += 1
-            self.stem_score += score
-        elif category == 'humanities':
-            self.humanities_total += 1
-            self.humanities_score += score
-
+    def update_score(self, category: str, score: int, first_prompt: bool):
         if first_prompt:
+            prompt_num = 'prompt_one'
             self.first_prompt_score += score
+            self.prompt_one_total += 1
         else:
+            prompt_num = 'prompt_two'
             self.second_prompt_score += score
+            self.prompt_two_total += 1
+
+        state_name = f'{category}_{prompt_num}'
+
+        cur_value = getattr(self, f'{state_name}_score')
+        setattr(self, state_name, cur_value + score)
+
+        cur_total = getattr(self, f'{state_name}_total')
+        setattr(self, state_name, cur_total + 1)
 
         self.all_scores += torch.tensor(score)
 
     def compute(self):
         super().compute()
-        log.info(f'Math:             {(self.math_score / self.math_total).item()}')
-        log.info(f'Writing:          {(self.writing_score / self.writing_total).item()}')
-        log.info(f'Roleplay:         {(self.roleplay_score / self.roleplay_total).item()}')
-        log.info(f'Reasoning:        {(self.reasoning_score / self.reasoning_total).item()}')
-        log.info(f'Coding:           {(self.coding_score / self.coding_total).item()}')
-        log.info(f'Extraction:       {(self.extraction_score / self.extraction_total).item()}')
-        log.info(f'STEM:             {(self.stem_score / self.stem_total).item()}')
-        log.info(f'Humanities:       {(self.humanities_score / self.humanities_total).item()}')
+        log.info(f'------- Prompt One -------')
+        log.info(f'Math Prompt One:             {(self.math_prompt_one_score / self.math_prompt_one_total).item()}')
+        log.info(
+            f'Writing Prompt One:          {(self.writing_prompt_one_score / self.writing_prompt_one_total).item()}')
+        log.info(
+            f'Roleplay Prompt One:         {(self.roleplay_prompt_one_score / self.roleplay_prompt_one_total).item()}')
+        log.info(
+            f'Reasoning Prompt One:        {(self.reasoning_prompt_one_score / self.reasoning_prompt_one_total).item()}'
+        )
+        log.info(f'Coding Prompt One:           {(self.coding_prompt_one_score / self.coding_prompt_one_total).item()}')
+        log.info(
+            f'Extraction Prompt One:       {(self.extraction_prompt_one_score / self.extraction_prompt_one_total).item()}'
+        )
+        log.info(f'STEM Prompt One:             {(self.stem_prompt_one_score / self.stem_prompt_one_total).item()}')
+        log.info(
+            f'Humanities Prompt One:       {(self.humanities_prompt_one_score / self.humanities_prompt_one_total).item()}'
+        )
+        log.info(f'First Prompt Total:          {(self.first_prompt_score / self.prompt_one_total).item()}')
+        log.info(f'------- Prompt Two -------')
+        log.info(f'Math Prompt Two:             {(self.math_prompt_two_score / self.math_prompt_two_total).item()}')
+        log.info(
+            f'Writing Prompt Two:          {(self.writing_prompt_two_score / self.writing_prompt_two_total).item()}')
+        log.info(
+            f'Roleplay Prompt Two:         {(self.roleplay_prompt_two_score / self.roleplay_prompt_two_total).item()}')
+        log.info(
+            f'Reasoning Prompt Two:        {(self.reasoning_prompt_two_score / self.reasoning_prompt_two_total).item()}'
+        )
+        log.info(f'Coding Prompt Two:           {(self.coding_prompt_two_score / self.coding_prompt_two_total).item()}')
+        log.info(
+            f'Extraction Prompt Two:       {(self.extraction_prompt_two_score / self.extraction_prompt_two_total).item()}'
+        )
+        log.info(f'STEM Prompt Two:             {(self.stem_prompt_two_score / self.stem_prompt_two_total).item()}')
+        log.info(
+            f'Humanities Prompt Two:       {(self.humanities_prompt_two_score / self.humanities_prompt_two_total).item()}'
+        )
+        log.info(f'Second Prompt Total:         {(self.second_prompt_score / self.prompt_two_total).item()}')
+        log.info(f'------- Totals -------')
         log.info(f'First Prompt:     {(self.first_prompt_score / self.total).item()}')
         log.info(f'Second Prompt:    {(self.second_prompt_score / self.total).item()}')
         log.info(f'Combined:         {(self.all_scores / self.total).item()}')
