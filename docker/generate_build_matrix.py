@@ -164,16 +164,15 @@ def _write_table(table_tag: str, table_contents: str):
 
 
 def _main():
-    python_versions = ['3.11', '3.10']
-    pytorch_versions = ['2.2.0', '2.1.2', '2.0.1']
+    python_pytorch_versions = [('3.11', '2.2.0'), ('3.10', '2.1.2'), ('3.10', '2.0.1')]
     cuda_options = [True, False]
     stages = ['pytorch_stage']
     interconnects = ['mellanox', 'EFA']  # mellanox is default, EFA needed for AWS
 
     pytorch_entries = []
 
-    for product in itertools.product(python_versions, pytorch_versions, cuda_options, stages, interconnects):
-        python_version, pytorch_version, use_cuda, stage, interconnect = product
+    for product in itertools.product(python_pytorch_versions, cuda_options, stages, interconnects):
+        (python_version, pytorch_version), use_cuda, stage, interconnect = product
 
         cuda_version = _get_cuda_version(pytorch_version=pytorch_version, use_cuda=use_cuda)
 
