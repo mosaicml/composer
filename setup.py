@@ -123,7 +123,7 @@ extra_deps['dev'] = [
     'sphinxcontrib-qthelp==1.0.0',
     'sphinxext.opengraph==0.9.1',
     'sphinxemoji==0.2.0',
-    'furo==2022.9.29',
+    'furo==2024.1.29',
     'sphinx-copybutton==0.5.2',
     'testbook==0.4.2',
     'myst-parser==0.16.1',
