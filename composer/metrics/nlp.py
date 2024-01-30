@@ -1227,7 +1227,7 @@ class MTBenchJudge(InContextLearningMetric):
         log.info(
             f'Humanities Prompt Two:       {(self.humanities_prompt_two_score / self.humanities_prompt_two_total).item()}'
         )
-        log.info(f'Second Prompt Total:         {(self.second_prompt_score / self.prompt_two_total).item()}')
+        log.info(f'Second Prompt Total:         {(self.prompt_two_score / self.prompt_two_total).item()}')
         log.info(f'------- Totals -------')
         log.info(f'First Prompt:     {(self.prompt_one_score / self.prompt_one_total).item()}')
         log.info(f'Second Prompt:    {(self.prompt_two_score / self.prompt_two_total).item()}')
