@@ -18,17 +18,17 @@ import packaging.version
 import tabulate
 import yaml
 
-LATEST_PYTHON_VERSION = '3.10'
-PRODUCTION_PYTORCH_VERSION = '2.1.2'
+LATEST_PYTHON_VERSION = '3.11'
+PRODUCTION_PYTORCH_VERSION = '2.2.0'
 
 
 def _get_torchvision_version(pytorch_version: str):
+    if pytorch_version == '2.2.0':
+        return '0.17.0'
     if pytorch_version == '2.1.2':
         return '0.16.2'
     if pytorch_version == '2.0.1':
         return '0.15.2'
-    if pytorch_version == '1.13.1':
-        return '0.14.1'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
@@ -39,14 +39,15 @@ def _get_base_image(cuda_version: str):
 
 
 def _get_cuda_version(pytorch_version: str, use_cuda: bool):
+    # From https://docs.nvidia.com/deeplearning/frameworks/pytorch-release-notes/
     if not use_cuda:
         return ''
+    if pytorch_version == '2.2.0':
+        return '12.3.2'
     if pytorch_version == '2.1.2':
         return '12.1.0'
     if pytorch_version == '2.0.1':
         return '11.8.0'
-    if pytorch_version == '1.13.1':
-        return '11.7.1'
     raise ValueError(f'Invalid pytorch_version: {pytorch_version}')
 
 
@@ -57,7 +58,9 @@ def _get_cuda_version_tag(cuda_version: str):
 
 
 def _get_cuda_override(cuda_version: str):
-    if cuda_version == '12.1.0':
+    if cuda_version == '12.3.2':
+        return ''
+    elif cuda_version == '12.1.0':
         cuda_121_override_string = ('cuda>=12.1 brand=tesla,driver>=450,driver<451 '
                                     'brand=tesla,driver>=470,driver<471 brand=unknown,driver>=470,driver<471 '
                                     'brand=nvidia,driver>=470,driver<471 brand=nvidiartx,driver>=470,driver<471 '
@@ -81,8 +84,7 @@ def _get_cuda_override(cuda_version: str):
                                     'brand=titan,driver>=525,driver<526 brand=titanrtx,driver>=525,driver<526')
 
         return cuda_121_override_string
-
-    if cuda_version == '11.8.0':
+    elif cuda_version == '11.8.0':
         cuda_118_override_string = ('cuda>=11.8 brand=tesla,driver>=470,driver<471 '
                                     'brand=tesla,driver>=515,driver<516 brand=unknown,driver>=470,driver<471 '
                                     'brand=unknown,driver>=515,driver<516 brand=nvidia,driver>=470,driver<471 '
@@ -92,10 +94,9 @@ def _get_cuda_override(cuda_version: str):
                                     'brand=quadro,driver>=515,driver<516 brand=titan,driver>=470,driver<471 '
                                     'brand=titan,driver>=515,driver<516 brand=titanrtx,driver>=470,driver<471 '
                                     'brand=titanrtx,driver>=515,driver<516')
-
         return cuda_118_override_string
-
-    return ''
+    else:
+        return ''
 
 
 def _get_pytorch_tags(python_version: str, pytorch_version: str, cuda_version: str, stage: str, interconnect: str):
@@ -165,8 +166,8 @@ def _write_table(table_tag: str, table_contents: str):
 
 
 def _main():
-    python_versions = ['3.10']
-    pytorch_versions = ['2.1.2', '2.0.1', '1.13.1']
+    python_versions = ['3.11', '3.10']
+    pytorch_versions = ['2.2.0', '2.1.2', '2.0.1']
     cuda_options = [True, False]
     stages = ['pytorch_stage']
     interconnects = ['mellanox', 'EFA']  # mellanox is default, EFA needed for AWS
@@ -227,6 +228,7 @@ def _main():
             entry['AWS_OFI_NCCL_VERSION'] = 'v1.7.4-aws'
 
         pytorch_entries.append(entry)
+
     nightly_entry_310 = {
         'AWS_OFI_NCCL_VERSION': '',
         'BASE_IMAGE': 'nvidia/cuda:12.1.0-cudnn8-devel-ubuntu20.04',
