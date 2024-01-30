@@ -26,10 +26,6 @@ def _reraise_oci_errors(uri: str, e: Exception):
         raise MissingConditionalImportError(conda_package='oci', extra_deps_group='oci',
                                             conda_channel='conda-forge') from e
 
-    if 'oci://mosaicml-internal-checkpoints/support-bot-demo/checkpoints/mpt-30b-chat_composer-codebase/' in uri:
-        raise Forbidden('Simulated 403 Forbidden error for debugging purposes.') # simulate error recieved from GCS error 403 log
-        return
-
     # If it's an oci service error with code: ObjectNotFound or status 404
     if isinstance(e, oci.exceptions.ServiceError):
         if e.status == 404:  # type: ignore
@@ -93,6 +89,8 @@ class OCIObjectStore(ObjectStore):
         return f'oci://{self.bucket}/{object_name}'
 
     def get_object_size(self, object_name: str) -> int:
+        if 'oci://mosaicml-internal-checkpoints/support-bot-demo/checkpoints/mpt-30b-chat_composer-codebase/' in uri:
+            raise Forbidden('Simulated 403 Forbidden error for debugging purposes.') # simulate error recieved from GCS error 403 log
         try:
             response = self.client.get_object(
                 namespace_name=self.namespace,
