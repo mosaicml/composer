@@ -66,3 +66,4 @@ def test_memory_snapshot(interval: str):
     )
     trainer.fit()
     assert len(file_tracker_destination.uploaded_files) == 1
+    trainer.close()
