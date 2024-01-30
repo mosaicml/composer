@@ -22,7 +22,7 @@ from composer.loggers import InMemoryLogger
 from composer.metrics import InContextLearningLMAccuracy, LanguageCrossEntropy, MaskedAccuracy
 from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
-from composer.utils import dist, is_model_fsdp
+from composer.utils import dist, is_model_fsdp, using_torch_2
 from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset, RandomTextRegressionDataset
 from tests.common.markers import device, world_size
 from tests.common.models import (configure_tiny_bert_model, configure_tiny_bert_tokenizer, configure_tiny_gpt2_model,
@@ -1357,6 +1357,8 @@ def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config
                           should_save_peft_only):
     pytest.importorskip('peft')
 
+    expectation = pytest.raises(RuntimeError) if not using_torch_2() else nullcontext()
+
     fsdp_config = {
         'sharding_strategy': 'FULL_SHARD',
         'cpu_offload': False,
@@ -1369,58 +1371,59 @@ def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config
 
     stashed_model = copy.deepcopy(tiny_gpt2_model)
 
-    trainer = get_lm_trainer(
-        tiny_gpt2_model,
-        tiny_gpt2_tokenizer,
-        str(tmp_path / 'trainer1'),
-        peft_config=gpt2_peft_config,
-        device_train_microbatch_size=1,
-        mlm=False,
-        fsdp_config=fsdp_config,
-        should_save_peft_only=should_save_peft_only,
-    )
+    with expectation:
+        trainer = get_lm_trainer(
+            tiny_gpt2_model,
+            tiny_gpt2_tokenizer,
+            str(tmp_path / 'trainer1'),
+            peft_config=gpt2_peft_config,
+            device_train_microbatch_size=1,
+            mlm=False,
+            fsdp_config=fsdp_config,
+            should_save_peft_only=should_save_peft_only,
+        )
 
-    for n, p in trainer.state.model.model.named_parameters():
-        if 'lora' in n:
-            assert p.requires_grad
-        else:
-            assert not p.requires_grad
+        for n, p in trainer.state.model.model.named_parameters():
+            if 'lora' in n:
+                assert p.requires_grad
+            else:
+                assert not p.requires_grad
 
-    trainer.fit()
-    trainer.close()
+        trainer.fit()
+        trainer.close()
 
-    load_trainer = get_lm_trainer(
-        stashed_model,
-        tiny_gpt2_tokenizer,
-        str(tmp_path / 'trainer2'),
-        peft_config=gpt2_peft_config,
-        device_train_microbatch_size=1,
-        mlm=False,
-        load_path=str(tmp_path / 'trainer1' / 'hf-checkpoint.pt'),
-        fsdp_config=fsdp_config,
-        should_save_peft_only=should_save_peft_only,
-    )
+        load_trainer = get_lm_trainer(
+            stashed_model,
+            tiny_gpt2_tokenizer,
+            str(tmp_path / 'trainer2'),
+            peft_config=gpt2_peft_config,
+            device_train_microbatch_size=1,
+            mlm=False,
+            load_path=str(tmp_path / 'trainer1' / 'hf-checkpoint.pt'),
+            fsdp_config=fsdp_config,
+            should_save_peft_only=should_save_peft_only,
+        )
 
-    for n, p in load_trainer.state.model.model.named_parameters():
-        if 'lora' in n:
-            assert p.requires_grad
-        else:
-            assert not p.requires_grad
+        for n, p in load_trainer.state.model.model.named_parameters():
+            if 'lora' in n:
+                assert p.requires_grad
+            else:
+                assert not p.requires_grad
 
-    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+        from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
-    with FSDP.summon_full_params(trainer.state.model), FSDP.summon_full_params(load_trainer.state.model):
-        for p1, p2 in zip(trainer.state.model.parameters(), load_trainer.state.model.parameters()):
-            torch.testing.assert_close(p1, p2)
+        with FSDP.summon_full_params(trainer.state.model), FSDP.summon_full_params(load_trainer.state.model):
+            for p1, p2 in zip(trainer.state.model.parameters(), load_trainer.state.model.parameters()):
+                torch.testing.assert_close(p1, p2)
 
-    if dist.get_global_rank() == 0:
-        loaded_ckpt_1 = torch.load(str(tmp_path / 'trainer1' / 'hf-checkpoint.pt'))
+        if dist.get_global_rank() == 0:
+            loaded_ckpt_1 = torch.load(str(tmp_path / 'trainer1' / 'hf-checkpoint.pt'))
 
-        # Check that only the LoRA parameters were saved
-        if should_save_peft_only:
-            assert all('lora' in k for k in loaded_ckpt_1['state']['model'].keys())
-        else:
-            assert not all('lora' in k for k in loaded_ckpt_1['state']['model'].keys())
+            # Check that only the LoRA parameters were saved
+            if should_save_peft_only:
+                assert all('lora' in k for k in loaded_ckpt_1['state']['model'].keys())
+            else:
+                assert not all('lora' in k for k in loaded_ckpt_1['state']['model'].keys())
 
 
 def test_filtered_state_dict(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path):
