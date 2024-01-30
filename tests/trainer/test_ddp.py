@@ -7,7 +7,6 @@ import pathlib
 import pytest
 import torch
 import torch.distributed
-from packaging import version
 from torch.utils.data import DataLoader
 
 import composer.core.types as types
