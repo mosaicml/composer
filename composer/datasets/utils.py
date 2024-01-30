@@ -8,11 +8,8 @@ import textwrap
 from typing import Callable, List, Optional
 
 import torch
-
-import torch
 from torchvision import transforms
 from torchvision.datasets import VisionDataset
-
 
 __all__ = [
     'add_vision_dataset_transform',
@@ -20,6 +17,7 @@ __all__ = [
 ]
 
 log = logging.getLogger(__name__)
+
 
 def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is_tensor_transform: bool = False):
     """Add a transform to a dataset's collection of transforms.
@@ -63,6 +61,7 @@ def add_vision_dataset_transform(dataset: VisionDataset, transform: Callable, is
         else:
             dataset.transform = transforms.Compose([dataset.transform, transform])
             log.warning(transform_added_logstring)
+
 
 try:
     import transformers
