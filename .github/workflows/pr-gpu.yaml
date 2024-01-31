@@ -14,7 +14,7 @@ jobs:
       matrix:
         include:
         - name: gpu-3.10-2.1
-          container: mosaicml/pytorch:2.1.0_cu121-python3.10-ubuntu20.04
+          container: mosaicml/pytorch:2.1.2_cu121-python3.10-ubuntu20.04
           markers: not daily and not remote and gpu and (doctest or not doctest)
           pytest_command: coverage run -m pytest
           composer_package_name: mosaicml
