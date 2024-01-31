@@ -6,7 +6,7 @@ import os
 import tempfile
 from contextlib import nullcontext
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 from unittest.mock import patch
 from urllib.parse import urlparse
 
@@ -26,8 +26,47 @@ from composer.utils import dist, is_model_fsdp
 from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset, RandomTextRegressionDataset
 from tests.common.markers import device, world_size
 from tests.common.models import (configure_tiny_bert_model, configure_tiny_bert_tokenizer, configure_tiny_gpt2_model,
-                                 configure_tiny_gpt2_tokenizer, configure_tiny_t5_model, configure_tiny_t5_tokenizer)
+                                 configure_tiny_gpt2_tokenizer, configure_tiny_mistral_model,
+                                 configure_tiny_mistral_tokenizer, configure_tiny_t5_model, configure_tiny_t5_tokenizer)
 from tests.loggers.test_remote_uploader_downloader import DummyObjectStore
+
+if TYPE_CHECKING:
+    from peft import PeftConfig
+
+
+def _gpt2_peft_config():
+    pytest.importorskip('peft')
+    from peft import get_peft_config
+
+    peft_config = get_peft_config({
+        'peft_type': 'LORA',
+        'task_type': 'CAUSAL_LM',
+        'target_modules': ['c_attn'],
+        'fan_in_fan_out': True,
+    })
+    return peft_config
+
+
+@pytest.fixture
+def gpt2_peft_config():
+    return _gpt2_peft_config()
+
+
+def _mistral_peft_config():
+    pytest.importorskip('peft')
+    from peft import get_peft_config
+
+    peft_config = get_peft_config({
+        'peft_type': 'LORA',
+        'task_type': 'CAUSAL_LM',
+        'target_modules': ['up_proj'],
+    })
+    return peft_config
+
+
+@pytest.fixture
+def mistral_peft_config():
+    return _mistral_peft_config()
 
 
 def test_hf_tokenizer_save(tmp_path: Path, tiny_bert_model, tiny_bert_tokenizer):
@@ -98,6 +137,7 @@ def test_hf_train_eval_predict(num_classes: int, tiny_bert_config):
     trainer.eval()
 
     # Check that there is some train/eval accuracy
+    assert trainer.state.train_metrics is not None
     assert trainer.state.train_metrics['MulticlassAccuracy'].compute() != 0.0
     assert trainer.state.eval_metrics['eval']['MulticlassAccuracy'].compute() != 0.0
 
@@ -153,6 +193,7 @@ def test_hf_train_eval_predict_regression(tiny_deberta_config):
     trainer.eval()
 
     # Check that there is some train/eval accuracy
+    assert trainer.state.train_metrics is not None
     assert trainer.state.train_metrics['PearsonCorrCoef'].compute() != 0.0
     assert trainer.state.eval_metrics['eval']['PearsonCorrCoef'].compute() != 0.0
 
@@ -431,14 +472,33 @@ def get_lm_trainer(hf_model,
                    device_train_microbatch_size: Optional[int] = None,
                    batch_size: int = 4,
                    sequence_length: int = 4,
-                   size: int = 4):
+                   size: int = 4,
+                   peft_config: Optional['PeftConfig'] = None,
+                   should_save_peft_only: bool = False):
     transformers = pytest.importorskip('transformers')
 
     metrics: List[Metric] = [LanguageCrossEntropy(ignore_index=-100)]
     if not is_conditional_generation:
         metrics.append(MaskedAccuracy(ignore_index=-100))
 
-    model = HuggingFaceModel(hf_model, tokenizer=hf_tokenizer, metrics=metrics, use_logits=True)
+    model = HuggingFaceModel(
+        hf_model,
+        tokenizer=hf_tokenizer,
+        metrics=metrics,
+        use_logits=True,
+        peft_config=peft_config,
+        should_save_peft_only=should_save_peft_only,
+    )
+
+    # On torch 2.0, fsdp wrapped modules can not have both frozen and unfrozen params.
+    # On 2.1+, if you have use_orig_params=True, they can. So we need a special case for the tests here.
+    if version.parse(torch.__version__) < version.parse('2.1.0') and peft_config is not None:
+        for name, module in model.named_modules():
+            if 'lora' in name.lower() and 'default' in name.lower():
+                has_parameters = any(True for _ in module.parameters())
+                has_buffers = any(True for _ in module.buffers())
+                if has_parameters or has_buffers:
+                    module._fsdp_wrap = True  # type: ignore
 
     vocab_size = hf_model.config.vocab_size
     sequence_length = 4
@@ -475,8 +535,13 @@ def get_lm_trainer(hf_model,
                                      collate_fn=collator,
                                      sampler=dist.get_sampler(train_dataset))
 
+    from composer.optim import DecoupledAdamW
+
+    optimizer = DecoupledAdamW(model.parameters(), lr=1e-3)
+
     in_memory_logger = InMemoryLogger()
     trainer = Trainer(model=model,
+                      optimizers=optimizer,
                       train_dataloader=train_dataloader,
                       eval_dataloader=eval_dataloader,
                       max_duration='1ep',
@@ -865,8 +930,6 @@ def test_encoder_decoder(tiny_t5_model, tiny_t5_tokenizer):
 
 
 @pytest.mark.gpu
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings('ignore::UserWarning')
 def test_hf_fsdp(tiny_bert_config, tiny_bert_tokenizer):
     transformers = pytest.importorskip('transformers')
@@ -909,6 +972,7 @@ def test_separate_eval_metrics(tiny_bert_model, tiny_bert_tokenizer):
 
 @pytest.mark.parametrize('checkpoint_upload_folder', [None, 's3://checkpoints-bucket/'])
 @pytest.mark.parametrize('local_save_filename', [None, 'local-checkpoint.pt'])
+@pytest.mark.filterwarnings('ignore:TypedStorage is deprecated.*:UserWarning')
 def test_write_hf_from_composer(checkpoint_upload_folder, local_save_filename, tiny_bert_model, tiny_bert_tokenizer,
                                 tmp_path):
     transformers = pytest.importorskip('transformers')
@@ -943,6 +1007,7 @@ def test_write_hf_from_composer(checkpoint_upload_folder, local_save_filename, t
     check_hf_model_equivalence(tiny_bert_model, loaded_hf_model)
 
 
+@pytest.mark.filterwarnings('ignore:TypedStorage is deprecated.*:UserWarning')
 def test_write_hf_from_composer_direct(tiny_bert_tokenizer, tmp_path):
     # tests that the logic to write out a huggingface checkpoint from a composer checkpoint
     # still works when the huggingface model is instantiated directly rather than using from_pretrained
@@ -1028,9 +1093,6 @@ def test_embedding_resizing(tiny_bert_model, tiny_bert_tokenizer, embedding_resi
 @pytest.mark.parametrize('hf_model,hf_tokenizer', [(configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer),
                                                    (configure_tiny_t5_model, configure_tiny_t5_tokenizer)])
 def test_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
-    if use_fsdp and version.parse(torch.__version__) < version.parse('1.13.0'):
-        pytest.skip('FSDP requires torch >= 1.13.0')
-
     transformers = pytest.importorskip('transformers')
     if device == 'cpu' and use_fsdp:
         pytest.skip('FSDP is not supported on CPU.')
@@ -1074,12 +1136,10 @@ def test_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
     generation1 = model.generate(**input_dict, max_new_tokens=5, pad_token_id=hf_tokenizer.pad_token_id)
     generation2 = model.generate(**input_dict, max_new_tokens=3, pad_token_id=hf_tokenizer.pad_token_id)
 
-    assert generation1.shape == (2,
-                                 (input_dict['input_ids'].shape[1] if not hf_model.config.is_encoder_decoder else 1) +
-                                 5)
-    assert generation2.shape == (2,
-                                 (input_dict['input_ids'].shape[1] if not hf_model.config.is_encoder_decoder else 1) +
-                                 3)
+    generation1_dim2 = (input_dict['input_ids'].shape[1] if not hf_model.config.is_encoder_decoder else 1) + 5
+    assert generation1.shape == (2, generation1_dim2)  # pyright: ignore[reportGeneralTypeIssues]
+    generation2_dim2 = (input_dict['input_ids'].shape[1] if not hf_model.config.is_encoder_decoder else 1) + 3
+    assert generation2.shape == (2, generation2_dim2)  # pyright: ignore[reportGeneralTypeIssues]
 
     decoded_generation1 = hf_tokenizer.batch_decode(generation1, skip_special_tokens=True)
     decoded_generation2 = hf_tokenizer.batch_decode(generation2, skip_special_tokens=True)
@@ -1095,8 +1155,6 @@ def test_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
 @pytest.mark.parametrize('hf_model,hf_tokenizer', [(configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer),
                                                    (configure_tiny_t5_model, configure_tiny_t5_tokenizer)])
 def test_eval_forward_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
-    if use_fsdp and version.parse(torch.__version__) < version.parse('1.13.0'):
-        pytest.skip('FSDP requires torch >= 1.13.0')
     transformers = pytest.importorskip('transformers')
     if device == 'cpu' and use_fsdp:
         pytest.skip('FSDP is not supported on CPU.')
@@ -1148,3 +1206,229 @@ def test_eval_forward_generate(device, world_size, hf_model, hf_tokenizer, use_f
     assert len(generation1) == len(generation2) == 2
     assert all(isinstance(decoded_generation, str) for decoded_generation in generation1)
     assert all(isinstance(decoded_generation, str) for decoded_generation in generation2)
+
+
+@pytest.mark.parametrize('peft_type', ['LORA', 'loRa'])
+@pytest.mark.parametrize('task_type', ['CAUSAL_LM', 'causal_lm'])
+def test_peft_init(peft_type: str, task_type: str, tiny_gpt2_model, gpt2_peft_config):
+    pytest.importorskip('peft')
+    from peft import PeftModelForCausalLM
+
+    peft_config = copy.deepcopy(gpt2_peft_config)
+    peft_config.peft_type = peft_type
+    peft_config.task_type = task_type
+
+    original_model = copy.deepcopy(tiny_gpt2_model)
+
+    hf_model = HuggingFaceModel(tiny_gpt2_model, peft_config=peft_config)
+    assert isinstance(hf_model.model, PeftModelForCausalLM)
+    assert hf_model.model.peft_config['default'].peft_type == 'LORA'
+    assert hf_model.model.peft_config['default'].task_type == 'CAUSAL_LM'
+    assert hf_model.model.config == original_model.config
+
+
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
+def test_peft_init_errors(tiny_gpt2_model, gpt2_peft_config):
+    pytest.importorskip('peft')
+    peft_config = copy.deepcopy(gpt2_peft_config)
+    peft_config.peft_type = 'NOT_LORA'
+
+    with pytest.raises(ValueError):
+        _ = HuggingFaceModel(tiny_gpt2_model, peft_config=peft_config)
+
+
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
+def test_peft_init_not_installed(tiny_gpt2_model, gpt2_peft_config):
+    pytest.importorskip('peft')
+
+    with patch('composer.models.huggingface.peft_installed', False):
+        with pytest.raises(ImportError):
+            from composer.models import HuggingFaceModel
+            _ = HuggingFaceModel(tiny_gpt2_model, peft_config=gpt2_peft_config)
+
+
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
+@pytest.mark.parametrize('should_save_peft_only', [True, False])
+def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, should_save_peft_only):
+    pytest.importorskip('peft')
+
+    trainer = get_lm_trainer(
+        tiny_gpt2_model,
+        tiny_gpt2_tokenizer,
+        str(tmp_path),
+        peft_config=gpt2_peft_config,
+        device_train_microbatch_size=1,
+        mlm=False,
+        should_save_peft_only=should_save_peft_only,
+    )
+    trainer.fit()
+
+    load_trainer = get_lm_trainer(
+        tiny_gpt2_model,
+        tiny_gpt2_tokenizer,
+        str(tmp_path),
+        peft_config=gpt2_peft_config,
+        device_train_microbatch_size=1,
+        mlm=False,
+        load_path=str(tmp_path / 'hf-checkpoint.pt'),
+        should_save_peft_only=should_save_peft_only,
+    )
+
+    for p1, p2 in zip(trainer.state.model.parameters(), load_trainer.state.model.parameters()):
+        torch.testing.assert_close(p1, p2)
+
+
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
+@pytest.mark.parametrize('model,tokenizer,peft_config', [
+    (configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer, _gpt2_peft_config()),
+    (configure_tiny_mistral_model, configure_tiny_mistral_tokenizer, _mistral_peft_config()),
+])
+def test_peft_generate(model, tokenizer, peft_config):
+    pytest.importorskip('peft')
+
+    model = model()
+    tokenizer = tokenizer()
+
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    hf_model = HuggingFaceModel(model, tokenizer=tokenizer, peft_config=peft_config)
+
+    input_dict = tokenizer(['hello', 'goodbyes'], return_tensors='pt', padding=True)
+    hf_model.generate(**input_dict, max_new_tokens=5, pad_token_id=tokenizer.pad_token_id)
+
+
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
+def test_peft_metadata(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config):
+    pytest.importorskip('peft')
+
+    from peft import get_peft_config
+
+    hf_model = HuggingFaceModel(tiny_gpt2_model, tokenizer=tiny_gpt2_tokenizer, peft_config=gpt2_peft_config)
+    metadata = hf_model.get_metadata()
+    loaded_peft_config = get_peft_config(metadata['model']['peft_config']['content'])
+
+    assert loaded_peft_config == gpt2_peft_config
+
+
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
+@pytest.mark.parametrize('should_save_peft_only', [True, False])
+def test_peft_write_hf_from_composer(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path,
+                                     should_save_peft_only):
+    peft = pytest.importorskip('peft')
+    transformers = pytest.importorskip('transformers')
+
+    # Simulate a local model instead of a hub model
+    tiny_gpt2_model.save_pretrained(tmp_path / 'hf-save-to-load')
+    tiny_gpt2_model = transformers.AutoModelForCausalLM.from_pretrained(tmp_path / 'hf-save-to-load')
+
+    trainer = get_lm_trainer(
+        tiny_gpt2_model,
+        tiny_gpt2_tokenizer,
+        str(tmp_path),
+        peft_config=gpt2_peft_config,
+        device_train_microbatch_size=1,
+        mlm=False,
+        should_save_peft_only=should_save_peft_only,
+    )
+    trainer.fit()
+
+    from composer.models.huggingface import write_huggingface_pretrained_from_composer_checkpoint
+    write_huggingface_pretrained_from_composer_checkpoint(str(tmp_path / 'hf-checkpoint.pt'),
+                                                          tmp_path / 'hf-save-pretrained')
+
+    # Test we can load back in using transformers interface
+    loaded_hf_model = transformers.AutoModelForCausalLM.from_pretrained(str(tmp_path / 'hf-save-pretrained'))
+    for p1, p2 in zip(trainer.state.model.model.parameters(), loaded_hf_model.parameters()):
+        torch.testing.assert_close(p1, p2)
+
+    # Test we can load back in using peft interface
+    loaded_peft_model = peft.PeftModelForCausalLM.from_pretrained(tiny_gpt2_model, str(tmp_path / 'hf-save-pretrained'))
+    for p1, p2 in zip(trainer.state.model.model.parameters(), loaded_peft_model.parameters()):
+        torch.testing.assert_close(p1, p2)
+
+
+@pytest.mark.gpu
+@world_size(2)
+@pytest.mark.parametrize('should_save_peft_only', [True, False])
+def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, world_size,
+                          should_save_peft_only):
+    pytest.importorskip('peft')
+
+    fsdp_config = {
+        'sharding_strategy': 'FULL_SHARD',
+        'cpu_offload': False,
+        'mixed_precision': 'PURE',
+        'backward_prefetch': 'BACKWARD_PRE',
+        'activation_checkpointing': False,
+        'activation_cpu_offload': False,
+        'verbose': False
+    }
+
+    stashed_model = copy.deepcopy(tiny_gpt2_model)
+
+    trainer = get_lm_trainer(
+        tiny_gpt2_model,
+        tiny_gpt2_tokenizer,
+        str(tmp_path / 'trainer1'),
+        peft_config=gpt2_peft_config,
+        device_train_microbatch_size=1,
+        mlm=False,
+        fsdp_config=fsdp_config,
+        should_save_peft_only=should_save_peft_only,
+    )
+
+    for n, p in trainer.state.model.model.named_parameters():
+        if 'lora' in n:
+            assert p.requires_grad
+        else:
+            assert not p.requires_grad
+
+    trainer.fit()
+    trainer.close()
+
+    load_trainer = get_lm_trainer(
+        stashed_model,
+        tiny_gpt2_tokenizer,
+        str(tmp_path / 'trainer2'),
+        peft_config=gpt2_peft_config,
+        device_train_microbatch_size=1,
+        mlm=False,
+        load_path=str(tmp_path / 'trainer1' / 'hf-checkpoint.pt'),
+        fsdp_config=fsdp_config,
+        should_save_peft_only=should_save_peft_only,
+    )
+
+    for n, p in load_trainer.state.model.model.named_parameters():
+        if 'lora' in n:
+            assert p.requires_grad
+        else:
+            assert not p.requires_grad
+
+    from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+
+    with FSDP.summon_full_params(trainer.state.model), FSDP.summon_full_params(load_trainer.state.model):
+        for p1, p2 in zip(trainer.state.model.parameters(), load_trainer.state.model.parameters()):
+            torch.testing.assert_close(p1, p2)
+
+    if dist.get_global_rank() == 0:
+        loaded_ckpt_1 = torch.load(str(tmp_path / 'trainer1' / 'hf-checkpoint.pt'))
+
+        # Check that only the LoRA parameters were saved
+        if should_save_peft_only:
+            assert all('lora' in k for k in loaded_ckpt_1['state']['model'].keys())
+        else:
+            assert not all('lora' in k for k in loaded_ckpt_1['state']['model'].keys())
+
+
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
+def test_filtered_state_dict(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path):
+    pytest.importorskip('peft')
+
+    hf_model = HuggingFaceModel(tiny_gpt2_model,
+                                tokenizer=tiny_gpt2_tokenizer,
+                                peft_config=gpt2_peft_config,
+                                should_save_peft_only=True)
+    state_dict = hf_model.state_dict()
+
+    assert len(state_dict.keys()) == 4

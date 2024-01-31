@@ -111,7 +111,7 @@ class TorchProfiler(Callback):  # noqa: D101
 
             To disable uploading trace files, set this parameter to ``None``.
         memory_filename (str, optional): A format string describing how to name Torch Profiler memory trace files.
-            Defaults to ``'rank{{rank}}.{{batch}}.pt.trace.memory.html'``.
+            Defaults to None. An example memory_filename is ``'rank{{rank}}.{{batch}}.pt.trace.memory.html'``.
 
             At the end of each batch where :meth:`~composer.profiler.Profiler.get_action` returns
             :attr:`~composer.profiler._profiler_action.ProfilerAction.ACTIVE_AND_SAVE`, trace files are saved
@@ -185,7 +185,7 @@ class TorchProfiler(Callback):  # noqa: D101
         folder: str = '{run_name}/torch_traces',
         filename: str = 'rank{rank}.{batch}.pt.trace.json',
         remote_file_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pt.trace.json',
-        memory_filename: Optional[str] = 'rank{rank}.{batch}.pt.trace.memory.html',
+        memory_filename: Optional[str] = None,
         memory_remote_file_name: Optional[
             str] = '{run_name}/torch_memory_traces/rank{rank}.{batch}.pt.trace.memory.html',
         overwrite: bool = False,
@@ -259,24 +259,23 @@ class TorchProfiler(Callback):  # noqa: D101
             timestamp = state.timestamp
 
             log.info(f'PyTorch Chrome trace profiler enabled: {self.filename if self.filename else False}')
-            if self.filename is not None:
-                trace_file_name = os.path.join(
-                    folder_name,
-                    format_name_with_dist_and_time(self.filename, run_name=state.run_name, timestamp=timestamp),
-                )
-                trace_file_dirname = os.path.dirname(trace_file_name)
-                if trace_file_dirname:
-                    os.makedirs(trace_file_dirname, exist_ok=True)
-                prof.export_chrome_trace(trace_file_name)
-                state.profiler.record_chrome_json_trace_file(trace_file_name)
-                if self.remote_file_name is not None:
-                    trace_remote_file_name = format_name_with_dist_and_time(self.remote_file_name,
-                                                                            run_name=state.run_name,
-                                                                            timestamp=timestamp)
-                    trace_remote_file_name = trace_remote_file_name.lstrip('/')
-                    logger.upload_file(remote_file_name=trace_remote_file_name,
-                                       file_path=trace_file_name,
-                                       overwrite=self.overwrite)
+            trace_file_name = os.path.join(
+                folder_name,
+                format_name_with_dist_and_time(self.filename, run_name=state.run_name, timestamp=timestamp),
+            )
+            trace_file_dirname = os.path.dirname(trace_file_name)
+            if trace_file_dirname:
+                os.makedirs(trace_file_dirname, exist_ok=True)
+            prof.export_chrome_trace(trace_file_name)
+            state.profiler.record_chrome_json_trace_file(trace_file_name)
+            if self.remote_file_name is not None:
+                trace_remote_file_name = format_name_with_dist_and_time(self.remote_file_name,
+                                                                        run_name=state.run_name,
+                                                                        timestamp=timestamp)
+                trace_remote_file_name = trace_remote_file_name.lstrip('/')
+                logger.upload_file(remote_file_name=trace_remote_file_name,
+                                   file_path=trace_file_name,
+                                   overwrite=self.overwrite)
 
             log.info(
                 f'PyTorch memory timeline profiler enabled: {self.memory_filename if self.memory_filename else False}')
@@ -342,7 +341,7 @@ class TorchProfiler(Callback):  # noqa: D101
 
     def close(self, state: State, logger: Logger) -> None:
         del state, logger  # unused
-        if self.profiler is not None:
+        if self.profiler is not None and self.profiler.profiler is not None:
             log.info(self.profiler.key_averages().table(sort_by='cpu_time_total', row_limit=20))
             if self.profile_memory:
                 log.info(self.profiler.key_averages().table(sort_by='self_cpu_memory_usage', row_limit=20))

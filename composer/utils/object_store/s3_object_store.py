@@ -116,6 +116,7 @@ class S3ObjectStore(ObjectStore):
         return f'{self.prefix}{object_name}'
 
     def get_object_size(self, object_name: str) -> int:
+        obj = {'ContentLength': -1}
         try:
             obj = self.client.get_object(Bucket=self.bucket, Key=self.get_key(object_name))
         except Exception as e:

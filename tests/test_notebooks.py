@@ -80,6 +80,7 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
         cell_source = cell_source.replace('batch_size = 1024', 'batch_size = 64')
         cell_source = cell_source.replace('download=True', 'download=False')
     if notebook_name == 'auto_microbatching':
+        cell_source = cell_source.replace('batch_size = 2048', 'batch_size = 1024')
         cell_source = cell_source.replace('download=True', 'download=False')
     if notebook_name == 'migrate_from_ptl':
         cell_source = cell_source.replace('batch_size=256', 'batch_size=64')
@@ -122,7 +123,7 @@ def test_notebook(notebook: str, device: str, s3_bucket: str):
 
     obj = urlparse('s3://mosaicml-internal-integration-testing/read_only/CIFAR-10/')
     s3 = boto3.resource('s3')
-    bucket = s3.Bucket(obj.netloc)
+    bucket = s3.Bucket(obj.netloc)  # pyright: ignore[reportGeneralTypeIssues]
     files = bucket.objects.filter(Prefix=obj.path.lstrip('/'))
     for file in files:
         target = os.path.join(os.getcwd(), 'data', os.path.relpath(file.key, obj.path.lstrip('/')))

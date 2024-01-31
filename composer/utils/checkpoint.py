@@ -16,7 +16,7 @@ import textwrap
 import warnings
 from importlib import import_module
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 import torch
 from packaging import version
@@ -24,7 +24,7 @@ from packaging import version
 from composer.utils import dist, reproducibility
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist,
                                          format_name_with_dist_and_time, get_file, is_tar)
-from composer.utils.misc import is_model_deepspeed, using_torch_2
+from composer.utils.misc import is_model_deepspeed
 from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-__all__ = ['load_checkpoint', 'save_checkpoint', 'download_checkpoint']
+__all__ = ['get_save_filename', 'load_checkpoint', 'save_checkpoint', 'download_checkpoint']
 
 _COMPOSER_STATES_FILENAME = 'composer_states.pt'
 _DEEPSPEED_TAG = 'deepspeed'  # always tag with the same, deterministic name. We'll rename the tarball to the appropriate name.
@@ -416,12 +416,7 @@ def load_sharded_checkpoint(
     ignore_keys: Optional[Union[list[str], Callable[[dict], None]]] = None,
     exclude_algorithms: Optional[list[str]] = None,
     algorithm_passes: Optional[list[AlgorithmPass]] = None,
-) -> list[dict]:
-
-    if not using_torch_2():
-        raise ValueError(
-            f'Sharded checkpoint loading requires torch version >= 2.0.0. You have torch version {torch.__version__}')
-
+) -> Union[list[dict], None]:
     using_multinode = dist.get_world_size() != dist.get_local_world_size()
     if not version.parse(torch.__version__) >= version.parse('2.0.1') and using_multinode:
         raise ValueError(
@@ -438,7 +433,6 @@ def load_sharded_checkpoint(
     from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
     from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
 
-    # This function is used so we can figure out which ranks need to load saved rngs and which can just make their own.
     def _get_num_ranks_that_saved_rng(metadata: Metadata):
         rng_inds = []
         for field_name, field_value in metadata.planner_data.items():
@@ -462,9 +456,13 @@ def load_sharded_checkpoint(
             Raises:
                 ValueError if the data file is invalid.
             """
+            validated_checkpoint_paths = set()
             for read_item in plan.items:
                 data_path = self.path / self.storage_data[read_item.storage_index].relative_path
+                if data_path in validated_checkpoint_paths:
+                    continue
                 _ensure_valid_checkpoint(data_path)
+                validated_checkpoint_paths.add(data_path)
             return super().read_data(plan, planner)
 
         def read_metadata(self) -> Metadata:
@@ -548,26 +546,58 @@ def load_sharded_checkpoint(
         # We need no_grad because we overwrite tensor values with set_() when we do elastic loading and we don't want the set_ op recorded in the computation graph.
         with torch.no_grad():
             # 1. Load model and metadata first
-            log.info('Load model and metadata')
-            model_state_dict = None
             if load_weights_only:
-                model_state_dict = {'state': {'model': state.get_model_state_dict()}}
+                state_dict: Dict[str, Any] = {'state': {'model': state.get_model_state_dict()}}
             else:
                 cur_state_dict = state.state_dict()
-                cur_state_dict.pop('optimizers')
-                model_state_dict = {'state': cur_state_dict}
+                # For older versions of torch, we load optimizer separately.
+                if version.parse(torch.__version__) < version.parse('2.2.9'):
+                    cur_state_dict.pop('optimizers')
+                num_rng_ranks = _get_num_ranks_that_saved_rng(storage_reader.read_metadata())
+                state_dict: Dict[str, Any] = {
+                    'state': cur_state_dict,
+                    'rng': reproducibility.get_rng_state()[:num_rng_ranks],
+                }
 
             if ignore_keys:
                 # Filter provided list of key paths
                 if not callable(ignore_keys):
                     ignore_keys = glob_filter(ignore_keys)
                 # Call function to modify state_dict
-                ignore_keys(model_state_dict)
+                ignore_keys(state_dict)
+                # Ensure state exists
+                state_dict['state'] = state_dict.get('state', {})
 
-            dist_cp.load_state_dict(model_state_dict, storage_reader, planner=RenameLoadPlanner(state.model))
+            # Only some ranks are meant to load checkpoint
+            expect_file = False
+            process_group = None
+            device_mesh = state.fsdp_device_mesh
+            if device_mesh is not None and device_mesh.ndim == 2:
+                # If hybrid shard, only rank in first replica saves
+                expect_file = (device_mesh.get_local_rank(mesh_dim=0) == 0)
+                if expect_file:
+                    process_group = device_mesh.get_group(1)  # Shard process_group for first replica
+                    log.debug(f'global_rank={dist.get_global_rank()}, {expect_file=}')
+            else:
+                expect_file = True
+
+            if version.parse(torch.__version__) > version.parse('2.2.9'):
+                dist_cp.load(  # type: ignore
+                    state_dict=state_dict,
+                    storage_reader=storage_reader,
+                    planner=load_planner,
+                    process_group=process_group,
+                )
+            else:
+                dist_cp.load_state_dict(
+                    state_dict=state_dict,
+                    storage_reader=storage_reader,
+                    planner=load_planner,
+                    process_group=process_group,
+                )
 
             state.load_state_dict(
-                model_state_dict['state'],
+                state_dict['state'],
                 logger,
                 strict=strict_model_weights,
                 exclude_algorithms=exclude_algorithms,
@@ -575,45 +605,14 @@ def load_sharded_checkpoint(
             )
 
             # 2. Optionally load optimizer
-            if not load_weights_only:
-                log.info('Load optimizer')
-                state_dict = state.state_dict()['model']
-                log.debug('Fetched state dict')
-                # print(state_dict.keys())
-                # print(state_dict)
-                optim_state = load_sharded_optimizer_state_dict_with_logs(model_state_dict=state_dict,
-                                                                          optimizer_key='optimizers',
-                                                                          storage_reader=storage_reader)
-                log.debug('Strip _pgidx from optimizer state dict keys')
-                local_idx = f'_pgidx{dist.get_local_rank()}'
-                log.debug('Get ptr to optimizer state dict')
-                optim_state_dict = optim_state['optimizers']['DecoupledLionW']['state']
-                log.debug('Loop over optimizer state dict keys')
-                for key in list(optim_state_dict.keys()):
-                    log.debug(f'Stripping {local_idx} from {key=}')
-                    optim_state_dict[key.replace(local_idx, '')] = optim_state_dict[key]
-                    if '_pgidx' in key:
-                        del optim_state_dict[key]
-                log.debug('Load optimizer state dict')
-                state.load_optim_state(optim_state)
+            # if we are using later than 2.2.9 then optimizer will already be loaded
+            if version.parse(torch.__version__) < version.parse('2.2.9') and not load_weights_only:
+                optim_state = load_sharded_optimizer_state_dict(model_state_dict=state.state_dict()['model'],
+                                                                optimizer_key='optimizers',
+                                                                storage_reader=storage_reader)
+                state._legacy_load_optim_state(optim_state)
 
-        # 3. Optionally load RNG
-        rng_state_dicts = reproducibility.get_rng_state()
-        if not load_weights_only:
-            log.info('Load RNG')
-            # If we are resuming on more ranks than were used at save time we only want to load in rngs for those ranks
-            num_ranks_that_saved_rng = _get_num_ranks_that_saved_rng(storage_reader.read_metadata())
-            rng_state_dicts_load = {}
-            rng_state_dicts_load['rng'] = rng_state_dicts[:num_ranks_that_saved_rng] if len(
-                rng_state_dicts) > num_ranks_that_saved_rng else rng_state_dicts
-            dist_cp.load_state_dict(rng_state_dicts_load, storage_reader, planner=RenameLoadPlanner(state.model))
-            # We also want to append newly generated rng states for the ranks that don't have an rng state to load in
-            # if we are resuming on more ranks than were used at save time.
-            if len(rng_state_dicts) > num_ranks_that_saved_rng:
-                rng_state_dicts_load['rng'].extend(rng_state_dicts[num_ranks_that_saved_rng:])
-            rng_state_dicts = rng_state_dicts_load['rng']
-
-    return rng_state_dicts
+    return state_dict.get('rng', None)
 
 
 def _get_local_rank_zero_path(path: Optional[str]) -> str:
@@ -688,7 +687,7 @@ def download_checkpoint(path: str,
                 raise FileNotFoundError(
                     (f'Checkpoint {_format_path_with_current_rank(path)} does not exist, '
                      f'but is required for sharded checkpointing on rank {dist.get_global_rank()}. '
-                     'Please ensure that the checkpoint exists and your load_path was specified as a format string'
+                     'Please ensure that the checkpoint exists and your load_path was specified as a format string '
                      'with the {rank} argument.')) from e
 
             if extracted_checkpoint_folder is not None:
@@ -739,14 +738,25 @@ def _flatten_keys(obj: Any, paths: list[str], existing_path: str):
 
 
 def _remove_paths(obj: Union[list, dict[str, Any]], exclude_paths: list[list[str]]):
+    # Build str(key) to key map to undo cast from glob filtering. Despite typing, some state_dict
+    # keys are not strings, so we need to cast them back to their original type.
+    str_key_to_key = {}
+    if isinstance(obj, dict):
+        for key in obj.keys():
+            str_key_to_key[str(key)] = key
+
     # First determine the keys which will be recursed on and which will be removed entirely
     # Group the `exclude_paths` by the key
     keys_to_recurse = {}
     keys_to_remove = []
     for exclude_path_parts in exclude_paths:
         key = exclude_path_parts[0]
+        # Cast list indices to int
         if isinstance(obj, list):
             key = int(key)
+        # Un-str dict keys if necessary
+        if key in str_key_to_key:
+            key = str_key_to_key[key]
         if len(exclude_path_parts) == 1:
             keys_to_remove.append(key)
         else:
@@ -782,12 +792,12 @@ def glob_filter(exclude_globs: list[str]) -> Callable[[dict], None]:
                     f'No parts from loaded checkpoint state_dict were ignored by load_ignore_key {exclude_glob}')
             filtered_paths.extend(filtered_paths_from_glob)
         filtered_paths = list(set(filtered_paths))
-        filtered_paths_str = ', '.join(filtered_paths)
         if filtered_paths:
+            filtered_paths_str = ', '.join(filtered_paths)
             log.info(f'Ignoring the following paths from the loaded checkpoint state_dict: {filtered_paths_str}')
 
         # Loop through all paths to exclude
-        paths_to_remove = [path.split('/') for path in filtered_paths]
+        paths_to_remove = [path.split('/') for path in filtered_paths if len(path) > 0]
         _remove_paths(state_dict, paths_to_remove)
 
     return filter_func
@@ -902,6 +912,8 @@ def _restore_checkpoint(
             ignore_keys = glob_filter(ignore_keys)
         # Call function to modify state_dict
         ignore_keys(state_dict)
+        # Ensure state exists
+        state_dict['state'] = state_dict.get('state', {})
     log.debug(f"Loaded checkpoint with keys {state_dict.keys()} and state keys {state_dict['state'].keys()}")
 
     if is_model_deepspeed(state.model):
@@ -935,14 +947,42 @@ def _restore_checkpoint(
             exclude_algorithms=exclude_algorithms,
             algorithm_passes=algorithm_passes,
         )
-        return state_dict['rng']
+        return state_dict.get('rng', None)
 
 
-def save_checkpoint(
+def get_save_filename(
     state: State,
     filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
+) -> str:
+    """Gets full filename of save filename.
+
+    Args:
+        state (State): The :class:`~composer.core.State` to load the checkpoint into.
+        filename (filename): The name of the save file.
+
+    Returns:
+        Full filename of save file.
+    """
+    if not state.fsdp_sharded_state_dict_enabled:
+        is_deepspeed = is_model_deepspeed(state.model)
+        return PartialFilePath(filename).format(state, is_deepspeed)
+
+    # Sharded checkpoints get their own little folder.
+    assert state.sharded_ckpt_prefix_dir is not None
+    save_dirpath = Path(Path(filename).parent) / Path(state.sharded_ckpt_prefix_dir)
+    save_dirpath = format_name_with_dist_and_time(str(save_dirpath), state.run_name, state.timestamp)
+    # New name is now Trainer.save_folder / sharded_ckpt_prefix_dir / __{dist.get_global_rank()}_0.distcp’
+    # e.g. path/to/my/checkpoints/ep1-ba2/__1_0.distcp
+    ckpt_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
+    return str(Path(save_dirpath) / Path(ckpt_filename))
+
+
+def _save_checkpoint(
+    state: State,
+    save_filename: str,
     *,
     weights_only: bool = False,
+    ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
 ) -> Union[str, None]:  # noqa: D103
 
     is_deepspeed = is_model_deepspeed(state.model)
@@ -962,38 +1002,36 @@ def save_checkpoint(
             'rng': reproducibility.get_rng_state(),
         }
 
-    log.debug('State dict created.')
+    if ignore_keys:
+        # Filter provided list of key paths
+        if not callable(ignore_keys):
+            ignore_keys = glob_filter(ignore_keys)
+        # Call function to modify state_dict
+        ignore_keys(state_dict)
+        # Ensure state exists
+        state_dict['state'] = state_dict.get('state', {})
 
-    # Sharded checkpoints get their own little folder.
     if state.fsdp_sharded_state_dict_enabled:
-        # To load optimizer states with torch 2.0, the optimizer state must be at the top
+        # To load optimizer states with 2.0 <= torch < 2.2.9 , the optimizer state must be at the top
         # level of the state dict because the load_sharded_optimizer_state_dict function
         # requires a top level state dict key for the optimizer.
         # See https://github.com/pytorch/pytorch/blob/v2.0.1/torch/distributed/checkpoint/optimizer.py#L271
         # for more info.
-        if using_torch_2():
+        if version.parse(torch.__version__) < version.parse('2.2.9'):
             if not weights_only:
                 state_dict['optimizers'] = state_dict['state'].pop('optimizers')
-
-        # Specify save directory path and save_f
-        assert state.sharded_ckpt_prefix_dir is not None
-        save_dirpath = Path(Path(filename).parent) / Path(state.sharded_ckpt_prefix_dir)
-        save_dirpath = format_name_with_dist_and_time(str(save_dirpath), state.run_name, state.timestamp)
-        # New name is now Trainer.save_folder / sharded_ckpt_prefix_dir / __{dist.get_global_rank()}_0.distcp’ if torch > 2
-        # else Trainer.save_folder / sharded_ckpt_prefix_dir / ba{batch}_rank{dist.get_global_rank()}.pt’
-        # e.g. path/to/my/checkpoints/ep1-ba2/__1_0.distcp if torch >2 else its path/to/my/checkpoints/ep1-ba2/b2-rank1.pt
-        ckpt_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME if using_torch_2() else format_name_with_dist_and_time(
-            Path(filename).name, state.run_name, state.timestamp)
-        save_filename = str(Path(save_dirpath) / Path(ckpt_filename))
-    else:
-        save_filename = PartialFilePath(filename).format(state, is_deepspeed)
+    log.debug('State dict created.')
 
     dirname = os.path.dirname(save_filename)
     if dirname:
         os.makedirs(dirname, exist_ok=True)
 
+    # Only some ranks are meant to save checkpoint and produce a file
+    expect_file = False
+
     # All ranks save for deepspeed
     if is_deepspeed:
+        expect_file = True
         log.debug('Saving deepspeed checkpoints to %s...', save_filename)
         if dist.get_global_rank() == 0:
             with open(save_filename, 'wb') as f:
@@ -1012,14 +1050,38 @@ def save_checkpoint(
 
         import torch.distributed.checkpoint as dist_cp
 
-        log.debug('Saving sharded checkpoints to %s...', save_filename)
+        log.debug(f'Saving sharded checkpoints to {save_filename}...')
+        process_group = None
+        device_mesh = state.fsdp_device_mesh
+        if device_mesh is not None and device_mesh.ndim == 2:
+            # If hybrid shard, only rank in first replica saves
+            expect_file = (device_mesh.get_local_rank(mesh_dim=0) == 0)
+            if expect_file:
+                process_group = device_mesh.get_group(1)  # Shard process_group for first replica
+                log.debug(f'global_rank={dist.get_global_rank()}, {expect_file=}')
+        else:
+            expect_file = True
 
-        dist_cp.save_state_dict(state_dict=state_dict,
-                                storage_writer=dist_cp.FileSystemWriter(dirname),
-                                planner=RenameSavePlanner(state.model))
+        if expect_file:
+            if version.parse(torch.__version__) > version.parse('2.2.9'):
+                dist_cp.save(  # type: ignore
+                    state_dict=state_dict,
+                    storage_writer=dist_cp.FileSystemWriter(dirname),
+                    planner=save_planner,
+                    process_group=process_group,
+                )
+            else:
+                dist_cp.save_state_dict(
+                    state_dict=state_dict,
+                    storage_writer=dist_cp.FileSystemWriter(dirname),
+                    planner=save_planner,
+                    process_group=process_group,
+                )
+        log.debug('Finished pytorch save state dict')
 
     # Only rank 0 saves the state_dict unless you are using sharded checkpointing with torch <2.0
     elif dist.get_global_rank() == 0 or state.fsdp_sharded_state_dict_enabled:
+        expect_file = True
         log_msg = f'Saving sharded checkpoints to {save_filename}...' if state.fsdp_sharded_state_dict_enabled else f'Saving monolithic checkpoint to {save_filename}'
         with open(save_filename, 'wb') as f:
             log.debug(log_msg)
@@ -1035,7 +1097,7 @@ def save_checkpoint(
 
     dist.barrier()  # ensure all ranks saved their files
 
-    if dist.get_global_rank() == 0 or is_deepspeed or state.fsdp_sharded_state_dict_enabled:
+    if expect_file:
         assert os.path.exists(save_filename), 'Expected file to have been saved.'
         return save_filename
     else:
@@ -1073,6 +1135,17 @@ def _save_deepspeed_model(model, filename: str):
 
         with tarfile.open(filename, write_mode) as tar:
             tar.add(tmpdir, arcname='')
+
+
+def save_checkpoint(
+    state: State,
+    filename: str = 'ep{epoch}-ba{batch}-rank{rank}',
+    *,
+    weights_only: bool = False,
+    ignore_keys: Optional[Union[List[str], Callable[[Dict], None]]] = None,
+) -> Union[str, None]:  # noqa: D103
+    save_filename = get_save_filename(state, filename)
+    return _save_checkpoint(state, save_filename, weights_only=weights_only, ignore_keys=ignore_keys)
 
 
 save_checkpoint.__doc__ = f"""Checkpoint the training ``state``.
@@ -1143,19 +1216,15 @@ Args:
 
 from copy import deepcopy
 
-from torch.distributed.checkpoint.default_planner import (
-    DefaultLoadPlanner,
-    DefaultSavePlanner,
-)
 from torch.distributed.checkpoint._nested_dict import flatten_state_dict
-from torch.distributed.checkpoint._sharded_tensor_utils import (
-    _flatten_sharded_tensors,)
-
-from torch.distributed.checkpoint.metadata import STORAGE_TYPES, ChunkStorageMetadata, TensorStorageMetadata, MetadataIndex
+from torch.distributed.checkpoint._sharded_tensor_utils import _flatten_sharded_tensors
+from torch.distributed.checkpoint.default_planner import DefaultLoadPlanner, DefaultSavePlanner
+from torch.distributed.checkpoint.metadata import (STORAGE_TYPES, ChunkStorageMetadata, MetadataIndex,
+                                                   TensorStorageMetadata)
 from torch.distributed.checkpoint.planner import LoadPlan, ReadItem
 from torch.distributed.checkpoint.planner_helpers import _chunk_for_shard, _create_read_item_for_tensor
-from torch.distributed.checkpoint.resharding import (_shards_get_overlap_region_wrt_saved_tensor,
-                                                     _check_shard_metadata_pair_overlap)
+from torch.distributed.checkpoint.resharding import (_check_shard_metadata_pair_overlap,
+                                                     _shards_get_overlap_region_wrt_saved_tensor)
 
 
 def _create_read_items(fqn: str, md: STORAGE_TYPES, obj: Any) -> List[ReadItem]:
@@ -1277,9 +1346,9 @@ class RenameLoadPlanner(DefaultLoadPlanner):
         self.original_state_dict = state_dict
 
         log.debug(f'Copy state dict')
-        state_dict = {k: v for k, v in self.original_state_dict.items()}
+        state_dict = dict(self.original_state_dict.items())
         state_dict['state'] = {k: v for k, v in self.original_state_dict['state'].items() if k != 'model'}
-        state_dict['state']['model'] = {k: v for k, v in self.original_state_dict['state']['model'].items()}
+        state_dict['state']['model'] = dict(self.original_state_dict['state']['model'].items())
 
         log.debug('rename state dict')
         if self.name_conversion_dict:
@@ -1431,28 +1500,23 @@ def load_sharded_optimizer_state_dict_with_logs(
     >>>     optim.load_state_dict(flattened_osd)
     """
     log.debug('Start sharded ckpt')
-    from torch.distributed.checkpoint.optimizer import _get_state_dict_2d_layout, _create_colwise_spec, _alloc_tensor, _ReaderWithOffset
-    from torch._utils import _get_device_module
-    from torch.distributed.checkpoint.utils import (_element_wise_add, _element_wise_sub, _normalize_device_info)
-    from torch.distributed.checkpoint._nested_dict import unflatten_state_dict
-    from torch.distributed.checkpoint.metadata import (
-        BytesStorageMetadata,
-        Metadata,
-        MetadataIndex,
-        STATE_DICT_TYPE,
-        TensorStorageMetadata,
-        ChunkStorageMetadata,
-    )
-    from torch.distributed._shard.api import _shard_tensor
-    from torch.distributed.remote_device import _remote_device
     from typing import Dict, List, Optional, Sequence, Tuple, Union, cast
-    from torch.distributed._shard.sharded_tensor.shard import Shard
-    from torch.distributed._shard.sharded_tensor.api import ShardedTensor
+
     import torch.distributed.checkpoint as dist_cp
-    from torch.distributed._shard.sharding_spec.chunk_sharding_spec import (
-        ChunkShardingSpec,)
+    from torch._utils import _get_device_module
+    from torch.distributed._shard.api import _shard_tensor
+    from torch.distributed._shard.sharded_tensor.api import ShardedTensor
+    from torch.distributed._shard.sharded_tensor.shard import Shard
+    from torch.distributed._shard.sharding_spec.chunk_sharding_spec import ChunkShardingSpec
+    from torch.distributed.checkpoint._nested_dict import unflatten_state_dict
+    from torch.distributed.checkpoint.metadata import (STATE_DICT_TYPE, BytesStorageMetadata, ChunkStorageMetadata,
+                                                       Metadata, MetadataIndex, TensorStorageMetadata)
+    from torch.distributed.checkpoint.optimizer import (_alloc_tensor, _create_colwise_spec, _get_state_dict_2d_layout,
+                                                        _ReaderWithOffset)
+    from torch.distributed.checkpoint.utils import _element_wise_add, _element_wise_sub, _normalize_device_info
     from torch.distributed.distributed_c10d import _get_default_group
     from torch.distributed.fsdp._shard_utils import _create_chunk_sharded_tensor
+    from torch.distributed.remote_device import _remote_device
     log.debug(f'Finish imports')
 
     log.debug(f'Read metadata')
@@ -1468,7 +1532,7 @@ def load_sharded_optimizer_state_dict_with_logs(
         placements = []
         for i in range(torch.distributed.get_world_size()):
             device_info = _normalize_device_info(dp_pg_device_type, i % device_module.device_count())
-            placements.append(f"rank:{i}/{device_info}")
+            placements.append(f'rank:{i}/{device_info}')
         sharding_spec = ChunkShardingSpec(dim=0, placements=placements)  # type: ignore[arg-type]
     else:
         sharding_spec = _create_colwise_spec(dp_pg)
@@ -1485,7 +1549,7 @@ def load_sharded_optimizer_state_dict_with_logs(
             continue
 
         if isinstance(value, BytesStorageMetadata):
-            state_dict[key] = "<bytes_io>"
+            state_dict[key] = '<bytes_io>'
             continue
 
         local_idx = f'_pgidx{dist.get_local_rank()}'

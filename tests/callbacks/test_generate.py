@@ -7,7 +7,6 @@ from unittest.mock import Mock
 
 import pytest
 import torch
-from packaging import version
 
 from composer.callbacks import Generate
 from composer.core import Event
@@ -24,8 +23,6 @@ from tests.common.models import configure_tiny_gpt2_hf_model
 class TestGenerate():
 
     def _check_test_params(self, device, world_size, use_fsdp) -> None:
-        if use_fsdp and version.parse(torch.__version__) < version.parse('1.13.0'):
-            pytest.skip('FSDP requires torch >= 1.13.0')
         if device == 'cpu' and use_fsdp:
             pytest.skip('FSDP is not supported on CPU.')
         if world_size == 1 and use_fsdp:

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import math
-from typing import List
+from typing import List, Optional
 
 import pytest
 import torch
@@ -56,7 +56,7 @@ def test_masked_accuracy(ignore_index, num_classes):
 @pytest.mark.parametrize('sequence_length', [128])
 @pytest.mark.parametrize('num_classes', [2, 10])
 @pytest.mark.parametrize('minibatch_size', [56, 256, 768])
-def test_cross_entropy(batch_size: float, ignore_index: int, sequence_length: int, num_classes: int,
+def test_cross_entropy(batch_size: float, ignore_index: Optional[int], sequence_length: int, num_classes: int,
                        minibatch_size: int):
     """Sanity check to make sure that batched CrossEntropyLoss matches the expected performance.
 
@@ -74,15 +74,15 @@ def test_cross_entropy(batch_size: float, ignore_index: int, sequence_length: in
     generated_preds = torch.randn((batch_size, sequence_length, num_classes))
     generated_true = torch.randint(low=0, high=num_classes, size=(batch_size, sequence_length))
 
+    assert ignore_index is not None
     torchmetrics_xent = LanguageCrossEntropy(dist_sync_on_step=False, ignore_index=ignore_index)
     ce_with_keys_metric = LanguageCrossEntropy(dist_sync_on_step=False, ignore_index=ignore_index)
 
-    if ignore_index is not None:
-        labels_mask = torch.rand((batch_size, sequence_length))
-        labels_mask[labels_mask > 0.8] = 1
-        labels_mask[labels_mask <= 0.8] = 0
-        labels_mask = labels_mask.bool()
-        generated_true[labels_mask] = ignore_index
+    labels_mask = torch.rand((batch_size, sequence_length))
+    labels_mask[labels_mask > 0.8] = 1
+    labels_mask[labels_mask <= 0.8] = 0
+    labels_mask = labels_mask.bool()
+    generated_true[labels_mask] = ignore_index
 
     num_batches = math.ceil(batch_size / minibatch_size)
     for batch_idx in range(num_batches):
@@ -339,16 +339,13 @@ def test_in_context_learning_qa_accuracy(tiny_gpt2_tokenizer):
 
 def test_in_context_learning_qa_cot_accuracy(tiny_gpt2_tokenizer):
     outputs = [
-        'chain of thought ### Correct but then some more text', 'Incorrect',
-        'chain of thought ### the CORREct with weird casing and spacing', 'Correct but missing chain of thought'
+        'chain of thought ### Correct but then some more text\n\nanother chain of thought ### Incorrect answer this time',
+        'Incorrect', 'chain of thought ### the CORREct with weird casing and spacing',
+        'incorrect chain of thought delimiter ## Correct but wrong delimiter'
     ]
     labels = [['Correct'], ['blah', 'blah2'], ['blah', 'correct'], ['correct']]
-    batch = {
-        'cot_delimiter': ' ### ',
-        'labels': labels,
-        'input_ids': torch.tensor([tiny_gpt2_tokenizer.encode('I am a prompt')] * 4)
-    }
-    metric = InContextLearningQAAccuracy(cache_responses=True)
+    batch = {'cot_delimiter': ' ### ', 'labels': labels, 'do_normalization': True, 'stopping_criteria': '\n\n'}
+    metric = InContextLearningQAAccuracy()
     metric.update(outputs, labels, batch)
 
     assert metric.compute() == (3 / 4)

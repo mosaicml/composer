@@ -109,8 +109,10 @@ class LPLayerNorm(torch.nn.LayerNorm):
     def forward(self, x):
         module_device = x.device
         downcast_x = _cast_if_autocast_enabled(x)
-        downcast_weight = _cast_if_autocast_enabled(self.weight) if self.weight is not None else self.weight
-        downcast_bias = _cast_if_autocast_enabled(self.bias) if self.bias is not None else self.bias
+        downcast_weight = _cast_if_autocast_enabled(
+            self.weight) if self.weight is not None else self.weight  # pyright: ignore[reportUnnecessaryComparison]
+        downcast_bias = _cast_if_autocast_enabled(
+            self.bias) if self.bias is not None else self.bias  # pyright: ignore[reportUnnecessaryComparison]
         with torch.autocast(enabled=False, device_type=module_device.type):
             return F.layer_norm(downcast_x, self.normalized_shape, downcast_weight, downcast_bias, self.eps)
 
@@ -141,11 +143,11 @@ def _to_LPLayerNorm(layer: torch.nn.Module, module_index: int) -> LPLayerNorm:
     lp_layernorm = LPLayerNorm(layer.normalized_shape, layer.eps, layer.elementwise_affine)
 
     with torch.no_grad():
-        if layer.weight is None:
+        if hasattr(layer, 'weight'):
             lp_layernorm.register_parameter('weight', None)
         else:
             lp_layernorm.weight.copy_(layer.weight)  # type: ignore
-        if layer.bias is None:
+        if layer.bias is None:  # pyright: ignore[reportUnnecessaryComparison]
             lp_layernorm.register_parameter('bias', None)
         else:
             lp_layernorm.bias.copy_(layer.bias)  # type: ignore
@@ -160,12 +162,12 @@ def _to_FusedLayerNorm(layer: torch.nn.Module, module_index: int) -> APEXFusedLa
     fused_layernorm = APEXFusedLayerNorm(normalized_shape=layer.normalized_shape, eps=layer.eps)
 
     with torch.no_grad():
-        if layer.weight is None:
-            fused_layernorm.weight = None
+        if layer.weight is None:  # pyright: ignore[reportUnnecessaryComparison]
+            fused_layernorm.weight = None  # pyright: ignore[reportGeneralTypeIssues]
         else:
             fused_layernorm.weight.copy_(layer.weight)
-        if layer.bias is None:
-            fused_layernorm.bias = None
+        if layer.bias is None:  # pyright: ignore[reportUnnecessaryComparison]
+            fused_layernorm.bias = None  # pyright: ignore[reportGeneralTypeIssues]
         else:
             fused_layernorm.bias.copy_(layer.bias)
 

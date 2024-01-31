@@ -4,7 +4,7 @@
 """Contains commonly used models that are shared across the test suite."""
 import copy
 from functools import partial
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Union
 
 import pytest
 import torch
@@ -13,6 +13,9 @@ from torchmetrics import Metric, MetricCollection
 from composer.metrics import CrossEntropy, MIoU
 from composer.metrics.nlp import LanguageCrossEntropy, MaskedAccuracy
 from composer.models import ComposerClassifier, HuggingFaceModel
+
+if TYPE_CHECKING:
+    from transformers import PretrainedConfig, PreTrainedModel, PreTrainedTokenizer, PreTrainedTokenizerFast
 
 
 class EmptyModel(ComposerClassifier):
@@ -74,7 +77,7 @@ class SimpleModel(ComposerClassifier):
             fc2,
             torch.nn.Softmax(dim=-1),
         )
-        net.param_init_fn = self.param_init_fn
+        net.param_init_fn = self.param_init_fn  # pyright: ignore[reportGeneralTypeIssues]
         super().__init__(module=net, num_classes=num_classes)
 
         # Important: It is crucial that the FC layers are bound to `self`
@@ -90,7 +93,7 @@ class SimpleModel(ComposerClassifier):
 
         if isinstance(module, torch.nn.Linear):
             init_fn(module.weight)
-            if module.bias is not None:
+            if module.bias is not None:  # pyright: ignore[reportUnnecessaryComparison]
                 torch.nn.init.zeros_(module.bias)
 
 
@@ -131,7 +134,7 @@ class SimpleWeightTiedModel(ComposerClassifier):
 
         self.mlp = mlp
         self.net = net
-        self.net.param_init_fn = self.param_init_fn
+        self.net.param_init_fn = self.param_init_fn  # pyright: ignore[reportGeneralTypeIssues]
 
         self.mlp.fc1.weight = self.mlp.fc2.weight
 
@@ -140,7 +143,7 @@ class SimpleWeightTiedModel(ComposerClassifier):
 
         if isinstance(module, torch.nn.Linear):
             init_fn(module.weight)
-            if module.bias is not None:
+            if module.bias is not None:  # pyright: ignore[reportUnnecessaryComparison]
                 torch.nn.init.zeros_(module.bias)
 
 
@@ -166,7 +169,7 @@ class EmbeddedWeightTiedModel(ComposerClassifier):
 
         super().__init__(module=net, num_classes=num_features)
 
-        self.module.param_init_fn = self.param_init_fn
+        self.module.param_init_fn = self.param_init_fn  # pyright: ignore[reportGeneralTypeIssues]
 
         self.net1 = net1
         self.net2 = net2
@@ -178,7 +181,7 @@ class EmbeddedWeightTiedModel(ComposerClassifier):
 
         if isinstance(module, torch.nn.Linear):
             init_fn(module.weight)
-            if module.bias is not None:
+            if module.bias is not None:  # pyright: ignore[reportUnnecessaryComparison]
                 torch.nn.init.zeros_(module.bias)
 
 
@@ -443,101 +446,160 @@ class SimpleModelWithDropout(ComposerClassifier):
 # As a workaround, we inject objects into the PyTest namespace. Tests should not directly
 # use pytest.{var}, but instead should import and use these helper copy methods so the
 # objects in the PyTest namespace do not change.
-def configure_tiny_bert_model():
+def configure_tiny_bert_model() -> 'PreTrainedModel':
     try:
+        from transformers import PreTrainedModel
+        assert isinstance(pytest.tiny_bert_model, PreTrainedModel)
         return copy.deepcopy(pytest.tiny_bert_model)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
 
 
-def configure_tiny_bert_tokenizer():
+def configure_tiny_bert_tokenizer() -> Union['PreTrainedTokenizer', 'PreTrainedTokenizerFast']:
     try:
+        from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
+        assert isinstance(pytest.tiny_bert_tokenizer, (PreTrainedTokenizer, PreTrainedTokenizerFast))
         return copy.deepcopy(pytest.tiny_bert_tokenizer)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
 
 
-def configure_tiny_bert_config():
+def configure_tiny_bert_config() -> 'PretrainedConfig':
     try:
+        from transformers import PretrainedConfig
+        assert isinstance(pytest.tiny_bert_config, PretrainedConfig)
         return copy.deepcopy(pytest.tiny_bert_config)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
 
 
-def configure_tiny_bert_hf_model(use_logits=True):
+def configure_tiny_bert_hf_model(use_logits: bool = True) -> HuggingFaceModel:
     return HuggingFaceModel(configure_tiny_bert_model(), configure_tiny_bert_tokenizer(), use_logits)
 
 
-def configure_tiny_deberta_model():
+def configure_tiny_deberta_model() -> 'PreTrainedModel':
     try:
+        from transformers import PreTrainedModel
+        assert isinstance(pytest.tiny_deberta_model, PreTrainedModel)
         return copy.deepcopy(pytest.tiny_deberta_model)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
 
 
-def configure_tiny_deberta_tokenizer():
+def configure_tiny_deberta_tokenizer() -> Union['PreTrainedTokenizer', 'PreTrainedTokenizerFast']:
     try:
+        from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
+        assert isinstance(pytest.tiny_deberta_tokenizer, (PreTrainedTokenizer, PreTrainedTokenizerFast))
         return copy.deepcopy(pytest.tiny_deberta_tokenizer)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
 
 
-def configure_tiny_deberta_config():
+def configure_tiny_deberta_config() -> 'PretrainedConfig':
     try:
+        from transformers import PretrainedConfig
+        assert isinstance(pytest.tiny_deberta_config, PretrainedConfig)
         return copy.deepcopy(pytest.tiny_deberta_config)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
 
 
-def configure_tiny_deberta_hf_model(use_logits=True):
-    return HuggingFaceModel(configure_tiny_deberta_model(), configure_tiny_deberta_tokenizer(), use_logits)
+def configure_tiny_deberta_hf_model(use_logits: bool = True) -> HuggingFaceModel:
+    return HuggingFaceModel(
+        configure_tiny_deberta_model(),
+        configure_tiny_deberta_tokenizer(),
+        use_logits,
+    )
 
 
-def configure_tiny_gpt2_model():
+def configure_tiny_gpt2_model() -> 'PreTrainedModel':
     try:
+        from transformers import PreTrainedModel
+        assert isinstance(pytest.tiny_gpt2_model, PreTrainedModel)
         return copy.deepcopy(pytest.tiny_gpt2_model)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
 
 
-def configure_tiny_gpt2_tokenizer():
+def configure_tiny_gpt2_tokenizer() -> Union['PreTrainedTokenizer', 'PreTrainedTokenizerFast']:
     try:
+        from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
+        assert isinstance(pytest.tiny_gpt2_tokenizer, (PreTrainedTokenizer, PreTrainedTokenizerFast))
         return copy.deepcopy(pytest.tiny_gpt2_tokenizer)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
 
 
-def configure_tiny_gpt2_config():
+def configure_tiny_gpt2_config() -> 'PretrainedConfig':
     try:
+        from transformers import PretrainedConfig
+        assert isinstance(pytest.tiny_gpt2_config, PretrainedConfig)
         return copy.deepcopy(pytest.tiny_gpt2_config)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
 
 
-def configure_tiny_gpt2_hf_model(use_logits=True):
+def configure_tiny_gpt2_hf_model(use_logits: bool = True) -> HuggingFaceModel:
     return HuggingFaceModel(configure_tiny_gpt2_model(), configure_tiny_gpt2_tokenizer(), use_logits)
 
 
-def configure_tiny_t5_model():
+def configure_tiny_t5_model() -> 'PreTrainedModel':
     try:
+        from transformers import PreTrainedModel
+        assert isinstance(pytest.tiny_t5_model, PreTrainedModel)
         return copy.deepcopy(pytest.tiny_t5_model)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
 
 
-def configure_tiny_t5_tokenizer():
+def configure_tiny_t5_tokenizer() -> Union['PreTrainedTokenizer', 'PreTrainedTokenizerFast']:
     try:
+        from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
+        assert isinstance(pytest.tiny_t5_tokenizer, (PreTrainedTokenizer, PreTrainedTokenizerFast))
         return copy.deepcopy(pytest.tiny_t5_tokenizer)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
 
 
-def configure_tiny_t5_config():
+def configure_tiny_t5_config() -> 'PretrainedConfig':
     try:
+        from transformers import PretrainedConfig
+        assert isinstance(pytest.tiny_t5_config, PretrainedConfig)
         return copy.deepcopy(pytest.tiny_t5_config)
     except AttributeError:
         pytest.skip('Composer installed without NLP support')
 
 
-def configure_tiny_t5_hf_model(use_logits=True):
+def configure_tiny_t5_hf_model(use_logits: bool = True) -> HuggingFaceModel:
     return HuggingFaceModel(configure_tiny_t5_model(), configure_tiny_t5_tokenizer(), use_logits)
+
+
+def configure_tiny_mistral_model() -> 'PreTrainedModel':
+    try:
+        from transformers import PreTrainedModel
+        assert isinstance(pytest.tiny_mistral_model, PreTrainedModel)
+        return copy.deepcopy(pytest.tiny_mistral_model)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_mistral_tokenizer() -> Union['PreTrainedTokenizer', 'PreTrainedTokenizerFast']:
+    try:
+        from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
+        assert isinstance(pytest.tiny_mistral_tokenizer, (PreTrainedTokenizer, PreTrainedTokenizerFast))
+        return copy.deepcopy(pytest.tiny_mistral_tokenizer)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_mistral_config() -> 'PretrainedConfig':
+    try:
+        from transformers import PretrainedConfig
+        assert isinstance(pytest.tiny_mistral_config, PretrainedConfig)
+        return copy.deepcopy(pytest.tiny_mistral_config)
+    except AttributeError:
+        pytest.skip('Composer installed without NLP support')
+
+
+def configure_tiny_mistral_hf_model(use_logits: bool = True) -> HuggingFaceModel:
+    return HuggingFaceModel(configure_tiny_mistral_model(), configure_tiny_mistral_tokenizer(), use_logits)
