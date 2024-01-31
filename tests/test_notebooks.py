@@ -88,6 +88,7 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
 
     package_name = os.environ.get('COMPOSER_PACKAGE_NAME', 'mosaicml')
     cell_source = cell_source.replace("pip install 'mosaicml", f"pip install '{package_name}")
+    cell_source = cell_source.replace('pip install mosaicml', f'pip install {package_name}')
 
     return cell_source
 
