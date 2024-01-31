@@ -111,16 +111,13 @@ class DataSpec:
     """Specifications for operating and training on data.
 
     An example of constructing a :class:`DataSpec` object with a ``device_transforms``
-    callable (:class:`.NormalizationFn`) and then using it with :class:`~.Trainer`:
+    callable and then using it with :class:`~.Trainer`:
 
     .. doctest::
 
-       >>> # In this case, we apply NormalizationFn
-       >>> # Construct DataSpec as shown below to apply this transformation
+       >>> # Construct DataSpec and subtract mean from the batch
        >>> from composer.datasets.utils import NormalizationFn
-       >>> CHANNEL_MEAN = (0.485 * 255, 0.456 * 255, 0.406 * 255)
-       >>> CHANNEL_STD = (0.229 * 255, 0.224 * 255, 0.225 * 255)
-       >>> device_transform_fn = NormalizationFn(mean=CHANNEL_MEAN, std=CHANNEL_STD)
+       >>> device_transform_fn = lambda xs, ys: (xs.sub_(xs.mean()), ys)
        >>> train_dspec = DataSpec(train_dataloader, device_transforms=device_transform_fn)
        >>> # The same function can be used for eval dataloader as well
        >>> eval_dspec = DataSpec(eval_dataloader, device_transforms=device_transform_fn)
