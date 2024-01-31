@@ -111,7 +111,7 @@ optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 scheduler = CosineAnnealingLR(optimizer, T_max=1)
 
 dataset = RandomTextClassificationDataset(
-    total_dataset_size=100,
+    size=100,
     num_classes=num_classes,
 )
 
