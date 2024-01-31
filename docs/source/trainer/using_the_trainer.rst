@@ -220,7 +220,7 @@ well as Composer's custom schedulers.
     from torch.optim import SGD
     from torch.optim.lr_scheduler import LinearLR
 
-    model = ComposerClassifier(model=resnet('resnet50'), num_classes=1000)
+    model = ComposerClassifier(module=resnet('resnet50'), num_classes=1000)
     optimizer = SGD(model.parameters(), lr=0.1)
     scheduler = LinearLR(optimizer)
 
