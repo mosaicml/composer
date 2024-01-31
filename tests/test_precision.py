@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 
 from composer import Trainer
 from composer.core import Precision, get_precision_context
-from tests.common import RandomClassificationDataset, SimpleModel
+from tests.common import RandomImageDataset, composer_resnet
 
 try:
     import transformer_engine.pytorch as te
@@ -21,15 +21,15 @@ except ImportError:
 def get_trainer(precision: Precision, precision_config: Optional[Dict[str, Any]] = None) -> Trainer:
 
     return Trainer(
-        model=SimpleModel(),
+        model=composer_resnet('resnet18'),
         train_dataloader=DataLoader(
-            dataset=RandomClassificationDataset(size=512),
+            dataset=RandomImageDataset(size=1024),
             batch_size=512,
             persistent_workers=False,
             num_workers=0,
         ),
         eval_dataloader=DataLoader(
-            dataset=RandomClassificationDataset(size=512),
+            dataset=RandomImageDataset(size=1024),
             batch_size=512,
             persistent_workers=False,
             num_workers=0,
