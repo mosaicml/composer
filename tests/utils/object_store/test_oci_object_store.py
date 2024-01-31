@@ -131,7 +131,7 @@ def test_download_object(test_oci_obj_store, monkeypatch, tmp_path, mock_bucket_
         mock_get_object_fn_with_exception = Mock(side_effect=oci.exceptions.ServiceError(
             status=404, code=None, headers={'opc-request-id': 'foo'}, message=bucket_not_found_msg))
         with monkeypatch.context() as m:
-            m.setattr(oci_os.client.head_object, 'get_object', bucket_not_found_msg)
+            m.setattr(oci_os.client, 'get_object', bucket_not_found_msg)
             with pytest.raises(
                     FileNotFoundError,
                     match=
