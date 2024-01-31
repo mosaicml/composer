@@ -101,6 +101,7 @@ os.chdir(tmpdir)
 
 num_channels = 3
 num_classes = 10
+data_shape = (num_channels, 5, 5)
 
 Model = SimpleModel
 
@@ -111,6 +112,7 @@ optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 scheduler = CosineAnnealingLR(optimizer, T_max=1)
 
 dataset = RandomClassificationDataset(
+    shape=data_shape,
     size=100,
     num_classes=num_classes,
 )
