@@ -1224,7 +1224,10 @@ class Trainer:
 
         # Log hparams.
         if self.auto_log_hparams:
-            self.local_hparams = extract_hparams(locals())
+            locs = locals()
+            if 'cb' in locs:
+                del locs['cb']
+            self.local_hparams = extract_hparams(locs)
             self.logger.log_hyperparameters(self.local_hparams)
 
         # Log composer version
