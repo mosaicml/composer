@@ -244,9 +244,21 @@ def tiny_gpt2_tokenizer_helper():
     return hf_tokenizer
 
 
+def tiny_llama_tokenizer_helper():
+    transformers = pytest.importorskip('transformers')
+
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('huggyllama/llama-7b', use_fast=False)
+    return hf_tokenizer
+
+
 @pytest.fixture(scope='session')
 def _session_tiny_gpt2_tokenizer():  # type: ignore
     return tiny_gpt2_tokenizer_helper()
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_llama_tokenizer():  # type: ignore
+    return tiny_llama_tokenizer_helper()
 
 
 def tiny_opt_model_helper(config):
@@ -320,6 +332,47 @@ def _session_tiny_t5_model(_session_tiny_t5_config):  # type: ignore
     return tiny_t5_model_helper(_session_tiny_t5_config)
 
 
+def tiny_mistral_config_helper():
+    transformers = pytest.importorskip('transformers')
+
+    tiny_overrides = {
+        'hidden_size': 128,
+        'intermediate_size': 256,
+        'num_attention_heads': 8,
+        'num_hidden_layers': 2,
+        'num_kv_heads': 4
+    }
+    return transformers.AutoConfig.from_pretrained('mistralai/Mistral-7B-v0.1', **tiny_overrides)
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_mistral_config():  # type: ignore
+    return tiny_mistral_config_helper()
+
+
+def tiny_mistral_tokenizer_helper():
+    transformers = pytest.importorskip('transformers')
+
+    hf_tokenizer = transformers.AutoTokenizer.from_pretrained('mistralai/Mistral-7B-v0.1', model_max_length=512)
+    return hf_tokenizer
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_mistral_tokenizer():  # type: ignore
+    return tiny_mistral_tokenizer_helper()
+
+
+def tiny_mistral_model_helper(config):
+    transformers = pytest.importorskip('transformers')
+
+    return transformers.AutoModelForCausalLM.from_config(config)
+
+
+@pytest.fixture(scope='session')
+def _session_tiny_t5_model(_session_tiny_t5_config):  # type: ignore
+    return tiny_t5_model_helper(_session_tiny_t5_config)
+
+
 @pytest.fixture
 def tiny_bert_model(_session_tiny_bert_model):
     return copy.deepcopy(_session_tiny_bert_model)
@@ -361,6 +414,11 @@ def tiny_gpt2_tokenizer(_session_tiny_gpt2_tokenizer):
 
 
 @pytest.fixture
+def tiny_llama_tokenizer(_session_tiny_llama_tokenizer):
+    return copy.deepcopy(_session_tiny_llama_tokenizer)
+
+
+@pytest.fixture
 def tiny_gpt2_model(_session_tiny_gpt2_model):
     return copy.deepcopy(_session_tiny_gpt2_model)
 
@@ -393,3 +451,18 @@ def tiny_t5_tokenizer(_session_tiny_t5_tokenizer):
 @pytest.fixture
 def tiny_t5_model(_session_tiny_t5_model):
     return copy.deepcopy(_session_tiny_t5_model)
+
+
+@pytest.fixture
+def tiny_mistral_config(_session_tiny_mistral_config):
+    return copy.deepcopy(_session_tiny_mistral_config)
+
+
+@pytest.fixture
+def tiny_mistral_tokenizer(_session_tiny_mistral_tokenizer):
+    return copy.deepcopy(_session_tiny_mistral_tokenizer)
+
+
+@pytest.fixture
+def tiny_mistral_model(_session_tiny_mistral_model):
+    return copy.deepcopy(_session_tiny_mistral_model)
