@@ -107,6 +107,17 @@ class EvalOutputLogging(Callback):
         self._write_tables_to_output_dir(state)
         self.table = {}
 
+    def eval_batch_end(self, state: State, logger: Logger) -> None:
+        assert state.outputs is not None
+        assert state.metric_outputs is not None
+        columns = list(state.eval_outputs.keys())
+        list_of_lists = [list(item) for item in zip(*state.outputs.values())]
+
+        for 
+
+        
+
+
     def eval_end(self, state: State, logger: Logger) -> None:
         # eval start runs after each benchmark's evaluator
         # during each eval, only a single dataloader/benchmark will be active

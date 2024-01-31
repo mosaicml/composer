@@ -2933,7 +2933,7 @@ class Trainer:
                                     outputs = self.state.outputs
 
                                 for metric in metrics.values():
-                                    self._original_model.update_metric(
+                                    self.state.metric_outputs = self._original_model.update_metric(
                                         self.state.batch,
                                         outputs,
                                         metric,
