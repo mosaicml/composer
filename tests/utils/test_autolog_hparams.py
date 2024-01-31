@@ -10,7 +10,7 @@ from composer.core import Precision
 from composer.loggers import InMemoryLogger
 from composer.trainer import Trainer
 from composer.utils import (StringEnum, convert_flat_dict_to_nested_dict, convert_nested_dict_to_flat_dict,
-                            extract_hparams, using_torch_2)
+                            extract_hparams)
 from tests.common.datasets import RandomClassificationDataset
 from tests.common.models import SimpleModel
 
@@ -146,7 +146,6 @@ def test_extract_hparams_trainer():
         # Compile
         'compile_config': None,
         'is_model_compiled': False,
-        'is_torch_2_0': using_torch_2(),
 
         # Load Checkpoint
         'load_path': None,

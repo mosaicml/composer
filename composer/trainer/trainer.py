@@ -28,16 +28,18 @@ import torch
 import torch.distributed
 import torch.nn as nn
 import torch.utils.data
-from packaging import version
+from torch._dynamo import OptimizedModule
 from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
+from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
 from torch.nn.parallel import DistributedDataParallel
+from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
 from composer.callbacks import CheckpointSaver, OptimizerMonitor
 from composer.core import (Algorithm, AlgorithmPass, Batch, Callback, DataSpec, Engine, Evaluator, Event, Precision,
-                           PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode, ensure_data_spec,
-                           ensure_evaluator, ensure_time, get_precision_context, validate_eval_automicrobatching)
+                           State, Time, Timestamp, TimeUnit, TrainerMode, ensure_data_spec, ensure_evaluator,
+                           ensure_time, get_precision_context, validate_eval_automicrobatching)
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, MLFlowLogger, MosaicMLLogger, ProgressBarLogger,
                               RemoteUploaderDownloader, WandBLogger)
@@ -54,7 +56,7 @@ from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectS
                             ensure_tuple, export_with_logger, extract_hparams, format_name_with_dist,
                             get_composer_env_dict, get_device, get_file, is_tpu_installed, map_collection,
                             maybe_create_object_store_from_uri, maybe_create_remote_uploader_downloader_from_uri,
-                            model_eval_mode, parse_uri, partial_format, reproducibility, using_torch_2)
+                            model_eval_mode, parse_uri, partial_format, reproducibility)
 from composer.utils.misc import is_model_deepspeed
 from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
 
@@ -67,7 +69,7 @@ log = logging.getLogger(__name__)
 __all__ = ['Trainer']
 
 # syntax to shorten the Scheduler type annotations
-Scheduler = Union[ComposerScheduler, PyTorchScheduler]
+Scheduler = Union[ComposerScheduler, LRScheduler]
 
 
 def _raise_missing_argument_exception(arg_name: str):
@@ -91,7 +93,7 @@ def _scale_max_duration_by_ssr(
 
 
 def _get_default_scheduler_frequency(schedulers: Optional[Union[Scheduler, Sequence[Scheduler]]]):
-    has_pytorch_scheduler = any(isinstance(scheduler, PyTorchScheduler) for scheduler in ensure_tuple(schedulers))
+    has_pytorch_scheduler = any(isinstance(scheduler, LRScheduler) for scheduler in ensure_tuple(schedulers))
     if has_pytorch_scheduler:
         log.info(('Stepping schedulers every epoch, as a PyTorch scheduler was provided. '
                   'The trainer cannot automatically convert the parameters (e.g. step_size, T_max) of the '
@@ -125,10 +127,10 @@ def _compile_schedulers(
     schedulers: Optional[Union[Scheduler, Sequence[Scheduler]]],
     state: State,
     scale_schedule_ratio: float,
-) -> List[PyTorchScheduler]:
+) -> List[LRScheduler]:
     compiled_schedulers = []
     for scheduler in ensure_tuple(schedulers):
-        if isinstance(scheduler, PyTorchScheduler):
+        if isinstance(scheduler, LRScheduler):
             scale_pytorch_scheduler(scheduler, scale_schedule_ratio)
             compiled_schedulers.append(scheduler)
         # It's a composer scheduler
@@ -456,7 +458,7 @@ class Trainer:
             If ``None``, will be set to ``DecoupledSGDW(model.parameters(), lr=0.1)``. (default: ``None``)
 
             .. seealso:: :mod:`composer.optim` for the different optimizers built into Composer.
-        schedulers (PyTorchScheduler | ComposerScheduler | Sequence[PyTorchScheduler | ComposerScheduler], optional):
+        schedulers (LRScheduler | ComposerScheduler | Sequence[LRScheduler | ComposerScheduler], optional):
             The learning rate schedulers. If ``[]`` or ``None``, the learning rate will be constant.
             (default: ``None``).
 
@@ -850,8 +852,8 @@ class Trainer:
 
         # Optimizers and Scheduling
         optimizers: Optional[torch.optim.Optimizer] = None,
-        schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
-                                                                                       PyTorchScheduler]]]] = None,
+        schedulers: Optional[Union[ComposerScheduler, LRScheduler, Sequence[Union[ComposerScheduler,
+                                                                                  LRScheduler]]]] = None,
         scale_schedule_ratio: float = 1.0,
         step_schedulers_every_batch: Optional[bool] = None,
 
@@ -949,25 +951,22 @@ class Trainer:
         _validate_precision(precision, device)
 
         # check if provided model is compiled or not
-        is_torch_2_0 = using_torch_2()
         is_model_compiled = False
-        if is_torch_2_0:
-            from torch._dynamo import OptimizedModule
-            if isinstance(model, OptimizedModule):
-                log.warning(f'Provided `model` is already compiled with `torch.compile`. Ignoring ' +
-                            f'parameter `compile_config` if provided. If you would like `Trainer` ' +
-                            f'to takes care of model compilation, provide a not-compiled model and ' +
-                            f'`compile_config` parameter.')
-                # The `torch.compile` function returns an object of type `torch._dynamo.OptimizedModule`
-                # which wraps the original `nn.Module` object and later patches its forward method to
-                # optimized `self.forward` method.
-                is_model_compiled = True
-                compiled_model = model._orig_mod
-                if not isinstance(compiled_model, ComposerModel):
-                    raise ValueError(f'Provided `model` must be a subclass of ComposerModel. ' +
-                                     f'Instead found as type `{type(compiled_model)}`')
-                compiled_model.forward = model.dynamo_ctx(compiled_model.forward)
-                model = compiled_model
+        if isinstance(model, OptimizedModule):
+            log.warning(f'Provided `model` is already compiled with `torch.compile`. Ignoring ' +
+                        f'parameter `compile_config` if provided. If you would like `Trainer` ' +
+                        f'to takes care of model compilation, provide a not-compiled model and ' +
+                        f'`compile_config` parameter.')
+            # The `torch.compile` function returns an object of type `torch._dynamo.OptimizedModule`
+            # which wraps the original `nn.Module` object and later patches its forward method to
+            # optimized `self.forward` method.
+            is_model_compiled = True
+            compiled_model = model._orig_mod
+            if not isinstance(compiled_model, ComposerModel):
+                raise ValueError(f'Provided `model` must be a subclass of ComposerModel. ' +
+                                 f'Instead found as type `{type(compiled_model)}`')
+            compiled_model.forward = model.dynamo_ctx(compiled_model.forward)
+            model = compiled_model
 
         # Microbatching
         auto_microbatching = _is_auto_microbatching(device_train_microbatch_size, device=device)
@@ -1328,10 +1327,6 @@ class Trainer:
         self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
 
         if self.state.fsdp_config is not None:
-            if version.parse(torch.__version__) < version.parse('1.13.0'):
-                raise RuntimeError('To use FSDP with Composer, you must use torch>=1.13.0.')
-            from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
-
             # This state should never be reached, but we raise a ValueError just in case
             if self._use_closures() and self.state.precision == Precision.AMP_FP16:
                 raise ValueError(f'Using closures and precision {self.state.precision} is not supported'
@@ -1521,7 +1516,7 @@ class Trainer:
 
         # The model would need to be torch.compile()'d after being wrapped in a distributed strategy
         # to take advantage of any graph breaks.
-        if is_torch_2_0 and not is_model_compiled and compile_config is not None:
+        if not is_model_compiled and compile_config is not None:
             compiled_model = torch.compile(self.state.model, **compile_config)
             self.state.model = compiled_model._orig_mod
             self.state.model.forward = compiled_model.dynamo_ctx(self.state.model.forward)
@@ -1530,10 +1525,6 @@ class Trainer:
             # debugging purpose and for unit test.
             if self.auto_log_hparams:
                 self.local_hparams['is_model_compiled'] = is_model_compiled
-        elif not is_torch_2_0 and compile_config is not None:
-            raise ValueError(f'`torch.compile` is supported for PyTorch 2.0 or higher.' +
-                             f'Either update your PyTorch version or disable parameter by providing ' +
-                             f'`compile_config` to `None`.')
 
     @property
     def saved_checkpoints(self) -> List[str]:
@@ -1682,8 +1673,8 @@ class Trainer:
         reset_time: bool = False,
 
         # Schedulers
-        schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
-                                                                                       PyTorchScheduler]]]] = None,
+        schedulers: Optional[Union[ComposerScheduler, LRScheduler, Sequence[Union[ComposerScheduler,
+                                                                                  LRScheduler]]]] = None,
         scale_schedule_ratio: float = 1.0,
         step_schedulers_every_batch: Optional[bool] = None,
 
@@ -1796,7 +1787,7 @@ class Trainer:
                 If ``reset_time`` is True, then :attr:`.State.max_duration` will be set to this parameter.
 
             optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): See :class:`.Trainer`.
-            schedulers (PyTorchScheduler | ComposerScheduler | Sequence[PyTorchScheduler | ComposerScheduler], optional): See :class:`.Trainer`.
+            schedulers (LRScheduler | ComposerScheduler | Sequence[LRScheduler | ComposerScheduler], optional): See :class:`.Trainer`.
             scale_schedule_ratio (float, optional): See :class:`.Trainer`.
             step_schedulers_every_batch (bool, optional): See :class:`.Trainer`.
             eval_dataloader (Iterable | DataSpec | Evaluator | Sequence[Evaluator], optional): See :class:`.Trainer`.
