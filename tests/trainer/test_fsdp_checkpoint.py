@@ -401,6 +401,7 @@ def test_fsdp_mixed_with_sync(
 ])
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*The CUDA RNG state could not be loaded.*:UserWarning')
+@pytest.mark.parametrize('composer_version', ['0.18.1', '0.19.0'])
 def test_fsdp_load_old_checkpoint(
     world_size,
     tmp_path: pathlib.Path,
