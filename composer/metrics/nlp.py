@@ -196,37 +196,6 @@ class LanguagePerplexity(LanguageCrossEntropy):
 
 class InContextLearningMetric(Metric):
 
-    def __init__(self, dist_sync_on_step=False, cache_responses=False):
-        super().__init__(dist_sync_on_step=dist_sync_on_step)
-        self.add_state('response_cache', default=[], dist_reduce_fx=None)
-        self.cache_responses = cache_responses
-
-    def reset_response_cache(self, cache: bool):
-        self.cache_responses = cache
-        setattr(self, 'response_cache', [])
-
-    def format_response_cache(self, tokenizer):
-        columns, rows = None, None
-        assert isinstance(self.response_cache, list)
-        if self.cache_responses and len(self.response_cache) > 0:
-            rows = []
-            for row in self.response_cache:
-                assert isinstance(row, dict)
-                columns = list(row.keys())
-                converted_row = []
-                for r_i in row.values():
-                    if isinstance(r_i, list) and len(r_i) > 0 \
-                        and all(isinstance(r_ij, int) for r_ij in r_i) \
-                        and not all(isinstance(r_ij, bool) for r_ij in r_i):
-                        # remove all padding tokens
-                        r_i = [t for t in r_i if t not in tokenizer.all_special_ids]
-                        converted_row.append(tokenizer.decode(r_i))
-                    else:
-                        converted_row.append(r_i)
-                rows.append(converted_row)
-
-        return columns, rows
-
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
         """Abstract interface for computing an in-context learning metrics.
 
@@ -240,31 +209,6 @@ class InContextLearningMetric(Metric):
             NotImplementedError: Abstract method must be implemented by subclasses
         """
         raise NotImplementedError
-
-    def sync(
-        self,
-        dist_sync_fn: Optional[Callable] = None,
-        process_group: Optional[Any] = None,
-        should_sync: bool = True,
-        distributed_available: Optional[Callable] = None,
-    ):
-        # this is based off the gather_all_tensors utility function in torchmetrics, except it works with non-tensor objects
-        # (in particular, lists of strings). Link here: https://github.com/Lightning-AI/torchmetrics/blob/99d6d9d6ac4eb1b3398241df558604e70521e6b0/src/torchmetrics/utilities/distributed.py#L97-L148
-        if should_sync:
-            group = process_group or self.process_group
-            world_size = torch.distributed.get_world_size(group)  # pyright: ignore [reportGeneralTypeIssues]
-            torch.distributed.barrier(group=group)  # pyright: ignore [reportGeneralTypeIssues]
-            gathered_response_cache = [[]] * world_size
-            torch.distributed.all_gather_object(  # pyright: ignore [reportGeneralTypeIssues]
-                gathered_response_cache, self.response_cache)
-            flattened_gathered_response_cache = [item for row in gathered_response_cache for item in row]
-            setattr(self, 'response_cache', flattened_gathered_response_cache)
-            super().sync(
-                dist_sync_fn,
-                process_group,
-                should_sync,
-                distributed_available,
-            )
 
 
 class InContextLearningQAAccuracy(InContextLearningMetric):
@@ -292,9 +236,9 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def __init__(self, dist_sync_on_step: bool = False, cache_responses: bool = False):
+    def __init__(self, dist_sync_on_step: bool = False):
         # state from multiple processes
-        super().__init__(dist_sync_on_step=dist_sync_on_step, cache_responses=cache_responses)
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
@@ -328,8 +272,9 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
         cot_delimiter = batch.get('cot_delimiter', '')
         do_normalization = batch.get('do_normalization', True)
         stopping_criteria = batch.get('stopping_criteria', None)
-        for sample_output, sample_labels, prompt_tensor in zip(outputs, labels, batch['input_ids']):
-        
+
+        metric_results = []
+        for sample_output, sample_labels in zip(outputs, labels):
 
             final_answer = sample_output
             if stopping_criteria is not None and len(stopping_criteria) > 0:
@@ -345,21 +290,14 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
                 cleaned_final_answer = final_answer
                 cleaned_sample_labels = set(sample_labels)
 
-            correct = False
             if any(cleaned_final_answer.startswith(label) for label in cleaned_sample_labels):
                 self.correct += torch.tensor(1.0)
-                correct = True
+                metric_results.append(1)
+            else:
+                metric_results.append(0)
 
-            assert isinstance(self.response_cache, list)
-            self.response_cache.append({
-                'prompt': prompt_tensor.tolist(),
-                'original_model_output': sample_output,
-                'cleaned_model_output': cleaned_final_answer,
-                'original_labels': sample_labels,
-                'cleaned_labels': cleaned_sample_labels,
-                'correct': correct
-            })
             self.total += torch.tensor(1.0)
+        return metric_results
 
     def compute(self):
         super().compute()

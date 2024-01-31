@@ -468,16 +468,19 @@ class HuggingFaceModel(ComposerModel):
 
         return metrics if metrics else {}
 
-    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> None:
+    def update_metric(self, batch: Any, outputs: Any, metric: Metric) -> List[Any]:
 
         if isinstance(metric, InContextLearningQAAccuracy):
             assert self.labels is not None
-            metric.update(batch=batch, outputs=outputs, labels=self.labels)  # pyright: ignore [reportGeneralTypeIssues]
+            metric_result = metric.update(batch=batch, outputs=outputs,
+                                          labels=self.labels)  # pyright: ignore [reportGeneralTypeIssues]
         elif isinstance(metric, InContextLearningMetric):
             assert self.labels is not None
-            metric.update(batch, outputs, self.labels)  # pyright: ignore [reportGeneralTypeIssues]
+            metric_result = metric.update(batch, outputs, self.labels)  # pyright: ignore [reportGeneralTypeIssues]
         else:
-            metric.update(outputs, self.labels)  # pyright: ignore [reportGeneralTypeIssues]
+            metric_result = metric.update(outputs, self.labels)  # pyright: ignore [reportGeneralTypeIssues]
+
+        return metric_result
 
     def get_metadata(self):
         model_output = {}

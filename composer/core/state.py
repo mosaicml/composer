@@ -576,6 +576,8 @@ class State(Serializable):
         self.eval_metric_values: Dict[str, float] = {}
         self.total_loss_dict: Dict[str, float] = {}
 
+        self.metric_outputs: Dict[str, Any] = {}
+
     def _dataset_of(self, dataloader: Optional[Union[Evaluator, DataSpec, DataLoader, Iterable]]) -> Optional[Dataset]:
         """Get the dataset contained by the given dataloader-like object.
 
