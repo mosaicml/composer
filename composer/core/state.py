@@ -37,7 +37,6 @@ from composer.utils import (batch_get, batch_set, dist, ensure_tuple, get_compos
 if TYPE_CHECKING:
     import deepspeed
 
-    import composer.core.types as types
     from composer.core.algorithm import Algorithm
     from composer.core.callback import Callback
     from composer.core.evaluator import Evaluator
