@@ -1110,7 +1110,9 @@ class MTBenchJudge(InContextLearningMetric):
                                                            'role': 'user',
                                                            'content': formatted_template
                                                        }],
-                                                       max_tokens=250)
+                                                       n=1,
+                                                       temperature=0,
+                                                       max_tokens=2048)
 
         return response.choices[0].message.content, formatted_template
 
