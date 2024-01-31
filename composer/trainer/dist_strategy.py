@@ -274,7 +274,7 @@ def prepare_fsdp_module(
 
         num_param_groups = len(optim.param_groups)
         if num_param_groups > 1:
-            if not kwargs['use_orig_params']:
+            if not fsdp_config['use_orig_params']:
                 raise RuntimeError('Multiple optimizer groups with FSDP are only supported with '
                                    'use_orig_params=True.')
             # optimizer.param_groups do not contain parameter names which are needed
