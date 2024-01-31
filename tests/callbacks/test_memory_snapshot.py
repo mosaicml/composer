@@ -8,9 +8,8 @@ import torch
 from packaging import version
 from torch.utils.data import DataLoader
 
-from composer import State, Trainer
+from composer import Trainer
 from composer.callbacks import MemorySnapshot
-from composer.loggers import LoggerDestination
 from composer.trainer import Trainer
 from tests.common import RandomClassificationDataset, SimpleModel, device
 
