@@ -143,7 +143,10 @@ class OCIObjectStore(ObjectStore):
             os.makedirs(dirname, exist_ok=True)
 
         # Get the size of the object
-        head_object_response = self.client.head_object(self.namespace, self.bucket, object_name)
+        try:
+            head_object_response = self.client.head_object(self.namespace, self.bucket, object_name)
+        except Exception as e:
+            _reraise_oci_errors(self.get_uri(object_name), e)
         object_size = head_object_response.headers['content-length']  # pyright: ignore[reportOptionalMemberAccess]
         # Calculate the part sizes
         base_part_size, remainder = divmod(int(object_size), num_parts)

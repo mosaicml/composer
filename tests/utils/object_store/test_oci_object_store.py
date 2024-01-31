@@ -110,7 +110,9 @@ def test_download_object(test_oci_obj_store, monkeypatch, tmp_path, mock_bucket_
             m.setattr(oci_os.client, 'get_object', mock_get_object_fn_with_exception)
             with pytest.raises(
                     FileNotFoundError,
-                    match=f'Object oci://{mock_bucket_name}/{mock_object_name} not found. {obj_not_found_msg}'):
+                    match=
+                    f'Object or bucket for object oci://{mock_bucket_name}/{mock_object_name} not found. {obj_not_found_msg}'
+            ):
                 oci_os.download_object(mock_object_name, filename=file_to_download_to)
     else:  #result == 'bucket_not_found':
         file_to_download_to = str(tmp_path / Path('my_bucket_not_found_file.bin'))
@@ -122,7 +124,7 @@ def test_download_object(test_oci_obj_store, monkeypatch, tmp_path, mock_bucket_
             with pytest.raises(
                     ValueError,
                     match=
-                    f'Bucket specified in oci://{mock_bucket_name}/{mock_object_name} not found. {bucket_not_found_msg}'
+                    f'Object or bucket for object oci://{mock_bucket_name}/{mock_object_name} not found. {bucket_not_found_msg}'
             ):
                 oci_os.download_object(mock_object_name, filename=file_to_download_to)
 
