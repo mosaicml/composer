@@ -480,7 +480,7 @@ class InContextLearningDataset(Dataset):
         Returns:
             str: The answer in the example
         """
-        cont = example[self.answer_key]
+        cont = str(example[self.answer_key])
         if self.prefix_space and not cont.startswith(' ') and not in_context:
             cont = f' {cont}'
         return cont
@@ -1407,7 +1407,7 @@ class IFEval(InContextLearningDataset):
         }
         self.update_generation_kwargs(kwargs.get('generation_kwargs'))
 
-    def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
+    def tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
         """
         Runs text through the tokenizer and handles special cases.
         Args:
@@ -1436,7 +1436,6 @@ class IFEval(InContextLearningDataset):
         padded_context = _make_padded_input(trimmed_context, [], self.padding_size, self.pad_tok_id, self.padding_side)
 
         tokenized_example[self.context_key] = padded_context
-
         return tokenized_example
 
     def adjust_padding(self):
