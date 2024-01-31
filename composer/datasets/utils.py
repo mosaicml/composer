@@ -186,20 +186,22 @@ try:
             self.stop_sequence = stop_sequence
             self.stop_sequence_ids = tokenizer.encode(stop_sequence, add_special_tokens=False)
 
-            # we look back for 2 more tokens than it takes to encode our stop sequence
+            # sentence piece tokenizers add a superflous underline token before string-initial \n
+            # that throws off our calculation of the stop sequence length
+            # so we remove any token ids that produce empty strings
+            self.stop_sequence_ids = [id for id in self.stop_sequence_ids if tokenizer.decode(id) != '']
+
+            # we look back for 1 more token than it takes to encode our stop sequence
             # because tokenizers suck, and a model might generate `['\n', '\n']` but our `sequence` is `['\n\n']`
             # and we don't want to mistakenly not stop a generation because our
             # (string) stop sequence was output in a different tokenization
 
-            # NOTE: there is a minor danger that this will end up looking back 2 tokens into the past, into the inputs to the model,
-            # and stopping generation immediately as a result. With only 2 extra tokens of lookback, this risk is minimized
-            self.stop_sequence_id_len = len(self.stop_sequence_ids) + 2
+            self.stop_sequence_id_len = len(self.stop_sequence_ids) + 1
             self.tokenizer = tokenizer
 
-        def __call__(self, input_ids: torch.Tensor, scores: Optional[torch.FloatTensor] = None, **kwargs) -> bool:
+        def __call__(self, input_ids: torch.LongTensor, scores: Optional[torch.FloatTensor] = None, **kwargs) -> bool:
             # For efficiency, we compare the last n tokens where n is the number of tokens in the stop_sequence
             lookback_ids_batch = input_ids[:, :][:, -self.stop_sequence_id_len:]
-
             lookback_tokens_batch = self.tokenizer.batch_decode(lookback_ids_batch)
             for i, done in enumerate(self.done_tracker):
                 if i >= len(lookback_tokens_batch):
