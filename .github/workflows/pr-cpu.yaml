@@ -28,11 +28,6 @@ jobs:
         #   markers: not daily and not remote and not gpu and not vision and not doctest
         #   pytest_command: coverage run -m pytest
         #   composer_package_name: mosaicml
-        - name: cpu-vision
-          container: mosaicml/pytorch_vision:1.13.1_cpu-python3.10-ubuntu20.04
-          markers: not daily and not remote and not gpu and vision and not doctest
-          pytest_command: coverage run -m pytest
-          composer_package_name: mosaicml
         - name: cpu-doctest
           container: mosaicml/pytorch:1.13.1_cpu-python3.10-ubuntu20.04
           markers: not daily and not remote and not gpu and not vision and doctest
