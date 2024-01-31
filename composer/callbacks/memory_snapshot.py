@@ -140,14 +140,15 @@ class MemorySnapshot(Callback):
     def start_record_memory_history(self) -> None:
 
         log.info('Starting snapshot record_memory_history')
-        torch.cuda.memory._record_memory_history(True, # type: ignore
-                                                 trace_alloc_max_entries=self.max_entries,
-                                                 trace_alloc_record_context=True)
+        torch.cuda.memory._record_memory_history(
+            True,  # type: ignore
+            trace_alloc_max_entries=self.max_entries,
+            trace_alloc_record_context=True)
 
     def stop_record_memory_history(self) -> None:
 
         log.info('Stopping snapshot record_memory_history')
-        torch.cuda.memory._record_memory_history(False) # type: ignore
+        torch.cuda.memory._record_memory_history(False)  # type: ignore
 
     def export_memory_snapshot(self, state: State, logger: Logger) -> None:
         assert self.filename
@@ -163,7 +164,7 @@ class MemorySnapshot(Callback):
                 log.info(f'No allocation is recorded in memory snapshot)')
                 return
             with open(filename, 'w+') as fd:
-                fd.write(torch.cuda._memory_viz.trace_plot(snapshot, device=None, plot_segments=False)) # type: ignore
+                fd.write(torch.cuda._memory_viz.trace_plot(snapshot, device=None, plot_segments=False))  # type: ignore
         except Exception as e:
             log.error(f'Failed to capture memory snapshot {e}')
             return
