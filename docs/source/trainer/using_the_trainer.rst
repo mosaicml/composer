@@ -11,7 +11,7 @@ The Composer :class:`.Trainer` implements a highly-optimized PyTorch training lo
    learning work, with reproducible results in time-to-train and
    accuracy.
 -  Integration with your favorite model hubs:
-   🤗 `Transformers`_, `TIMM`_, and `torchvision`_.
+   🤗 `Transformers`_ and `torchvision`_.
 -  Iterate faster! We take care of performance and efficiency.
 
 .. note::
