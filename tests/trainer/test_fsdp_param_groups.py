@@ -22,18 +22,14 @@ from tests.common import RandomClassificationDataset, SimpleModel, device, world
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2'),
                     reason='FSDP use_orig_params requires torch 2.0 or higher')
 def test_fsdp_param_groups_without_orig_params(mixed_precision: str, device: str, reentrant: bool, world_size: int):
-    """
-
-    Ensure that FSDP with 'use_orig_params=False' raises an exception when passing in an optimizer
-    with multiple param groups
-
-    """
+    # Ensure that FSDP with 'use_orig_params=False' raises an exception when passing in an optimizer
+    # with multiple param groups
     num_classes = 10
     model = SimpleModel(num_features=1, num_classes=num_classes)
     dataset = RandomClassificationDataset(shape=(num_classes,), size=2, num_classes=num_classes)
     dataloader = DataLoader(dataset, sampler=dist.get_sampler(dataset))
 
-    # create a different parameter per group
+    # Create a different parameter per group
     param_groups = [{'params': param, 'lr': (0.1 + 0.1 * i)} for i, param in enumerate(model.parameters())]
     optimizer = torch.optim.SGD(param_groups, lr=0)
 
