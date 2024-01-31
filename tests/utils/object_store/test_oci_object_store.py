@@ -68,7 +68,7 @@ def test_upload_object(test_oci_obj_store, monkeypatch, tmp_path, mock_bucket_na
                 oci_os.upload_object(mock_object_name, filename=file_to_upload)
 
 
-@pytest.mark.parametrize('result', ['success', 'file_exists', 'obj_not_found', 'bucket_not_found'])
+@pytest.mark.parametrize('result', ['success', 'file_exists', 'obj_not_found', 'bucket_not_found', 'no_code'])
 def test_download_object(test_oci_obj_store, monkeypatch, tmp_path, mock_bucket_name, result: str):
     oci = pytest.importorskip('oci')
     oci_os = test_oci_obj_store
@@ -112,7 +112,7 @@ def test_download_object(test_oci_obj_store, monkeypatch, tmp_path, mock_bucket_
                     FileNotFoundError,
                     match=f'Object oci://{mock_bucket_name}/{mock_object_name} not found. {obj_not_found_msg}'):
                 oci_os.download_object(mock_object_name, filename=file_to_download_to)
-    else:  #result == 'bucket_not_found':
+    elif result == 'bucket_not_found':
         file_to_download_to = str(tmp_path / Path('my_bucket_not_found_file.bin'))
         bucket_not_found_msg = f'Either the bucket named f{mock_bucket_name} does not exist in the namespace*'
         mock_get_object_fn_with_exception = Mock(side_effect=oci.exceptions.ServiceError(
@@ -123,6 +123,19 @@ def test_download_object(test_oci_obj_store, monkeypatch, tmp_path, mock_bucket_
                     ValueError,
                     match=
                     f'Bucket specified in oci://{mock_bucket_name}/{mock_object_name} not found. {bucket_not_found_msg}'
+            ):
+                oci_os.download_object(mock_object_name, filename=file_to_download_to)
+    elif result == 'no_code':
+        file_to_download_to = str(tmp_path / Path('my_obj_not_found_file.bin'))
+        obj_not_found_msg = f"The object '{mock_object_name}' was not found in the bucket f'{mock_bucket_name}'"
+        mock_head_object = Mock(side_effect=oci.exceptions.ServiceError(
+            status=404, code=None, headers={'opc-request-id': 'foo'}, message=obj_not_found_msg))
+        with monkeypatch.context() as m:
+            m.setattr(oci_os.head_object, 'get_object', mock_head_object)
+            with pytest.raises(
+                    FileNotFoundError,
+                    match=
+                    f'Object oci://{mock_bucket_name}/{mock_object_name} not found with no error code. {obj_not_found_msg}'
             ):
                 oci_os.download_object(mock_object_name, filename=file_to_download_to)
 

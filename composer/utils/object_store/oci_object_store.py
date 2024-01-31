@@ -26,8 +26,13 @@ def _reraise_oci_errors(uri: str, e: Exception):
                                             conda_channel='conda-forge') from e
 
     # If it's an oci service error with code: ObjectNotFound or status 404
-    if isinstance(e, oci.exceptions.ServiceError) and e.status == 404:  # type: ignore
-        raise FileNotFoundError(f'Object or bucket for object {uri} not found. {e.message}') from e  # type: ignore
+    if isinstance(e, oci.exceptions.ServiceError):
+        if e.status == 404:  # type: ignore
+            if e.code == 'ObjectNotFound':  # type: ignore
+                raise FileNotFoundError(f'Object {uri} not found. {e.message}') from e  # type: ignore
+            if e.code == 'BucketNotFound':  # type: ignore
+                raise ValueError(f'Bucket specified in {uri} not found. {e.message}') from e  # type: ignore
+            raise FileNotFoundError(f'Object {uri} not found with no error code. {e.message}') from e  # type: ignore
 
     # Client errors
     if isinstance(e, oci.exceptions.ClientError):
@@ -143,8 +148,12 @@ class OCIObjectStore(ObjectStore):
             os.makedirs(dirname, exist_ok=True)
 
         # Get the size of the object
-        head_object_response = self.client.head_object(self.namespace, self.bucket, object_name)
-        object_size = head_object_response.headers['content-length']  # pyright: ignore[reportOptionalMemberAccess]
+        object_size = 0
+        try:
+            head_object_response = self.client.head_object(self.namespace, self.bucket, object_name)
+            object_size = head_object_response.headers['content-length']  # pyright: ignore[reportOptionalMemberAccess]
+        except Exception as e:
+            _reraise_oci_errors(self.get_uri(object_name), e)
         # Calculate the part sizes
         base_part_size, remainder = divmod(int(object_size), num_parts)
         part_sizes = [base_part_size] * num_parts
