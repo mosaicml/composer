@@ -86,6 +86,9 @@ jobs:
     needs: [daily-pytest-cpu]
     with:
       download-path: artifacts
+    secrets:
+      app_id: ${{ secrets.DEVOGE_BOT_PUB_APPID }}
+      private_key: ${{ secrets.DEVOGE_BOT_PUB_PEM }}
 
   daily-pytest-gpu:
     uses: ./.github/workflows/pytest-gpu.yaml
