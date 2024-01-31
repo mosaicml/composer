@@ -1629,7 +1629,7 @@ class MTBench(InContextLearningDataset):
         if 'generation_kwargs' not in batch:
             batch['generation_kwargs'] = {}
 
-        batch['generation_kwargs']['temperture'] = temperature
+        batch['generation_kwargs']['temperature'] = temperature
         batch['generation_kwargs']['do_sample'] = do_sample
         return batch
 
