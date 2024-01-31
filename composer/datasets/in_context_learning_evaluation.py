@@ -1405,7 +1405,7 @@ class IFEval(InContextLearningDataset):
             'prompt': [],
             'generation_length': self.max_seq_len - self.max_prompt_length,
         }
-        self._update_generation_kwargs(kwargs.get('generation_kwargs'))
+        self.update_generation_kwargs(kwargs.get('generation_kwargs'))
 
     def _tokenize_example(self, prompt_and_fewshot: str, ctxt: str, example: Dict) -> Dict[str, Any]:
         """
@@ -1522,7 +1522,7 @@ class MTBench(InContextLearningDataset):
             'padding_token':
                 self.pad_tok_id
         }
-        self._update_generation_kwargs(kwargs.get('generation_kwargs'))
+        self.update_generation_kwargs(kwargs.get('generation_kwargs'))
         self.padding_size = self.max_prompt_one_length
         self.dataset = self.dataset.map(self.pad_contexts)
 
