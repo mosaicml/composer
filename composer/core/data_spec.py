@@ -116,7 +116,6 @@ class DataSpec:
     .. doctest::
 
        >>> # Construct DataSpec and subtract mean from the batch
-       >>> from composer.datasets.utils import NormalizationFn
        >>> device_transform_fn = lambda xs, ys: (xs.sub_(xs.mean()), ys)
        >>> train_dspec = DataSpec(train_dataloader, device_transforms=device_transform_fn)
        >>> # The same function can be used for eval dataloader as well
