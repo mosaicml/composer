@@ -23,13 +23,13 @@ def get_trainer(precision: Precision, precision_config: Optional[Dict[str, Any]]
     return Trainer(
         model=SimpleModel(),
         train_dataloader=DataLoader(
-            dataset=RandomClassificationDataset(),
+            dataset=RandomClassificationDataset(size=512),
             batch_size=512,
             persistent_workers=False,
             num_workers=0,
         ),
         eval_dataloader=DataLoader(
-            dataset=RandomClassificationDataset(),
+            dataset=RandomClassificationDataset(size=512),
             batch_size=512,
             persistent_workers=False,
             num_workers=0,
