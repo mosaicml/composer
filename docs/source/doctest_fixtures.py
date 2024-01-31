@@ -86,7 +86,7 @@ if sys.path[0] != _repo_root:
     sys.path.insert(0, _repo_root)
 
 from tests.common import SimpleModel
-from tests.common.datasets import RandomClassificationDataset
+from tests.common.datasets import RandomClassificationDataset, RandomTextClassificationDataset
 
 # Disable mosaicml logger
 os.environ['MOSAICML_PLATFORM'] = 'False'
