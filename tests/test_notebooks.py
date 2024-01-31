@@ -86,12 +86,15 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
         cell_source = cell_source.replace('batch_size=256', 'batch_size=64')
         cell_source = cell_source.replace('download=True', 'download=False')
 
+    package_name = os.environ.get('COMPOSER_PACKAGE_NAME', 'mosaicml')
+    cell_source = cell_source.replace("pip install 'mosaicml", f"pip install '{package_name}")
+
     return cell_source
 
 
 @pytest.mark.parametrize('notebook', NOTEBOOKS)
 @device('cpu', 'gpu')
-# @pytest.mark.daily
+@pytest.mark.daily
 def test_notebook(notebook: str, device: str, s3_bucket: str):
     trainer_monkeypatch_code = inspect.getsource(patch_notebooks)
     notebook_name = os.path.split(notebook)[-1][:-len('.ipynb')]
