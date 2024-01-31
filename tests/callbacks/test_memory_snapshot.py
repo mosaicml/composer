@@ -59,11 +59,11 @@ def test_memory_snapshot(interval: str):
     # Construct the trainer and train
     trainer = Trainer(
         model=simple_model,
-        loggers=[file_tracker_destination],
+        loggers=file_tracker_destination,
         callbacks=memory_snapshot,
         train_dataloader=DataLoader(RandomClassificationDataset()),
         max_duration='1ba',
     )
-    # trainer.fit()
-    # assert len(file_tracker_destination.uploaded_files) == 1
-    # trainer.close()
+    trainer.fit()
+    assert len(file_tracker_destination.uploaded_files) == 1
+    trainer.close()
