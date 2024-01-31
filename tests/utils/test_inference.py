@@ -212,7 +212,6 @@ def test_export_for_inference_onnx(model_cls, sample_input, onnx_opset_version, 
     if onnx_opset_version == None and version.parse(torch.__version__) < version.parse('1.13'):
         pytest.skip("Don't test prior PyTorch version's default Opset version.")
 
-    # TODO: Fix this test
     pytest.xfail(
         'torch.onnx.errors.UnsupportedOperatorError: Exporting the operator "aten::unflatten" to ONNX opset version 14 is not supported.'
     )
