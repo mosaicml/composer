@@ -19,12 +19,9 @@ from typing import Any, Dict, List
 
 import psutil
 import torch
-from rich.traceback import install
 
 import composer
 from composer.utils import get_free_tcp_port
-
-install()
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
 
