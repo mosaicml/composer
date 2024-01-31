@@ -19,8 +19,6 @@ from tests.common import RandomClassificationDataset, SimpleModel, device, world
 @pytest.mark.filterwarnings('ignore::UserWarning')
 @device('gpu')
 @world_size(2)
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2'),
-                    reason='FSDP use_orig_params requires torch 2.0 or higher')
 def test_fsdp_param_groups_without_orig_params(mixed_precision: str, device: str, reentrant: bool, world_size: int):
     # Ensure that FSDP with 'use_orig_params=False' raises an exception when passing in an optimizer
     # with multiple param groups
@@ -33,8 +31,7 @@ def test_fsdp_param_groups_without_orig_params(mixed_precision: str, device: str
     param_groups = [{'params': param, 'lr': (0.1 + 0.1 * i)} for i, param in enumerate(model.parameters())]
     optimizer = torch.optim.SGD(param_groups, lr=0)
 
-    expected_error = 'Multiple optimizer groups with FSDP are only supported on torch 2.0 \
-                                   with use_orig_params=True.'
+    expected_error = 'Multiple optimizer groups with FSDP are only supported with use_orig_params=True.'
 
     with pytest.raises(RuntimeError, match=expected_error):
         _ = Trainer(model=model,

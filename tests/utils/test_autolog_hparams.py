@@ -146,7 +146,6 @@ def test_extract_hparams_trainer():
         # Compile
         'compile_config': None,
         'is_model_compiled': False,
-        'is_torch_2_0': True,
 
         # Load Checkpoint
         'load_path': None,
