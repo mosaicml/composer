@@ -21,6 +21,7 @@ from torch.distributed.fsdp.fully_sharded_data_parallel import (FullOptimStateDi
                                                                 ShardedOptimStateDictConfig, StateDictType)
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Optimizer
+from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader, Dataset
 from torchmetrics import Metric
 
@@ -220,7 +221,7 @@ class State(Serializable):
             `DelayedScaling <https://docs.nvidia.com/deeplearning/transformer-engine/user-guide/api/common.html?highlight=delayedscaling#transformer_engine.common.recipe.DelayedScaling>`_.
         optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): The optimizer being used to
             train the model. Multiple optimizers are not currently supported.
-        schedulers (types.PyTorchScheduler | Sequence[types.PyTorchScheduler], optional):
+        schedulers (LRScheduler | Sequence[LRScheduler], optional):
             The learning rate scheduler (can also be a list or tuple of schedulers).
         scaler (torch.cuda.amp.GradScaler, optional): The gradient scaler in use for mixed precision training.
         save_metrics (bool, optional): Whether to save metrics in state_dict.
@@ -629,7 +630,7 @@ class State(Serializable):
         return self._schedulers
 
     @schedulers.setter
-    def schedulers(self, schedulers: Union[types.PyTorchScheduler, Sequence[types.PyTorchScheduler]]):
+    def schedulers(self, schedulers: Union[LRScheduler, Sequence[LRScheduler]]):
         self._schedulers[:] = ensure_tuple(schedulers)
 
     def batch_get_item(self, key: Union[str, int, Callable, Any]) -> Any:
