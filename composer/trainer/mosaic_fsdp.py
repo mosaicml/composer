@@ -15,20 +15,7 @@ from torch.distributed.fsdp import FullyShardedDataParallel
 
 def patch_pytorch():
     """Monkey patches pytorch functions based on pytorch version."""
-    if version.parse(torch.__version__) < version.parse('1.13.1'):
-        raise NotImplementedError(f'Not supported for torch < 1.13.1')
-
-    elif version.parse(torch.__version__) < version.parse('2.0.0'):
-        # Monkey patch for torch < 2.0 ie torch == 1.13.1
-
-        # Monkey patch _auto_wrap with _custom_auto_wrap fn
-        from composer.trainer.mosaic_fsdp_utils import custom_auto_wrap_t1p13p1
-        FullyShardedDataParallel._auto_wrap = custom_auto_wrap_t1p13p1  # type: ignore
-
-    elif version.parse(torch.__version__) < version.parse('2.0.1'):
-        raise NotImplementedError(f'Not supported for torch == 2.0.0')
-
-    elif version.parse(torch.__version__) < version.parse('2.0.2'):
+    if version.parse(torch.__version__) < version.parse('2.0.2'):
         # Monkey patch for torch == 2.0.1
 
         # Monkey patch __init__ where __init__ calls the custom _auto_wrap fn

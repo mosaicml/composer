@@ -22,7 +22,7 @@ from composer.loggers import InMemoryLogger
 from composer.metrics import InContextLearningLMAccuracy, LanguageCrossEntropy, MaskedAccuracy
 from composer.models import HuggingFaceModel
 from composer.trainer import Trainer
-from composer.utils import dist, is_model_fsdp, using_torch_2
+from composer.utils import dist, is_model_fsdp
 from tests.common.datasets import RandomTextClassificationDataset, RandomTextLMDataset, RandomTextRegressionDataset
 from tests.common.markers import device, world_size
 from tests.common.models import (configure_tiny_bert_model, configure_tiny_bert_tokenizer, configure_tiny_gpt2_model,
@@ -930,8 +930,6 @@ def test_encoder_decoder(tiny_t5_model, tiny_t5_tokenizer):
 
 
 @pytest.mark.gpu
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings('ignore::UserWarning')
 def test_hf_fsdp(tiny_bert_config, tiny_bert_tokenizer):
     transformers = pytest.importorskip('transformers')
@@ -1095,9 +1093,6 @@ def test_embedding_resizing(tiny_bert_model, tiny_bert_tokenizer, embedding_resi
 @pytest.mark.parametrize('hf_model,hf_tokenizer', [(configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer),
                                                    (configure_tiny_t5_model, configure_tiny_t5_tokenizer)])
 def test_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
-    if use_fsdp and version.parse(torch.__version__) < version.parse('1.13.0'):
-        pytest.skip('FSDP requires torch >= 1.13.0')
-
     transformers = pytest.importorskip('transformers')
     if device == 'cpu' and use_fsdp:
         pytest.skip('FSDP is not supported on CPU.')
@@ -1160,8 +1155,6 @@ def test_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
 @pytest.mark.parametrize('hf_model,hf_tokenizer', [(configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer),
                                                    (configure_tiny_t5_model, configure_tiny_t5_tokenizer)])
 def test_eval_forward_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
-    if use_fsdp and version.parse(torch.__version__) < version.parse('1.13.0'):
-        pytest.skip('FSDP requires torch >= 1.13.0')
     transformers = pytest.importorskip('transformers')
     if device == 'cpu' and use_fsdp:
         pytest.skip('FSDP is not supported on CPU.')
@@ -1221,20 +1214,17 @@ def test_peft_init(peft_type: str, task_type: str, tiny_gpt2_model, gpt2_peft_co
     pytest.importorskip('peft')
     from peft import PeftModelForCausalLM
 
-    expectation = pytest.raises(RuntimeError) if not using_torch_2() else nullcontext()
-
     peft_config = copy.deepcopy(gpt2_peft_config)
     peft_config.peft_type = peft_type
     peft_config.task_type = task_type
 
     original_model = copy.deepcopy(tiny_gpt2_model)
 
-    with expectation:
-        hf_model = HuggingFaceModel(tiny_gpt2_model, peft_config=peft_config)
-        assert isinstance(hf_model.model, PeftModelForCausalLM)
-        assert hf_model.model.peft_config['default'].peft_type == 'LORA'
-        assert hf_model.model.peft_config['default'].task_type == 'CAUSAL_LM'
-        assert hf_model.model.config == original_model.config
+    hf_model = HuggingFaceModel(tiny_gpt2_model, peft_config=peft_config)
+    assert isinstance(hf_model.model, PeftModelForCausalLM)
+    assert hf_model.model.peft_config['default'].peft_type == 'LORA'
+    assert hf_model.model.peft_config['default'].task_type == 'CAUSAL_LM'
+    assert hf_model.model.config == original_model.config
 
 
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
@@ -1361,7 +1351,6 @@ def test_peft_write_hf_from_composer(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_
 @pytest.mark.gpu
 @world_size(2)
 @pytest.mark.parametrize('should_save_peft_only', [True, False])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
 def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, world_size,
                           should_save_peft_only):
     pytest.importorskip('peft')
