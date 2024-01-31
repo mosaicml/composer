@@ -26,13 +26,8 @@ def _reraise_oci_errors(uri: str, e: Exception):
                                             conda_channel='conda-forge') from e
 
     # If it's an oci service error with code: ObjectNotFound or status 404
-    if isinstance(e, oci.exceptions.ServiceError):
-        if e.status == 404:  # type: ignore
-            if e.code == 'ObjectNotFound':  # type: ignore
-                raise FileNotFoundError(f'Object {uri} not found. {e.message}') from e  # type: ignore
-            if e.code == 'BucketNotFound':  # type: ignore
-                raise ValueError(f'Bucket specified in {uri} not found. {e.message}') from e  # type: ignore
-            raise e
+    if isinstance(e, oci.exceptions.ServiceError) and e.status == 404:  # type: ignore
+        raise FileNotFoundError(f'Object {uri} not found. {e.message}') from e  # type: ignore
 
     # Client errors
     if isinstance(e, oci.exceptions.ClientError):
