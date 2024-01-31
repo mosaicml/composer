@@ -19,7 +19,7 @@ from composer.core.precision import Precision, get_precision_context
 from composer.core.serializable import Serializable
 from composer.core.state import State
 from composer.core.time import Time, Timestamp, TimeUnit, ensure_time
-from composer.core.types import JSON, Batch, Dataset, MemoryFormat, PyTorchScheduler, TrainerMode
+from composer.core.types import JSON, Batch, Dataset, MemoryFormat, TrainerMode
 
 __all__ = [
     'Algorithm',
@@ -42,7 +42,6 @@ __all__ = [
     'ensure_time',
     'ensure_evaluator',
     'Batch',
-    'PyTorchScheduler',
     'JSON',
     'MemoryFormat',
     'TrainerMode',

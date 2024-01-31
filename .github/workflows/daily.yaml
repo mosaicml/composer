@@ -18,66 +18,46 @@ jobs:
     strategy:
       matrix:
         include:
-        - name: "cpu-3.10-1.13"
-          container: mosaicml/pytorch:1.13.1_cpu-python3.10-ubuntu20.04
-          markers: "not daily and (remote or not remote) and not gpu and not vision and not doctest"
-          pytest_command: "coverage run -m pytest"
-          composer_package_name: "mosaicml"
-        - name: "cpu-3.10-2.0"
+        - name: cpu-3.10-2.0
           container: mosaicml/pytorch:2.0.1_cpu-python3.10-ubuntu20.04
-          markers: "not daily and (remote or not remote) and not gpu and not vision and not doctest"
-          pytest_command: "coverage run -m pytest"
-          composer_package_name: "mosaicml"
-        - name: "cpu-3.10-2.1"
-          container: mosaicml/pytorch:2.1.0_cpu-python3.10-ubuntu20.04
-          markers: "not daily and (remote or not remote) and not gpu and not vision and not doctest"
-          pytest_command: "coverage run -m pytest"
-          composer_package_name: "mosaicml"
-        - name: "cpu-3.10-2.1-composer"
-          container: mosaicml/pytorch:2.1.0_cpu-python3.10-ubuntu20.04
-          markers: "not daily and (remote or not remote) and not gpu and not vision and not doctest"
-          pytest_command: "coverage run -m pytest"
-          composer_package_name: "composer"
-        - name: "cpu-vision"
-          container: mosaicml/pytorch_vision:1.13.1_cpu-python3.10-ubuntu20.04
-          markers: "not daily and (remote or not remote) and not gpu and vision and not doctest"
-          pytest_command: "coverage run -m pytest"
-          composer_package_name: "mosaicml"
-        - name: "cpu-doctest"
-          container: mosaicml/pytorch_vision:1.13.1_cpu-python3.10-ubuntu20.04
-          markers: "not daily and (remote or not remote) and not gpu and not vision and doctest"
-          pytest_command: "coverage run -m pytest tests/test_docs.py"
-          composer_package_name: "mosaicml"
-        - name: "daily-cpu-3.10-1.13"
-          container: mosaicml/pytorch:1.13.1_cpu-python3.10-ubuntu20.04
-          markers: "daily and (remote or not remote) and not gpu and not vision and not doctest"
-          pytest_command: "coverage run -m pytest"
-          composer_package_name: "mosaicml"
-        - name: "daily-cpu-3.10-2.0"
+          markers: not daily and (remote or not remote) and not gpu and not vision and not doctest
+          pytest_command: coverage run -m pytest
+          composer_package_name: mosaicml
+        - name: cpu-3.10-2.1
+          container: mosaicml/pytorch:2.1.2_cpu-python3.10-ubuntu20.04
+          markers: not daily and (remote or not remote) and not gpu and not vision and not doctest
+          pytest_command: coverage run -m pytest
+          composer_package_name: mosaicml
+        - name: cpu-3.10-2.1-composer
+          container: mosaicml/pytorch:2.1.2_cpu-python3.10-ubuntu20.04
+          markers: not daily and (remote or not remote) and not gpu and not vision and not doctest
+          pytest_command: coverage run -m pytest
+          composer_package_name: composer
+        - name: cpu-doctest
+          container: mosaicml/pytorch:2.1.2_cpu-python3.10-ubuntu20.04
+          markers: not daily and (remote or not remote) and not gpu and not vision and doctest
+          pytest_command: coverage run -m pytest tests/test_docs.py
+          composer_package_name: mosaicml
+        - name: daily-cpu-3.10-2.0
           container: mosaicml/pytorch:2.0.1_cpu-python3.10-ubuntu20.04
-          markers: "daily and (remote or not remote) and not gpu and not vision and not doctest"
-          pytest_command: "coverage run -m pytest"
-          composer_package_name: "mosaicml"
-        - name: "daily-cpu-3.10-2.1"
-          container: mosaicml/pytorch:2.1.0_cpu-python3.10-ubuntu20.04
-          markers: "daily and (remote or not remote) and not gpu and not vision and not doctest"
-          pytest_command: "coverage run -m pytest"
-          composer_package_name: "mosaicml"
-        - name: "daily-cpu-3.10-2.1-composer"
-          container: mosaicml/pytorch:2.1.0_cpu-python3.10-ubuntu20.04
-          markers: "daily and (remote or not remote) and not gpu and not vision and not doctest"
-          pytest_command: "coverage run -m pytest"
-          composer_package_name: "composer"
-        - name: "daily-cpu-vision"
-          container: mosaicml/pytorch_vision:1.13.1_cpu-python3.10-ubuntu20.04
-          markers: "daily and (remote or not remote) and not gpu and vision and not doctest"
-          pytest_command: "coverage run -m pytest"
-          composer_package_name: "mosaicml"
-        - name: "daily-cpu-doctest"
-          container: mosaicml/pytorch_vision:1.13.1_cpu-python3.10-ubuntu20.04
-          markers: "daily and (remote or not remote) and not gpu and not vision and doctest"
-          pytest_command: "coverage run -m pytest tests/test_docs.py"
-          composer_package_name: "mosaicml"
+          markers: daily and (remote or not remote) and not gpu and not vision and not doctest
+          pytest_command: coverage run -m pytest
+          composer_package_name: mosaicml
+        - name: daily-cpu-3.10-2.1
+          container: mosaicml/pytorch:2.1.2_cpu-python3.10-ubuntu20.04
+          markers: daily and (remote or not remote) and not gpu and not vision and not doctest
+          pytest_command: coverage run -m pytest
+          composer_package_name: mosaicml
+        - name: daily-cpu-3.10-2.1-composer
+          container: mosaicml/pytorch:2.1.2_cpu-python3.10-ubuntu20.04
+          markers: daily and (remote or not remote) and not gpu and not vision and not doctest
+          pytest_command: coverage run -m pytest
+          composer_package_name: composer
+        - name: daily-cpu-doctest
+          container: mosaicml/pytorch:2.1.2_cpu-python3.10-ubuntu20.04
+          markers: daily and (remote or not remote) and not gpu and not vision and doctest
+          pytest_command: coverage run -m pytest tests/test_docs.py
+          composer_package_name: mosaicml
     name: ${{ matrix.name }}
     if: github.repository_owner == 'mosaicml'
     with:
