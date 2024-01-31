@@ -5,7 +5,6 @@ import math
 
 import pytest
 import torch
-from packaging import version
 from torch.utils.data import DataLoader
 
 from composer import Trainer
@@ -89,8 +88,6 @@ class TestEventCalls:
                          id='gpu-fsdp',
                          marks=[
                              pytest.mark.gpu,
-                             pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                                                reason='requires PyTorch 1.13 or higher'),
                              pytest.mark.filterwarnings('ignore::UserWarning'),
                          ]),
         ])

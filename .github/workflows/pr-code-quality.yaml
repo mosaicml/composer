@@ -2,12 +2,13 @@ name: PR Code Quality Checks
 on:
   push:
     branches:
-      - dev
-      - main
-      - release/**
+    - dev
+    - main
+    - release/**
   pull_request:
   workflow_dispatch:
-# Cancel old runs when a new commit is pushed to the same branch if not on main or dev
+# Cancel old runs when a new commit is pushed to the same branch if not on main
+# or dev
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/dev' }}
@@ -17,11 +18,11 @@ jobs:
     strategy:
       matrix:
         python_version:
-          - '3.8'
-          - '3.9'
-          - '3.10'
+        - "3.9"
+        - "3.10"
+        - "3.11"
         pip_deps:
-          - '[dev]'
+        - "[dev]"
     with:
       python_version: ${{ matrix.python_version }}
       pip_deps: ${{ matrix.pip_deps }}

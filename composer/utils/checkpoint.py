@@ -24,7 +24,7 @@ from packaging import version
 from composer.utils import dist, reproducibility
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist,
                                          format_name_with_dist_and_time, get_file, is_tar)
-from composer.utils.misc import is_model_deepspeed, using_torch_2
+from composer.utils.misc import is_model_deepspeed
 from composer.utils.object_store import ObjectStore
 
 if TYPE_CHECKING:
@@ -368,10 +368,6 @@ def load_sharded_checkpoint(
     exclude_algorithms: Optional[list[str]] = None,
     algorithm_passes: Optional[list[AlgorithmPass]] = None,
 ) -> Union[list[dict], None]:
-    if not using_torch_2():
-        raise ValueError(
-            f'Sharded checkpoint loading requires torch version >= 2.0.0. You have torch version {torch.__version__}')
-
     using_multinode = dist.get_world_size() != dist.get_local_world_size()
     if not version.parse(torch.__version__) >= version.parse('2.0.1') and using_multinode:
         raise ValueError(
@@ -923,11 +919,9 @@ def get_save_filename(
     assert state.sharded_ckpt_prefix_dir is not None
     save_dirpath = Path(Path(filename).parent) / Path(state.sharded_ckpt_prefix_dir)
     save_dirpath = format_name_with_dist_and_time(str(save_dirpath), state.run_name, state.timestamp)
-    # New name is now Trainer.save_folder / sharded_ckpt_prefix_dir / __{dist.get_global_rank()}_0.distcp’ if torch > 2
-    # else Trainer.save_folder / sharded_ckpt_prefix_dir / ba{batch}_rank{dist.get_global_rank()}.pt’
-    # e.g. path/to/my/checkpoints/ep1-ba2/__1_0.distcp if torch >2 else its path/to/my/checkpoints/ep1-ba2/b2-rank1.pt
-    ckpt_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME if using_torch_2() else format_name_with_dist_and_time(
-        Path(filename).name, state.run_name, state.timestamp)
+    # New name is now Trainer.save_folder / sharded_ckpt_prefix_dir / __{dist.get_global_rank()}_0.distcp’
+    # e.g. path/to/my/checkpoints/ep1-ba2/__1_0.distcp
+    ckpt_filename = _TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
     return str(Path(save_dirpath) / Path(ckpt_filename))
 
 
@@ -971,7 +965,7 @@ def _save_checkpoint(
         # requires a top level state dict key for the optimizer.
         # See https://github.com/pytorch/pytorch/blob/v2.0.1/torch/distributed/checkpoint/optimizer.py#L271
         # for more info.
-        if using_torch_2() and version.parse(torch.__version__) < version.parse('2.2.9'):
+        if version.parse(torch.__version__) < version.parse('2.2.9'):
             if not weights_only:
                 state_dict['optimizers'] = state_dict['state'].pop('optimizers')
     log.debug('State dict created.')
