@@ -216,11 +216,11 @@ well as Composer's custom schedulers.
 
     from composer import Trainer
     from composer.models.tasks import ComposerClassifier
-    from torchvision.models import resnet
+    import torchvision.models as models
     from torch.optim import SGD
     from torch.optim.lr_scheduler import LinearLR
 
-    model = ComposerClassifier(module=resnet('resnet50'), num_classes=1000)
+    model = ComposerClassifier(module=models.resnet18(), num_classes=1000)
     optimizer = SGD(model.parameters(), lr=0.1)
     scheduler = LinearLR(optimizer)
 
