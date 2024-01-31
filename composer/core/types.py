@@ -6,8 +6,6 @@
 Attributes:
     Batch (Any): Alias to type Any.
         A batch of data can be represented in several formats, depending on the application.
-    PyTorchScheduler (torch.optim.lr_scheduler._LRScheduler): Alias for base class of learning rate schedulers such
-        as :class:`torch.optim.lr_scheduler.ConstantLR`.
     JSON (str | float | int | None | List['JSON'] | Dict[str, 'JSON']): JSON Data.
     Dataset (torch.utils.data.Dataset[Batch]): Alias for :class:`torch.utils.data.Dataset`.
 """
