@@ -397,11 +397,14 @@ def test_fsdp_mixed_with_sync(
         marks=pytest.mark.filterwarnings((r'ignore:MosaicMLLogger is not in the state_dict. Its '
                                           r'state will not be restored.:UserWarning')),
     ),
-    '0.18.1',
+    pytest.param(
+        '0.19.0',
+        marks=pytest.mark.filterwarnings((r'ignore:MosaicMLLogger is not in the state_dict. Its '
+                                          r'state will not be restored.:UserWarning')),
+    )
 ])
 @pytest.mark.filterwarnings(r'ignore:.*metrics are not saved with sharded state dict.*:UserWarning')
 @pytest.mark.filterwarnings(r'ignore:.*The CUDA RNG state could not be loaded.*:UserWarning')
-@pytest.mark.parametrize('composer_version', ['0.18.1', '0.19.0'])
 def test_fsdp_load_old_checkpoint(
     world_size,
     tmp_path: pathlib.Path,
