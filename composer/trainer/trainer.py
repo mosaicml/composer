@@ -32,13 +32,14 @@ from torch._dynamo import OptimizedModule
 from torch.cuda.amp.grad_scaler import GradScaler, _refresh_per_optimizer_state
 from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
 from torch.nn.parallel import DistributedDataParallel
+from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
 from composer.callbacks import CheckpointSaver, OptimizerMonitor
 from composer.core import (Algorithm, AlgorithmPass, Batch, Callback, DataSpec, Engine, Evaluator, Event, Precision,
-                           PyTorchScheduler, State, Time, Timestamp, TimeUnit, TrainerMode, ensure_data_spec,
-                           ensure_evaluator, ensure_time, get_precision_context, validate_eval_automicrobatching)
+                           State, Time, Timestamp, TimeUnit, TrainerMode, ensure_data_spec, ensure_evaluator,
+                           ensure_time, get_precision_context, validate_eval_automicrobatching)
 from composer.devices import Device, DeviceCPU, DeviceGPU, DeviceMPS, DeviceTPU
 from composer.loggers import (ConsoleLogger, Logger, LoggerDestination, MLFlowLogger, MosaicMLLogger, ProgressBarLogger,
                               RemoteUploaderDownloader, WandBLogger)
@@ -68,7 +69,7 @@ log = logging.getLogger(__name__)
 __all__ = ['Trainer']
 
 # syntax to shorten the Scheduler type annotations
-Scheduler = Union[ComposerScheduler, PyTorchScheduler]
+Scheduler = Union[ComposerScheduler, LRScheduler]
 
 
 def _raise_missing_argument_exception(arg_name: str):
@@ -92,7 +93,7 @@ def _scale_max_duration_by_ssr(
 
 
 def _get_default_scheduler_frequency(schedulers: Optional[Union[Scheduler, Sequence[Scheduler]]]):
-    has_pytorch_scheduler = any(isinstance(scheduler, PyTorchScheduler) for scheduler in ensure_tuple(schedulers))
+    has_pytorch_scheduler = any(isinstance(scheduler, LRScheduler) for scheduler in ensure_tuple(schedulers))
     if has_pytorch_scheduler:
         log.info(('Stepping schedulers every epoch, as a PyTorch scheduler was provided. '
                   'The trainer cannot automatically convert the parameters (e.g. step_size, T_max) of the '
@@ -126,10 +127,10 @@ def _compile_schedulers(
     schedulers: Optional[Union[Scheduler, Sequence[Scheduler]]],
     state: State,
     scale_schedule_ratio: float,
-) -> List[PyTorchScheduler]:
+) -> List[LRScheduler]:
     compiled_schedulers = []
     for scheduler in ensure_tuple(schedulers):
-        if isinstance(scheduler, PyTorchScheduler):
+        if isinstance(scheduler, LRScheduler):
             scale_pytorch_scheduler(scheduler, scale_schedule_ratio)
             compiled_schedulers.append(scheduler)
         # It's a composer scheduler
@@ -457,7 +458,7 @@ class Trainer:
             If ``None``, will be set to ``DecoupledSGDW(model.parameters(), lr=0.1)``. (default: ``None``)
 
             .. seealso:: :mod:`composer.optim` for the different optimizers built into Composer.
-        schedulers (PyTorchScheduler | ComposerScheduler | Sequence[PyTorchScheduler | ComposerScheduler], optional):
+        schedulers (LRScheduler | ComposerScheduler | Sequence[LRScheduler | ComposerScheduler], optional):
             The learning rate schedulers. If ``[]`` or ``None``, the learning rate will be constant.
             (default: ``None``).
 
@@ -851,8 +852,8 @@ class Trainer:
 
         # Optimizers and Scheduling
         optimizers: Optional[torch.optim.Optimizer] = None,
-        schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
-                                                                                       PyTorchScheduler]]]] = None,
+        schedulers: Optional[Union[ComposerScheduler, LRScheduler, Sequence[Union[ComposerScheduler,
+                                                                                  LRScheduler]]]] = None,
         scale_schedule_ratio: float = 1.0,
         step_schedulers_every_batch: Optional[bool] = None,
 
@@ -1672,8 +1673,8 @@ class Trainer:
         reset_time: bool = False,
 
         # Schedulers
-        schedulers: Optional[Union[ComposerScheduler, PyTorchScheduler, Sequence[Union[ComposerScheduler,
-                                                                                       PyTorchScheduler]]]] = None,
+        schedulers: Optional[Union[ComposerScheduler, LRScheduler, Sequence[Union[ComposerScheduler,
+                                                                                  LRScheduler]]]] = None,
         scale_schedule_ratio: float = 1.0,
         step_schedulers_every_batch: Optional[bool] = None,
 
@@ -1786,7 +1787,7 @@ class Trainer:
                 If ``reset_time`` is True, then :attr:`.State.max_duration` will be set to this parameter.
 
             optimizers (torch.optim.Optimizer | Sequence[torch.optim.Optimizer], optional): See :class:`.Trainer`.
-            schedulers (PyTorchScheduler | ComposerScheduler | Sequence[PyTorchScheduler | ComposerScheduler], optional): See :class:`.Trainer`.
+            schedulers (LRScheduler | ComposerScheduler | Sequence[LRScheduler | ComposerScheduler], optional): See :class:`.Trainer`.
             scale_schedule_ratio (float, optional): See :class:`.Trainer`.
             step_schedulers_every_batch (bool, optional): See :class:`.Trainer`.
             eval_dataloader (Iterable | DataSpec | Evaluator | Sequence[Evaluator], optional): See :class:`.Trainer`.

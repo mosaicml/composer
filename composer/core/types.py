@@ -21,13 +21,11 @@ import torch.utils.data
 
 from composer.utils import StringEnum
 
-__all__ = ['Batch', 'PyTorchScheduler', 'JSON', 'MemoryFormat', 'TrainerMode']
+__all__ = ['Batch', 'JSON', 'MemoryFormat', 'TrainerMode']
 
 Batch = Any
 
 Dataset = torch.utils.data.Dataset[Batch]
-
-PyTorchScheduler = torch.optim.lr_scheduler.LRScheduler
 
 JSON = Union[str, float, int, None, List['JSON'], Dict[str, 'JSON']]
 
