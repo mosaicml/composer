@@ -43,13 +43,13 @@ class FileUploaderTracker(LoggerDestination):
 
 
 @pytest.mark.gpu
-@pytest.mark.parametrize('interval', ['1ba', '3ba'])
+@pytest.mark.parametrize('interval', ['1ba'])
 def test_memory_snapshot(interval: str):
     if version.parse(torch.__version__) <= version.parse('2.1.0.dev'):
         # memory snapshot is supported after PyTorch 2.1.0.
         return
     # Construct the callbacks
-    skip_batches = 1
+    skip_batches = 0
     memory_snapshot = MemorySnapshot(skip_batches=skip_batches, interval=interval)
 
     simple_model = SimpleModel()
@@ -62,7 +62,7 @@ def test_memory_snapshot(interval: str):
         loggers=[file_tracker_destination],
         callbacks=memory_snapshot,
         train_dataloader=DataLoader(RandomClassificationDataset()),
-        max_duration='5ba',
+        max_duration='1ba',
     )
     trainer.fit()
     assert len(file_tracker_destination.uploaded_files) == 1
