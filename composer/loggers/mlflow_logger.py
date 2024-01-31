@@ -285,19 +285,26 @@ class MLFlowLogger(LoggerDestination):
                 # TODO: Remove after mlflow fixes the bug that makes this necessary
                 mlflow.store._unity_catalog.registry.rest_store.get_feature_dependencies = lambda *args, **kwargs: ''  # type: ignore
 
-                # This is a temporary workaround until MLflow supports saving PEFT models.
+                # This is a temporary workaround until MLflow adds full support for saving PEFT models.
+                # https://github.com/mlflow/mlflow/issues/9256
                 log.warning(
                     'Saving PEFT models using MLflow is experimental and the API is subject to change without warning.')
                 expected_keys = {'path', 'save_pretrained_dir'}
                 if not set(kwargs.keys()) == expected_keys:
                     raise ValueError(f'Expected kwargs to be {expected_keys}, but got {kwargs.keys()}')
 
+                # This is faked for now, until MLflow adds full support for saving PEFT models.
                 class DummyPyfuncModel(mlflow.pyfunc.PythonModel):
-                    pass
+
+                    def load_context(self, context):
+                        raise NotImplementedError(
+                            'This model type should not be instantiated directly. The PEFT model is saved as a directory of files.'
+                        )
 
                 from mlflow.models.signature import ModelSignature
                 from mlflow.types import ColSpec, DataType, Schema
 
+                # This is faked for now, until MLflow adds full support for saving PEFT models.
                 input_schema = Schema([
                     ColSpec(DataType.string, 'prompt'),
                     ColSpec(DataType.double, 'temperature'),
