@@ -302,12 +302,14 @@ class MLFlowLogger(LoggerDestination):
                         )
 
                 from mlflow.models.signature import ModelSignature
-                # from mlflow.types import ColSpec, DataType, Schema
+                from mlflow.types import ColSpec, DataType, Schema
 
                 # This is faked for now, until MLflow adds full support for saving PEFT models.
-                # input_schema = Schema([])
-                # output_schema = Schema([])
-                signature = ModelSignature()
+                input_schema = Schema([
+                    ColSpec(DataType.string, 'fake_input'),
+                ])
+                output_schema = Schema([ColSpec(DataType.string)])
+                signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
                 mlflow.pyfunc.save_model(
                     path=kwargs['path'],
