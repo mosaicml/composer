@@ -27,7 +27,7 @@ def _reraise_oci_errors(uri: str, e: Exception):
 
     # If it's an oci service error with code: ObjectNotFound or status 404
     if isinstance(e, oci.exceptions.ServiceError) and e.status == 404:  # type: ignore
-        raise FileNotFoundError(f'Object {uri} not found. {e.message}') from e  # type: ignore
+        raise FileNotFoundError(f'Object or bucket for object {uri} not found. {e.message}') from e  # type: ignore
 
     # Client errors
     if isinstance(e, oci.exceptions.ClientError):
