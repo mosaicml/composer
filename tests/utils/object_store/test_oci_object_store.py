@@ -54,7 +54,7 @@ def test_upload_object(test_oci_obj_store, monkeypatch, tmp_path, mock_bucket_na
                                                      bucket_name=mock_bucket_name,
                                                      object_name=mock_object_name,
                                                      file_path=file_to_upload)
-    elif result == "bucket_not_found":
+    elif result == 'bucket_not_found':
         bucket_not_found_msg = f'Either the bucket named f{mock_bucket_name} does not exist in the namespace*'
         mock_upload_file_with_exception = Mock(side_effect=oci.exceptions.ServiceError(
             status=404, code='BucketNotFound', headers={'opc-request-id': 'foo'}, message=bucket_not_found_msg))
