@@ -48,7 +48,6 @@ from composer.core import Time as Time
 from composer.core import Timestamp as Timestamp
 from composer.core import TimeUnit as TimeUnit
 from composer.core import types as types
-from composer.datasets.synthetic import SyntheticBatchPairDataset
 from composer.devices import DeviceCPU
 from composer.loggers import InMemoryLogger as InMemoryLogger
 from composer.loggers import Logger as Logger
@@ -102,7 +101,6 @@ os.chdir(tmpdir)
 
 num_channels = 3
 num_classes = 10
-data_shape = (num_channels, 5, 5)
 
 Model = SimpleModel
 
@@ -112,11 +110,9 @@ optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 
 scheduler = CosineAnnealingLR(optimizer, T_max=1)
 
-dataset = SyntheticBatchPairDataset(
+dataset = RandomTextClassificationDataset(
     total_dataset_size=100,
-    data_shape=data_shape,
     num_classes=num_classes,
-    num_unique_samples_to_create=10,
 )
 
 train_dataset = dataset
