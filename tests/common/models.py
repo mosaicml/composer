@@ -469,10 +469,6 @@ def composer_resnet(
             :mod:`~composer.loss.loss`. Default: ``'soft_cross_entropy'``".
     Returns:
         ComposerModel: instance of :class:`.ComposerClassifier` with a torchvision ResNet model.
-    Example:
-    .. testcode::
-        from composer.models import composer_resnet
-        model = composer_resnet(model_name='resnet18')  # creates a torchvision resnet18 for image classification
     """
     valid_model_names = ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']
     if model_name not in valid_model_names:
