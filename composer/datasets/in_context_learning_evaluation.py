@@ -1474,6 +1474,18 @@ class MTBench(InContextLearningDataset):
     """
     """
 
+    TEMPERATURE_CONFIG = {
+        'writing': 0.7,
+        'roleplay': 0.7,
+        'extraction': 0.0,
+        'math': 0.0,
+        'coding': 0.0,
+        'reasoning': 0.0,
+        'stem': 0.1,
+        'humanities': 0.1,
+        'arena-hard-200': 0.0,
+    }
+
     def __init__(
         self,
         *args,
@@ -1600,6 +1612,26 @@ class MTBench(InContextLearningDataset):
         tokenized_example['tokenized_prompt_two'] = tokenized_prompt_two
 
         return tokenized_example
+
+    def collate_fn(self, data: List[Dict[str, Any]]) -> Dict[str, Any]:
+        batch = super().collate_fn(data)
+        category = batch['category'][0]
+        if category in self.TEMPERATURE_CONFIG:
+            temperature = self.TEMPERATURE_CONFIG[category]
+        else:
+            temperature = 0.7
+
+        if temperature < 1e-4:
+            do_sample = False
+        else:
+            do_sample = True
+
+        if 'generation_kwargs' not in batch:
+            batch['generation_kwargs'] = {}
+
+        batch['generation_kwargs']['temperture'] = temperature
+        batch['generation_kwargs']['do_sample'] = do_sample
+        return batch
 
 
 def build_icl_dataloader(
@@ -1746,6 +1778,9 @@ def build_icl_dataloader(
         )
         effective_batchsize = batch_size
     elif icl_task_type == 'mtbench':
+        assert batch_size == 1, 'Batch size for mtbench must be one, got {batch_size} instead. Different categories in this \
+            benchmark canonically have different generation arguments and therefor cannot be batched together.'
+
         dataset = MTBench(
             dataset_uri=dataset_uri,
             tokenizer=tokenizer,
