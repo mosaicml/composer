@@ -8,8 +8,9 @@ import torch
 from packaging import version
 from torch.utils.data import DataLoader
 
-from composer import Trainer
+from composer import State, Trainer
 from composer.callbacks import MemorySnapshot
+from composer.loggers import LoggerDestination
 from composer.trainer import Trainer
 from tests.common import RandomClassificationDataset, SimpleModel, device
 
@@ -31,6 +32,16 @@ def test_memory_snapshot_warnings_on_cpu_models(device: str):
         )
 
 
+class FileUploaderTracker(LoggerDestination):
+
+    def __init__(self) -> None:
+        self.uploaded_files = []
+
+    def upload_file(self, state: State, remote_file_name: str, file_path: pathlib.Path, *, overwrite: bool):
+        del state, overwrite  # unused
+        self.uploaded_files.append((remote_file_name, file_path))
+
+
 @pytest.mark.gpu
 @pytest.mark.parametrize('interval', ['1ba'])
 def test_memory_snapshot(interval: str):
@@ -43,12 +54,16 @@ def test_memory_snapshot(interval: str):
 
     simple_model = SimpleModel()
 
+    file_tracker_destination = FileUploaderTracker()
+
     # Construct the trainer and train
     trainer = Trainer(
         model=simple_model,
+        loggers=file_tracker_destination,
         callbacks=memory_snapshot,
         train_dataloader=DataLoader(RandomClassificationDataset()),
-        max_duration='1ba',
+        max_duration='2ba',
     )
     trainer.fit()
+    assert len(file_tracker_destination.uploaded_files) == 1
     trainer.close()

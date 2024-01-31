@@ -74,8 +74,9 @@ class MemorySnapshot(Callback):
         interval: Union[int, str, Time] = '3ba',
         max_entries: int = 100000,
         folder: str = '{run_name}/torch_traces',
-        filename: str = 'rank{rank}.{batch}.pickle',
-        remote_file_name: Optional[str] = '{run_name}/torch_traces/rank{rank}.{batch}.pickle',
+        filename: str = 'rank{rank}.{batch}.pt.trace.memory_snapshot.html',
+        remote_file_name: Optional[
+            str] = '{run_name}/torch_memory_traces/rank{rank}.{batch}.pt.trace.memory_snapshot.html',
         overwrite: bool = False,
     ) -> None:
         self.batches_left_to_skip = skip_batches
@@ -139,12 +140,14 @@ class MemorySnapshot(Callback):
     def start_record_memory_history(self) -> None:
 
         log.info('Starting snapshot record_memory_history')
-        torch.cuda.memory._record_memory_history(max_entries=self.max_entries)
+        torch.cuda.memory._record_memory_history(enabled=True,
+                                                 trace_alloc_max_entries=self.max_entries,
+                                                 trace_alloc_record_context=True)
 
     def stop_record_memory_history(self) -> None:
 
         log.info('Stopping snapshot record_memory_history')
-        torch.cuda.memory._record_memory_history()
+        torch.cuda.memory._record_memory_history(False)
 
     def export_memory_snapshot(self, state: State, logger: Logger) -> None:
         assert self.filename
@@ -154,7 +157,13 @@ class MemorySnapshot(Callback):
             format_name_with_dist_and_time(self.filename, run_name=state.run_name, timestamp=state.timestamp))
         try:
             log.info(f'Saving memory snapshot to local file: {filename}')
-            torch.cuda.memory._dump_snapshot(filename)
+            snapshot = torch.cuda.memory._snapshot()
+            # No data was recorded - avoids a `ValueError` in `trace_plot`
+            if all(len(t) == 0 for t in snapshot['device_traces']):
+                log.info(f'No allocation is recorded in memory snapshot)')
+                return
+            with open(filename, 'w+') as fd:
+                fd.write(torch.cuda._memory_viz.trace_plot(snapshot, device=None, plot_segments=False))
         except Exception as e:
             log.error(f'Failed to capture memory snapshot {e}')
             return
