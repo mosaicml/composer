@@ -2050,7 +2050,6 @@ def test_qa_task_evaluation_opt_tokenizer(device, world_size, tiny_opt_tokenizer
 
 @pytest.mark.parametrize('num_fewshot', [5])
 @pytest.mark.parametrize('dataset_uri', ['gsm8k_small.jsonl'])
-@pytest.mark.parametrize('num_fewshot', [5])
 @device('gpu')
 @world_size(1, 2)
 @pytest.mark.filterwarnings(r'ignore:.*The dataloader_len \(2\) is greater than the length.*:UserWarning')
