@@ -54,7 +54,7 @@ def test_upload_object(test_oci_obj_store, monkeypatch, tmp_path, mock_bucket_na
                                                      bucket_name=mock_bucket_name,
                                                      object_name=mock_object_name,
                                                      file_path=file_to_upload)
-    else:  # result = bucket_not_found
+    elif result == "bucket_not_found":
         bucket_not_found_msg = f'Either the bucket named f{mock_bucket_name} does not exist in the namespace*'
         mock_upload_file_with_exception = Mock(side_effect=oci.exceptions.ServiceError(
             status=404, code='BucketNotFound', headers={'opc-request-id': 'foo'}, message=bucket_not_found_msg))
@@ -135,7 +135,7 @@ def test_download_object(test_oci_obj_store, monkeypatch, tmp_path, mock_bucket_
             with pytest.raises(
                     FileNotFoundError,
                     match=
-                    f'Object oci://{mock_bucket_name}/{mock_object_name} not found with no error code. {obj_not_found_msg}'
+                    f'Object oci://{mock_bucket_name}/{mock_object_name} not found with no error code. {bucket_not_found_msg}'
             ):
                 oci_os.download_object(mock_object_name, filename=file_to_download_to)
 
@@ -184,7 +184,7 @@ def test_list_objects(test_oci_obj_store, mock_bucket_name, monkeypatch, result:
                 oci_os.list_objects(prefix=prefix)
 
 
-@pytest.mark.parametrize('result', ['success', 'obj_not_found', 'bucket_not_found'])
+@pytest.mark.parametrize('result', ['success', 'obj_not_found', 'bucket_not_found', 'no_code'])
 def test_get_object_size(test_oci_obj_store, mock_bucket_name, monkeypatch, result: str):
     oci = pytest.importorskip('oci')
     oci_os = test_oci_obj_store
@@ -199,7 +199,6 @@ def test_get_object_size(test_oci_obj_store, mock_bucket_name, monkeypatch, resu
         with monkeypatch.context() as m:
             m.setattr(oci_os.client, 'get_object', mock_get_object_fn)
             assert oci_os.get_object_size(mock_object_name) == mock_object_size
-
     elif result == 'obj_not_found':
         obj_not_found_msg = f"The object '{mock_object_name}' was not found in the bucket f'{mock_bucket_name}'"
         mock_get_object_fn_with_exception = Mock(side_effect=oci.exceptions.ServiceError(
@@ -210,11 +209,22 @@ def test_get_object_size(test_oci_obj_store, mock_bucket_name, monkeypatch, resu
                     FileNotFoundError,
                     match=f'Object oci://{mock_bucket_name}/{mock_object_name} not found. {obj_not_found_msg}'):
                 oci_os.get_object_size(mock_object_name)
-
-    else:  #result == 'bucket_not_found':
+    elif result == 'bucket_not_found':
         bucket_not_found_msg = f'Either the bucket named f{mock_bucket_name} does not exist in the namespace*'
         mock_get_object_fn_with_exception = Mock(side_effect=oci.exceptions.ServiceError(
             status=404, code='BucketNotFound', headers={'opc-request-id': 'foo'}, message=bucket_not_found_msg))
+        with monkeypatch.context() as m:
+            m.setattr(oci_os.client, 'get_object', mock_get_object_fn_with_exception)
+            with pytest.raises(
+                    ValueError,
+                    match=
+                    f'Bucket specified in oci://{mock_bucket_name}/{mock_object_name} not found. {bucket_not_found_msg}'
+            ):
+                oci_os.get_object_size(mock_object_name)
+    elif result == 'bucket_not_found':
+        bucket_not_found_msg = f'Either the bucket named f{mock_bucket_name} does not exist in the namespace*'
+        mock_get_object_fn_with_exception = Mock(side_effect=oci.exceptions.ServiceError(
+            status=404, code=None, headers={'opc-request-id': 'foo'}, message=bucket_not_found_msg))
         with monkeypatch.context() as m:
             m.setattr(oci_os.client, 'get_object', mock_get_object_fn_with_exception)
             with pytest.raises(
