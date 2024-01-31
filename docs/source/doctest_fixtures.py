@@ -86,7 +86,7 @@ if sys.path[0] != _repo_root:
     sys.path.insert(0, _repo_root)
 
 from tests.common import SimpleModel
-from tests.common.datasets import RandomTextClassificationDataset
+from tests.common.datasets import RandomClassificationDataset
 
 # Disable mosaicml logger
 os.environ['MOSAICML_PLATFORM'] = 'False'
@@ -110,7 +110,7 @@ optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 
 scheduler = CosineAnnealingLR(optimizer, T_max=1)
 
-dataset = RandomTextClassificationDataset(
+dataset = RandomClassificationDataset(
     size=100,
     num_classes=num_classes,
 )
