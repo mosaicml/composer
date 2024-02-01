@@ -361,6 +361,46 @@ def test_mlflow_save_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
     check_hf_model_equivalence(loaded_model['model'], tiny_gpt2_model)
     check_hf_tokenizer_equivalence(loaded_model['tokenizer'], tiny_gpt2_tokenizer)
 
+@pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
+@pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
+def test_mlflow_save_peft_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
+    mlflow = pytest.importorskip('mlflow')
+    peft = pytest.importorskip('peft')
+
+    # Reload just so the model has the update base model name
+    tiny_gpt2_model.save_pretrained(tmp_path / Path('tiny_gpt2_save_pt'))
+    tiny_gpt2_model = tiny_gpt2_model.from_pretrained(tmp_path / Path('tiny_gpt2_save_pt'))
+
+    peft_config = {'peft_type': 'LORA'}
+    peft_model = peft.get_peft_model(tiny_gpt2_model, peft.get_peft_config(peft_config))
+
+    mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
+    mlflow_exp_name = 'test-log-model-exp-name'
+    test_mlflow_logger = MLFlowLogger(
+        tracking_uri=mlflow_uri,
+        experiment_name=mlflow_exp_name,
+    )
+
+    mock_state = MagicMock()
+    mock_state.run_name = 'dummy-run-name'  # this run name should be unused.
+    mock_logger = MagicMock()
+
+    peft_model.save_pretrained(tmp_path / Path('peft_model_save_pt'))
+
+    local_mlflow_save_path = str(tmp_path / Path('my_model_local'))
+    test_mlflow_logger.init(state=mock_state, logger=mock_logger)
+    test_mlflow_logger.save_model(
+        flavor='peft',
+        path=local_mlflow_save_path,
+        save_pretrained_dir=str(tmp_path / Path('peft_model_save_pt')),
+    )
+    test_mlflow_logger.post_close()
+
+    loaded_model = mlflow.pyfunc.load_model(local_mlflow_save_path, return_type='components')
+
+    check_hf_model_equivalence(loaded_model['model'], tiny_gpt2_model)
+    check_hf_tokenizer_equivalence(loaded_model['tokenizer'], tiny_gpt2_tokenizer)
+
 
 @pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
 @pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")

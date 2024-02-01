@@ -282,6 +282,7 @@ class MLFlowLogger(LoggerDestination):
             if flavor == 'transformers':
                 mlflow.transformers.save_model(**kwargs,)
             elif flavor == 'peft':
+                import transformers
                 # TODO: Remove after mlflow fixes the bug that makes this necessary
                 mlflow.store._unity_catalog.registry.rest_store.get_feature_dependencies = lambda *args, **kwargs: ''  # type: ignore
 
@@ -294,12 +295,10 @@ class MLFlowLogger(LoggerDestination):
                     raise ValueError(f'Expected kwargs to be {expected_keys}, but got {kwargs.keys()}')
 
                 # This is faked for now, until MLflow adds full support for saving PEFT models.
-                class DummyPyfuncModel(mlflow.pyfunc.PythonModel):
-
+                class PeftModel(mlflow.pyfunc.PythonModel):
                     def load_context(self, context):
-                        raise NotImplementedError(
-                            'This model type should not be instantiated directly. The PEFT model is saved as a directory of files.'
-                        )
+                        self.model = transformers.AutoModelForCausalLM.from_pretrained(context.artifacts['lora_checkpoint'])
+                        self.tokenizer = transformers.AutoTokenizer.from_pretrained(context.artifacts['lora_checkpoint'])
 
                 from mlflow.models.signature import ModelSignature
                 from mlflow.types import ColSpec, DataType, Schema
@@ -316,7 +315,7 @@ class MLFlowLogger(LoggerDestination):
                 mlflow.pyfunc.save_model(
                     path=kwargs['path'],
                     artifacts={'lora_checkpoint': 'lora_checkpoint'},
-                    python_model=DummyPyfuncModel(),
+                    python_model=PeftModel(),
                     signature=signature,
                 )
 
