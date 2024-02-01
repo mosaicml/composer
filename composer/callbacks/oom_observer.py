@@ -26,19 +26,19 @@ class OOMObserver(Callback):
     """Generate visualizations of the state of allocated memory during an OutOfMemory exception. This callback registers an observer with the allocator that will be called everytime it is about to raise an OutOfMemoryError before any memory has been release while unwinding the exception. OOMObserver is attached to the Trainer at init stage. The visualizations include a snapshot of the memory state, a trace plot, a segment plot, a segment flamegraph, and a memory flamegraph.
 
     Example:
-    .. doctest::
+        .. doctest::
 
-        >>> from composer import Trainer
-        >>> from composer.callbacks import OOMObserver
-        >>> # constructing trainer object with this callback
-        >>> trainer = Trainer(
-        ...     model=model,
-        ...     train_dataloader=train_dataloader,
-        ...     eval_dataloader=eval_dataloader,
-        ...     optimizers=optimizer,
-        ...     max_duration="1ep",
-        ...     callbacks=[OOMObserver()],
-        ... )
+            >>> from composer import Trainer
+            >>> from composer.callbacks import OOMObserver
+            >>> # constructing trainer object with this callback
+            >>> trainer = Trainer(
+            ...     model=model,
+            ...     train_dataloader=train_dataloader,
+            ...     eval_dataloader=eval_dataloader,
+            ...     optimizers=optimizer,
+            ...     max_duration="1ep",
+            ...     callbacks=[OOMObserver()],
+            ... )
 
     .. note::
         OOMObserver is only supported for GPU devices.

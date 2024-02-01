@@ -15,7 +15,7 @@ from tests.common import RandomClassificationDataset, SimpleModel, device
 @device('cpu', 'gpu')
 def test_oom_observer_warnings_on_cpu_models(device: str):
     if version.parse(torch.__version__) <= version.parse('2.1.0.dev'):
-        pytest.skip("oom_observer is supported after PyTorch 2.1.0.")
+        pytest.skip('oom_observer is supported after PyTorch 2.1.0.')
 
     # Error if the user sets device=cpu even when cuda is available
     del device  # unused. always using cpu
