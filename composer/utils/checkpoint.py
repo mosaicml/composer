@@ -27,6 +27,12 @@ from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, f
 from composer.utils.misc import is_model_deepspeed
 from composer.utils.object_store import ObjectStore
 
+from torch.distributed import checkpoint as dist_cp
+from torch.distributed.checkpoint.metadata import Metadata
+from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
+from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
+
+
 if TYPE_CHECKING:
     from composer.core import AlgorithmPass, State
     from composer.loggers import Logger, LoggerDestination
@@ -130,6 +136,79 @@ def _get_write_mode(name: str) -> str:
         return 'w:xz'
     raise ValueError(f'{name} does not end with a valid tarfile extension.')
 
+class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
+    """FileSystemReader that validates checkpoint files prior to reading."""
+
+    def __init__(self, path: str):
+        if _get_checkpoint_validation_function() is None:
+            log.info('No checkpoint validation function found when loading sharded checkpoints.')
+        super().__init__(path)
+
+    def read_data(self, plan: LoadPlan, planner: LoadPlanner):
+        """Reads data file.
+
+        Raises:
+            ValueError if the data file is invalid.
+        """
+        validated_checkpoint_paths = set()
+        for read_item in plan.items:
+            data_path = self.path / self.storage_data[read_item.storage_index].relative_path
+            if data_path in validated_checkpoint_paths:
+                continue
+            _ensure_valid_checkpoint(data_path)
+            validated_checkpoint_paths.add(data_path)
+        return super().read_data(plan, planner)
+
+    def read_metadata(self) -> Metadata:
+        """Reads metadata file.
+
+        Raises:
+            ValueError if the metadata file is invalid.
+        """
+        metadata_file_path = self.path / '.metadata'
+        _ensure_valid_checkpoint(metadata_file_path)
+        return super().read_metadata()
+
+# A subclass of FileSystemReaderWithValidation that downloads files from the object store before reading them from the local filesystem.
+class DistCPObjectStoreReader(FileSystemReaderWithValidation):
+
+    def __init__(self, source_path: str, destination_path: str, object_store):
+        self.source_path = source_path
+        self.destination_path = destination_path
+        self.object_store = object_store
+
+        # Download metadata file.
+        Path(self.destination_path).mkdir(parents=True, exist_ok=True)
+        metadata_destination = os.path.join(self.destination_path, '.metadata')
+        if dist.get_local_rank() == 0:
+            object_store.download_object(object_name=str(Path(source_path) / Path('.metadata')),
+                                            filename=metadata_destination)
+        dist.barrier()
+
+        # FileSystemReader takes in a root directory in its constructor, which is the dir where
+        # the metadata is expected to be stored. Also, this is parent directory for any shard file relative paths
+        # specified in the metadata file.
+        super().__init__(destination_path)
+
+    def read_data(self, plan: LoadPlan, planner: LoadPlanner):
+        # 1. Download to the destination all files that this rank is responsible for.
+        for plan_item in plan.items:
+            # Each plan item has a storage index which points to the relative path of the shard file at save time.
+            relative_file_path = self.storage_data[plan_item.storage_index].relative_path
+            # Download the shard file to the relative path it's associated to and save that relative path
+            # to the root directory specified to the FileSystem reader constructor.
+            file_destination = str(Path(self.destination_path) / Path(relative_file_path))
+            # The file could have already been downloaded as diffeent plan items can point to same file.
+            if not os.path.exists(file_destination):
+                self.object_store.download_object(object_name=str(
+                    Path(self.source_path) / Path(relative_file_path)),
+                                                    filename=file_destination)
+
+        # 2. Wait for all ranks to finish.
+        dist.barrier()
+
+        # 3. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
+        return super().read_data(plan, planner)
 
 class PartialFilePath:
 
@@ -379,11 +458,6 @@ def load_sharded_checkpoint(
     load_planner = state.fsdp_config['load_planner']
     _validate_load_planner(load_planner)
 
-    from torch.distributed import checkpoint as dist_cp
-    from torch.distributed.checkpoint.metadata import Metadata
-    from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
-    from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
-
     def _get_num_ranks_that_saved_rng(metadata: Metadata):
         rng_inds = []
         for field_name, field_value in metadata.planner_data.items():
@@ -392,80 +466,6 @@ def load_sharded_checkpoint(
                 rng_inds.append(rng_rank_index)
         rng_inds = set(rng_inds)
         return len(rng_inds)
-
-    class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
-        """FileSystemReader that validates checkpoint files prior to reading."""
-
-        def __init__(self, path: str):
-            if _get_checkpoint_validation_function() is None:
-                log.info('No checkpoint validation function found when loading sharded checkpoints.')
-            super().__init__(path)
-
-        def read_data(self, plan: LoadPlan, planner: LoadPlanner):
-            """Reads data file.
-
-            Raises:
-                ValueError if the data file is invalid.
-            """
-            validated_checkpoint_paths = set()
-            for read_item in plan.items:
-                data_path = self.path / self.storage_data[read_item.storage_index].relative_path
-                if data_path in validated_checkpoint_paths:
-                    continue
-                _ensure_valid_checkpoint(data_path)
-                validated_checkpoint_paths.add(data_path)
-            return super().read_data(plan, planner)
-
-        def read_metadata(self) -> Metadata:
-            """Reads metadata file.
-
-            Raises:
-                ValueError if the metadata file is invalid.
-            """
-            metadata_file_path = self.path / '.metadata'
-            _ensure_valid_checkpoint(metadata_file_path)
-            return super().read_metadata()
-
-    # A subclass of FileSystemReaderWithValidation that downloads files from the object store before reading them from the local filesystem.
-    class DistCPObjectStoreReader(FileSystemReaderWithValidation):
-
-        def __init__(self, source_path: str, destination_path: str, object_store):
-            self.source_path = source_path
-            self.destination_path = destination_path
-            self.object_store = object_store
-
-            # Download metadata file.
-            Path(self.destination_path).mkdir(parents=True, exist_ok=True)
-            metadata_destination = os.path.join(self.destination_path, '.metadata')
-            if dist.get_local_rank() == 0:
-                object_store.download_object(object_name=str(Path(source_path) / Path('.metadata')),
-                                             filename=metadata_destination)
-            dist.barrier()
-
-            # FileSystemReader takes in a root directory in its constructor, which is the dir where
-            # the metadata is expected to be stored. Also, this is parent directory for any shard file relative paths
-            # specified in the metadata file.
-            super().__init__(destination_path)
-
-        def read_data(self, plan: LoadPlan, planner: LoadPlanner):
-            # 1. Download to the destination all files that this rank is responsible for.
-            for plan_item in plan.items:
-                # Each plan item has a storage index which points to the relative path of the shard file at save time.
-                relative_file_path = self.storage_data[plan_item.storage_index].relative_path
-                # Download the shard file to the relative path it's associated to and save that relative path
-                # to the root directory specified to the FileSystem reader constructor.
-                file_destination = str(Path(self.destination_path) / Path(relative_file_path))
-                # The file could have already been downloaded as diffeent plan items can point to same file.
-                if not os.path.exists(file_destination):
-                    self.object_store.download_object(object_name=str(
-                        Path(self.source_path) / Path(relative_file_path)),
-                                                      filename=file_destination)
-
-            # 2. Wait for all ranks to finish.
-            dist.barrier()
-
-            # 3. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
-            return super().read_data(plan, planner)
 
     # Check to make sure source_path is a directory.
     if object_store is None:

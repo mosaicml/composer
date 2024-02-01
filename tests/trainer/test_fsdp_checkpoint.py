@@ -466,9 +466,38 @@ def test_fsdp_load_old_checkpoint(
     if (dist.get_global_rank() == 0 and state_dict_type == 'full') or state_dict_type == 'sharded':
         filled_load_path = load_path.format(rank=dist.get_global_rank())
         destination = str(tmp_path / pathlib.Path(filled_load_path).name)
-        get_file(filled_load_path, destination=destination)
-        with open(destination, 'rb') as f:
-            state_dict1 = torch.load(f)['state']
+
+        if state_dict_type == 'sharded' and composer_version > '0.16.0':
+            from torch.distributed import checkpoint as dist_cp
+            from composer.utils.checkpoint import DistCPObjectStoreReader
+            state_dict = {'state': {}}
+            object_store = S3ObjectStore(bucket=f'{s3_bucket}')
+            # Get the tempfile made on local rank 0.
+            # local_rank0_index = dist.get_global_rank() - dist.get_local_rank()
+            # rank0_download_tempdir = str(dist.all_gather_object(destination)[local_rank0_index])
+            # storage_reader = DistCPObjectStoreReader(source_path=source_path,
+            #                                         destination_path=str(
+            #                                             Path(rank0_download_tempdir) / Path('checkpoints')),
+            #                                                 object_store=object_store)
+            # from composer.utils.checkpoint import DistCPObjectStoreReader
+            storage_reader = DistCPObjectStoreReader(source_path=load_path,
+                                                     destination_path=destination,
+                                                     object_store=object_store)
+
+            load_planner = torch.distributed.checkpoint.planner.LoadPlanner
+            process_group = None
+            dist_cp.load_state_dict(
+                state_dict=state_dict,
+                storage_reader=storage_reader,
+                planner=load_planner,
+                process_group=process_group,
+            )
+            state_dict1 = state_dict['state']
+        else:
+            get_file(filled_load_path, destination=destination)
+            with open(destination, 'rb') as f:
+                state_dict1 = torch.load(f)['state']
+        
         _compare_model_params_between_state_dicts(state_dict1, state_dict2)
 
         _compare_optims_between_state_dicts(state_dict1, state_dict2)
