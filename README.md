@@ -176,7 +176,7 @@ dataset = datasets.MNIST("data", train=True, download=True, transform=transform)
 train_dataloader = DataLoader(dataset, batch_size=128)
 
 trainer = Trainer(
-    model=ComposerClassifier(module=model, num_classes=10),
+    model=ComposerClassifier(module=Model(), num_classes=10),
     train_dataloader=train_dataloader,
     max_duration="2ep",
     algorithms=[
