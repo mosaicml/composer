@@ -223,6 +223,16 @@ class LossPerpVLen(MetricsRequiringBatchInfo):
         self.add_state('sum_length',
                        default=torch.Tensor(),
                        dist_reduce_fx='sum')
+        
+        self.add_state('sum_loss_seq_id',
+                       default=torch.Tensor(),
+                       dist_reduce_fx='sum')
+        self.add_state('sum_perplexity_seq_id',
+                       default=torch.Tensor(),
+                       dist_reduce_fx='sum')
+        self.add_state('sum_length_seq_id',
+                       default=torch.Tensor(),
+                       dist_reduce_fx='sum')
 
     def update(self, batch: dict, output: Union[Mapping, torch.Tensor],
                target: torch.Tensor) -> None:
@@ -239,40 +249,37 @@ class LossPerpVLen(MetricsRequiringBatchInfo):
         else:
             raise Exception(
                 f'Type {type(output)} for the output is unsupported.')
-        if 'sequence_id' not in batch:
-            warnings.warn('Sequence id information not available, cannot compute  LossVLen.')
-            return
-        log.info(
-                f'{target.shape=}, {logits.shape=}, {batch["sequence_id"].shape=}'
-            )
-
+        
         bsz, seq_len = target.shape
-        for i in range(bsz):
-            log.info(f'max_seq_len={torch.bincount(batch["sequence_id"][i]).max().item()}')
         target = target.view(-1)
         logits = logits.view(target.shape[0], -1)
         loss = self.loss_fn(logits, target)
         perplexity = torch.exp(loss)
 
-        seq_id = batch['sequence_id']
-        seq_id_expanded = torch.nn.functional.one_hot(seq_id).transpose(-1,-2) == 1
-        seq_lens = seq_id_expanded.sum(dim=-1)
-        max_num_seq = seq_lens.shape[1]
-        seq_tok_ids = torch.arange(seq_len, device=seq_id.device)[None, None, :].expand(bsz, max_num_seq, -1)
-        mask = seq_tok_ids < seq_lens[:,:, None]
-        seq_tok_ids = torch.where(mask, seq_tok_ids, torch.zeros_like(seq_tok_ids))
-        seq_len_shifted = torch.nn.functional.pad(seq_lens.cumsum(dim=1)[:, :-1], (1, 0), value=0)
-        seq_tok_ids = seq_tok_ids + seq_len_shifted[:,:, None]
-        seq_tok_ids = torch.where(mask, seq_tok_ids, torch.zeros_like(seq_tok_ids))
+        self.sum_loss += torch.sum(loss, dim=(0))
+        self.sum_perplexity += torch.sum(perplexity, dim=(0))
+        self.sum_length += torch.sum(mask, dim=(0))
 
-        loss = loss.view(bsz, seq_len)[:, None, :].expand(-1, max_num_seq, -1)
-        perplexity = perplexity.view(bsz, seq_len)[:, None, :].expand(-1, max_num_seq, -1)
-        loss = torch.where(mask, torch.gather(input=loss, dim=2, index=seq_tok_ids), torch.zeros_like(loss))
-        perplexity = torch.where(mask, torch.gather(input=perplexity, dim=2, index=seq_tok_ids), torch.zeros_like(perplexity))
+        if 'sequence_id' in batch:
+            seq_id = batch['sequence_id']
+            seq_id_expanded = torch.nn.functional.one_hot(seq_id).transpose(-1,-2) == 1
+            seq_lens = seq_id_expanded.sum(dim=-1)
+            max_num_seq = seq_lens.shape[1]
+            seq_tok_ids = torch.arange(seq_len, device=seq_id.device)[None, None, :].expand(bsz, max_num_seq, -1)
+            mask = seq_tok_ids < seq_lens[:,:, None]
+            seq_tok_ids = torch.where(mask, seq_tok_ids, torch.zeros_like(seq_tok_ids))
+            seq_len_shifted = torch.nn.functional.pad(seq_lens.cumsum(dim=1)[:, :-1], (1, 0), value=0)
+            seq_tok_ids = seq_tok_ids + seq_len_shifted[:,:, None]
+            seq_tok_ids = torch.where(mask, seq_tok_ids, torch.zeros_like(seq_tok_ids))
 
-        self.sum_loss += torch.sum(loss, dim=(0,1))
-        self.sum_perplexity += torch.sum(perplexity, dim=(0,1))
-        self.sum_length += torch.sum(mask, dim=(0,1))
+            loss = loss.view(bsz, seq_len)[:, None, :].expand(-1, max_num_seq, -1)
+            perplexity = perplexity.view(bsz, seq_len)[:, None, :].expand(-1, max_num_seq, -1)
+            loss = torch.where(mask, torch.gather(input=loss, dim=2, index=seq_tok_ids), torch.zeros_like(loss))
+            perplexity = torch.where(mask, torch.gather(input=perplexity, dim=2, index=seq_tok_ids), torch.zeros_like(perplexity))
+
+            self.sum_loss_seq_id += torch.sum(loss, dim=(0,1))
+            self.sum_perplexity_seq_id += torch.sum(perplexity, dim=(0,1))
+            self.sum_length_seq_id += torch.sum(mask, dim=(0,1))
 
     def compute(self) -> torch.Tensor:
         """Aggregate the state over all processes to compute the metric.
