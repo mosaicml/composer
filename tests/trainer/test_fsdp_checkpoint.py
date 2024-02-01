@@ -421,7 +421,6 @@ def test_fsdp_load_old_checkpoint(
             load_path_dir = (load_path_dir + 'ep0-ba2/')
 
         load_path = load_path_dir + f'ba2_rank{rank}.pt'
-
         assert is_checkpoint_legacy_sharded(
             object_store=S3ObjectStore(bucket=f'{s3_bucket}'),
             source_path=load_path.lstrip(f's3://{s3_bucket}/'),
@@ -430,6 +429,10 @@ def test_fsdp_load_old_checkpoint(
         load_path = (f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/'
                      f'{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_'
                      f'{precision}/')
+        if state_dict_type == 'full':
+            load_path += 'ba2_rank0.pt'
+        else:
+            load_path += 'ep0-ba2/'
 
     if composer_version == '0.15.1':
         num_classes = 8  # This parameter setting is very important. Don't change or the test will fail.
