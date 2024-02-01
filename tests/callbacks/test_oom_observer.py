@@ -40,9 +40,10 @@ def test_oom_observer():
     simple_model = SimpleModel()
 
     # Construct the trainer and train
-    _ = Trainer(
+    trainer = Trainer(
         model=simple_model,
         callbacks=oom_observer,
         train_dataloader=DataLoader(RandomClassificationDataset()),
         max_duration='2ba',
     )
+    trainer.fit()
