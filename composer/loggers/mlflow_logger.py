@@ -315,7 +315,7 @@ class MLFlowLogger(LoggerDestination):
 
                 mlflow.pyfunc.save_model(
                     path=kwargs['path'],
-                    artifacts={'lora_checkpoint': kwargs['save_pretrained_dir']},
+                    artifacts={'lora_checkpoint': 'lora_checkpoint'},
                     python_model=DummyPyfuncModel(),
                     signature=signature,
                 )
