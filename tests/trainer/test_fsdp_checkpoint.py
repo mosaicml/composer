@@ -411,6 +411,9 @@ def test_fsdp_load_old_checkpoint(
     s3_read_only_prefix: str,
     composer_version: str,
 ):
+    if composer_version == '0.18.1' and state_dict_type == 'full' and precision == 'amp_bf16':
+        pytest.skip("TODO: This checkpoint is missing")
+
     if composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']:
         rank = 0 if state_dict_type == 'full' else '{rank}'
 
@@ -451,16 +454,6 @@ def test_fsdp_load_old_checkpoint(
         sharding_strategy=sharding_strategy,
     )
 
-    trainer2 = get_trainer(
-        num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
-        num_classes=8,  # This parameter setting is very important. Don't change or the test will fail.
-        precision=precision,
-        max_duration='4ba',
-        train_metrics=train_metrics,
-        val_metrics=val_metrics,
-        fsdp_config=fsdp_config,
-    )
-
     trainer = get_trainer(
         num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
         num_classes=8,  # This parameter setting is very important. Don't change or the test will fail.
@@ -475,6 +468,16 @@ def test_fsdp_load_old_checkpoint(
 
     if (dist.get_global_rank() == 0 and state_dict_type == 'full') or state_dict_type == 'sharded':
         if state_dict_type == 'sharded' and composer_version >= '0.16.0':
+            trainer2 = get_trainer(
+                num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
+                num_classes=8,  # This parameter setting is very important. Don't change or the test will fail.
+                precision=precision,
+                max_duration='4ba',
+                train_metrics=train_metrics,
+                val_metrics=val_metrics,
+                fsdp_config=fsdp_config,
+            )
+
             from torch.distributed import checkpoint as dist_cp
 
             _, _, parsed_load_path = parse_uri(load_path)
@@ -504,20 +507,23 @@ def test_fsdp_load_old_checkpoint(
             if version.parse(torch.__version__) < version.parse('2.2.9'):
                 from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
                 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-                optim_state_dict = load_sharded_optimizer_state_dict(model_state_dict=state_dict['state']['model'],
-                                                                optimizer_key='optimizers',
-                                                                storage_reader=storage_reader)
-                with fsdp_state_dict_type_context(module=trainer2.state.model, state_dict_type=state_dict_type):
+                model_state_dict = state_dict['state']['model']
+                model = trainer2.state.model
+                optim = trainer2.state.optimizers[0]
+                optim_name = type(optim).__qualname__
+                optim_state_dict = load_sharded_optimizer_state_dict(
+                    model_state_dict=model_state_dict, optimizer_key='optimizers', storage_reader=storage_reader)
+                with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
                     optim_state_dict = FSDP.optim_state_dict_to_load(
-                        optim_state_dict=optim_state_dict['optimizers'][type(trainer2.state.optimizers[0]).__qualname__], model=trainer2.state.model, optim=trainer2.state.optimizers[0])
+                        optim_state_dict=optim_state_dict['optimizers'][optim_name], model=model, optim=optim)
                 
                 trainer2.state.optimizers[0].load_state_dict(optim_state_dict)
                 
-                with fsdp_state_dict_type_context(module=trainer2.state.model, state_dict_type=state_dict_type):
-                    flattened_optim_state_dict = FSDP.optim_state_dict(trainer2.state.model, trainer2.state.optimizers[0])  # type: ignore
+                with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
+                    flattened_optim_state_dict = FSDP.optim_state_dict(model, optim)  # type: ignore
                 
                 state_dict['state']['optimizers'] = {
-                    type(trainer2.state.optimizers[0]).__qualname__: flattened_optim_state_dict,
+                    optim_name: flattened_optim_state_dict,
                 }
 
             state_dict1 = state_dict['state']
@@ -530,8 +536,6 @@ def test_fsdp_load_old_checkpoint(
                 state_dict1 = torch.load(f)['state']
 
         _compare_model_params_between_state_dicts(state_dict1, state_dict2)
-        print(state_dict1['optimizers']['Adam']['state'].keys())
-        print(state_dict2['optimizers']['Adam']['state'].keys())
         _compare_optims_between_state_dicts(state_dict1, state_dict2)
 
     # Continue to fit to make sure we can continue training.
