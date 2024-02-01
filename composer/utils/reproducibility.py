@@ -229,7 +229,7 @@ def load_rng_state(rng_state_dicts: List[Dict[str, Any]]):
             try:
                 torch.cuda.set_rng_state(rng_state_dict['cuda'])
             except RuntimeError as e:
-                if 'RNG state is wrong size' in str(e):
+                if 'RNG state is wrong size' in str(e) or 'offset must be a multiple of 4' in str(e):
                     warnings.warn('The CUDA RNG state could not be loaded from the checkpoint, '
                                   'likely because a different version of torch was used to save the '
                                   'checkpoint. Skipping loading the CUDA RNG state.')
