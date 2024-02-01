@@ -263,12 +263,10 @@ class LossPerpVLen(MetricsRequiringBatchInfo):
         seq_tok_ids = torch.where(mask, seq_tok_ids, torch.zeros_like(seq_tok_ids))
         seq_len_shifted = torch.nn.functional.pad(seq_lens.cumsum(dim=1)[:, :-1], (1, 0), value=0)
         seq_tok_ids = seq_tok_ids + seq_len_shifted[:,:, None]
+        seq_tok_ids = torch.where(mask, seq_tok_ids, torch.zeros_like(seq_tok_ids))
 
         loss = loss.view(bsz, seq_len)[:, None, :].expand(-1, max_num_seq, -1)
         perplexity = perplexity.view(bsz, seq_len)[:, None, :].expand(-1, max_num_seq, -1)
-        
-        breakpoint()
-        
         loss = torch.where(mask, torch.gather(input=loss, dim=2, index=seq_tok_ids), torch.zeros_like(loss))
         perplexity = torch.where(mask, torch.gather(input=perplexity, dim=2, index=seq_tok_ids), torch.zeros_like(perplexity))
 
