@@ -311,12 +311,16 @@ class MLFlowLogger(LoggerDestination):
                 output_schema = Schema([ColSpec(DataType.string)])
                 signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
+                os.symlink(kwargs['save_pretrained_dir'], 'lora_checkpoint')
+
                 mlflow.pyfunc.save_model(
                     path=kwargs['path'],
                     artifacts={'lora_checkpoint': kwargs['save_pretrained_dir']},
                     python_model=DummyPyfuncModel(),
                     signature=signature,
                 )
+
+                os.unlink('lora_checkpoint')
             else:
                 raise NotImplementedError(f'flavor {flavor} not supported.')
 
