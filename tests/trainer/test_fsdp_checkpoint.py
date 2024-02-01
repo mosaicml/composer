@@ -467,7 +467,6 @@ def test_fsdp_load_old_checkpoint(
     trainer2 = get_trainer(
         num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
         num_classes=8,  # This parameter setting is very important. Don't change or the test will fail.
-        load_path=load_path,
         precision=precision,
         max_duration='4ba',
         train_metrics=train_metrics,
@@ -477,11 +476,11 @@ def test_fsdp_load_old_checkpoint(
     trainer2.close()
 
     if (dist.get_global_rank() == 0 and state_dict_type == 'full') or state_dict_type == 'sharded':
-        filled_load_path = load_path.format(rank=dist.get_global_rank())
-        destination = str(tmp_path / pathlib.Path(filled_load_path).name)
-
         if state_dict_type == 'sharded' and composer_version > '0.16.0':
             from torch.distributed import checkpoint as dist_cp
+
+            gathered_tmp_path = str(dist.all_gather_object(tmp_path)[0])
+            destination = str(pathlib.Path(gathered_tmp_path) / load_path)
 
             from composer.utils.checkpoint import DistCPObjectStoreReader
             state_dict: Dict[str, Any] = {
@@ -489,14 +488,6 @@ def test_fsdp_load_old_checkpoint(
                 'rng': get_rng_state(),
             }
             object_store = S3ObjectStore(bucket=f'{s3_bucket}')
-            # Get the tempfile made on local rank 0.
-            # local_rank0_index = dist.get_global_rank() - dist.get_local_rank()
-            # rank0_download_tempdir = str(dist.all_gather_object(destination)[local_rank0_index])
-            # storage_reader = DistCPObjectStoreReader(source_path=source_path,
-            #                                         destination_path=str(
-            #                                             Path(rank0_download_tempdir) / Path('checkpoints')),
-            #                                                 object_store=object_store)
-            # from composer.utils.checkpoint import DistCPObjectStoreReader
             storage_reader = DistCPObjectStoreReader(source_path=load_path,
                                                      destination_path=destination,
                                                      object_store=object_store)
@@ -510,6 +501,9 @@ def test_fsdp_load_old_checkpoint(
             )
             state_dict1 = state_dict['state']
         else:
+            filled_load_path = load_path.format(rank=dist.get_global_rank())
+            destination = str(tmp_path / pathlib.Path(filled_load_path).name)
+
             get_file(filled_load_path, destination=destination)
             with open(destination, 'rb') as f:
                 state_dict1 = torch.load(f)['state']
