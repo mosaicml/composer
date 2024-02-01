@@ -109,7 +109,7 @@ class OOMObserver(Callback):
                 ensure_folder_is_empty(self.folder_name)
 
         def oom_observer(device: int, alloc: int, device_alloc: int, device_free: int):
-            # snapshot right after an OOM happened
+            # Snapshot right after an OOM happened
             log.info('Out Of Memory (OOM) observed')
 
             assert self.filename
