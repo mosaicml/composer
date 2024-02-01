@@ -11,7 +11,7 @@ import textwrap
 import uuid
 from contextlib import nullcontext as does_not_raise
 from functools import partial
-from typing import Any, Callable, Optional, Sequence, Union
+from typing import Any, Callable, Dict, Optional, Sequence, Union
 from unittest.mock import patch
 
 import numpy as np
@@ -462,6 +462,19 @@ def test_fsdp_load_old_checkpoint(
         fsdp_config=fsdp_config,
     )
     state_dict2 = trainer.state.state_dict()
+    trainer.close()
+
+    trainer2 = get_trainer(
+        num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
+        num_classes=8,  # This parameter setting is very important. Don't change or the test will fail.
+        load_path=load_path,
+        precision=precision,
+        max_duration='4ba',
+        train_metrics=train_metrics,
+        val_metrics=val_metrics,
+        fsdp_config=fsdp_config,
+    )
+    trainer2.close()
 
     if (dist.get_global_rank() == 0 and state_dict_type == 'full') or state_dict_type == 'sharded':
         filled_load_path = load_path.format(rank=dist.get_global_rank())
@@ -471,7 +484,10 @@ def test_fsdp_load_old_checkpoint(
             from torch.distributed import checkpoint as dist_cp
 
             from composer.utils.checkpoint import DistCPObjectStoreReader
-            state_dict = {'state': {}}
+            state_dict: Dict[str, Any] = {
+                'state': trainer2.state.state_dict(),
+                'rng': get_rng_state(),
+            }
             object_store = S3ObjectStore(bucket=f'{s3_bucket}')
             # Get the tempfile made on local rank 0.
             # local_rank0_index = dist.get_global_rank() - dist.get_local_rank()
