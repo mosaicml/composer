@@ -5,7 +5,7 @@ yaml-files:
 
 ignore: |
   wandb
-  *
+  docker/build_matrix.yaml
 
 rules:
   braces:
@@ -30,6 +30,7 @@ rules:
   key-duplicates: enable
   key-ordering: disable
   line-length:
+    max: 120
     allow-non-breakable-words: true
     allow-non-breakable-inline-mappings: true
   new-line-at-end-of-file: enable
