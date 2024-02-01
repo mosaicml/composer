@@ -23,7 +23,48 @@ __all__ = ['OOMObserver']
 
 
 class OOMObserver(Callback):
-    """Generate visualizations of the state of allocated memory during an OutOfMemory exception. This callback registers an observer with the allocator that will be called everytime it is about to raise an OutOfMemoryError before any memory has been release while unwinding the exception."""
+    """Generate visualizations of the state of allocated memory during an OutOfMemory exception. This callback registers an observer with the allocator that will be called everytime it is about to raise an OutOfMemoryError before any memory has been release while unwinding the exception. OOMObserver is attached to the Trainer at init stage. The visualizations include a snapshot of the memory state, a trace plot, a segment plot, a segment flamegraph, and a memory flamegraph.
+
+    Example:
+    .. doctest::
+
+        >>> from composer import Trainer
+        >>> from composer.callbacks import OOMObserver
+        >>> # constructing trainer object with this callback
+        >>> trainer = Trainer(
+        ...     model=model,
+        ...     train_dataloader=train_dataloader,
+        ...     eval_dataloader=eval_dataloader,
+        ...     optimizers=optimizer,
+        ...     max_duration="1ep",
+        ...     callbacks=[OOMObserver()],
+        ... )
+
+    .. note::
+        OOMObserver is only supported for GPU devices.
+
+    Args:
+        max_entries (int, optional): Maximum number of memory alloc/free events to record. Defaults to 100000.
+        folder (str, optional): A format string describing the folder containing the memory visualization files.
+            Defaults to ``'{{run_name}}/torch_traces'``.
+        filename (str, optional): A format string describing the prefix used to name the memory visualization files.
+            Defaults to ``'rank{{rank}}.oom'``.
+        remote_file_name (str, optional): A format string describing the prefix for the memory visualization remote file name.
+            Defaults to ``'{{run_name}}/oom_traces/rank{{rank}}.oom'``.
+
+            Whenever a trace file is saved, it is also uploaded as a file according to this format string.
+            The same format variables as for ``filename`` are available.
+
+            .. seealso:: :doc:`Uploading Files</trainer/file_uploading>` for notes for file uploading.
+
+            Leading slashes (``'/'``) will be stripped.
+
+            To disable uploading trace files, set this parameter to ``None``.
+        overwrite (bool, optional): Whether to override existing memory snapshots. Defaults to False.
+
+            If False, then the trace folder as determined by ``folder`` must be empty.
+
+    """
 
     def __init__(
         self,
