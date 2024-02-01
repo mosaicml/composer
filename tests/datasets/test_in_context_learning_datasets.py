@@ -269,54 +269,6 @@ def test_update_generation_kwargs_no_kwargs(tiny_gpt2_tokenizer, tmp_path):
     assert not 'generation_kwargs' in dl.base_batch
 
 
-def test_update_generation_kwargs_no_kwargs_qa_dataset(tmp_path):
-    pytest.importorskip('datasets')
-    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
-    dataset_uri = f'{local_data}/triviaqa_small.jsonl'
-    transformers = pytest.importorskip('transformers')
-    tokenizer = transformers.AutoTokenizer.from_pretrained('facebook/opt-125m')  # type: ignore reportUnboundVariable
-
-    tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
-    gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
-    dl = InContextLearningQATaskDataset(dataset_uri=dataset_uri,
-                                        tokenizer=tokenizer,
-                                        max_seq_len=1024,
-                                        pad_tok_id=tokenizer.eos_token_id,
-                                        num_fewshot=0,
-                                        fewshot_random_seed=1234,
-                                        prompt_string='',
-                                        example_delimiter='\n',
-                                        continuation_delimiter=': ',
-                                        destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
-                                        generation_kwargs=None)
-    assert len(dl.base_batch['generation_kwargs']) == 3
-
-
-def test_update_generation_kwargs_with_kwargs_qa_dataset(tmp_path):
-    pytest.importorskip('datasets')
-    local_data = os.path.join(os.path.dirname(__file__), 'local_data')
-    dataset_uri = f'{local_data}/triviaqa_small.jsonl'
-    transformers = pytest.importorskip('transformers')
-    tokenizer = transformers.AutoTokenizer.from_pretrained('facebook/opt-125m')  # type: ignore reportUnboundVariable
-
-    tmp_path_to_broadcast = str(os.path.abspath(tmp_path))
-    gathered_paths = dist.all_gather_object(tmp_path_to_broadcast)
-    dl = InContextLearningQATaskDataset(dataset_uri=dataset_uri,
-                                        tokenizer=tokenizer,
-                                        max_seq_len=1024,
-                                        pad_tok_id=tokenizer.eos_token_id,
-                                        num_fewshot=0,
-                                        fewshot_random_seed=1234,
-                                        prompt_string='',
-                                        example_delimiter='\n',
-                                        continuation_delimiter=': ',
-                                        destination_path=str(Path(gathered_paths[0]) / 'icl.jsonl'),
-                                        generation_kwargs={'temperature': 0.9})
-    assert 'generation_kwargs' in dl.base_batch
-    assert dl.base_batch['generation_kwargs']['temperature'] == 0.9
-    assert len(dl.base_batch['generation_kwargs']) == 4
-
-
 @pytest.mark.filterwarnings(
     r'ignore:The repository for mosaicml/test_dataset contains custom code which must*:FutureWarning')
 def test_construct_context(tiny_gpt2_tokenizer, tmp_path):

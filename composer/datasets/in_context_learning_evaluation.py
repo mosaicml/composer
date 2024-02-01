@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     import transformers
     from datasets import Dataset as HFDataset  # pyright: ignore[reportGeneralTypeIssues]
 
-
 __all__ = [
     'InContextLearningDataset',
 ]

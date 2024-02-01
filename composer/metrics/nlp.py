@@ -10,7 +10,6 @@ import torch
 from torch import Tensor
 from torchmetrics import Metric
 
-
 log = logging.getLogger(__name__)
 
 __all__ = [
