@@ -1138,6 +1138,18 @@ class Trainer:
         # Callbacks
         self.state.callbacks[:] = list(cast(List[Callback], loggers)) + self.state.callbacks
 
+        # Test Checkpoint Saving
+
+        ckpt_test_filename = f'/tmp/composer-test-checkpoint/{save_filename}'
+        log.debug(f'Testing checkpoint save to {ckpt_test_filename}')
+        saved_path = checkpoint.save_checkpoint(
+            state=state,
+            filename=ckpt_test_filename,
+            weights_only=self.weights_only,
+            ignore_keys=self.ignore_keys,
+        )
+        log.debug(f'Checkpoint locally saved to {saved_path}')
+
         # Checkpoint Saving
         self._checkpoint_saver = None
         latest_remote_file_name = None
