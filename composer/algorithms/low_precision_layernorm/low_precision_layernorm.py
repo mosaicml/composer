@@ -143,7 +143,7 @@ def _to_LPLayerNorm(layer: torch.nn.Module, module_index: int) -> LPLayerNorm:
     lp_layernorm = LPLayerNorm(layer.normalized_shape, layer.eps, layer.elementwise_affine)
 
     with torch.no_grad():
-        if hasattr(layer, 'weight'):
+        if not hasattr(layer, 'weight'):
             lp_layernorm.register_parameter('weight', None)
         else:
             lp_layernorm.weight.copy_(layer.weight)  # type: ignore
