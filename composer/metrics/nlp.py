@@ -270,25 +270,16 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
         if batch is None:
             batch = {}
         cot_delimiter = batch.get('cot_delimiter', '')
-        do_normalization = batch.get('do_normalization', True)
-        stopping_criteria = batch.get('stopping_criteria', None)
 
         metric_results = []
         for sample_output, sample_labels in zip(outputs, labels):
-
             final_answer = sample_output
-            if stopping_criteria is not None and len(stopping_criteria) > 0:
-                final_answer = re.split('|'.join(stopping_criteria), final_answer)[0]
 
             if cot_delimiter is not None and len(cot_delimiter) > 0:
                 final_answer = final_answer.split(cot_delimiter)[-1]
 
-            if do_normalization:
-                cleaned_final_answer = self.normalize_answer(final_answer)
-                cleaned_sample_labels = {self.normalize_answer(label) for label in sample_labels}
-            else:
-                cleaned_final_answer = final_answer
-                cleaned_sample_labels = set(sample_labels)
+            cleaned_final_answer = self.normalize_answer(final_answer)
+            cleaned_sample_labels = {self.normalize_answer(label) for label in sample_labels}
 
             if any(cleaned_final_answer.startswith(label) for label in cleaned_sample_labels):
                 self.correct += torch.tensor(1.0)
@@ -300,7 +291,6 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
         return metric_results
 
     def compute(self):
-        super().compute()
         assert isinstance(self.correct, Tensor)
         assert isinstance(self.total, Tensor)
         return self.correct / self.total
@@ -330,9 +320,9 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def __init__(self, dist_sync_on_step: bool = False, cache_responses: bool = False):
+    def __init__(self, dist_sync_on_step: bool = False):
         # state from multiple processes
-        super().__init__(dist_sync_on_step=dist_sync_on_step, cache_responses=cache_responses)
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
@@ -341,22 +331,10 @@ class InContextLearningLMAccuracy(InContextLearningMetric):
             cont_tok_pred = output_logits[batch_idx].index_select(dim=0, index=cont_idx - 1).argmax(dim=-1)
             cont_tok_targ = labels[batch_idx].index_select(dim=0, index=cont_idx - 1)
 
-            correct = False
-            if (cont_tok_pred == cont_tok_targ).all().int() == 1:
-                self.correct += torch.tensor(1.0)
-                correct = True
-            if self.cache_responses:
-                assert isinstance(self.response_cache, list)
-                self.response_cache.append({
-                    'context_tok': batch['input_ids'][batch_idx][:cont_idx[0]].tolist(),
-                    'continuation_tok_target': cont_tok_targ.tolist(),
-                    'continuation_tok_pred': cont_tok_pred.tolist(),
-                    'correct': correct
-                })
+            self.correct += (cont_tok_pred == cont_tok_targ).all().int()
             self.total += torch.tensor(1.0)
 
     def compute(self):
-        super().compute()
         assert isinstance(self.correct, Tensor)
         assert isinstance(self.total, Tensor)
         return self.correct / self.total
@@ -384,9 +362,9 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def __init__(self, dist_sync_on_step: bool = False, cache_responses: bool = False):
+    def __init__(self, dist_sync_on_step: bool = False):
         # state from multiple processes
-        super().__init__(dist_sync_on_step=dist_sync_on_step, cache_responses=cache_responses)
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.0), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.0), dist_reduce_fx='sum')
 
@@ -404,29 +382,11 @@ class InContextLearningMultipleChoiceAccuracy(InContextLearningMetric):
         for (start, end), gold_idx in zip(batch['choice_groupings'], batch['gold_indices']):
             subset = perplexities[start:end]
             idx_min = subset.index(min(subset))
-            correct = False
             if idx_min == gold_idx:
                 self.correct += torch.tensor(1.0)
-                correct = True
-
-            if self.cache_responses:
-                question = batch['input_ids'][start][:batch['continuation_indices'][start][0]]
-                correct_choice = batch['input_ids'][start:end][gold_idx][batch['continuation_indices'][start:end][
-                    gold_idx][0]:batch['continuation_indices'][start:end][gold_idx][-1] + 1]
-                selected_choice = batch['input_ids'][start:end][idx_min][batch['continuation_indices'][start:end][
-                    idx_min][0]:batch['continuation_indices'][start:end][idx_min][-1] + 1]
-
-                assert isinstance(self.response_cache, list)
-                self.response_cache.append({
-                    'question_tok': question.tolist(),
-                    'correct_choice': correct_choice.tolist(),
-                    'selected_choice': selected_choice.tolist(),
-                    'correct': correct
-                })
             self.total += torch.tensor(1.0)
 
     def compute(self):
-        super().compute()
         assert isinstance(self.correct, Tensor)
         assert isinstance(self.total, Tensor)
         return self.correct.float() / self.total
@@ -569,9 +529,9 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
     # Make torchmetrics call update only once
     full_state_update = False
 
-    def __init__(self, dist_sync_on_step: bool = False, cache_responses: bool = False):
+    def __init__(self, dist_sync_on_step: bool = False):
         # state from multiple processes
-        super().__init__(dist_sync_on_step=dist_sync_on_step, cache_responses=cache_responses)
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
         self.add_state('correct', default=torch.tensor(0.), dist_reduce_fx='sum')
         self.add_state('total', default=torch.tensor(0.), dist_reduce_fx='sum')
 
@@ -674,7 +634,7 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
 
         results = client.invoke(payloads)
 
-        for test_result, code_gen_payload, in zip(results, payloads):
+        for test_result in results:
             num_correct = 0
             all_tests_passed = []
             for generation in test_result:
@@ -686,19 +646,9 @@ class InContextLearningCodeEvalAccuracy(InContextLearningMetric):
             pass_at_k_rate = self.estimator(num_generations, num_correct, pass_at_k)
             self.correct += torch.tensor(pass_at_k_rate)
 
-            if self.cache_responses:
-                code_completions = [c[0]['code'] for c in code_gen_payload]
-                assert isinstance(self.response_cache, list)
-                self.response_cache.append({
-                    'code_completions': code_completions,
-                    'all_tests_passed': all_tests_passed,
-                    'pass_at_k_rate': pass_at_k_rate
-                })
-
         client.close()  # pyright: ignore [reportOptionalMemberAccess]
 
     def compute(self):
-        super().compute()
         assert isinstance(self.correct, Tensor)
         assert isinstance(self.total, Tensor)
         return self.correct / self.total
