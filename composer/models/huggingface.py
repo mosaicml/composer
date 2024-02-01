@@ -621,25 +621,7 @@ class HuggingFaceModel(ComposerModel):
         """
         pad_token_id = kwargs.pop('pad_token_id', self.tokenizer.pad_token_id if self.tokenizer is not None else None)
 
-        from composer.utils.misc import using_torch_2
-
-        # We need to call forward once in order for FSDP + generate to work
-        # This solution works because parameters in the root FSDP module are not freed after forward
-        # See https://github.com/huggingface/accelerate/issues/570, https://github.com/huggingface/accelerate/issues/947,
-        # and https://github.com/pytorch/pytorch/issues/82461, https://github.com/pytorch/pytorch/issues/100069 for more info
-        # Note: This is a solution for Torch 1.13.x, and there is a different solution below for Torch 2.0
-        if not using_torch_2() and not self.dummy_forward_called and is_model_fsdp(self.model):
-            with torch.no_grad():
-                maybe_decoder_input_ids = {}
-                if self.config.is_encoder_decoder:
-                    maybe_decoder_input_ids['decoder_input_ids'] = torch.tensor([[0]],
-                                                                                dtype=torch.long,
-                                                                                device=input_ids.device)
-                self.model(input_ids=torch.tensor([[0]], dtype=torch.long, device=input_ids.device),
-                           **maybe_decoder_input_ids)
-            self.dummy_forward_called = True
-
-        if is_model_fsdp(self.model) and using_torch_2():
+        if is_model_fsdp(self.model):
             from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
             # Note: We need to use the FSDP.summon_full_params context manager here because the generate function

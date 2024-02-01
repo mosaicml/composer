@@ -930,8 +930,6 @@ def test_encoder_decoder(tiny_t5_model, tiny_t5_tokenizer):
 
 
 @pytest.mark.gpu
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
 @pytest.mark.filterwarnings('ignore::UserWarning')
 def test_hf_fsdp(tiny_bert_config, tiny_bert_tokenizer):
     transformers = pytest.importorskip('transformers')
@@ -1095,9 +1093,6 @@ def test_embedding_resizing(tiny_bert_model, tiny_bert_tokenizer, embedding_resi
 @pytest.mark.parametrize('hf_model,hf_tokenizer', [(configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer),
                                                    (configure_tiny_t5_model, configure_tiny_t5_tokenizer)])
 def test_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
-    if use_fsdp and version.parse(torch.__version__) < version.parse('1.13.0'):
-        pytest.skip('FSDP requires torch >= 1.13.0')
-
     transformers = pytest.importorskip('transformers')
     if device == 'cpu' and use_fsdp:
         pytest.skip('FSDP is not supported on CPU.')
@@ -1160,8 +1155,6 @@ def test_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
 @pytest.mark.parametrize('hf_model,hf_tokenizer', [(configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer),
                                                    (configure_tiny_t5_model, configure_tiny_t5_tokenizer)])
 def test_eval_forward_generate(device, world_size, hf_model, hf_tokenizer, use_fsdp):
-    if use_fsdp and version.parse(torch.__version__) < version.parse('1.13.0'):
-        pytest.skip('FSDP requires torch >= 1.13.0')
     transformers = pytest.importorskip('transformers')
     if device == 'cpu' and use_fsdp:
         pytest.skip('FSDP is not supported on CPU.')
@@ -1226,6 +1219,7 @@ def test_peft_init(peft_type: str, task_type: str, tiny_gpt2_model, gpt2_peft_co
     peft_config.task_type = task_type
 
     original_model = copy.deepcopy(tiny_gpt2_model)
+
     hf_model = HuggingFaceModel(tiny_gpt2_model, peft_config=peft_config)
     assert isinstance(hf_model.model, PeftModelForCausalLM)
     assert hf_model.model.peft_config['default'].peft_type == 'LORA'
@@ -1233,6 +1227,7 @@ def test_peft_init(peft_type: str, task_type: str, tiny_gpt2_model, gpt2_peft_co
     assert hf_model.model.config == original_model.config
 
 
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
 def test_peft_init_errors(tiny_gpt2_model, gpt2_peft_config):
     pytest.importorskip('peft')
     peft_config = copy.deepcopy(gpt2_peft_config)
@@ -1242,6 +1237,7 @@ def test_peft_init_errors(tiny_gpt2_model, gpt2_peft_config):
         _ = HuggingFaceModel(tiny_gpt2_model, peft_config=peft_config)
 
 
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
 def test_peft_init_not_installed(tiny_gpt2_model, gpt2_peft_config):
     pytest.importorskip('peft')
 
@@ -1251,6 +1247,7 @@ def test_peft_init_not_installed(tiny_gpt2_model, gpt2_peft_config):
             _ = HuggingFaceModel(tiny_gpt2_model, peft_config=gpt2_peft_config)
 
 
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
 @pytest.mark.parametrize('should_save_peft_only', [True, False])
 def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, should_save_peft_only):
     pytest.importorskip('peft')
@@ -1281,6 +1278,7 @@ def test_peft_trains_and_loads(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_c
         torch.testing.assert_close(p1, p2)
 
 
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
 @pytest.mark.parametrize('model,tokenizer,peft_config', [
     (configure_tiny_gpt2_model, configure_tiny_gpt2_tokenizer, _gpt2_peft_config()),
     (configure_tiny_mistral_model, configure_tiny_mistral_tokenizer, _mistral_peft_config()),
@@ -1300,6 +1298,7 @@ def test_peft_generate(model, tokenizer, peft_config):
     hf_model.generate(**input_dict, max_new_tokens=5, pad_token_id=tokenizer.pad_token_id)
 
 
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
 def test_peft_metadata(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config):
     pytest.importorskip('peft')
 
@@ -1312,6 +1311,7 @@ def test_peft_metadata(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config):
     assert loaded_peft_config == gpt2_peft_config
 
 
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
 @pytest.mark.parametrize('should_save_peft_only', [True, False])
 def test_peft_write_hf_from_composer(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path,
                                      should_save_peft_only):
@@ -1351,8 +1351,6 @@ def test_peft_write_hf_from_composer(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_
 @pytest.mark.gpu
 @world_size(2)
 @pytest.mark.parametrize('should_save_peft_only', [True, False])
-@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('1.13.0'),
-                    reason='requires PyTorch 1.13 or higher')
 def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path, world_size,
                           should_save_peft_only):
     pytest.importorskip('peft')
@@ -1423,6 +1421,7 @@ def test_peft_fsdp_trains(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config
             assert not all('lora' in k for k in loaded_ckpt_1['state']['model'].keys())
 
 
+@pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.0'), reason='requires PyTorch 2+')
 def test_filtered_state_dict(tiny_gpt2_model, tiny_gpt2_tokenizer, gpt2_peft_config, tmp_path):
     pytest.importorskip('peft')
 
