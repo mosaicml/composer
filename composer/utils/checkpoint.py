@@ -1051,6 +1051,7 @@ def _save_checkpoint(
         else:
             expect_file = True
 
+        dist.barrier()
         if expect_file:
             if version.parse(torch.__version__) > version.parse('2.2.9'):
                 dist_cp.save(  # type: ignore
@@ -1066,6 +1067,8 @@ def _save_checkpoint(
                     planner=save_planner,
                     process_group=process_group,
                 )
+        log.debug('Waiting for all ranks to finish pytorch save state dict')
+        dist.barrier()
         log.debug('Finished pytorch save state dict')
 
     # Only rank 0 saves the state_dict unless you are using sharded checkpointing with torch <2.0
