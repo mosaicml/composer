@@ -475,7 +475,7 @@ def test_fsdp_load_old_checkpoint(
                 num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
                 num_classes=8,  # This parameter setting is very important. Don't change or the test will fail.
                 precision=precision,
-                max_duration='4ba',
+                max_duration='10ba',
                 train_metrics=train_metrics,
                 val_metrics=val_metrics,
                 fsdp_config=fsdp_config,
