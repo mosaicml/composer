@@ -357,7 +357,7 @@ def test_fsdp_mixed_with_sync(
 
 
 @pytest.mark.gpu
-# @pytest.mark.remote
+@pytest.mark.remote
 @world_size(2)
 @pytest.mark.parametrize('precision', ['amp_bf16', 'amp_fp16'])
 @pytest.mark.parametrize('sharding_strategy', ['FULL_SHARD', 'SHARD_GRAD_OP'])
