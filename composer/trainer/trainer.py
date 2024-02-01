@@ -1138,17 +1138,6 @@ class Trainer:
         # Callbacks
         self.state.callbacks[:] = list(cast(List[Callback], loggers)) + self.state.callbacks
 
-        # Test Checkpoint Saving
-        ckpt_test_filename = f'/tmp/composer-test-checkpoint/{save_filename}'
-        log.debug(f'Testing checkpoint save with save_weights_only=True to {ckpt_test_filename}')
-        saved_path = checkpoint.save_checkpoint(
-            state=self.state,
-            filename=ckpt_test_filename,
-            weights_only=True,
-            ignore_keys=None,
-        )
-        log.debug(f'Checkpoint locally saved to {saved_path}')
-
         # Checkpoint Saving
         self._checkpoint_saver = None
         latest_remote_file_name = None
@@ -1402,6 +1391,17 @@ class Trainer:
 
             if 'optimizers' in self.state.serialized_attributes:
                 self.state.serialized_attributes.remove('optimizers')
+
+       # Test Checkpoint Saving
+        ckpt_test_filename = f'/tmp/composer-test-checkpoint/{save_filename}'
+        log.debug(f'Testing checkpoint save to {ckpt_test_filename}')
+        saved_path = checkpoint.save_checkpoint(
+            state=self.state,
+            filename=ckpt_test_filename,
+            weights_only=save_weights_only,
+            ignore_keys=save_ignore_keys,
+        )
+        log.debug(f'Checkpoint locally saved to {saved_path}')
 
         # Load Checkpoint
         self._rng_state = None
