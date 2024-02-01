@@ -475,7 +475,7 @@ def test_fsdp_load_old_checkpoint(
                 num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
                 num_classes=8,  # This parameter setting is very important. Don't change or the test will fail.
                 precision=precision,
-                max_duration='10ba',  # Change this so we have slightly different model runtime settings. 
+                max_duration='10ba',  # Change this so we have slightly different model runtime settings.
                 train_metrics=train_metrics,
                 val_metrics=val_metrics,
                 fsdp_config=fsdp_config,
@@ -483,11 +483,11 @@ def test_fsdp_load_old_checkpoint(
 
             from torch.distributed import checkpoint as dist_cp
 
+            from composer.utils.checkpoint import DistCPObjectStoreReader
+
             _, _, parsed_load_path = parse_uri(load_path)
             gathered_tmp_path = str(dist.all_gather_object(tmp_path)[0])
             destination = str(pathlib.Path(gathered_tmp_path) / parsed_load_path)
-
-            from composer.utils.checkpoint import DistCPObjectStoreReader
             state_dict: dict[str, Any] = {
                 'state': trainer2.state.state_dict(),
                 'rng': get_rng_state(),
