@@ -412,7 +412,7 @@ def test_fsdp_load_old_checkpoint(
     composer_version: str,
 ):
     if composer_version == '0.18.1' and state_dict_type == 'full' and precision == 'amp_bf16':
-        pytest.skip("TODO: This checkpoint is missing")
+        pytest.skip('TODO: This checkpoint is missing')
 
     if composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']:
         rank = 0 if state_dict_type == 'full' else '{rank}'
@@ -511,17 +511,18 @@ def test_fsdp_load_old_checkpoint(
                 model = trainer2.state.model
                 optim = trainer2.state.optimizers[0]
                 optim_name = type(optim).__qualname__
-                optim_state_dict = load_sharded_optimizer_state_dict(
-                    model_state_dict=model_state_dict, optimizer_key='optimizers', storage_reader=storage_reader)
+                optim_state_dict = load_sharded_optimizer_state_dict(model_state_dict=model_state_dict,
+                                                                     optimizer_key='optimizers',
+                                                                     storage_reader=storage_reader)
                 with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
                     optim_state_dict = FSDP.optim_state_dict_to_load(
                         optim_state_dict=optim_state_dict['optimizers'][optim_name], model=model, optim=optim)
-                
+
                 trainer2.state.optimizers[0].load_state_dict(optim_state_dict)
-                
+
                 with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
                     flattened_optim_state_dict = FSDP.optim_state_dict(model, optim)  # type: ignore
-                
+
                 state_dict['state']['optimizers'] = {
                     optim_name: flattened_optim_state_dict,
                 }
