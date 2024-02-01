@@ -47,7 +47,6 @@ Composer is part of the broader Machine Learning community, and we welcome any c
 
    examples/getting_started.ipynb
    examples/functional_api.ipynb
-   examples/medical_image_segmentation.ipynb
    examples/custom_speedup_methods.ipynb
    examples/finetune_huggingface.ipynb
    examples/pretrain_finetune_huggingface.ipynb
@@ -135,19 +134,6 @@ Composer is part of the broader Machine Learning community, and we welcome any c
    method_cards/stochastic_depth_samplewise.md
    method_cards/swa.md
    method_cards/weight_standardization.md
-
-.. toctree::
-   :hidden:
-   :maxdepth: 1
-   :caption: Model Library
-
-   model_cards/BERT.md
-   model_cards/cifar_resnet.md
-   model_cards/deeplabv3.md
-   model_cards/efficientnet.md
-   model_cards/GPT2.md
-   model_cards/resnet.md
-   model_cards/unet.md
 
 .. toctree::
    :hidden:
