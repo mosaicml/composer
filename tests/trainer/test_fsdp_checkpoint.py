@@ -411,7 +411,7 @@ def test_fsdp_load_old_checkpoint(
     s3_read_only_prefix: str,
     composer_version: str,
 ):
-    if composer_version == '0.18.1' and state_dict_type == 'full' and precision == 'amp_bf16':
+    if composer_version == '0.18.1' and state_dict_type == 'full' and precision == 'amp_bf16' and sharding_strategy == 'FULL_SHARD':
         pytest.skip('TODO: This checkpoint is missing')
 
     if composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']:
