@@ -36,7 +36,7 @@ from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
-from composer.callbacks import CheckpointSaver, OptimizerMonitor
+from composer.callbacks import CheckpointSaver, MemorySnapshot, OptimizerMonitor
 from composer.core import (Algorithm, AlgorithmPass, Batch, Callback, DataSpec, Engine, Evaluator, Event, Precision,
                            State, Time, Timestamp, TimeUnit, TrainerMode, ensure_data_spec, ensure_evaluator,
                            ensure_time, get_precision_context, validate_eval_automicrobatching)
@@ -1072,6 +1072,15 @@ class Trainer:
                     loggers.append(remote_ud)
             self.state.profiler.bind_to_state(self.state)
 
+        # MemorySnapshot
+        for cb in self.state.callbacks:
+            if isinstance(cb, MemorySnapshot):
+                if cb.remote_file_name:
+                    remote_ud = maybe_create_remote_uploader_downloader_from_uri(uri=cb.remote_file_name,
+                                                                                 loggers=loggers)
+                    if remote_ud is not None:
+                        loggers.append(remote_ud)
+
         if progress_bar and log_to_console:
             warnings.warn(
                 'Setting both `progress_bar` and `log_to_console` both to True is not recommended and will'
@@ -1215,7 +1224,10 @@ class Trainer:
 
         # Log hparams.
         if self.auto_log_hparams:
-            self.local_hparams = extract_hparams(locals())
+            locs = locals()
+            if 'cb' in locs:
+                del locs['cb']
+            self.local_hparams = extract_hparams(locs)
             self.logger.log_hyperparameters(self.local_hparams)
 
         # Log composer version
