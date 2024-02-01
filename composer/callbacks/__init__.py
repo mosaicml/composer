@@ -12,10 +12,10 @@ from composer.callbacks.early_stopper import EarlyStopper
 from composer.callbacks.export_for_inference import ExportForInferenceCallback
 from composer.callbacks.free_outputs import FreeOutputs
 from composer.callbacks.generate import Generate
-from composer.callbacks.health_checker import HealthChecker
 from composer.callbacks.image_visualizer import ImageVisualizer
 from composer.callbacks.lr_monitor import LRMonitor
 from composer.callbacks.memory_monitor import MemoryMonitor
+from composer.callbacks.memory_snapshot import MemorySnapshot
 from composer.callbacks.mlperf import MLPerfCallback
 from composer.callbacks.nan_monitor import NaNMonitor
 from composer.callbacks.optimizer_monitor import OptimizerMonitor
@@ -37,9 +37,9 @@ __all__ = [
     'ExportForInferenceCallback',
     'ThresholdStopper',
     'ImageVisualizer',
-    'HealthChecker',
     'RuntimeEstimator',
     'SystemMetricsMonitor',
     'Generate',
     'FreeOutputs',
+    'MemorySnapshot',
 ]

@@ -11,8 +11,8 @@ import composer.callbacks
 import composer.loggers
 import composer.profiler
 from composer import Callback
-from composer.callbacks import (EarlyStopper, ExportForInferenceCallback, FreeOutputs, Generate, HealthChecker,
-                                ImageVisualizer, MemoryMonitor, MLPerfCallback, SpeedMonitor, SystemMetricsMonitor,
+from composer.callbacks import (EarlyStopper, ExportForInferenceCallback, FreeOutputs, Generate, ImageVisualizer,
+                                MemoryMonitor, MemorySnapshot, MLPerfCallback, SpeedMonitor, SystemMetricsMonitor,
                                 ThresholdStopper)
 from composer.loggers import (CometMLLogger, ConsoleLogger, LoggerDestination, MLFlowLogger, ProgressBarLogger,
                               RemoteUploaderDownloader, TensorboardLogger, WandBLogger)
@@ -128,6 +128,10 @@ _callback_marks: Dict[Type[Callback], List[pytest.MarkDecorator],] = {
         pytest.mark.filterwarnings(
             r'ignore:The memory monitor only works on CUDA devices, but the model is on cpu:UserWarning')
     ],
+    MemorySnapshot: [
+        pytest.mark.filterwarnings(
+            r'ignore:The memory snapshot only works on CUDA devices, but the model is on cpu:UserWarning')
+    ],
     MLPerfCallback: [pytest.mark.skipif(not _MLPERF_INSTALLED, reason='MLPerf is optional')],
     WandBLogger: [
         pytest.mark.filterwarnings(r'ignore:unclosed file:ResourceWarning'),
@@ -145,7 +149,6 @@ _callback_marks: Dict[Type[Callback], List[pytest.MarkDecorator],] = {
     ImageVisualizer: [pytest.mark.skipif(not _WANDB_INSTALLED, reason='Wandb is optional')],
     MLFlowLogger: [pytest.mark.skipif(not _MLFLOW_INSTALLED, reason='mlflow is optional'),],
     SystemMetricsMonitor: [pytest.mark.skipif(not _PYNMVL_INSTALLED, reason='pynmvl is optional'),],
-    HealthChecker: [pytest.mark.filterwarnings('ignore:.*HealthChecker is deprecated.*')],
 }
 
 

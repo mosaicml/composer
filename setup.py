@@ -79,7 +79,7 @@ install_requires = [
     'torchmetrics>=0.10.0,<1.3.1',
     'torch_optimizer>=0.3.0,<0.4',
     'torchvision>=0.13.1,<0.20',  # TODO: Tighten before release
-    'torch>=1.13.1,<2.3.1',  # TODO: Tighten before release
+    'torch>=2.0.1,<2.3.1',  # TODO: Tighten before release
     'requests>=2.26.0,<3',
     'numpy>=1.21.5,<1.27.0',
     'psutil>=5.8.0,<6',
@@ -100,11 +100,11 @@ extra_deps['dev'] = [
     # Should manually update dependency versions occassionally.
     'custom_inherit==2.4.1',
     'junitparser==3.1.1',
-    'coverage[toml]==7.3.4',
+    'coverage[toml]==7.4.1',
     'fasteners==0.18',  # object store tests require fasteners
     'pytest==7.4.4',
     'ipython==8.11.0',
-    'ipykernel==6.28.0',
+    'ipykernel==6.29.0',
     'jupyter==1.0.0',
     'yamllint==1.33.0',
     'recommonmark==0.7.1',
@@ -142,10 +142,6 @@ extra_deps['dev'] = [
     'setuptools<=59.5.0',
 ]
 
-extra_deps['health_checker'] = {
-    'pynvml>=11.5.0,<12',
-}
-
 extra_deps['system_metrics_monitor'] = {
     'pynvml>=11.5.0,<12',
 }
@@ -171,19 +167,6 @@ extra_deps['tensorboard'] = [
     'tensorboard>=2.9.1,<3.0.0',
 ]
 
-extra_deps['unet'] = [
-    'monai>=0.9.1,<1.4',
-    'scikit-learn>=1.0.1,<2',
-]
-
-extra_deps['vit'] = [
-    'vit_pytorch==1.6.1',
-]
-
-extra_deps['timm'] = [
-    'timm>=0.5.4,<0.6',
-]
-
 extra_deps['coco'] = [
     'pycocotools>=2.0.4,<3',
 ]
@@ -191,6 +174,10 @@ extra_deps['coco'] = [
 extra_deps['nlp'] = [
     'transformers>=4.11,<4.38,!=4.34.0',
     'datasets>=2.4,<3',
+]
+
+extra_deps['peft'] = [
+    'peft>=0.7.0,<0.8',
 ]
 
 extra_deps['sentencepiece'] = [
@@ -262,9 +249,9 @@ setup(name=package_name,
       packages=setuptools.find_packages(exclude=['docker*', 'examples*', 'scripts*', 'tests*']),
       classifiers=[
           'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.8',
           'Programming Language :: Python :: 3.9',
           'Programming Language :: Python :: 3.10',
+          'Programming Language :: Python :: 3.11',
       ],
       install_requires=install_requires,
       entry_points={
@@ -276,7 +263,7 @@ setup(name=package_name,
       },
       extras_require=extra_deps,
       dependency_links=['https://developer.download.nvidia.com/compute/redist'],
-      python_requires='>=3.8',
+      python_requires='>=3.9',
       ext_package='composer',
       cmdclass={'develop': develop})
 
