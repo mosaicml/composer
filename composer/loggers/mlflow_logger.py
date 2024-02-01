@@ -292,8 +292,8 @@ class MLFlowLogger(LoggerDestination):
                 log.warning(
                     'Saving PEFT models using MLflow is experimental and the API is subject to change without warning.')
                 expected_keys = {'path', 'save_pretrained_dir'}
-                if not set(kwargs.keys()) == expected_keys:
-                    raise ValueError(f'Expected kwargs to be {expected_keys}, but got {kwargs.keys()}')
+                if not expected_keys.issubset(kwargs.keys()):
+                    raise ValueError(f'Expected keys {expected_keys} but got {kwargs.keys()}')
 
                 # This is faked for now, until MLflow adds full support for saving PEFT models.
                 class PeftModel(mlflow.pyfunc.PythonModel):
