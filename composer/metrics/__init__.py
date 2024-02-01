@@ -9,7 +9,8 @@ from composer.metrics.nlp import (BinaryF1Score, InContextLearningCodeEvalAccura
                                   InContextLearningLMExpectedCalibrationError,
                                   InContextLearningMCExpectedCalibrationError, InContextLearningMetric,
                                   InContextLearningMultipleChoiceAccuracy, InContextLearningQAAccuracy,
-                                  LanguageCrossEntropy, LanguagePerplexity, MaskedAccuracy)
+                                  LanguageCrossEntropy, LanguagePerplexity, MaskedAccuracy, MetricsRequiringBatchInfo,
+                                  LossPerpVLen)
 
 __all__ = [
     'MAP',
@@ -28,6 +29,8 @@ __all__ = [
     'InContextLearningLMExpectedCalibrationError',
     'InContextLearningMetric',
     'InContextLearningCodeEvalAccuracy',
+    'MetricsRequiringBatchInfo',
+    'LossPerpVLen',
 ]
 
 METRIC_DEFAULT_CTORS = {

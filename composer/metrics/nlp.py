@@ -184,6 +184,105 @@ class BinaryF1Score(Metric):
         f1 = (self.true_positive) / (self.true_positive + (0.5 * (self.false_negative + self.false_positive)))
         return f1
 
+class MetricsRequiringBatchInfo(Metric):
+
+    def update(self, batch: dict, output: Union[Mapping, torch.Tensor],
+               target: torch.Tensor) -> None:
+        """Abstract interface for computing metrics that require the batch.
+
+        Args:
+            batch (dict): Batch must consist minimally of `input_ids` as well as any other structure needed
+                to compute the metric.
+            output_logits (torch.Tensor): The model outputs evaluated on the batch `input_ids`
+            labels (torch.Tensor): The correct outputs.
+
+        Raises:
+            NotImplementedError: Abstract method must be implemented by subclasses
+        """
+        raise NotImplementedError
+
+class LossPerpVLen(MetricsRequiringBatchInfo):
+
+    # Make torchmetrics call update only once
+    full_state_update = False
+
+    def __init__(self,
+                 dist_sync_on_step: bool = False,
+                 ignore_index: int = -100):
+        super().__init__(dist_sync_on_step=dist_sync_on_step)
+
+        self.ignore_index = ignore_index
+        self.loss_fn = torch.nn.CrossEntropyLoss(ignore_index=ignore_index,
+                                                 reduction='none')
+        self.add_state('sum_loss',
+                       default=torch.Tensor(),
+                       dist_reduce_fx='sum')
+        self.add_state('sum_perplexity',
+                       default=torch.Tensor(),
+                       dist_reduce_fx='sum')
+        self.add_state('sum_length',
+                       default=torch.Tensor(),
+                       dist_reduce_fx='sum')
+
+    def update(self, batch: dict, output: Union[Mapping, torch.Tensor],
+               target: torch.Tensor) -> None:
+        """Updates the internal state with results from a new batch.
+        Args:
+            output (Mapping): The output from the model, which must contain
+                either the Tensor or a Mapping type that contains the loss or model logits.
+            target (~torch.Tensor): A Tensor of ground-truth values to compare against.
+        """
+        if isinstance(output, Mapping):
+            logits = output['logits']
+        elif isinstance(output, torch.Tensor):
+            logits = output
+        else:
+            raise Exception(
+                f'Type {type(output)} for the output is unsupported.')
+        if 'sequence_id' not in batch:
+            warnings.warn('Sequence id information not available, cannot compute  LossVLen.')
+            return
+        log.info(
+                f'{target.shape=}, {logits.shape=}, {batch["sequence_id"].shape=}'
+            )
+
+        bsz, seq_len = target.shape
+        for i in range(bsz):
+            log.info(f'max_seq_len={torch.bincount(batch["sequence_id"][i]).max().item()}')
+        target = target.view(-1)
+        logits = logits.view(target.shape[0], -1)
+        loss = self.loss_fn(logits, target)
+        perplexity = torch.exp(loss)
+
+        seq_id = batch['sequence_id']
+        seq_id_expanded = torch.nn.functional.one_hot(seq_id).transpose(-1,-2) == 1
+        seq_lens = seq_id_expanded.sum(dim=-1)
+        max_num_seq = seq_lens.shape[1]
+        seq_tok_ids = torch.arange(seq_len, device=seq_id.device)[None, None, :].expand(bsz, max_num_seq, -1)
+        mask = seq_tok_ids < seq_lens[:,:, None]
+        seq_tok_ids = torch.where(mask, seq_tok_ids, torch.zeros_like(seq_tok_ids))
+        seq_len_shifted = torch.nn.functional.pad(seq_lens.cumsum(dim=1)[:, :-1], (1, 0), value=0)
+        seq_tok_ids = seq_tok_ids + seq_len_shifted[:,:, None]
+
+        loss = loss.view(bsz, seq_len)[:, None, :].expand(-1, max_num_seq, -1)
+        perplexity = perplexity.view(bsz, seq_len)[:, None, :].expand(-1, max_num_seq, -1)
+        
+        breakpoint()
+        
+        loss = torch.where(mask, torch.gather(input=loss, dim=2, index=seq_tok_ids), torch.zeros_like(loss))
+        perplexity = torch.where(mask, torch.gather(input=perplexity, dim=2, index=seq_tok_ids), torch.zeros_like(perplexity))
+
+        self.sum_loss += torch.sum(loss, dim=(0,1))
+        self.sum_perplexity += torch.sum(perplexity, dim=(0,1))
+        self.sum_length += torch.sum(mask, dim=(0,1))
+
+    def compute(self) -> torch.Tensor:
+        """Aggregate the state over all processes to compute the metric.
+        Returns:
+            loss: The loss averaged across all batches as a :class:`~torch.Tensor`.
+        """
+        # Return average loss over entire dataset
+        return (self.sum_loss, self.sum_perp, self.sum_length)
 
 class LanguagePerplexity(LanguageCrossEntropy):
     """Subclasses :class:`~composer.metrics.nlp.LanguageCrossEntropy` to implement perplexity."""
