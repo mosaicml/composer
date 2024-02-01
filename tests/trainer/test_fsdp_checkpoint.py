@@ -468,14 +468,14 @@ def test_fsdp_load_old_checkpoint(
 
     if (dist.get_global_rank() == 0 and state_dict_type == 'full') or state_dict_type == 'sharded':
         # After composer version 0.16.0, sharded checkpoints are of type folder/__{local_rank}__{global_rank}.distcp
-        # Thus, cannot be loaded with `get_file` anymore (need the whole folder) so we use the DistCPObjectStoreReader 
-        # to load state_dict.
+        # They cannot be loaded with `get_file` as we need the whole folder to load the checkpoint.
+        # Thus, we use the DistCPObjectStoreReader to load the state_dict.
         if state_dict_type == 'sharded' and version.parse(composer_version) >= version.parse('0.16.0'):
             trainer2 = get_trainer(
                 num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
                 num_classes=8,  # This parameter setting is very important. Don't change or the test will fail.
                 precision=precision,
-                max_duration='10ba',
+                max_duration='10ba',  # Change this so we have slightly different model runtime settings. 
                 train_metrics=train_metrics,
                 val_metrics=val_metrics,
                 fsdp_config=fsdp_config,
