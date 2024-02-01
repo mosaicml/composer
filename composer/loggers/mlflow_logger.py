@@ -12,7 +12,7 @@ import pathlib
 import textwrap
 import time
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -265,13 +265,13 @@ class MLFlowLogger(LoggerDestination):
                 tags=tags,
             )
 
-    def save_model(self, flavor: str, **kwargs):
+    def save_model(self, flavor: Literal['transformers', 'peft'], **kwargs):
         """Save a model to MLflow.
 
         Note: The ``'peft'`` flavor is experimental and the API is subject to change without warning.
 
         Args:
-            flavor (str): The MLflow model flavor to use. Currently only ``'transformers'`` and ``'peft'`` are supported.
+            flavor (Literal['transformers', 'peft']): The MLflow model flavor to use. Currently only ``'transformers'`` and ``'peft'`` are supported.
             **kwargs: Keyword arguments to pass to the MLflow model saving function.
 
         Raises:
@@ -295,7 +295,8 @@ class MLFlowLogger(LoggerDestination):
                 if not expected_keys.issubset(kwargs.keys()):
                     raise ValueError(f'Expected keys {expected_keys} but got {kwargs.keys()}')
 
-                # This is faked for now, until MLflow adds full support for saving PEFT models.
+                # This does not implement predict for now, as we will wait for the full MLflow support
+                # for PEFT models.
                 class PeftModel(mlflow.pyfunc.PythonModel):
 
                     def load_context(self, context):
@@ -314,6 +315,7 @@ class MLFlowLogger(LoggerDestination):
                 output_schema = Schema([ColSpec(DataType.string)])
                 signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
+                # Symlink the directory so that we control the path that MLflow saves the model under
                 os.symlink(kwargs['save_pretrained_dir'], 'lora_checkpoint')
 
                 mlflow.pyfunc.save_model(
@@ -327,11 +329,11 @@ class MLFlowLogger(LoggerDestination):
             else:
                 raise NotImplementedError(f'flavor {flavor} not supported.')
 
-    def log_model(self, flavor: str, **kwargs):
+    def log_model(self, flavor: Literal['transformers'], **kwargs):
         """Log a model to MLflow.
 
         Args:
-            flavor (str): The MLflow model flavor to use. Currently only ``'transformers'`` is supported.
+            flavor (Literal['transformers']): The MLflow model flavor to use. Currently only ``'transformers'`` is supported.
             **kwargs: Keyword arguments to pass to the MLflow model logging function.
 
         Raises:
