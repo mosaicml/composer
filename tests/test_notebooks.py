@@ -32,6 +32,7 @@ except importlib_metadata.PackageNotFoundError:
     except importlib_metadata.PackageNotFoundError:
         raise RuntimeError('Could not find the package under mosaicml or composer.')
 
+
 def patch_notebooks():
     import itertools
     import multiprocessing
@@ -96,10 +97,8 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
         cell_source = cell_source.replace('batch_size=256', 'batch_size=64')
         cell_source = cell_source.replace('download=True', 'download=False')
 
-    print(f'Using package name: {package_name}')
     cell_source = cell_source.replace("pip install 'mosaicml", f"pip install '{package_name}")
     cell_source = cell_source.replace('pip install mosaicml', f'pip install {package_name}')
-    print(f'Cell source: {cell_source}')
 
     return cell_source
 
@@ -110,9 +109,6 @@ def modify_cell_source(tb: TestbookNotebookClient, notebook_name: str, cell_sour
 def test_notebook(notebook: str, device: str, s3_bucket: str):
     trainer_monkeypatch_code = inspect.getsource(patch_notebooks)
     notebook_name = os.path.split(notebook)[-1][:-len('.ipynb')]
-
-    if notebook_name != 'functional_api':
-        pytest.skip('DEBUG')
 
     if notebook_name == 'medical_image_segmentation':
         pytest.skip('Dataset is only available via kaggle; need to authenticate on ci/cd')
