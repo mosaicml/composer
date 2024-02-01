@@ -12,7 +12,8 @@ import composer.loggers
 import composer.profiler
 from composer import Callback
 from composer.callbacks import (EarlyStopper, ExportForInferenceCallback, FreeOutputs, Generate, ImageVisualizer,
-                                MemoryMonitor, MLPerfCallback, SpeedMonitor, SystemMetricsMonitor, ThresholdStopper)
+                                MemoryMonitor, MemorySnapshot, MLPerfCallback, SpeedMonitor, SystemMetricsMonitor,
+                                ThresholdStopper)
 from composer.loggers import (CometMLLogger, ConsoleLogger, LoggerDestination, MLFlowLogger, ProgressBarLogger,
                               RemoteUploaderDownloader, TensorboardLogger, WandBLogger)
 from composer.models.base import ComposerModel
@@ -126,6 +127,10 @@ _callback_marks: Dict[Type[Callback], List[pytest.MarkDecorator],] = {
     MemoryMonitor: [
         pytest.mark.filterwarnings(
             r'ignore:The memory monitor only works on CUDA devices, but the model is on cpu:UserWarning')
+    ],
+    MemorySnapshot: [
+        pytest.mark.filterwarnings(
+            r'ignore:The memory snapshot only works on CUDA devices, but the model is on cpu:UserWarning')
     ],
     MLPerfCallback: [pytest.mark.skipif(not _MLPERF_INSTALLED, reason='MLPerf is optional')],
     WandBLogger: [

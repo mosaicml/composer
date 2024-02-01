@@ -32,7 +32,7 @@ def _reraise_oci_errors(uri: str, e: Exception):
                 raise FileNotFoundError(f'Object {uri} not found. {e.message}') from e  # type: ignore
             if e.code == 'BucketNotFound':  # type: ignore
                 raise ValueError(f'Bucket specified in {uri} not found. {e.message}') from e  # type: ignore
-            raise e
+            raise FileNotFoundError(f'Object {uri} not found with no error code. {e.message}') from e  # type: ignore
 
     # Client errors
     if isinstance(e, oci.exceptions.ClientError):
@@ -148,8 +148,12 @@ class OCIObjectStore(ObjectStore):
             os.makedirs(dirname, exist_ok=True)
 
         # Get the size of the object
-        head_object_response = self.client.head_object(self.namespace, self.bucket, object_name)
-        object_size = head_object_response.headers['content-length']  # pyright: ignore[reportOptionalMemberAccess]
+        object_size = 0
+        try:
+            head_object_response = self.client.head_object(self.namespace, self.bucket, object_name)
+            object_size = head_object_response.headers['content-length']  # pyright: ignore[reportOptionalMemberAccess]
+        except Exception as e:
+            _reraise_oci_errors(self.get_uri(object_name), e)
         # Calculate the part sizes
         base_part_size, remainder = divmod(int(object_size), num_parts)
         part_sizes = [base_part_size] * num_parts
