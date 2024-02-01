@@ -11,7 +11,7 @@ import textwrap
 import uuid
 from contextlib import nullcontext as does_not_raise
 from functools import partial
-from typing import Any, Callable, Dict, Optional, Sequence, Union
+from typing import Any, Callable, Optional, Sequence, Union
 from unittest.mock import patch
 
 import numpy as np
@@ -467,7 +467,10 @@ def test_fsdp_load_old_checkpoint(
     state_dict2 = trainer.state.state_dict()
 
     if (dist.get_global_rank() == 0 and state_dict_type == 'full') or state_dict_type == 'sharded':
-        if state_dict_type == 'sharded' and composer_version >= '0.16.0':
+        # After composer version 0.16.0, sharded checkpoints are of type folder/__{local_rank}__{global_rank}.distcp
+        # Thus, cannot be loaded with `get_file` anymore (need the whole folder) so we use the DistCPObjectStoreReader 
+        # to load state_dict.
+        if state_dict_type == 'sharded' and version.parse(composer_version) >= version.parse('0.16.0'):
             trainer2 = get_trainer(
                 num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
                 num_classes=8,  # This parameter setting is very important. Don't change or the test will fail.
@@ -485,7 +488,7 @@ def test_fsdp_load_old_checkpoint(
             destination = str(pathlib.Path(gathered_tmp_path) / parsed_load_path)
 
             from composer.utils.checkpoint import DistCPObjectStoreReader
-            state_dict: Dict[str, Any] = {
+            state_dict: dict[str, Any] = {
                 'state': trainer2.state.state_dict(),
                 'rng': get_rng_state(),
             }
