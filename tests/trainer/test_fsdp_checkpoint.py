@@ -469,6 +469,7 @@ def test_fsdp_load_old_checkpoint(
 
         if state_dict_type == 'sharded' and composer_version > '0.16.0':
             from torch.distributed import checkpoint as dist_cp
+
             from composer.utils.checkpoint import DistCPObjectStoreReader
             state_dict = {'state': {}}
             object_store = S3ObjectStore(bucket=f'{s3_bucket}')
@@ -484,12 +485,11 @@ def test_fsdp_load_old_checkpoint(
                                                      destination_path=destination,
                                                      object_store=object_store)
 
-            load_planner = torch.distributed.checkpoint.planner.LoadPlanner
             process_group = None
             dist_cp.load_state_dict(
                 state_dict=state_dict,
                 storage_reader=storage_reader,
-                planner=load_planner,
+                planner=None,
                 process_group=process_group,
             )
             state_dict1 = state_dict['state']
@@ -497,7 +497,7 @@ def test_fsdp_load_old_checkpoint(
             get_file(filled_load_path, destination=destination)
             with open(destination, 'rb') as f:
                 state_dict1 = torch.load(f)['state']
-        
+
         _compare_model_params_between_state_dicts(state_dict1, state_dict2)
 
         _compare_optims_between_state_dicts(state_dict1, state_dict2)

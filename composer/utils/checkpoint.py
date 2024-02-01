@@ -20,18 +20,16 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
 
 import torch
 from packaging import version
+from torch.distributed import checkpoint as dist_cp
+from torch.distributed.checkpoint.metadata import Metadata
+from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
+from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
 
 from composer.utils import dist, reproducibility
 from composer.utils.file_helpers import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, format_name_with_dist,
                                          format_name_with_dist_and_time, get_file, is_tar)
 from composer.utils.misc import is_model_deepspeed
 from composer.utils.object_store import ObjectStore
-
-from torch.distributed import checkpoint as dist_cp
-from torch.distributed.checkpoint.metadata import Metadata
-from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
-from torch.distributed.checkpoint.planner import LoadPlan, LoadPlanner
-
 
 if TYPE_CHECKING:
     from composer.core import AlgorithmPass, State
@@ -136,6 +134,7 @@ def _get_write_mode(name: str) -> str:
         return 'w:xz'
     raise ValueError(f'{name} does not end with a valid tarfile extension.')
 
+
 class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
     """FileSystemReader that validates checkpoint files prior to reading."""
 
@@ -169,6 +168,7 @@ class FileSystemReaderWithValidation(dist_cp.FileSystemReader):
         _ensure_valid_checkpoint(metadata_file_path)
         return super().read_metadata()
 
+
 # A subclass of FileSystemReaderWithValidation that downloads files from the object store before reading them from the local filesystem.
 class DistCPObjectStoreReader(FileSystemReaderWithValidation):
 
@@ -182,7 +182,7 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
         metadata_destination = os.path.join(self.destination_path, '.metadata')
         if dist.get_local_rank() == 0:
             object_store.download_object(object_name=str(Path(source_path) / Path('.metadata')),
-                                            filename=metadata_destination)
+                                         filename=metadata_destination)
         dist.barrier()
 
         # FileSystemReader takes in a root directory in its constructor, which is the dir where
@@ -200,15 +200,15 @@ class DistCPObjectStoreReader(FileSystemReaderWithValidation):
             file_destination = str(Path(self.destination_path) / Path(relative_file_path))
             # The file could have already been downloaded as diffeent plan items can point to same file.
             if not os.path.exists(file_destination):
-                self.object_store.download_object(object_name=str(
-                    Path(self.source_path) / Path(relative_file_path)),
-                                                    filename=file_destination)
+                self.object_store.download_object(object_name=str(Path(self.source_path) / Path(relative_file_path)),
+                                                  filename=file_destination)
 
         # 2. Wait for all ranks to finish.
         dist.barrier()
 
         # 3. Piggyback off of the FileSystemReader to read all the files now that they are downloaded.
         return super().read_data(plan, planner)
+
 
 class PartialFilePath:
 
