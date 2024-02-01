@@ -227,22 +227,23 @@ All imports in composer should be absolute -- that is, they do not begin with a 
 1.  If a dependency is not core to Composer (e.g. it is for a model, dataset, algorithm, or some callbacks):
     1.  It must be specified in a entry of the `extra_deps` dictionary of [setup.py](setup.py).
         This dictionary groups dependencies that can be conditionally installed. An entry named `foo`
-        can be installed with `pip install 'mosaicml[foo]'`. For example, running `pip install 'mosaicml[unet]'`
-        will install everything in `install_requires`, along with `monai` and `scikit-learn`.
+        can be installed with `pip install 'mosaicml[foo]'`. For example, running `pip install 'mosaicml[system_metrics_monitor]'`
+        will install everything in `install_requires`, along with `pynvml`.
     1.  It must also be specified in the `run_constrained` and the `test.requires` section.
     1.  The import must be conditionally imported in the code. For example:
 
         <!--pytest-codeblocks:importorskip(monai)-->
         <!--pytest-codeblocks:importorskip(scikit-learn)-->
         ```python
+        from composer import Callback
         from composer.utils import MissingConditionalImportError
 
-        def unet():
+        class SystemMetricsMonitor(Callback)
             try:
-                import monai
+                import pynvml
             except ImportError as e:
-                raise MissingConditionalImportError(extra_deps_group="unet",
-                                                    conda_package="monai",
+                raise MissingConditionalImportError(extra_deps_group="system_metrics_monitor",
+                                                    conda_package="pynvml",
                                                     conda_channel="conda-forge",) from e
         ```
 

@@ -16,9 +16,7 @@ L2 regularization is typically considered equivalent to weight decay, but this e
 <!--
 ```python
 from torch.utils.data import DataLoader
-from tests.common import RandomImageDataset
-
-from composer.models import composer_resnet
+from tests.common import RandomImageDataset, composer_resnet
 
 model = composer_resnet('resnet50')
 
