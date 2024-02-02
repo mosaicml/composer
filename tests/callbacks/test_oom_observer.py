@@ -19,13 +19,15 @@ from tests.common import RandomClassificationDataset, SimpleModel
                     reason='OOM Observer requires PyTorch 2.1 or higher')
 def test_oom_observer_warnings_on_cpu_models():
     ob = OOMObserver()
-    Trainer(
-        model=SimpleModel(),
-        callbacks=ob,
-        train_dataloader=DataLoader(RandomClassificationDataset()),
-        max_duration='1ba',
-    )
-    assert ob._enabled is False
+    with pytest.warns(UserWarning):
+        Trainer(
+            model=SimpleModel(),
+            callbacks=ob,
+            train_dataloader=DataLoader(RandomClassificationDataset()),
+            max_duration='1ba',
+            device='cpu',
+        )
+        assert ob._enabled is False
 
 
 class FileUploaderTracker(LoggerDestination):
