@@ -260,7 +260,8 @@ def _launch_processes(
     module_mode: bool,
     command_mode: bool,
     training_script: str,
-    log_file_format: str,
+    stdout_file_format: str,
+    stderr_file_format: str | None,
     training_script_args: List[Any],
     processes: Dict[int, subprocess.Popen],
 ):
@@ -315,15 +316,16 @@ def _launch_processes(
                     )
                     return open(filename, 'a+')
 
-                log_file = _get_file(log_file_format)
+                stdout_file = _get_file(stdout_file_format)
+                stderr_file = _get_file(stderr_file_format) if stderr_file_format is not None else subprocess.STDOUT
 
                 process = subprocess.Popen(
                     cmd,
-                    stdout=log_file,
-                    stderr=subprocess.STDOUT,
+                    stdout=stdout_file,
+                    stderr=stderr_file,
                     text=True,
                 )
-                process.stdout = log_file
+
             processes[global_rank] = process
 
 
@@ -448,13 +450,19 @@ def main():
 
     processes = {}
     log_tmpdir = tempfile.TemporaryDirectory()
-    log_file_format = f'{log_tmpdir.name}/rank{{rank}}.txt'
 
-    # If running on the Mosaic platform, also log all gpu ranks' stderr and stdout to Mosaic platform
+    if args.stdout is None:
+        args.stdout = f'{log_tmpdir.name}/rank{{rank}}.stdout.txt'
+    if args.stderr is None:
+        args.stderr = f'{log_tmpdir.name}/rank{{rank}}.stderr.txt'
+
+    # If running on the Mosaic platform, log all gpu ranks' stderr and stdout to Mosaic platform
     if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and os.environ.get(
             MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and os.environ.get(MOSAICML_LOG_DIR) is not None:
         log.info('Logging all gpu ranks to Mosaic Platform')
         log_file_format = f'{os.environ.get(MOSAICML_LOG_DIR)}/gpu_{{rank}}.txt'
+        args.stdout = log_file_format
+        args.stderr = None
 
     try:
         _launch_processes(nproc=args.nproc,
@@ -465,7 +473,8 @@ def main():
                           master_port=args.master_port,
                           module_mode=args.module_mode,
                           command_mode=args.command_mode,
-                          log_file_format=log_file_format,
+                          stdout_file_format=args.stdout,
+                          stderr_file_format=args.stderr,
                           training_script=args.training_script,
                           training_script_args=args.training_script_args,
                           processes=processes)
