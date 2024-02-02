@@ -6,6 +6,7 @@
 import logging
 import os
 import pickle
+import warnings
 from typing import Optional
 
 import torch.cuda
@@ -91,7 +92,7 @@ class OOMObserver(Callback):
             self._enabled = True
         else:
             self._enabled = False
-            log.info('OOMObserver is supported after PyTorch 2.1.0. Skipping oom observer callback.')
+            log.warning('OOMObserver is supported after PyTorch 2.1.0. Skipping oom observer callback.')
 
     def init(self, state: State, logger: Logger) -> None:
         if not self._enabled:
@@ -100,9 +101,7 @@ class OOMObserver(Callback):
         model_device = next(state.model.parameters()).device
 
         if model_device.type not in ('cuda', 'meta'):
-            log.info(
-                f'OOMObserver only works on CUDA devices, but the model is on {model_device.type}. OOMObserver is disabled.'
-            )
+            warnings.warn(f'OOMObserver only works on CUDA devices, but the model is on {model_device.type}.')
             self._enabled = False
         else:
             self.folder_name = format_name_with_dist(self.folder, state.run_name)
@@ -112,7 +111,7 @@ class OOMObserver(Callback):
 
         def oom_observer(device: int, alloc: int, device_alloc: int, device_free: int):
             # Snapshot right after an OOM happened
-            log.info('Out Of Memory (OOM) observed')
+            log.warn('Out Of Memory (OOM) observed')
 
             assert self.filename
             assert self.folder_name, 'folder_name must be set in init'
