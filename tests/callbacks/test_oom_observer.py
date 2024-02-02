@@ -72,13 +72,10 @@ def test_oom_observer():
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.1.0'),
                     reason='OOM Observer requires PyTorch 2.1 or higher')
 def test_oom_observer_with_memory_snapshot():
-
     # Construct the callbacks
     oom_observer = OOMObserver()
     memory_snapshot = MemorySnapshot(skip_batches=0, interval='1ba')
-
     simple_model = SimpleModel()
-
     file_tracker_destination = FileUploaderTracker()
 
     trainer = Trainer(
