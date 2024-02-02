@@ -48,9 +48,7 @@ class FileUploaderTracker(LoggerDestination):
 def test_oom_observer():
     # Construct the callbacks
     oom_observer = OOMObserver()
-
     simple_model = SimpleModel()
-
     file_tracker_destination = FileUploaderTracker()
 
     with pytest.raises(torch.cuda.OutOfMemoryError):
