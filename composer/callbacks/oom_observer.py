@@ -101,7 +101,9 @@ class OOMObserver(Callback):
         model_device = next(state.model.parameters()).device
 
         if model_device.type not in ('cuda', 'meta'):
-            log.info(f'OOMObserver only works on CUDA devices, but the model is on {model_device.type}. OOMObserver is disabled.')
+            log.info(
+                f'OOMObserver only works on CUDA devices, but the model is on {model_device.type}. OOMObserver is disabled.'
+            )
             self._enabled = False
         else:
             self.folder_name = format_name_with_dist(self.folder, state.run_name)
