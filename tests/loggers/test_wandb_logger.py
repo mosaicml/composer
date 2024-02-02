@@ -247,6 +247,7 @@ def test_wandb_log_metrics(test_wandb_logger):
 
 
 @pytest.mark.parametrize('callback_cls', get_cbs_and_marks(callbacks=True))
+@pytest.mark.filterwarnings('ignore:UserWarningWarning')
 def test_logged_data_is_json_serializable(callback_cls: Type[Callback]):
     """Test that all logged data is json serializable, which is a requirement to use wandb."""
     pytest.importorskip('wandb', reason='wandb is optional')

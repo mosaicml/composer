@@ -15,6 +15,7 @@ from tests.callbacks.callback_settings import get_cb_kwargs, get_cb_model_and_da
 
 @pytest.mark.parametrize('logger_cls', get_cbs_and_marks(loggers=True))
 @pytest.mark.parametrize('callback_cls', get_cbs_and_marks(callbacks=True))
+@pytest.mark.filterwarnings('ignore:UserWarningWarning')
 def test_loggers_on_callbacks(logger_cls: Type[LoggerDestination], callback_cls: Type[Callback]):
     if logger_cls in [ProgressBarLogger, ConsoleLogger, SlackLogger]:
         pytest.skip()
