@@ -256,9 +256,24 @@ class LossPerpVLen(MetricsRequiringBatchInfo):
         loss = self.loss_fn(logits, target)
         perplexity = torch.exp(loss)
 
-        self.sum_loss += torch.sum(loss, dim=(0))
-        self.sum_perplexity += torch.sum(perplexity, dim=(0))
-        self.sum_length += torch.sum(mask, dim=(0))
+        loss = loss.view(bsz, seq_len)
+        perplexity = perplexity.view(bsz, seq_len)
+        target = target.view(bsz, seq_len)
+
+        valid_target_mask = torch.where(target != self.ignore_index, torch.ones_like(target), torch.zeros_like(target))
+
+        breakpoint()
+        if self.sum_loss.numel() == 0:
+            self.sum_loss = torch.zeros(seq_len, device=loss.device, dtype=loss.dtype)
+            self.sum_perp = torch.zeros(seq_len, device=loss.device, dtype=loss.dtype)
+            self.sum_length = torch.zeros(seq_len, device=loss.device, dtype=torch.long)
+            self.sum_loss_seq_id = torch.zeros(seq_len, device=loss.device, dtype=loss.dtype)
+            self.sum_perp_seq_id = torch.zeros(seq_len, device=loss.device, dtype=loss.dtype)
+            self.sum_length_seq_id = torch.zeros(seq_len, device=loss.device, dtype=torch.long)
+
+        self.sum_loss += torch.sum(loss.view(bsz, seq_len), dim=(0))
+        self.sum_perplexity += torch.sum(perplexity.view(bsz, seq_len), dim=(0))
+        self.sum_length += valid_target_mask.sum(dim=0)
 
         if 'sequence_id' in batch:
             seq_id = batch['sequence_id']
@@ -272,10 +287,12 @@ class LossPerpVLen(MetricsRequiringBatchInfo):
             seq_tok_ids = seq_tok_ids + seq_len_shifted[:,:, None]
             seq_tok_ids = torch.where(mask, seq_tok_ids, torch.zeros_like(seq_tok_ids))
 
-            loss = loss.view(bsz, seq_len)[:, None, :].expand(-1, max_num_seq, -1)
-            perplexity = perplexity.view(bsz, seq_len)[:, None, :].expand(-1, max_num_seq, -1)
+            loss = loss[:, None, :].expand(-1, max_num_seq, -1)
+            perplexity = perplexity[:, None, :].expand(-1, max_num_seq, -1)
+            valid_target_mask = valid_target_mask[:, None, :].expand(-1, max_num_seq, -1)
             loss = torch.where(mask, torch.gather(input=loss, dim=2, index=seq_tok_ids), torch.zeros_like(loss))
             perplexity = torch.where(mask, torch.gather(input=perplexity, dim=2, index=seq_tok_ids), torch.zeros_like(perplexity))
+            mask = torch.where(mask, torch.gather(input=valid_target_mask, dim=2, index=seq_tok_ids), torch.zeros_like(valid_target_mask))
 
             self.sum_loss_seq_id += torch.sum(loss, dim=(0,1))
             self.sum_perplexity_seq_id += torch.sum(perplexity, dim=(0,1))
@@ -287,7 +304,14 @@ class LossPerpVLen(MetricsRequiringBatchInfo):
             loss: The loss averaged across all batches as a :class:`~torch.Tensor`.
         """
         # Return average loss over entire dataset
-        return (self.sum_loss, self.sum_perp, self.sum_length)
+        return {
+            'loss': self.sum_loss,
+            'perp': self.sum_perp,
+            'sum_length': self.sum_length,
+            'sum_loss_seq_id': self.sum_loss_seq_id,
+            'sum_perp_seq_id': self.sum_perp_seq_id,
+            'sum_length_seq_id': self.sum_length_seq_id
+            }
 
 class LanguagePerplexity(LanguageCrossEntropy):
     """Subclasses :class:`~composer.metrics.nlp.LanguageCrossEntropy` to implement perplexity."""
