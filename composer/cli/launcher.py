@@ -486,7 +486,7 @@ def main():
         log.info('Logging all GPU ranks to Mosaic Platform.')
         log_file_format = f'{os.environ.get(MOSAICML_LOG_DIR_ENV_VAR)}/gpu_{{rank}}.txt'
         if args.stderr is not None or args.stdout is not None:
-            warnings.warn('Ignoring provided stderr and stdout args.')
+            warnings.warn('Logging to Mosaic Platform. Ignoring provided stderr and stdout args.')
         args.stdout = log_file_format
         args.stderr = None
 
