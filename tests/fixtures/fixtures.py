@@ -369,8 +369,8 @@ def tiny_mistral_model_helper(config):
 
 
 @pytest.fixture(scope='session')
-def _session_tiny_t5_model(_session_tiny_t5_config):  # type: ignore
-    return tiny_t5_model_helper(_session_tiny_t5_config)
+def _session_tiny_mistral_model(_session_tiny_mistral_config):  # type: ignore
+    return tiny_mistral_model_helper(_session_tiny_mistral_config)
 
 
 @pytest.fixture
