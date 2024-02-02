@@ -239,6 +239,10 @@ class UCObjectStore(ObjectStore):
 
             while len(stack) > 0:
                 current_path = stack.pop()
+
+                # Note: Databricks SDK handles HTTP errors and retries.
+                # See https://github.com/databricks/databricks-sdk-py/blob/v0.18.0/databricks/sdk/core.py#L125 and
+                # https://github.com/databricks/databricks-sdk-py/blob/v0.18.0/databricks/sdk/retries.py#L33 .
                 resp = self.client.api_client.do(method='GET',
                                                  path=self._UC_VOLUME_LIST_API_ENDPOINT,
                                                  data=json.dumps({'path': self._get_object_path(current_path)}),
