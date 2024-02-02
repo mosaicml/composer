@@ -112,7 +112,7 @@ class OOMObserver(Callback):
 
         def oom_observer(device: int, alloc: int, device_alloc: int, device_free: int):
             # Snapshot right after an OOM happened
-            log.warn('Out Of Memory (OOM) observed')
+            log.warning('Out Of Memory (OOM) observed')
 
             assert self.filename
             assert self.folder_name, 'folder_name must be set in init'
