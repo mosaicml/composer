@@ -32,6 +32,7 @@ def test_oom_observer_warnings_on_cpu_models(device: str):
     )
     assert ob._enabled is False
 
+
 class FileUploaderTracker(LoggerDestination):
 
     def __init__(self) -> None:
