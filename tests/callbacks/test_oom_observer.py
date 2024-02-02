@@ -22,15 +22,15 @@ def test_oom_observer_warnings_on_cpu_models(device: str):
 
     # Error if the user sets device=cpu even when cuda is available
     del device  # unused. always using cpu
-    with pytest.warns(UserWarning, match='OOMObserver only works on CUDA devices, but the model is on cpu.'):
-        Trainer(
-            model=SimpleModel(),
-            callbacks=OOMObserver(),
-            device='cpu',
-            train_dataloader=DataLoader(RandomClassificationDataset()),
-            max_duration='1ba',
-        )
-
+    ob = OOMObserver()
+    Trainer(
+        model=SimpleModel(),
+        callbacks=ob,
+        device='cpu',
+        train_dataloader=DataLoader(RandomClassificationDataset()),
+        max_duration='1ba',
+    )
+    assert ob._enabled is False
 
 class FileUploaderTracker(LoggerDestination):
 
