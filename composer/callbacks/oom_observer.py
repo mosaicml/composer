@@ -92,7 +92,7 @@ class OOMObserver(Callback):
             self._enabled = True
         else:
             self._enabled = False
-            warnings.warn('OOMObserver is supported after PyTorch 2.1.0. Skipping oom observer callback.')
+            log.info('OOMObserver is supported after PyTorch 2.1.0. Skipping oom observer callback.')
 
     def init(self, state: State, logger: Logger) -> None:
         if not self._enabled:
@@ -101,7 +101,7 @@ class OOMObserver(Callback):
         model_device = next(state.model.parameters()).device
 
         if model_device.type not in ('cuda', 'meta'):
-            warnings.warn(f'OOMObserver only works on CUDA devices, but the model is on {model_device.type}.')
+            log.info(f'OOMObserver only works on CUDA devices, but the model is on {model_device.type}. OOMObserver is disabled.')
             self._enabled = False
         else:
             self.folder_name = format_name_with_dist(self.folder, state.run_name)
