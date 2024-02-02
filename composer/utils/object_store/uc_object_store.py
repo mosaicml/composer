@@ -231,29 +231,30 @@ class UCObjectStore(ObjectStore):
         from databricks.sdk.core import DatabricksError
         try:
             # NOTE: This API is in preview and should not be directly used outside of this instance
-            logging.warn('UCObjectStore.list_objects is experimental.')
-            max_recursion_depth = 4
+            logging.warn('UCObjectStorelist_objects is experimental.')
 
-            def get_uc_files(dir_path: str, recursion_depth: int = 0) -> list[str]:
-                if recursion_depth == max_recursion_depth:
-                    raise Exception(
-                        f'Objects at {dir_path} cannot be downloaded. Please reduce the' +
-                        f' level of folder nesting from {prefix} in UC Volumes to under {max_recursion_depth}.')
+            # Iteratively get all UC Volume files with `prefix`.
+            stack = [prefix]
+            all_files = []
+
+            while len(stack) > 0:
+                current_path = stack.pop()
                 resp = self.client.api_client.do(method='GET',
                                                  path=self._UC_VOLUME_LIST_API_ENDPOINT,
-                                                 data=json.dumps({'path': self._get_object_path(dir_path)}),
+                                                 data=json.dumps({'path': self._get_object_path(current_path)}),
                                                  headers={'Source': 'mosaicml/composer'})
-                assert isinstance(resp, dict)
-                files = []
+
+                assert isinstance(resp, dict), 'Response is not a dictionary'
+
                 for f in resp.get('files', []):
                     fpath = f['path']
                     if f['is_dir']:
-                        files.extend(get_uc_files(fpath, recursion_depth=recursion_depth + 1))
+                        stack.append(fpath)
                     else:
-                        files.append(fpath)
-                return files
+                        all_files.append(fpath)
 
-            return get_uc_files(prefix)
+            return all_files
+
         except DatabricksError as e:
             _wrap_errors(self.get_uri(prefix), e)
         return []
