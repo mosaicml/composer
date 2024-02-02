@@ -15,7 +15,7 @@ import tempfile
 import time
 import traceback
 from argparse import ArgumentParser
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 import psutil
 import torch
@@ -261,7 +261,7 @@ def _launch_processes(
     command_mode: bool,
     training_script: str,
     stdout_file_format: str,
-    stderr_file_format: str | None,
+    stderr_file_format: Union[str, None],
     training_script_args: List[Any],
     processes: Dict[int, subprocess.Popen],
 ):
