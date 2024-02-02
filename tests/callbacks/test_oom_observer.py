@@ -47,7 +47,6 @@ class FileUploaderTracker(LoggerDestination):
 @pytest.mark.skipif(version.parse(torch.__version__) < version.parse('2.1.0'),
                     reason='OOM Observer requires PyTorch 2.1 or higher')
 def test_oom_observer():
-
     # Construct the callbacks
     oom_observer = OOMObserver()
 
