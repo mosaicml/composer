@@ -91,7 +91,7 @@ class OOMObserver(Callback):
             self._enabled = True
         else:
             self._enabled = False
-            log.warning('OOMObserver is supported after PyTorch 2.1.0. Skipping oom observer callback.')
+            warnings.warn('OOMObserver is supported after PyTorch 2.1.0. Disabling OOMObserver callback.')
 
     def init(self, state: State, logger: Logger) -> None:
         if not self._enabled:
