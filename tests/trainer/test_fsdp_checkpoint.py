@@ -28,7 +28,7 @@ from composer.core.state import fsdp_get_optim_state_dict, fsdp_state_dict_type_
 from composer.models import ComposerClassifier
 from composer.optim import DecoupledAdamW
 from composer.trainer import Trainer
-from composer.utils import dist
+from composer.utils import dist, parse_uri
 from composer.utils.checkpoint import is_checkpoint_legacy_sharded
 from composer.utils.file_helpers import get_file
 from composer.utils.object_store import S3ObjectStore
@@ -411,6 +411,9 @@ def test_fsdp_load_old_checkpoint(
     s3_read_only_prefix: str,
     composer_version: str,
 ):
+    if composer_version == '0.18.1' and state_dict_type == 'full' and precision == 'amp_bf16' and sharding_strategy == 'FULL_SHARD':
+        pytest.skip('TODO: This checkpoint is missing')
+
     if composer_version in ['0.13.5', '0.14.0', '0.14.1', '0.15.1']:
         rank = 0 if state_dict_type == 'full' else '{rank}'
 
@@ -421,7 +424,6 @@ def test_fsdp_load_old_checkpoint(
             load_path_dir = (load_path_dir + 'ep0-ba2/')
 
         load_path = load_path_dir + f'ba2_rank{rank}.pt'
-
         assert is_checkpoint_legacy_sharded(
             object_store=S3ObjectStore(bucket=f'{s3_bucket}'),
             source_path=load_path.lstrip(f's3://{s3_bucket}/'),
@@ -430,6 +432,10 @@ def test_fsdp_load_old_checkpoint(
         load_path = (f's3://{s3_bucket}/{s3_read_only_prefix}/backwards_compatibility/'
                      f'{composer_version}/{sharding_strategy.lower()}_{state_dict_type}_'
                      f'{precision}/')
+        if state_dict_type == 'full':
+            load_path += 'ba2_rank0.pt'
+        else:
+            load_path += 'ep0-ba2/'
 
     if composer_version == '0.15.1':
         num_classes = 8  # This parameter setting is very important. Don't change or the test will fail.
@@ -461,13 +467,79 @@ def test_fsdp_load_old_checkpoint(
     state_dict2 = trainer.state.state_dict()
 
     if (dist.get_global_rank() == 0 and state_dict_type == 'full') or state_dict_type == 'sharded':
-        filled_load_path = load_path.format(rank=dist.get_global_rank())
-        destination = str(tmp_path / pathlib.Path(filled_load_path).name)
-        get_file(filled_load_path, destination=destination)
-        with open(destination, 'rb') as f:
-            state_dict1 = torch.load(f)['state']
-        _compare_model_params_between_state_dicts(state_dict1, state_dict2)
+        # After composer version 0.16.0, sharded checkpoints are of type folder/__{local_rank}__{global_rank}.distcp
+        # They cannot be loaded with `get_file` as we need the whole folder to load the checkpoint.
+        # Thus, we use the DistCPObjectStoreReader to load the state_dict.
+        if state_dict_type == 'sharded' and version.parse(composer_version) >= version.parse('0.16.0'):
+            trainer2 = get_trainer(
+                num_features=32,  # This parameter setting is very important. Don't change or the test will fail.
+                num_classes=8,  # This parameter setting is very important. Don't change or the test will fail.
+                precision=precision,
+                max_duration='10ba',  # Change this so we have slightly different model runtime settings.
+                train_metrics=train_metrics,
+                val_metrics=val_metrics,
+                fsdp_config=fsdp_config,
+            )
 
+            from torch.distributed import checkpoint as dist_cp
+
+            from composer.utils.checkpoint import DistCPObjectStoreReader
+
+            _, _, parsed_load_path = parse_uri(load_path)
+            gathered_tmp_path = str(dist.all_gather_object(tmp_path)[0])
+            destination = str(pathlib.Path(gathered_tmp_path) / parsed_load_path)
+            state_dict: dict[str, Any] = {
+                'state': trainer2.state.state_dict(),
+                'rng': get_rng_state(),
+            }
+            if version.parse(torch.__version__) < version.parse('2.2.9'):
+                state_dict['state'].pop('optimizers')
+
+            object_store = S3ObjectStore(bucket=f'{s3_bucket}')
+            storage_reader = DistCPObjectStoreReader(source_path=parsed_load_path,
+                                                     destination_path=destination,
+                                                     object_store=object_store)
+
+            process_group = None
+            dist_cp.load_state_dict(
+                state_dict=state_dict,
+                storage_reader=storage_reader,
+                planner=None,
+                process_group=process_group,
+            )
+            if version.parse(torch.__version__) < version.parse('2.2.9'):
+                from torch.distributed.checkpoint.optimizer import load_sharded_optimizer_state_dict
+                from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+                model_state_dict = state_dict['state']['model']
+                model = trainer2.state.model
+                optim = trainer2.state.optimizers[0]
+                optim_name = type(optim).__qualname__
+                optim_state_dict = load_sharded_optimizer_state_dict(model_state_dict=model_state_dict,
+                                                                     optimizer_key='optimizers',
+                                                                     storage_reader=storage_reader)
+                with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
+                    optim_state_dict = FSDP.optim_state_dict_to_load(
+                        optim_state_dict=optim_state_dict['optimizers'][optim_name], model=model, optim=optim)
+
+                trainer2.state.optimizers[0].load_state_dict(optim_state_dict)
+
+                with fsdp_state_dict_type_context(module=model, state_dict_type=state_dict_type):
+                    flattened_optim_state_dict = FSDP.optim_state_dict(model, optim)  # type: ignore
+
+                state_dict['state']['optimizers'] = {
+                    optim_name: flattened_optim_state_dict,
+                }
+
+            state_dict1 = state_dict['state']
+        else:
+            filled_load_path = load_path.format(rank=dist.get_global_rank())
+            destination = str(tmp_path / pathlib.Path(filled_load_path).name)
+
+            get_file(filled_load_path, destination=destination)
+            with open(destination, 'rb') as f:
+                state_dict1 = torch.load(f)['state']
+
+        _compare_model_params_between_state_dicts(state_dict1, state_dict2)
         _compare_optims_between_state_dicts(state_dict1, state_dict2)
 
     # Continue to fit to make sure we can continue training.

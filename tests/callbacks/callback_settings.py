@@ -11,9 +11,9 @@ import composer.callbacks
 import composer.loggers
 import composer.profiler
 from composer import Callback
-from composer.callbacks import (EarlyStopper, ExportForInferenceCallback, FreeOutputs, Generate, HealthChecker,
-                                ImageVisualizer, MemoryMonitor, MemorySnapshot, MLPerfCallback, SpeedMonitor,
-                                SystemMetricsMonitor, ThresholdStopper)
+from composer.callbacks import (EarlyStopper, ExportForInferenceCallback, FreeOutputs, Generate, ImageVisualizer,
+                                MemoryMonitor, MemorySnapshot, MLPerfCallback, SpeedMonitor, SystemMetricsMonitor,
+                                ThresholdStopper)
 from composer.loggers import (CometMLLogger, ConsoleLogger, LoggerDestination, MLFlowLogger, ProgressBarLogger,
                               RemoteUploaderDownloader, TensorboardLogger, WandBLogger)
 from composer.models.base import ComposerModel
@@ -149,7 +149,6 @@ _callback_marks: Dict[Type[Callback], List[pytest.MarkDecorator],] = {
     ImageVisualizer: [pytest.mark.skipif(not _WANDB_INSTALLED, reason='Wandb is optional')],
     MLFlowLogger: [pytest.mark.skipif(not _MLFLOW_INSTALLED, reason='mlflow is optional'),],
     SystemMetricsMonitor: [pytest.mark.skipif(not _PYNMVL_INSTALLED, reason='pynmvl is optional'),],
-    HealthChecker: [pytest.mark.filterwarnings('ignore:.*HealthChecker is deprecated.*')],
 }
 
 
