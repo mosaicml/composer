@@ -317,15 +317,17 @@ def _launch_processes(
                     return open(filename, 'a+')
 
                 stdout_file = _get_file(stdout_file_format)
-                stderr_file = _get_file(stderr_file_format) if stderr_file_format is not None else subprocess.STDOUT
+                stderr_file = _get_file(stderr_file_format) if stderr_file_format is not None else None
 
                 process = subprocess.Popen(
                     cmd,
                     stdout=stdout_file,
-                    stderr=stderr_file,
+                    stderr=stderr_file if stderr_file is not None else subprocess.STDOUT,
                     text=True,
                 )
-
+                process.stdout = stdout_file
+                if stderr_file is not None:
+                    process.stderr = stderr_file
             processes[global_rank] = process
 
 
@@ -357,18 +359,39 @@ def _monitor_processes(processes: Dict[int, subprocess.Popen]):
 
 
 def _print_process_exit_status(global_rank: int, process: subprocess.Popen):
+    stdOutLabel = 'STDOUT'
     if process.stdout is None:
         output = None
     else:
         process.stdout.seek(0)
         output = process.stdout.read()
 
+    if process.stderr is None:
+        stderr = None
+        stdOutLabel = 'logs'
+    else:
+        process.stderr.seek(0)
+        stderr = process.stderr.read()
+    exc = subprocess.CalledProcessError(
+        process.returncode,
+        cmd=process.args,
+        output=output,
+        stderr=stderr,
+    )
+
     error_msg = [f'Global rank {global_rank} (PID {process.pid}) exited with code {process.returncode}']
     if output is not None:
         error_msg.extend([
-            f'----------Begin global rank {global_rank} logs----------',
+            f'----------Begin global rank {global_rank} {stdOutLabel}----------',
             output,
-            f'----------End global rank {global_rank} logs----------\n',
+            f'----------End global rank {global_rank} {stdOutLabel}----------',
+        ])
+
+    if stderr is not None:
+        error_msg.extend([
+            f'----------Begin global rank {global_rank} STDERR----------',
+            exc.stderr,
+            f'----------End global rank {global_rank} STDERR----------',
         ])
     print('\n'.join(error_msg))
 
@@ -449,8 +472,8 @@ def main():
     log.setLevel(logging.INFO if args.verbose else logging.WARN)
 
     processes = {}
-    log_tmpdir = tempfile.TemporaryDirectory()
 
+    log_tmpdir = tempfile.TemporaryDirectory()
     if args.stdout is None:
         args.stdout = f'{log_tmpdir.name}/rank{{rank}}.stdout.txt'
     if args.stderr is None:
