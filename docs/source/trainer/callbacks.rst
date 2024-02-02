@@ -51,7 +51,7 @@ components of training.
     ~optimizer_monitor.OptimizerMonitor
     ~memory_monitor.MemoryMonitor
     ~memory_snapshot.MemorySnapshot
-    ~omm_observer.OOMObserver
+    ~oom_observer.OOMObserver
     ~nan_monitor.NaNMonitor
     ~image_visualizer.ImageVisualizer
     ~mlperf.MLPerfCallback
