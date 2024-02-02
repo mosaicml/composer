@@ -14,6 +14,7 @@ import sys
 import tempfile
 import time
 import traceback
+import warnings
 from argparse import ArgumentParser
 from typing import Any, Dict, List, Union
 
@@ -21,7 +22,7 @@ import psutil
 import torch
 
 import composer
-from composer.loggers.mosaicml_logger import MOSAICML_ACCESS_TOKEN_ENV_VAR, MOSAICML_LOG_DIR, MOSAICML_PLATFORM_ENV_VAR
+from composer.loggers.mosaicml_logger import MOSAICML_LOG_DIR_ENV_VAR, MOSAICML_PLATFORM_ENV_VAR
 from composer.utils import get_free_tcp_port
 
 CLEANUP_TIMEOUT = datetime.timedelta(seconds=30)
@@ -314,7 +315,7 @@ def _launch_processes(
                         local_world_size=nproc,
                         node_rank=node_rank,
                     )
-                    return open(filename, 'a+')
+                    return open(filename, 'x+')
 
                 stdout_file = _get_file(stdout_file_format)
                 stderr_file = _get_file(stderr_file_format) if stderr_file_format is not None else None
@@ -480,10 +481,12 @@ def main():
         args.stderr = f'{log_tmpdir.name}/rank{{rank}}.stderr.txt'
 
     # If running on the Mosaic platform, log all gpu ranks' stderr and stdout to Mosaic platform
-    if os.environ.get(MOSAICML_PLATFORM_ENV_VAR, 'false').lower() == 'true' and os.environ.get(
-            MOSAICML_ACCESS_TOKEN_ENV_VAR) is not None and os.environ.get(MOSAICML_LOG_DIR) is not None:
-        log.info('Logging all gpu ranks to Mosaic Platform')
-        log_file_format = f'{os.environ.get(MOSAICML_LOG_DIR)}/gpu_{{rank}}.txt'
+    if os.environ.get(MOSAICML_PLATFORM_ENV_VAR,
+                      'false').lower() == 'true' and os.environ.get(MOSAICML_LOG_DIR_ENV_VAR) is not None:
+        log.info('Logging all GPU ranks to Mosaic Platform.')
+        log_file_format = f'{os.environ.get(MOSAICML_LOG_DIR_ENV_VAR)}/gpu_{{rank}}.txt'
+        if args.stderr is not None or args.stdout is not None:
+            warnings.warn('Ignoring provided stderr and stdout args.')
         args.stdout = log_file_format
         args.stderr = None
 
