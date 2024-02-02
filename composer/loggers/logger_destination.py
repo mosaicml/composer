@@ -58,7 +58,8 @@ class LoggerDestination(Callback, ABC):
         del hyperparameters  # unused
         pass
 
-    def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
+    def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table', step: Optional[int] = None) -> None:
+        del step
         """Log a table.
 
         Args:

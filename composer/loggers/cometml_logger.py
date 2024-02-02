@@ -98,7 +98,8 @@ class CometMLLogger(LoggerDestination):
             assert self.experiment is not None
             self.experiment.set_name(self.name)
 
-    def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table') -> None:
+    def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table', step: Optional[int] = None) -> None:
+        del step
         if self._enabled:
             assert self.experiment is not None
             try:
