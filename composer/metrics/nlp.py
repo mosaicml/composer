@@ -281,8 +281,8 @@ class LossPerpVLen(MetricsRequiringBatchInfo):
             max_num_seq = seq_lens.shape[1]
             seq_tok_ids = torch.arange(seq_len, device=seq_id.device)[None, None, :].expand(bsz, max_num_seq, -1)
             mask = seq_tok_ids < seq_lens[:,:, None]
-            seq_len_shifted = torch.nn.functional.pad(seq_lens.cumsum(dim=1)[:, :-1], (1, 0), value=0)
-            seq_tok_ids = seq_tok_ids + seq_len_shifted[:,:, None]
+            seq_len_offsets = torch.nn.functional.pad(seq_lens.cumsum(dim=1)[:, :-1], (1, 0), value=0)
+            seq_tok_ids = seq_tok_ids + seq_len_offsets[:,:, None]
             seq_tok_ids = torch.where(mask, seq_tok_ids, torch.zeros_like(seq_tok_ids))
 
             loss = loss[:, None, :].expand(-1, max_num_seq, -1)
