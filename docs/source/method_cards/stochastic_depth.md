@@ -14,7 +14,7 @@ Block-wise stochastic depth assigns every residual block a probability of droppi
 <!--
 ```python
 from torch.utils.data import DataLoader
-from tests.common import RandomImageDataset
+from tests.common import RandomImageDataset, composer_resnet
 
 train_dataloader = DataLoader(RandomImageDataset(size=2), batch_size=2)
 ```
@@ -27,7 +27,6 @@ import torch
 import torch.nn.functional as F
 
 import composer.functional as cf
-from composer.models import composer_resnet
 
 # Training
 
@@ -63,7 +62,7 @@ for epoch in range(1):
 <!--
 ```python
 from torch.utils.data import DataLoader
-from tests.common import RandomImageDataset
+from tests.common import RandomImageDataset, composer_resnet
 
 train_dataloader = DataLoader(RandomImageDataset(size=2), batch_size=2)
 eval_dataloader = DataLoader(RandomImageDataset(size=2), batch_size=2)
@@ -75,7 +74,6 @@ eval_dataloader = DataLoader(RandomImageDataset(size=2), batch_size=2)
 # The trainer will automatically run it at the appropriate point in the training loop
 
 from composer.algorithms import StochasticDepth
-from composer.models import composer_resnet
 from composer.trainer import Trainer
 
 # Train model
