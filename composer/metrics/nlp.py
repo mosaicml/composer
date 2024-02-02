@@ -270,13 +270,13 @@ class LossPerpVLen(MetricsRequiringBatchInfo):
             self.sum_perplexity_seq_id = torch.zeros(seq_len, device=loss.device, dtype=loss.dtype)
             self.sum_length_seq_id = torch.zeros(seq_len, device=loss.device, dtype=torch.long)
 
-        self.sum_loss += torch.sum(loss.view(bsz, seq_len), dim=(0))
-        self.sum_perplexity += torch.sum(perplexity.view(bsz, seq_len), dim=(0))
+        self.sum_loss += torch.sum(loss, dim=(0))
+        self.sum_perplexity += torch.sum(perplexity, dim=(0))
         self.sum_length += valid_target_mask.sum(dim=0)
 
         if 'sequence_id' in batch:
             seq_id = batch['sequence_id']
-            seq_id_expanded = torch.nn.functional.one_hot(seq_id).transpose(-1,-2) == 1
+            seq_id_expanded = torch.nn.functional.one_hot(seq_id).transpose(-1,-2)
             seq_lens = seq_id_expanded.sum(dim=-1)
             max_num_seq = seq_lens.shape[1]
             seq_tok_ids = torch.arange(seq_len, device=seq_id.device)[None, None, :].expand(bsz, max_num_seq, -1)
