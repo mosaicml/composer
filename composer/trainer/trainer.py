@@ -36,7 +36,7 @@ from torch.optim.lr_scheduler import LRScheduler
 from torch.utils.data import DataLoader, DistributedSampler
 from torchmetrics import Metric
 
-from composer.callbacks import CheckpointSaver, MemorySnapshot, OptimizerMonitor
+from composer.callbacks import CheckpointSaver, MemorySnapshot, OOMObserver, OptimizerMonitor
 from composer.core import (Algorithm, AlgorithmPass, Batch, Callback, DataSpec, Engine, Evaluator, Event, Precision,
                            State, Time, Timestamp, TimeUnit, TrainerMode, ensure_data_spec, ensure_evaluator,
                            ensure_time, get_precision_context, validate_eval_automicrobatching)
@@ -1072,9 +1072,9 @@ class Trainer:
                     loggers.append(remote_ud)
             self.state.profiler.bind_to_state(self.state)
 
-        # MemorySnapshot
+        # MemorySnapshot, OOMObserver
         for cb in self.state.callbacks:
-            if isinstance(cb, MemorySnapshot):
+            if isinstance(cb, MemorySnapshot) or isinstance(cb, OOMObserver):
                 if cb.remote_file_name:
                     remote_ud = maybe_create_remote_uploader_downloader_from_uri(uri=cb.remote_file_name,
                                                                                  loggers=loggers)
