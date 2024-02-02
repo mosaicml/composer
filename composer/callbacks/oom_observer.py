@@ -101,7 +101,7 @@ class OOMObserver(Callback):
 
         if model_device.type not in ('cuda', 'meta'):
             log.warning(
-                f'OOMObserver only works on CUDA devices, but the model is on {model_device.type}. OOMObserver is disabled'
+                f'OOMObserver only works on CUDA devices, but the model is on {model_device.type}. Disabling OOMObserver.'
             )
             self._enabled = False
         else:
