@@ -265,10 +265,10 @@ class LossPerpVLen(MetricsRequiringBatchInfo):
         breakpoint()
         if self.sum_loss.numel() == 0:
             self.sum_loss = torch.zeros(seq_len, device=loss.device, dtype=loss.dtype)
-            self.sum_perp = torch.zeros(seq_len, device=loss.device, dtype=loss.dtype)
+            self.sum_perplexity = torch.zeros(seq_len, device=loss.device, dtype=loss.dtype)
             self.sum_length = torch.zeros(seq_len, device=loss.device, dtype=torch.long)
             self.sum_loss_seq_id = torch.zeros(seq_len, device=loss.device, dtype=loss.dtype)
-            self.sum_perp_seq_id = torch.zeros(seq_len, device=loss.device, dtype=loss.dtype)
+            self.sum_perplexity_seq_id = torch.zeros(seq_len, device=loss.device, dtype=loss.dtype)
             self.sum_length_seq_id = torch.zeros(seq_len, device=loss.device, dtype=torch.long)
 
         self.sum_loss += torch.sum(loss.view(bsz, seq_len), dim=(0))
@@ -304,14 +304,23 @@ class LossPerpVLen(MetricsRequiringBatchInfo):
             loss: The loss averaged across all batches as a :class:`~torch.Tensor`.
         """
         # Return average loss over entire dataset
-        return {
-            'loss': self.sum_loss,
-            'perp': self.sum_perp,
-            'sum_length': self.sum_length,
-            'sum_loss_seq_id': self.sum_loss_seq_id,
-            'sum_perp_seq_id': self.sum_perp_seq_id,
-            'sum_length_seq_id': self.sum_length_seq_id
+
+        sum_perplexity = torch.where(self.sum_length != 0, self.sum_perplexity, -1)
+        sum_loss = torch.where(self.sum_length != 0, self.sum_loss, -1)
+        sum_length = torch.where(self.sum_length != 0, self.sum_length, 1)
+
+        sum_perplexity_seq_id = torch.where(self.sum_length_seq_id != 0, self.sum_perplexity_seq_id, -1)
+        sum_loss_seq_id = torch.where(self.sum_length_seq_id != 0, self.sum_loss_seq_id, -1)
+        sum_length_seq_id = torch.where(self.sum_length_seq_id != 0, self.sum_length_seq_id, 1)
+
+        metric_dict =  {
+            'mean_loss_v_len': sum_loss/sum_length,
+            'mean_perplexity_v_len': sum_perplexity/sum_length,
+            'mean_loss_seq_id_v_len': sum_loss_seq_id/sum_length_seq_id,
+            'mean_perplexity_seq_id_v_len': sum_perplexity_seq_id/sum_length_seq_id,
             }
+        breakpoint()
+        return metric_dict
 
 class LanguagePerplexity(LanguageCrossEntropy):
     """Subclasses :class:`~composer.metrics.nlp.LanguageCrossEntropy` to implement perplexity."""
