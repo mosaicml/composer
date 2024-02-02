@@ -262,7 +262,6 @@ class LossPerpVLen(MetricsRequiringBatchInfo):
 
         valid_target_mask = torch.where(target != self.ignore_index, torch.ones_like(target), torch.zeros_like(target))
 
-        breakpoint()
         if self.sum_loss.numel() == 0:
             self.sum_loss = torch.zeros(seq_len, device=loss.device, dtype=loss.dtype)
             self.sum_perplexity = torch.zeros(seq_len, device=loss.device, dtype=loss.dtype)
