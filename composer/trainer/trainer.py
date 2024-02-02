@@ -1971,11 +1971,17 @@ class Trainer:
 
         # log computed metrics
         computed_metrics = {}
+        metrics_logged_in_table = []
         for metric_name, metric in metrics.items():
-            computed_metrics[metric_name] = metric.compute()
-
+            metric_value = metric.compute()
+            computed_metrics[metric_name] = metric_value
+            if isinstance(metric_value, dict) and metric_value.get('loss_perp_v_len_metrics', False):
+                metrics_logged_in_table.append(metric_name)
+                for k, v in metric_value.items():
+                    if k != 'loss_perp_v_len_metrics':
+                        self.logger.log_table(columns=['context_length', k], rows=[[i, b] for (i, b) in enumerate(v.tolist())], name=f'metrics/{dataloader_label}/{metric_name}/{k}/{self.logger._state.timestamp.batch.value}')
         self.logger.log_metrics(
-            {f'metrics/{dataloader_label}/{name}': val for (name, val) in computed_metrics.items()},)
+            {f'metrics/{dataloader_label}/{name}': val for (name, val) in computed_metrics.items() if name not in metrics_logged_in_table},)
 
         # store metric instances
         for metric_name, metric in metrics.items():
