@@ -318,7 +318,6 @@ class LossPerpVLen(MetricsRequiringBatchInfo):
             'mean_loss_seq_id_v_len': sum_loss_seq_id/sum_length_seq_id,
             'mean_perplexity_seq_id_v_len': sum_perplexity_seq_id/sum_length_seq_id,
             }
-        breakpoint()
         return metric_dict
 
 class LanguagePerplexity(LanguageCrossEntropy):
