@@ -1,126 +1,135 @@
 default_language_version:
   python: python3
 repos:
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    # Ruff version.
-    rev: v0.0.282
-    hooks:
-      - id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  # Ruff version.
+  rev: v0.0.282
+  hooks:
+  - id: ruff
+    args: [--fix, --exit-non-zero-on-fix]
 
-  - repo: https://github.com/google/yapf
-    rev: v0.32.0
-    hooks:
-      - id: yapf
-        name: yapf
-        description: "A formatter for Python files."
-        entry: yapf
-        args: [-i, -vv, -p] #inplace
-        language: python
-        types: [python]
-        additional_dependencies:
-          - "toml"
-  - repo: https://github.com/pycqa/isort
-    hooks:
-      - id: isort
-    rev: 5.12.0
-  # -   repo: https://github.com/pycqa/pylint
-  #     hooks:
-  #         - id: pylint
-  #           entry: pylint
-  #           args: ['composer', 'examples', 'tests']
-  #           language: python
-  #           types: [python]
-  #           require_serial: true
-  #     rev: v2.12.2
-  -   repo: https://github.com/PyCQA/pydocstyle
-      hooks:
-      -   id: pydocstyle
-          name: pydocstyle
-          entry: pydocstyle
-          language: python
-          types: [python]
-          exclude: '(?:tests|.ci|composer\/algorithms|composer\/datasets|composer\/models)\/.*|composer\/trainer\/activation_checkpointing.py'
-          additional_dependencies:
-            - "toml"
-      rev: 6.1.1
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.1.0
-    hooks:
-      - id: check-added-large-files
-      - id: check-ast
-      - id: check-builtin-literals
-      - id: check-case-conflict
-      - id: check-docstring-first
-      - id: check-executables-have-shebangs
-      - id: check-json
-      - id: check-shebang-scripts-are-executable
-      - id: pretty-format-json
-        args:
-          - --autofix
-          - --no-sort-keys
-          - --indent=1
-          - --no-ensure-ascii
-      - id: check-merge-conflict
-      - id: check-symlinks
-      - id: check-toml
-      - id: check-vcs-permalinks
-      - id: check-xml
-      - id: check-yaml
-      - id: debug-statements
-      - id: destroyed-symlinks
-      - id: double-quote-string-fixer
-      - id: end-of-file-fixer
-      - id: fix-byte-order-marker
-      - id: mixed-line-ending
-      - id: trailing-whitespace
-  - repo: https://github.com/Lucas-C/pre-commit-hooks
-    rev: v1.5.4
-    hooks:
-      - id: insert-license
-        args:
-          - --license-filepath
-          - .ci/FILE_HEADER
-          - --comment-style
-          - "#"
-          - --allow-past-years
-        types: [python]
-        exclude: 'composer\/trainer\/activation_checkpointing.py'
+- repo: https://github.com/google/yapf
+  rev: v0.32.0
+  hooks:
+  - id: yapf
+    name: yapf
+    description: "A formatter for Python files."
+    entry: yapf
+    args: [-i, -vv, -p]  # inplace
+    language: python
+    types: [python]
+    additional_dependencies:
+    - "toml"
+- repo: https://github.com/pycqa/isort
+  hooks:
+  - id: isort
+  rev: 5.12.0
+# -   repo: https://github.com/pycqa/pylint
+#     hooks:
+#         - id: pylint
+#           entry: pylint
+#           args: ['composer', 'examples', 'tests']
+#           language: python
+#           types: [python]
+#           require_serial: true
+#     rev: v2.12.2
+- repo: https://github.com/PyCQA/pydocstyle
+  hooks:
+  - id: pydocstyle
+    name: pydocstyle
+    entry: pydocstyle
+    language: python
+    types: [python]
+    exclude: "(?:tests|.ci|composer\/algorithms|composer\/datasets|composer\/models)\/.*|composer\/trainer\/activation_checkpointing.py"
+    additional_dependencies:
+    - "toml"
+  rev: 6.1.1
+- repo: https://github.com/adrienverge/yamllint.git
+  rev: v1.28.0
+  hooks:
+  - id: yamllint
+    name: yamllint
+    description: This hook runs yamllint.
+    entry: yamllint
+    language: python
+    types: [file, yaml]
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.1.0
+  hooks:
+  - id: check-added-large-files
+  - id: check-ast
+  - id: check-builtin-literals
+  - id: check-case-conflict
+  - id: check-docstring-first
+  - id: check-executables-have-shebangs
+  - id: check-json
+  - id: check-shebang-scripts-are-executable
+  - id: pretty-format-json
+    args:
+    - --autofix
+    - --no-sort-keys
+    - --indent=1
+    - --no-ensure-ascii
+  - id: check-merge-conflict
+  - id: check-symlinks
+  - id: check-toml
+  - id: check-vcs-permalinks
+  - id: check-xml
+  - id: check-yaml
+  - id: debug-statements
+  - id: destroyed-symlinks
+  - id: double-quote-string-fixer
+  - id: end-of-file-fixer
+  - id: fix-byte-order-marker
+  - id: mixed-line-ending
+  - id: trailing-whitespace
+- repo: https://github.com/Lucas-C/pre-commit-hooks
+  rev: v1.5.4
+  hooks:
+  - id: insert-license
+    args:
+    - --license-filepath
+    - .ci/FILE_HEADER
+    - --comment-style
+    - "#"
+    - --allow-past-years
+    types: [python]
+    exclude: "composer\/trainer\/activation_checkpointing.py"
 
-  - repo: https://github.com/kynan/nbstripout
-    rev: 0.5.0
-    hooks:
-      - id: nbstripout
-        types:
-          - "jupyter"
-        args:
-          # Strip all the metadata that vscode or colab may add to a notebook
-          - --strip-empty-cells
-          - --extra-keys
-          - >
-            metadata.colab metadata.interpreter metadata.accelerator
-            metadata.kernelspec metadata.language_info.version
-            cell.metadata.heading_collapsed metadata.name metadata.nbconvert_exporter
-            metadata.version metadata.vscode
-  - repo: local
-    hooks:
-      - id: pyright
-        name: pyright
-        entry: pyright
-        language: node
-        types: [python]
-        pass_filenames: false
-        args: [--warnings]
-        additional_dependencies: ["pyright@1.1.310"]
-  - repo: https://github.com/trufflesecurity/trufflehog.git
-    rev: v3.40.0
-    hooks:
-      - id: trufflehog
-        name: secret scan
-        entry: trufflehog filesystem ./
-        args:
-          - --only-verified
-          - --fail
-          - --exclude-paths=./.github/secrets/exclude.yaml
+- repo: https://github.com/kynan/nbstripout
+  rev: 0.5.0
+  hooks:
+  - id: nbstripout
+    types:
+    - "jupyter"
+    args:
+    # Strip all the metadata that vscode or colab may add to a notebook
+    - --strip-empty-cells
+    - --extra-keys
+    - >
+      metadata.colab metadata.interpreter metadata.accelerator
+      metadata.kernelspec metadata.language_info.version
+      cell.metadata.heading_collapsed metadata.name metadata.nbconvert_exporter
+      metadata.version metadata.vscode
+- repo: local
+  hooks:
+  - id: pyright
+    name: pyright
+    entry: pyright
+    language: node
+    types: [python]
+    pass_filenames: false
+    args: [--warnings]
+    additional_dependencies: ["pyright@1.1.310"]
+- repo: https://github.com/trufflesecurity/trufflehog.git
+  rev: v3.40.0
+  hooks:
+  - id: trufflehog
+    name: secret scan
+    entry: trufflehog filesystem ./
+    args:
+    - --only-verified
+    - --fail
+    - --exclude-paths=./.github/secrets/exclude.yaml
 
 exclude: .ci\/release_tests\/.*

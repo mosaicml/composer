@@ -2,14 +2,14 @@ name: PR Docker
 on:
   pull_request:
     branches:
-      - dev
-      - main
-      - release/**
+    - dev
+    - main
+    - release/**
     paths:
-      - .github/bin/gen_docker_matrix.py
-      - .github/workflows/docker-configure-build-push.yaml
-      - .github/workflows/pr-docker.yaml
-      - docker/**
+    - .github/bin/gen_docker_matrix.py
+    - .github/workflows/docker-configure-build-push.yaml
+    - .github/workflows/pr-docker.yaml
+    - docker/**
   workflow_dispatch:
 defaults:
   run:
@@ -22,21 +22,23 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-      - uses: actions/setup-python@v4
-        with:
-          python-version: 3.9
-      - uses: actions/checkout@v3
-      - id: set-matrix
-        run: |
-          # Install yaml dependency
-          pip install pyyaml
+    - uses: actions/setup-python@v4
+      with:
+        python-version: 3.9
+    - uses: actions/checkout@v3
+    - id: set-matrix
+      run: |
+        # Install yaml dependency
+        pip install pyyaml
 
-          # Override package install command for Composer image
-          COMPOSER_INSTALL_COMMAND="mosaicml[all]@git+https://github.com/mosaicml/composer.git@${{ github.sha }}"
+        # Override package install command for Composer image
+        COMPOSER_INSTALL_COMMAND="mosaicml[all]@git+https://github.com/mosaicml/composer.git@${{ github.sha }}"
 
-          # Generate build matrix
-          BUILD_MATRIX=$(python .github/bin/gen_docker_matrix.py docker/build_matrix.yaml -b COMPOSER_INSTALL_COMMAND=$COMPOSER_INSTALL_COMMAND)
-          echo $BUILD_MATRIX >> $GITHUB_OUTPUT
+        # Generate build matrix
+        BUILD_MATRIX=$(python .github/bin/gen_docker_matrix.py docker/build_matrix.yaml -b \
+        COMPOSER_INSTALL_COMMAND=$COMPOSER_INSTALL_COMMAND)
+
+        echo $BUILD_MATRIX >> $GITHUB_OUTPUT
   stage-docker-build:
     needs: build-image-matrix
     uses: ./.github/workflows/docker-configure-build-push.yaml
