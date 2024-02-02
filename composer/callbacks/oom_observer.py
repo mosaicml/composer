@@ -48,9 +48,9 @@ class OOMObserver(Callback):
         folder (str, optional): A format string describing the folder containing the memory visualization files.
             Defaults to ``'{{run_name}}/torch_traces'``.
         filename (str, optional): A format string describing the prefix used to name the memory visualization files.
-            Defaults to ``'rank{{rank}}.oom'``.
+            Defaults to ``'rank{{rank}}_oom'``.
         remote_file_name (str, optional): A format string describing the prefix for the memory visualization remote file name.
-            Defaults to ``'{{run_name}}/oom_traces/rank{{rank}}.oom'``.
+            Defaults to ``'{{run_name}}/oom_traces/rank{{rank}}_oom'``.
 
             Whenever a trace file is saved, it is also uploaded as a file according to this format string.
             The same format variables as for ``filename`` are available.
@@ -70,8 +70,8 @@ class OOMObserver(Callback):
         self,
         max_entries: int = 100000,
         folder: str = '{run_name}/torch_traces',
-        filename: str = 'rank{rank}.oom',
-        remote_file_name: Optional[str] = '{run_name}/oom_traces/rank{rank}.oom',
+        filename: str = 'rank{rank}_oom',
+        remote_file_name: Optional[str] = '{run_name}/oom_traces/rank{rank}_oom',
         overwrite: bool = False,
     ) -> None:
         self.max_entries = max_entries
@@ -154,7 +154,7 @@ class OOMObserver(Callback):
                             snapshot_file, trace_plot_file, segment_plot_file, segment_flamegraph_file,
                             memory_flamegraph_file
                     ]:
-                        remote_file_name = (self.remote_path_in_bucket + os.path.split(f)[-1]).lstrip('/')
+                        remote_file_name = (self.remote_path_in_bucket + os.path.basename(f)).lstrip('/')
                         log.info(f'Uploading memory visualization to remote: {remote_file_name} from {f}')
                         try:
                             logger.upload_file(remote_file_name=remote_file_name, file_path=f, overwrite=self.overwrite)
@@ -171,5 +171,5 @@ class OOMObserver(Callback):
                 True,  # type: ignore
                 trace_alloc_max_entries=self.max_entries,
                 trace_alloc_record_context=True)
-            torch._C._cuda_attach_out_of_memory_observer(oom_observer)  # pyright: ignore
+            torch._C._cuda_attach_out_of_memory_observer(oom_observer)  # type: ignore
             log.info('OOMObserver is enabled and registered')

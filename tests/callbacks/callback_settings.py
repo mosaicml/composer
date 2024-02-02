@@ -12,8 +12,8 @@ import composer.loggers
 import composer.profiler
 from composer import Callback
 from composer.callbacks import (EarlyStopper, ExportForInferenceCallback, FreeOutputs, Generate, ImageVisualizer,
-                                MemoryMonitor, MemorySnapshot, MLPerfCallback, OOMObserver, SpeedMonitor, SystemMetricsMonitor,
-                                ThresholdStopper)
+                                MemoryMonitor, MemorySnapshot, MLPerfCallback, OOMObserver, SpeedMonitor,
+                                SystemMetricsMonitor, ThresholdStopper)
 from composer.loggers import (CometMLLogger, ConsoleLogger, LoggerDestination, MLFlowLogger, ProgressBarLogger,
                               RemoteUploaderDownloader, TensorboardLogger, WandBLogger)
 from composer.models.base import ComposerModel
