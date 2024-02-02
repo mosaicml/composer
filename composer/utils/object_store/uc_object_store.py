@@ -238,7 +238,7 @@ class UCObjectStore(ObjectStore):
                 if recursion_depth == max_recursion_depth:
                     raise Exception(
                         f'Objects at {dir_path} cannot be downloaded. Please reduce the' +
-                        ' level of folder nesting from {prefix} in UC Volumes to under {max_recursion_depth}.')
+                        f' level of folder nesting from {prefix} in UC Volumes to under {max_recursion_depth}.')
                 resp = self.client.api_client.do(method='GET',
                                                  path=self._UC_VOLUME_LIST_API_ENDPOINT,
                                                  data=json.dumps({'path': self._get_object_path(dir_path)}),
