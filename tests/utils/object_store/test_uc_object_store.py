@@ -195,7 +195,6 @@ def test_list_objects_nested_folders(ws_client, uc_object_store):
 
     assert actual_files == expected_files
 
-    print(ws_client.api_client.do.call_args_list)
     ws_client.api_client.do.assert_called_with(method='GET',
                                                path=uc_object_store._UC_VOLUME_LIST_API_ENDPOINT,
                                                data='{"path": "/Volumes/catalog/volume/schema/path/to/folder/subdir"}',
