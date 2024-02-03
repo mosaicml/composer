@@ -118,11 +118,10 @@ class WandBLogger(LoggerDestination):
             wandb.config.update(hyperparameters)
 
     def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table', step: Optional[int] = None) -> None:
-        del step
         if self._enabled:
             import wandb
             table = wandb.Table(columns=columns, rows=rows)
-            wandb.log({name: table})
+            wandb.log({name: table}, step)
 
     def log_metrics(self, metrics: Dict[str, Any], step: Optional[int] = None) -> None:
         if self._enabled:
