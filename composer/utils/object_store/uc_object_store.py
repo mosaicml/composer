@@ -231,7 +231,7 @@ class UCObjectStore(ObjectStore):
         from databricks.sdk.core import DatabricksError
         try:
             # NOTE: This API is in preview and should not be directly used outside of this instance
-            logging.warn('UCObjectStorelist_objects is experimental.')
+            logging.warn('UCObjectStore.list_objects is experimental.')
 
             # Iteratively get all UC Volume files with `prefix`.
             stack = [prefix]
