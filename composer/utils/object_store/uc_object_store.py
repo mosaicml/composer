@@ -219,10 +219,6 @@ class UCObjectStore(ObjectStore):
     def list_objects(self, prefix: Optional[str]) -> List[str]:
         """List all objects in the object store with the given prefix.
 
-         .. note::
-
-            This function removes the directories from the returned list.
-
         Args:
             prefix (str): The prefix to search for.
 
@@ -234,14 +230,35 @@ class UCObjectStore(ObjectStore):
 
         from databricks.sdk.core import DatabricksError
         try:
-            data = json.dumps({'path': self._get_object_path(prefix)})
             # NOTE: This API is in preview and should not be directly used outside of this instance
-            resp = self.client.api_client.do(method='GET',
-                                             path=self._UC_VOLUME_LIST_API_ENDPOINT,
-                                             data=data,
-                                             headers={'Source': 'mosaicml/composer'})
-            assert isinstance(resp, dict)
-            return [f['path'] for f in resp.get('files', []) if not f['is_dir']]
+            logging.warn('UCObjectStore.list_objects is experimental.')
+
+            # Iteratively get all UC Volume files with `prefix`.
+            stack = [prefix]
+            all_files = []
+
+            while len(stack) > 0:
+                current_path = stack.pop()
+
+                # Note: Databricks SDK handles HTTP errors and retries.
+                # See https://github.com/databricks/databricks-sdk-py/blob/v0.18.0/databricks/sdk/core.py#L125 and
+                # https://github.com/databricks/databricks-sdk-py/blob/v0.18.0/databricks/sdk/retries.py#L33 .
+                resp = self.client.api_client.do(method='GET',
+                                                 path=self._UC_VOLUME_LIST_API_ENDPOINT,
+                                                 data=json.dumps({'path': self._get_object_path(current_path)}),
+                                                 headers={'Source': 'mosaicml/composer'})
+
+                assert isinstance(resp, dict), 'Response is not a dictionary'
+
+                for f in resp.get('files', []):
+                    fpath = f['path']
+                    if f['is_dir']:
+                        stack.append(fpath)
+                    else:
+                        all_files.append(fpath)
+
+            return all_files
+
         except DatabricksError as e:
             _wrap_errors(self.get_uri(prefix), e)
         return []
