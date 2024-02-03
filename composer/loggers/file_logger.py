@@ -185,7 +185,11 @@ class FileLogger(LoggerDestination):  # noqa: D101
                     trace_str + '\n',
                 )
 
-    def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table', step: Optional[int] = None) -> None:
+    def log_table(self,
+                  columns: List[str],
+                  rows: List[List[Any]],
+                  name: str = 'Table',
+                  step: Optional[int] = None) -> None:
         del step
         try:
             import pandas as pd

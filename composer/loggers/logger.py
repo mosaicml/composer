@@ -60,7 +60,11 @@ class Logger:
         for destination in self.destinations:
             destination.log_hyperparameters(parameters)
 
-    def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table', step: Optional[int] = None) -> None:
+    def log_table(self,
+                  columns: List[str],
+                  rows: List[List[Any]],
+                  name: str = 'Table',
+                  step: Optional[int] = None) -> None:
         if step is None:
             step = self._state.timestamp.batch.value
         for destination in self.destinations:

@@ -77,7 +77,11 @@ class ConsoleLogger(LoggerDestination):
         # Lazy logging of hyperparameters.
         self.hparams.update(hyperparameters)
 
-    def log_table(self, columns: List[str], rows: List[List[Any]], name: str = 'Table', step: Optional[int] = None) -> None:
+    def log_table(self,
+                  columns: List[str],
+                  rows: List[List[Any]],
+                  name: str = 'Table',
+                  step: Optional[int] = None) -> None:
         del step
         try:
             import pandas as pd
