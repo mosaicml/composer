@@ -465,6 +465,15 @@ def _generate_run_name() -> str:
     return generated_run_name
 
 
+def _get_dist_sampler(dataloader: Any) -> DistributedSampler | None:
+    if not isinstance(dataloader, DataLoader):
+        return
+    if dataloader.sampler is not None:
+        return dataloader.sampler
+    else:
+        return dataloader.batch_sampler
+
+
 class Trainer:
     """Train models with Composer algorithms.
 
