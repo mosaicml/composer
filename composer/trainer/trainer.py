@@ -1335,7 +1335,7 @@ class Trainer:
 
         # Suppressing GradScaler warnings as they are always created
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
-        warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
+        # warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
         self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
 
         if self.state.fsdp_config is not None:
