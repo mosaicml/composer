@@ -2,15 +2,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from collections import defaultdict
-from typing import Optional, Union
+from typing import Optional, Union, Dict, Any
 
 import torch
+import warnings
 from torch.cuda.amp.grad_scaler import GradScaler, OptState, _refresh_per_optimizer_state
 from torch.optim import Optimizer
+from torch.cuda.amp.common import amp_definitely_not_available
 
 from composer.utils import dist
 
-__all__ = ['ClosureGradScaler']
+__all__ = ['ClosureGradScaler', 'ConstantGradScaler']
 
 
 class ClosureGradScaler(GradScaler):
@@ -138,3 +140,59 @@ class ClosureGradScaler(GradScaler):
 
         # To prepare for next iteration, clear the data collected from optimizers this iteration.
         self._per_optimizer_states = defaultdict(_refresh_per_optimizer_state)
+
+
+class ConstantGradScaler(GradScaler):
+    """A GradScaler that always uses a constant scale factor.
+
+    Args:
+        scale (float): The constant scale factor to return.
+    """
+
+    def __init__(
+        self,
+        init_scale: float = 2.0**16,
+        growth_factor: float = 1.0, # constant.
+        backoff_factor: float = 1.0, # constant.
+        growth_interval: int = 100000, # set to very high
+        enabled: bool = True,
+    ) -> None:
+        if enabled and amp_definitely_not_available():
+            warnings.warn(
+                "torch.cuda.amp.GradScaler is enabled, but CUDA is not available.  Disabling."
+            )
+            self._enabled = False
+        else:
+            self._enabled = enabled
+
+        if self._enabled:
+            # We disable the below two lines. We don't change the scale factor at all.
+            #assert growth_factor > 1.0, "The growth factor must be > 1.0."
+            #assert backoff_factor < 1.0, "The backoff factor must be < 1.0."
+
+            self._init_scale = init_scale
+            # self._scale will be lazily initialized during the first call to scale()
+            self._scale: Optional[torch.Tensor] = None
+            self._growth_factor = growth_factor
+            self._backoff_factor = backoff_factor
+            self._growth_interval = growth_interval
+            self._init_growth_tracker = 0
+            # self._growth_tracker will be lazily initialized during the first call to scale()
+            self._growth_tracker: Optional[torch.Tensor] = None
+            self._per_optimizer_states: Dict[int, Dict[str, Any]] = defaultdict(
+                _refresh_per_optimizer_state
+            )
+
+    def _maybe_opt_step(
+        self,
+        optimizer: torch.optim.Optimizer,
+        optimizer_state: Dict[str, Any],
+        *args: Any,
+        **kwargs: Any,
+    ) -> Optional[float]:
+        retval: Optional[float] = None
+        if not sum(v.item() for v in optimizer_state["found_inf_per_device"].values()):
+            retval = optimizer.step(*args, **kwargs)
+        else:
+            print("!!! Inf or NaN found in gradients. Skipping step !!!")
+        return retval

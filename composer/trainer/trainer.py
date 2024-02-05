@@ -49,7 +49,7 @@ from composer.optim import ComposerScheduler, DecoupledSGDW, compile_composer_sc
 from composer.profiler import Profiler
 from composer.trainer._deepspeed import _fix_batch_precision_for_deepspeed, _parse_deepspeed_config
 from composer.trainer._scale_schedule import scale_pytorch_scheduler
-from composer.trainer._scaler import ClosureGradScaler
+from composer.trainer._scaler import ClosureGradScaler, ConstantGradScaler
 from composer.trainer.dist_strategy import (DDPSyncStrategy, ddp_sync_context, prepare_ddp_module, prepare_fsdp_module,
                                             set_fsdp_default)
 from composer.utils import (ExportFormat, MissingConditionalImportError, ObjectStore, Transform, checkpoint, dist,
@@ -1336,14 +1336,15 @@ class Trainer:
         # Suppressing GradScaler warnings as they are always created
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
         # warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
-        self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
+        # self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
+        self.state.scaler = ConstantGradScaler()
 
-        if self.state.fsdp_config is not None:
-            # This state should never be reached, but we raise a ValueError just in case
-            if self._use_closures() and self.state.precision == Precision.AMP_FP16:
-                raise ValueError(f'Using closures and precision {self.state.precision} is not supported'
-                                 f' with FSDP. Please use another optimizer or precision type.')
-            self.state.scaler = ShardedGradScaler()
+        # if self.state.fsdp_config is not None:
+        #     # This state should never be reached, but we raise a ValueError just in case
+        #     if self._use_closures() and self.state.precision == Precision.AMP_FP16:
+        #         raise ValueError(f'Using closures and precision {self.state.precision} is not supported'
+        #                          f' with FSDP. Please use another optimizer or precision type.')
+        #     self.state.scaler = ShardedGradScaler()
 
         # suppressing FSDP warning when auto grad accum exits the forward pass before completing
         warnings.filterwarnings(action='ignore', message='Forward order differs from that of the first iteration')
