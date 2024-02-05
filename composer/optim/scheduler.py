@@ -18,9 +18,9 @@ import textwrap
 import warnings
 from typing import TYPE_CHECKING, List, Union
 
-from torch.optim.lr_scheduler import LambdaLR
+from torch.optim.lr_scheduler import LambdaLR, LRScheduler
 
-from composer.core import PyTorchScheduler, State, Time, TimeUnit
+from composer.core import State, Time, TimeUnit
 
 if TYPE_CHECKING:
     from typing import Protocol
@@ -31,10 +31,21 @@ else:
 log = logging.getLogger(__name__)
 
 __all__ = [
-    'ComposerScheduler', 'compile_composer_scheduler', 'StepScheduler', 'MultiStepScheduler', 'ConstantScheduler',
-    'LinearScheduler', 'ExponentialScheduler', 'CosineAnnealingScheduler', 'CosineAnnealingWarmRestartsScheduler',
-    'PolynomialScheduler', 'MultiStepWithWarmupScheduler', 'ConstantWithWarmupScheduler', 'LinearWithWarmupScheduler',
-    'CosineAnnealingWithWarmupScheduler', 'PolynomialWithWarmupScheduler'
+    'ComposerScheduler',
+    'compile_composer_scheduler',
+    'StepScheduler',
+    'MultiStepScheduler',
+    'ConstantScheduler',
+    'LinearScheduler',
+    'ExponentialScheduler',
+    'CosineAnnealingScheduler',
+    'CosineAnnealingWarmRestartsScheduler',
+    'PolynomialScheduler',
+    'MultiStepWithWarmupScheduler',
+    'ConstantWithWarmupScheduler',
+    'LinearWithWarmupScheduler',
+    'CosineAnnealingWithWarmupScheduler',
+    'PolynomialWithWarmupScheduler',
 ]
 
 
@@ -147,7 +158,7 @@ def _convert_time(time: Union[str, Time[int], Time[float]], state: State, ssr: f
     return Time(value=int(time.value * ssr), unit=time.unit)
 
 
-def compile_composer_scheduler(scheduler: ComposerScheduler, state: State, ssr: float = 1.0) -> PyTorchScheduler:
+def compile_composer_scheduler(scheduler: ComposerScheduler, state: State, ssr: float = 1.0) -> LRScheduler:
     """Converts a stateless scheduler into a PyTorch scheduler object.
 
     While the resulting scheduler provides a ``.step()`` interface similar to other PyTorch schedulers, the scheduler is
@@ -160,7 +171,7 @@ def compile_composer_scheduler(scheduler: ComposerScheduler, state: State, ssr: 
         state (State): The Composer Trainer's state.
 
     Returns:
-        compiled_scheduler (PyTorchScheduler): The scheduler, in a form compatible with PyTorch scheduler interfaces.
+        compiled_scheduler (LRScheduler): The scheduler, in a form compatible with PyTorch scheduler interfaces.
     """
     optimizers = state.optimizers
     if len(optimizers) != 1:

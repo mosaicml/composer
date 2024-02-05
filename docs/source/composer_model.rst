@@ -75,8 +75,6 @@ We also provide several common classes for various tasks, specifically:
 
 -  :class:`.ComposerClassifier` - classification tasks with a cross entropy
    loss and accuracy metric.
--  :func:`.composer_timm` - creates classification models from the popular `TIMM`_
-   library.
 -  :class:`.HuggingFaceModel` - :class:`.ComposerModel` wrapper for a 🤗 `Transformers`_ model.
 
 .. note::
@@ -195,18 +193,6 @@ Integrations
 ------------
 
 
-
-TIMM
-~~~~
-
-Integrate with your favorite `TIMM`_ models with our :func:`.composer_timm` function.
-
-.. code:: python
-
-    from composer.models import composer_timm
-
-    timm_model = composer_timm(model_name='resnet50', pretrained=True)
-
 BERT Example with 🤗 Transformers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -265,5 +251,4 @@ and make it compatible with our trainer.
 .. |loss| replace:: :meth:`~.ComposerModel.loss`
 .. _MMDetection: https://mmdetection.readthedocs.io/en/latest/
 .. _Transformers: https://huggingface.co/docs/transformers/index
-.. _TIMM: https://timm.fast.ai/
 .. _torchvision: https://pytorch.org/vision/stable/models.html

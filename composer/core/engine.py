@@ -130,7 +130,6 @@ signal.signal(signal.SIGINT, sigterm_handler)
 def _get_default_passes():
     return [
         passes.sort_selective_backprop_first,
-        passes.sort_fused_layernorm_last,
         passes.sort_low_precision_layernorm_last,
         passes.set_filo_order,
         passes.warn_if_multiple_loss_interpolation,
@@ -389,10 +388,9 @@ class Engine():
                                      order=order,
                                      run=True)
 
-        if self.logger is not None:
-            if len(trace) > 0:
-                self.logger.log_traces(
-                    {f'algorithm_traces/{tr.name}/{tr.event}': 1 if tr.run else 0 for _, tr in trace.items()})
+        if len(trace) > 0:
+            self.logger.log_traces(
+                {f'algorithm_traces/{tr.name}/{tr.event}': 1 if tr.run else 0 for _, tr in trace.items()})
 
         return trace
 

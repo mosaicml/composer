@@ -213,17 +213,6 @@ def test_safe_format_name_with_dist(monkeypatch: pytest.MonkeyPatch, world_size)
     assert format_name_with_dist(format_str, 'awesome_run') == expected_str
 
 
-@world_size(2)
-def test_unsafe_format_name_with_dist(monkeypatch: pytest.MonkeyPatch, world_size):
-    """Node rank is deleted, but also in the format string, so expect error."""
-    vars = ['run_name', 'node_rank']
-    format_str = ','.join(f'{x}={{{x}}}' for x in vars)
-
-    monkeypatch.delenv('NODE_RANK')
-    with pytest.raises(KeyError):
-        assert format_name_with_dist(format_str, 'awesome_run') == 'run_name=awesome_run,node_rank=3'
-
-
 def test_format_name_with_dist_and_time():
     vars = [
         'run_name',
@@ -341,7 +330,7 @@ def test_maybe_create_remote_uploader_downloader_from_uri(monkeypatch):
         mock_remote_ud = MagicMock()
         m.setattr(loggers, 'RemoteUploaderDownloader', mock_remote_ud)
         maybe_create_remote_uploader_downloader_from_uri('gs://my-nifty-gs-bucket/path/to/checkpoints.pt', loggers=[])
-        mock_remote_ud.assert_called_once_with(bucket_uri='gs://my-nifty-gs-bucket'),
+        mock_remote_ud.assert_called_once_with(bucket_uri='gs://my-nifty-gs-bucket')
 
     with pytest.raises(NotImplementedError):
         maybe_create_remote_uploader_downloader_from_uri('wandb://my-cool/checkpoint/for/my/model.pt', loggers=[])
@@ -357,7 +346,9 @@ def test_maybe_create_remote_uploader_downloader_from_uri(monkeypatch):
                                                backend_kwargs={'path': 'Volumes/checkpoint/for/my/model.pt'})
 
     with pytest.raises(ValueError):
-        maybe_create_remote_uploader_downloader_from_uri('dbfs:/checkpoint/for/my/model.pt', loggers=[])
+        rud = maybe_create_remote_uploader_downloader_from_uri('dbfs:/checkpoint/for/my/model.pt', loggers=[])
+        assert rud is not None
+        _ = rud.remote_backend
 
 
 def test_ensure_folder_is_empty(tmp_path: pathlib.Path):

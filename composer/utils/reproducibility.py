@@ -53,6 +53,7 @@ import random
 import textwrap
 import time
 import warnings
+from contextlib import contextmanager
 from typing import Any, Dict, List
 
 import numpy as np
@@ -62,6 +63,7 @@ import torch.backends.cudnn
 from composer.utils import dist
 
 __all__ = [
+    'seed_context',
     'configure_deterministic_mode',
     'get_random_seed',
     'seed_all',
@@ -74,6 +76,15 @@ log = logging.getLogger(__name__)
 
 # seeds must be 32-bit unsigned integers
 MAX_SEED = 2**32 - 1
+
+
+@contextmanager
+def seed_context(seed: int):
+    """Context manager to store rng_state and reseed for duration of context."""
+    rng_state = get_rng_state()
+    seed_all(seed)
+    yield
+    load_rng_state(rng_state)
 
 
 def configure_deterministic_mode():
@@ -218,7 +229,7 @@ def load_rng_state(rng_state_dicts: List[Dict[str, Any]]):
             try:
                 torch.cuda.set_rng_state(rng_state_dict['cuda'])
             except RuntimeError as e:
-                if 'RNG state is wrong size' in str(e):
+                if 'RNG state is wrong size' in str(e) or 'offset must be a multiple of 4' in str(e):
                     warnings.warn('The CUDA RNG state could not be loaded from the checkpoint, '
                                   'likely because a different version of torch was used to save the '
                                   'checkpoint. Skipping loading the CUDA RNG state.')

@@ -1,8 +1,8 @@
 # Copyright 2022 MosaicML Composer authors
 # SPDX-License-Identifier: Apache-2.0
+from __future__ import annotations
 
 import functools
-from typing import Tuple
 
 import numpy as np
 import pytest
@@ -28,7 +28,8 @@ def verify_shape_image(orig: Image.Image, new: Image.Image, p_row: float, p_col:
     assert (H_n, W_n) == (H_t, W_t), f'Image shape mismatch: {(H_n, W_n)} != {(H_t, W_t)}'
 
 
-def verify_shape_image_pair(orig_sample: Tuple[Image.Image, Image.Image], new_sample: Tuple[Image.Image, Image.Image],
+def verify_shape_image_pair(orig_sample: tuple[Image.Image, Image.Image],
+                            new_sample: tuple[torch.Tensor, torch.Tensor] | tuple[Image.Image, Image.Image],
                             p_row: float, p_col: float):
     """Verify the shape of a pair of transformed PIL images."""
     H_o, W_o = orig_sample[0].height, orig_sample[0].width
@@ -50,8 +51,8 @@ def verify_shape_tensor(orig: torch.Tensor, new: torch.Tensor, p_row: float, p_c
     assert new.shape == (C, H_t, W_t), f'Image tensor shape mismatch: {new.shape} != {(C, H_t, W_t)}'
 
 
-def verify_shape_tensor_pair(orig_sample: Tuple[torch.Tensor, torch.Tensor],
-                             new_sample: Tuple[torch.Tensor, torch.Tensor], p_row: float, p_col: float) -> None:
+def verify_shape_tensor_pair(orig_sample: tuple[torch.Tensor, torch.Tensor],
+                             new_sample: tuple[torch.Tensor, torch.Tensor], p_row: float, p_col: float) -> None:
     """Verify the shape of a transformed image tensor."""
     C, H_o, W_o = orig_sample[0].shape
 
@@ -72,8 +73,8 @@ def verify_shape_batch(orig: torch.Tensor, new: torch.Tensor, p_row: float, p_co
     assert new.shape == (N, C, H_t, W_t), f'Image batch shape mismatch: {new.shape} != {(N, C, H_t, W_t)}'
 
 
-def verify_shape_batch_pair(orig_sample: Tuple[torch.Tensor, torch.Tensor],
-                            new_sample: Tuple[torch.Tensor, torch.Tensor], p_row: float, p_col: float) -> None:
+def verify_shape_batch_pair(orig_sample: tuple[torch.Tensor, torch.Tensor],
+                            new_sample: tuple[torch.Tensor, torch.Tensor], p_row: float, p_col: float) -> None:
     """Verify the shape of a transformed batch of images."""
 
     N, C, H_o, W_o = orig_sample[0].shape
@@ -163,7 +164,7 @@ class TestColOutTransform:
         transform = ColOutTransform(p_row, p_col)
         orig_sample = (fake_image, fake_image)
         new_sample = transform(orig_sample)
-        assert isinstance(new_sample, Tuple)
+        assert isinstance(new_sample, tuple)
         verify_shape_image_pair(orig_sample, new_sample, p_row, p_col)
 
     @pytest.mark.parametrize('W', [48])
@@ -228,7 +229,7 @@ class TestColOutFunctional:
         colout = functools.partial(colout_batch, p_row=p_row, p_col=p_col)
         sample = (fake_image_batch, fake_image_batch)
         new_batch = colout(sample)
-        assert isinstance(new_batch, Tuple) and isinstance(new_batch[0], torch.Tensor) and isinstance(
+        assert isinstance(new_batch, tuple) and isinstance(new_batch[0], torch.Tensor) and isinstance(
             new_batch[1], torch.Tensor)
         verify_shape_batch_pair(sample, new_batch, p_row, p_col)
 

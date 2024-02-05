@@ -29,12 +29,14 @@ class MetricsCallback(Callback):
         # The metric should be computed and updated on state every batch.
         del logger  # unused
         # assuming that at least one sample was correctly classified
+        assert state.train_metrics is not None
         assert state.train_metrics['MulticlassAccuracy'].compute() != 0.0
         self._train_batch_end_train_accuracy = state.train_metrics['MulticlassAccuracy']
 
     def epoch_end(self, state: State, logger: Logger) -> None:
         # The metric at epoch end should be the same as on batch end.
         del logger  # unused
+        assert state.train_metrics is not None
         assert state.train_metrics['MulticlassAccuracy'].compute() == self._train_batch_end_train_accuracy
 
     def eval_end(self, state: State, logger: Logger) -> None:
@@ -85,6 +87,7 @@ def test_current_metrics(eval_interval: str,):
         return
 
     # Validate the metrics
+    assert trainer.state.train_metrics is not None
     assert trainer.state.train_metrics['MulticlassAccuracy'].compute() != 0.0
 
     if compute_val_metrics:

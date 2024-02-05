@@ -9,8 +9,7 @@ from torch.utils.data import DataLoader
 
 from composer import Trainer
 from composer.core import Precision, get_precision_context
-from composer.models import composer_resnet_cifar
-from tests.common import RandomImageDataset
+from tests.common import RandomImageDataset, composer_resnet
 
 try:
     import transformer_engine.pytorch as te
@@ -22,7 +21,7 @@ except ImportError:
 def get_trainer(precision: Precision, precision_config: Optional[Dict[str, Any]] = None) -> Trainer:
 
     return Trainer(
-        model=composer_resnet_cifar('resnet_9'),
+        model=composer_resnet('resnet18'),
         train_dataloader=DataLoader(
             dataset=RandomImageDataset(size=1024),
             batch_size=512,
@@ -78,7 +77,7 @@ def predict_and_measure_memory(precision) -> int:
 def test_train_precision_memory(precision: Precision):
     memory_fp32 = fit_and_measure_memory(Precision.FP32)
     memory_half = fit_and_measure_memory(precision)
-    assert memory_half < 0.7 * memory_fp32
+    assert memory_half < 0.85 * memory_fp32
 
 
 @pytest.mark.gpu

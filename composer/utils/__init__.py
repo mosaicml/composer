@@ -6,7 +6,8 @@
 from composer.utils.auto_log_hparams import (convert_flat_dict_to_nested_dict, convert_nested_dict_to_flat_dict,
                                              extract_hparams)
 from composer.utils.batch_helpers import batch_get, batch_set
-from composer.utils.checkpoint import PartialFilePath, load_checkpoint, safe_torch_load, save_checkpoint
+from composer.utils.checkpoint import (PartialFilePath, get_save_filename, load_checkpoint, safe_torch_load,
+                                       save_checkpoint)
 from composer.utils.collect_env import (configure_excepthook, disable_env_report, enable_env_report,
                                         get_composer_env_dict, print_env)
 from composer.utils.device import get_device, is_hpu_installed, is_tpu_installed
@@ -20,9 +21,10 @@ from composer.utils.import_helpers import MissingConditionalImportError, import_
 from composer.utils.inference import ExportFormat, Transform, export_for_inference, export_with_logger, quantize_dynamic
 from composer.utils.iter_helpers import IteratorFileStream, ensure_tuple, map_collection
 from composer.utils.misc import (create_interval_scheduler, get_free_tcp_port, is_model_deepspeed, is_model_fsdp,
-                                 is_notebook, model_eval_mode, using_torch_2)
-from composer.utils.object_store import (GCSObjectStore, LibcloudObjectStore, ObjectStore, ObjectStoreTransientError,
-                                         OCIObjectStore, S3ObjectStore, SFTPObjectStore, UCObjectStore)
+                                 is_notebook, model_eval_mode, partial_format)
+from composer.utils.object_store import (GCSObjectStore, LibcloudObjectStore, MLFlowObjectStore, ObjectStore,
+                                         ObjectStoreTransientError, OCIObjectStore, S3ObjectStore, SFTPObjectStore,
+                                         UCObjectStore)
 from composer.utils.retrying import retry
 from composer.utils.string_enum import StringEnum
 
@@ -41,10 +43,12 @@ __all__ = [
     'LibcloudObjectStore',
     'S3ObjectStore',
     'SFTPObjectStore',
+    'MLFlowObjectStore',
     'OCIObjectStore',
     'GCSObjectStore',
     'UCObjectStore',
     'MissingConditionalImportError',
+    'get_save_filename',
     'import_object',
     'is_model_deepspeed',
     'is_model_fsdp',
@@ -82,10 +86,10 @@ __all__ = [
     'extract_hparams',
     'convert_nested_dict_to_flat_dict',
     'convert_flat_dict_to_nested_dict',
-    'using_torch_2',
     'create_interval_scheduler',
     'EvalClient',
     'LambdaEvalClient',
     'LocalEvalClient',
     'MosaicMLLambdaEvalClient',
+    'partial_format',
 ]
