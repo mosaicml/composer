@@ -1339,6 +1339,8 @@ class Trainer:
         # self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
         self.state.scaler = ConstantGradScaler()
 
+        print("USING CONSTANT GRAD SCALER!")
+
         # if self.state.fsdp_config is not None:
         #     # This state should never be reached, but we raise a ValueError just in case
         #     if self._use_closures() and self.state.precision == Precision.AMP_FP16:
