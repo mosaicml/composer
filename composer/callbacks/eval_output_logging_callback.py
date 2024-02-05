@@ -47,6 +47,8 @@ class EvalOutputLogging(Callback):
         logging_dict = deepcopy(state.metric_outputs)
         logging_dict['outputs'] = state.outputs
         logging_dict['metric_name'] = [state.metric_outputs['metric_name'] for _ in range(0, len(logging_dict['outputs']))]
+        
+        # Decode and depad input_ids
         input_tensor = state.batch['input_ids']
         logged_input = []
         for input_list in input_tensor:
@@ -54,6 +56,7 @@ class EvalOutputLogging(Callback):
             logged_input.append(state.dataloader.dataset.tokenizer.decode(depadded_input))
         logging_dict['input'] = logged_input
 
+        # Log anything from the batch that's specified in the yaml
         for key in self.batch_keys_to_log:
             data_to_log = state.batch[key]
             if isinstance(data_to_log, list):
