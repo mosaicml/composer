@@ -3,7 +3,8 @@
 
 """Log model outputs and expected outputs during ICL evaluation."""
 
-import logging
+from typing import Any, List, Optional
+from copy import deepcopy
 
 from composer.core import Callback, State
 from composer.datasets.in_context_learning_evaluation import (InContextLearningCodeEvalDataset,
@@ -12,12 +13,12 @@ from composer.datasets.in_context_learning_evaluation import (InContextLearningC
                                                               InContextLearningQATaskDataset,
                                                               InContextLearningSchemaTaskDataset)
 from composer.loggers import Logger
+import torch
 
 ICLDatasetTypes = (InContextLearningLMTaskDataset, InContextLearningQATaskDataset,
                    InContextLearningMultipleChoiceTaskDataset, InContextLearningSchemaTaskDataset,
                    InContextLearningCodeEvalDataset)
 
-log = logging.getLogger(__name__)
 
 
 class EvalOutputLogging(Callback):
@@ -32,15 +33,36 @@ class EvalOutputLogging(Callback):
 
     output_directory indicates where to write the tsv results, either can be a local directory or a cloud storage directory.
     """
+    def __init__(self, batch_keys_to_log: Optional[List[str]] = None, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.batch_keys_to_log = batch_keys_to_log or []
 
     def eval_after_all(self, state: State) -> None:
         state.metric_outputs = None
 
-    def eval_batch_end(self, state: State, metric_name: str) -> None:
+    def eval_batch_end(self, state: State, logger: Logger) -> None:
         assert state.outputs is not None
         assert state.metric_outputs is not None
 
-        columns = list(state.eval_outputs.keys())
-        rows = [list(item) for item in zip(*state.outputs.values())]
+        logging_dict = deepcopy(state.metric_outputs)
+        logging_dict['outputs'] = state.outputs
+        logging_dict['metric_name'] = [state.metric_outputs['metric_name'] for _ in range(0, len(logging_dict['outputs']))]
+        input_tensor = state.batch['input_ids']
+        logged_input = []
+        for input_list in input_tensor:
+            depadded_input = [tok for tok in input_list if tok != state.dataloader.dataset.pad_tok_id]
+            logged_input.append(state.dataloader.dataset.tokenizer.decode(depadded_input))
+        logging_dict['input'] = logged_input
 
-        log.log_table(columns, rows, name=metric)
+        for key in self.batch_keys_to_log:
+            data_to_log = state.batch[key]
+            if isinstance(data_to_log, list):
+                logging_dict[key] = state.batch[key]
+            else:
+                logging_dict[key] = [data_to_log for _ in range(0, len(logging_dict['outputs']))]
+
+        columns = list(logging_dict.keys()) 
+        rows = [list(item) for item in zip(*logging_dict.values())]
+
+        logger.log_table(columns, rows, name=state.dataloader_label)
+        state.metric_outputs = None

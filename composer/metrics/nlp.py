@@ -8,6 +8,7 @@ import os
 import re
 import string
 import warnings
+import functools
 from typing import Any, Callable, Dict, List, Mapping, Optional, Union
 
 import numpy as np
@@ -196,6 +197,32 @@ class LanguagePerplexity(LanguageCrossEntropy):
 
 class InContextLearningMetric(Metric):
 
+    def _wrap_update(self, update: Callable) -> Callable:
+        @functools.wraps(update)
+        def wrapped_func(*args: Any, **kwargs: Any) -> None:
+            self._computed = None
+            self._update_count += 1
+            with torch.set_grad_enabled(self._enable_grad):
+                try:
+                    update_result = update(*args, **kwargs)
+                except RuntimeError as err:
+                    if "Expected all tensors to be on" in str(err):
+                        raise RuntimeError(
+                            "Encountered different devices in metric calculation (see stacktrace for details)."
+                            " This could be due to the metric class not being on the same device as input."
+                            f" Instead of `metric={self.__class__.__name__}(...)` try to do"
+                            f" `metric={self.__class__.__name__}(...).to(device)` where"
+                            " device corresponds to the device of the input."
+                        ) from err
+                    raise err
+
+            if self.compute_on_cpu:
+                self._move_list_states_to_cpu()
+            return update_result
+
+        return wrapped_func
+
+
     def update(self, batch: dict, output_logits: torch.Tensor, labels: torch.Tensor):
         """Abstract interface for computing an in-context learning metrics.
 
@@ -266,7 +293,7 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
 
         return white_space_fix(remove_articles(handle_punc(lower(replace_underscore(answer))))).strip()
 
-    def update(self, outputs: List[str], labels: List[List[str]], batch: Optional[Dict[str, Any]] = None):
+    def update(self, outputs: List[str], labels: List[List[str]], batch: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         if batch is None:
             batch = {}
         cot_delimiter = batch.get('cot_delimiter', '')
@@ -288,7 +315,34 @@ class InContextLearningQAAccuracy(InContextLearningMetric):
                 metric_results.append(0)
 
             self.total += torch.tensor(1.0)
-        return metric_results
+
+        return_dict = {"results": metric_results, 'metric_name': self.__class__.__name__}
+        return return_dict
+
+    def update_pp(self, outputs: List[str], labels: List[List[str]], batch: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        if batch is None:
+            batch = {}
+        cot_delimiter = batch.get('cot_delimiter', '')
+
+        metric_results = []
+        for sample_output, sample_labels in zip(outputs, labels):
+            final_answer = sample_output
+
+            if cot_delimiter is not None and len(cot_delimiter) > 0:
+                final_answer = final_answer.split(cot_delimiter)[-1]
+
+            cleaned_final_answer = self.normalize_answer(final_answer)
+            cleaned_sample_labels = {self.normalize_answer(label) for label in sample_labels}
+
+            if any(cleaned_final_answer.startswith(label) for label in cleaned_sample_labels):
+                self.correct += torch.tensor(1.0)
+                metric_results.append(1)
+            else:
+                metric_results.append(0)
+
+            self.total += torch.tensor(1.0)
+
+        return {"results": metric_results}
 
     def compute(self):
         assert isinstance(self.correct, Tensor)
