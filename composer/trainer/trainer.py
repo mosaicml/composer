@@ -923,6 +923,9 @@ class Trainer:
 
         # compile config for PyTorch 2.0 or higher
         compile_config: Optional[Dict[str, Any]] = None,
+
+        # loss scale value for ConstantGradScaler
+        loss_scale: float = 2.0**16,
     ):
 
         self.auto_log_hparams = auto_log_hparams
@@ -1337,7 +1340,7 @@ class Trainer:
         # self._use_grad_scaling() will raise a RuntimeError if grad scaling is not available when it is required
         # warnings.filterwarnings(action='ignore', message='torch.cuda.amp.GradScaler')
         # self.state.scaler = ClosureGradScaler() if self._use_closures() else GradScaler()
-        self.state.scaler = ConstantGradScaler()
+        self.state.scaler = ConstantGradScaler(init_scale=loss_scale)
 
         print("USING CONSTANT GRAD SCALER!")
 

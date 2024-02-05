@@ -151,7 +151,7 @@ class ConstantGradScaler(GradScaler):
 
     def __init__(
         self,
-        init_scale: float = 2.0**20, # changed from 2.0**16.
+        init_scale: float = 2.0**16,
         growth_factor: float = 1.0, # constant.
         backoff_factor: float = 1.0, # constant.
         growth_interval: int = 100000, # set to very high.
