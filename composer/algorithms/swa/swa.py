@@ -10,9 +10,10 @@ import warnings
 from typing import Any, Dict, List, Optional
 
 import torch
+from torch.optim.lr_scheduler import LRScheduler
 from torch.optim.swa_utils import SWALR, AveragedModel
 
-from composer.core import Algorithm, Event, PyTorchScheduler, State, Time, TimeUnit
+from composer.core import Algorithm, Event, State, Time, TimeUnit
 from composer.loggers import Logger
 
 log = logging.getLogger(__name__)
@@ -190,7 +191,7 @@ class SWA(Algorithm):
         else:
             raise ValueError('units must be in epoch or duration.')
 
-    def _get_last_lr(self, schedulers: List[PyTorchScheduler]):
+    def _get_last_lr(self, schedulers: List[LRScheduler]):
         """ retrieves the last lr from current schedulers. """
         if len(schedulers) == 0:
             return 1.0

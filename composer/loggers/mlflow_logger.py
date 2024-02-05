@@ -6,12 +6,13 @@
 from __future__ import annotations
 
 import fnmatch
+import logging
 import os
 import pathlib
 import textwrap
 import time
 import warnings
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Sequence, Union
 
 import numpy as np
 import torch
@@ -23,6 +24,8 @@ from composer.utils import MissingConditionalImportError, dist
 
 if TYPE_CHECKING:
     from mlflow import ModelVersion  # pyright: ignore[reportGeneralTypeIssues]
+
+log = logging.getLogger(__name__)
 
 __all__ = ['MLFlowLogger']
 
@@ -56,6 +59,7 @@ class MLFlowLogger(LoggerDestination):
         log_system_metrics (bool, optional): Whether to log system metrics. If ``True``, Mlflow will
             log system metrics (CPU/GPU/memory/network usage) during training. (default: ``True``)
         ignore_metrics (List[str], optional): A list of glob patterns for metrics to ignore when logging. (default: ``None``)
+        ignore_hyperparameters (List[str], optional): A list of glob patterns for hyperparameters to ignore when logging. (default: ``None``)
     """
 
     def __init__(
@@ -71,6 +75,7 @@ class MLFlowLogger(LoggerDestination):
         synchronous: bool = False,
         log_system_metrics: bool = True,
         ignore_metrics: Optional[List[str]] = None,
+        ignore_hyperparameters: Optional[List[str]] = None,
     ) -> None:
         try:
             import mlflow
@@ -89,6 +94,7 @@ class MLFlowLogger(LoggerDestination):
         self.synchronous = synchronous
         self.log_system_metrics = log_system_metrics
         self.ignore_metrics = [] if ignore_metrics is None else ignore_metrics
+        self.ignore_hyperparameters = [] if ignore_hyperparameters is None else ignore_hyperparameters
         if self.model_registry_uri == 'databricks-uc':
             if len(self.model_registry_prefix.split('.')) != 2:
                 raise ValueError(f'When registering to Unity Catalog, model_registry_prefix must be in the format ' +
@@ -217,6 +223,11 @@ class MLFlowLogger(LoggerDestination):
         from mlflow import log_params
 
         if self._enabled:
+            hyperparameters = {
+                k: v
+                for k, v in hyperparameters.items()
+                if not any(fnmatch.fnmatch(k, pattern) for pattern in self.ignore_hyperparameters)
+            }
             log_params(
                 params=hyperparameters,
                 synchronous=self.synchronous,
@@ -254,28 +265,75 @@ class MLFlowLogger(LoggerDestination):
                 tags=tags,
             )
 
-    def save_model(self, flavor: str, **kwargs):
+    def save_model(self, flavor: Literal['transformers', 'peft'], **kwargs):
         """Save a model to MLflow.
 
+        Note: The ``'peft'`` flavor is experimental and the API is subject to change without warning.
+
         Args:
-            flavor (str): The MLflow model flavor to use. Currently only ``'transformers'`` is supported.
+            flavor (Literal['transformers', 'peft']): The MLflow model flavor to use. Currently only ``'transformers'`` and ``'peft'`` are supported.
             **kwargs: Keyword arguments to pass to the MLflow model saving function.
 
         Raises:
-            NotImplementedError: If ``flavor`` is not ``'transformers'``.
+            NotImplementedError: If ``flavor`` is not ``'transformers'`` or ``'peft'``.
         """
         if self._enabled:
             import mlflow
             if flavor == 'transformers':
                 mlflow.transformers.save_model(**kwargs,)
+            elif flavor == 'peft':
+                import transformers
+
+                # TODO: Remove after mlflow fixes the bug that makes this necessary
+                mlflow.store._unity_catalog.registry.rest_store.get_feature_dependencies = lambda *args, **kwargs: ''  # type: ignore
+
+                # This is a temporary workaround until MLflow adds full support for saving PEFT models.
+                # https://github.com/mlflow/mlflow/issues/9256
+                log.warning(
+                    'Saving PEFT models using MLflow is experimental and the API is subject to change without warning.')
+                expected_keys = {'path', 'save_pretrained_dir'}
+                if not expected_keys.issubset(kwargs.keys()):
+                    raise ValueError(f'Expected keys {expected_keys} but got {kwargs.keys()}')
+
+                # This does not implement predict for now, as we will wait for the full MLflow support
+                # for PEFT models.
+                class PeftModel(mlflow.pyfunc.PythonModel):
+
+                    def load_context(self, context):
+                        self.model = transformers.AutoModelForCausalLM.from_pretrained(
+                            context.artifacts['lora_checkpoint'])
+                        self.tokenizer = transformers.AutoTokenizer.from_pretrained(
+                            context.artifacts['lora_checkpoint'])
+
+                from mlflow.models.signature import ModelSignature
+                from mlflow.types import ColSpec, DataType, Schema
+
+                # This is faked for now, until MLflow adds full support for saving PEFT models.
+                input_schema = Schema([
+                    ColSpec(DataType.string, 'fake_input'),
+                ])
+                output_schema = Schema([ColSpec(DataType.string)])
+                signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+
+                # Symlink the directory so that we control the path that MLflow saves the model under
+                os.symlink(kwargs['save_pretrained_dir'], 'lora_checkpoint')
+
+                mlflow.pyfunc.save_model(
+                    path=kwargs['path'],
+                    artifacts={'lora_checkpoint': 'lora_checkpoint'},
+                    python_model=PeftModel(),
+                    signature=signature,
+                )
+
+                os.unlink('lora_checkpoint')
             else:
                 raise NotImplementedError(f'flavor {flavor} not supported.')
 
-    def log_model(self, flavor: str, **kwargs):
+    def log_model(self, flavor: Literal['transformers'], **kwargs):
         """Log a model to MLflow.
 
         Args:
-            flavor (str): The MLflow model flavor to use. Currently only ``'transformers'`` is supported.
+            flavor (Literal['transformers']): The MLflow model flavor to use. Currently only ``'transformers'`` is supported.
             **kwargs: Keyword arguments to pass to the MLflow model logging function.
 
         Raises:

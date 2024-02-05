@@ -19,7 +19,7 @@ from composer.loggers import Logger, MLFlowLogger
 from composer.utils import (FORMAT_NAME_WITH_DIST_AND_TIME_TABLE, FORMAT_NAME_WITH_DIST_TABLE, PartialFilePath,
                             checkpoint, create_interval_scheduler, create_symlink_file, dist,
                             ensure_folder_has_no_conflicting_files, format_name_with_dist,
-                            format_name_with_dist_and_time, is_model_deepspeed, partial_format, using_torch_2)
+                            format_name_with_dist_and_time, is_model_deepspeed, partial_format)
 from composer.utils.object_store.mlflow_object_store import MLFLOW_EXPERIMENT_ID_FORMAT_KEY, MLFLOW_RUN_ID_FORMAT_KEY
 
 log = logging.getLogger(__name__)
@@ -425,8 +425,7 @@ class CheckpointSaver(Callback):  # noqa: D101
                 ).lstrip('/')
                 assert state.sharded_ckpt_prefix_dir is not None
                 remote_prefix = state.sharded_ckpt_prefix_dir
-                ckpt_filename = checkpoint._TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME if using_torch_2() else pathlib.Path(
-                    remote_file_name).name
+                ckpt_filename = checkpoint._TORCH_DISTRIBUTED_CHECKPOINTS_FILENAME
                 remote_file_name = os.path.join(pathlib.Path(remote_file_name).parent, remote_prefix, ckpt_filename)
                 remote_file_name = format_name_with_dist_and_time(remote_file_name, state.run_name, state.timestamp)
                 # Upload metadata file.

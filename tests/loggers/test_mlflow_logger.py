@@ -364,6 +364,48 @@ def test_mlflow_save_model(tmp_path, tiny_gpt2_model, tiny_gpt2_tokenizer):
 
 @pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
 @pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
+def test_mlflow_save_peft_model(tmp_path, tiny_mistral_model, tiny_mistral_tokenizer):
+    mlflow = pytest.importorskip('mlflow')
+    peft = pytest.importorskip('peft')
+
+    # Reload just so the model has the update base model name
+    tiny_mistral_model.save_pretrained(tmp_path / Path('tiny_mistral_save_pt'))
+    tiny_mistral_model = tiny_mistral_model.from_pretrained(tmp_path / Path('tiny_mistral_save_pt'))
+
+    peft_config = {'peft_type': 'LORA'}
+    peft_model = peft.get_peft_model(tiny_mistral_model, peft.get_peft_config(peft_config))
+
+    mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
+    mlflow_exp_name = 'test-log-model-exp-name'
+    test_mlflow_logger = MLFlowLogger(
+        tracking_uri=mlflow_uri,
+        experiment_name=mlflow_exp_name,
+    )
+
+    mock_state = MagicMock()
+    mock_state.run_name = 'dummy-run-name'  # this run name should be unused.
+    mock_logger = MagicMock()
+
+    peft_model.save_pretrained(tmp_path / Path('peft_model_save_pt'))
+    tiny_mistral_tokenizer.save_pretrained(tmp_path / Path('peft_model_save_pt'))
+
+    local_mlflow_save_path = str(tmp_path / Path('my_model_local'))
+    test_mlflow_logger.init(state=mock_state, logger=mock_logger)
+    test_mlflow_logger.save_model(
+        flavor='peft',
+        path=local_mlflow_save_path,
+        save_pretrained_dir=str(tmp_path / Path('peft_model_save_pt')),
+    )
+    test_mlflow_logger.post_close()
+
+    loaded_model = mlflow.pyfunc.load_model(local_mlflow_save_path).unwrap_python_model()
+
+    check_hf_model_equivalence(loaded_model.model, tiny_mistral_model)
+    check_hf_tokenizer_equivalence(loaded_model.tokenizer, tiny_mistral_tokenizer)
+
+
+@pytest.mark.filterwarnings('ignore:.*Setuptools is replacing distutils.*:UserWarning')
+@pytest.mark.filterwarnings("ignore:.*The 'transformers' MLflow Models integration.*:FutureWarning")
 def test_mlflow_register_model(tmp_path, monkeypatch):
     mlflow = pytest.importorskip('mlflow')
 
@@ -580,8 +622,6 @@ def test_mlflow_log_image_works(tmp_path, device):
 
 @device('cpu')
 def test_mlflow_ignore_metrics(tmp_path, device):
-    mlflow = pytest.importorskip('mlflow')
-
     mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
     experiment_name = 'mlflow_logging_test'
     test_mlflow_logger = MLFlowLogger(
@@ -590,8 +630,6 @@ def test_mlflow_ignore_metrics(tmp_path, device):
         log_system_metrics=False,
         ignore_metrics=['metrics/eval/*', 'nothing/should/match', 'metrics/train/CrossEntropy'],
     )
-    # Reduce the system metrics sampling interval to speed up the test.
-    mlflow.set_system_metrics_sampling_interval(1)
 
     dataset_size = 64
     batch_size = 4
@@ -640,5 +678,36 @@ def test_mlflow_ignore_metrics(tmp_path, device):
     metric_file = run_file_path / Path('metrics') / Path('system/cpu_utilization_percentage')
     assert not os.path.exists(metric_file)
 
-    # Undo the setup to avoid affecting other test cases.
-    mlflow.set_system_metrics_sampling_interval(None)
+
+def test_mlflow_ignore_hyperparameters(tmp_path):
+    mlflow_uri = tmp_path / Path('my-test-mlflow-uri')
+    experiment_name = 'mlflow_logging_test'
+    test_mlflow_logger = MLFlowLogger(tracking_uri=mlflow_uri,
+                                      experiment_name=experiment_name,
+                                      log_system_metrics=False,
+                                      ignore_hyperparameters=['num*', 'mlflow_run_id', 'nothing'])
+
+    Trainer(model=SimpleConvModel(), loggers=test_mlflow_logger, max_duration=f'4ba')
+    # Allow async logging to finish.
+    time.sleep(3)
+    test_mlflow_logger.post_close()
+
+    run = _get_latest_mlflow_run(
+        experiment_name=experiment_name,
+        tracking_uri=mlflow_uri,
+    )
+    run_file_path = mlflow_uri / Path(run.info.experiment_id) / Path(run.info.run_id)
+
+    # Test params logged.
+    param_path = run_file_path / Path('params')
+    actual_params_list = [param_filepath.stem for param_filepath in param_path.iterdir()]
+
+    # should not see num_cpus_per_node, num_nodes, mlflow_run_id
+    expected_params_list = [
+        'node_name',
+        'rank_zero_seed',
+        'composer_version',
+        'composer_commit_hash',
+        'mlflow_experiment_id',
+    ]
+    assert set(expected_params_list) == set(actual_params_list)

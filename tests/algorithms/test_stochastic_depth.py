@@ -14,8 +14,8 @@ from composer.algorithms.stochastic_depth.stochastic_depth import _STOCHASTIC_LA
 from composer.algorithms.stochastic_depth.stochastic_layers import make_resnet_bottleneck_stochastic
 from composer.core import Event, State
 from composer.core.time import TimeUnit
-from composer.models import composer_resnet
 from composer.utils import module_surgery
+from tests.common import composer_resnet
 
 
 @pytest.fixture()
