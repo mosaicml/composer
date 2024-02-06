@@ -28,20 +28,6 @@ class NeptuneLogger(LoggerDestination):
 
     For more, see the [Neptune-Composer integration guide](https://docs.neptune.ai/integrations/composer/).
 
-    Example:
-        .. doctest::
-
-            >>> from composer import Trainer
-            >>> from composer.loggers import NeptuneLogger
-            >>> neptune_logger = NeptuneLogger(
-            ...     project="ml-team/classification",
-            ... )
-            >>> trainer = Trainer(
-            ...     model=model,
-            ...     train_dataloader=train_dataloader,
-            ...     loggers=neptune_logger,
-            ... )
-
     Args:
         project (str, optional): The name of your Neptune project,
             in the form "workspace-name/project-name". If you leave it empty, the
