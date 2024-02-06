@@ -29,34 +29,37 @@ and also saves them to the file
 ``log.txt``.
 
 .. testsetup::
-    :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED
+    :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED or not _NEPTUNE_INSTALLED
 
     import os
 
     os.environ["WANDB_MODE"] = "disabled"
     os.environ["COMET_API_KEY"] = "<comet_api_key>"
     os.environ["MLFLOW_TRACKING_URI"] = ""
+    os.environ["NEPTUNE_MODE"] = "offline"
+    os.environ["NEPTUNE_API_TOKEN"] = "<neptune_api_key>"
 
 .. testcode::
-    :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED
+    :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED or not _NEPTUNE_INSTALLED
 
     from composer import Trainer
-    from composer.loggers import WandBLogger, CometMLLogger, MLFlowLogger, FileLogger
+    from composer.loggers import WandBLogger, CometMLLogger, MLFlowLogger, NeptuneLogger, FileLogger
 
     wandb_logger = WandBLogger()
     cometml_logger = CometMLLogger()
     mlflow_logger = MLFlowLogger()
+    neptune_logger = NeptuneLogger()
     file_logger = FileLogger(filename="log.txt")
 
     trainer = Trainer(
         model=model,
         train_dataloader=train_dataloader,
         eval_dataloader=eval_dataloader,
-        loggers=[wandb_logger, cometml_logger, mlflow_logger, file_logger],
+        loggers=[wandb_logger, cometml_logger, mlflow_logger, neptune_logger, file_logger],
     )
 
 .. testcleanup::
-    :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED
+    :skipif: not _WANDB_INSTALLED or not _COMETML_INSTALLED or not _NEPTUNE_INSTALLED
 
     trainer.engine.close()
     os.remove("log.txt")
