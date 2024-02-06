@@ -26,6 +26,22 @@ if TYPE_CHECKING:
 class NeptuneLogger(LoggerDestination):
     """Log to `neptune.ai <https://neptune.ai/>`_.
 
+    For more, see the [Neptune-Composer integration guide](https://docs.neptune.ai/integrations/composer/).
+
+    Example:
+        .. doctest::
+
+            >>> from composer import Trainer
+            >>> from composer.loggers import NeptuneLogger
+            >>> neptune_logger = NeptuneLogger(
+            ...     project="ml-team/classification",
+            ... )
+            >>> trainer = Trainer(
+            ...     model=model,
+            ...     train_dataloader=train_dataloader,
+            ...     loggers=neptune_logger,
+            ... )
+
     Args:
         project (str, optional): The name of your Neptune project,
             in the form "workspace-name/project-name". If you leave it empty, the
@@ -35,35 +51,15 @@ class NeptuneLogger(LoggerDestination):
             ``NEPTUNE_API_TOKEN`` environment variable (recommended).
             You can find your API token in the user menu of the Neptune web app.
         rank_zero_only (bool, optional): Whether to log only on the rank-zero process.
-            Default: ``True``.
+            (default: ``True``).
         upload_artifacts (bool, optional): Whether the logger should upload artifacts to Neptune.
-            Default: ``False``.
+            (default: ``False``).
         base_namespace (str, optional): The name of the base namespace to log the metadata to.
-            Default: "training".
+            (default: "training").
         neptune_kwargs (Dict[str, Any], optional): Any additional keyword arguments to the
             ``neptune.init_run()`` function. For options, see the
             `Run API reference <https://docs.neptune.ai/api/neptune/#init_run>`_ in the
             Neptune docs.
-
-    Example:
-        Default Neptune logger:
-            from composer import Trainer
-            from composer.loggers import NeptuneLogger
-            neptune_logger = NeptuneLogger()
-            trainer = Trainer(loggers=neptune_logger)
-            trainer.fit()
-
-        More options:
-            from composer import Trainer
-            from composer.loggers import NeptuneLogger
-            neptune_logger = NeptuneLogger(
-                project="ml-team/classification",
-                upload_artifacts=True,
-                dependencies="infer")  # Neptune Run kwarg
-            trainer = Trainer(loggers=neptune_logger)
-            trainer.fit()
-
-    For more, see the [Neptune-Composer integration guide](https://docs.neptune.ai/integrations/composer/).
     """
     metric_namespace = 'metrics'
     hyperparam_namespace = 'hyperparameters'
